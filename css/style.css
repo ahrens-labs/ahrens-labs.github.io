@@ -1,0 +1,103 @@
+body{
+    background-color: #5ea5ff;
+    font: fantasy;
+}
+
+header {
+    background-color: #333;
+    color: white;
+    padding: 1em 0;
+    text-align: center;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+nav ul li {
+    display: inline;
+    margin: 0 1em;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+}
+
+main {
+    padding: 20px;
+}
+
+.hero {
+    background-color: white;
+    padding: 40px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.hero h2 {
+    margin-top: 0;
+    color: #0053bd;
+}
+
+.button {
+    display: inline-block;
+    background-color: #0053bd;
+    color: white;
+    padding: 10px 20px;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-top: 15px;
+}
+
+.button:hover {
+    background-color: #0071ff;
+}
+
+.about {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.labs-page h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.lab-section {
+    background-color: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.lab-section h3 {
+    color: #0053bd;
+    margin-top: 0;
+}
+
+.lab-section ul {
+    list-style: disc;
+    padding-left: 20px;
+}
+
+.lab-section li strong {
+    font-weight: bold;
+}
+
+footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+    padding: 1em 0;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
