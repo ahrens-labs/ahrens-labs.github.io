@@ -289,7 +289,7 @@
         position: "start",
         orientation: playerColor,
         onDrop: handleMove,
-        pieceTheme: 'lib/img/chesspieces/wikipedia/{piece}.png'
+        pieceTheme: 'lib/img/chesspieces/wikipedia/{piece}.png',
 	onMouseoverSquare: (square) => {
           if (game.game_over() || gameOver) return;
           const turn = game.turn();
