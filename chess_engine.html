@@ -166,15 +166,60 @@
     let timerInterval = null;
     let whiteTime, blackTime, increment;
     let timeLimited = false;
-    let gameOver = false;	  
+    let gameOver = false;
 
-	 window.addEventListener("load", () => {
-    fetch("/start", { method: "POST" });
-});
-	window.addEventListener("beforeunload", () => {
-    navigator.sendBeacon("/stop");
-});
+    // --- sendEngineCommand function ---
+    function sendEngineCommand(endpoint) {
+    // Key change: Add 'return' here to return the promise chain
+    return fetch(`https://hedgehoglover23.pythonanywhere.com/${endpoint}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(`Server error for /${endpoint}: ${err.message || response.statusText}`);
+            }).catch(() => {
+                throw new Error(`Server error for /${endpoint}: ${response.status} ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
+        return data; // This 'return data' is correct for the internal chain
+    })
+    .catch(error => {
+        console.error(`Error sending command /${endpoint}:`, error);
+        throw error; // Propagate the error so the awaiting function can catch it
+    });
+}
 
+    // --- $(document).ready() block (top level) ---
+    $(document).ready(function() {
+	 		
+        console.log("The page has finished loading!");
+
+        // --- AUTOMATIC LOGIC: Stop then Start the engine on page load ---
+        console.log("Attempting to stop and then start the engine automatically on page load...");
+        sendEngineCommand('stop')
+            .then(() => {
+                console.log("Stop command sent successfully. Now sending start command...");
+                return sendEngineCommand('start');
+            })
+            .then(() => {
+                console.log("Start command sent successfully. Engine should be reset and running.");
+            })
+            .catch(error => {
+                console.error("Error during automatic engine reset on page load:", error);
+                alert("Failed to automatically reset engine on page load. Check console for details.");
+            });
+    });
+
+    // --- Your other functions (formatTime, startTimer, etc.) ---
     function formatTime(ms) {
       const t = Math.max(0, Math.floor(ms));
       const totalHundredths = Math.floor(t / 10);
@@ -199,21 +244,13 @@
         if (!timeLimited) return;
 
         if (playerColor === "white") {
-          if (playerTurn) {
-            const newTime = whiteTime - elapsed;
-            document.getElementById("white-total").textContent = formatTime(newTime);
-          } else {
-            document.getElementById("white-total").textContent = formatTime(whiteTime);
-          }
-          document.getElementById("black-total").textContent = "--:--.--";
+          const newTime = whiteTime - elapsed;
+          document.getElementById("white-total").textContent = formatTime(newTime);
+          document.getElementById("black-total").textContent = formatTime(blackTime);
         } else {
-          if (playerTurn) {
-            const newTime = blackTime - elapsed;
-            document.getElementById("black-total").textContent = formatTime(newTime);
-          } else {
-            document.getElementById("black-total").textContent = formatTime(blackTime);
-          }
-          document.getElementById("white-total").textContent = "--:--.--";
+          const newTime = blackTime - elapsed;
+          document.getElementById("black-total").textContent = formatTime(newTime);
+          document.getElementById("white-total").textContent = formatTime(whiteTime);
         }
 
         if (playerTurn) {
@@ -268,23 +305,11 @@
     function removeHighlights() {
       $("#board .square-55d63").removeClass("highlight-legal");
     }
-	 
-	 function startGame() {
+
+    function startGame() {
       gameOver = false;
-		fetch("/start", {
-        method: "POST"
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Response:", data);
-    })
-    .catch(error => console.error("Error calling engine:", error));	
-			fetch("/reload_server", {
-    method: "POST"
-  })
-  .then(response => response.json())
-  .then(data => console.log("Reload result:", data))
-  .catch(err => console.error("Reload failed:", err));
+      sendEngineCommand("start");
+
       const side = document.getElementById("color-select").value;
       const timeOption = document.getElementById("time-control").value;
 
@@ -308,7 +333,8 @@
         position: "start",
         orientation: playerColor,
         onDrop: handleMove,
-        onMouseoverSquare: (square) => {
+        pieceTheme: 'lib/img/chesspieces/wikipedia/{piece}.png',
+	onMouseoverSquare: (square) => {
           if (game.game_over() || gameOver) return;
           const turn = game.turn();
           if (
