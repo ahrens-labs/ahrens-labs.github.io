@@ -92,7 +92,7 @@ main {
     margin-bottom: 1.5rem; /* Space before button */
 }
 
-/* Buttons */
+/* Buttons (Now for both index and labs pages) */
 .button {
     display: inline-block;
     background-color: #0053bd;
@@ -105,6 +105,20 @@ main {
     border: none; /* Remove default button border */
     cursor: pointer; /* Indicate it's clickable */
 }
+
+.button-secondary {
+    background-color: transparent;
+    color: #0053bd;
+    border: 2px solid #0053bd;
+    /* Inherits padding, border-radius, font-weight, transition from .button */
+}
+
+.button-secondary:hover {
+    background-color: #0053bd;
+    color: white;
+    transform: translateY(-2px);
+}
+
 
 .button:hover {
     background-color: #0071ff;
@@ -130,8 +144,8 @@ main {
 }
 
 
-/* Labs Page Specifics */
-.labs-page h2 {
+/* Labs Page Specifics (Revised for Card Layout) */
+.labs-page-heading {
     font-family: "Orbitron", sans-serif;
     font-size: 2.2rem;
     color: #2c3e50; /* Match header dark blue/grey */
@@ -142,91 +156,114 @@ main {
 .lab-section {
     background-color: white;
     padding: 2rem;
-    /* margin-bottom: 20px; handled by main's gap or direct margin */
     border-radius: 10px;
-    border: 1px solid #e0e0e0; /* Lighter, subtle border */
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05); /* Lighter shadow for sections */
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex; /* Use flexbox for a horizontal flow of project cards */
+    flex-wrap: wrap; /* Allow cards to wrap to the next line */
+    gap: 20px; /* Space between the project cards */
+    flex-direction: column;
 }
 
 .lab-section h3 {
-    font-family: "Orbitron", sans-serif; /* Keep Orbitron for headings */
-    font-size: 1.8rem; /* Consistent heading size */
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.8rem;
     color: #0053bd;
     margin-top: 0;
-    margin-bottom: 1rem; /* Space after heading */
+    margin-bottom: 1rem;
+    text-align: left; /* Align lab heading to the left */
 }
 
-.lab-section ul {
-    list-style: disc;
-    padding-left: 25px; /* Slightly more indentation */
-    margin-top: 1rem;
+/* Individual Project Card Styling */
+.project-card {
+    background-color: #f9f9f9; /* A slightly different background to distinguish cards */
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    flex-grow: 1; /* Allow cards to grow to fill space */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Push buttons to the bottom */
 }
 
-.lab-section li {
-    margin-bottom: 0.5rem; /* Space between list items */
+.project-card h4 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.4rem;
+    color: #2c3e50;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
 }
 
-.lab-section li strong {
-    font-weight: 700; /* Use numerical weight for stronger bold */
-    color: #444; /* Slightly darker to stand out more */
+.project-card p {
+    flex-grow: 1; /* Allow paragraph to fill space before buttons */
+    margin-bottom: 1rem;
+}
+
+.project-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: auto; /* Push links to the bottom of the card */
 }
 
 /* Footer */
 footer {
-    height: auto; /* Allow content to dictate height */
-    min-height: 50px; /* Ensure a minimum height */
-    background-color: #2c3e50; /* Match header dark blue/grey */
-    color: #bbb; /* Lighter text for footer */
+    height: auto;
+    min-height: 50px;
+    background-color: #2c3e50;
+    color: #bbb;
     text-align: center;
-    padding: 1.5rem; /* More padding for better feel */
-    margin-top: auto; /* Pushes footer to the bottom if main content is short */
+    padding: 1.5rem;
+    margin-top: auto;
     font-size: 0.9rem;
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.1); /* Subtle top shadow */
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 }
 
 /* Specific Font Families for other elements */
-/* This is where your chessboard.js elements might use Roboto Mono */
-#myBoard, /* Assuming your chessboard is in this div */
-#status, /* Assuming status messages use monospace */
-#pgn-output, /* If you have PGN display */
-.mono-font { /* A utility class you can add to any element */
+#myBoard,
+#status,
+#pgn-output,
+.mono-font {
     font-family: "Roboto Mono", monospace;
 }
 
-/* Responsive adjustments (basic example) */
+/* Responsive adjustments */
 @media (max-width: 768px) {
     main {
-        padding: 1rem; /* Reduce padding on smaller screens */
+        padding: 1rem;
     }
-
     nav ul li {
-        margin: 0 0.8em; /* Tighter nav spacing */
+        margin: 0 0.8em;
     }
-
     .hero h2 {
-        font-size: 2.2rem; /* Smaller hero heading */
+        font-size: 2.2rem;
     }
-
     .hero p {
         font-size: 1rem;
     }
-
-    .lab-section h3 {
-        font-size: 1.5rem;
+    .lab-section {
+        flex-direction: column;
+        gap: 15px;
     }
 }
-
 @media (max-width: 480px) {
     main {
         padding: 0.8rem;
     }
-
     nav ul {
-        flex-direction: column; /* Stack nav items vertically on very small screens */
+        flex-direction: column;
         gap: 0.5rem;
     }
-
     nav ul li {
         margin: 0;
     }
+    .project-card {
+        padding: 1rem;
+    }
+    .project-links .button {
+        width: 100%; /* Full width buttons on mobile */
+        text-align: center;
+    }
 }
+
