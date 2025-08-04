@@ -34,6 +34,13 @@ header {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow for depth */
 }
 
+h1 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 2rem;
+    margin: 0 0 0.5rem 0;
+}
+
+/* --- UPDATED NAVIGATION STYLES --- */
 nav ul {
     list-style: none;
     padding: 0;
@@ -41,22 +48,39 @@ nav ul {
     display: flex; /* Use flexbox for navigation items */
     justify-content: center; /* Center nav items */
     flex-wrap: wrap; /* Allow nav items to wrap on smaller screens */
+    gap: 10px; /* Space between the buttons */
 }
 
 nav ul li {
-    margin: 0 1.5em; /* Increase horizontal spacing for better breathing room */
+    margin: 0; /* Remove old margin to let gap handle spacing */
 }
 
 nav a {
+    display: inline-block; /* Crucial to allow padding and width/height */
     color: white;
     text-decoration: none;
-    font-weight: 500; /* Slightly bolder for emphasis */
-    transition: color 0.3s ease; /* Smooth transition on hover */
+    font-weight: 500;
+    padding: 0.7em 1.2em; /* Padding to make them button-like */
+    border-radius: 6px; /* Rounded corners */
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    background-color: transparent; /* Default state */
+    border: 1px solid transparent; /* Subtle border for consistency */
 }
 
 nav a:hover {
-    color: #5ea5ff; /* Use your existing light blue for hover highlight */
+    background-color: #0053bd; /* Blue background on hover */
+    transform: translateY(-2px); /* Lift effect on hover */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow */
 }
+
+/* Style for the active/current page link */
+nav a.active {
+    background-color: #0053bd; /* A solid blue to indicate the current page */
+    font-weight: 700; /* Bolder text for emphasis */
+}
+
+/* --- END UPDATED NAVIGATION STYLES --- */
+
 
 /* Main Content Area */
 main {
@@ -233,8 +257,11 @@ footer {
     main {
         padding: 1rem;
     }
+    nav ul {
+        gap: 5px;
+    }
     nav ul li {
-        margin: 0 0.8em;
+        margin: 0;
     }
     .hero h2 {
         font-size: 2.2rem;
