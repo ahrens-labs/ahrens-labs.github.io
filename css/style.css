@@ -37,7 +37,7 @@ header {
 
 .header-logo {
     /* Your existing size styles */
-    width: 150px;
+    width: 120px;
     height: auto;
 
     /* NEW: Position the logo at the top-left corner of the header */
