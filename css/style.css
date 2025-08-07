@@ -1,8 +1,8 @@
 /* General Resets & Box-Sizing for Easier Layouts */
 html {
-    box-sizing: border-box; /* Makes padding and border included in element's total width/height */
-    height: 100%; /* Ensure html takes full viewport height */
-    font-size: 16px; /* Base for rem units, adjust as desired */
+    box-sizing: border-box;
+    height: 100%;
+    font-size: 16px;
 }
 
 *, *::before, *::after {
@@ -10,42 +10,41 @@ html {
 }
 
 body {
-    /* Color Palette: Using a slightly softer blue, with a deeper blue for accents */
-    background-color: #f0f4f8; /* Very light grey-blue for a clean background */
-    color: #333; /* Standard dark text color */
-
-    /* Typography: Using a clean sans-serif for body, keeping Roboto Mono for code/specific elements */
-    font-family: "Inter", sans-serif; /* A modern, readable sans-serif (will need Google Font link) */
-    font-size: 1rem; /* Use rem for scalability */
-    line-height: 1.6; /* Improve readability of body text */
+    background-color: #f0f4f8;
+    color: #333;
+    font-family: "Inter", sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
     margin: 0;
     padding: 0;
-    display: flex; /* Use flexbox for overall page layout */
-    flex-direction: column; /* Stack header, main, footer vertically */
-    min-height: 100vh; /* Ensure body takes at least full viewport height */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
-/* Header */
+/* --- REFACTORED HEADER STYLES --- */
 header {
-    background-color: #2c3e50; /* A dark, professional blue/grey */
+    background-color: #2c3e50;
     color: white;
-    padding: 1.2em 0; /* Slightly more vertical padding */
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow for depth */
-    position: relative;
+    padding: 1.5em 1.2em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    display: flex; /* Use Flexbox for header layout */
+    justify-content: center; /* Center the main content */
+    align-items: center; /* Vertically align items */
+    position: relative; /* Position reference for the logo */
 }
 
-.header-logo {
-    /* Your existing size styles */
-    width: 120px;
-    height: auto;
-
-    /* NEW: Position the logo at the top-left corner of the header */
+.logo-link {
     position: absolute;
-    top: 10px; /* Adjust this value for vertical spacing */
-    left: 10px; /* Adjust this value for horizontal spacing */
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
+.header-content {
+    text-align: center; /* Center the h1 and nav within this div */
+    flex-grow: 1; /* Allow it to take up available space */
+}
 
 h1 {
     font-family: "Orbitron", sans-serif;
@@ -53,80 +52,82 @@ h1 {
     margin: 0 0 0.5rem 0;
 }
 
-/* --- UPDATED NAVIGATION STYLES --- */
+.header-logo {
+    width: 150px;
+    height: auto;
+}
+
+/* Navigation remains the same, but it will be centered by the .header-content div */
 nav ul {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: flex; /* Use flexbox for navigation items */
-    justify-content: center; /* Center nav items */
-    flex-wrap: wrap; /* Allow nav items to wrap on smaller screens */
-    gap: 10px; /* Space between the buttons */
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 nav ul li {
-    margin: 0; /* Remove old margin to let gap handle spacing */
+    margin: 0;
 }
 
 nav a {
-    display: inline-block; /* Crucial to allow padding and width/height */
+    display: inline-block;
     color: white;
     text-decoration: none;
     font-weight: 500;
-    padding: 0.7em 1.2em; /* Padding to make them button-like */
-    border-radius: 6px; /* Rounded corners */
+    padding: 0.7em 1.2em;
+    border-radius: 6px;
     transition: background-color 0.3s ease, transform 0.2s ease;
-    background-color: transparent; /* Default state */
-    border: 1px solid transparent; /* Subtle border for consistency */
+    background-color: transparent;
+    border: 1px solid transparent;
 }
 
 nav a:hover {
-    background-color: #0053bd; /* Blue background on hover */
-    transform: translateY(-2px); /* Lift effect on hover */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+    background-color: #0053bd;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-/* Style for the active/current page link */
 nav a.active {
-    background-color: #0053bd; /* A solid blue to indicate the current page */
-    font-weight: 700; /* Bolder text for emphasis */
+    background-color: #0053bd;
+    font-weight: 700;
 }
-
-/* --- END UPDATED NAVIGATION STYLES --- */
-
+/* --- END REFACTORED HEADER STYLES --- */
 
 /* Main Content Area */
 main {
-    flex: 1; /* Allows main to grow and take available space, pushing footer down */
-    padding: 2rem; /* Consistent padding with rem units */
-    max-width: 1200px; /* Limit content width for readability on large screens */
-    margin: 0 auto; /* Center the main content area */
-    display: flex; /* Enable flexbox for inner layout if needed */
-    flex-direction: column; /* Stack sections vertically */
-    gap: 20px; /* Space between direct children of main (e.g., hero, about, lab-section) */
+    flex: 1;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 /* Hero Section */
 .hero {
     background-color: white;
-    padding: 3rem; /* More generous padding */
+    padding: 3rem;
     text-align: center;
-    border-radius: 10px; /* Slightly more rounded corners for a modern feel */
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08); /* More prominent, soft shadow */
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 
 .hero h2 {
-    font-family: "Orbitron", sans-serif; /* Keep Orbitron for headings */
-    font-size: 2.8rem; /* Larger, more impactful heading */
+    font-family: "Orbitron", sans-serif;
+    font-size: 2.8rem;
     margin-top: 0;
-    color: #0053bd; /* Keep the deep blue */
+    color: #0053bd;
     line-height: 1.2;
 }
 
-.hero p { /* Assuming hero has descriptive text */
+.hero p {
     font-size: 1.1rem;
     color: #555;
-    margin-bottom: 1.5rem; /* Space before button */
+    margin-bottom: 1.5rem;
 }
 
 /* Buttons (Now for both index and labs pages) */
@@ -134,20 +135,19 @@ main {
     display: inline-block;
     background-color: #0053bd;
     color: white;
-    padding: 0.8em 1.8em; /* Adjusted padding, relative to font-size */
+    padding: 0.8em 1.8em;
     text-decoration: none;
-    border-radius: 6px; /* Slightly more rounded */
-    font-weight: 600; /* Bolder text */
-    transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover effects */
-    border: none; /* Remove default button border */
-    cursor: pointer; /* Indicate it's clickable */
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    border: none;
+    cursor: pointer;
 }
 
 .button-secondary {
     background-color: transparent;
     color: #0053bd;
     border: 2px solid #0053bd;
-    /* Inherits padding, border-radius, font-weight, transition from .button */
 }
 
 .button-secondary:hover {
@@ -156,14 +156,13 @@ main {
     transform: translateY(-2px);
 }
 
-
 .button:hover {
     background-color: #0071ff;
-    transform: translateY(-2px); /* Subtle lift effect */
+    transform: translateY(-2px);
 }
 
 .button:active {
-    transform: translateY(0); /* Return to original position on click */
+    transform: translateY(0);
 }
 
 
@@ -173,19 +172,17 @@ main {
     padding: 2rem;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-    /* border: 1px solid #ddd; removed, shadow is enough */
 }
-.about p { /* Ensure body text in about section uses main body font */
+.about p {
     font-family: "Inter", sans-serif;
     font-size: 1rem;
 }
-
 
 /* Labs Page Specifics (Revised for Card Layout) */
 .labs-page-heading {
     font-family: "Orbitron", sans-serif;
     font-size: 2.2rem;
-    color: #2c3e50; /* Match header dark blue/grey */
+    color: #2c3e50;
     margin-bottom: 1.5rem;
     text-align: center;
 }
@@ -196,32 +193,35 @@ main {
     border-radius: 10px;
     border: 1px solid #e0e0e0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    display: flex; /* Use flexbox for a horizontal flow of project cards */
-    flex-wrap: wrap; /* Allow cards to wrap to the next line */
-    gap: 20px; /* Space between the project cards */
     flex-direction: column;
+    gap: 20px;
 }
-
 .lab-section h3 {
     font-family: "Orbitron", sans-serif;
     font-size: 1.8rem;
     color: #0053bd;
     margin-top: 0;
     margin-bottom: 1rem;
-    text-align: left; /* Align lab heading to the left */
+    text-align: left;
+}
+
+.project-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
 }
 
 /* Individual Project Card Styling */
 .project-card {
-    background-color: #f9f9f9; /* A slightly different background to distinguish cards */
+    background-color: #f9f9f9;
     border: 1px solid #eee;
     border-radius: 8px;
     padding: 1.5rem;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    flex-grow: 1; /* Allow cards to grow to fill space */
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    justify-content: space-between; /* Push buttons to the bottom */
+    justify-content: space-between;
 }
 
 .project-card h4 {
@@ -233,7 +233,7 @@ main {
 }
 
 .project-card p {
-    flex-grow: 1; /* Allow paragraph to fill space before buttons */
+    flex-grow: 1;
     margin-bottom: 1rem;
 }
 
@@ -241,7 +241,7 @@ main {
     display: flex;
     flex-wrap: wrap;
     gap: 0.8rem;
-    margin-top: auto; /* Push links to the bottom of the card */
+    margin-top: auto;
 }
 
 /* Footer */
@@ -276,13 +276,27 @@ footer {
     nav ul li {
         margin: 0;
     }
-    .hero h2 {
-        font-size: 2.2rem;
+    .header-logo {
+      width: 100px;
     }
-    .hero p {
-        font-size: 1rem;
+    header {
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding-top: 50px;
+    }
+    .logo-link {
+      top: 10px;
+      left: 10px;
+      transform: none;
+    }
+    .header-content {
+      margin-top: 10px;
     }
     .lab-section {
+        gap: 15px;
+    }
+    .project-cards-container {
         flex-direction: column;
         gap: 15px;
     }
@@ -302,7 +316,7 @@ footer {
         padding: 1rem;
     }
     .project-links .button {
-        width: 100%; /* Full width buttons on mobile */
+        width: 100%;
         text-align: center;
     }
 }

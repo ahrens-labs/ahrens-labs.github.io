@@ -17,16 +17,21 @@
 <body>
     <div class="wrapper">
         <header>
-            <h1>Ahrens Labs</h1>
-            <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-	    <nav>
-                <ul>
-                    <li><a href="index.html">Home</a></li>
-                    <li><a href="labs.html">Labs & Projects</a></li>
-                    <li><a href="contact.html">Contact</a></li>
-                    <li><a href="chess_engine.html">Chess Engine</a></li>
-                </ul>
-            </nav>
+            <a href="index.html" class="logo-link">
+                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
+            </a>
+            <div class="header-content">
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+            </div>
         </header>
 
         <main>
@@ -38,28 +43,30 @@
                     <h3>Coding Lab</h3>
                     <p>These are the coding projects the Ahrens Labs have been working on and are proud to showcase.</p>
 
-                    <div class="project-card">
-                        <h4>TrifangX</h4>
-                        <p>Challenge yourself to a game of chess against an impressive chess playing computer called TrifangX designed by Caleb Ahrens.</p>
-                        <div class="project-links">
-                            <a href="https://github.com/ahrens-labs/chessengine" class="button">Learn More about TrifangX</a>
-                            <a href="https://ahrens-labs.github.io/chess_engine.html" class="button button-secondary">Play against TrifangX</a>
+                    <div class="project-cards-container">
+                        <div class="project-card">
+                            <h4>TrifangX</h4>
+                            <p>Challenge yourself to a game of chess against an impressive chess playing computer called TrifangX designed by Caleb Ahrens.</p>
+                            <div class="project-links">
+                                <a href="https://github.com/ahrens-labs/chessengine" class="button">Learn More about TrifangX</a>
+                                <a href="https://ahrens-labs.github.io/chess_engine.html" class="button button-secondary">Play against TrifangX</a>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="project-card">
-                        <h4>Machine Learning 101</h4>
-                        <p>This machine learning course is perfect for students who want to learn more about the exciting world of Large Language Models, Computer Vision, and more.</p>
-                        <div class="project-links">
-                            <a href="https://github.com/ahrens-labs/ml-101" class="button">Learn More about the Machine Learning course</a>
+                        <div class="project-card">
+                            <h4>Machine Learning 101</h4>
+                            <p>This machine learning course is perfect for students who want to learn more about the exciting world of Large Language Models, Computer Vision, and more.</p>
+                            <div class="project-links">
+                                <a href="https://github.com/ahrens-labs/ml-101" class="button">Learn More about the Machine Learning course</a>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="project-card">
-                        <h4>Data 101</h4>
-                        <p>This course welcomes learners, especially middle and early high school students, to the challenging yet rewarding journey of understanding, analyzing, and effectively using data to solve problems.</p>
-                        <div class="project-links">
-                            <a href="https://github.com/ahrens-labs/data-101" class="button">Learn More about Data 101</a>
+                        <div class="project-card">
+                            <h4>Data 101</h4>
+                            <p>This course welcomes learners, especially middle and early high school students, to the challenging yet rewarding journey of understanding, analyzing, and effectively using data to solve problems.</p>
+                            <div class="project-links">
+                                <a href="https://github.com/ahrens-labs/data-101" class="button">Learn More about Data 101</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -68,11 +75,13 @@
                 <div class="lab-section">
                     <h3>Writing Lab</h3>
                     <p>These are all the writen projects Ahrens Labs has been working on.</p>
-                    <div class="project-card">
-                        <h4>Devotionals</h4>
-                        <p>A collection of devotionals written by Matt Ahrens, exploring various topics of faith and life.</p>
-                        <div class="project-links">
-                            <a href="#" class="button">Read Devotionals</a>
+                    <div class="project-cards-container">
+                        <div class="project-card">
+                            <h4>Devotionals</h4>
+                            <p>A collection of devotionals written by Matt Ahrens, exploring various topics of faith and life.</p>
+                            <div class="project-links">
+                                <a href="#" class="button">Read Devotionals</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -81,11 +90,13 @@
                 <div class="lab-section">
                     <h3>Music Lab</h3>
                     <p>These are songs written by the Ahrens Labs members.</p>
-                    <div class="project-card">
-                        <h4>Worship Songs</h4>
-                        <p>Our collection of worship songs, composed to inspire and uplift. Currently in development.</p>
-                        <div class="project-links">
-                            <a href="#" class="button">Listen Now</a>
+                    <div class="project-cards-container">
+                        <div class="project-card">
+                            <h4>Worship Songs</h4>
+                            <p>Our collection of worship songs, composed to inspire and uplift. Currently in development.</p>
+                            <div class="project-links">
+                                <a href="#" class="button">Listen Now</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -94,11 +105,13 @@
                 <div class="lab-section">
                     <h3>Robotics Lab</h3>
                     <p>These are the robotics projects the Ahrens Labs have been working on and are proud to showcase.</p>
-                    <div class="project-card">
-                        <h4>RoboArm 2.0</h4>
-                        <p>An advanced robotic arm designed for educational purposes, teaching students about kinematics and control systems.</p>
-                        <div class="project-links">
-                            <a href="#" class="button">Learn More</a>
+                    <div class="project-cards-container">
+                        <div class="project-card">
+                            <h4>Spud</h4>
+                            <p>Spud is a robot that can identify faces and roll around. Spud uses a raspberry to operate and has many capabilities.</p>
+                            <div class="project-links">
+                                <a href="#" class="button">Learn More</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -107,11 +120,13 @@
                 <div class="lab-section">
                     <h3>Language Lab</h3>
                     <p>These are the language projects the Ahrens Labs have been working on and are proud to showcase.</p>
-                    <div class="project-card">
-                        <h4>Caleb's Language</h4>
-                        <p>Learn the language of Kyrachyng, a unique constructed language invented by Caleb Ahrens.</p>
-                        <div class="project-links">
-                            <a href="#" class="button">Learn Kyrachyng</a>
+                    <div class="project-cards-container">
+                        <div class="project-card">
+                            <h4>Caleb's Language</h4>
+                            <p>Learn the language of Kyrachyng, a unique constructed language invented by Caleb Ahrens.</p>
+                            <div class="project-links">
+                                <a href="#" class="button">Learn Kyrachyng</a>
+                            </div>
                         </div>
                     </div>
                 </div>
