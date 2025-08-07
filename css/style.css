@@ -130,7 +130,7 @@ main {
     margin-bottom: 1.5rem;
 }
 
-/* Generic Button styles */
+/* Buttons */
 .button {
     display: inline-block;
     background-color: #0053bd;
@@ -179,7 +179,7 @@ main {
 }
 
 
-/* Labs Page Specifics (Directory Style) */
+/* Labs Page Specifics */
 .labs-page-heading {
     font-family: "Orbitron", sans-serif;
     font-size: 2.2rem;
@@ -188,50 +188,69 @@ main {
     text-align: center;
 }
 
-/* Grid container for the lab buttons */
-.labs-grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-    padding-top: 1rem;
+.lab-section {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.lab-section h3 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.8rem;
+    color: #0053bd;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    text-align: left;
 }
 
-/* Styling for each lab button */
-.lab-button {
+/* Grid container for the project cards */
+.project-cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* Individual Project Card Styling */
+.project-card {
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    flex-grow: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    border-radius: 12px;
-    color: white;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 1.5rem;
-    font-family: "Orbitron", sans-serif;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    flex-direction: column;
+    justify-content: space-between;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.lab-button:hover {
+.project-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
 }
 
-/* Individual button colors with gradients */
-.lab-button-coding {
-    background-image: linear-gradient(to right, #0053bd, #0071ff);
+.project-card h4 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.4rem;
+    color: #2c3e50;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
 }
-.lab-button-writing {
-    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+
+.project-card p {
+    flex-grow: 1;
+    margin-bottom: 1rem;
 }
-.lab-button-music {
-    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
-}
-.lab-button-robotics {
-    background-image: linear-gradient(to right, #1d976c, #93f9b9);
-}
-.lab-button-language {
-    background-image: linear-gradient(to right, #f46a50, #e61d8c);
+
+.project-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: auto;
 }
 
 /* Footer */
@@ -283,6 +302,10 @@ footer {
     .header-content {
       margin-top: 10px;
     }
+    .project-links .button {
+        width: 100%;
+        text-align: center;
+    }
 }
 @media (max-width: 480px) {
     main {
@@ -294,6 +317,9 @@ footer {
     }
     nav ul li {
         margin: 0;
+    }
+    .project-card {
+        padding: 1rem;
     }
 }
 
