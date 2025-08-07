@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahrens Labs - Labs & Projects</title>
+
+    <!-- Google Fonts Links (Crucial for consistent styling) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!-- End Google Fonts Links -->
+
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js"></script>
+</head>
+<body class="p-6 md:p-12 min-h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-2xl">
+        <h1 class="text-4xl font-bold text-center text-blue-400 mb-6">Language Translator</h1>
+        <p class="text-center text-gray-400 mb-8">Type a sentence to translate or try the quiz!</p>
+
+        <!-- Main Translation Interface -->
+        <div id="translator-ui">
+            <textarea id="input-text"
+                      class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
+
+            <div class="flex justify-center space-x-4 mt-6">
+                <button id="translate-button"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                    Translate
+                </button>
+                <button id="quiz-button"
+                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                    Start Quiz
+                </button>
+            </div>
+
+            <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl transition-all duration-300">
+                <h2 class="text-xl font-semibold mb-2 text-gray-200">Translated Text:</h2>
+                <p id="translated-output" class="text-blue-300 text-xl font-mono mb-4"></p>
+                <h2 class="text-xl font-semibold mb-2 text-gray-200">IPA Pronunciation:</h2>
+                <p id="ipa-output" class="text-green-300 text-xl font-mono"></p>
+            </div>
+        </div>
+
+        <!-- Quiz Interface -->
+        <div id="quiz-ui" class="hidden">
+            <div id="quiz-prompt" class="text-center text-2xl font-semibold mb-4 text-gray-200"></div>
+            <textarea id="quiz-answer"
+                      class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                      placeholder="Type your translation here..."></textarea>
+            <div id="quiz-feedback" class="mt-4 text-center text-lg font-bold"></div>
+            <div class="flex justify-center space-x-4 mt-6">
+                <button id="check-answer-button"
+                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                    Check Answer
+                </button>
+                <button id="next-question-button"
+                        class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                    Next Question
+                </button>
+                <button id="back-to-translator-button"
+                        class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
+                    Back to Translator
+                </button>
+            </div>
+        </div>
+
+    </div>
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+    <script>
+        // The core logic from the Python script, rewritten in JavaScript
+        document.addEventListener('DOMContentLoaded', () => {
+            const multiword_phrases = [
+                [['you', 'guys'], 'you guys'],
+                [['we', 'all'], 'we all'],
+                [['you', 'all'], 'you all'],
+                [['they', 'all'], 'they all'],
+                [['really', 'good'], 'really good'],
+                [['will', 'be'], 'will be'],
+                [['to', 'be'], 'to be'],
+                [['to', 'have'], 'to have'],
+                [['to', 'like'], 'to like'],
+                [['to', 'run'], 'to run'],
+                [['to', 'eat'], 'to eat'],
+                [['to', 'want'], 'to want'],
+                [['a', 'lot'], 'a lot'],
+            ];
+
+            const pronouns = {
+                'i': 'daCH', 'he': 'zhroCH', 'she': 'zhroCH', 'you': 'voryCH', 'we': 'da-oiCH', 'you guys': 'varoiCH', 'they': 'zhieCH',
+                'we all': 'dropaCH', 'you all': 'viroCH', 'they all': 'zhamoCH'
+            };
+
+            const pros = {
+                'i': 'daCH', 'he': 'zhroCH', 'she': 'zhroCH', 'you': 'voryCH', 'we': 'da-oiCH', 'you guys': 'varoiCH', 'they': 'zhieCH',
+                'we all': 'dropaCH', 'you all': 'viroCH', 'they all': 'zhamoCH', 'chair': 'grizetan', 'language': 'binich', 'yesterday': 'thopanich',
+                'day': 'vobach', 'park': 'rapotang', 'chairs': 'Grizetan', 'languages': 'Binich', 'days': 'Vobach', 'parks': 'Rapotang', 'sun': 'zakyng',
+                'suns': 'Zakyng', 'food': 'gawpoin', 'foods': 'Gawpoin', 'eye': 'bacrop', 'eyes': 'Bacrop', 'narnia': 'narong', 'calormen': 'catormyng',
+                'beaver': 'adyn', 'beavers': 'Adyn'
+            };
+
+            const prepositions = {
+                'to': 'ite', 'for': 'kipe', 'and': 'bone', 'of': 'vok', 'in': 'auto', 'at': 'auto', 'my': 'zhite'
+            };
+
+            const determiners = {
+                'every': 'chacoach', 'a lot': 'kimerot'
+            };
+
+            const verbs = {
+                'am': { 'i': 'Chococanoy' },
+                'are': {
+                    ...Object.fromEntries(['we', 'we all'].map(p => [p, 'Chococanoy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Cocanoyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoyoch'])),
+                },
+                'is': { 'he': 'Cocanoyach', 'she': 'Cocanoyach' },
+                'were': {
+                    ...Object.fromEntries(['we', 'we all'].map(p => [p, 'Bicocanoy'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoiboy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Cocanoibo'])),
+                },
+                'was': {
+                    'i': 'Bicocanoy',
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Cocanoibo'])),
+                },
+                'will be': {
+                    'i': 'Gicocanoy',
+                    ...Object.fromEntries(['he', 'she', 'they', 'they all'].map(p => [p, 'Cocanoigoith'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoigath'])),
+                },
+                'have': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chomothoy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Mothoyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Mothoyoch'])),
+                },
+                'has': {
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Mothoyach'])),
+                },
+                'had': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bimothoy'])),
+                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Mothoybo'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Mothoyboy'])),
+                },
+                'like': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chopokatoy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Pokatoyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pokatoyoch'])),
+                },
+                'likes': {
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Pokatoyach'])),
+                },
+                'liked': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bipokatoy'])),
+                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Pokatoybo'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pokatoyboy'])),
+                },
+                'run': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chotiroy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Tiroyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Tiroyoch'])),
+                },
+                'runs': {
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Tiroyach'])),
+                },
+                'ran': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bitiroy'])),
+                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Tiroybo'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Tiroyboy'])),
+                },
+                'eat': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chongapzhoy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Ngapzhoyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Ngapzhoyoch'])),
+                },
+                'eats': {
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Ngapzhoyach'])),
+                },
+                'ate': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Byngapzhoy'])),
+                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Ngapzhoybo'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Ngapzhoyboy'])),
+                },
+                'want': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chopitikoy'])),
+                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Pitikoyach'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pitikoyoch'])),
+                },
+                'wants': {
+                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Pitikoyach'])),
+                },
+                'wanted': {
+                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bipitikoy'])),
+                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Pitikoybo'])),
+                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pitikoyboy'])),
+                },
+            };
+
+            const neutral_verbs = {
+                'to be': 'rine cocanoy',
+                'to have': 'rine mothoy',
+                'to like': 'rine pokatoy',
+                'to eat': 'rine ngapzhoy',
+                'to run': 'rine tiroy',
+                'to want': 'rine pitikoy'
+            };
+
+            const ipa = {
+                'dach': 'dætʃ', 'zhroch': 'ʒrɒtʃ', 'vorych': 'voʊrˈaɪtʃ', 'da-oich': 'dæˈɔɪtʃ',
+                'zhiech': 'ʒaɪtʃ', 'varoich': 'værˈɔɪtʃ', 'dropach': 'drɒpætʃ', 'viroch': 'vˈaɪrɒtʃ',
+                'zhamoch': 'ʒæmoʊtʃ', 'chococanoy': 'tʃoʊkoʊkænɔɪ', 'cocanoyoch': 'koʊkænɔɪɒtʃ', 'cocanoyach': 'koʊkænɔɪætʃ',
+                'trinezhach': 'traɪnʒætʃ', 'trinezhan': 'traɪnʒæn', 'trinezhang': 'traɪnʒæŋ', 'trinezhap': 'traɪnʒæp', 'grizetan': 'graɪztæn', 'pautyne': 'pɒtaɪn', 'pokyne': 'poʊkaɪn',
+                'prautyne': 'prɒtaɪn', 'prokyne': 'proʊkaɪn', 'pautych': 'pɒtaɪtʃ', 'pokych': 'poʊkaɪtʃ', 'prautych': 'prɒtaɪtʃ', 'prokych': 'proʊkaɪtʃ', 'binich': 'baɪnaɪtʃ', 'pautyng': 'pɒtaɪŋ',
+                'pokyng': 'poʊkaɪŋ', 'prautyng': 'prɒtaɪŋ', 'prokyng': 'proʊkaɪŋ', 'pautype': 'pɒtaɪp', 'pokype': 'poʊkaɪp', 'prautype': 'prɒtaɪp',
+                'prokype': 'proʊkaɪp', 'bicocanoy': 'baɪkoʊkænɔɪ', 'cocanoiboy': 'koʊkænɔɪbˈɔɪ', 'cocanoibo': 'koʊkænɔɪbˈoʊ', 'ovadrach': 'oʊvædrætʃ',
+                'adrach': 'ædrætʃ', 'adran': 'ædræn', 'adrap': 'ædræp', 'adrang': 'ædræŋ', 'ovadran': 'oʊvædræn', 'ovadrang': 'oʊvædræŋ', 'ovadrap': 'oʊvædræp', 'thopanich': 'ðoʊpænaɪtʃ',
+                'gicocanoy': 'gaɪkoʊkænɔ', 'cocanoigoith': 'koʊkænɔɪgɔɪð', 'cocanoigath': 'koʊkænɔɪgæð', 'chomothoy': 'tʃoʊmɒðɔɪ', 'mothoyach': 'mɒðɔɪætʃ',
+                'mothoyoch': 'mɒðɔɪɒtʃ', 'chopokatoy': 'tʃoʊpoʊkætɔɪ', 'pokatoyach': 'poʊkætɔɪætʃ', 'pokatoyoch': 'poʊkætɔɪɒtʃ', 'rine': 'raɪn', 'mothoy': 'mɒðɔɪ', 'cocanoy': 'koʊkænɔɪ',
+                'pokatoy': 'poʊkætɔɪ', 'chotiroy': 'tʃoʊtaɪrɔɪ', 'tiroyach': 'taɪrɔɪætʃ', 'tiroyoch': 'taɪrɔɪɒtʃ', 'tiroy': 'taɪrɔɪ', 'ite': 'aɪt', 'kipe': 'kaɪp',
+                'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɒðɔɪbˈɔɪ', 'mothoybo': 'mɒðɔɪbˈoʊ', 'bimothoy': 'baɪmɒðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
+                'pokatoyboy': 'poʊkætɔɪbˈɔɪ', 'pokatoyboy': 'poʊkætɔɪbˈoʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbˈɔɪ', 'tiroybo': 'taɪrɔɪbˈoʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
+                'ngapzhoyach': 'ŋæpʒɔɪætʃ', 'ngapzhoyoch': 'ŋæpʒɔɪɒtʃ', 'byngapzhoy': 'baɪŋæpʒɔɪ', 'ngapzhoybo': 'ŋæpʒɔɪboʊ', 'ngapzhoyboy': 'ŋæpʒɔɪbɔɪ', 'ngapzhoy': 'ŋæpʒɔɪ', 'gawpoin': 'gɒpɔɪn',
+                'kimerot': 'kaɪmrɒt', 'vok': 'vɒk', 'zakyng': 'zækaɪŋ', 'poigogap': 'pɔɪgoʊgæp', 'poigogan': 'pɔɪgoʊgæn', 'poigogang': 'pɔɪgoʊgæŋ', 'poigogach': 'pɔɪgoʊgætʃ', 'auto': 'ɒtoʊ',
+                'bacrop': 'bækrɒp', 'zhite': 'ʒaɪt', 'chopitikoy': 'tʃoʊpaɪtaɪkɔɪ', 'pitikoyach': 'paɪtaɪkɔɪætʃ', 'pitikoyoch': 'paɪtaɪkɔɪɒtʃ', 'bipitikoy': 'baɪpaɪtaɪkɔɪ', 'pitikoyboy': 'paɪtaɪkɔɪbɔɪ',
+                'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪtaɪkɔɪ', 'bach': 'bɒtʃ', 'narong': 'nærɒŋ', 'catormyng': 'cætɒrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
+                'antryp': 'æntraɪp', 'ovantryng': 'oʊvæntraɪŋ', 'antryng': 'æntraɪŋ', 'ovantrych': 'oʊvæntraɪtʃ', 'antrych': 'æntraɪtʃ', 'adyn': 'ædaɪn'
+            };
+
+            const adjectives = {
+                'awesome': 'trinezha', 'amazing': 'trinezha', 'really good': 'trinezha', 'happy': 'ovadra', 'sad': 'adra', 'darkened': 'poigoga', 'worst': 'antry',
+                'best': 'ovantry'
+            };
+
+            const nouns_singular = {
+                'chair': 'grizetan', 'language': 'binich', 'yesterday': 'thopanich', 'day': 'vobach', 'today': 'bach', 'park': 'rapotang', 'food': 'gawpoin',
+                'sun': 'zakyng', 'eye': 'bacrop', 'narnia': 'narong', 'calormen': 'catormyng', 'beaver': 'adyn'
+            };
+
+            const nouns_plural = {
+                'chairs': 'Grizetan', 'languages': 'Binich', 'days': 'Vobach', 'parks': 'Rapotang', 'foods': 'Gawpoin', 'suns': 'Zakyng', 'eyes': 'Bacrop', 'beavers': 'adyn'
+            };
+
+            const articles = new Set(['the', 'a', 'an']);
+
+            // Sample sentences for the quiz
+            const quiz_sentences = [
+                'I am a beaver',
+                'you all want food',
+                'the sun is amazing',
+                'he liked the chairs',
+                'we will be happy',
+            ];
+
+            let quiz_correct_answer = '';
+
+            const inputField = document.getElementById('input-text');
+            const translateButton = document.getElementById('translate-button');
+            const quizButton = document.getElementById('quiz-button');
+            const translatedOutput = document.getElementById('translated-output');
+            const ipaOutput = document.getElementById('ipa-output');
+            const translatorUI = document.getElementById('translator-ui');
+            const quizUI = document.getElementById('quiz-ui');
+            const quizPrompt = document.getElementById('quiz-prompt');
+            const quizAnswerInput = document.getElementById('quiz-answer');
+            const checkAnswerButton = document.getElementById('check-answer-button');
+            const nextQuestionButton = document.getElementById('next-question-button');
+            const quizFeedback = document.getElementById('quiz-feedback');
+            const backToTranslatorButton = document.getElementById('back-to-translator-button');
+
+            // Function to handle translation logic
+            const performTranslation = () => {
+                const sentence = inputField.value;
+                if (sentence) {
+                    const result = translateSentence(sentence);
+                    translatedOutput.textContent = result.translation;
+                    ipaOutput.textContent = `/ ${result.ipa.join(' ')} /`;
+                }
+            };
+
+            // Event listener for the translate button
+            translateButton.addEventListener('click', performTranslation);
+
+            // Event listener for the Enter key in the input field
+            inputField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { // Prevents new line on Enter, allows Shift+Enter
+                    e.preventDefault();
+                    performTranslation();
+                }
+            });
+
+
+            quizButton.addEventListener('click', startQuiz);
+            checkAnswerButton.addEventListener('click', checkAnswer);
+            nextQuestionButton.addEventListener('click', startQuiz);
+            backToTranslatorButton.addEventListener('click', () => {
+                translatorUI.classList.remove('hidden');
+                quizUI.classList.add('hidden');
+            });
+
+            function startQuiz() {
+                translatorUI.classList.add('hidden');
+                quizUI.classList.remove('hidden');
+                quizAnswerInput.value = '';
+                quizFeedback.textContent = '';
+                nextQuestionButton.classList.add('hidden');
+                checkAnswerButton.classList.remove('hidden');
+
+                const randomSentence = quiz_sentences[Math.floor(Math.random() * quiz_sentences.length)];
+                quizPrompt.textContent = `Translate this sentence: "${randomSentence}"`;
+                const result = translateSentence(randomSentence);
+                quiz_correct_answer = result.translation.trim().toLowerCase();
+            }
+
+            function checkAnswer() {
+                const userAnswer = quizAnswerInput.value.trim().toLowerCase();
+                if (userAnswer === quiz_correct_answer) {
+                    quizFeedback.textContent = 'Correct! Great job!';
+                    quizFeedback.classList.remove('text-red-400');
+                    quizFeedback.classList.add('text-green-400');
+                } else {
+                    quizFeedback.textContent = `Incorrect. The correct answer was: "${quiz_correct_answer}"`;
+                    quizFeedback.classList.remove('text-green-400');
+                    quizFeedback.classList.add('text-red-400');
+                }
+                checkAnswerButton.classList.add('hidden');
+                nextQuestionButton.classList.remove('hidden');
+            }
+
+            function getWordEnding(word) {
+                const lastChar = word.slice(-1).toLowerCase();
+                switch (lastChar) {
+                    case 'h': return 'ch';
+                    case 'g': return 'ng';
+                    case 'n': return 'ne';
+                    case 'p': return 'pe';
+                    default: return 'ch'; // Default to 'ch' if none of the above
+                }
+            }
+
+            function translateSentence(sentence) {
+                let last_pronoun = 'none';
+                let plurality = 'none';
+                let last_pro = 'none';
+                let article = 'none';
+                let adjective = 'none';
+                let previous_word = 'none';
+                let translated_output = [];
+                let words = sentence.toLowerCase().split(/\s+/);
+
+                // Replace multi-word phrases first
+                for (let i = 0; i < words.length; i++) {
+                    for (const [phrase_words, replacement] of multiword_phrases) {
+                        const length = phrase_words.length;
+                        if (words.slice(i, i + length).join(' ') === phrase_words.join(' ')) {
+                            words.splice(i, length, replacement);
+                            i--; // Re-check the current index after replacement
+                            break;
+                        }
+                    }
+                }
+
+                for (const word of words) {
+                    if (word in pronouns) {
+                        const translation = pronouns[word];
+                        translated_output.push(translation);
+                        last_pronoun = word;
+                        last_pro = word;
+                        adjective = 'none';
+                    } else if (word in neutral_verbs) {
+                        const translation = neutral_verbs[word];
+                        translated_output.push(translation);
+                        adjective = 'none';
+                    } else if (word in determiners) {
+                        const translation = determiners[word];
+                        translated_output.push(translation);
+                        adjective = 'none';
+                    } else if (word in prepositions) {
+                        const translation = prepositions[word];
+                        translated_output.push(translation);
+                        adjective = 'none';
+                    } else if (word in verbs) {
+                        let verb_form;
+                        if (typeof verbs[word] === 'object') {
+                            if (last_pronoun === 'none') {
+                                if (plurality === 'single') {
+                                    last_pronoun = 'he';
+                                } else if (plurality === 'plural') {
+                                    last_pronoun = 'they';
+                                }
+                            }
+                            verb_form = verbs[word][last_pronoun] || `[${word} unknown]`;
+                        } else {
+                            verb_form = verbs[word];
+                        }
+                        translated_output.push(verb_form);
+                        adjective = 'none';
+                    } else if (word in adjectives) {
+                        let translation;
+                        if (previous_word in verbs || previous_word in neutral_verbs) {
+                            const ending = pros[last_pro];
+                            const last = getWordEnding(ending);
+                            translation = adjectives[word] + last;
+                            translated_output.push(translation);
+                        } else if (words.indexOf(word) === words.length - 1) {
+                            translation = adjectives[word] + 'ch';
+                            translated_output.push(translation);
+                        } else {
+                            adjective = word;
+                        }
+                    } else if (word in nouns_singular) {
+                        const translation = nouns_singular[word];
+                        if (article !== 'none') {
+                            const ending = getWordEnding(translation);
+                            const article_translation = article === 'the' ? 'pauty' + ending : 'poky' + ending;
+                            translated_output.push(article_translation);
+                        }
+                        if (adjective !== 'none') {
+                            const ending = getWordEnding(translation);
+                            const adj_translation = adjectives[adjective] + ending;
+                            translated_output.push(adj_translation);
+                        }
+                        translated_output.push(translation);
+                        plurality = 'single';
+                        adjective = 'none';
+                        article = 'none';
+                        last_pro = word;
+                    } else if (word in nouns_plural) {
+                        const translation = nouns_plural[word];
+                        if (article !== 'none') {
+                            const ending = getWordEnding(translation);
+                            const article_translation = article === 'the' ? 'prauty' + ending : 'proky' + ending;
+                            translated_output.push(article_translation);
+                        }
+                        if (adjective !== 'none') {
+                            const ending = getWordEnding(translation);
+                            const adj_translation = adjectives[adjective] + ending;
+                            translated_output.push(adj_translation);
+                        }
+                        translated_output.push(translation);
+                        plurality = 'plural';
+                        adjective = 'none';
+                        article = 'none';
+                        last_pro = word;
+                    } else if (articles.has(word)) {
+                        article = word;
+                    } else {
+                        translated_output.push(`[${word}]`);
+                    }
+
+                    if (!articles.has(word)) {
+                        previous_word = word;
+                    }
+                }
+
+                const ipa_output = translated_output.map(word => {
+                    const parts = word.split(' ');
+                    return parts.map(part => ipa[part.toLowerCase()] || `[${part}]`).join(' ');
+                });
+
+                return {
+                    translation: translated_output.join(' '),
+                    ipa: ipa_output,
+                };
+            }
+        });
+    </script>
+</body>
+</html>
+
