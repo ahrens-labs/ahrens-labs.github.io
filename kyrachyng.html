@@ -3,8 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs - Labs & Projects</title>
+    <title>Ahrens Labs - Kyrachyng Project</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Custom Tailwind configuration to make sure your custom fonts are available
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
     <!-- Google Fonts Links (Crucial for consistent styling) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,83 +29,88 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="js/script.js"></script>
 </head>
-<body class="p-6 md:p-12 min-h-screen flex items-center justify-center">
-    <div class="wrapper">
-        <header>
-            <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-            </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
-    <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-2xl">
-        <h1 class="text-4xl font-bold text-center text-blue-400 mb-6">Language Translator</h1>
-        <p class="text-center text-gray-400 mb-8">Type a sentence to translate or try the quiz!</p>
-
-        <!-- Main Translation Interface -->
-        <div id="translator-ui">
-            <textarea id="input-text"
-                      class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
-
-            <div class="flex justify-center space-x-4 mt-6">
-                <button id="translate-button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                    Translate
-                </button>
-                <button id="quiz-button"
-                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
-                    Start Quiz
-                </button>
-            </div>
-
-            <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl transition-all duration-300">
-                <h2 class="text-xl font-semibold mb-2 text-gray-200">Translated Text:</h2>
-                <p id="translated-output" class="text-blue-300 text-xl font-mono mb-4"></p>
-                <h2 class="text-xl font-semibold mb-2 text-gray-200">IPA Pronunciation:</h2>
-                <p id="ipa-output" class="text-green-300 text-xl font-mono"></p>
-            </div>
+<body class="bg-gray-100 font-inter text-gray-800 flex flex-col min-h-screen">
+    <!-- The header from your site's template -->
+    <header class="header-language">
+        <a href="index.html" class="logo-link">
+            <!-- Placeholder for your logo. Replace with img/ahrens_labs_logo.png -->
+            <img src="https://placehold.co/150x50/2c3e50/ffffff?text=Logo" alt="Ahrens Labs logo" class="header-logo">
+        </a>
+        <div class="header-content">
+            <h1 class="text-white font-orbitron text-2xl md:text-4xl">Ahrens Labs</h1>
+            <nav>
+                <ul>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="labs.html">Labs & Projects</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                    <li><a href="chess_engine.html">Chess Engine</a></li>
+                </ul>
+            </nav>
         </div>
+    </header>
 
-        <!-- Quiz Interface -->
-        <div id="quiz-ui" class="hidden">
-            <div id="quiz-prompt" class="text-center text-2xl font-semibold mb-4 text-gray-200"></div>
-            <textarea id="quiz-answer"
-                      class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                      placeholder="Type your translation here..."></textarea>
-            <div id="quiz-feedback" class="mt-4 text-center text-lg font-bold"></div>
-            <div class="flex justify-center space-x-4 mt-6">
-                <button id="check-answer-button"
-                        class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
-                    Check Answer
-                </button>
-                <button id="next-question-button"
-                        class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                    Next Question
-                </button>
-                <button id="back-to-translator-button"
-                        class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
-                    Back to Translator
-                </button>
+    <!-- Main content area now contains the translator UI -->
+    <main class="flex-grow p-6 md:p-12 max-w-7xl mx-auto w-full flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-2xl text-gray-100">
+            <h2 class="text-4xl font-bold text-center text-blue-400 mb-6">Kyrachyng Language Translator</h2>
+            <p class="text-center text-gray-400 mb-8">Type a sentence to translate or try the quiz!</p>
+
+            <!-- Main Translation Interface -->
+            <div id="translator-ui">
+                <textarea id="input-text"
+                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
+
+                <div class="flex justify-center space-x-4 mt-6">
+                    <button id="translate-button"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                        Translate
+                    </button>
+                    <button id="quiz-button"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                        Start Quiz
+                    </button>
+                </div>
+
+                <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl transition-all duration-300">
+                    <h3 class="text-xl font-semibold mb-2 text-gray-200">Translated Text:</h3>
+                    <p id="translated-output" class="text-blue-300 text-xl font-mono mb-4"></p>
+                    <h3 class="text-xl font-semibold mb-2 text-gray-200">IPA Pronunciation:</h3>
+                    <p id="ipa-output" class="text-green-300 text-xl font-mono"></p>
+                </div>
             </div>
+
+            <!-- Quiz Interface -->
+            <div id="quiz-ui" class="hidden">
+                <div id="quiz-prompt" class="text-center text-2xl font-semibold mb-4 text-gray-200"></div>
+                <textarea id="quiz-answer"
+                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                          placeholder="Type your translation here..."></textarea>
+                <div id="quiz-feedback" class="mt-4 text-center text-lg font-bold"></div>
+                <div class="flex justify-center space-x-4 mt-6">
+                    <button id="check-answer-button"
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                        Check Answer
+                    </button>
+                    <button id="next-question-button"
+                            class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                        Next Question
+                    </button>
+                    <button id="back-to-translator-button"
+                            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
+                        Back to Translator
+                    </button>
+                </div>
+            </div>
+
         </div>
+    </main>
 
-    </div>
-    <div class="push"></div>
-    </div>
-
+    <!-- The footer from your site's template -->
     <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+        <p>&copy; 2024 Ahrens Labs. All rights reserved.</p>
     </footer>
+
     <script>
         // The core logic from the Python script, rewritten in JavaScript
         document.addEventListener('DOMContentLoaded', () => {
@@ -242,11 +262,11 @@
                 'mothoyoch': 'mɒðɔɪɒtʃ', 'chopokatoy': 'tʃoʊpoʊkætɔɪ', 'pokatoyach': 'poʊkætɔɪætʃ', 'pokatoyoch': 'poʊkætɔɪɒtʃ', 'rine': 'raɪn', 'mothoy': 'mɒðɔɪ', 'cocanoy': 'koʊkænɔɪ',
                 'pokatoy': 'poʊkætɔɪ', 'chotiroy': 'tʃoʊtaɪrɔɪ', 'tiroyach': 'taɪrɔɪætʃ', 'tiroyoch': 'taɪrɔɪɒtʃ', 'tiroy': 'taɪrɔɪ', 'ite': 'aɪt', 'kipe': 'kaɪp',
                 'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɒðɔɪbˈɔɪ', 'mothoybo': 'mɒðɔɪbˈoʊ', 'bimothoy': 'baɪmɒðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
-                'pokatoyboy': 'poʊkætɔɪbˈɔɪ', 'pokatoyboy': 'poʊkætɔɪbˈoʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbˈɔɪ', 'tiroybo': 'taɪrɔɪbˈoʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
+                'pokatoyboy': 'poʊkætɔɪbˈɔɪ', 'pokatoybo': 'poʊkætɔɪbˈoʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbˈɔɪ', 'tiroybo': 'taɪrɔɪbˈoʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
                 'ngapzhoyach': 'ŋæpʒɔɪætʃ', 'ngapzhoyoch': 'ŋæpʒɔɪɒtʃ', 'byngapzhoy': 'baɪŋæpʒɔɪ', 'ngapzhoybo': 'ŋæpʒɔɪboʊ', 'ngapzhoyboy': 'ŋæpʒɔɪbɔɪ', 'ngapzhoy': 'ŋæpʒɔɪ', 'gawpoin': 'gɒpɔɪn',
                 'kimerot': 'kaɪmrɒt', 'vok': 'vɒk', 'zakyng': 'zækaɪŋ', 'poigogap': 'pɔɪgoʊgæp', 'poigogan': 'pɔɪgoʊgæn', 'poigogang': 'pɔɪgoʊgæŋ', 'poigogach': 'pɔɪgoʊgætʃ', 'auto': 'ɒtoʊ',
                 'bacrop': 'bækrɒp', 'zhite': 'ʒaɪt', 'chopitikoy': 'tʃoʊpaɪtaɪkɔɪ', 'pitikoyach': 'paɪtaɪkɔɪætʃ', 'pitikoyoch': 'paɪtaɪkɔɪɒtʃ', 'bipitikoy': 'baɪpaɪtaɪkɔɪ', 'pitikoyboy': 'paɪtaɪkɔɪbɔɪ',
-                'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪtaɪkɔɪ', 'bach': 'bɒtʃ', 'narong': 'nærɒŋ', 'catormyng': 'cætɒrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
+                'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪpaɪtaɪkɔɪ', 'bach': 'bɒtʃ', 'narong': 'nærɒŋ', 'catormyng': 'cætɒrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
                 'antryp': 'æntraɪp', 'ovantryng': 'oʊvæntraɪŋ', 'antryng': 'æntraɪŋ', 'ovantrych': 'oʊvæntraɪtʃ', 'antrych': 'æntraɪtʃ', 'adyn': 'ædaɪn'
             };
 
@@ -490,3 +510,4 @@
     </script>
 </body>
 </html>
+
