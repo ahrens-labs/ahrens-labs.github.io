@@ -24,15 +24,34 @@ body {
 
 /* --- REFACTORED HEADER STYLES --- */
 header {
-    background-color: #2c3e50;
-    color: white;
+    background-color: #2c3e50; /* Default header color */
+    color: white; /* This sets all text inside the header to white by default */
     padding: 1.5em 1.2em;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
+    transition: background-image 0.3s ease; /* Add transition for a smooth effect */
 }
+
+/* NEW: Specific header styles for each lab page */
+.header-coding {
+    background-image: linear-gradient(to right, #0053bd, #0071ff);
+}
+.header-writing {
+    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+}
+.header-music {
+    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
+}
+.header-robotics {
+    background-image: linear-gradient(to right, #1d976c, #93f9b9);
+}
+.header-language {
+    background-image: linear-gradient(to right, #f46a50, #e61d8c);
+}
+
 
 .logo-link {
     position: absolute;
@@ -46,10 +65,11 @@ header {
     flex-grow: 1;
 }
 
-h1 {
+h1, .header-content h3 { /* CORRECTED: H1 and H3 text is now white */
     font-family: "Orbitron", sans-serif;
     font-size: 2rem;
     margin: 0 0 0.5rem 0;
+    color: white;
 }
 
 .header-logo {
@@ -218,27 +238,6 @@ main {
 }
 
 /* Individual button colors with gradients */
-.header-coding {
-    background-image: linear-gradient(to right, #0053bd, #0071ff);
-    color: white;
-}
-.header-writing {
-    background-image: linear-gradient(to right, #6a11cb, #2575fc);
-    color: white;
-}
-.header-music {
-    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
-    color: white;
-}
-.header-robotics {
-    background-image: linear-gradient(to right, #1d976c, #93f9b9);
-    color: white;
-}
-.header-language {
-    background-image: linear-gradient(to right, #f46a50, #e61d8c);
-    color: white;
-}
-
 .lab-button-coding {
     background-image: linear-gradient(to right, #0053bd, #0071ff);
 }
