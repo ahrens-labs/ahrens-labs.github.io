@@ -65,11 +65,19 @@ header {
     flex-grow: 1;
 }
 
-h1, .header-content h3 { /* CORRECTED: H1 and H3 text is now white */
+/* CORRECTED: H1 and H3 text rules are now separate and more specific */
+.header-content h1 {
     font-family: "Orbitron", sans-serif;
     font-size: 2rem;
     margin: 0 0 0.5rem 0;
-    color: white;
+    color: white; /* H1 color is now explicitly set to white */
+}
+
+.header-content h3 {
+    font-family: "Orbitron", sans-serif;
+    font-size: 1.8rem;
+    margin: 0;
+    color: white; /* H3 color is now explicitly set to white */
 }
 
 .header-logo {
@@ -269,7 +277,7 @@ main {
 .lab-section h3 {
     font-family: "Orbitron", sans-serif;
     font-size: 1.8rem;
-    color: #0053bd;
+    color: #0053bd; /* H3 inside the lab section is intentionally blue */
     margin-top: 0;
     margin-bottom: 1rem;
     text-align: left;
