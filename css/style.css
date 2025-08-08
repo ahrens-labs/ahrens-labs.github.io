@@ -172,6 +172,10 @@ main {
     cursor: pointer;
 }
 
+.coding-button {
+
+}
+
 .button-secondary {
     background-color: transparent;
     color: #0053bd;
