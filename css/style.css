@@ -218,6 +218,22 @@ main {
 }
 
 /* Individual button colors with gradients */
+.header-coding {
+    background-image: linear-gradient(to right, #0053bd, #0071ff);
+}
+.header-writing {
+    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+}
+.header-music {
+    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
+}
+.header-robotics {
+    background-image: linear-gradient(to right, #1d976c, #93f9b9);
+}
+.header-language {
+    background-image: linear-gradient(to right, #f46a50, #e61d8c);
+}
+
 .lab-button-coding {
     background-image: linear-gradient(to right, #0053bd, #0071ff);
 }
