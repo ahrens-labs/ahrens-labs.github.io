@@ -33,10 +33,9 @@
     <!-- The header from your site's template -->
     <header class="header">
         <a href="index.html" class="logo-link">
-            <!-- Placeholder for your logo. Replace with img/ahrens_labs_logo.png -->
-            <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-        </a>
-        <div class="header-content">
+                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
+            </a>
+	    <div class="header-content">
             <h1 class="text-white font-orbitron text-2xl md:text-4xl">Ahrens Labs</h1>
             <nav>
                 <ul>
@@ -422,38 +421,7 @@
                         const translation = prepositions[word];
                         translated_output.push(translation);
                         adjective = 'none';
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs - Labs & Projects</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts Links (Crucial for consistent styling) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <!-- End Google Fonts Links -->
-
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
-</head>
-<body class="p-6 md:p-12 min-h-screen flex items-center justify-center">
-    <div class="wrapper">
-        <header>
-            <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-            </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>                    } else if (word in verbs) {
+                    } else if (word in verbs) {
                         let verb_form;
                         if (typeof verbs[word] === 'object') {
                             if (last_pronoun === 'none') {
