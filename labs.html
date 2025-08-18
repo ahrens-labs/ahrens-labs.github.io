@@ -4,61 +4,142 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ahrens Labs - Labs & Projects</title>
-
-    <!-- Google Fonts Links (Crucial for consistent styling) -->
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Custom Tailwind configuration to make sure your custom fonts are available
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
+    <!-- Google Fonts Links -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <!-- End Google Fonts Links -->
+    
+    <!-- Custom CSS for subtle animations and consistent styling -->
+    <style>
+        /* Body and main background color for a dark, professional theme */
+        body {
+            background-color: #0a0f18;
+            font-family: 'Inter', sans-serif;
+            color: #e2e8f0;
+        }
+        
+        /* Animation for the main content to fade in smoothly on page load */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .animate-fadeInScale {
+            animation: fadeInScale 0.6s ease-out forwards;
+        }
 
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+        /* Hover effect for logo */
+        .header-logo {
+            transition: transform 0.3s ease-in-out, filter 0.3s ease-in-out;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+        }
+
+        .logo-link:hover .header-logo {
+            transform: scale(1.05);
+            filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.3));
+        }
+        
+        /* General smooth transition class for all interactive elements */
+        .smooth-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Card hover effect */
+        .card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+        }
+    </style>
 </head>
-<body>
-    <div class="wrapper">
-        <header>
-            <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-            </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html" class="active">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
+<body class="flex flex-col min-h-screen">
+    <!-- Header with smooth transition on links and a subtle shadow -->
+    <header class="bg-gray-900 bg-opacity-80 backdrop-blur-sm sticky top-0 z-50 py-4 px-6 md:px-12 flex items-center justify-between shadow-xl smooth-transition">
+        <a href="index.html" class="logo-link flex items-center smooth-transition">
+            <!-- Logo placeholder with a subtle drop shadow -->
+            <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo h-12 mr-4 rounded-md">
+            <h1 class="font-orbitron text-2xl md:text-4xl text-blue-400">Ahrens Labs</h1>
+        </a>
+        <nav>
+            <ul class="flex space-x-6 text-lg">
+                <li><a href="index.html" class="hover:text-blue-400 smooth-transition">Home</a></li>
+                <li><a href="labs.html" class="hover:text-blue-400 smooth-transition">Labs & Projects</a></li>
+                <li><a href="contact.html" class="hover:text-blue-400 smooth-transition">Contact</a></li>
+                <li><a href="chess_engine.html" class="hover:text-blue-400 smooth-transition">Chess Engine</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main content area for the Labs page -->
+    <main class="flex-grow p-6 md:p-12 w-full max-w-7xl mx-auto animate-fadeInScale">
+        <!-- Hero Section for Labs page -->
+        <section class="text-center py-8 md:py-16 smooth-transition">
+            <h2 class="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-4 smooth-transition">
+                Our <span class="text-blue-400">Labs</span>
+            </h2>
+            <p class="text-lg md:text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
+                Explore the different research and development areas at Ahrens Labs.
+            </p>
+        </section>
+
+        <!-- Labs Grid Section -->
+        <section class="py-12">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Card 1: Coding Lab -->
+                <a href="https://ahrens-labs.github.io/coding-lab" class="card block bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition">
+                    <h4 class="text-2xl font-semibold mb-2">Coding Lab</h4>
+                    <p class="text-gray-400 mb-4">A space for exploring new programming paradigms and software architecture.</p>
+                </a>
+                
+                <!-- Card 2: Writing Lab -->
+                <a href="https://ahrens-labs.github.io/writing-lab" class="card block bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition">
+                    <h4 class="text-2xl font-semibold mb-2">Writing Lab</h4>
+                    <p class="text-gray-400 mb-4">Dedicated to creative writing, technical documentation, and linguistic analysis.</p>
+                </a>
+
+                <!-- Card 3: Music Lab -->
+                <a href="https://ahrens-labs.github.io/music-lab" class="card block bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition">
+                    <h4 class="text-2xl font-semibold mb-2">Music Lab</h4>
+                    <p class="text-gray-400 mb-4">Investigating the intersection of music theory, composition, and technology.</p>
+                </a>
+                
+                <!-- Card 4: Robotics Lab -->
+                <a href="https://ahrens-labs.github.io/robotics-lab" class="card block bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition">
+                    <h4 class="text-2xl font-semibold mb-2">Robotics Lab</h4>
+                    <p class="text-gray-400 mb-4">Focusing on mechanical design, automation, and autonomous systems.</p>
+                </a>
+
+                <!-- Card 5: Language Lab -->
+                <a href="https://ahrens-labs.github.io/language-lab" class="card block bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition">
+                    <h4 class="text-2xl font-semibold mb-2">Language Lab</h4>
+                    <p class="text-gray-400 mb-4">Our hub for developing new languages, like Kyrachyng, and exploring translation algorithms.</p>
+                </a>
             </div>
-        </header>
+        </section>
+    </main>
 
-        <main>
-            <section class="labs-page">
-                <h2 class="labs-page-heading">Our Labs and Projects</h2>
-                <div class="labs-grid-container">
-                    <a href="https://ahrens-labs.github.io/coding-lab" class="lab-button lab-button-coding">
-                        <span class="lab-title">Coding Lab</span>
-                    </a>
-                    <a href="https://ahrens-labs.github.io/writing-lab" class="lab-button lab-button-writing">
-                        <span class="lab-title">Writing Lab</span>
-                    </a>
-                    <a href="https://ahrens-labs.github.io/music-lab" class="lab-button lab-button-music">
-                        <span class="lab-title">Music Lab</span>
-                    </a>
-                    <a href="https://ahrens-labs.github.io/robotics-lab" class="lab-button lab-button-robotics">
-                        <span class="lab-title">Robotics Lab</span>
-                    </a>
-                    <a href="https://ahrens-labs.github.io/language-lab" class="lab-button lab-button-language">
-                        <span class="lab-title">Language Lab</span>
-                    </a>
-                </div>
-            </section>
-        </main>
-        <div class="push"></div>
-    </div>
-
-    <footer>
+    <!-- The footer with text that looks good on the dark background -->
+    <footer class="text-center text-gray-500 text-sm py-4">
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>
 </body>
