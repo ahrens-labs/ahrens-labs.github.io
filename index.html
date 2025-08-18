@@ -3,48 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs</title> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>Ahrens Labs - Innovative Projects & Research</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Custom Tailwind configuration to make sure your custom fonts are available
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                },
+            },
+        };
+    </script>
+    <!-- Google Fonts Links (Crucial for consistent styling) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Custom CSS for subtle animations and consistent styling -->
+    <style>
+        /* Body and main background color for a dark, professional theme */
+        body {
+            background-color: #0a0f18;
+            font-family: 'Inter', sans-serif;
+            color: #e2e8f0;
+        }
+        
+        /* Animation for the main content to fade in smoothly on page load */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .animate-fadeInScale {
+            animation: fadeInScale 0.6s ease-out forwards;
+        }
+
+        /* Hover effect for logo */
+        .header-logo {
+            transition: transform 0.3s ease-in-out, filter 0.3s ease-in-out;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+        }
+
+        .logo-link:hover .header-logo {
+            transform: scale(1.05);
+            filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.3));
+        }
+        
+        /* General smooth transition class for all interactive elements */
+        .smooth-transition {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Card hover effect */
+        .card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+        }
+    </style>
 </head>
-<body>
-    <div class="wrapper">
-	<header>
-            <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
+<body class="flex flex-col min-h-screen">
+    <!-- Header with smooth transition on links and a subtle shadow -->
+    <header class="bg-gray-900 bg-opacity-80 backdrop-blur-sm sticky top-0 z-50 py-4 px-6 md:px-12 flex items-center justify-between shadow-xl smooth-transition">
+        <a href="index.html" class="logo-link flex items-center smooth-transition">
+            <!-- Logo placeholder with a subtle drop shadow -->
+            <img src="https://placehold.co/150x50/1f2937/d1d5db?text=Logo" alt="Ahrens Labs logo" class="header-logo h-12 mr-4 rounded-md">
+            <h1 class="font-orbitron text-2xl md:text-4xl text-blue-400">Ahrens Labs</h1>
+        </a>
+        <nav>
+            <ul class="flex space-x-6 text-lg">
+                <li><a href="index.html" class="hover:text-blue-400 smooth-transition">Home</a></li>
+                <li><a href="labs.html" class="hover:text-blue-400 smooth-transition">Labs & Projects</a></li>
+                <li><a href="contact.html" class="hover:text-blue-400 smooth-transition">Contact</a></li>
+                <li><a href="chess_engine.html" class="hover:text-blue-400 smooth-transition">Chess Engine</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main content area for the landing page -->
+    <main class="flex-grow p-6 md:p-12 w-full max-w-7xl mx-auto animate-fadeInScale">
+        <!-- Hero Section -->
+        <section class="text-center py-16 md:py-24 smooth-transition">
+            <h2 class="text-5xl md:text-6xl font-extrabold text-white leading-tight mb-4 smooth-transition">
+                Pioneering the Future of <span class="text-blue-400">Innovation</span>
+            </h2>
+            <p class="text-lg md:text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
+                Ahrens Labs is dedicated to creating cutting-edge solutions through advanced research and development. Explore our projects, from AI to language and beyond.
+            </p>
+            <a href="labs.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-xl smooth-transition transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                Explore Our Labs
             </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
+        </section>
+
+        <!-- Featured Projects Section -->
+        <section class="py-12">
+            <h3 class="text-4xl font-bold text-center text-blue-400 mb-10">Featured Projects</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Card 1: Kyrachyng Language Translator -->
+                <div class="card bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition cursor-pointer">
+                    <h4 class="text-2xl font-semibold mb-2">Kyrachyng Translator</h4>
+                    <p class="text-gray-400 mb-4">A bespoke language translator for the fictional Kyrachyng language, designed to explore unique linguistic rules.</p>
+                    <a href="kyrachyng.html" class="text-blue-400 hover:text-blue-300 font-medium smooth-transition flex items-center">
+                        View Project
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </a>
+                </div>
+                
+                <!-- Card 2: Chess Engine -->
+                <div class="card bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition cursor-pointer">
+                    <h4 class="text-2xl font-semibold mb-2">Advanced Chess Engine</h4>
+                    <p class="text-gray-400 mb-4">An ongoing project to develop a powerful and customizable chess engine with real-time analytics.</p>
+                    <a href="chess_engine.html" class="text-blue-400 hover:text-blue-300 font-medium smooth-transition flex items-center">
+                        View Project
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </a>
+                </div>
+
+                <!-- Card 3: Quantum Computing Simulations -->
+                <div class="card bg-gray-800 p-6 rounded-2xl shadow-lg smooth-transition cursor-pointer">
+                    <h4 class="text-2xl font-semibold mb-2">Quantum Simulation Lab</h4>
+                    <p class="text-gray-400 mb-4">A project exploring the potential of quantum computing through interactive web-based simulations.</p>
+                    <a href="labs.html" class="text-blue-400 hover:text-blue-300 font-medium smooth-transition flex items-center">
+                        View Lab
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </a>
+                </div>
             </div>
-        </header>
-        <main>
-            <section class="hero">
-                <h2>Welcome to Ahrens Labs</h2>
-                <p>Where We Create!</p> <a href="labs.html" class="button">Explore Our Labs</a>
-            </section>
+        </section>
+    </main>
 
-            <section class="about">
-                <h3>About Us</h3>
-                <p>We are a family that loves to create and share our creations. Here at Ahrens Labs you can see many of the projects we have made and are excited about. You can view our coding, writing, music, robotics, language projects and more here at Ahrens Labs, where we create!</p>
-            </section>
-        </main>
-
-        <div class="push"></div>
-    </div>
-
-    <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    <!-- The footer with text that looks good on the dark background -->
+    <footer class="text-center text-gray-500 text-sm py-4">
+        <p>&copy; 2024 Ahrens Labs. All rights reserved.</p>
     </footer>
-
-    <script src="js/script.js"></script>
 </body>
 </html>
+
