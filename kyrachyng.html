@@ -26,54 +26,73 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
     <!-- End Google Fonts Links -->
 
-    <!-- Note: I am assuming the following file exists on your server. -->
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Inline styles for a smoother look -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* A darker, more modern background */
+            color: #e2e8f0;
+            transition: background-color 0.5s ease-in-out;
+        }
+        .header {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease-in-out;
+        }
+        .logo-link:hover .header-logo {
+            transform: scale(1.05) rotate(-3deg);
+            transition: transform 0.3s ease-in-out;
+        }
+        .smooth-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        .shadow-lg-hover:hover {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
-<body class="bg-gray-100 font-inter text-gray-800 flex flex-col min-h-screen">
-    <!-- The header has been adjusted to ensure it is not "squished."
-         It now uses the header class from your external CSS, with Tailwind classes for layout,
-         which should prevent styling conflicts. -->
-	 <div class="wrapper">
-	 <header>
-            <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-            </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
+<body class="bg-gray-950 font-inter text-gray-100 flex flex-col min-h-screen">
+    <!-- Updated Header with a slightly different color and better shadow -->
+    <header class="header bg-gray-900 text-white py-4 px-6 md:px-12 flex items-center justify-between shadow-lg">
+        <a href="index.html" class="logo-link flex items-center smooth-transition">
+            <!-- Placeholder for your logo with a hover effect -->
+            <img src="https://placehold.co/150x50/1f2937/d1d5db?text=Logo" alt="Ahrens Labs logo" class="header-logo h-12 mr-4 smooth-transition">
+            <h1 class="font-orbitron text-2xl md:text-4xl text-blue-400">Ahrens Labs</h1>
+        </a>
+        <nav>
+            <ul class="flex space-x-6 text-lg">
+                <li><a href="index.html" class="hover:text-blue-400 transition-colors">Home</a></li>
+                <li><a href="labs.html" class="hover:text-blue-400 transition-colors">Labs & Projects</a></li>
+                <li><a href="contact.html" class="hover:text-blue-400 transition-colors">Contact</a></li>
+                <li><a href="chess_engine.html" class="hover:text-blue-400 transition-colors">Chess Engine</a></li>
+            </ul>
+        </nav>
+    </header>
+
     <!-- Main content area now contains the translator UI -->
     <main class="flex-grow p-6 md:p-12 max-w-7xl mx-auto w-full flex items-center justify-center">
-        <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-2xl text-gray-100">
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-2xl text-gray-100 smooth-transition">
             <h2 class="text-4xl font-bold text-center text-blue-400 mb-6">Kyrachyng Language Translator</h2>
             <p class="text-center text-gray-400 mb-8">Type a sentence to translate or try the quiz!</p>
 
             <!-- Main Translation Interface -->
             <div id="translator-ui">
                 <textarea id="input-text"
-                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          class="w-full h-24 p-4 rounded-xl border-2 border-gray-700 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-blue-500 transition-all"
                           placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
 
                 <div class="flex justify-center space-x-4 mt-6">
                     <button id="translate-button"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full smooth-transition transform hover:scale-105 shadow-lg-hover focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
                         Translate
                     </button>
                     <button id="quiz-button"
-                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full smooth-transition transform hover:scale-105 shadow-lg-hover focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
                         Start Quiz
                     </button>
                 </div>
 
-                <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl transition-all duration-300">
+                <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl smooth-transition shadow-inner">
                     <h3 class="text-xl font-semibold mb-2 text-gray-200">Translated Text:</h3>
                     <p id="translated-output" class="text-blue-300 text-xl font-mono mb-4"></p>
                     <h3 class="text-xl font-semibold mb-2 text-gray-200">IPA Pronunciation:</h3>
@@ -85,20 +104,20 @@
             <div id="quiz-ui" class="hidden">
                 <div id="quiz-prompt" class="text-center text-2xl font-semibold mb-4 text-gray-200"></div>
                 <textarea id="quiz-answer"
-                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                          class="w-full h-24 p-4 rounded-xl border-2 border-gray-700 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-500 transition-all"
                           placeholder="Type your translation here..."></textarea>
                 <div id="quiz-feedback" class="mt-4 text-center text-lg font-bold"></div>
                 <div class="flex justify-center space-x-4 mt-6">
                     <button id="check-answer-button"
-                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
+                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full smooth-transition transform hover:scale-105 shadow-lg-hover focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
                         Check Answer
                     </button>
                     <button id="next-question-button"
-                            class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                            class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full smooth-transition transform hover:scale-105 shadow-lg-hover focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
                         Next Question
                     </button>
                     <button id="back-to-translator-button"
-                            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
+                            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full smooth-transition transform hover:scale-105 shadow-lg-hover focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
                         Back to Translator
                     </button>
                 </div>
@@ -106,16 +125,14 @@
 
         </div>
     </main>
-    <div class="push"></div>
-    </div>
+
     <!-- The footer from your site's template -->
     <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+        <p>&copy; 2024 Ahrens Labs. All rights reserved.</p>
     </footer>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // These data structures were a direct copy from your original python logic.
-            // I've kept them exactly the same to ensure the logic remains consistent.
             const multiword_phrases = [
                 [['you', 'guys'], 'you guys'],
                 [['we', 'all'], 'we all'],
@@ -313,7 +330,6 @@
             const quizFeedback = document.getElementById('quiz-feedback');
             const backToTranslatorButton = document.getElementById('back-to-translator-button');
 
-            // Function to handle translation logic
             const performTranslation = () => {
                 const sentence = inputField.value;
                 if (sentence) {
@@ -329,12 +345,10 @@
                 }
             };
 
-            // Event listener for the translate button
             translateButton.addEventListener('click', performTranslation);
 
-            // Event listener for the Enter key in the input field
             inputField.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { // Prevents new line on Enter, allows Shift+Enter
+                if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     performTranslation();
                 }
@@ -385,11 +399,10 @@
                     case 'g': return 'ng';
                     case 'n': return 'ne';
                     case 'p': return 'pe';
-                    default: return 'ch'; // Default to 'ch' if none of the above
+                    default: return 'ch';
                 }
             }
 
-            // Fixed the main translation function
             function translateSentence(sentence) {
                 let last_pronoun = 'none';
                 let plurality = 'none';
@@ -400,51 +413,40 @@
                 let translated_output = [];
                 let words = sentence.toLowerCase().split(/\s+/);
 
-                // This part of the code was causing a logic error. It would modify the array
-                // while iterating over it, causing some words to be missed or processed incorrectly.
-                // It has been fixed to safely handle multi-word phrases first.
                 for (let i = 0; i < words.length; i++) {
                     for (const [phrase_words, replacement] of multiword_phrases) {
                         const length = phrase_words.length;
                         if (words.slice(i, i + length).join(' ') === phrase_words.join(' ')) {
                             words.splice(i, length, replacement);
-                            i--; // Re-check the current index after replacement
+                            i--;
                             break;
                         }
                     }
                 }
 
                 for (const word of words) {
-                    // Logic for pronouns
                     if (word in pronouns) {
                         const translation = pronouns[word];
                         translated_output.push(translation);
                         last_pronoun = word;
                         last_pro = word;
                         adjective = 'none';
-                    }
-                    // Logic for neutral verbs, determiners, prepositions
-                    else if (word in neutral_verbs) {
+                    } else if (word in neutral_verbs) {
                         const translation = neutral_verbs[word];
                         translated_output.push(translation);
                         adjective = 'none';
-                    }
-                    else if (word in determiners) {
+                    } else if (word in determiners) {
                         const translation = determiners[word];
                         translated_output.push(translation);
                         adjective = 'none';
-                    }
-                    else if (word in prepositions) {
+                    } else if (word in prepositions) {
                         const translation = prepositions[word];
                         translated_output.push(translation);
                         adjective = 'none';
-                    }
-                    // Logic for verbs
-                    else if (word in verbs) {
+                    } else if (word in verbs) {
                         let verb_form;
                         if (typeof verbs[word] === 'object') {
                             if (last_pronoun === 'none') {
-                                // Default to 'he' for single, 'they' for plural if no pronoun is found
                                 if (plurality === 'single') {
                                     last_pronoun = 'he';
                                 } else if (plurality === 'plural') {
@@ -457,14 +459,11 @@
                         }
                         translated_output.push(verb_form);
                         adjective = 'none';
-                    }
-                    // Logic for adjectives
-                    else if (word in adjectives) {
+                    } else if (word in adjectives) {
                         let translation;
                         if (previous_word in verbs || previous_word in neutral_verbs) {
-                            const ending = pros[last_pro];
-                            const last = getWordEnding(ending);
-                            translation = adjectives[word] + last;
+                            const ending = pros[last_pro] ? getWordEnding(pros[last_pro]) : 'ch';
+                            translation = adjectives[word] + ending;
                             translated_output.push(translation);
                         } else if (words.indexOf(word) === words.length - 1) {
                             translation = adjectives[word] + 'ch';
@@ -472,9 +471,7 @@
                         } else {
                             adjective = word;
                         }
-                    }
-                    // Logic for singular nouns
-                    else if (word in nouns_singular) {
+                    } else if (word in nouns_singular) {
                         const translation = nouns_singular[word];
                         if (article !== 'none') {
                             const ending = getWordEnding(translation);
@@ -491,9 +488,7 @@
                         adjective = 'none';
                         article = 'none';
                         last_pro = word;
-                    }
-                    // Logic for plural nouns
-                    else if (word in nouns_plural) {
+                    } else if (word in nouns_plural) {
                         const translation = nouns_plural[word];
                         if (article !== 'none') {
                             const ending = getWordEnding(translation);
@@ -510,13 +505,9 @@
                         adjective = 'none';
                         article = 'none';
                         last_pro = word;
-                    }
-                    // Logic for articles
-                    else if (articles.has(word)) {
+                    } else if (articles.has(word)) {
                         article = word;
-                    }
-                    // Fallback for unknown words
-                    else {
+                    } else {
                         translated_output.push(`[${word}]`);
                     }
 
