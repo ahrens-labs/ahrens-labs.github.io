@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>LOTR personality quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f2f7; /* Light blue background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .quiz-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 700px;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+
+        #question-display {
+            font-size: 1.3em;
+            margin-bottom: 30px;
+            color: #34495e;
+            min-height: 60px; /* Ensure space for longer questions */
+        }
+
+        .options-container {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .option-button {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .option-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .option-button:active {
+            transform: translateY(0);
+        }
+
+        .option-button.selected {
+            background-color: #27ae60; /* Green for selected */
+        }
+
+        #navigation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        #navigation-buttons button {
+            padding: 12px 25px;
+            font-size: 1.1em;
+            background-color: #f39c12; /* Orange for navigation */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #navigation-buttons button:hover {
+            background-color: #e67e22;
+        }
+
+        #results-display {
+            margin-top: 40px;
+            text-align: left;
+            border-top: 2px solid #ecf0f1;
+            padding-top: 20px;
+            animation: slideIn 0.8s ease-out;
+            display: none; /* Hidden by default */
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #results-display h3 {
+            color: #2c3e50;
+            font-size: 1.6em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .character-result {
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            color: #34495e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px dotted #ccc;
+        }
+
+        .character-result:last-child {
+            border-bottom: none;
+        }
+
+        .character-result span:first-child {
+            font-weight: bold;
+        }
+
+        .character-result span:last-child {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        #restart-button {
+            background-color: #e74c3c;
+            margin-top: 30px;
+        }
+
+        #restart-button:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h2>Who Are You? A Personality Quiz</h2>
+        <div id="quiz-area">
+            <h3 id="question-display"></h3>
+            <div id="options-container" class="options-container">
+                </div>
+            <div id="navigation-buttons">
+                <button id="prev-button" style="display: none;">Previous</button>
+                <button id="next-button">Next</button>
+            </div>
+        </div>
+
+        <div id="results-display" style="display: none;">
+            <h3>Your Character Match!</h3>
+            <div id="character-percentages">
+                </div>
+            <button id="restart-button">Restart Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        // Quiz Questions Data
+        const quizQuestions = [
+            {
+                question: 'Which weapon would you use?',
+                options: {
+                    a: 'sword', b: 'short sword/dagger', c: 'bow', d: 'axe/club/mace', e: 'staff/spear'
+                }
+            },
+            {
+                question: "What's your favorite landscape?",
+                options: {
+                    a: 'field and hills', b: 'woods', c: 'mountains/caves', d: 'city', e: 'the ocean'
+                }
+            },
+            {
+                question: "What would you do with the one ring (realistically)?",
+                options: {
+                    a: 'ignore it/avoid', b: 'hide it', c: 'use it', d: 'destroy it'
+                }
+            },
+            {
+                question: "Which power would you want?",
+                options: {
+                    a: 'invisibility', b: 'super strength', c: 'super speed', d: 'force fields'
+                }
+            },
+            {
+                question: "What do people describe you as?",
+                options: {
+                    a: 'loyal', b: 'determined/brave', c: 'kind/caring', d: 'strong', e: 'wise/smart', f: 'fun'
+                }
+            },
+            {
+                question: "What role would you play in a book/movie?",
+                options: {
+                    a: 'the hero', b: 'the sidekick', c: 'the mentor', d: 'the villain', e: 'the most popular character', f: 'an extra'
+                }
+            },
+            {
+                question: "If someone invited you on an adventure, how would you react?",
+                options: {
+                    a: 'sounds fun', b: 'staying home sounds easier', c: 'the world needs me to go', d: 'yes, a chance for valor'
+                }
+            },
+            {
+                question: "If you weren't allowed to go on an adventure how would you feel?",
+                options: {
+                    a: 'angry', b: 'relieved', c: 'disappointed', d: 'annoyed', e: 'indifferent'
+                }
+            },
+            {
+                question: "If you saw an orc what would you do (realistically)?",
+                options: {
+                    a: 'run away as fast as you can', b: 'find somewhere to hide', c: 'fight it', d: 'follow it', e: 'continue on as if it weren\'t there'
+                }
+            },
+            {
+                question: "What do you value in your friends?",
+                options: {
+                    a: 'loyalty', b: 'silliness', c: 'courage', d: 'humility', e: 'strength', f: 'wisdom'
+                }
+            },
+            {
+                question: "What do you like to do in your free time?",
+                options: {
+                    a: 'read/learn about things', b: 'be outside', c: 'be with family/friends', d: 'make things', e: 'practice/study'
+                }
+            },
+            {
+                question: "What's your favorite time of day?",
+                options: {
+                    a: 'morning', b: 'afternoon', c: 'evening', d: 'night', e: 'mealtime'
+                }
+            },
+            {
+                question: "What kind of house would you want?",
+                options: {
+                    a: 'a strong one', b: 'a beautiful one', c: 'a comfortable one', d: 'a big one'
+                }
+            },
+            {
+                question: "Which is your favorite animal group?",
+                options: {
+                    a: 'mammal', b: 'reptile', c: 'bird', d: 'fish', e: 'bug'
+                }
+            },
+            {
+                question: "If you were a ruler, what would you want be like?",
+                options: {
+                    a: 'the mighty ruler of a powerful kingdom', b: 'the wise ruler of a beautiful kingdom', c: 'the courageous ruler of a valiant kingdom', d: 'the humble ruler of a cozy kingdom', e: 'the rich ruler of a wealthy kingdom'
+                }
+            },
+            {
+                question: "If you had a palantir, what would you use it for?",
+                options: {
+                    a: 'to make sure your friends/family are safe', b: 'to spy on the enemy', c: 'to learn things you\'re curious about', d: 'to locate a specific object/person'
+                }
+            },
+            {
+                question: "If you had an expensive piece of armor, what would you do with it?",
+                options: {
+                    a: 'sell it', b: 'wear it', c: 'give it to someone else', d: 'lock it up/hide it', e: 'put it in a museum'
+                }
+            },
+            {
+                question: "What kind of plants are your favorite?",
+                options: {
+                    a: 'trees', b: 'flowers', c: 'crops/edible plants', d: 'bushes/hedges', e: 'grass'
+                }
+            },
+            {
+                question: "What kind of armor would you wear?",
+                options: {
+                    a: 'light armor that\'s easy to move around in', b: 'strong, well made, heavy armor that blocks things well', c: 'armor set with gold or jewels that look nice', d: 'light versatile chain mail', e: 'no armor'
+                }
+            },
+            {
+                question: "Which of these are you most likely to bring hiking?",
+                options: {
+                    a: 'snacks', b: 'a walking stick', c: 'binoculars', d: 'rope', e: 'a hat', f: 'a compass'
+                }
+            },
+            {
+                question: "Which of these places would you most want to go on vacation to?",
+                options: {
+                    a: 'Fangorn Forest', b: 'Helm\'s Deep', c: 'Mount Doom', d: 'Rivendell', e: 'The Shire', f: 'Minas Tirith'
+                }
+            },
+            {
+                question: "What is your Hogwarts house?",
+                options: {
+                    a: 'Gryffindor', b: 'Hufflepuff', c: 'Ravenclaw', d: 'Slytherin'
+                }
+            },
+            {
+                question: "Which is your favorite season?",
+                options: {
+                    a: 'spring', b: 'summer', c: 'fall', d: 'winter'
+                }
+            },
+            {
+                question: "Which kind of shoes do you like to wear?",
+                options: {
+                    a: 'no shoes', b: 'nice-looking shoes', c: 'shoes that you can run in'
+                }
+            },
+            {
+                question: "What would you do if orcs captured your best friend?",
+                options: {
+                    a: 'run away', b: 'ask someone for help saving them', c: 'charge the orcs to kill them', d: 'follow the orcs stealthily and look for a way to free your friend', e: 'ask the orcs to give your friend back'
+                }
+            },
+            {
+                question: "How would you want to celebrate your birthday?",
+                options: {
+                    a: 'throw a huge party and invite all your friends', b: 'get lots of presents', c: 'go somewhere exciting', d: 'do something small with a few friends', e: 'hang out at home with your family'
+                }
+            }
+        ];
+
+        // Character Answer Codes (from Python script)
+        const characterCodes = {
+            'frodo': ['b', 'e', 'd', 'a', 'b', 'a', 'c', 'e', 'b', 'a', 'a', 'e', 'c', 'd', 'd', 'a', 'b', 'a', 'e', 'b', 'd', 'a', 'c', 'a', 'b', 'd'],
+            'sam': ['b', 'a', 'd', 'd', 'a', 'b', 'c', 'b', 'b', 'd', 'd', 'e', 'c', 'a', 'd', 'a', 'b', 'b', 'a', 'd', 'd', 'b', 'a', 'a', 'c', 'e'],
+            'merry': ['b', 'c', 'd', 'b', 'f', 'b', 'a', 'd', 'd', 'b', 'c', 'e', 'a', 'c', 'c', 'b', 'b', 'c', 'd', 'a', 'b', 'a', 'c', 'a', 'c', 'c'],
+            'pippin': ['b', 'd', 'd', 'c', 'f', 'b', 'a', 'c', 'd', 'b', 'c', 'e', 'd', 'e', 'c', 'c', 'b', 'c', 'd', 'a', 'f', 'a', 'b', 'a', 'c', 'a'],
+            'gandalf': ['e', 'c', 'd', 'c', 'e', 'c', 'c', 'a', 'e', 'c', 'a', 'a', 'c', 'c', 'b', 'd', 'c', 'a', 'e', 'b', 'e', 'a', 'd', 'c', 'c', 'e'],
+            'aragorn': ['a', 'b', 'd', 'd', 'c', 'a', 'c', 'e', 'e', 'a', 'b', 'c', 'c', 'a', 'b', 'a', 'c', 'a', 'd', 'c', 'f', 'a', 'a', 'c', 'd', 'd'],
+            'legolas': ['c', 'b', 'd', 'c', 'd', 'e', 'd', 'e', 'c', 'c', 'b', 'b', 'b', 'c', 'b', 'b', 'e', 'a', 'a', 'c', 'a', 'd', 'b', 'b', 'c', 'c'],
+            'gimli': ['d', 'c', 'd', 'b', 'd', 'e', 'd', 'd', 'c', 'c', 'c', 'b', 'a', 'b', 'e', 'b', 'd', 'd', 'b', 'e', 'b', 'a', 'b', 'c', 'c', 'b'],
+            'boromir': ['a', 'd', 'c', 'b', 'd', 'a', 'd', 'd', 'c', 'e', 'e', 'a', 'a', 'a', 'a', 'b', 'b', 'e', 'b', 'd', 'f', 'a', 'b', 'c', 'c', 'a'],
+            'faramir': ['c', 'd', 'd', 'd', 'c', 'f', 'c', 'e', 'e', 'f', 'b', 'c', 'b', 'c', 'b', 'a', 'e', 'a', 'd', 'f', 'e', 'c', 'a', 'c', 'd', 'd'],
+            'denethor': ['a', 'd', 'c', 'b', 'e', 'c', 'b', 'e', 'c', 'e', 'e', 'c', 'd', 'b', 'a', 'b', 'd', 'd', 'c', 'b', 'f', 'd', 'd', 'b', 'e', 'e'],
+            'theoden': ['a', 'a', 'c', 'c', 'd', 'c', 'd', 'e', 'c', 'e', 'b', 'a', 'a', 'a', 'c', 'b', 'b', 'e', 'c', 'c', 'b', 'a', 'b', 'c', 'd', 'e'],
+            'eomer': ['a', 'a', 'a', 'c', 'd', 'b', 'd', 'e', 'c', 'c', 'c', 'a', 'a', 'a', 'c', 'c', 'e', 'e', 'b', 'f', 'b', 'a', 'b', 'c', 'c', 'd'],
+            'eowyn': ['a', 'a', 'a', 'b', 'b', 'a', 'd', 'c', 'c', 'e', 'e', 'a', 'a', 'a', 'c', 'a', 'b', 'b', 'd', 'e', 'b', 'a', 'a', 'c', 'c', 'c'],
+            'galadriel': ['e', 'b', 'b', 'd', 'c', 'c', 'c', 'e', 'e', 'f', 'a', 'b', 'b', 'd', 'b', 'b', 'c', 'a', 'e', 'd', 'd', 'c', 'b', 'b', 'e', 'a'],
+            'saruman': ['e', 'd', 'c', 'b', 'd', 'd', 'b', 'a', 'e', 'a', 'a', 'd', 'a', 'c', 'a', 'd', 'd', 'd', 'e', 'b', 'c', 'd', 'd', 'b', 'e', 'b'],
+            'treebeard': ['c', 'b', 'a', 'a', 'e', 'f', 'b', 'e', 'c', 'f', 'b', 'b', 'c', 'e', 'd', 'c', 'c', 'a', 'e', 'b', 'e', 'c', 'a', 'a', 'c', 'e'],
+            'wormtongue': ['b', 'a', 'c', 'a', 'e', 'd', 'b', 'b', 'a', 'e', 'b', 'd', 'd', 'e', 'e', 'd', 'a', 'd', 'a', 'f', 'c', 'd', 'c', 'c', 'a', 'b'],
+            'sauron': ['d', 'ca', 'c', 'b', 'd', 'd', 'a', 'a', 'e', 'e', 'd', 'd', 'a', 'b', 'a', 'd', 'd', 'd', 'b', 'f', 'c', 'd', 'd', 'b', 'e', 'b'],
+            'bilbo': ['b', 'c', 'c', 'a', 'f', 'e', 'a', 'b', 'b', 'b', 'c', 'e', 'c', 'a', 'e', 'c', 'b', 'c', 'd', 'b', 'd', 'b', 'c', 'a', 'd', 'a'],
+            'gollum': ['b', 'c', 'c', 'a', 'b', 'f', 'b', 'd', 'b', 'e', 'a', 'd', 'a', 'd', 'e', 'd', 'a', 'a', 'e', 'a', 'a', 'd', 'd', 'a', 'a', 'b'],
+            'elrond': ['e', 'e', 'b', 'd', 'e', 'c', 'c', 'e', 'e', 'f', 'e', 'a', 'b', 'c', 'b', 'b', 'e', 'b', 'c', 'f', 'd', 'c', 'd', 'b', 'd', 'e'],
+            'shelob': ['c', 'c', 'b', 'a', 'd', 'd', 'b', 'a', 'c', 'e', 'd', 'e', 'c', 'e', 'e', 'd', 'd', 'd', 'a', 'a', 'c', 'd', 'd', 'a', 'c', 'b'],
+            'arwen': ['a', 'c', 'd', 'd', 'c', 'f', 'c', 'e', 'b', 'd', 'c', 'c', 'b', 'c', 'd', 'a', 'c', 'a', 'c', 'd', 'f', 'b', 'a', 'b', 'b', 'd'],
+            'tom bombadil': ['e', 'b', 'a', 'a', 'f', 'f', 'b', 'e', 'e', 'f', 'b', 'a', 'c', 'd', 'd', 'c', 'c', 'c', 'e', 'b', 'e', 'c', 'b', 'b', 'd', 'e'],
+            'butterbur': ['b', 'a', 'a', 'b', 'f', 'f', 'b', 'b', 'a', 'f', 'c', 'e', 'c', 'a', 'e', 'd', 'a', 'c', 'c', 'a', 'e', 'b', 'c', 'c', 'a', 'a']
+        };
+
+        // Quiz state variables
+        let currentQuestionIndex = 0;
+        let userAnswers = []; // Stores user's selected option letter for each question
+
+        // DOM Elements
+        const quizArea = document.getElementById('quiz-area');
+        const resultsDisplay = document.getElementById('results-display');
+        const questionDisplay = document.getElementById('question-display');
+        const optionsContainer = document.getElementById('options-container');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const characterPercentagesDiv = document.getElementById('character-percentages');
+        const restartButton = document.getElementById('restart-button');
+
+        // Event Listeners
+        nextButton.addEventListener('click', () => {
+            const selectedOption = document.querySelector('.option-button.selected');
+            if (selectedOption) {
+                userAnswers[currentQuestionIndex] = selectedOption.dataset.option;
+                currentQuestionIndex++;
+                if (currentQuestionIndex < quizQuestions.length) {
+                    displayQuestion();
+                } else {
+                    gradeAnswers();
+                }
+            } else {
+                alert('Please select an answer before proceeding!');
+            }
+        });
+
+        prevButton.addEventListener('click', () => {
+            currentQuestionIndex--;
+            displayQuestion();
+        });
+
+        restartButton.addEventListener('click', () => {
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            quizArea.style.display = 'block';
+            resultsDisplay.style.display = 'none';
+            displayQuestion();
+        });
+
+        // Functions
+        function displayQuestion() {
+            const questionData = quizQuestions[currentQuestionIndex];
+            questionDisplay.textContent = `${currentQuestionIndex + 1}. ${questionData.question}`;
+            optionsContainer.innerHTML = ''; // Clear previous options
+
+            for (const [letter, text] of Object.entries(questionData.options)) {
+                const button = document.createElement('button');
+                button.classList.add('option-button');
+                button.dataset.option = letter; // Store the option letter
+                button.textContent = `${letter}) ${text}`;
+                button.addEventListener('click', selectOption);
+
+                // If user has already answered this question, pre-select their answer
+                if (userAnswers[currentQuestionIndex] === letter) {
+                    button.classList.add('selected');
+                }
+                optionsContainer.appendChild(button);
+            }
+
+            // Update navigation button visibility
+            prevButton.style.display = currentQuestionIndex > 0 ? 'inline-block' : 'none';
+            nextButton.textContent = currentQuestionIndex === quizQuestions.length - 1 ? 'Finish Quiz' : 'Next';
+        }
+
+        function selectOption(event) {
+            // Remove 'selected' class from all other buttons
+            optionsContainer.querySelectorAll('.option-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            // Add 'selected' class to the clicked button
+            event.target.classList.add('selected');
+        }
+
+        function gradeAnswers() {
+            const characterScores = {}; // To store raw scores for each character
+
+            for (const character in characterCodes) {
+                let correctMatches = 0;
+                const code = characterCodes[character];
+                for (let i = 0; i < quizQuestions.length; i++) {
+                    if (userAnswers[i] && userAnswers[i] === code[i]) {
+                        correctMatches++;
+                    }
+                }
+                // Store raw score, then calculate percentage later for display
+                characterScores[character] = (100 / quizQuestions.length) * correctMatches;
+            }
+
+            displayResults(characterScores);
+        }
+
+        function displayResults(characterScores) {
+            quizArea.style.display = 'none';
+            resultsDisplay.style.display = 'block';
+            characterPercentagesDiv.innerHTML = ''; // Clear previous results
+
+            // Convert object to array for sorting
+            const sortedResults = Object.entries(characterScores).sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+
+            for (const [character, percentage] of sortedResults) {
+                const resultDiv = document.createElement('div');
+                resultDiv.classList.add('character-result');
+                resultDiv.innerHTML = `<span>${character.charAt(0).toUpperCase() + character.slice(1)}:</span> <span>${percentage.toFixed(2)}%</span>`;
+                characterPercentagesDiv.appendChild(resultDiv);
+            }
+        }
+
+        // Initialize the quiz
+        displayQuestion();
+    </script>
+</body>
+</html>
