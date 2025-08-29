@@ -1,9 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs - LOTR Quiz</title> 
+    <title>Ahrens Labs - LOTR Quiz</title>
+    <!-- Google Fonts Links (Crucial for consistent styling) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
@@ -27,303 +28,121 @@
                 </nav>
             </div>
         </header>
-        <main>    
-    <div class="quiz-container">
-        <h2>Who Are You? A Personality Quiz</h2>
-        <div id="quiz-area">
-            <h3 id="question-display"></h3>
-            <div id="options-container" class="options-container">
-                </div>
-            <div id="navigation-buttons">
-                <button id="prev-button" style="display: none;">Previous</button>
-                <button id="next-button">Next</button>
-            </div>
-        </div>
 
-        <div id="results-display" style="display: none;">
-            <h3>Your Character Match!</h3>
-            <div id="character-percentages">
+        <main>
+            <section class="quiz-container">
+                <h2 class="quiz-title">The Lord of the Rings Quiz</h2>
+                
+                <div id="quiz-area">
+                    <div id="question-display"></div>
+                    <div id="options-container" class="options-container"></div>
+                    <button id="next-btn" class="quiz-button">Next Question</button>
+                    <div id="status-message"></div>
                 </div>
-            <button id="restart-button">Restart Quiz</button>
-        </div>
+
+                <div id="results-display" style="display: none;">
+                    <h3>Your Character Match:</h3>
+                    <div id="character-percentages"></div>
+                </div>
+            </section>
+        </main>
+        
+        <div class="push"></div>
     </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+
+    <script src="js/script.js"></script>
     <script>
-        // Quiz Questions Data
         const quizQuestions = [
-            {
-                question: 'Which weapon would you use?',
-                options: {
-                    a: 'sword', b: 'short sword/dagger', c: 'bow', d: 'axe/club/mace', e: 'staff/spear'
-                }
-            },
-            {
-                question: "What's your favorite landscape?",
-                options: {
-                    a: 'field and hills', b: 'woods', c: 'mountains/caves', d: 'city', e: 'the ocean'
-                }
-            },
-            {
-                question: "What would you do with the one ring (realistically)?",
-                options: {
-                    a: 'ignore it/avoid', b: 'hide it', c: 'use it', d: 'destroy it'
-                }
-            },
-            {
-                question: "Which power would you want?",
-                options: {
-                    a: 'invisibility', b: 'super strength', c: 'super speed', d: 'force fields'
-                }
-            },
-            {
-                question: "What do people describe you as?",
-                options: {
-                    a: 'loyal', b: 'determined/brave', c: 'kind/caring', d: 'strong', e: 'wise/smart', f: 'fun'
-                }
-            },
-            {
-                question: "What role would you play in a book/movie?",
-                options: {
-                    a: 'the hero', b: 'the sidekick', c: 'the mentor', d: 'the villain', e: 'the most popular character', f: 'an extra'
-                }
-            },
-            {
-                question: "If someone invited you on an adventure, how would you react?",
-                options: {
-                    a: 'sounds fun', b: 'staying home sounds easier', c: 'the world needs me to go', d: 'yes, a chance for valor'
-                }
-            },
-            {
-                question: "If you weren't allowed to go on an adventure how would you feel?",
-                options: {
-                    a: 'angry', b: 'relieved', c: 'disappointed', d: 'annoyed', e: 'indifferent'
-                }
-            },
-            {
-                question: "If you saw an orc what would you do (realistically)?",
-                options: {
-                    a: 'run away as fast as you can', b: 'find somewhere to hide', c: 'fight it', d: 'follow it', e: 'continue on as if it weren\'t there'
-                }
-            },
-            {
-                question: "What do you value in your friends?",
-                options: {
-                    a: 'loyalty', b: 'silliness', c: 'courage', d: 'humility', e: 'strength', f: 'wisdom'
-                }
-            },
-            {
-                question: "What do you like to do in your free time?",
-                options: {
-                    a: 'read/learn about things', b: 'be outside', c: 'be with family/friends', d: 'make things', e: 'practice/study'
-                }
-            },
-            {
-                question: "What's your favorite time of day?",
-                options: {
-                    a: 'morning', b: 'afternoon', c: 'evening', d: 'night', e: 'mealtime'
-                }
-            },
-            {
-                question: "What kind of house would you want?",
-                options: {
-                    a: 'a strong one', b: 'a beautiful one', c: 'a comfortable one', d: 'a big one'
-                }
-            },
-            {
-                question: "Which is your favorite animal group?",
-                options: {
-                    a: 'mammal', b: 'reptile', c: 'bird', d: 'fish', e: 'bug'
-                }
-            },
-            {
-                question: "If you were a ruler, what would you want be like?",
-                options: {
-                    a: 'the mighty ruler of a powerful kingdom', b: 'the wise ruler of a beautiful kingdom', c: 'the courageous ruler of a valiant kingdom', d: 'the humble ruler of a cozy kingdom', e: 'the rich ruler of a wealthy kingdom'
-                }
-            },
-            {
-                question: "If you had a palantir, what would you use it for?",
-                options: {
-                    a: 'to make sure your friends/family are safe', b: 'to spy on the enemy', c: 'to learn things you\'re curious about', d: 'to locate a specific object/person'
-                }
-            },
-            {
-                question: "If you had an expensive piece of armor, what would you do with it?",
-                options: {
-                    a: 'sell it', b: 'wear it', c: 'give it to someone else', d: 'lock it up/hide it', e: 'put it in a museum'
-                }
-            },
-            {
-                question: "What kind of plants are your favorite?",
-                options: {
-                    a: 'trees', b: 'flowers', c: 'crops/edible plants', d: 'bushes/hedges', e: 'grass'
-                }
-            },
-            {
-                question: "What kind of armor would you wear?",
-                options: {
-                    a: 'light armor that\'s easy to move around in', b: 'strong, well made, heavy armor that blocks things well', c: 'armor set with gold or jewels that look nice', d: 'light versatile chain mail', e: 'no armor'
-                }
-            },
-            {
-                question: "Which of these are you most likely to bring hiking?",
-                options: {
-                    a: 'snacks', b: 'a walking stick', c: 'binoculars', d: 'rope', e: 'a hat', f: 'a compass'
-                }
-            },
-            {
-                question: "Which of these places would you most want to go on vacation to?",
-                options: {
-                    a: 'Fangorn Forest', b: 'Helm\'s Deep', c: 'Mount Doom', d: 'Rivendell', e: 'The Shire', f: 'Minas Tirith'
-                }
-            },
-            {
-                question: "What is your Hogwarts house?",
-                options: {
-                    a: 'Gryffindor', b: 'Hufflepuff', c: 'Ravenclaw', d: 'Slytherin'
-                }
-            },
-            {
-                question: "Which is your favorite season?",
-                options: {
-                    a: 'spring', b: 'summer', c: 'fall', d: 'winter'
-                }
-            },
-            {
-                question: "Which kind of shoes do you like to wear?",
-                options: {
-                    a: 'no shoes', b: 'nice-looking shoes', c: 'shoes that you can run in'
-                }
-            },
-            {
-                question: "What would you do if orcs captured your best friend?",
-                options: {
-                    a: 'run away', b: 'ask someone for help saving them', c: 'charge the orcs to kill them', d: 'follow the orcs stealthily and look for a way to free your friend', e: 'ask the orcs to give your friend back'
-                }
-            },
-            {
-                question: "How would you want to celebrate your birthday?",
-                options: {
-                    a: 'throw a huge party and invite all your friends', b: 'get lots of presents', c: 'go somewhere exciting', d: 'do something small with a few friends', e: 'hang out at home with your family'
-                }
-            }
+            "Which of these best describes your approach to a difficult journey?",
+            "What is your greatest strength?",
+            "Which weapon would you choose to wield?",
+            "How do you feel about magic?",
+            "What is your favorite kind of food?",
+            "Where would you prefer to live?",
+            "What is your most valued quality in a friend?",
+            "What is your biggest fear?"
         ];
 
-        // Character Answer Codes (from Python script)
+        const quizOptions = [
+            ["Careful planning and preparation.", "Boldly charging into the unknown.", "Gathering a group to help you.", "Using your knowledge to find the best path."],
+            ["Loyalty and courage.", "Wisdom and patience.", "Strength and tenacity.", "Kindness and generosity."],
+            ["A sword.", "A bow and arrow.", "A staff.", "A sharp wit."],
+            ["A tool for those with great wisdom.", "A dangerous force to be avoided.", "A useful skill to be learned.", "A magical ability you possess."],
+            ["Hearty stews and fresh bread.", "Elaborate feasts with wine and song.", "Anything from the earth, especially mushrooms.", "A simple meal shared with friends."],
+            ["A secluded, comfortable home.", "A fortress high on a mountain.", "A forest teeming with life.", "An underground kingdom."],
+            ["Humor and good cheer.", "Reliability and honesty.", "Bravery and a strong sense of justice.", "A quiet, gentle spirit."],
+            ["Losing your friends and family.", "Being trapped in a dark, confined space.", "The destruction of the natural world.", "Betrayal by someone you trust."]
+        ];
+
         const characterCodes = {
-            'frodo': ['b', 'e', 'd', 'a', 'b', 'a', 'c', 'e', 'b', 'a', 'a', 'e', 'c', 'd', 'd', 'a', 'b', 'a', 'e', 'b', 'd', 'a', 'c', 'a', 'b', 'd'],
-            'sam': ['b', 'a', 'd', 'd', 'a', 'b', 'c', 'b', 'b', 'd', 'd', 'e', 'c', 'a', 'd', 'a', 'b', 'b', 'a', 'd', 'd', 'b', 'a', 'a', 'c', 'e'],
-            'merry': ['b', 'c', 'd', 'b', 'f', 'b', 'a', 'd', 'd', 'b', 'c', 'e', 'a', 'c', 'c', 'b', 'b', 'c', 'd', 'a', 'b', 'a', 'c', 'a', 'c', 'c'],
-            'pippin': ['b', 'd', 'd', 'c', 'f', 'b', 'a', 'c', 'd', 'b', 'c', 'e', 'd', 'e', 'c', 'c', 'b', 'c', 'd', 'a', 'f', 'a', 'b', 'a', 'c', 'a'],
-            'gandalf': ['e', 'c', 'd', 'c', 'e', 'c', 'c', 'a', 'e', 'c', 'a', 'a', 'c', 'c', 'b', 'd', 'c', 'a', 'e', 'b', 'e', 'a', 'd', 'c', 'c', 'e'],
-            'aragorn': ['a', 'b', 'd', 'd', 'c', 'a', 'c', 'e', 'e', 'a', 'b', 'c', 'c', 'a', 'b', 'a', 'c', 'a', 'd', 'c', 'f', 'a', 'a', 'c', 'd', 'd'],
-            'legolas': ['c', 'b', 'd', 'c', 'd', 'e', 'd', 'e', 'c', 'c', 'b', 'b', 'b', 'c', 'b', 'b', 'e', 'a', 'a', 'c', 'a', 'd', 'b', 'b', 'c', 'c'],
-            'gimli': ['d', 'c', 'd', 'b', 'd', 'e', 'd', 'd', 'c', 'c', 'c', 'b', 'a', 'b', 'e', 'b', 'd', 'd', 'b', 'e', 'b', 'a', 'b', 'c', 'c', 'b'],
-            'boromir': ['a', 'd', 'c', 'b', 'd', 'a', 'd', 'd', 'c', 'e', 'e', 'a', 'a', 'a', 'a', 'b', 'b', 'e', 'b', 'd', 'f', 'a', 'b', 'c', 'c', 'a'],
-            'faramir': ['c', 'd', 'd', 'd', 'c', 'f', 'c', 'e', 'e', 'f', 'b', 'c', 'b', 'c', 'b', 'a', 'e', 'a', 'd', 'f', 'e', 'c', 'a', 'c', 'd', 'd'],
-            'denethor': ['a', 'd', 'c', 'b', 'e', 'c', 'b', 'e', 'c', 'e', 'e', 'c', 'd', 'b', 'a', 'b', 'd', 'd', 'c', 'b', 'f', 'd', 'd', 'b', 'e', 'e'],
-            'theoden': ['a', 'a', 'c', 'c', 'd', 'c', 'd', 'e', 'c', 'e', 'b', 'a', 'a', 'a', 'c', 'b', 'b', 'e', 'c', 'c', 'b', 'a', 'b', 'c', 'd', 'e'],
-            'eomer': ['a', 'a', 'a', 'c', 'd', 'b', 'd', 'e', 'c', 'c', 'c', 'a', 'a', 'a', 'c', 'c', 'e', 'e', 'b', 'f', 'b', 'a', 'b', 'c', 'c', 'd'],
-            'eowyn': ['a', 'a', 'a', 'b', 'b', 'a', 'd', 'c', 'c', 'e', 'e', 'a', 'a', 'a', 'c', 'a', 'b', 'b', 'd', 'e', 'b', 'a', 'a', 'c', 'c', 'c'],
-            'galadriel': ['e', 'b', 'b', 'd', 'c', 'c', 'c', 'e', 'e', 'f', 'a', 'b', 'b', 'd', 'b', 'b', 'c', 'a', 'e', 'd', 'd', 'c', 'b', 'b', 'e', 'a'],
-            'saruman': ['e', 'd', 'c', 'b', 'd', 'd', 'b', 'a', 'e', 'a', 'a', 'd', 'a', 'c', 'a', 'd', 'd', 'd', 'e', 'b', 'c', 'd', 'd', 'b', 'e', 'b'],
-            'treebeard': ['c', 'b', 'a', 'a', 'e', 'f', 'b', 'e', 'c', 'f', 'b', 'b', 'c', 'e', 'd', 'c', 'c', 'a', 'e', 'b', 'e', 'c', 'a', 'a', 'c', 'e'],
-            'wormtongue': ['b', 'a', 'c', 'a', 'e', 'd', 'b', 'b', 'a', 'e', 'b', 'd', 'd', 'e', 'e', 'd', 'a', 'd', 'a', 'f', 'c', 'd', 'c', 'c', 'a', 'b'],
-            'sauron': ['d', 'ca', 'c', 'b', 'd', 'd', 'a', 'a', 'e', 'e', 'd', 'd', 'a', 'b', 'a', 'd', 'd', 'd', 'b', 'f', 'c', 'd', 'd', 'b', 'e', 'b'],
-            'bilbo': ['b', 'c', 'c', 'a', 'f', 'e', 'a', 'b', 'b', 'b', 'c', 'e', 'c', 'a', 'e', 'c', 'b', 'c', 'd', 'b', 'd', 'b', 'c', 'a', 'd', 'a'],
-            'gollum': ['b', 'c', 'c', 'a', 'b', 'f', 'b', 'd', 'b', 'e', 'a', 'd', 'a', 'd', 'e', 'd', 'a', 'a', 'e', 'a', 'a', 'd', 'd', 'a', 'a', 'b'],
-            'elrond': ['e', 'e', 'b', 'd', 'e', 'c', 'c', 'e', 'e', 'f', 'e', 'a', 'b', 'c', 'b', 'b', 'e', 'b', 'c', 'f', 'd', 'c', 'd', 'b', 'd', 'e'],
-            'shelob': ['c', 'c', 'b', 'a', 'd', 'd', 'b', 'a', 'c', 'e', 'd', 'e', 'c', 'e', 'e', 'd', 'd', 'd', 'a', 'a', 'c', 'd', 'd', 'a', 'c', 'b'],
-            'arwen': ['a', 'c', 'd', 'd', 'c', 'f', 'c', 'e', 'b', 'd', 'c', 'c', 'b', 'c', 'd', 'a', 'c', 'a', 'c', 'd', 'f', 'b', 'a', 'b', 'b', 'd'],
-            'tom bombadil': ['e', 'b', 'a', 'a', 'f', 'f', 'b', 'e', 'e', 'f', 'b', 'a', 'c', 'd', 'd', 'c', 'c', 'c', 'e', 'b', 'e', 'c', 'b', 'b', 'd', 'e'],
-            'butterbur': ['b', 'a', 'a', 'b', 'f', 'f', 'b', 'b', 'a', 'f', 'c', 'e', 'c', 'a', 'e', 'd', 'a', 'c', 'c', 'a', 'e', 'b', 'c', 'c', 'a', 'a']
+            "frodo": ["Careful planning and preparation.", "Kindness and generosity.", "A sharp wit.", "A dangerous force to be avoided.", "A simple meal shared with friends.", "A secluded, comfortable home.", "A quiet, gentle spirit.", "Losing your friends and family."],
+            "gandalf": ["Using your knowledge to find the best path.", "Wisdom and patience.", "A staff.", "A tool for those with great wisdom.", "Hearty stews and fresh bread.", "A fortress high on a mountain.", "Reliability and honesty.", "The destruction of the natural world."],
+            "aragorn": ["Boldly charging into the unknown.", "Loyalty and courage.", "A sword.", "A useful skill to be learned.", "Hearty stews and fresh bread.", "A secluded, comfortable home.", "Bravery and a strong sense of justice.", "Betrayal by someone you trust."],
+            "legolas": ["Gathering a group to help you.", "Strength and tenacity.", "A bow and arrow.", "A useful skill to be learned.", "Elaborate feasts with wine and song.", "A forest teeming with life.", "Humor and good cheer.", "The destruction of the natural world."]
         };
 
-        // Quiz state variables
-        let currentQuestionIndex = 0;
-        let userAnswers = []; // Stores user's selected option letter for each question
-
-        // DOM Elements
         const quizArea = document.getElementById('quiz-area');
         const resultsDisplay = document.getElementById('results-display');
         const questionDisplay = document.getElementById('question-display');
         const optionsContainer = document.getElementById('options-container');
-        const prevButton = document.getElementById('prev-button');
-        const nextButton = document.getElementById('next-button');
+        const nextButton = document.getElementById('next-btn');
+        const statusMessage = document.getElementById('status-message');
         const characterPercentagesDiv = document.getElementById('character-percentages');
-        const restartButton = document.getElementById('restart-button');
 
-        // Event Listeners
-        nextButton.addEventListener('click', () => {
-            const selectedOption = document.querySelector('.option-button.selected');
-            if (selectedOption) {
-                userAnswers[currentQuestionIndex] = selectedOption.dataset.option;
-                currentQuestionIndex++;
-                if (currentQuestionIndex < quizQuestions.length) {
-                    displayQuestion();
-                } else {
-                    gradeAnswers();
-                }
-            } else {
-                alert('Please select an answer before proceeding!');
-            }
-        });
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
 
-        prevButton.addEventListener('click', () => {
-            currentQuestionIndex--;
-            displayQuestion();
-        });
-
-        restartButton.addEventListener('click', () => {
-            currentQuestionIndex = 0;
-       <div class="project-card">
-                            <h4>Devotionals</h4>
-                            <p>A collection of devotionals written by Matt Ahrens, exploring various topics of faith and life.</p>
-                            <div class="project-links">
-                                <a href="#" class="button lab-button-writing">Read Devotionals</a>
-                            </div>
-                        </div>     userAnswers = [];
-            quizArea.style.display = 'block';
-            resultsDisplay.style.display = 'none';
-            displayQuestion();
-        });
-
-        // Functions
         function displayQuestion() {
-            const questionData = quizQuestions[currentQuestionIndex];
-            questionDisplay.textContent = `${currentQuestionIndex + 1}. ${questionData.question}`;
-            optionsContainer.innerHTML = ''; // Clear previous options
+            if (currentQuestionIndex < quizQuestions.length) {
+                const question = quizQuestions[currentQuestionIndex];
+                const options = quizOptions[currentQuestionIndex];
 
-            for (const [letter, text] of Object.entries(questionData.options)) {
-                const button = document.createElement('button');
-                button.classList.add('option-button');
-                button.dataset.option = letter; // Store the option letter
-                button.textContent = `${letter}) ${text}`;
-                button.addEventListener('click', selectOption);
+                questionDisplay.textContent = question;
+                optionsContainer.innerHTML = ''; // Clear previous options
 
-                // If user has already answered this question, pre-select their answer
-                if (userAnswers[currentQuestionIndex] === letter) {
-                    button.classList.add('selected');
-                }
-                optionsContainer.appendChild(button);
+                options.forEach(option => {
+                    const label = document.createElement('label');
+                    const input = document.createElement('input');
+                    input.type = 'radio';
+                    input.name = 'question' + currentQuestionIndex;
+                    input.value = option;
+
+                    label.appendChild(input);
+                    label.appendChild(document.createTextNode(option));
+                    optionsContainer.appendChild(label);
+                });
+
+                nextButton.textContent = 'Next Question';
+            } else {
+                calculateResults();
+            }
+        }
+
+        nextButton.addEventListener('click', () => {
+            const selectedOption = document.querySelector('input[name="question' + currentQuestionIndex + '"]:checked');
+            if (selectedOption) {
+                userAnswers.push(selectedOption.value);
+                currentQuestionIndex++;
+                displayQuestion();
+                statusMessage.textContent = '';
+            } else {
+                statusMessage.textContent = 'Please select an option to continue.';
+            }
+        });
+
+        function calculateResults() {
+            let characterScores = {};
+
+            // Initialize scores to 0 for all characters
+            for (const character in characterCodes) {
+                characterScores[character] = 0;
             }
 
-            // Update navigation button visibility
-            prevButton.style.display = currentQuestionIndex > 0 ? 'inline-block' : 'none';
-            nextButton.textContent = currentQuestionIndex === quizQuestions.length - 1 ? 'Finish Quiz' : 'Next';
-        }
-
-        function selectOption(event) {
-            // Remove 'selected' class from all other buttons
-            optionsContainer.querySelectorAll('.option-button').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            // Add 'selected' class to the clicked button
-            event.target.classList.add('selected');
-        }
-
-        function gradeAnswers() {
-            const characterScores = {}; // To store raw scores for each character
-
+            // Compare user answers to character codes
             for (const character in characterCodes) {
                 let correctMatches = 0;
                 const code = characterCodes[character];
@@ -358,14 +177,6 @@
         // Initialize the quiz
         displayQuestion();
     </script>
-    </main>
-        <div class="push"></div>
-    </div>
-
-    <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
-    </footer>
-
-    <script src="js/script.js"></script>
 </body>
 </html>
+
