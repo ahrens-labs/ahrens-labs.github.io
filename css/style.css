@@ -77,12 +77,6 @@ header {
             animation: fadeIn 0.8s ease-out;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-
         #question-display {
             font-size: 1.3em;
             margin-bottom: 30px;
@@ -152,11 +146,6 @@ header {
             padding-top: 20px;
             animation: slideIn 0.8s ease-out;
             display: none; /* Hidden by default */
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         #results-display h3 {
