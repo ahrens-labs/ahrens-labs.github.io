@@ -177,12 +177,6 @@
                 }
             },
             {
-                question: "What is your Hogwarts house?",
-                options: {
-                    a: 'Gryffindor', b: 'Hufflepuff', c: 'Ravenclaw', d: 'Slytherin'
-                }
-            },
-            {
                 question: "Which is your favorite season?",
                 options: {
                     a: 'spring', b: 'summer', c: 'fall', d: 'winter'
@@ -210,32 +204,32 @@
 
         // Character Answer Codes (from Python script)
         const characterCodes = {
-            'frodo': ['b', 'e', 'd', 'a', 'b', 'a', 'c', 'e', 'b', 'a', 'a', 'e', 'c', 'd', 'd', 'a', 'b', 'a', 'e', 'b', 'd', 'a', 'c', 'a', 'b', 'd'],
-            'sam': ['b', 'a', 'd', 'd', 'a', 'b', 'c', 'b', 'b', 'd', 'd', 'e', 'c', 'a', 'd', 'a', 'b', 'b', 'a', 'd', 'd', 'b', 'a', 'a', 'c', 'e'],
-            'merry': ['b', 'c', 'd', 'b', 'f', 'b', 'a', 'd', 'd', 'b', 'c', 'e', 'a', 'c', 'c', 'b', 'b', 'c', 'd', 'a', 'b', 'a', 'c', 'a', 'c', 'c'],
-            'pippin': ['b', 'd', 'd', 'c', 'f', 'b', 'a', 'c', 'd', 'b', 'c', 'e', 'd', 'e', 'c', 'c', 'b', 'c', 'd', 'a', 'f', 'a', 'b', 'a', 'c', 'a'],
-            'gandalf': ['e', 'c', 'd', 'c', 'e', 'c', 'c', 'a', 'e', 'c', 'a', 'a', 'c', 'c', 'b', 'd', 'c', 'a', 'e', 'b', 'e', 'a', 'd', 'c', 'c', 'e'],
-            'aragorn': ['a', 'b', 'd', 'd', 'c', 'a', 'c', 'e', 'e', 'a', 'b', 'c', 'c', 'a', 'b', 'a', 'c', 'a', 'd', 'c', 'f', 'a', 'a', 'c', 'd', 'd'],
-            'legolas': ['c', 'b', 'd', 'c', 'd', 'e', 'd', 'e', 'c', 'c', 'b', 'b', 'b', 'c', 'b', 'b', 'e', 'a', 'a', 'c', 'a', 'd', 'b', 'b', 'c', 'c'],
-            'gimli': ['d', 'c', 'd', 'b', 'd', 'e', 'd', 'd', 'c', 'c', 'c', 'b', 'a', 'b', 'e', 'b', 'd', 'd', 'b', 'e', 'b', 'a', 'b', 'c', 'c', 'b'],
-            'boromir': ['a', 'd', 'c', 'b', 'd', 'a', 'd', 'd', 'c', 'e', 'e', 'a', 'a', 'a', 'a', 'b', 'b', 'e', 'b', 'd', 'f', 'a', 'b', 'c', 'c', 'a'],
-            'faramir': ['c', 'd', 'd', 'd', 'c', 'f', 'c', 'e', 'e', 'f', 'b', 'c', 'b', 'c', 'b', 'a', 'e', 'a', 'd', 'f', 'e', 'c', 'a', 'c', 'd', 'd'],
-            'denethor': ['a', 'd', 'c', 'b', 'e', 'c', 'b', 'e', 'c', 'e', 'e', 'c', 'd', 'b', 'a', 'b', 'd', 'd', 'c', 'b', 'f', 'd', 'd', 'b', 'e', 'e'],
-            'theoden': ['a', 'a', 'c', 'c', 'd', 'c', 'd', 'e', 'c', 'e', 'b', 'a', 'a', 'a', 'c', 'b', 'b', 'e', 'c', 'c', 'b', 'a', 'b', 'c', 'd', 'e'],
-            'eomer': ['a', 'a', 'a', 'c', 'd', 'b', 'd', 'e', 'c', 'c', 'c', 'a', 'a', 'a', 'c', 'c', 'e', 'e', 'b', 'f', 'b', 'a', 'b', 'c', 'c', 'd'],
-            'eowyn': ['a', 'a', 'a', 'b', 'b', 'a', 'd', 'c', 'c', 'e', 'e', 'a', 'a', 'a', 'c', 'a', 'b', 'b', 'd', 'e', 'b', 'a', 'a', 'c', 'c', 'c'],
-            'galadriel': ['e', 'b', 'b', 'd', 'c', 'c', 'c', 'e', 'e', 'f', 'a', 'b', 'b', 'd', 'b', 'b', 'c', 'a', 'e', 'd', 'd', 'c', 'b', 'b', 'e', 'a'],
-            'saruman': ['e', 'd', 'c', 'b', 'd', 'd', 'b', 'a', 'e', 'a', 'a', 'd', 'a', 'c', 'a', 'd', 'd', 'd', 'e', 'b', 'c', 'd', 'd', 'b', 'e', 'b'],
-            'treebeard': ['c', 'b', 'a', 'a', 'e', 'f', 'b', 'e', 'c', 'f', 'b', 'b', 'c', 'e', 'd', 'c', 'c', 'a', 'e', 'b', 'e', 'c', 'a', 'a', 'c', 'e'],
-            'wormtongue': ['b', 'a', 'c', 'a', 'e', 'd', 'b', 'b', 'a', 'e', 'b', 'd', 'd', 'e', 'e', 'd', 'a', 'd', 'a', 'f', 'c', 'd', 'c', 'c', 'a', 'b'],
-            'sauron': ['d', 'ca', 'c', 'b', 'd', 'd', 'a', 'a', 'e', 'e', 'd', 'd', 'a', 'b', 'a', 'd', 'd', 'd', 'b', 'f', 'c', 'd', 'd', 'b', 'e', 'b'],
-            'bilbo': ['b', 'c', 'c', 'a', 'f', 'e', 'a', 'b', 'b', 'b', 'c', 'e', 'c', 'a', 'e', 'c', 'b', 'c', 'd', 'b', 'd', 'b', 'c', 'a', 'd', 'a'],
-            'gollum': ['b', 'c', 'c', 'a', 'b', 'f', 'b', 'd', 'b', 'e', 'a', 'd', 'a', 'd', 'e', 'd', 'a', 'a', 'e', 'a', 'a', 'd', 'd', 'a', 'a', 'b'],
-            'elrond': ['e', 'e', 'b', 'd', 'e', 'c', 'c', 'e', 'e', 'f', 'e', 'a', 'b', 'c', 'b', 'b', 'e', 'b', 'c', 'f', 'd', 'c', 'd', 'b', 'd', 'e'],
-            'shelob': ['c', 'c', 'b', 'a', 'd', 'd', 'b', 'a', 'c', 'e', 'd', 'e', 'c', 'e', 'e', 'd', 'd', 'd', 'a', 'a', 'c', 'd', 'd', 'a', 'c', 'b'],
-            'arwen': ['a', 'c', 'd', 'd', 'c', 'f', 'c', 'e', 'b', 'd', 'c', 'c', 'b', 'c', 'd', 'a', 'c', 'a', 'c', 'd', 'f', 'b', 'a', 'b', 'b', 'd'],
-            'tom bombadil': ['e', 'b', 'a', 'a', 'f', 'f', 'b', 'e', 'e', 'f', 'b', 'a', 'c', 'd', 'd', 'c', 'c', 'c', 'e', 'b', 'e', 'c', 'b', 'b', 'd', 'e'],
-            'butterbur': ['b', 'a', 'a', 'b', 'f', 'f', 'b', 'b', 'a', 'f', 'c', 'e', 'c', 'a', 'e', 'd', 'a', 'c', 'c', 'a', 'e', 'b', 'c', 'c', 'a', 'a']
+            'frodo': ['b', 'e', 'd', 'a', 'b', 'a', 'c', 'e', 'b', 'a', 'a', 'e', 'c', 'd', 'd', 'a', 'b', 'a', 'e', 'b', 'd', 'c', 'a', 'b', 'd'],
+            'sam': ['b', 'a', 'd', 'd', 'a', 'b', 'c', 'b', 'b', 'd', 'd', 'e', 'c', 'a', 'd', 'a', 'b', 'b', 'a', 'd', 'd', 'a', 'a', 'c', 'e'],
+            'merry': ['b', 'c', 'd', 'b', 'f', 'b', 'a', 'd', 'd', 'b', 'c', 'e', 'a', 'c', 'c', 'b', 'b', 'c', 'd', 'a', 'b', 'c', 'a', 'c', 'c'],
+            'pippin': ['b', 'd', 'd', 'c', 'f', 'b', 'a', 'c', 'd', 'b', 'c', 'e', 'd', 'e', 'c', 'c', 'b', 'c', 'd', 'a', 'f', 'b', 'a', 'c', 'a'],
+            'gandalf': ['e', 'c', 'd', 'c', 'e', 'c', 'c', 'a', 'e', 'c', 'a', 'a', 'c', 'c', 'b', 'd', 'c', 'a', 'e', 'b', 'e', 'd', 'c', 'c', 'e'],
+            'aragorn': ['a', 'b', 'd', 'd', 'c', 'a', 'c', 'e', 'e', 'a', 'b', 'c', 'c', 'a', 'b', 'a', 'c', 'a', 'd', 'c', 'f', 'a', 'c', 'd', 'd'],
+            'legolas': ['c', 'b', 'd', 'c', 'd', 'e', 'd', 'e', 'c', 'c', 'b', 'b', 'b', 'c', 'b', 'b', 'e', 'a', 'a', 'c', 'a', 'b', 'b', 'c', 'c'],
+            'gimli': ['d', 'c', 'd', 'b', 'd', 'e', 'd', 'd', 'c', 'c', 'c', 'b', 'a', 'b', 'e', 'b', 'd', 'd', 'b', 'e', 'b', 'b', 'c', 'c', 'b'],
+            'boromir': ['a', 'd', 'c', 'b', 'd', 'a', 'd', 'd', 'c', 'e', 'e', 'a', 'a', 'a', 'a', 'b', 'b', 'e', 'b', 'd', 'f', 'b', 'c', 'c', 'a'],
+            'faramir': ['c', 'd', 'd', 'd', 'c', 'f', 'c', 'e', 'e', 'f', 'b', 'c', 'b', 'c', 'b', 'a', 'e', 'a', 'd', 'f', 'e', 'a', 'c', 'd', 'd'],
+            'denethor': ['a', 'd', 'c', 'b', 'e', 'c', 'b', 'e', 'c', 'e', 'e', 'c', 'd', 'b', 'a', 'b', 'd', 'd', 'c', 'b', 'f', 'd', 'b', 'e', 'e'],
+            'theoden': ['a', 'a', 'c', 'c', 'd', 'c', 'd', 'e', 'c', 'e', 'b', 'a', 'a', 'a', 'c', 'b', 'b', 'e', 'c', 'c', 'b', 'b', 'c', 'd', 'e'],
+            'eomer': ['a', 'a', 'a', 'c', 'd', 'b', 'd', 'e', 'c', 'c', 'c', 'a', 'a', 'a', 'c', 'c', 'e', 'e', 'b', 'f', 'b', 'b', 'c', 'c', 'd'],
+            'eowyn': ['a', 'a', 'a', 'b', 'b', 'a', 'd', 'c', 'c', 'e', 'e', 'a', 'a', 'a', 'c', 'a', 'b', 'b', 'd', 'e', 'b', 'a', 'c', 'c', 'c'],
+            'galadriel': ['e', 'b', 'b', 'd', 'c', 'c', 'c', 'e', 'e', 'f', 'a', 'b', 'b', 'd', 'b', 'b', 'c', 'a', 'e', 'd', 'd', 'b', 'b', 'e', 'a'],
+            'saruman': ['e', 'd', 'c', 'b', 'd', 'd', 'b', 'a', 'e', 'a', 'a', 'd', 'a', 'c', 'a', 'd', 'd', 'd', 'e', 'b', 'c', 'd', 'b', 'e', 'b'],
+            'treebeard': ['c', 'b', 'a', 'a', 'e', 'f', 'b', 'e', 'c', 'f', 'b', 'b', 'c', 'e', 'd', 'c', 'c', 'a', 'e', 'b', 'e', 'a', 'a', 'c', 'e'],
+            'wormtongue': ['b', 'a', 'c', 'a', 'e', 'd', 'b', 'b', 'a', 'e', 'b', 'd', 'd', 'e', 'e', 'd', 'a', 'd', 'a', 'f', 'c', 'c', 'c', 'a', 'b'],
+            'sauron': ['d', 'ca', 'c', 'b', 'd', 'd', 'a', 'a', 'e', 'e', 'd', 'd', 'a', 'b', 'a', 'd', 'd', 'd', 'b', 'f', 'c', 'd', 'b', 'e', 'b'],
+            'bilbo': ['b', 'c', 'c', 'a', 'f', 'e', 'a', 'b', 'b', 'b', 'c', 'e', 'c', 'a', 'e', 'c', 'b', 'c', 'd', 'b', 'd', 'c', 'a', 'd', 'a'],
+            'gollum': ['b', 'c', 'c', 'a', 'b', 'f', 'b', 'd', 'b', 'e', 'a', 'd', 'a', 'd', 'e', 'd', 'a', 'a', 'e', 'a', 'a', 'd', 'a', 'a', 'b'],
+            'elrond': ['e', 'e', 'b', 'd', 'e', 'c', 'c', 'e', 'e', 'f', 'e', 'a', 'b', 'c', 'b', 'b', 'e', 'b', 'c', 'f', 'd', 'd', 'b', 'd', 'e'],
+            'shelob': ['c', 'c', 'b', 'a', 'd', 'd', 'b', 'a', 'c', 'e', 'd', 'e', 'c', 'e', 'e', 'd', 'd', 'd', 'a', 'a', 'c', 'd', 'a', 'c', 'b'],
+            'arwen': ['a', 'c', 'd', 'd', 'c', 'f', 'c', 'e', 'b', 'd', 'c', 'c', 'b', 'c', 'd', 'a', 'c', 'a', 'c', 'd', 'f', 'a', 'b', 'b', 'd'],
+            'tom bombadil': ['e', 'b', 'a', 'a', 'f', 'f', 'b', 'e', 'e', 'f', 'b', 'a', 'c', 'd', 'd', 'c', 'c', 'c', 'e', 'b', 'e', 'b', 'b', 'd', 'e'],
+            'butterbur': ['b', 'a', 'a', 'b', 'f', 'f', 'b', 'b', 'a', 'f', 'c', 'e', 'c', 'a', 'e', 'd', 'a', 'c', 'c', 'a', 'e', 'c', 'c', 'a', 'a']
         };
 
         // Quiz state variables
