@@ -366,7 +366,7 @@
       return `${minutes}:${seconds}.${hundredths}`;
     }
 
-    // --- startTimer (MODIFIED to only run player countdown) ---
+    // --- startTimer (MODIFIED to always run move timer, but only deduct player total time) ---
     function startTimer() {
       clearInterval(timerInterval);
       timerStart = performance.now();
@@ -378,35 +378,32 @@
       // Reset the move timer display
       document.getElementById("timer").textContent = "00:00.00";
 
-      if (!timeLimited || !isPlayerTurn) {
-        // If no time limit or it's the engine's turn, do not start a total time countdown
-        return;
-      }
-
-      // Start the countdown for the human player
+      // Always start the interval to track elapsed move time for both player and engine
       timerInterval = setInterval(() => {
         const elapsed = performance.now() - timerStart;
 
-        // Update the move timer display during the player's turn
+        // 1. Always update the move timer display
         document.getElementById("timer").textContent = formatTime(elapsed);
 
-        // Calculate and update the player's remaining total time
-        const playerTimeRef = turn === 'w' ? whiteTime : blackTime;
-        const newTime = playerTimeRef - elapsed;
+        // 2. ONLY execute total time deduction/check if it's the player's turn AND time is limited
+        if (timeLimited && isPlayerTurn) {
+          // Calculate and update the player's remaining total time
+          const playerTimeRef = turn === 'w' ? whiteTime : blackTime;
+          const newTime = playerTimeRef - elapsed;
 
-        const totalTimeElementId = turn === 'w' ? "white-total" : "black-total";
-        document.getElementById(totalTimeElementId).textContent = formatTime(newTime);
+          const totalTimeElementId = turn === 'w' ? "white-total" : "black-total";
+          document.getElementById(totalTimeElementId).textContent = formatTime(newTime);
 
-        if (newTime <= 0) {
-          clearInterval(timerInterval);
-          // Replaced alert() with console log, as per best practice
-          console.log("Time's up! You lose.");
-          // You should implement a custom modal or message box here
-          const moveContainer = document.getElementById("move-timer-container");
-          moveContainer.textContent = "Time's up! You lose!";
-          moveContainer.style.backgroundColor = "#E74C3C";
+          if (newTime <= 0) {
+            clearInterval(timerInterval);
+            // Replaced alert() with console log and custom message box
+            console.log("Time's up! You lose.");
+            const moveContainer = document.getElementById("move-timer-container");
+            moveContainer.textContent = "Time's up! You lose!";
+            moveContainer.style.backgroundColor = "#E74C3C";
 
-          gameOver = true;
+            gameOver = true;
+          }
         }
       }, 10);
     }
@@ -529,6 +526,8 @@
       if (playerColor === "white") {
         startTimer();
       } else {
+        // Start move timer for engine's turn
+        startTimer();
         engineMove();
       }
     }
@@ -556,7 +555,7 @@
         return;
       }
 
-      // Start the timer (it will run for the engine's move, but only show 00:00.00 and no total time countdown)
+      // Start the move timer for the engine's turn
       startTimer();
       await engineMove();
     }
