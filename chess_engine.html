@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Assuming your style.css and script.js are correctly linked, though the main game logic is now inline -->
     <link rel="stylesheet" href="css/style.css">
     <script src="js/script.js"></script>
 
@@ -31,7 +32,43 @@
     }
     body {
       color: black;
+      font-family: 'Inter', sans-serif;
     }
+
+    /* Basic styling for the main container and alignment */
+    .wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header, footer {
+      text-align: center;
+      padding: 10px 0;
+    }
+    nav ul {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    nav a {
+      text-decoration: none;
+      color: #333;
+      font-weight: 500;
+    }
+    .header-content {
+      margin-bottom: 20px;
+    }
+    .logo-link img {
+      height: 50px; /* Adjust size as needed */
+      margin-bottom: 10px;
+    }
+    /* End of assumed existing wrapper/header/footer styles */
+
 
     .highlight-legal {
       position: relative;
@@ -53,7 +90,7 @@
     #board-timers-container {
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start; /* Aligned to the top */
       gap: 40px;
       margin-top: 20px;
     }
@@ -66,50 +103,139 @@
       justify-content: center;
       gap: 20px;
       user-select: none;
+      /* Style for timer box */
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+      width: 250px;
     }
 
     #timers-container div {
+      font-size: 20px;
+      font-weight: 500;
+      padding: 5px;
+      border-radius: 4px;
+      background-color: #f7f7f7;
+    }
+    #timers-container span {
       font-size: 28px;
       font-weight: bold;
+      display: block;
+      margin-top: 5px;
     }
+
 
     #choose-side {
       text-align: center;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #f9f9f9;
     }
+
+    #choose-side select, #choose-side button {
+        padding: 8px 15px;
+        margin: 0 5px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+    }
+    #choose-side button {
+        background-color: #4CAF50;
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    #choose-side button:hover {
+        background-color: #45a049;
+    }
+
 
     #move-timer-container {
       text-align: center;
       margin-top: 10px;
       font-family: monospace;
-      font-size: 22px;
+      font-size: 24px;
       font-weight: bold;
       user-select: none;
       color: black;
+      padding: 10px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background-color: #e0e0e0;
+      width: 400px;
+      margin: 10px auto;
     }
+    #move-timer-container span {
+        font-size: 32px;
+        color: #C0392B; /* A striking color for the running timer */
+    }
+
 
     #last-move-container {
       text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 28px;
-      font-weight: bold;
-      color: black;
+      margin-top: 15px;
+      font-family: 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 500;
+      color: #333;
       user-select: none;
     }
 
+    #last-move-container span {
+        font-weight: bold;
+        font-size: 22px;
+    }
+
+    /* Hide timers until game starts */
     #timers-container,
     #move-timer-container,
     #last-move-container {
       display: none;
     }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        #board-timers-container {
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        #board {
+            width: 90vw;
+            max-width: 400px;
+        }
+        #timers-container {
+            width: 90vw;
+            max-width: 400px;
+        }
+        #move-timer-container {
+            width: 90vw;
+            max-width: 400px;
+        }
+        #choose-side {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #choose-side select, #choose-side button, #choose-side label {
+            margin: 0;
+            width: 100%;
+            text-align: center;
+        }
+    }
+
   </style>
 </head>
 <body>
     <div class="wrapper">
     <header>
             <a href="index.html" class="logo-link">
-                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
+                <!-- Placeholder for Ahrens Labs logo - replace with your actual image path -->
+                <img src="https://placehold.co/150x50/34495e/ffffff?text=Ahrens+Labs" alt="Ahrens Labs logo" class="header-logo">
             </a>
             <div class="header-content">
                 <h1>Ahrens Labs</h1>
@@ -146,6 +272,7 @@
     <button onclick="startGame()">Start Game</button>
   </div>
 
+  <!-- Move timer for the active turn -->
   <div id="move-timer-container">
     Time for this move: <span id="timer">00:00.00</span>
   </div>
@@ -153,12 +280,13 @@
   <div id="board-timers-container">
     <div id="board"></div>
 
+    <!-- Total time display container -->
     <div id="timers-container">
       <div>
-        White Time Left: <span id="white-total">--:--.--</span>
+        <span id="white-total">--:--.--</span>
       </div>
       <div>
-        Black Time Left: <span id="black-total">--:--.--</span>
+        <span id="black-total">--:--.--</span>
       </div>
     </div>
   </div>
@@ -176,7 +304,7 @@
     let timeLimited = false;
     let gameOver = false;
 
-    // --- sendEngineCommand function ---
+    // --- sendEngineCommand function (kept as is) ---
     function sendEngineCommand(endpoint) {
     // Key change: Add 'return' here to return the promise chain
     return fetch(`https://hedgehoglover23.pythonanywhere.com/${endpoint}`, {
@@ -206,9 +334,9 @@
     });
 }
 
-    // --- $(document).ready() block (top level) ---
+    // --- $(document).ready() block (kept as is) ---
     $(document).ready(function() {
-	 		
+
         console.log("The page has finished loading!");
 
         // --- AUTOMATIC LOGIC: Stop then Start the engine on page load ---
@@ -223,11 +351,12 @@
             })
             .catch(error => {
                 console.error("Error during automatic engine reset on page load:", error);
-                alert("Failed to automatically reset engine on page load. Check console for details.");
+                // Replaced alert() with a console log or a custom message box in a real app
+                console.error("Failed to automatically reset engine on page load. Check console for details.");
             });
     });
 
-    // --- Your other functions (formatTime, startTimer, etc.) ---
+    // --- formatTime (kept as is) ---
     function formatTime(ms) {
       const t = Math.max(0, Math.floor(ms));
       const totalHundredths = Math.floor(t / 10);
@@ -237,72 +366,85 @@
       return `${minutes}:${seconds}.${hundredths}`;
     }
 
+    // --- startTimer (MODIFIED to only run player countdown) ---
     function startTimer() {
       clearInterval(timerInterval);
       timerStart = performance.now();
 
+      const turn = game.turn();
+      // Check if it's the human player's turn
+      const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
+
+      // Reset the move timer display
+      document.getElementById("timer").textContent = "00:00.00";
+
+      if (!timeLimited || !isPlayerTurn) {
+        // If no time limit or it's the engine's turn, do not start a total time countdown
+        return;
+      }
+
+      // Start the countdown for the human player
       timerInterval = setInterval(() => {
         const elapsed = performance.now() - timerStart;
-        const turn = game.turn();
-        const playerTurn =
-          (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
 
+        // Update the move timer display during the player's turn
         document.getElementById("timer").textContent = formatTime(elapsed);
 
-        if (!timeLimited) return;
+        // Calculate and update the player's remaining total time
+        const playerTimeRef = turn === 'w' ? whiteTime : blackTime;
+        const newTime = playerTimeRef - elapsed;
 
-        if (playerColor === "white") {
-          const newTime = whiteTime - elapsed;
-          document.getElementById("white-total").textContent = formatTime(newTime);
-          document.getElementById("black-total").textContent = formatTime(blackTime);
-        } else {
-          const newTime = blackTime - elapsed;
-          document.getElementById("black-total").textContent = formatTime(newTime);
-          document.getElementById("white-total").textContent = formatTime(whiteTime);
-        }
+        const totalTimeElementId = turn === 'w' ? "white-total" : "black-total";
+        document.getElementById(totalTimeElementId).textContent = formatTime(newTime);
 
-        if (playerTurn) {
-          const currentTime = playerColor === "white" ? whiteTime - elapsed : blackTime - elapsed;
-          if (currentTime <= 0) {
-            clearInterval(timerInterval);
-            alert("Time's up! You lose.");
-            gameOver = true;
-          }
+        if (newTime <= 0) {
+          clearInterval(timerInterval);
+          // Replaced alert() with console log, as per best practice
+          console.log("Time's up! You lose.");
+          // You should implement a custom modal or message box here
+          const moveContainer = document.getElementById("move-timer-container");
+          moveContainer.textContent = "Time's up! You lose!";
+          moveContainer.style.backgroundColor = "#E74C3C";
+
+          gameOver = true;
         }
       }, 10);
     }
 
-    function stopTimerAndUpdateTotal(color) {
+    // --- stopTimerAndUpdateTotal (MODIFIED to only update player total time) ---
+    function stopTimerAndUpdateTotal(movedColor) {
       clearInterval(timerInterval);
       const elapsed = performance.now() - timerStart;
-      if (timeLimited) {
-        if (
-          (color === "w" && playerColor === "white") ||
-          (color === "b" && playerColor === "black")
-        ) {
-          if (color === "w") {
-            whiteTime -= elapsed;
-            whiteTime += increment * 1000;
-            document.getElementById("white-total").textContent = formatTime(whiteTime);
-          } else {
-            blackTime -= elapsed;
-            blackTime += increment * 1000;
-            document.getElementById("black-total").textContent = formatTime(blackTime);
-          }
+
+      const isPlayerMove = (movedColor === 'w' && playerColor === 'white') || (movedColor === 'b' && playerColor === 'black');
+
+      if (timeLimited && isPlayerMove) {
+        // Only update the player's total time
+        if (movedColor === "w") {
+          whiteTime = Math.max(0, whiteTime - elapsed) + increment * 1000;
+          document.getElementById("white-total").textContent = formatTime(whiteTime);
+        } else {
+          blackTime = Math.max(0, blackTime - elapsed) + increment * 1000;
+          document.getElementById("black-total").textContent = formatTime(blackTime);
         }
       }
+
+      // Return the elapsed time for the move display regardless of who moved
       return elapsed;
     }
 
+    // --- updateLastMove (kept as is) ---
     function updateLastMove(move, timeStr) {
       const txt = move ? `${move} (${timeStr})` : "None";
       document.getElementById("last-move").textContent = txt;
     }
 
+    // --- updateTurnDisplay (kept as is) ---
     function updateTurnDisplay() {
       document.getElementById("turn-color").textContent = game.turn() === "w" ? "White" : "Black";
     }
 
+    // --- highlightLegalMoves (kept as is) ---
     function highlightLegalMoves(square) {
       const moves = game.moves({ square, verbose: true });
       for (const move of moves) {
@@ -310,11 +452,17 @@
       }
     }
 
+    // --- removeHighlights (kept as is) ---
     function removeHighlights() {
       $("#board .square-55d63").removeClass("highlight-legal");
     }
 
+    // --- startGame (MODIFIED to update timer labels) ---
     function startGame() {
+      if (board) {
+          // If a board exists, reset its position
+          board.position('start', false);
+      }
       gameOver = false;
       sendEngineCommand("start");
 
@@ -345,6 +493,7 @@
 	onMouseoverSquare: (square) => {
           if (game.game_over() || gameOver) return;
           const turn = game.turn();
+          // Only highlight moves if it's the player's turn
           if (
             (playerColor === "white" && turn === "w") ||
             (playerColor === "black" && turn === "b")
@@ -358,10 +507,21 @@
       document.getElementById("move-timer-container").style.display = "block";
       document.getElementById("last-move-container").style.display = "block";
 
+      // Display and label the total timers correctly
       if (timeLimited) {
         document.getElementById("timers-container").style.display = "flex";
-        document.getElementById("white-total").textContent = "--:--.--";
-        document.getElementById("black-total").textContent = "--:--.--";
+
+        const whiteLabelDiv = document.querySelector('#timers-container > div:nth-child(1)');
+        const blackLabelDiv = document.querySelector('#timers-container > div:nth-child(2)');
+
+        // Set the correct labels and initial time
+        if (playerColor === 'white') {
+            whiteLabelDiv.innerHTML = `Your Time Left: <span id="white-total">${formatTime(whiteTime)}</span>`;
+            blackLabelDiv.innerHTML = `Engine Time: <span id="black-total">Unlimited</span>`;
+        } else {
+            whiteLabelDiv.innerHTML = `Engine Time: <span id="white-total">Unlimited</span>`;
+            blackLabelDiv.innerHTML = `Your Time Left: <span id="black-total">${formatTime(blackTime)}</span>`;
+        }
       } else {
         document.getElementById("timers-container").style.display = "none";
       }
@@ -380,17 +540,23 @@
       if (!move) return "snapback";
 
       const prevTurn = game.turn() === "w" ? "b" : "w";
+      // This will only update the total time if prevTurn was the human player
       const moveTimeMs = stopTimerAndUpdateTotal(prevTurn);
       updateLastMove(move.san, formatTime(moveTimeMs));
       board.position(game.fen());
       updateTurnDisplay();
 
       if (game.in_checkmate()) {
-        alert("CHECKMATE! You Win!");
+        // Replaced alert()
+        console.log("CHECKMATE! You Win!");
+        const moveContainer = document.getElementById("move-timer-container");
+        moveContainer.textContent = "CHECKMATE! You Win!";
+        moveContainer.style.backgroundColor = "#2ECC71";
         gameOver = true;
         return;
       }
 
+      // Start the timer (it will run for the engine's move, but only show 00:00.00 and no total time countdown)
       startTimer();
       await engineMove();
     }
@@ -409,26 +575,38 @@
 
         const data = await response.json();
         if (!data.move) {
-          alert("Engine didn't return a move.");
+          // Replaced alert()
+          console.error("Engine didn't return a move.");
           return;
         }
 
-        const moveTimeMs = stopTimerAndUpdateTotal(game.turn());
+        // Stop the timer to record the engine's move time (no total time update occurs here)
+        const engineTurnColor = game.turn();
+        const moveTimeMs = stopTimerAndUpdateTotal(engineTurnColor);
+
         const move = game.move(data.move);
         updateLastMove(data.move, formatTime(moveTimeMs));
         board.position(game.fen());
         updateTurnDisplay();
 
         if (game.in_checkmate()) {
-          alert("CHECKMATE! You Lose!");
+          // Replaced alert()
+          console.log("CHECKMATE! You Lose!");
+          const moveContainer = document.getElementById("move-timer-container");
+          moveContainer.textContent = "CHECKMATE! You Lose!";
+          moveContainer.style.backgroundColor = "#E74C3C";
           gameOver = true;
           return;
         }
 
+        // Start the timer (it will now run the countdown for the human player's turn)
         startTimer();
       } catch (err) {
-        alert("Could not reach engine.");
-        console.error(err);
+        // Replaced alert()
+        console.error("Could not reach engine:", err);
+        const moveContainer = document.getElementById("move-timer-container");
+        moveContainer.textContent = "Error: Could not reach engine.";
+        moveContainer.style.backgroundColor = "#E74C3C";
       }
     }
   </script>
@@ -439,3 +617,4 @@
     </footer>
 </body>
 </html>
+
