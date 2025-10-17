@@ -1,109 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Chess Game against TrifangX</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Chess Game against TrifangX</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js"></script>
 
-  <style>
-    #board {
-      width: 400px;
-    }
-    h2 {
-      text-align: center;
-      font-family: "Roboto Mono", monospace;
-      font-size: 36px;
-      font-weight: bold;
-      margin-bottom: 0;
-    }
-    .sharp {
-      font-style: italic;
-      font-weight: 50;
-    }
-    body {
-      color: black;
-    }
+  <style>
+    #board {
+      width: 400px;
+    }
+    h2 {
+      text-align: center;
+      font-family: "Roboto Mono", monospace;
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 0;
+    }
+    .sharp {
+      font-style: italic;
+      font-weight: 50;
+    }
+    body {
+      color: black;
+    }
 
-    .highlight-legal {
-      position: relative;
-    }
-    .highlight-legal::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 15px;
-      height: 15px;
-      background: rgba(60, 50, 50, 0.6);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-    }
+    .highlight-legal {
+      position: relative;
+    }
+    .highlight-legal::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 15px;
+      height: 15px;
+      background: rgba(60, 50, 50, 0.6);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    }
 
-    #board-timers-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 40px;
-      margin-top: 20px;
-    }
+    #board-timers-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      margin-top: 20px;
+    }
 
-    #timers-container {
-      font-family: monospace;
-      color: black;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 20px;
-      user-select: none;
-    }
+    #timers-container {
+      font-family: monospace;
+      color: black;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+      user-select: none;
+    }
 
-    #timers-container div {
-      font-size: 28px;
-      font-weight: bold;
-    }
+    #timers-container div {
+      font-size: 28px;
+      font-weight: bold;
+    }
 
-    #choose-side {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    #move-timer-container {
-      text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 22px;
-      font-weight: bold;
-      user-select: none;
-      color: black;
+    /* Re-added styles for active clock indicator */
+    .time-slot {
+        padding: 5px 10px;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        transition: all 0.2s ease-in-out;
     }
 
-    #last-move-container {
-      text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 28px;
-      font-weight: bold;
-      color: black;
-      user-select: none;
+    .time-active {
+        border-color: #2ECC71; /* Green border for the player's active clock */
+        box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
     }
 
-    #timers-container,
-    #move-timer-container,
-    #last-move-container {
-      display: none;
-    }
-  </style>
+    #choose-side {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    #move-timer-container {
+      text-align: center;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 22px;
+      font-weight: bold;
+      user-select: none;
+      color: black;
+    }
+
+    #last-move-container {
+      text-align: center;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 28px;
+      font-weight: bold;
+      color: black;
+      user-select: none;
+    }
+
+    #timers-container,
+    #move-timer-container,
+    #last-move-container {
+      display: none;
+    }
+  </style>
 </head>
 <body>
     <div class="wrapper">
@@ -125,7 +138,7 @@
         </header>
 	    <h2>
     Play Chess against Trifang<span class="sharp">X</span>
-  </h2>
+    </h2>
   <div id="choose-side">
     <label for="color-select">Choose your side: </label>
     <select id="color-select">
@@ -167,7 +180,6 @@
 
   <div id="last-move-container">
     Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
-    <button onclick="startGame()">Reset Game</button>
   </div>
 
   <script>
@@ -197,7 +209,7 @@
                 throw new Error(`Server error for /${endpoint}: ${response.status} ${response.statusText}`);
             });
         }
-        return response.json();
+        return response.json(); // This 'return' passes the parsed data down
     })
     .then(data => {
         console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
@@ -326,7 +338,7 @@
         if (
           (color === "w" && playerColor === "white") ||
           (color === "b" && playerColor === "black")
-        ) {
+          ) {
           if (color === "w") {
             whiteTime = Math.max(0, whiteTime - elapsed);
             whiteTime += increment * 1000;
