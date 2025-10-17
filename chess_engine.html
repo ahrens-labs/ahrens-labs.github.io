@@ -1,112 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
-<body>
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Chess Game against TrifangX</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Chess Game against TrifangX</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/script.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js"></script>
 
-  <style>
-    #board {
-      width: 400px;
-    }
-    h2 {
-      text-align: center;
-      font-family: "Roboto Mono", monospace;
-      font-size: 36px;
-      font-weight: bold;
-      margin-bottom: 0;
-    }
-    .sharp {
-      font-style: italic;
-      font-weight: 50;
-    }
-    body {
-      color: black;
-    }
+  <style>
+    #board {
+      width: 400px;
+    }
+    h2 {
+      text-align: center;
+      font-family: "Roboto Mono", monospace;
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 0;
+    }
+    .sharp {
+      font-style: italic;
+      font-weight: 50;
+    }
+    body {
+      color: black;
+    }
 
-    .highlight-legal {
-      position: relative;
-    }
-    .highlight-legal::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 15px;
-      height: 15px;
-      background: rgba(60, 50, 50, 0.6);
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-    }
+    .highlight-legal {
+      position: relative;
+    }
+    .highlight-legal::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 15px;
+      height: 15px;
+      background: rgba(60, 50, 50, 0.6);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    }
 
-    #board-timers-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 40px;
-      margin-top: 20px;
-    }
+    #board-timers-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      margin-top: 20px;
+    }
 
-    #timers-container {
-      font-family: monospace;
-      color: black;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 20px;
-      user-select: none;
-    }
+    #timers-container {
+      font-family: monospace;
+      color: black;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+      user-select: none;
+    }
 
-    #timers-container div {
-      font-size: 28px;
-      font-weight: bold;
-    }
+    #timers-container div {
+      font-size: 28px;
+      font-weight: bold;
+    }
 
-    #choose-side {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    #move-timer-container {
-      text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 22px;
-      font-weight: bold;
-      user-select: none;
-      color: black;
+    /* New styles to manage order based on player color */
+    .time-slot {
+        padding: 5px 10px;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        transition: all 0.2s ease-in-out;
     }
 
-    #last-move-container {
-      text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 28px;
-      font-weight: bold;
-      color: black;
-      user-select: none;
+    .time-active {
+        border-color: #2ECC71; /* Green border for the player's active clock */
+        box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
     }
+    
+    #choose-side {
+      text-align: center;
+      margin-bottom: 10px;
+    }
 
-    #timers-container,
-    #move-timer-container,
-    #last-move-container {
-      display: none;
-    }
-  </style>
-</head>    
-<div class="wrapper">
+    #move-timer-container {
+      text-align: center;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 22px;
+      font-weight: bold;
+      user-select: none;
+      color: black;
+    }
+
+    #last-move-container {
+      text-align: center;
+      margin-top: 10px;
+      font-family: monospace;
+      font-size: 28px;
+      font-weight: bold;
+      color: black;
+      user-select: none;
+    }
+
+    #timers-container,
+    #move-timer-container,
+    #last-move-container {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+    <div class="wrapper">
     <header>
             <a href="index.html" class="logo-link">
                 <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
@@ -154,10 +167,12 @@
     <div id="board"></div>
 
     <div id="timers-container">
-      <div>
+        <!-- The divs here will be reordered by JavaScript in startGame() based on playerColor. -->
+        <!-- They now have IDs for easier manipulation -->
+      <div id="time-slot-white" class="time-slot">
         White Time Left: <span id="white-total">--:--.--</span>
       </div>
-      <div>
+      <div id="time-slot-black" class="time-slot">
         Black Time Left: <span id="black-total">--:--.--</span>
       </div>
     </div>
@@ -165,6 +180,7 @@
 
   <div id="last-move-container">
     Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
+    <button onclick="startGame()">Reset Game</button>
   </div>
 
   <script>
@@ -237,6 +253,25 @@
       const hundredths = String(totalHundredths % 100).padStart(2, "0");
       return `${minutes}:${seconds}.${hundredths}`;
     }
+    
+    function updateClockStyles() {
+        const turn = game.turn();
+        const playerIsWhite = playerColor === 'white';
+        
+        // Determine which slot is the player's and which is the engine's
+        const playerSlot = playerIsWhite ? document.getElementById("time-slot-white") : document.getElementById("time-slot-black");
+        const engineSlot = playerIsWhite ? document.getElementById("time-slot-black") : document.getElementById("time-slot-white");
+        
+        // Remove active class from both
+        playerSlot.classList.remove('time-active');
+        engineSlot.classList.remove('time-active');
+
+        // Add active class only to the player's clock when it's their turn
+        if ((playerIsWhite && turn === 'w') || (!playerIsWhite && turn === 'b')) {
+            playerSlot.classList.add('time-active');
+        }
+    }
+
 
     // MODIFIED: Timer always counts up, but only deducts time if it's the player's turn.
     function startTimer() {
@@ -246,20 +281,21 @@
       const turn = game.turn();
       const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
       
+      // Update clock styling (active state)
+      updateClockStyles();
+
       // MODIFICATION START: Set player's time to its value and engine's time to "Unlimited"
       if (timeLimited) {
-          // Determine element IDs
-          const playerTimeElementId = playerColor === 'white' ? "white-total" : "black-total";
-          const engineTimeElementId = playerColor === 'white' ? "black-total" : "white-total";
-          
-          // Determine current time reference for player
+          // Determine element IDs and time references
+          const playerTotalId = playerColor === 'white' ? "white-total" : "black-total";
+          const engineTotalId = playerColor === 'white' ? "black-total" : "white-total";
           const playerTimeRef = playerColor === 'white' ? whiteTime : blackTime;
           
           // Set player's time display
-          document.getElementById(playerTimeElementId).textContent = formatTime(playerTimeRef);
+          document.getElementById(playerTotalId).textContent = formatTime(playerTimeRef);
           
           // Set engine's time display to "Unlimited"
-          document.getElementById(engineTimeElementId).textContent = "Unlimited";
+          document.getElementById(engineTotalId).textContent = "Unlimited";
       }
       // MODIFICATION END
       
@@ -338,6 +374,27 @@
       $("#board .square-55d63").removeClass("highlight-legal");
     }
 
+    function setupTimerDisplayOrder() {
+      // Get the parent container
+      const container = document.getElementById('timers-container');
+      
+      // Get the individual time slots
+      const whiteSlot = document.getElementById('time-slot-white');
+      const blackSlot = document.getElementById('time-slot-black');
+
+      // Determine player and engine colors
+      const playerIsWhite = playerColor === 'white';
+      const playerSlot = playerIsWhite ? whiteSlot : blackSlot;
+      const engineSlot = playerIsWhite ? blackSlot : whiteSlot;
+
+      // Remove existing children
+      container.innerHTML = '';
+
+      // Engine time always on top, Player time always on bottom
+      container.appendChild(engineSlot);
+      container.appendChild(playerSlot);
+    }
+
     function startGame() {
       gameOver = false;
       sendEngineCommand("start");
@@ -359,7 +416,9 @@
       
       // RESTORE ORIGINAL MOVE TIMER CONTAINER CONTENT
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
-
+      
+      // Set up the timer display order based on player color
+      setupTimerDisplayOrder();
 
       updateLastMove(null, "00:00.00");
       updateTurnDisplay();
