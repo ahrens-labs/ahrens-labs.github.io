@@ -106,31 +106,32 @@
   </style>
 </head>
 <body>
-    <div class="wrapper">
-    <header>
-            <a href="index.html" class="logo-link">
-		<img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
-	    </a>
-            <div class="header-content">
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="contact.html">Contact</a></li>
-                        <li><a href="chess_engine.html">Chess Engine</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </header>
-	    <h2>
+    <div class="wrapper">
+        <header>
+            <a href="index.html" class="logo-link">
+                <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
+            </a>
+            <div class="header-content">
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html" class="active">Labs & Projects</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </header>
+	    
+	<h2>
     Play Chess against Trifang<span class="sharp">X</span>
     </h2>
   <div id="choose-side">
     <label for="color-select">Choose your side: </label>
     <select id="color-select">
 	 	<option value="random">Random</option>
-      <option value="white">White</option>
+     <option value="white">White</option>
       <option value="black">Black</option>
     </select>
     <label for="time-control"> Time control: </label>
