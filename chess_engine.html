@@ -246,11 +246,22 @@
       const turn = game.turn();
       const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
       
-      // Ensure total time is displayed statically for the engine's turn if time limited
+      // MODIFICATION START: Set player's time to its value and engine's time to "Unlimited"
       if (timeLimited) {
-          document.getElementById("white-total").textContent = formatTime(whiteTime);
-          document.getElementById("black-total").textContent = formatTime(blackTime);
+          // Determine element IDs
+          const playerTimeElementId = playerColor === 'white' ? "white-total" : "black-total";
+          const engineTimeElementId = playerColor === 'white' ? "black-total" : "white-total";
+          
+          // Determine current time reference for player
+          const playerTimeRef = playerColor === 'white' ? whiteTime : blackTime;
+          
+          // Set player's time display
+          document.getElementById(playerTimeElementId).textContent = formatTime(playerTimeRef);
+          
+          // Set engine's time display to "Unlimited"
+          document.getElementById(engineTimeElementId).textContent = "Unlimited";
       }
+      // MODIFICATION END
       
       timerInterval = setInterval(() => {
           if (gameOver) {
