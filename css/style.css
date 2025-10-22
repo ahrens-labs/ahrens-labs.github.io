@@ -405,21 +405,21 @@ main {
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
 
-/* Individual button colors with gradients */
+/* Individual button colors with gradients - matching header gradients */
 .lab-button-coding {
-    background-image: linear-gradient(to right, #0053bd, #0071ff);
+    background-image: linear-gradient(to right, #5ca2ff, #034aa1);
 }
 .lab-button-writing {
-    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+    background-image: linear-gradient(to right, #00ffc8, #01b4cc);
 }
 .lab-button-music {
-    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
+    background-image: linear-gradient(to right, #fffb00, #e7a428, #ff9900);
 }
 .lab-button-robotics {
-    background-image: linear-gradient(to right, #1d976c, #93f9b9);
+    background-image: linear-gradient(to right, #00920c, #a0f58b);
 }
 .lab-button-language {
-    background-image: linear-gradient(to right, #f46a50, #e61d8c);
+    background-image: linear-gradient(to right, #f450cb, #ff0040);
 }
 
 /* Lab Section for Individual Lab Pages */
