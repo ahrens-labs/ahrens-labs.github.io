@@ -66,11 +66,10 @@ header {
     flex-grow: 1;
 }
 
-/* CORRECTED: H1 and H3 text rules are now separate and more specific */
 .quiz-container {
             background-color: white;
             padding: 30px;
-            border-radius: 10px;
+            border-radius: 10px;    
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
             width: 100%;
             max-width: 700px;
@@ -98,19 +97,21 @@ header {
             background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 20px;
             cursor: pointer;
-            transition: background-color 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
         }
 
         .option-button:hover {
             background-color: #2980b9;
-            transform: translateY(-2px);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(41, 128, 185, 0.4);
         }
 
         .option-button:active {
-            transform: translateY(0);
+            transform: translateY(-1px) scale(1.01);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
         }
 
         .option-button.selected {
@@ -130,14 +131,16 @@ header {
             background-color: #f39c12; /* Orange for navigation */
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 20px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
         }
 
         #navigation-buttons button:hover {
             background-color: #e67e22;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(230, 126, 34, 0.4);
         }
 
         #results-display {
@@ -183,10 +186,15 @@ header {
         #restart-button {
             background-color: #e74c3c;
             margin-top: 30px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
         }
 
         #restart-button:hover {
             background-color: #c0392b;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(192, 57, 43, 0.4);
         }
 .header-content h1 {
     font-family: "Orbitron", sans-serif;
@@ -227,16 +235,16 @@ nav a {
     text-decoration: none;
     font-weight: 500;
     padding: 0.7em 1.2em;
-    border-radius: 6px;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    border-radius: 20px;
+    transition: all 0.3s ease;
     background-color: transparent;
     border: 1px solid transparent;
 }
 
 nav a:hover {
     background-color: #0053bd;
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 83, 189, 0.4);
 }
 
 nav a.active {
@@ -262,8 +270,8 @@ main {
     background-color: white;
     padding: 3rem;
     text-align: center;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    border-radius: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
 }
 
 .hero h2 {
@@ -287,36 +295,40 @@ main {
     color: white;
     padding: 0.8em 1.8em;
     text-decoration: none;
-    border-radius: 6px;
+    border-radius: 25px;
     font-weight: 600;
-    transition: background-color 0.3s ease, transform 0.2s ease;
+    transition: all 0.3s ease;
     border: none;
     cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 83, 189, 0.3);
 }
 
-.coding-button {
 
-}
 
 .button-secondary {
     background-color: transparent;
     color: #0053bd;
     border: 2px solid #0053bd;
+    border-radius: 25px;
+    box-shadow: 0 4px 15px rgba(0, 83, 189, 0.2);
 }
 
 .button-secondary:hover {
     background-color: #0053bd;
     color: white;
-    transform: translateY(-2px);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 83, 189, 0.4);
 }
 
 .button:hover {
     background-color: #0071ff;
-    transform: translateY(-2px);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 113, 255, 0.4);
 }
 
 .button:active {
-    transform: translateY(0);
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 4px 15px rgba(0, 83, 189, 0.3);
 }
 
 
@@ -324,8 +336,8 @@ main {
 .about {
     background-color: white;
     padding: 2rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    border-radius: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
 }
 .about p {
     font-family: "Inter", sans-serif;
@@ -356,19 +368,41 @@ main {
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    border-radius: 12px;
+    border-radius: 30px;
     color: white;
     text-decoration: none;
     font-weight: 700;
     font-size: 1.5rem;
     font-family: "Orbitron", sans-serif;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    transition: all 0.4s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.lab-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.lab-button:hover::before {
+    left: 100%;
 }
 
 .lab-button:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transform: translateY(-8px) scale(1.03);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+}
+
+.lab-button:active {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
 
 /* Individual button colors with gradients */
@@ -392,9 +426,9 @@ main {
 .lab-section {
     background-color: white;
     padding: 2rem;
-    border-radius: 10px;
+    border-radius: 25px;
     border: 1px solid #e0e0e0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -420,19 +454,19 @@ main {
 .project-card {
     background-color: #f9f9f9;
     border: 1px solid #eee;
-    border-radius: 8px;
+    border-radius: 20px;
     padding: 1.5rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: all 0.3s ease;
 }
 
 .project-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
 }
 
 .project-card h4 {
