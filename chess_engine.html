@@ -15,24 +15,181 @@
     <script src="js/script.js"></script>
 
   <style>
-    #board {
-      width: 400px;
-    }
-    h2 {
-      text-align: center;
-      font-family: "Roboto Mono", monospace;
-      font-size: 36px;
-      font-weight: bold;
-      margin-bottom: 0;
-    }
-    .sharp {
-      font-style: italic;
-      font-weight: 50;
-    }
+    /* Chess Engine Page - Futuristic Gaming Theme */
     body {
-      color: black;
+      background: linear-gradient(135deg, #0f0f23, #1a1a2e, #16213e);
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
 
+    /* Animated Background Grid */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: gridMove 20s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes gridMove {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(50px, 50px); }
+    }
+
+    /* Main Title Styling */
+    h2 {
+      text-align: center;
+      font-family: "Orbitron", monospace;
+      font-size: 42px;
+      font-weight: bold;
+      margin-bottom: 30px;
+      background: linear-gradient(45deg, #00d4ff, #0099cc, #ffffff);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: titleGlow 3s ease-in-out infinite;
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+    }
+
+    .sharp {
+      font-style: italic;
+      color: #ff6b6b;
+      filter: drop-shadow(0 0 10px #ff6b6b);
+    }
+
+    @keyframes titleGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Game Controls Container */
+    #choose-side {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      margin: 0 auto 30px auto;
+    }
+
+    /* Labels */
+    label {
+      font-family: "Orbitron", monospace;
+      color: #00d4ff;
+      font-weight: 600;
+      margin-right: 10px;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    }
+
+    /* Select Dropdowns */
+    select {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #ffffff;
+      border: 2px solid #00d4ff;
+      border-radius: 15px;
+      padding: 10px 15px;
+      font-family: "Roboto Mono", monospace;
+      font-size: 14px;
+      margin: 0 15px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+    }
+
+    select:hover {
+      border-color: #ffffff;
+      box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+      transform: translateY(-2px);
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #ff6b6b;
+      box-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+    }
+
+    /* Start Game Button */
+    button {
+      background: linear-gradient(45deg, #00d4ff, #0099cc);
+      color: #000000;
+      border: none;
+      border-radius: 25px;
+      padding: 12px 30px;
+      font-family: "Orbitron", monospace;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+      margin: 0 15px;
+      text-transform: uppercase;
+    }
+
+    button:hover {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 10px 30px rgba(0, 212, 255, 0.6);
+      background: linear-gradient(45deg, #ffffff, #00d4ff);
+    }
+
+    button:active {
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    /* Chess Board Container */
+    #board-timers-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 50px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+
+    /* Chess Board Styling */
+    #board {
+      width: 450px;
+      height: 450px;
+      border-radius: 20px;
+      box-shadow: 
+        0 0 50px rgba(0, 212, 255, 0.3),
+        0 20px 40px rgba(0, 0, 0, 0.4);
+      border: 3px solid rgba(0, 212, 255, 0.5);
+      overflow: hidden;
+      position: relative;
+    }
+
+    #board::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, #00d4ff, #0099cc, #ff6b6b, #00d4ff);
+      background-size: 300% 300%;
+      animation: borderGlow 4s ease infinite;
+      border-radius: 20px;
+      z-index: -1;
+    }
+
+    @keyframes borderGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Legal Move Highlights */
     .highlight-legal {
       position: relative;
     }
@@ -41,67 +198,140 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 15px;
-      height: 15px;
-      background: rgba(60, 50, 50, 0.6);
+      width: 20px;
+      height: 20px;
+      background: radial-gradient(circle, #00d4ff, transparent);
       border-radius: 50%;
       transform: translate(-50%, -50%);
       pointer-events: none;
       z-index: 10;
+      animation: legalMovePulse 1.5s ease-in-out infinite;
     }
 
-    #board-timers-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 40px;
-      margin-top: 20px;
+    @keyframes legalMovePulse {
+      0%, 100% { 
+        opacity: 0.6; 
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% { 
+        opacity: 1; 
+        transform: translate(-50%, -50%) scale(1.2);
+      }
     }
 
+    /* Timers Container */
     #timers-container {
-      font-family: monospace;
-      color: black;
+      font-family: "Roboto Mono", monospace;
+      color: #ffffff;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 20px;
+      gap: 25px;
       user-select: none;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 25px;
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
 
     #timers-container div {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: bold;
+      padding: 15px;
+      background: rgba(0, 212, 255, 0.1);
+      border-radius: 15px;
+      border-left: 4px solid #00d4ff;
+      transition: all 0.3s ease;
     }
 
-    #choose-side {
-      text-align: center;
-      margin-bottom: 10px;
+    #timers-container div:hover {
+      background: rgba(0, 212, 255, 0.2);
+      transform: translateX(5px);
     }
 
+    /* Move Timer */
     #move-timer-container {
       text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 22px;
+      margin-top: 20px;
+      font-family: "Roboto Mono", monospace;
+      font-size: 20px;
       font-weight: bold;
       user-select: none;
-      color: black;
+      color: #00d4ff;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 15px;
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      max-width: 300px;
+      margin: 20px auto;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
     }
 
+    /* Last Move Container */
     #last-move-container {
       text-align: center;
-      margin-top: 10px;
-      font-family: monospace;
-      font-size: 28px;
+      margin-top: 20px;
+      font-family: "Roboto Mono", monospace;
+      font-size: 22px;
       font-weight: bold;
-      color: black;
+      color: #ffffff;
       user-select: none;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      max-width: 500px;
+      margin: 20px auto;
     }
 
+    #turn-color {
+      color: #00d4ff;
+      text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+    }
+
+    #last-move {
+      color: #ff6b6b;
+      text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+    }
+
+    /* Hidden State */
     #timers-container,
     #move-timer-container,
     #last-move-container {
       display: none;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      #board-timers-container {
+        flex-direction: column;
+        gap: 30px;
+      }
+      
+      #board {
+        width: 350px;
+        height: 350px;
+      }
+      
+      h2 {
+        font-size: 32px;
+      }
+      
+      #choose-side {
+        padding: 15px;
+        margin: 0 10px 20px 10px;
+      }
+      
+      select, button {
+        margin: 5px;
+        display: block;
+        width: 80%;
+        margin: 10px auto;
+      }
     }
   </style>
 </head>
