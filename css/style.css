@@ -38,19 +38,19 @@ header {
 
 /* NEW: Specific header styles for each lab page */
 .header-coding {
-    background-image: linear-gradient(to right, #0053bd, #0071ff);
+    background-image: linear-gradient(to right, #5ca2ff, #034aa1);
 }
 .header-writing {
-    background-image: linear-gradient(to right, #6a11cb, #2575fc);
+    background-image: linear-gradient(to right, #00ffc8, #01b4cc);
 }
 .header-music {
-    background-image: linear-gradient(to right, #fcb045, #fd1d1d, #833ab4);
+    background-image: linear-gradient(to right, #fffb00, #e7a428, #ff9900);
 }
 .header-robotics {
-    background-image: linear-gradient(to right, #1d976c, #93f9b9);
+    background-image: linear-gradient(to right, #00920c, #a0f58b);
 }
 .header-language {
-    background-image: linear-gradient(to right, #f46a50, #e61d8c);
+    background-image: linear-gradient(to right, #f450cb, #ff0040);
 }
 
 
