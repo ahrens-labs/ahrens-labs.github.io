@@ -27,7 +27,7 @@
                 </nav>
             </div>
         </header>
-        <main>
+        <main style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 200px); padding: 20px;">
             <div class="quiz-container">
                 <h2>Kyrachyng Language Translator</h2>
                 <p style="text-align: center; color: #666; margin-bottom: 2rem;">Type a sentence to translate or try the quiz!</p>
@@ -63,12 +63,13 @@
                               placeholder="Type your translation here..."></textarea>
                     <div id="quiz-feedback" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 20px 0; min-height: 30px;"></div>
                     <div style="display: flex; justify-content: center; gap: 15px; margin: 20px 0;">
-                        <button id="check-answer-button" class="option-button" style="background-color: #9b59b6;">
+                        <button id="check-answer-button" class="option-button" style="background-color: #005791;">
                             Check Answer
                         </button>
                         <button id="next-question-button" class="option-button" style="background-color: #3498db; display: none;">
                             Next Question
                         </button>
+                        <button id="back-to-translator-button" class="option-button" style="background-color: #003cff;">
                             Back to Translator
                         </button>
                     </div>
@@ -315,17 +316,17 @@
             checkAnswerButton.addEventListener('click', checkAnswer);
             nextQuestionButton.addEventListener('click', startQuiz);
             backToTranslatorButton.addEventListener('click', () => {
-                translatorUI.classList.remove('hidden');
-                quizUI.classList.add('hidden');
+                translatorUI.style.display = 'block';
+                quizUI.style.display = 'none';
             });
 
             function startQuiz() {
-                translatorUI.classList.add('hidden');
-                quizUI.classList.remove('hidden');
+                translatorUI.style.display = 'none';
+                quizUI.style.display = 'block';
                 quizAnswerInput.value = '';
                 quizFeedback.textContent = '';
-                nextQuestionButton.classList.add('hidden');
-                checkAnswerButton.classList.remove('hidden');
+                nextQuestionButton.style.display = 'none';
+                checkAnswerButton.style.display = 'inline-block';
 
                 const randomSentence = quiz_sentences[Math.floor(Math.random() * quiz_sentences.length)];
                 quizPrompt.textContent = `Translate this sentence: "${randomSentence}"`;
@@ -337,15 +338,13 @@
                 const userAnswer = quizAnswerInput.value.trim().toLowerCase();
                 if (userAnswer === quiz_correct_answer) {
                     quizFeedback.textContent = 'Correct! Great job!';
-                    quizFeedback.classList.remove('text-red-400');
-                    quizFeedback.classList.add('text-green-400');
+                    quizFeedback.style.color = '#27ae60';
                 } else {
                     quizFeedback.textContent = `Incorrect. The correct answer was: "${quiz_correct_answer}"`;
-                    quizFeedback.classList.remove('text-green-400');
-                    quizFeedback.classList.add('text-red-400');
+                    quizFeedback.style.color = '#e74c3c';
                 }
-                checkAnswerButton.classList.add('hidden');
-                nextQuestionButton.classList.remove('hidden');
+                checkAnswerButton.style.display = 'none';
+                nextQuestionButton.style.display = 'inline-block';
             }
 
             function getWordEnding(word) {
