@@ -4,37 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ahrens Labs - Kyrachyng Project</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Custom Tailwind configuration to make sure your custom fonts are available
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        inter: ['Inter', 'sans-serif'],
-                        orbitron: ['Orbitron', 'sans-serif'],
-                        mono: ['Roboto Mono', 'monospace'],
-                    },
-                },
-            },
-        };
-    </script>
-    <!-- Google Fonts Links (Crucial for consistent styling) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <!-- End Google Fonts Links -->
-
-    <!-- Note: I am assuming the following file exists on your server. -->
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="bg-gray-100 font-inter text-gray-800 flex flex-col min-h-screen">
-    <!-- The header has been adjusted to ensure it is not "squished."
-         It now uses the header class from your external CSS, with Tailwind classes for layout,
-         which should prevent styling conflicts. -->
-	 <div class="wrapper">
-	 <header>
+<body>
+    <div class="wrapper">
+        <header>
             <a href="index.html" class="logo-link">
                 <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
             </a>
@@ -43,68 +20,61 @@
                 <nav>
                     <ul>
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="labs.html" class="active">Labs & Projects</a></li>
                         <li><a href="contact.html">Contact</a></li>
                         <li><a href="chess_engine.html">Chess Engine</a></li>
                     </ul>
                 </nav>
             </div>
         </header>
-    <!-- Main content area now contains the translator UI -->
-    <main class="flex-grow p-6 md:p-12 max-w-7xl mx-auto w-full flex items-center justify-center">
-        <div class="bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-2xl text-gray-100">
-            <h2 class="text-4xl font-bold text-center text-blue-400 mb-6">Kyrachyng Language Translator</h2>
-            <p class="text-center text-gray-400 mb-8">Type a sentence to translate or try the quiz!</p>
+        <main>
+            <div class="quiz-container">
+                <h2>Kyrachyng Language Translator</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 2rem;">Type a sentence to translate or try the quiz!</p>
 
-            <!-- Main Translation Interface -->
-            <div id="translator-ui">
-                <textarea id="input-text"
-                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                          placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
+                <!-- Main Translation Interface -->
+                <div id="translator-ui">
+                    <textarea id="input-text" 
+                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical;"
+                              placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
 
-                <div class="flex justify-center space-x-4 mt-6">
-                    <button id="translate-button"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                        Translate
-                    </button>
-                    <button id="quiz-button"
-                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
-                        Start Quiz
-                    </button>
+                    <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;">
+                        <button id="translate-button" class="option-button" style="background-color: #005791;">
+                            Translate
+                        </button>
+                        <button id="quiz-button" class="option-button" style="background-color: #003cff;">
+                            Start Quiz
+                        </button>
+                    </div>
+
+                    <div id="output-container" style="background-color: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #e9ecef; margin-top: 20px;">
+                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em;">Translated Text:</h3>
+                        <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 30px;"></p>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em;">IPA Pronunciation:</h3>
+                        <p id="ipa-output" style="color: #27ae60; font-size: 1.3em; font-family: 'Roboto Mono', monospace; min-height: 30px;"></p>
+                    </div>
                 </div>
 
-                <div id="output-container" class="mt-8 p-6 bg-gray-700 rounded-xl transition-all duration-300">
-                    <h3 class="text-xl font-semibold mb-2 text-gray-200">Translated Text:</h3>
-                    <p id="translated-output" class="text-blue-300 text-xl font-mono mb-4"></p>
-                    <h3 class="text-xl font-semibold mb-2 text-gray-200">IPA Pronunciation:</h3>
-                    <p id="ipa-output" class="text-green-300 text-xl font-mono"></p>
+                <!-- Quiz Interface -->
+                <div id="quiz-ui" style="display: none;">
+                    <div id="quiz-prompt" style="text-align: center; font-size: 1.5em; margin-bottom: 20px; color: #2c3e50;"></div>
+                    <textarea id="quiz-answer"
+                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #9b59b6; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical;"
+                              placeholder="Type your translation here..."></textarea>
+                    <div id="quiz-feedback" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 20px 0; min-height: 30px;"></div>
+                    <div style="display: flex; justify-content: center; gap: 15px; margin: 20px 0;">
+                        <button id="check-answer-button" class="option-button" style="background-color: #9b59b6;">
+                            Check Answer
+                        </button>
+                        <button id="next-question-button" class="option-button" style="background-color: #3498db; display: none;">
+                            Next Question
+                        </button>
+                            Back to Translator
+                        </button>
+                    </div>
                 </div>
+
             </div>
-
-            <!-- Quiz Interface -->
-            <div id="quiz-ui" class="hidden">
-                <div id="quiz-prompt" class="text-center text-2xl font-semibold mb-4 text-gray-200"></div>
-                <textarea id="quiz-answer"
-                          class="w-full h-24 p-4 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                          placeholder="Type your translation here..."></textarea>
-                <div id="quiz-feedback" class="mt-4 text-center text-lg font-bold"></div>
-                <div class="flex justify-center space-x-4 mt-6">
-                    <button id="check-answer-button"
-                            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-50">
-                        Check Answer
-                    </button>
-                    <button id="next-question-button"
-                            class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
-                        Next Question
-                    </button>
-                    <button id="back-to-translator-button"
-                            class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50">
-                        Back to Translator
-                    </button>
-                </div>
-            </div>
-
-        </div>
     </main>
     <div class="push"></div>
     </div>

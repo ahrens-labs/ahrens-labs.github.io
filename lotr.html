@@ -8,10 +8,54 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .option-button.selected {
+            background-color: #0053cf;
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .character-result {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            margin: 8px 0;
+            background-color: #347fc9;
+            border-radius: 10px;
+            border-left: 4px solid #ffffff;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+
+        .character-result:hover {
+            background-color: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .character-result:first-child {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border-left: 4px solid #1abc9c;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.2);
+        }
+
+        .character-result:first-child:hover {
+            background: linear-gradient(135deg, #2980b9, #1f4e79);
+            transform: translateX(5px) scale(1.02);
+        }
+
+        #results-display h3 {
+            color: #2c3e50;
+            font-size: 1.8em;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
-	<header>
+        <header>
             <a href="index.html" class="logo-link">
                 <img src="img/ahrens_labs_logo.png" alt="Ahrens Labs logo" class="header-logo">
             </a>
@@ -20,7 +64,7 @@
                 <nav>
                     <ul>
                         <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="labs.html" class="active">Labs & Projects</a></li>
                         <li><a href="contact.html">Contact</a></li>
                         <li><a href="chess_engine.html">Chess Engine</a></li>
                     </ul>
@@ -28,25 +72,25 @@
             </div>
         </header>
         <main>    
-    <div class="quiz-container">
-        <h2>Who Are You? A Personality Quiz</h2>
-        <div id="quiz-area">
-            <h3 id="question-display"></h3>
-            <div id="options-container" class="options-container">
+            <div class="quiz-container">
+                <h2>Who Are You? A LOTR Personality Quiz</h2>
+                <div id="quiz-area">
+                    <h3 id="question-display"></h3>
+                    <div id="options-container" class="options-container">
+                    </div>
+                    <div id="navigation-buttons" style="margin-top: 30px; display: flex; justify-content: center; gap: 15px;">
+                        <button id="prev-button" class="option-button" style="display: none; background-color: #4eeaff;">Previous</button>
+                        <button id="next-button" class="option-button" style="background-color: #0091e6;">Next</button>
+                    </div>
                 </div>
-            <div id="navigation-buttons">
-                <button id="prev-button" style="display: none;">Previous</button>
-                <button id="next-button">Next</button>
-            </div>
-        </div>
 
-        <div id="results-display" style="display: none;">
-            <h3>Your Character Match!</h3>
-            <div id="character-percentages">
+                <div id="results-display" style="display: none;">
+                    <h3>Your Character Match!</h3>
+                    <div id="character-percentages" style="margin: 20px 0;">
+                    </div>
+                    <button id="restart-button" class="option-button" style="background-color: #27ae60;">Restart Quiz</button>
                 </div>
-            <button id="restart-button">Restart Quiz</button>
-        </div>
-    </div>
+            </div>
     <script>
         // Quiz Questions Data
         const quizQuestions = [

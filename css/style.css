@@ -94,7 +94,7 @@ header {
             width: 100%;
             padding: 15px 20px;
             font-size: 1.1em;
-            background-color: #3498db;
+            background-color: #00c3ff;
             color: white;
             border: none;
             border-radius: 20px;
@@ -104,7 +104,7 @@ header {
         }
 
         .option-button:hover {
-            background-color: #2980b9;
+            background-color: #0053cf;
             transform: translateY(-3px) scale(1.02);
             box-shadow: 0 8px 25px rgba(41, 128, 185, 0.4);
         }
