@@ -17,7 +17,7 @@
   <style>
     /* Chess Engine Page - Futuristic Gaming Theme */
     body {
-      background: linear-gradient(135deg, #0f0f23, #1a1a2e, #16213e);
+      background: linear-gradient(135deg, #1a2332, #2d3748, #374151);
       color: #ffffff;
       min-height: 100vh;
       overflow-x: hidden;
@@ -76,13 +76,27 @@
       text-align: center;
       margin-bottom: 30px;
       padding: 20px;
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(10px);
       border-radius: 20px;
       border: 1px solid rgba(0, 212, 255, 0.3);
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
       max-width: 600px;
       margin: 0 auto 30px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+
+    /* Individual control rows */
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      width: 100%;
+      flex-wrap: wrap;
     }
 
     /* Labels */
@@ -96,16 +110,34 @@
 
     /* Select Dropdowns */
     select {
-      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      background: linear-gradient(135deg, #2d3748, #374151);
       color: #ffffff;
       border: 2px solid #00d4ff;
       border-radius: 15px;
       padding: 10px 15px;
       font-family: "Roboto Mono", monospace;
       font-size: 14px;
-      margin: 0 15px;
+      margin: 0;
       transition: all 0.3s ease;
       box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+    }
+
+    /* Option elements styling */
+    select option {
+      background: #2d3748;
+      color: #ffffff;
+      font-family: "Roboto Mono", monospace;
+      padding: 8px;
+    }
+
+    select option:hover {
+      background: #374151;
+      color: #00d4ff;
+    }
+
+    select option:checked {
+      background: #00d4ff;
+      color: #000000;
     }
 
     select:hover {
@@ -133,7 +165,7 @@
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
-      margin: 0 15px;
+      margin: 0;
       text-transform: uppercase;
     }
 
@@ -326,11 +358,15 @@
         margin: 0 10px 20px 10px;
       }
       
+      .control-row {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
+      
       select, button {
-        margin: 5px;
-        display: block;
-        width: 80%;
-        margin: 10px auto;
+        width: 200px;
+        max-width: 90%;
       }
     }
   </style>
@@ -357,27 +393,33 @@
 	<h2>
     Play Chess against Trifang<span class="sharp">X</span>
     </h2>
-  <div id="choose-side">
-    <label for="color-select">Choose your side: </label>
-    <select id="color-select">
-	 	<option value="random">Random</option>
-     <option value="white">White</option>
-      <option value="black">Black</option>
-    </select>
-    <label for="time-control"> Time control: </label>
-    <select id="time-control">
-      <option value="none">None</option>
-		<option value="60">1 min</option>
-      <option value="180|2">3 | 2</option>
-      <option value="300|0">5 min</option>
-      <option value="600|0">10 min</option>
-      <option value="900|5">15 | 5</option>
-      <option value="3600|0">60 min</option>
-    </select>
-    <button onclick="startGame()">Start Game</button>
-  </div>
-
-  <div id="move-timer-container">
+  <div id="choose-side">
+    <div class="control-row">
+      <label for="color-select">Choose your side: </label>
+      <select id="color-select">
+        <option value="random">Random</option>
+        <option value="white">White</option>
+        <option value="black">Black</option>
+      </select>
+    </div>
+    
+    <div class="control-row">
+      <label for="time-control">Time control: </label>
+      <select id="time-control">
+        <option value="none">None</option>
+        <option value="60">1 min</option>
+        <option value="180|2">3 | 2</option>
+        <option value="300|0">5 min</option>
+        <option value="600|0">10 min</option>
+        <option value="900|5">15 | 5</option>
+        <option value="3600|0">60 min</option>
+      </select>
+    </div>
+    
+    <div class="control-row">
+      <button onclick="startGame()">Start Game</button>
+    </div>
+  </div>  <div id="move-timer-container">
     Time for this move: <span id="timer">00:00.00</span>
   </div>
 
