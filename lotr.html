@@ -71,11 +71,11 @@
                 </nav>
             </div>
         </header>
-        <main>    
-            <div class="quiz-container">
-                <h2>Who Are You? A LOTR Personality Quiz</h2>
-                <div id="quiz-area">
-                    <h3 id="question-display"></h3>
+        <main style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 200px); padding: 20px;">
+            <div class="quiz-container" style="margin: 0 auto; text-align: center;">
+                <h2 style="text-align: center; margin-bottom: 1.5rem;">Who Are You? A LOTR Personality Quiz</h2>
+                <div id="quiz-area" style="text-align: center;">
+                    <h3 id="question-display" style="text-align: center;"></h3>
                     <div id="options-container" class="options-container">
                     </div>
                     <div id="navigation-buttons" style="margin-top: 30px; display: flex; justify-content: center; gap: 15px;">
@@ -84,8 +84,8 @@
                     </div>
                 </div>
 
-                <div id="results-display" style="display: none;">
-                    <h3>Your Character Match!</h3>
+                <div id="results-display" style="display: none; text-align: center;">
+                    <h3 style="text-align: center;">Your Character Match!</h3>
                     <div id="character-percentages" style="margin: 20px 0;">
                     </div>
                     <button id="restart-button" class="option-button" style="background-color: #27ae60;">Restart Quiz</button>

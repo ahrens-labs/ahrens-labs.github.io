@@ -28,8 +28,8 @@
             </div>
         </header>
         <main style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 200px); padding: 20px;">
-            <div class="quiz-container">
-                <h2>Kyrachyng Language Translator</h2>
+            <div class="quiz-container" style="margin: 0 auto; text-align: center;">
+                <h2 style="text-align: center; margin-bottom: 1rem;">Kyrachyng Language Translator</h2>
                 <p style="text-align: center; color: #666; margin-bottom: 2rem;">Type a sentence to translate or try the quiz!</p>
 
                 <!-- Main Translation Interface -->
@@ -47,19 +47,19 @@
                         </button>
                     </div>
 
-                    <div id="output-container" style="background-color: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #e9ecef; margin-top: 20px;">
-                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em;">Translated Text:</h3>
-                        <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 30px;"></p>
-                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em;">IPA Pronunciation:</h3>
-                        <p id="ipa-output" style="color: #27ae60; font-size: 1.3em; font-family: 'Roboto Mono', monospace; min-height: 30px;"></p>
+                    <div id="output-container" style="background-color: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #e9ecef; margin-top: 20px; text-align: center;">
+                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">Translated Text:</h3>
+                        <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 30px; text-align: center;"></p>
+                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">IPA Pronunciation:</h3>
+                        <p id="ipa-output" style="color: #27ae60; font-size: 1.3em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
                     </div>
                 </div>
 
                 <!-- Quiz Interface -->
-                <div id="quiz-ui" style="display: none;">
+                <div id="quiz-ui" style="display: none; text-align: center;">
                     <div id="quiz-prompt" style="text-align: center; font-size: 1.5em; margin-bottom: 20px; color: #2c3e50;"></div>
                     <textarea id="quiz-answer"
-                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #9b59b6; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical;"
+                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #9b59b6; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical; box-sizing: border-box;"
                               placeholder="Type your translation here..."></textarea>
                     <div id="quiz-feedback" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 20px 0; min-height: 30px;"></div>
                     <div style="display: flex; justify-content: center; gap: 15px; margin: 20px 0;">
