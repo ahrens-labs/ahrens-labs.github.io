@@ -806,7 +806,7 @@ footer {
 }
 
 .button.accent {
-    background: linear-gradient(135deg, #2980b9, #1abc9c);
+    background: linear-gradient(135deg, #72c7ff, #21fca0);
     color: white;
     box-shadow: 0 4px 15px rgba(41, 128, 185, 0.3);
     border: none;
@@ -815,7 +815,7 @@ footer {
 .button.accent:hover {
     transform: translateY(-3px) scale(1.05);
     box-shadow: 0 8px 25px rgba(41, 128, 185, 0.4);
-    background: linear-gradient(135deg, #21618c, #148f77);
+    background: linear-gradient(135deg, #3db1ff, #13be5a);
 }
 
 .hero-stats {
