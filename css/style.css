@@ -109,12 +109,12 @@ header:hover::before {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 15px;
+    gap: 1px;
 }
 
 .logo-link {
     display: inline-block;
-    margin-bottom: 10px;
+    margin-bottom: 0px;
 }
 
 .quiz-container {
@@ -189,7 +189,9 @@ header:hover::before {
         }
 
         .option-button.selected {
-            background-color: #27ae60; /* Green for selected */
+            background: #ff8c00 !important; /* Orange for selected */
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3) !important;
         }
 
         #navigation-buttons {
