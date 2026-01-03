@@ -338,10 +338,83 @@
       font-weight: 700;
     }
 
+    /* Move History/Notation Container */
+    #notation-container {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 
+          0 4px 15px rgba(0, 0, 0, 0.08),
+          inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      margin: 20px auto;
+      max-width: 600px;
+      border: 1px solid rgba(52, 152, 219, 0.1);
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.95rem;
+      line-height: 2;
+      color: #34495e;
+      display: none;
+    }
+
+    #notation-container::before {
+      content: 'Move History';
+      display: block;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .move-pair {
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      background: white;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .move-pair:hover {
+      background: #f8f9fa;
+      transform: translateX(3px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .move-number {
+      color: #7f8c8d;
+      margin-right: 12px;
+      font-weight: 600;
+      min-width: 30px;
+      display: inline-block;
+    }
+
+    .white-move {
+      color: #2c3e50;
+      margin-right: 15px;
+      font-weight: 600;
+      padding: 4px 8px;
+      background: rgba(52, 152, 219, 0.08);
+      border-radius: 4px;
+      border-left: 3px solid #3498db;
+    }
+
+    .black-move {
+      color: #34495e;
+      font-weight: 500;
+      padding: 4px 8px;
+      background: rgba(44, 62, 80, 0.05);
+      border-radius: 4px;
+      border-left: 3px solid #2c3e50;
+    }
+
     /* Hidden State */
     #timers-container,
     #move-timer-container,
-    #last-move-container {
+    #last-move-container,
+    #notation-container {
       display: none;
     }
 
@@ -457,6 +530,8 @@
   <div id="last-move-container">
     Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
   </div>
+
+<div id="notation-container"></div>
 
   <script>
     let game, board;
@@ -629,10 +704,18 @@
       return elapsed;
     }
 
-    function updateLastMove(move, timeStr) {
+    function updateLastMove(move, timeStr, color, move_number) {
       const txt = move ? `${move} (${timeStr})` : "None";
+      const text = `${move}`;
       document.getElementById("last-move").textContent = txt;
-    }
+      if (text !== `null`) {
+        if (color === "white") {
+      document.getElementById("notation-container").textContent += move_number + ". " + text + " ";
+            } else {
+      document.getElementById("notation-container").textContent += text + " "; 
+            }
+      }
+}
 
     function updateTurnDisplay() {
       document.getElementById("turn-color").textContent = game.turn() === "w" ? "White" : "Black";
@@ -695,7 +778,7 @@
       // Set up the timer display order based on player color
       setupTimerDisplayOrder();
 
-      updateLastMove(null, "00:00.00");
+      updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
 
       board = Chessboard("board", {
@@ -719,11 +802,8 @@
 
       document.getElementById("move-timer-container").style.display = "block";
       document.getElementById("last-move-container").style.display = "block";
-
-      if (timeLimited) {
-        document.getElementById("timers-container").style.display = "flex";
-      } else {
-        document.getElementById("timers-container").style.display = "none";
+      document.getElementById("notation-container").style.display = "block";
+      document.getElementById("notation-container").textContent = "";
       }
 
       // Start the timer regardless of who moves first
@@ -732,7 +812,7 @@
       if (playerColor === "black") {
         engineMove();
       }
-    }
+    
 
     async function handleMove(source, target) {
       if (gameOver) return "snapback";
@@ -742,7 +822,7 @@
 
       const prevTurn = game.turn() === "w" ? "b" : "w";
       const moveTimeMs = stopTimerAndUpdateTotal(prevTurn);
-      updateLastMove(move.san, formatTime(moveTimeMs));
+      updateLastMove(move.san, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
       board.position(game.fen());
       updateTurnDisplay();
 
@@ -781,7 +861,7 @@
         // Stop timer *before* making the move on the game object
         const moveTimeMs = stopTimerAndUpdateTotal(game.turn()); 
         const move = game.move(data.move);
-        updateLastMove(data.move, formatTime(moveTimeMs));
+        updateLastMove(data.move, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
         board.position(game.fen());
         updateTurnDisplay();
 
@@ -809,4 +889,3 @@
     </footer>
 </body>
 </html>
-
