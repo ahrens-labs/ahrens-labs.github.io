@@ -351,7 +351,7 @@
       border: 1px solid rgba(52, 152, 219, 0.1);
       font-family: 'Roboto Mono', monospace;
       font-size: 0.95rem;
-      line-height: 2;
+      line-height: 1.6;
       color: #34495e;
       display: none;
     }
@@ -385,7 +385,7 @@
 
     .move-number {
       color: #7f8c8d;
-      margin-right: 12px;
+      margin-right: -10px;
       font-weight: 600;
       min-width: 30px;
       display: inline-block;
@@ -393,12 +393,32 @@
 
     .white-move {
       color: #2c3e50;
-      margin-right: 15px;
+      margin-right: -10px;
       font-weight: 600;
       padding: 4px 8px;
       background: rgba(52, 152, 219, 0.08);
       border-radius: 4px;
       border-left: 3px solid #3498db;
+    }
+
+    .move-item {
+      cursor: pointer;
+      padding: 3px 3px;
+      margin: 0;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      display: inline-block;
+    }
+
+    .move-item:hover {
+      background: rgba(52, 152, 219, 0.2);
+    }
+
+    .move-item.highlighted {
+      background: #3498db;
+      color: white;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(52, 152, 219, 0.4);
     }
 
     .black-move {
@@ -591,6 +611,8 @@
     let gameOver = false;
     let blindfoldMode = false;
     let showHistoryInBlindfold = false;
+    let moveHistory = [];
+    let currentMoveIndex = -1;
 
     // --- sendEngineCommand function ---
     function sendEngineCommand(endpoint) {
@@ -654,7 +676,17 @@
             });
     });
 
-    // --- Your other functions (formatTime, startTimer, etc.) ---
+        $(document).keydown(function(e) {
+            if (!blindfoldMode && board && moveHistory.length > 0) {
+                if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+                    e.preventDefault();
+                    navigateToPreviousMove();
+                } else if (e.key === 'ArrowRight' || e.keyCode === 39) {
+                    e.preventDefault();
+                    navigateToNextMove();
+                }
+            }
+        });
     function formatTime(ms) {
       const t = Math.max(0, Math.floor(ms));
       const totalHundredths = Math.floor(t / 10);
@@ -764,16 +796,88 @@
       return elapsed;
     }
 
-    function updateLastMove(move, timeStr, color, move_number) {
-      const txt = move ? `${move} (${timeStr})` : "None";
-      const text = `${move}`;
-      document.getElementById("last-move").textContent = txt;
-      if (text !== `null`) {
-        if (color === "white") {
-      document.getElementById("notation-container").textContent += move_number + ". " + text + " ";
-            } else {
-      document.getElementById("notation-container").textContent += text + " "; 
-            }
+function navigateToPreviousMove() {
+      if (currentMoveIndex === -1 && moveHistory.length > 0) {
+        currentMoveIndex = moveHistory.length - 2;
+        if (currentMoveIndex < 0) currentMoveIndex = 0;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex > 0) {
+        currentMoveIndex--;
+        displayPositionAtIndex(currentMoveIndex);
+      }
+    }
+
+    function navigateToNextMove() {
+      if (currentMoveIndex === -1) {
+        // Already at current position, do nothing
+        return;
+      } else if (currentMoveIndex < moveHistory.length - 1) {
+        currentMoveIndex++;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === moveHistory.length - 1) {
+        currentMoveIndex = -1;
+        board.position(game.fen());
+        updateMoveHighlight();
+      }
+    }
+
+    function displayPositionAtIndex(index) {
+      if (index >= 0 && index < moveHistory.length) {
+        board.position(moveHistory[index]);
+        updateMoveHighlight();
+      }
+    }
+
+    function updateMoveHighlight() {
+      $('.move-item').removeClass('highlighted');
+      if (currentMoveIndex >= 0 && currentMoveIndex < moveHistory.length) {
+        $(`.move-item[data-move-index="${currentMoveIndex}"]`).addClass('highlighted');
+      }
+    }
+
+    function updateNotationDisplay() {
+      const history = game.history();
+      const container = document.getElementById("notation-container");
+      container.innerHTML = '';
+
+      for (let i = 0; i < history.length; i++) {
+        if (i % 2 === 0) {
+          const moveNum = Math.floor(i / 2) + 1;
+          const moveSpan = document.createElement('span');
+          moveSpan.className = 'move-number';
+          moveSpan.textContent = moveNum + '.';
+          container.appendChild(moveSpan);
+          container.appendChild(document.createTextNode(' '));
+        }
+
+        const moveSpan = document.createElement('span');
+        moveSpan.className = 'move-item';
+        if (currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1)) {
+          moveSpan.classList.add('highlighted');
+        }
+        moveSpan.setAttribute('data-move-index', i);
+        moveSpan.onclick = function() { jumpToMove(i); };
+        moveSpan.textContent = history[i];
+        container.appendChild(moveSpan);
+        container.appendChild(document.createTextNode(' '));
+      }
+    }
+
+    function jumpToMove(index) {
+      if (!blindfoldMode && index >= 0 && index < moveHistory.length) {
+        currentMoveIndex = index;
+        displayPositionAtIndex(index);
+      }
+    }
+
+    function updateLastMove(move, timeStr, color, move_number) {
+      const txt = move ? `${move} (${timeStr})` : "None";
+      document.getElementById("last-move").textContent = txt;
+
+      if (move) {
+        moveHistory.push(game.fen());
+        currentMoveIndex = -1;
+        updateNotationDisplay();
       }
 }
 
@@ -828,13 +932,12 @@
       blackTime = base ? base * 1000 : 0;
 
       game = new Chess();
-      document.getElementById("choose-side").style.display = "none";
+      moveHistory = [];
+      currentMoveIndex = -1;
+      document.getElementById("choose-side").style.display = "none";
       
       // RESTORE ORIGINAL MOVE TIMER CONTAINER CONTENT
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
-      
-      // Set up the timer display order based on player color
-      setupTimerDisplayOrder();
 
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
