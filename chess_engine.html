@@ -418,6 +418,26 @@
       display: none;
     }
 
+    /* Blindfold Mode */
+    .blindfold-hidden {
+      display: none !important;
+    }
+
+    #move-input-container {
+      text-align: center;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 15px;
+      border: 1px solid #e9ecef;
+      max-width: 600px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    #show-history-row {
+      display: none;
+    }
+
     /* Responsive Design */
     @media (max-width: 768px) {
       main {
@@ -506,6 +526,20 @@
     </div>
     
     <div class="control-row">
+      <label for="blindfold-mode">
+        <input type="checkbox" id="blindfold-mode" onchange="toggleHistoryOption()" style="margin-right: 8px;">
+        Blindfold Mode
+      </label>
+    </div>
+    
+    <div class="control-row" id="show-history-row">
+      <label for="show-history">
+        <input type="checkbox" id="show-history" style="margin-right: 8px;">
+        Show Move History in Blindfold
+      </label>
+    </div>
+    
+    <div class="control-row">
       <button onclick="startGame()">Start Game</button>
     </div>
   </div>  <div id="move-timer-container">
@@ -531,49 +565,75 @@
     Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
   </div>
 
+  <div id="move-input-container" style="display: none;">
+    <input type="text" id="move-input" placeholder="Enter move (e.g., e4, Nf3, O-O)" 
+           onkeypress="if(event.key === 'Enter') submitMove()"
+           style="padding: 12px 18px; font-size: 1.1em; border: 2px solid #3498db; 
+                  border-radius: 20px; margin-right: 10px; font-family: 'Inter', sans-serif;
+                  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);">
+    <button onclick="submitMove()" 
+            style="padding: 12px 24px; font-size: 1.1em; background-color: #3498db; 
+                   color: white; border: none; border-radius: 20px; cursor: pointer;
+                   font-family: 'Inter', sans-serif; font-weight: 600; max-width: none;">
+      Submit Move
+    </button>
+  </div>
+
 <div id="notation-container"></div>
 
-  <script>
-    let game, board;
-    let playerColor = "white";
-    let timerStart = 0;
-    let timerInterval = null;
-    let whiteTime, blackTime, increment;
-    let timeLimited = false;
-    let gameOver = false;
+  <script>
+    let game, board;
+    let playerColor = "white";
+    let timerStart = 0;
+    let timerInterval = null;
+    let whiteTime, blackTime, increment;
+    let timeLimited = false;
+    let gameOver = false;
+    let blindfoldMode = false;
+    let showHistoryInBlindfold = false;
 
-    // --- sendEngineCommand function ---
-    function sendEngineCommand(endpoint) {
-    // Key change: Add 'return' here to return the promise chain
-    return fetch(`https://hedgehoglover23.pythonanywhere.com/${endpoint}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => {
-                throw new Error(`Server error for /${endpoint}: ${err.message || response.statusText}`);
-            }).catch(() => {
-                throw new Error(`Server error for /${endpoint}: ${response.status} ${response.statusText}`);
-            });
-        }
-        return response.json(); // This 'return' passes the parsed data down
-    })
-    .then(data => {
-        console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
-        return data; // This 'return data' is correct for the internal chain
-    })
-    .catch(error => {
-        console.error(`Error sending command /${endpoint}:`, error);
-        throw error; // Propagate the error so the awaiting function can catch it
-    });
+    // --- sendEngineCommand function ---
+    function sendEngineCommand(endpoint) {
+    // Key change: Add 'return' here to return the promise chain
+    return fetch(`https://hedgehoglover23.pythonanywhere.com/${endpoint}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(`Server error for /${endpoint}: ${err.message || response.statusText}`);
+            }).catch(() => {
+                throw new Error(`Server error for /${endpoint}: ${response.status} ${response.statusText}`);
+            });
+        }
+        return response.json(); // This 'return' passes the parsed data down
+    })
+    .then(data => {
+        console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
+        return data; // This 'return data' is correct for the internal chain
+    })
+    .catch(error => {
+        console.error(`Error sending command /${endpoint}:`, error);
+        throw error; // Propagate the error so the awaiting function can catch it
+    });
 }
 
-    // --- $(document).ready() block (top level) ---
-    $(document).ready(function() {
+    function toggleHistoryOption() {
+      const blindfoldChecked = document.getElementById("blindfold-mode").checked;
+      const historyRow = document.getElementById("show-history-row");
+      if (blindfoldChecked) {
+        historyRow.style.display = "flex";
+      } else {
+        historyRow.style.display = "none";
+        document.getElementById("show-history").checked = false;
+      }
+    }
+
+ $(document).ready(function() {
 	 		
         console.log("The page has finished loading!");
 
@@ -758,9 +818,7 @@
       sendEngineCommand("start");
 
       const side = document.getElementById("color-select").value;
-      const timeOption = document.getElementById("time-control").value;
-
-      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
+      const timeOption = document.getElementById("time-control").value;      blindfoldMode = document.getElementById("blindfold-mode").checked;      showHistoryInBlindfold = document.getElementById("show-history").checked;      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
       const [base, inc] =
         timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
 
@@ -804,13 +862,34 @@
       document.getElementById("last-move-container").style.display = "block";
       document.getElementById("notation-container").style.display = "block";
       document.getElementById("notation-container").textContent = "";
-      }
-
-      // Start the timer regardless of who moves first
-      startTimer();
       
-      if (playerColor === "black") {
-        engineMove();
+      // Handle blindfold mode
+      if (blindfoldMode) {
+        document.getElementById("board").classList.add("blindfold-hidden");
+        document.getElementById("timers-container").classList.add("blindfold-hidden");
+        document.getElementById("move-input-container").style.display = "block";
+        
+        // Handle move history visibility in blindfold mode
+        if (showHistoryInBlindfold) {
+          document.getElementById("notation-container").classList.remove("blindfold-hidden");
+        } else {
+          document.getElementById("notation-container").classList.add("blindfold-hidden");
+        }
+      } else {
+        document.getElementById("board").classList.remove("blindfold-hidden");
+        document.getElementById("timers-container").classList.remove("blindfold-hidden");
+        document.getElementById("notation-container").classList.remove("blindfold-hidden");
+        document.getElementById("move-input-container").style.display = "none";
+      }
+      
+      startTimer();
+      
+      if (playerColor === "black") {
+        engineMove();
+      }
+    }
+
+    async function handleMove(source, target) {
       }
     
 
@@ -881,7 +960,50 @@
         console.error(err);
       }
     }
-  </script>
+    function submitMove() {
+      if (gameOver) return;
+      
+      const moveInput = document.getElementById("move-input");
+      const moveStr = moveInput.value.trim();
+      
+      if (!moveStr) {
+        moveInput.style.borderColor = "red";
+        setTimeout(() => { moveInput.style.borderColor = "#3498db"; }, 500);
+        return;
+      }
+      
+      removeHighlights();
+      const move = game.move(moveStr, { sloppy: true });
+      
+      if (!move) {
+        moveInput.style.borderColor = "red";
+        setTimeout(() => { moveInput.style.borderColor = "#3498db"; }, 500);
+        return;
+      }
+      
+      moveInput.value = "";
+      moveInput.style.borderColor = "#3498db";
+      
+      const prevTurn = game.turn() === "w" ? "b" : "w";
+      const moveTimeMs = stopTimerAndUpdateTotal(prevTurn);
+      updateLastMove(move.san, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
+      
+      if (!blindfoldMode) {
+        board.position(game.fen());
+      }
+      
+      updateTurnDisplay();
+
+      if (game.in_checkmate()) {
+        const moveContainer = document.getElementById("move-timer-container");
+        moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
+        gameOver = true;
+        return;
+      }
+
+      startTimer();
+      engineMove();
+    }  </script>
   <div class="push"></div>
     </div>
   <footer>
