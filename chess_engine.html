@@ -684,6 +684,12 @@
                 } else if (e.key === 'ArrowRight' || e.keyCode === 39) {
                     e.preventDefault();
                     navigateToNextMove();
+                } else if (e.key === 'ArrowUp' || e.keyCode === 38) {
+                    e.preventDefault();
+                    navigateToStart();
+                } else if (e.key === 'ArrowDown' || e.keyCode === 40) {
+                    e.preventDefault();
+                    navigateToCurrent();
                 }
             }
         });
@@ -801,6 +807,10 @@ function navigateToPreviousMove() {
         currentMoveIndex = moveHistory.length - 2;
         if (currentMoveIndex < 0) currentMoveIndex = 0;
         displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === 0) {
+        currentMoveIndex = -2;
+        board.position('start');
+        updateMoveHighlight();
       } else if (currentMoveIndex > 0) {
         currentMoveIndex--;
         displayPositionAtIndex(currentMoveIndex);
@@ -808,7 +818,10 @@ function navigateToPreviousMove() {
     }
 
     function navigateToNextMove() {
-      if (currentMoveIndex === -1) {
+      if (currentMoveIndex === -2 && moveHistory.length > 0) {
+        currentMoveIndex = 0;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === -1) {
         // Already at current position, do nothing
         return;
       } else if (currentMoveIndex < moveHistory.length - 1) {
@@ -819,6 +832,18 @@ function navigateToPreviousMove() {
         board.position(game.fen());
         updateMoveHighlight();
       }
+    }
+
+    function navigateToStart() {
+      currentMoveIndex = -2;
+      board.position('start');
+      updateMoveHighlight();
+    }
+
+    function navigateToCurrent() {
+      currentMoveIndex = -1;
+      board.position(game.fen());
+      updateMoveHighlight();
     }
 
     function displayPositionAtIndex(index) {
