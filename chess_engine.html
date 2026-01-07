@@ -239,6 +239,73 @@
       transform: scale(1.03);
     }
 
+    /* Custom personality class */
+    #engine-style.personality-custom {
+      border-color: #34495e;
+      box-shadow: 0 3px 12px rgba(52, 73, 94, 0.4), 0 0 20px rgba(52, 73, 94, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #f5f6fa 100%);
+    }
+
+    /* Custom modifiers panel */
+    #custom-modifiers-panel {
+      background: linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%);
+      border: 2px solid #34495e;
+      border-radius: 15px;
+      padding: 20px;
+      margin: 15px 0;
+      box-shadow: 0 4px 15px rgba(52, 73, 94, 0.15);
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modifier-input-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .modifier-input-group label {
+      flex: 1;
+      font-size: 0.95em;
+      font-weight: 500;
+      color: #2c3e50;
+      text-align: left;
+    }
+
+    .modifier-input-group input[type="number"] {
+      width: 80px;
+      padding: 8px 12px;
+      border: 2px solid #34495e;
+      border-radius: 10px;
+      font-family: "Roboto Mono", monospace;
+      font-size: 0.95em;
+      text-align: center;
+      transition: all 0.3s ease;
+      background: white;
+    }
+
+    .modifier-input-group input[type="number"]:hover {
+      border-color: #5d6d7e;
+      box-shadow: 0 2px 8px rgba(52, 73, 94, 0.2);
+    }
+
+    .modifier-input-group input[type="number"]:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+    }
+
     /* Option elements styling */
     select option {
       background: white;
@@ -365,9 +432,25 @@
       box-shadow: none !important;
     }
 
-    /* Allow clicks to pass through piece images for click-to-move */
+    /* Enable pointer events for dragging */
     #board img {
-      pointer-events: none;
+      pointer-events: auto !important;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-drag: none;
+      -khtml-user-drag: none;
+      -moz-user-drag: none;
+      -o-user-drag: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+    }
+    
+    #board img[draggable] {
+      -webkit-user-drag: none !important;
+    }
+
+    #board img:active {
+      cursor: grabbing;
     }
 
     /* Only show yellow border on legal move targets during drag */
@@ -937,7 +1020,50 @@
         <option value="positional">🎯 Positional</option>
         <option value="material">💎 Material-Focused</option>
         <option value="tactical">⚡ Tactical</option>
+        <option value="custom">🎛️ Custom</option>
       </select>
+    </div>
+    
+    <!-- Custom modifiers panel -->
+    <div id="custom-modifiers-panel" style="display: none;">
+      <div style="text-align: center; margin-bottom: 15px; font-weight: 600; color: #2c3e50;">
+        Customize Engine Modifiers (0.0 - 2.0)
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 600px; margin: 0 auto;">
+        <div class="modifier-input-group">
+          <label for="mod-material">Material:</label>
+          <input type="number" id="mod-material" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-king-safety">King Safety:</label>
+          <input type="number" id="mod-king-safety" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-centralization">Centralization:</label>
+          <input type="number" id="mod-centralization" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-attack">Attack:</label>
+          <input type="number" id="mod-attack" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-piece-activity">Piece Activity:</label>
+          <input type="number" id="mod-piece-activity" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-defense">Defense:</label>
+          <input type="number" id="mod-defense" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div class="modifier-input-group">
+          <label for="mod-pawn-structure">Pawn Structure:</label>
+          <input type="number" id="mod-pawn-structure" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+        </div>
+        <div style="grid-column: 1 / -1; text-align: center; margin-top: 5px;">
+          <button onclick="resetCustomModifiers()" style="padding: 8px 20px; font-size: 0.9em; background: linear-gradient(135deg, #95a5a6, #7f8c8d); border: none; border-radius: 15px; color: white; cursor: pointer; font-weight: 600;">
+            Reset to 1.0
+          </button>
+        </div>
+      </div>
     </div>
     
     <div class="control-row">
@@ -1101,6 +1227,15 @@
         piece_activity_b: 1.35, piece_activity_w: 1.35,
         defense_b: 0.9, defense_w: 0.9,
         pawn_structure_b: 0.9, pawn_structure_w: 0.9
+      },
+      custom: {
+        material: 1.0,
+        king_safety_b: 1.0, king_safety_w: 1.0,
+        centralization_b: 1.0, centralization_w: 1.0,
+        attack_b: 1.0, attack_w: 1.0,
+        piece_activity_b: 1.0, piece_activity_w: 1.0,
+        defense_b: 1.0, defense_w: 1.0,
+        pawn_structure_b: 1.0, pawn_structure_w: 1.0
       }
     };
 
@@ -1234,6 +1369,98 @@
         historyRow.style.display = "inline-block";
       } else {
         historyRow.style.display = "none";
+      }
+    }
+
+    function updateCustomModifiers() {
+      // Helper function to clamp values between 0 and 2
+      const clampValue = (value) => {
+        const num = parseFloat(value);
+        if (isNaN(num)) return 1.0;
+        return Math.max(0, Math.min(2, num));
+      };
+      
+      // Get values and clamp them
+      const material = clampValue(document.getElementById('mod-material').value);
+      const kingSafety = clampValue(document.getElementById('mod-king-safety').value);
+      const centralization = clampValue(document.getElementById('mod-centralization').value);
+      const attack = clampValue(document.getElementById('mod-attack').value);
+      const pieceActivity = clampValue(document.getElementById('mod-piece-activity').value);
+      const defense = clampValue(document.getElementById('mod-defense').value);
+      const pawnStructure = clampValue(document.getElementById('mod-pawn-structure').value);
+      
+      // Update input fields with clamped values
+      document.getElementById('mod-material').value = material.toFixed(1);
+      document.getElementById('mod-king-safety').value = kingSafety.toFixed(1);
+      document.getElementById('mod-centralization').value = centralization.toFixed(1);
+      document.getElementById('mod-attack').value = attack.toFixed(1);
+      document.getElementById('mod-piece-activity').value = pieceActivity.toFixed(1);
+      document.getElementById('mod-defense').value = defense.toFixed(1);
+      document.getElementById('mod-pawn-structure').value = pawnStructure.toFixed(1);
+      
+      // Update the custom personality in enginePersonalities object
+      enginePersonalities.custom.material = material;
+      enginePersonalities.custom.king_safety_b = kingSafety;
+      enginePersonalities.custom.king_safety_w = kingSafety;
+      enginePersonalities.custom.centralization_b = centralization;
+      enginePersonalities.custom.centralization_w = centralization;
+      enginePersonalities.custom.attack_b = attack;
+      enginePersonalities.custom.attack_w = attack;
+      enginePersonalities.custom.piece_activity_b = pieceActivity;
+      enginePersonalities.custom.piece_activity_w = pieceActivity;
+      enginePersonalities.custom.defense_b = defense;
+      enginePersonalities.custom.defense_w = defense;
+      enginePersonalities.custom.pawn_structure_b = pawnStructure;
+      enginePersonalities.custom.pawn_structure_w = pawnStructure;
+      
+      // Save to localStorage
+      localStorage.setItem('customModifiers', JSON.stringify({
+        material: material,
+        king_safety: kingSafety,
+        centralization: centralization,
+        attack: attack,
+        piece_activity: pieceActivity,
+        defense: defense,
+        pawn_structure: pawnStructure
+      }));
+      
+      // Apply modifiers in real-time
+      applyEngineModifiers('custom');
+    }
+
+    function resetCustomModifiers() {
+      document.getElementById('mod-material').value = 1.0;
+      document.getElementById('mod-king-safety').value = 1.0;
+      document.getElementById('mod-centralization').value = 1.0;
+      document.getElementById('mod-attack').value = 1.0;
+      document.getElementById('mod-piece-activity').value = 1.0;
+      document.getElementById('mod-defense').value = 1.0;
+      document.getElementById('mod-pawn-structure').value = 1.0;
+      updateCustomModifiers();
+    }
+
+    function loadCustomModifiers() {
+      const saved = localStorage.getItem('customModifiers');
+      if (saved) {
+        const custom = JSON.parse(saved);
+        document.getElementById('mod-material').value = custom.material || 1.0;
+        document.getElementById('mod-king-safety').value = custom.king_safety || 1.0;
+        document.getElementById('mod-centralization').value = custom.centralization || 1.0;
+        document.getElementById('mod-attack').value = custom.attack || 1.0;
+        document.getElementById('mod-piece-activity').value = custom.piece_activity || 1.0;
+        document.getElementById('mod-defense').value = custom.defense || 1.0;
+        document.getElementById('mod-pawn-structure').value = custom.pawn_structure || 1.0;
+        updateCustomModifiers();
+      }
+    }
+
+    function toggleHistoryOption() {
+      const blindfoldChecked = document.getElementById("blindfold-mode").checked;
+      const historyRow = document.getElementById("show-history-row");
+      if (blindfoldChecked) {
+        historyRow.style.display = "inline-block";
+      } else {
+        historyRow.style.display = "none";
         document.getElementById("show-history").checked = false;
       }
     }
@@ -1255,6 +1482,7 @@
     function changeEngineStyle() {
       const style = document.getElementById("engine-style").value;
       const selector = document.getElementById("engine-style");
+      const customPanel = document.getElementById("custom-modifiers-panel");
       currentEngineStyle = style;
       
       // Remove all personality classes
@@ -1262,6 +1490,14 @@
       
       // Add new personality class for color
       selector.classList.add('personality-' + style);
+      
+      // Show/hide custom modifiers panel
+      if (style === 'custom') {
+        customPanel.style.display = 'block';
+        loadCustomModifiers();
+      } else {
+        customPanel.style.display = 'none';
+      }
       
       // Save preference to localStorage
       localStorage.setItem('enginePersonality', style);
@@ -1279,10 +1515,11 @@
       }
 
       // Determine which color the engine is playing
-      // If playerColor isn't set yet, we'll use balanced for both sides
       const engineColor = playerColor === 'white' ? 'black' : 'white';
-      const engineSuffix = engineColor === 'black' ? '_b' : '_w';
-      const playerSuffix = engineColor === 'black' ? '_w' : '_b';
+      // NOTE: Code internals are reversed from board!
+      // _b modifiers = WHITE pieces on board, _w modifiers = BLACK pieces on board
+      const engineSuffix = engineColor === 'black' ? '_w' : '_b';
+      const playerSuffix = engineColor === 'black' ? '_b' : '_w';
 
       // Build asymmetric modifiers: engine gets personality, player gets balanced (1.0)
       const modifiers = {
@@ -1302,6 +1539,8 @@
       console.log('Applying asymmetric modifiers:', {
         personality,
         engineColor,
+        engineSuffix,
+        playerSuffix,
         engineModifiers: modifiers
       });
 
@@ -1361,6 +1600,14 @@
         draggable: true,
         position: game ? game.fen() : "start",
         orientation: playerColor,
+        snapSpeed: 50,
+        snapbackSpeed: 50,
+        appearSpeed: 0,
+        moveSpeed: 100,
+        trashSpeed: 50,
+        dragThrottleRate: 0,
+        sparePieces: false,
+        dropOffBoard: 'snapback',
         onDragStart: (source, piece, position, orientation) => {
           if (game.game_over() || gameOver) {
             const sourceSquare = $(`#board .square-${source}`);
@@ -1421,6 +1668,12 @@
         engineStyleSelect.value = savedEngineStyle;
         // Apply personality color on load
         engineStyleSelect.classList.add('personality-' + savedEngineStyle);
+        
+        // Show custom panel if custom personality was selected
+        if (savedEngineStyle === 'custom') {
+          document.getElementById('custom-modifiers-panel').style.display = 'block';
+          loadCustomModifiers();
+        }
 
         // Initialize game object for preview board
         game = new Chess();
@@ -2032,11 +2285,7 @@ function navigateToPreviousMove() {
 
     async function startGame() {
       gameOver = false;
-      await sendEngineCommand("start");
       
-      // Apply selected engine personality before starting game
-      await applyEngineModifiers(currentEngineStyle);
-
       const side = document.getElementById("color-select").value;
       const timeOption = document.getElementById("time-control").value;      blindfoldMode = document.getElementById("blindfold-mode").checked;      showHistoryInBlindfold = document.getElementById("show-history").checked;      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
       const [base, inc] =
@@ -2092,6 +2341,14 @@ function navigateToPreviousMove() {
         draggable: true,
         position: "start",
         orientation: playerColor,
+        snapSpeed: 50,
+        snapbackSpeed: 50,
+        appearSpeed: 0,
+        moveSpeed: 100,
+        trashSpeed: 50,
+        dragThrottleRate: 0,
+        sparePieces: false,
+        dropOffBoard: 'snapback',
         onDragStart: (source, piece, position, orientation) => {
           console.log('onDragStart called for:', source, 'selectedSquare before:', selectedSquare);
           // Store the drag start square and time for click detection
@@ -2381,6 +2638,49 @@ function navigateToPreviousMove() {
         });
       }, 100);
 
+      // Prevent native HTML5 drag on piece images
+      setTimeout(() => {
+        $('#board img').on('dragstart', function(e) {
+          e.preventDefault();
+          return false;
+        });
+        // Also set draggable attribute to false
+        $('#board img').attr('draggable', 'false');
+        
+        // Use MutationObserver to handle dynamically added images
+        const observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(mutation) {
+            mutation.addedNodes.forEach(function(node) {
+              if (node.tagName === 'IMG') {
+                $(node).attr('draggable', 'false');
+                $(node).on('dragstart', function(e) {
+                  e.preventDefault();
+                  return false;
+                });
+              }
+              if (node.querySelectorAll) {
+                $(node).find('img').attr('draggable', 'false');
+                $(node).find('img').on('dragstart', function(e) {
+                  e.preventDefault();
+                  return false;
+                });
+              }
+            });
+          });
+        });
+        
+        observer.observe(document.getElementById('board'), {
+          childList: true,
+          subtree: true
+        });
+      }, 200);
+      
+      // Add event delegation for dynamically added images
+      $('#board').on('dragstart', 'img', function(e) {
+        e.preventDefault();
+        return false;
+      });
+
       document.getElementById("move-timer-container").style.display = "block";
       document.getElementById("last-move-container").style.display = "block";
       document.getElementById("notation-container").style.display = "block";
@@ -2412,6 +2712,10 @@ function navigateToPreviousMove() {
       }
       
       startTimer();
+      
+      // Initialize engine and apply modifiers before allowing moves
+      await sendEngineCommand("start");
+      await applyEngineModifiers(currentEngineStyle);
       
       if (playerColor === "black") {
         engineMove();
