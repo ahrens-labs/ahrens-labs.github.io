@@ -178,6 +178,65 @@
       box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);
       min-width: 140px;
       max-width: 160px;
+      cursor: pointer;
+    }
+
+    /* Engine personality selector - make it stand out */
+    #engine-style {
+      border: 3px solid #6c757d;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      font-weight: 600;
+      min-width: 180px;
+      box-shadow: 0 3px 10px rgba(108, 117, 125, 0.15);
+      position: relative;
+      transition: all 0.4s ease;
+    }
+
+    /* Personality color classes */
+    #engine-style.personality-balanced {
+      border-color: #6c757d;
+      box-shadow: 0 3px 10px rgba(108, 117, 125, 0.3), 0 0 15px rgba(108, 117, 125, 0.2);
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    #engine-style.personality-aggressive {
+      border-color: #e74c3c;
+      box-shadow: 0 3px 12px rgba(231, 76, 60, 0.4), 0 0 20px rgba(231, 76, 60, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #fff5f5 100%);
+    }
+
+    #engine-style.personality-defensive {
+      border-color: #3498db;
+      box-shadow: 0 3px 12px rgba(52, 152, 219, 0.4), 0 0 20px rgba(52, 152, 219, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #f0f8ff 100%);
+    }
+
+    #engine-style.personality-positional {
+      border-color: #9b59b6;
+      box-shadow: 0 3px 12px rgba(155, 89, 182, 0.4), 0 0 20px rgba(155, 89, 182, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #f8f0ff 100%);
+    }
+
+    #engine-style.personality-material {
+      border-color: #f39c12;
+      box-shadow: 0 3px 12px rgba(243, 156, 18, 0.4), 0 0 20px rgba(243, 156, 18, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #fffaf0 100%);
+    }
+
+    #engine-style.personality-tactical {
+      border-color: #1abc9c;
+      box-shadow: 0 3px 12px rgba(26, 188, 156, 0.4), 0 0 20px rgba(26, 188, 156, 0.3);
+      background: linear-gradient(145deg, #ffffff 0%, #f0fff8 100%);
+    }
+
+    #engine-style:hover {
+      transform: translateY(-2px) scale(1.02);
+      filter: brightness(1.05);
+    }
+
+    #engine-style:focus {
+      outline: none;
+      transform: scale(1.03);
     }
 
     /* Option elements styling */
@@ -859,13 +918,25 @@
       </select>
       
       <label for="piece-style" style="margin-left: 20px;">Piece Style: </label>
-      <select id="piece-style" onchange="changePieceStyle()">egal 
+      <select id="piece-style" onchange="changePieceStyle()">
         <option value="wikipedia">Wikipedia</option>
         <option value="alpha">Alpha</option>
         <option value="cburnett">CBurnett</option>
         <option value="merida">Merida</option>
         <option value="pirouetti">Pirouetti</option>
         <option value="spatial">Spatial</option>
+      </select>
+    </div>
+    
+    <div class="control-row">
+      <label for="engine-style">Engine Personality:</label>
+      <select id="engine-style" onchange="changeEngineStyle()">
+        <option value="balanced">⚖️ Balanced</option>
+        <option value="aggressive">⚔️ Aggressive</option>
+        <option value="defensive">🛡️ Defensive</option>
+        <option value="positional">🎯 Positional</option>
+        <option value="material">💎 Material-Focused</option>
+        <option value="tactical">⚡ Tactical</option>
       </select>
     </div>
     
@@ -973,6 +1044,65 @@
     let currentPieceStyle = 'wikipedia';
     let premove = null; // Store premove as {from: 'e2', to: 'e4'}
     let selectedSquare = null; // Track clicked piece for click-to-move
+    let currentEngineStyle = 'balanced'; // Track current engine personality
+
+    // Engine personality presets
+    const enginePersonalities = {
+      balanced: {
+        material: 1.0,
+        king_safety_b: 1.0, king_safety_w: 1.0,
+        centralization_b: 1.0, centralization_w: 1.0,
+        attack_b: 1.0, attack_w: 1.0,
+        piece_activity_b: 1.0, piece_activity_w: 1.0,
+        defense_b: 1.0, defense_w: 1.0,
+        pawn_structure_b: 1.0, pawn_structure_w: 1.0
+      },
+      aggressive: {
+        material: 0.9,
+        king_safety_b: 0.75, king_safety_w: 0.75,
+        centralization_b: 1.2, centralization_w: 1.2,
+        attack_b: 1.6, attack_w: 1.6,
+        piece_activity_b: 1.3, piece_activity_w: 1.3,
+        defense_b: 0.7, defense_w: 0.7,
+        pawn_structure_b: 0.8, pawn_structure_w: 0.8
+      },
+      defensive: {
+        material: 1.1,
+        king_safety_b: 1.5, king_safety_w: 1.5,
+        centralization_b: 0.9, centralization_w: 0.9,
+        attack_b: 0.75, attack_w: 0.75,
+        piece_activity_b: 0.85, piece_activity_w: 0.85,
+        defense_b: 1.4, defense_w: 1.4,
+        pawn_structure_b: 1.3, pawn_structure_w: 1.3
+      },
+      positional: {
+        material: 0.95,
+        king_safety_b: 1.2, king_safety_w: 1.2,
+        centralization_b: 1.3, centralization_w: 1.3,
+        attack_b: 0.9, attack_w: 0.9,
+        piece_activity_b: 1.1, piece_activity_w: 1.1,
+        defense_b: 1.2, defense_w: 1.2,
+        pawn_structure_b: 1.25, pawn_structure_w: 1.25
+      },
+      material: {
+        material: 1.5,
+        king_safety_b: 0.9, king_safety_w: 0.9,
+        centralization_b: 0.85, centralization_w: 0.85,
+        attack_b: 1.0, attack_w: 1.0,
+        piece_activity_b: 0.8, piece_activity_w: 0.8,
+        defense_b: 0.9, defense_w: 0.9,
+        pawn_structure_b: 0.75, pawn_structure_w: 0.75
+      },
+      tactical: {
+        material: 1.0,
+        king_safety_b: 0.85, king_safety_w: 0.85,
+        centralization_b: 1.15, centralization_w: 1.15,
+        attack_b: 1.4, attack_w: 1.4,
+        piece_activity_b: 1.35, piece_activity_w: 1.35,
+        defense_b: 0.9, defense_w: 0.9,
+        pawn_structure_b: 0.9, pawn_structure_w: 0.9
+      }
+    };
 
     // Piece style themes
     const pieceThemes = {
@@ -1122,6 +1252,79 @@
       localStorage.setItem('chessboardStyle', style);
     }
 
+    function changeEngineStyle() {
+      const style = document.getElementById("engine-style").value;
+      const selector = document.getElementById("engine-style");
+      currentEngineStyle = style;
+      
+      // Remove all personality classes
+      selector.className = selector.className.replace(/personality-\w+/g, '').trim();
+      
+      // Add new personality class for color
+      selector.classList.add('personality-' + style);
+      
+      // Save preference to localStorage
+      localStorage.setItem('enginePersonality', style);
+      
+      // Apply modifiers to engine
+      applyEngineModifiers(style);
+    }
+
+    async function applyEngineModifiers(personality) {
+      const baseModifiers = enginePersonalities[personality];
+      
+      if (!baseModifiers) {
+        console.error('Unknown engine personality:', personality);
+        return;
+      }
+
+      // Determine which color the engine is playing
+      // If playerColor isn't set yet, we'll use balanced for both sides
+      const engineColor = playerColor === 'white' ? 'black' : 'white';
+      const engineSuffix = engineColor === 'black' ? '_b' : '_w';
+      const playerSuffix = engineColor === 'black' ? '_w' : '_b';
+
+      // Build asymmetric modifiers: engine gets personality, player gets balanced (1.0)
+      const modifiers = {
+        material: baseModifiers.material, // Material is symmetric
+      };
+
+      // For each personality trait, apply it to engine's color only
+      const traits = ['king_safety', 'centralization', 'attack', 'piece_activity', 'defense', 'pawn_structure'];
+      
+      traits.forEach(trait => {
+        // Engine's color gets the personality modifier
+        modifiers[trait + engineSuffix] = baseModifiers[trait + engineSuffix];
+        // Player's color gets balanced modifier (1.0)
+        modifiers[trait + playerSuffix] = 1.0;
+      });
+
+      console.log('Applying asymmetric modifiers:', {
+        personality,
+        engineColor,
+        engineModifiers: modifiers
+      });
+
+      try {
+        const response = await fetch('https://hedgehoglover23.pythonanywhere.com/modifiers', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(modifiers)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Engine modifiers updated (asymmetric):', data);
+        } else {
+          console.error('Failed to update engine modifiers:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error updating engine modifiers:', error);
+      }
+    }
+
     function changePieceStyle() {
       const style = document.getElementById("piece-style").value;
       currentPieceStyle = style;
@@ -1210,6 +1413,14 @@
         const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'wikipedia';
         currentPieceStyle = savedPieceStyle;
         document.getElementById('piece-style').value = savedPieceStyle;
+
+        // Load saved engine personality
+        const savedEngineStyle = localStorage.getItem('enginePersonality') || 'balanced';
+        currentEngineStyle = savedEngineStyle;
+        const engineStyleSelect = document.getElementById('engine-style');
+        engineStyleSelect.value = savedEngineStyle;
+        // Apply personality color on load
+        engineStyleSelect.classList.add('personality-' + savedEngineStyle);
 
         // Initialize game object for preview board
         game = new Chess();
@@ -1819,9 +2030,12 @@ function navigateToPreviousMove() {
       container.appendChild(playerSlot);
     }
 
-    function startGame() {
+    async function startGame() {
       gameOver = false;
-      sendEngineCommand("start");
+      await sendEngineCommand("start");
+      
+      // Apply selected engine personality before starting game
+      await applyEngineModifiers(currentEngineStyle);
 
       const side = document.getElementById("color-select").value;
       const timeOption = document.getElementById("time-control").value;      blindfoldMode = document.getElementById("blindfold-mode").checked;      showHistoryInBlindfold = document.getElementById("show-history").checked;      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
