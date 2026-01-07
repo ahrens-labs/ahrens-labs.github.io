@@ -306,6 +306,11 @@
       box-shadow: none !important;
     }
 
+    /* Allow clicks to pass through piece images for click-to-move */
+    #board img {
+      pointer-events: none;
+    }
+
     /* Only show yellow border on legal move targets during drag */
     .legal-target {
       box-shadow: inset 0 0 0 3px rgba(255, 235, 59, 0.8) !important;
@@ -967,6 +972,7 @@
     let gameStartTime = null;
     let currentPieceStyle = 'wikipedia';
     let premove = null; // Store premove as {from: 'e2', to: 'e4'}
+    let selectedSquare = null; // Track clicked piece for click-to-move
 
     // Piece style themes
     const pieceThemes = {
@@ -1484,7 +1490,10 @@ function navigateToPreviousMove() {
     }
 
     function removeHighlights() {
-      $("#board .square-55d63").removeClass("highlight-legal");
+      // Don't remove highlights if a piece is selected for click-to-move
+      if (!selectedSquare) {
+        $("#board .square-55d63").removeClass("highlight-legal");
+      }
     }
 
     function clearPremove() {
@@ -1493,7 +1502,115 @@ function navigateToPreviousMove() {
         board.position(game.fen());
       }
       premove = null;
+      selectedSquare = null;
       $("#board .square-55d63").removeClass("premove-highlight premove-source");
+    }
+
+    function handleSquareClick(square) {
+      console.log('=== handleSquareClick START ===', square);
+      const turn = game.turn();
+      const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
+      const piece = game.get(square);  // Use game.get() to get piece from game state
+      console.log('Turn:', turn, 'isPlayerTurn:', isPlayerTurn, 'piece:', piece, 'selectedSquare:', selectedSquare);
+      
+      // If there's a selected piece
+      if (selectedSquare) {
+        // If clicking the same square, deselect
+        if (selectedSquare === square) {
+          selectedSquare = null;
+          removeHighlights();
+          return;
+        }
+        
+        // Check if this is a legal move or premove
+        if (!isPlayerTurn) {
+          // Handle premove click - clicking another of own pieces changes selection
+          if (piece) {
+            const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
+            if (pieceColorFull === playerColor) {
+              // Clear old highlights before selecting new piece
+              $("#board .square-55d63").removeClass("highlight-legal");
+              selectedSquare = square;
+              highlightLegalMoves(square);
+              return;
+            }
+          }
+          
+          // Make premove
+          const premoveFrom = selectedSquare;
+          const premoveTo = square;
+          
+          selectedSquare = null;
+          removeHighlights();
+          
+          $("#board .square-55d63").removeClass("premove-highlight premove-source");
+          if (premove) {
+            board.position(game.fen());
+          }
+          
+          premove = { from: premoveFrom, to: premoveTo };
+          
+          const pos = board.position();
+          const movingPiece = pos[premoveFrom];
+          delete pos[premoveFrom];
+          pos[premoveTo] = movingPiece;
+          board.position(pos);
+          
+          setTimeout(() => {
+            $(`#board .square-${premoveFrom}`).addClass("premove-source");
+            $(`#board .square-${premoveTo}`).addClass("premove-highlight");
+          }, 0);
+          return;
+        } else {
+          // Try to make a normal move
+          const moveFrom = selectedSquare;
+          const moveTo = square;
+          console.log('Attempting move from', moveFrom, 'to', moveTo);
+          const testMove = game.move({ from: moveFrom, to: moveTo, promotion: 'q' });
+          console.log('Test move result:', testMove);
+          
+          if (testMove) {
+            // Legal move - undo the test move, then execute properly
+            game.undo();
+            clearPremove();
+            selectedSquare = null;
+            removeHighlights();
+            console.log('Calling handleMove');
+            handleMove(moveFrom, moveTo);
+            return;
+          } else if (piece) {
+            const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
+            if (pieceColorFull === playerColor) {
+              // Illegal move but clicked on own piece - change selection
+              console.log('Switching selection to', square);
+              // Clear old highlights before selecting new piece
+              $("#board .square-55d63").removeClass("highlight-legal");
+              selectedSquare = square;
+              highlightLegalMoves(square);
+              return;
+            }
+          }
+          
+          // Invalid move, deselect
+          console.log('Invalid move, deselecting');
+          selectedSquare = null;
+          removeHighlights();
+          return;
+        }
+      }
+      
+      // No piece selected - select clicked piece if valid
+      if (piece) {
+        const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
+        if (pieceColorFull === playerColor) {
+          console.log('Setting selectedSquare to:', square);
+          // Clear old highlights before selecting new piece
+          $("#board .square-55d63").removeClass("highlight-legal");
+          selectedSquare = square;
+          highlightLegalMoves(square);
+          console.log('After setting, selectedSquare is:', selectedSquare);
+        }
+      }
     }
 
     function detectOpening() {
@@ -1736,6 +1853,7 @@ function navigateToPreviousMove() {
       lastMoveSquares = { from: null, to: null };
       gameStartTime = new Date();
       premove = null; // Clear any premove
+      selectedSquare = null; // Clear any selection
       
       // Hide the options panel with fade effect
       const choosePanel = document.getElementById("choose-side");
@@ -1761,6 +1879,13 @@ function navigateToPreviousMove() {
         position: "start",
         orientation: playerColor,
         onDragStart: (source, piece, position, orientation) => {
+          console.log('onDragStart called for:', source, 'selectedSquare before:', selectedSquare);
+          // Store the drag start square and time for click detection
+          window.dragStartSquare = source;
+          window.dragStartTime = Date.now();
+          
+          // Don't clear selection yet - wait to see if this is a click or drag
+          
           // Don't allow dragging if game is over
           if (game.game_over() || gameOver) {
             return false;
@@ -1800,11 +1925,20 @@ function navigateToPreviousMove() {
           }
         },
         onMouseoutSquare: (square, piece) => {
-          // Remove all legal move highlights when mouse leaves
-          removeHighlights();
+          // Only remove legal-target class (yellow hover border during drag)
           $("#board .square-55d63").removeClass("legal-target");
+          // Don't remove legal move dots - they stay until piece is deselected or moved
         },
         onDrop: (source, target) => {
+          console.log('onDrop called:', source, '->', target);
+          
+          // Detect click-to-move: if dropped on same square, it's a click
+          if (source === target) {
+            console.log('Click detected (drop on same square):', source);
+            handleSquareClick(source);
+            return 'snapback'; // Return piece to original position
+          }
+          
           const turn = game.turn();
           const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
           
@@ -1858,12 +1992,180 @@ function navigateToPreviousMove() {
           handleMove(source, target);
         },
         onSnapEnd: () => {
-          // Remove highlights when piece is dropped
-          removeHighlights();
+          // Clean up after drag/drop (clicks are handled in onDrop)
           $("#board .square-55d63").removeClass("legal-target");
+          
+          // Only remove highlights if not in click-to-move mode
+          if (!selectedSquare) {
+            removeHighlights();
+          }
+        },
+        onClick: (square) => {
+          const turn = game.turn();
+          const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
+          const position = board.position();
+          const piece = position[square];
+          
+          // If there's a selected piece
+          if (selectedSquare) {
+            // If clicking the same square, deselect
+            if (selectedSquare === square) {
+              selectedSquare = null;
+              removeHighlights();
+              return;
+            }
+            
+            // Check if this is a legal move or premove
+            if (!isPlayerTurn) {
+              // Handle premove click
+              if (!piece || (playerColor === "white" && piece.search(/^w/) !== -1) || 
+                  (playerColor === "black" && piece.search(/^b/) !== -1)) {
+                // Clicking empty square or own piece - try to premove
+                const premoveFrom = selectedSquare;
+                const premoveTo = square;
+                
+                // Clear highlights and selection
+                selectedSquare = null;
+                removeHighlights();
+                
+                // If clicking own piece, select it instead
+                if (piece) {
+                  selectedSquare = square;
+                  highlightLegalMoves(square);
+                } else {
+                  // Make premove
+                  $("#board .square-55d63").removeClass("premove-highlight premove-source");
+                  if (premove) {
+                    board.position(game.fen());
+                  }
+                  
+                  premove = { from: premoveFrom, to: premoveTo };
+                  
+                  const pos = board.position();
+                  const movingPiece = pos[premoveFrom];
+                  delete pos[premoveFrom];
+                  pos[premoveTo] = movingPiece;
+                  board.position(pos);
+                  
+                  setTimeout(() => {
+                    $(`#board .square-${premoveFrom}`).addClass("premove-source");
+                    $(`#board .square-${premoveTo}`).addClass("premove-highlight");
+                  }, 0);
+                }
+                return;
+              }
+            } else {
+              // Try to make a normal move
+              const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+              
+              if (move) {
+                // Legal move
+                clearPremove();
+                selectedSquare = null;
+                removeHighlights();
+                game.undo();
+                handleMove(move.from, move.to);
+                return;
+              } else if (piece) {
+                // Illegal move but clicked on own piece - change selection
+                const pieceColor = piece.search(/^w/) !== -1 ? 'w' : 'b';
+                if ((turn === 'w' && pieceColor === 'w') || (turn === 'b' && pieceColor === 'b')) {
+                  selectedSquare = square;
+                  removeHighlights();
+                  highlightLegalMoves(square);
+                  return;
+                }
+              }
+              
+              // Invalid move, deselect
+              selectedSquare = null;
+              removeHighlights();
+              return;
+            }
+          }
+          
+          // No piece selected - select clicked piece if valid
+          if (piece) {
+            if (!isPlayerTurn) {
+              // During opponent's turn, allow selecting own pieces for premove
+              if ((playerColor === "white" && piece.search(/^w/) !== -1) || 
+                  (playerColor === "black" && piece.search(/^b/) !== -1)) {
+                selectedSquare = square;
+                highlightLegalMoves(square);
+              }
+            } else {
+              // During player's turn, select own pieces
+              const pieceColor = piece.search(/^w/) !== -1 ? 'w' : 'b';
+              if ((turn === 'w' && pieceColor === 'w') || (turn === 'b' && pieceColor === 'b')) {
+                selectedSquare = square;
+                highlightLegalMoves(square);
+              }
+            }
+          }
         },
         pieceTheme: pieceThemes[currentPieceStyle],
       });
+
+      // Add click-to-move functionality using mousedown/mouseup to avoid drag interference
+      setTimeout(() => {
+        let mouseDownSquare = null;
+        
+        $('#board').off('mousedown mouseup').on('mousedown', function(e) {
+          // Only handle left click
+          if (e.button !== 0) return;
+          
+          let $square = $(e.target);
+          
+          // If clicked on a piece image, get the parent square
+          if ($square.hasClass('piece-417db') || $square.prop('tagName') === 'IMG') {
+            $square = $square.parent();
+          }
+          
+          // Make sure we have a square element
+          if (!$square.hasClass('square-55d63')) {
+            $square = $square.closest('.square-55d63');
+          }
+          
+          if ($square.length === 0) return;
+          
+          const square = $square.data('square');
+          if (square) {
+            mouseDownSquare = square;
+          }
+        }).on('mouseup', function(e) {
+          // Only handle left click
+          if (e.button !== 0) return;
+          
+          if (!mouseDownSquare) return;
+          
+          let $square = $(e.target);
+          
+          // If released on a piece image, get the parent square
+          if ($square.hasClass('piece-417db') || $square.prop('tagName') === 'IMG') {
+            $square = $square.parent();
+          }
+          
+          // Make sure we have a square element
+          if (!$square.hasClass('square-55d63')) {
+            $square = $square.closest('.square-55d63');
+          }
+          
+          if ($square.length === 0) {
+            mouseDownSquare = null;
+            return;
+          }
+          
+          const square = $square.data('square');
+          
+          // Only treat as click if mousedown and mouseup on same square
+          if (square && square === mouseDownSquare) {
+            console.log('Click detected on square:', square);
+            handleSquareClick(square);
+          }
+          
+          mouseDownSquare = null;
+        });
+      }, 100);
 
       document.getElementById("move-timer-container").style.display = "block";
       document.getElementById("last-move-container").style.display = "block";
