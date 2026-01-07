@@ -621,7 +621,7 @@
       align-items: center;
       gap: 20px;
       margin: 20px auto;
-      max-width: 900px;
+      max-width: 1200px;
     }
 
     #captured-pieces-left {
@@ -629,6 +629,13 @@
       flex-direction: column;
       gap: 30px;
       min-width: 80px;
+    }
+    
+    #board-timers-container {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 20px;
     }
 
     .captured-section {
@@ -724,6 +731,29 @@
       background-color: #27ae60;
       transform: translateY(-2px);
       box-shadow: 0 6px 16px rgba(46, 204, 113, 0.3);
+    }
+    
+    /* Resign Button */
+    #resign-btn {
+      background-color: #e74c3c;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 1em;
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.2);
+      transition: all 0.3s ease;
+      margin: 10px auto;
+      display: none;
+    }
+
+    #resign-btn:hover {
+      background-color: #c0392b;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(231, 76, 60, 0.3);
     }
 
     /* Board square highlighting */
@@ -1027,36 +1057,36 @@
     <!-- Custom modifiers panel -->
     <div id="custom-modifiers-panel" style="display: none;">
       <div style="text-align: center; margin-bottom: 15px; font-weight: 600; color: #2c3e50;">
-        Customize Engine Modifiers (0.0 - 2.0)
+        Customize Engine Modifiers (0.0 - 3.0)
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 600px; margin: 0 auto;">
         <div class="modifier-input-group">
           <label for="mod-material">Material:</label>
-          <input type="number" id="mod-material" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-material" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-king-safety">King Safety:</label>
-          <input type="number" id="mod-king-safety" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-king-safety" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-centralization">Centralization:</label>
-          <input type="number" id="mod-centralization" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-centralization" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-attack">Attack:</label>
-          <input type="number" id="mod-attack" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-attack" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-piece-activity">Piece Activity:</label>
-          <input type="number" id="mod-piece-activity" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-piece-activity" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-defense">Defense:</label>
-          <input type="number" id="mod-defense" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-defense" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div class="modifier-input-group">
           <label for="mod-pawn-structure">Pawn Structure:</label>
-          <input type="number" id="mod-pawn-structure" min="0" max="2" step="0.1" value="1.0" onchange="updateCustomModifiers()">
+          <input type="number" id="mod-pawn-structure" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
         </div>
         <div style="grid-column: 1 / -1; text-align: center; margin-top: 5px;">
           <button onclick="resetCustomModifiers()" style="padding: 8px 20px; font-size: 0.9em; background: linear-gradient(135deg, #95a5a6, #7f8c8d); border: none; border-radius: 15px; color: white; cursor: pointer; font-weight: 600;">
@@ -1116,6 +1146,8 @@
   <div id="last-move-container">
     Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
   </div>
+  
+  <button id="resign-btn" onclick="resignGame()" style="display: none;">Resign</button>
 
   <div id="move-input-container" style="display: none;">
     <input type="text" id="move-input" placeholder="Enter move (e.g., e4, Nf3, O-O)" 
@@ -1184,49 +1216,49 @@
         pawn_structure_b: 1.0, pawn_structure_w: 1.0
       },
       aggressive: {
-        material: 0.9,
-        king_safety_b: 0.75, king_safety_w: 0.75,
-        centralization_b: 1.2, centralization_w: 1.2,
-        attack_b: 1.6, attack_w: 1.6,
-        piece_activity_b: 1.3, piece_activity_w: 1.3,
-        defense_b: 0.7, defense_w: 0.7,
-        pawn_structure_b: 0.8, pawn_structure_w: 0.8
+        material: 0.7,
+        king_safety_b: 0.5, king_safety_w: 0.5,
+        centralization_b: 1.5, centralization_w: 1.5,
+        attack_b: 2.5, attack_w: 2.5,
+        piece_activity_b: 1.8, piece_activity_w: 1.8,
+        defense_b: 0.4, defense_w: 0.4,
+        pawn_structure_b: 0.6, pawn_structure_w: 0.6
       },
       defensive: {
-        material: 1.1,
-        king_safety_b: 1.5, king_safety_w: 1.5,
-        centralization_b: 0.9, centralization_w: 0.9,
-        attack_b: 0.75, attack_w: 0.75,
-        piece_activity_b: 0.85, piece_activity_w: 0.85,
-        defense_b: 1.4, defense_w: 1.4,
-        pawn_structure_b: 1.3, pawn_structure_w: 1.3
+        material: 1.2,
+        king_safety_b: 2.2, king_safety_w: 2.2,
+        centralization_b: 0.7, centralization_w: 0.7,
+        attack_b: 0.5, attack_w: 0.5,
+        piece_activity_b: 0.6, piece_activity_w: 0.6,
+        defense_b: 2.0, defense_w: 2.0,
+        pawn_structure_b: 1.8, pawn_structure_w: 1.8
       },
       positional: {
-        material: 0.95,
-        king_safety_b: 1.2, king_safety_w: 1.2,
-        centralization_b: 1.3, centralization_w: 1.3,
-        attack_b: 0.9, attack_w: 0.9,
-        piece_activity_b: 1.1, piece_activity_w: 1.1,
-        defense_b: 1.2, defense_w: 1.2,
-        pawn_structure_b: 1.25, pawn_structure_w: 1.25
+        material: 0.8,
+        king_safety_b: 1.4, king_safety_w: 1.4,
+        centralization_b: 2.0, centralization_w: 2.0,
+        attack_b: 0.7, attack_w: 0.7,
+        piece_activity_b: 1.5, piece_activity_w: 1.5,
+        defense_b: 1.6, defense_w: 1.6,
+        pawn_structure_b: 1.9, pawn_structure_w: 1.9
       },
       material: {
-        material: 1.5,
-        king_safety_b: 0.9, king_safety_w: 0.9,
-        centralization_b: 0.85, centralization_w: 0.85,
-        attack_b: 1.0, attack_w: 1.0,
-        piece_activity_b: 0.8, piece_activity_w: 0.8,
-        defense_b: 0.9, defense_w: 0.9,
-        pawn_structure_b: 0.75, pawn_structure_w: 0.75
+        material: 2.5,
+        king_safety_b: 0.7, king_safety_w: 0.7,
+        centralization_b: 0.6, centralization_w: 0.6,
+        attack_b: 0.9, attack_w: 0.9,
+        piece_activity_b: 0.5, piece_activity_w: 0.5,
+        defense_b: 0.7, defense_w: 0.7,
+        pawn_structure_b: 0.4, pawn_structure_w: 0.4
       },
       tactical: {
-        material: 1.0,
-        king_safety_b: 0.85, king_safety_w: 0.85,
-        centralization_b: 1.15, centralization_w: 1.15,
-        attack_b: 1.4, attack_w: 1.4,
-        piece_activity_b: 1.35, piece_activity_w: 1.35,
-        defense_b: 0.9, defense_w: 0.9,
-        pawn_structure_b: 0.9, pawn_structure_w: 0.9
+        material: 0.9,
+        king_safety_b: 0.6, king_safety_w: 0.6,
+        centralization_b: 1.6, centralization_w: 1.6,
+        attack_b: 2.2, attack_w: 2.2,
+        piece_activity_b: 2.0, piece_activity_w: 2.0,
+        defense_b: 0.7, defense_w: 0.7,
+        pawn_structure_b: 0.8, pawn_structure_w: 0.8
       },
       custom: {
         material: 1.0,
@@ -1373,11 +1405,11 @@
     }
 
     function updateCustomModifiers() {
-      // Helper function to clamp values between 0 and 2
+      // Helper function to clamp values between 0 and 3
       const clampValue = (value) => {
         const num = parseFloat(value);
         if (isNaN(num)) return 1.0;
-        return Math.max(0, Math.min(2, num));
+        return Math.max(0, Math.min(3, num));
       };
       
       // Get values and clamp them
@@ -2261,6 +2293,21 @@ function navigateToPreviousMove() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     }
+    
+    function resignGame() {
+      if (gameOver) return;
+      
+      const winner = playerColor === 'white' ? 'black' : 'white';
+      const moveContainer = document.getElementById("move-timer-container");
+      moveContainer.innerHTML = `RESIGNATION! <span style="color:red;">You Lose!</span>`;
+      gameOver = true;
+      
+      // Send resignation to engine
+      sendEngineCommand("resign").catch(err => console.error("Error sending resignation:", err));
+          a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }
 
     function setupTimerDisplayOrder() {
       // Get the parent container
@@ -2687,6 +2734,7 @@ function navigateToPreviousMove() {
       document.getElementById("notation-container").textContent = "";
       document.getElementById("game-stats-panel").style.display = "block";
       document.getElementById("export-pgn-btn").style.display = "block";
+      document.getElementById("resign-btn").style.display = "block";
       document.getElementById("opening-display").style.display = "none";
       
       // Initialize stats
