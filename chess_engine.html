@@ -627,7 +627,7 @@
     #board-row {
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       gap: 25px;
     }
 
@@ -652,6 +652,8 @@
       gap: 15px;
       min-width: 350px;
       max-width: 400px;
+      max-height: 600px;
+      overflow-y: auto;
     }
 
     #right-panel > div,
@@ -723,6 +725,8 @@
       gap: 15px;
       min-width: 350px;
       max-width: 400px;
+      height: 600px;
+      overflow-y: auto;
     }
 
     #right-panel > div,
@@ -845,24 +849,24 @@
 
     /* Premove highlighting */
     .square-55d63.premove-highlight {
-      background-color: rgba(231, 76, 60, 0.6) !important;
-      box-shadow: inset 0 0 0 4px rgba(231, 76, 60, 0.9) !important;
+      background-color: rgba(200, 35, 51, 0.75) !important; /* Much darker, pure red */
+      box-shadow: inset 0 0 0 4px rgba(180, 20, 35, 1) !important;
     }
     
     div.premove-highlight {
-      background-color: rgba(231, 76, 60, 0.6) !important;
-      box-shadow: inset 0 0 0 4px rgba(231, 76, 60, 0.9) !important;
+      background-color: rgba(200, 35, 51, 0.75) !important;
+      box-shadow: inset 0 0 0 4px rgba(180, 20, 35, 1) !important;
     }
     
-    /* Premove source highlighting (lighter) */
+    /* Premove source highlighting (lighter but still red) */
     .square-55d63.premove-source {
-      background-color: rgba(231, 76, 60, 0.3) !important;
-      box-shadow: inset 0 0 0 4px rgba(231, 76, 60, 0.5) !important;
+      background-color: rgba(230, 80, 80, 0.55) !important; /* Lighter red, not pink */
+      box-shadow: inset 0 0 0 4px rgba(200, 60, 60, 0.8) !important;
     }
     
     div.premove-source {
-      background-color: rgba(231, 76, 60, 0.3) !important;
-      box-shadow: inset 0 0 0 4px rgba(231, 76, 60, 0.5) !important;
+      background-color: rgba(230, 80, 80, 0.55) !important;
+      box-shadow: inset 0 0 0 4px rgba(200, 60, 60, 0.8) !important;
     }
 
     /* Custom Confirmation Modal */
@@ -980,6 +984,119 @@
       }
     }
 
+    @keyframes victoryPulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      25% { transform: scale(1.03); box-shadow: 0 0 40px rgba(46, 204, 113, 0.9); filter: brightness(1.1); }
+      50% { transform: scale(0.98); box-shadow: 0 0 60px rgba(46, 204, 113, 1); filter: brightness(1.2); }
+      75% { transform: scale(1.02); box-shadow: 0 0 50px rgba(46, 204, 113, 0.9); filter: brightness(1.1); }
+    }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1) rotate(180deg); }
+    }
+
+    @keyframes defeatShake {
+      0%, 100% { transform: translateX(0) rotate(0deg) scale(1); }
+      5% { transform: translateX(-15px) rotate(-2deg) scale(0.98); }
+      10% { transform: translateX(15px) rotate(2deg) scale(1.02); }
+      15% { transform: translateX(-15px) rotate(-2deg) scale(0.98); }
+      20% { transform: translateX(15px) rotate(2deg) scale(1.02); }
+      25% { transform: translateX(-12px) rotate(-1.5deg) scale(0.99); }
+      30% { transform: translateX(12px) rotate(1.5deg) scale(1.01); }
+      35% { transform: translateX(-12px) rotate(-1.5deg) scale(0.99); }
+      40% { transform: translateX(12px) rotate(1.5deg) scale(1.01); }
+      50% { transform: translateX(-8px) rotate(-1deg) scale(1); }
+      60% { transform: translateX(8px) rotate(1deg) scale(1); }
+      70% { transform: translateX(-5px) rotate(-0.5deg) scale(1); }
+      80% { transform: translateX(5px) rotate(0.5deg) scale(1); }
+      90% { transform: translateX(-2px) rotate(0deg) scale(1); }
+    }
+
+    @keyframes defeatPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(0.95); }
+    }
+
+    @keyframes defeatFlash {
+      0% { opacity: 0; }
+      5% { opacity: 0.6; }
+      10% { opacity: 0.2; }
+      15% { opacity: 0.7; }
+      20% { opacity: 0.1; }
+      25% { opacity: 0.6; }
+      30% { opacity: 0.2; }
+      35% { opacity: 0.5; }
+      40% { opacity: 0.1; }
+      50% { opacity: 0.4; }
+      60% { opacity: 0.1; }
+      70% { opacity: 0.3; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes kingFall {
+      0% { 
+        transform: rotate(0deg) translateY(0);
+        opacity: 1;
+      }
+      50% {
+        transform: rotate(45deg) translateY(5px);
+        opacity: 1;
+      }
+      100% { 
+        transform: rotate(90deg) translateY(15px);
+        opacity: 0.6;
+      }
+    }
+
+    /* Checkmate Celebration */
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      background: #f0f;
+      z-index: 9999;
+    }
+
+    .sparkle {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      background: radial-gradient(circle, rgba(255, 215, 0, 1) 0%, rgba(255, 215, 0, 0) 70%);
+      border-radius: 50%;
+      z-index: 10000;
+      pointer-events: none;
+    }
+
+    @keyframes confetti-fall {
+      to {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    .checkmate-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9998;
+    }
+
+    .defeat-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(139, 0, 0, 0.3) 0%, rgba(139, 0, 0, 0.6) 100%);
+      pointer-events: none;
+      z-index: 9997;
+      animation: defeatFlash 1.2s ease-out;
+    }
+
     /* Move History/Notation Container */
     #notation-container {
       background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
@@ -992,10 +1109,14 @@
       font-family: 'Roboto Mono', monospace;
       font-size: 0.9rem;
       line-height: 1.6;
-      max-height: 350px;
+      height: 120px;
       overflow-y: auto;
+      overflow-x: hidden;
       display: none;
       color: #34495e;
+      flex-shrink: 0;
+      white-space: normal;
+      word-wrap: break-word;
     }
 
     #notation-container::before {
@@ -2179,11 +2300,62 @@ function navigateToPreviousMove() {
       }
     }
 
-    function clearPremove() {
-      if (premove) {
-        // Restore actual game position when clearing premove
-        board.position(game.fen());
+    function isPremoveLegal(from, to, piece) {
+      // Validate if a premove would be theoretically legal for this piece type
+      // on an empty board (or for pawns, with diagonal capture squares occupied)
+      
+      const fromFile = from.charCodeAt(0) - 'a'.charCodeAt(0);
+      const fromRank = parseInt(from[1]) - 1;
+      const toFile = to.charCodeAt(0) - 'a'.charCodeAt(0);
+      const toRank = parseInt(to[1]) - 1;
+      
+      const fileDiff = Math.abs(toFile - fromFile);
+      const rankDiff = Math.abs(toRank - fromRank);
+      const fileDir = toFile - fromFile;
+      const rankDir = toRank - fromRank;
+      
+      const pieceType = piece.type;
+      const pieceColor = piece.color;
+      
+      switch(pieceType) {
+        case 'p': // Pawn
+          const direction = pieceColor === 'w' ? 1 : -1;
+          const startRank = pieceColor === 'w' ? 1 : 6;
+          
+          // Forward one square
+          if (fileDir === 0 && rankDir === direction) return true;
+          
+          // Forward two squares from starting position
+          if (fileDir === 0 && rankDir === 2 * direction && fromRank === startRank) return true;
+          
+          // Diagonal capture (always allow for premoves since we assume piece could be there)
+          if (fileDiff === 1 && rankDir === direction) return true;
+          
+          return false;
+          
+        case 'n': // Knight
+          return (fileDiff === 2 && rankDiff === 1) || (fileDiff === 1 && rankDiff === 2);
+          
+        case 'b': // Bishop
+          return fileDiff === rankDiff && fileDiff > 0;
+          
+        case 'r': // Rook
+          return (fileDiff === 0 && rankDiff > 0) || (rankDiff === 0 && fileDiff > 0);
+          
+        case 'q': // Queen
+          return (fileDiff === rankDiff && fileDiff > 0) || // Diagonal
+                 (fileDiff === 0 && rankDiff > 0) ||        // Vertical
+                 (rankDiff === 0 && fileDiff > 0);          // Horizontal
+          
+        case 'k': // King
+          return fileDiff <= 1 && rankDiff <= 1 && (fileDiff > 0 || rankDiff > 0);
+          
+        default:
+          return false;
       }
+    }
+
+    function clearPremove() {
       premove = null;
       selectedSquare = null;
       $("#board .square-55d63").removeClass("premove-highlight premove-source");
@@ -2196,13 +2368,6 @@ function navigateToPreviousMove() {
       const piece = game.get(square);  // Use game.get() to get piece from game state
       console.log('Turn:', turn, 'isPlayerTurn:', isPlayerTurn, 'piece:', piece, 'selectedSquare:', selectedSquare);
       
-      // If there's already a premove set, clicking anywhere cancels it
-      if (premove) {
-        console.log('Canceling premove');
-        clearPremove();
-        // After canceling premove, continue with normal click handling
-      }
-      
       // If there's a selected piece
       if (selectedSquare) {
         // If clicking the same square, deselect
@@ -2214,38 +2379,39 @@ function navigateToPreviousMove() {
         
         // Check if this is a legal move or premove
         if (!isPlayerTurn) {
-          // Handle premove click - clicking another of own pieces changes selection
-          if (piece) {
-            const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
-            if (pieceColorFull === playerColor) {
-              // Clear old highlights before selecting new piece
-              $("#board .square-55d63").removeClass("highlight-legal");
-              selectedSquare = square;
-              highlightLegalMoves(square);
-              return;
-            }
-          }
-          
-          // Make premove
+          // Make premove via click - allow any destination including recapturing own pieces
+          // (might be currently illegal but could become legal after opponent moves)
           const premoveFrom = selectedSquare;
           const premoveTo = square;
+          
+          // Verify there's a piece at the source that belongs to the player
+          const sourcePiece = game.get(premoveFrom);
+          if (!sourcePiece || sourcePiece.color !== (playerColor === 'white' ? 'w' : 'b')) {
+            selectedSquare = null;
+            removeHighlights();
+            return;
+          }
+          
+          // Validate premove is theoretically legal for this piece type
+          if (!isPremoveLegal(premoveFrom, premoveTo, sourcePiece)) {
+            console.log('Premove not valid for piece type:', sourcePiece.type, premoveFrom, '->', premoveTo);
+            selectedSquare = null;
+            removeHighlights();
+            return;
+          }
           
           selectedSquare = null;
           removeHighlights();
           
+          // Clear any existing premove highlights
           $("#board .square-55d63").removeClass("premove-highlight premove-source");
-          if (premove) {
-            board.position(game.fen());
-          }
           
+          // Store the premove
           premove = { from: premoveFrom, to: premoveTo };
+          premoveJustSet = true;
+          console.log('Premove set via click:', premove);
           
-          const pos = board.position();
-          const movingPiece = pos[premoveFrom];
-          delete pos[premoveFrom];
-          pos[premoveTo] = movingPiece;
-          board.position(pos);
-          
+          // Add highlights - just show which squares are involved, don't move piece
           setTimeout(() => {
             $(`#board .square-${premoveFrom}`).addClass("premove-source");
             $(`#board .square-${premoveTo}`).addClass("premove-highlight");
@@ -2444,6 +2610,92 @@ function navigateToPreviousMove() {
       }
     }
 
+    function celebrateCheckmate(playerWon) {
+      console.log('celebrateCheckmate called, playerWon:', playerWon);
+      if (playerWon) {
+        // Victory celebration: massive confetti + sparkles + green pulse + brightness
+        const overlay = document.createElement('div');
+        overlay.className = 'checkmate-overlay';
+        document.body.appendChild(overlay);
+
+        // Generate MORE confetti (200 pieces instead of 100)
+        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB'];
+        for (let i = 0; i < 200; i++) {
+          setTimeout(() => {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.top = -10 + 'px';
+            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.width = (Math.random() * 15 + 8) + 'px'; // Bigger confetti
+            confetti.style.height = (Math.random() * 15 + 8) + 'px';
+            confetti.style.opacity = Math.random() * 0.5 + 0.5;
+            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
+            confetti.style.animationDelay = (Math.random() * 0.5) + 's';
+            overlay.appendChild(confetti);
+
+            setTimeout(() => confetti.remove(), 3500);
+          }, i * 15); // Faster spawn rate
+        }
+
+        // Add sparkles around the board
+        const board = document.getElementById('board');
+        const boardRect = board.getBoundingClientRect();
+        for (let i = 0; i < 30; i++) {
+          setTimeout(() => {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            const angle = (Math.PI * 2 * i) / 30;
+            const distance = 300 + Math.random() * 100;
+            sparkle.style.left = (boardRect.left + boardRect.width / 2 + Math.cos(angle) * distance) + 'px';
+            sparkle.style.top = (boardRect.top + boardRect.height / 2 + Math.sin(angle) * distance) + 'px';
+            sparkle.style.animation = `sparkle ${0.8 + Math.random() * 0.4}s ease-out`;
+            document.body.appendChild(sparkle);
+
+            setTimeout(() => sparkle.remove(), 1200);
+          }, i * 50);
+        }
+
+        // Add dramatic victory pulse with brightness
+        board.style.animation = 'victoryPulse 1s ease-in-out 4'; // 4 pulses instead of 3
+        setTimeout(() => {
+          board.style.animation = '';
+          board.style.filter = '';
+        }, 4000);
+
+        setTimeout(() => overlay.remove(), 5000);
+      } else {
+        // Defeat animation: INTENSE shake + red overlay + red glow + screen pulse
+        const overlay = document.createElement('div');
+        overlay.className = 'defeat-overlay';
+        document.body.appendChild(overlay);
+
+        // Shake the entire game container for extra drama
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+          gameContainer.style.animation = 'defeatPulse 1.5s ease-out';
+          setTimeout(() => {
+            gameContainer.style.animation = '';
+          }, 1500);
+        }
+
+        const board = document.getElementById('board');
+        // Apply VERY intense shake and massive red glow
+        board.style.animation = 'defeatShake 1.5s ease-in-out';
+        board.style.boxShadow = '0 0 80px 20px rgba(220, 53, 69, 1), inset 0 0 40px rgba(220, 53, 69, 0.3)';
+        board.style.filter = 'brightness(0.7) saturate(1.5)';
+        
+        setTimeout(() => {
+          board.style.animation = '';
+          board.style.boxShadow = '';
+          board.style.filter = '';
+        }, 1500);
+
+        // Remove overlay after animation
+        setTimeout(() => overlay.remove(), 1500);
+      }
+    }
+
     function exportPGN() {
       const date = new Date();
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '.');
@@ -2612,11 +2864,13 @@ function navigateToPreviousMove() {
         dropOffBoard: 'snapback',
         onDragStart: (source, piece, position, orientation) => {
           console.log('onDragStart called for:', source, 'selectedSquare before:', selectedSquare);
+          
           // Store the drag start square and time for click detection
           window.dragStartSquare = source;
           window.dragStartTime = Date.now();
           
-          // Don't clear selection yet - wait to see if this is a click or drag
+          // Clear any previous highlights when starting to drag a new piece
+          $("#board .square-55d63").removeClass("highlight-legal");
           
           // Don't allow dragging if game is over
           if (game.game_over() || gameOver) {
@@ -2676,33 +2930,34 @@ function navigateToPreviousMove() {
           
           // Handle premove (during opponent's turn)
           if (!isPlayerTurn) {
-            // Clear any existing premove highlights and restore actual position
-            $("#board .square-55d63").removeClass("premove-highlight premove-source");
-            if (premove) {
-              // Restore the actual game position before making new premove
-              board.position(game.fen());
+            // Verify there's a piece at the source that belongs to the player
+            const sourcePiece = game.get(source);
+            if (!sourcePiece || sourcePiece.color !== (playerColor === 'white' ? 'w' : 'b')) {
+              return 'snapback';
             }
+            
+            // Validate premove is theoretically legal for this piece type
+            if (!isPremoveLegal(source, target, sourcePiece)) {
+              console.log('Premove not valid for piece type:', sourcePiece.type, source, '->', target);
+              return 'snapback';
+            }
+            
+            // Clear any existing premove highlights
+            $("#board .square-55d63").removeClass("premove-highlight premove-source");
             
             // Store the premove
             premove = { from: source, to: target };
+            premoveJustSet = true;
+            console.log('Premove set via drag:', premove);
             
-            // Get current board position and make the visual move
-            const position = board.position();
-            const piece = position[source];
-            delete position[source];
-            position[target] = piece;
-            board.position(position);
-            
-            // Add highlights AFTER board redraws (board.position removes classes)
+            // Add highlights - just show which squares are involved, don't move piece
             setTimeout(() => {
-              const sourceSquare = $(`#board .square-${source}`);
-              const targetSquare = $(`#board .square-${target}`);
-              sourceSquare.addClass("premove-source");
-              targetSquare.addClass("premove-highlight");
+              $(`#board .square-${source}`).addClass("premove-source");
+              $(`#board .square-${target}`).addClass("premove-highlight");
             }, 0);
             
-            // Don't snapback - piece stays at target
-            return;
+            // Snapback - piece returns to source, we just show the highlights
+            return 'snapback';
           }
           
           // Clear premove if player makes a manual move
@@ -2899,13 +3154,15 @@ function navigateToPreviousMove() {
         });
       }, 100);
 
-      // Click outside board to cancel premove
-      $(document).on('click', function(e) {
-        // Check if click was outside the board
-        if (premove && !$(e.target).closest('#board').length) {
-          console.log('Clicked outside board, canceling premove');
+      // Cancel premove on any mousedown/touchstart anywhere
+      let premoveJustSet = false;
+      $(document).on('mousedown touchstart', function(e) {
+        // Don't cancel if we just set a premove in the same event cycle
+        if (premove && !premoveJustSet) {
+          console.log('Mouse interaction detected, canceling premove');
           clearPremove();
         }
+        premoveJustSet = false;
       });
 
       // Prevent native HTML5 drag on piece images
@@ -3020,6 +3277,7 @@ function navigateToPreviousMove() {
         // Replaced alert() with UI message
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>'; // Green text for win
+        celebrateCheckmate(true);
         gameOver = true;
         return;
       }
@@ -3028,8 +3286,13 @@ function navigateToPreviousMove() {
       await engineMove();
     }
     async function engineMove() {
+      console.log('=== engineMove START ===');
+      console.log('Game over status:', gameOver);
+      console.log('Current position:', game.fen());
       try {
         const lastMove = game.history().slice(-1)[0];
+        console.log('Last move:', lastMove, 'Game turn:', game.turn());
+        console.log('Sending request to engine...');
         const response = await fetch("https://hedgehoglover23.pythonanywhere.com/move", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3044,16 +3307,23 @@ function navigateToPreviousMove() {
         }
 
         const data = await response.json();
+        console.log('Engine response:', data);
         if (!data.move) {
+          console.log('ERROR: No move returned from engine');
           // Replaced alert() with UI message
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">No move returned.</span>';
           return;
         }
 
+        console.log('Engine move:', data.move);
         // Stop timer *before* making the move on the game object
         const moveTimeMs = stopTimerAndUpdateTotal(game.turn()); 
         const move = game.move(data.move);
+        console.log('Move applied to game. New position:', game.fen());
+        console.log('Is checkmate?', game.in_checkmate());
+        console.log('Is check?', game.in_check());
+        console.log('Is game over?', game.game_over());
         
         trackCapturedPiece(move);
         lastMoveSquares = { from: move.from, to: move.to };
@@ -3067,20 +3337,35 @@ function navigateToPreviousMove() {
         updateGameStats();
 
         if (game.in_checkmate()) {
+          console.log('CHECKMATE DETECTED - Player Lost');
           // Replaced alert() with UI message
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'CHECKMATE! <span style="color:red;">You Lose!</span>';
+          console.log('About to call celebrateCheckmate(false)');
+          try {
+            celebrateCheckmate(false);
+            console.log('celebrateCheckmate call completed');
+          } catch (err) {
+            console.error('Error in celebrateCheckmate:', err);
+          }
           gameOver = true;
           clearPremove();
           return;
         }
         
         // Check if there's a premove and execute it if legal
+        console.log('Checking for premove...', premove);
         if (premove) {
-          const premoveAttempt = game.move({ from: premove.from, to: premove.to, promotion: 'q' });
+          console.log('Premove exists, attempting to execute:', premove);
+          const premoveFrom = premove.from;
+          const premoveTo = premove.to;
+          clearPremove(); // Clear premove before attempting to execute
+          
+          const premoveAttempt = game.move({ from: premoveFrom, to: premoveTo, promotion: 'q' });
+          console.log('Premove attempt result:', premoveAttempt);
           if (premoveAttempt) {
-            // Premove is legal - execute it
-            clearPremove();
+            // Premove is legal - it's already been executed
+            console.log('Premove was legal and executed!');
             const from = premoveAttempt.from;
             const to = premoveAttempt.to;
             
@@ -3100,16 +3385,19 @@ function navigateToPreviousMove() {
             if (game.in_checkmate()) {
               const moveContainer = document.getElementById("move-timer-container");
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
+              celebrateCheckmate(true);
               gameOver = true;
               return;
             }
             
-            // Start timer and let engine move
+            // After premove, get engine response
+            console.log('Premove executed, now getting engine response...');
             startTimer();
             await engineMove();
+            return;
           } else {
-            // Premove is no longer legal - clear it
-            clearPremove();
+            // Premove is no longer legal - already cleared
+            console.log('Premove was not legal, cleared');
           }
         }
 
@@ -3166,6 +3454,7 @@ function navigateToPreviousMove() {
       if (game.in_checkmate()) {
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
+        celebrateCheckmate(true);
         gameOver = true;
         return;
       }
