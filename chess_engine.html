@@ -2009,6 +2009,13 @@ function navigateToPreviousMove() {
       const piece = game.get(square);  // Use game.get() to get piece from game state
       console.log('Turn:', turn, 'isPlayerTurn:', isPlayerTurn, 'piece:', piece, 'selectedSquare:', selectedSquare);
       
+      // If there's already a premove set, clicking anywhere cancels it
+      if (premove) {
+        console.log('Canceling premove');
+        clearPremove();
+        // After canceling premove, continue with normal click handling
+      }
+      
       // If there's a selected piece
       if (selectedSquare) {
         // If clicking the same square, deselect
@@ -2099,6 +2106,7 @@ function navigateToPreviousMove() {
       if (piece) {
         const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
         if (pieceColorFull === playerColor) {
+          // Allow selecting own pieces even during opponent's turn (for premoves)
           console.log('Setting selectedSquare to:', square);
           // Clear old highlights before selecting new piece
           $("#board .square-55d63").removeClass("highlight-legal");
@@ -2684,6 +2692,15 @@ function navigateToPreviousMove() {
           mouseDownSquare = null;
         });
       }, 100);
+
+      // Click outside board to cancel premove
+      $(document).on('click', function(e) {
+        // Check if click was outside the board
+        if (premove && !$(e.target).closest('#board').length) {
+          console.log('Clicked outside board, canceling premove');
+          clearPremove();
+        }
+      });
 
       // Prevent native HTML5 drag on piece images
       setTimeout(() => {
