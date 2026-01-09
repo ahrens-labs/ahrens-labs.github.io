@@ -358,10 +358,12 @@
     /* Chess Board Container */
     #board-timers-container {
       display: flex !important;
-      flex-direction: row;
+      flex-direction: column;
       align-items: center;
       gap: 20px;
-      min-height: 500px;
+      height: 450px;
+      justify-content: flex-start;
+      align-self: flex-start;
     }
 
     /* Chess Board Styling */
@@ -629,6 +631,16 @@
       justify-content: center;
       align-items: flex-start;
       gap: 25px;
+      align-items: flex-start;
+    }
+    
+    /* Ensure board container has fixed height */
+    #board-timers-container {
+      height: 450px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
     }
 
     /* Captured pieces beside board */
@@ -652,8 +664,10 @@
       gap: 15px;
       min-width: 350px;
       max-width: 400px;
-      max-height: 600px;
+      height: 450px;
       overflow-y: auto;
+      overflow-x: hidden;
+      align-self: flex-start;
     }
 
     #right-panel > div,
@@ -674,9 +688,12 @@
     
     #board-timers-container {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       align-items: center;
       gap: 20px;
+      height: 450px;
+      justify-content: flex-start;
+      align-self: flex-start;
     }
 
     .captured-section {
@@ -725,8 +742,10 @@
       gap: 15px;
       min-width: 350px;
       max-width: 400px;
-      height: 600px;
+      height: 450px;
       overflow-y: auto;
+      overflow-x: hidden;
+      align-self: flex-start;
     }
 
     #right-panel > div,
@@ -1109,7 +1128,10 @@
       font-family: 'Roboto Mono', monospace;
       font-size: 0.85rem;
       line-height: 1.8;
-      height: 450px;
+      min-height: 60px;
+      height: auto;
+      max-height: 450px;
+      transition: min-height 0.35s cubic-bezier(0.33,1,0.68,1), max-height 0.35s cubic-bezier(0.33,1,0.68,1);
       box-sizing: border-box;
       overflow-y: auto;
       overflow-x: hidden;
@@ -2410,7 +2432,15 @@ function navigateToPreviousMove() {
       const history = game.history();
       const container = document.getElementById("notation-container");
       container.innerHTML = '';
-
+      // Dynamic height: expands up to board height as moves are played
+      const minHeight = 60;
+      const maxHeight = 450;
+      const basePadding = 35;
+      let dynHeight = minHeight + Math.min(history.length * 16, maxHeight-minHeight);
+      dynHeight = Math.max(minHeight, Math.min(dynHeight, maxHeight));
+      container.style.minHeight = minHeight + 'px';
+      container.style.height = dynHeight + 'px';
+      container.style.maxHeight = maxHeight + 'px';
       // Group moves by full move (White + Black)
       for (let i = 0; i < history.length; i += 2) {
         const moveNum = Math.floor(i / 2) + 1;
