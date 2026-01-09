@@ -361,7 +361,8 @@
       flex-direction: column;
       align-items: center;
       gap: 20px;
-      height: 450px;
+      height: auto;
+      min-height: 450px;
       justify-content: flex-start;
       align-self: flex-start;
     }
@@ -906,9 +907,10 @@
       align-items: flex-start;
     }
     
-    /* Ensure board container has fixed height */
+    /* Ensure board container has flexible height to accommodate flip button */
     #board-timers-container {
-      height: 450px;
+      min-height: 450px;
+      height: auto;
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
@@ -963,7 +965,8 @@
       flex-direction: column;
       align-items: center;
       gap: 20px;
-      height: 450px;
+      min-height: 450px;
+      height: auto;
       justify-content: flex-start;
       align-self: flex-start;
     }
@@ -1160,6 +1163,291 @@
       box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
 
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+    }
+
+    /* Rematch Modal */
+    #rematch-modal {
+      display: none;
+      position: fixed;
+      z-index: 10001;
+      animation: rematchPopIn 0.3s ease-out;
+    }
+
+    #rematch-modal.show {
+      display: block;
+    }
+
+    .rematch-dialog {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      border-radius: 16px;
+      padding: 30px 35px;
+      box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        0 0 60px rgba(52, 152, 219, 0.2);
+      min-width: 320px;
+      max-width: 400px;
+      position: relative;
+      border: 3px solid #3498db;
+      text-align: center;
+    }
+
+    .rematch-dialog h3 {
+      margin: 0 0 12px 0;
+      color: #2c3e50;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.4em;
+      font-weight: 700;
+    }
+
+    .rematch-dialog p {
+      margin: 0 0 25px 0;
+      color: #555;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05em;
+      line-height: 1.5;
+    }
+
+    .rematch-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .rematch-buttons button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .rematch-buttons .rematch-yes {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+
+    .rematch-buttons .rematch-yes:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(52, 152, 219, 0.4);
+      background: linear-gradient(135deg, #2980b9, #1f6391);
+    }
+
+    .rematch-buttons .rematch-no {
+      background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+      color: #555;
+    }
+
+    .rematch-buttons .rematch-no:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(189, 195, 199, 0.4);
+    }
+
+    @keyframes rematchPopIn {
+      from { 
+        opacity: 0;
+        transform: translateY(-20px) scale(0.9);
+      }
+      to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* All Achievements Modal */
+    #all-achievements-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10005;
+      animation: fadeIn 0.3s ease-out;
+      overflow-y: auto;
+    }
+
+    #all-achievements-modal.show {
+      display: block;
+    }
+
+    .all-achievements-dialog {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      margin: 2% auto;
+      max-width: 90%;
+      width: 1200px;
+      max-height: 90vh;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      position: relative;
+      animation: slideDown 0.4s ease-out;
+    }
+
+    .achievements-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #3498db;
+    }
+
+    .achievements-header h2 {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      font-size: 2em;
+      font-weight: 700;
+      color: #2c3e50;
+    }
+
+    .close-achievements-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+
+    .close-achievements-btn:hover {
+      background: #c0392b;
+      transform: rotate(90deg) scale(1.1);
+    }
+
+    .achievements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 15px;
+      max-height: calc(90vh - 120px);
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .achievement-card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .achievement-card.unlocked {
+      border-color: #2ecc71;
+      background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+      box-shadow: 0 4px 12px rgba(46, 204, 113, 0.2);
+    }
+
+    .achievement-card.unlocked::before {
+      content: '✓';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: #2ecc71;
+      font-size: 1.5em;
+      font-weight: 700;
+    }
+
+    .achievement-card.locked {
+      opacity: 0.5;
+      filter: grayscale(0.7);
+    }
+
+    .achievement-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .achievement-name {
+      font-size: 1.1em;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 8px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .achievement-desc {
+      font-size: 0.9em;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .achievement-progress {
+      font-size: 0.85em;
+      color: #3498db;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .achievement-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e9ecef;
+      border-radius: 3px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .achievement-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3498db, #2ecc71);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     /* Custom Confirmation Modal */
     #confirm-modal {
       display: none;
@@ -1277,14 +1565,75 @@
 
     @keyframes victoryPulse {
       0%, 100% { transform: scale(1); filter: brightness(1); }
-      25% { transform: scale(1.03); box-shadow: 0 0 40px rgba(46, 204, 113, 0.9); filter: brightness(1.1); }
-      50% { transform: scale(0.98); box-shadow: 0 0 60px rgba(46, 204, 113, 1); filter: brightness(1.2); }
-      75% { transform: scale(1.02); box-shadow: 0 0 50px rgba(46, 204, 113, 0.9); filter: brightness(1.1); }
+      10% { transform: scale(1.08) rotate(2deg); box-shadow: 0 0 60px rgba(46, 204, 113, 1), 0 0 100px rgba(46, 204, 113, 0.8); filter: brightness(1.3) saturate(1.2); }
+      20% { transform: scale(0.95) rotate(-2deg); box-shadow: 0 0 80px rgba(46, 204, 113, 1), 0 0 120px rgba(46, 204, 113, 0.9); filter: brightness(1.4) saturate(1.3); }
+      30% { transform: scale(1.05) rotate(1deg); box-shadow: 0 0 70px rgba(46, 204, 113, 1), 0 0 110px rgba(46, 204, 113, 0.85); filter: brightness(1.35) saturate(1.25); }
+      40% { transform: scale(0.98) rotate(-1deg); box-shadow: 0 0 65px rgba(46, 204, 113, 1), 0 0 105px rgba(46, 204, 113, 0.8); filter: brightness(1.3) saturate(1.2); }
+      50% { transform: scale(1.03) rotate(0.5deg); box-shadow: 0 0 75px rgba(46, 204, 113, 1), 0 0 115px rgba(46, 204, 113, 0.9); filter: brightness(1.4) saturate(1.3); }
+      60% { transform: scale(0.99) rotate(-0.5deg); box-shadow: 0 0 70px rgba(46, 204, 113, 1), 0 0 110px rgba(46, 204, 113, 0.85); filter: brightness(1.35) saturate(1.25); }
+      70% { transform: scale(1.02) rotate(0.3deg); box-shadow: 0 0 68px rgba(46, 204, 113, 1), 0 0 108px rgba(46, 204, 113, 0.8); filter: brightness(1.3) saturate(1.2); }
+      80% { transform: scale(1) rotate(0deg); box-shadow: 0 0 50px rgba(46, 204, 113, 0.9), 0 0 90px rgba(46, 204, 113, 0.7); filter: brightness(1.2) saturate(1.1); }
+      90% { transform: scale(1.01) rotate(0deg); box-shadow: 0 0 40px rgba(46, 204, 113, 0.8), 0 0 80px rgba(46, 204, 113, 0.6); filter: brightness(1.1) saturate(1.05); }
     }
 
     @keyframes sparkle {
-      0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+      0% { opacity: 0; transform: scale(0) rotate(0deg); }
+      20% { opacity: 1; transform: scale(1.5) rotate(90deg); }
       50% { opacity: 1; transform: scale(1) rotate(180deg); }
+      80% { opacity: 0.8; transform: scale(0.8) rotate(270deg); }
+      100% { opacity: 0; transform: scale(0) rotate(360deg); }
+    }
+
+    @keyframes firework {
+      0% { 
+        opacity: 1; 
+        transform: scale(0) translateY(0);
+      }
+      50% { 
+        opacity: 1; 
+        transform: scale(1) translateY(-50px);
+      }
+      100% { 
+        opacity: 0; 
+        transform: scale(2) translateY(-100px);
+      }
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    @keyframes screenFlash {
+      0%, 100% { opacity: 0; }
+      10% { opacity: 0.3; }
+      20% { opacity: 0; }
+      30% { opacity: 0.4; }
+      40% { opacity: 0; }
+      50% { opacity: 0.2; }
+    }
+
+    @keyframes textPop {
+      0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+      50% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes particleTrail {
+      0% { 
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% { 
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
     }
 
     @keyframes defeatShake {
@@ -1347,6 +1696,15 @@
       height: 10px;
       background: #f0f;
       z-index: 9999;
+      border-radius: 50%;
+    }
+
+    .confetti.rect {
+      border-radius: 2px;
+    }
+
+    .confetti.star {
+      clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
     }
 
     .sparkle {
@@ -1359,9 +1717,91 @@
       pointer-events: none;
     }
 
+    .firework {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      background: radial-gradient(circle, rgba(255, 255, 255, 1) 0%, rgba(255, 200, 0, 0.8) 50%, transparent 100%);
+      border-radius: 50%;
+      z-index: 10001;
+      pointer-events: none;
+    }
+
+    .ripple {
+      position: fixed;
+      border: 3px solid rgba(46, 204, 113, 0.6);
+      border-radius: 50%;
+      z-index: 9998;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: fixed;
+      width: 4px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      z-index: 10002;
+      pointer-events: none;
+    }
+
+    .victory-text {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4rem;
+      font-weight: 900;
+      color: #2ecc71;
+      text-shadow: 
+        0 0 20px rgba(46, 204, 113, 1),
+        0 0 40px rgba(46, 204, 113, 0.8),
+        0 0 60px rgba(46, 204, 113, 0.6),
+        0 0 80px rgba(46, 204, 113, 0.4);
+      z-index: 10003;
+      pointer-events: none;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .defeat-text {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4rem;
+      font-weight: 900;
+      color: #e74c3c;
+      text-shadow: 
+        0 0 20px rgba(231, 76, 60, 1),
+        0 0 40px rgba(231, 76, 60, 0.8),
+        0 0 60px rgba(231, 76, 60, 0.6);
+      z-index: 10003;
+      pointer-events: none;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
     @keyframes confetti-fall {
-      to {
-        transform: translateY(100vh) rotate(720deg);
+      0% {
+        transform: translateY(0) rotate(0deg) translateX(0);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(100vh) rotate(720deg) translateX(var(--drift, 0px));
+        opacity: 0;
+      }
+    }
+
+    @keyframes confetti-burst {
+      0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx, 0), var(--ty, 0)) scale(0) rotate(720deg);
         opacity: 0;
       }
     }
@@ -1736,6 +2176,13 @@
     </div>
     
     <div class="control-row">
+      <label for="sound-effects">
+        <input type="checkbox" id="sound-effects" checked style="margin-right: 8px;">
+        🔊 Sound Effects
+      </label>
+    </div>
+    
+    <div class="control-row">
       <button onclick="startGame()">Start Game</button>
     </div>
   </div>
@@ -1765,6 +2212,7 @@
 
         <div id="board-timers-container">
           <div id="board"></div>
+          <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
 
           <div id="timers-container">
               <!-- The divs here will be reordered by JavaScript in startGame() based on playerColor. -->
@@ -1811,6 +2259,40 @@
 
       <div id="notation-container"></div>
 
+      <div id="player-stats-panel" style="display: none; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); margin: 15px auto; max-width: 600px; border: 1px solid rgba(52, 152, 219, 0.1); font-family: 'Inter', sans-serif;">
+        <h3 style="text-align: center; font-size: 1.05rem; font-weight: 600; color: #2c3e50; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef;">Your Statistics</h3>
+        <div class="stats-row">
+          <span class="stats-label">Games Played:</span>
+          <span class="stats-value" id="total-games">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Wins:</span>
+          <span class="stats-value" style="color: #2ecc71; font-weight: 700;" id="total-wins">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Losses:</span>
+          <span class="stats-value" style="color: #e74c3c; font-weight: 700;" id="total-losses">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Draws:</span>
+          <span class="stats-value" style="color: #7f8c8d; font-weight: 700;" id="total-draws">0</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Win Rate:</span>
+          <span class="stats-value" style="font-weight: 700;" id="win-rate">0%</span>
+        </div>
+      </div>
+
+      <div id="achievements-panel" style="display: none; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); margin: 15px auto; max-width: 600px; border: 1px solid rgba(52, 152, 219, 0.1); font-family: 'Inter', sans-serif;">
+        <h3 style="text-align: center; font-size: 1.05rem; font-weight: 600; color: #2c3e50; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef;">🏆 Achievements</h3>
+        <div style="text-align: center; margin-bottom: 12px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border-radius: 8px; font-weight: 700; font-size: 1.1em;">
+          <div style="font-size: 0.85em; opacity: 0.95; margin-bottom: 4px;">Total Points</div>
+          <div id="total-achievement-points" style="font-size: 1.5em;">0</div>
+        </div>
+        <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
+        <button onclick="showAllAchievements()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">View All Achievements</button>
+      </div>
+
       <div id="game-buttons">
         <button id="export-pgn-btn" onclick="exportPGN()">Export Game (PGN)</button>
         <button id="resign-btn" onclick="resignGame()" style="display: none;">Resign</button>
@@ -1827,6 +2309,29 @@
         <button class="confirm-no" onclick="closeConfirmModal()">Cancel</button>
         <button class="confirm-yes" onclick="confirmResign()">Resign</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Rematch Modal -->
+  <div id="rematch-modal">
+    <div class="rematch-dialog">
+      <h3 id="rematch-title">Game Over</h3>
+      <p id="rematch-message">Would you like to play again?</p>
+      <div class="rematch-buttons">
+        <button class="rematch-yes" onclick="startRematch()">🔄 Rematch</button>
+        <button class="rematch-no" onclick="closeRematchModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Achievements Modal -->
+  <div id="all-achievements-modal">
+    <div class="all-achievements-dialog">
+      <div class="achievements-header">
+        <h2>🏆 All Achievements</h2>
+        <button class="close-achievements-btn" onclick="closeAllAchievements()">✕</button>
+      </div>
+      <div id="all-achievements-list" class="achievements-grid"></div>
     </div>
   </div>
 
@@ -1863,6 +2368,43 @@
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
     let selectedSquare = null; // Track clicked piece for click-to-move
     let currentEngineStyle = 'balanced'; // Track current engine personality
+    let soundEnabled = true; // Sound effects toggle
+    let playerStats = { wins: 0, losses: 0, draws: 0 }; // Player statistics
+    let achievements = []; // Achievements unlocked
+    let gameStats = { // In-game statistics for achievements
+      capturesByQueen: 0,
+      capturesByRook: 0,
+      capturesByBishop: 0,
+      capturesByKnight: 0,
+      capturesByPawn: 0,
+      totalCaptures: 0,
+      checksGiven: 0,
+      castlingMoves: 0,
+      promotions: 0,
+      enPassants: 0,
+      longestGame: 0,
+      shortestWin: Infinity
+    };
+    let lifetimeStats = { // Lifetime statistics
+      capturesByQueen: 0,
+      capturesByRook: 0,
+      capturesByBishop: 0,
+      capturesByKnight: 0,
+      capturesByPawn: 0,
+      totalCaptures: 0,
+      checksGiven: 0,
+      castlingMoves: 0,
+      promotions: 0,
+      enPassants: 0,
+      longestGame: 0,
+      shortestWin: Infinity,
+      // Track what pieces were captured (not what captured them)
+      capturedQueens: 0,
+      capturedRooks: 0,
+      capturedBishops: 0,
+      capturedKnights: 0,
+      capturedPawns: 0
+    };
 
     // Engine personality presets
     const enginePersonalities = {
@@ -2559,6 +3101,27 @@
                 // Replaced alert() with a console log
                 console.error("Failed to automatically reset engine on page load. Check console for details.");
             });
+
+        // Load sound settings
+        const savedSound = localStorage.getItem('soundEnabled');
+        if (savedSound !== null) {
+          document.getElementById('sound-effects').checked = savedSound === 'true';
+          soundEnabled = savedSound === 'true';
+        }
+
+        // Add event listener for sound toggle
+        document.getElementById('sound-effects').addEventListener('change', function() {
+          soundEnabled = this.checked;
+          localStorage.setItem('soundEnabled', soundEnabled);
+        });
+
+        // Load statistics and achievements
+        loadPlayerStats();
+        loadAchievements();
+        loadLifetimeStats();
+        updatePlayerStatsDisplay();
+        updateAchievementsDisplay();
+        updateTotalPoints();
     });
 
         $(document).keydown(function(e) {
@@ -2659,6 +3222,15 @@
                 const moveContainer = document.getElementById("move-timer-container");
                 moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
                 gameOver = true;
+                
+                // Update statistics
+                playerStats.losses++;
+                savePlayerStats();
+                updatePlayerStatsDisplay();
+                checkAchievements();
+                
+                // Show rematch modal
+                setTimeout(() => showRematchModal("⏰ Time Out", "You ran out of time! Play again?"), 1500);
             }
         }
       }, 10);
@@ -3170,28 +3742,50 @@ function navigateToPreviousMove() {
       // Calculate and update material balance
       updateMaterialBalance();
       
-      // Update game phase
+      // Update game phase - more accurate detection
       const moveCount = game.history().length;
       const phaseEl = document.getElementById("game-phase");
-      if (moveCount < 10) {
-        phaseEl.textContent = "Opening";
-        phaseEl.style.color = "#3498db";
-      } else if (moveCount < 30) {
+      
+      // Count pieces and check game state for more accurate phase detection
+      const boardState = game.board();
+      let pieceCount = 0;
+      let queenCount = 0;
+      let rookCount = 0;
+      
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const piece = boardState[i][j];
+          if (piece) {
+            pieceCount++;
+            if (piece.type === 'q') queenCount++;
+            else if (piece.type === 'r') rookCount++;
+          }
+        }
+      }
+      
+      // More accurate phase detection
+      // Opening: first 15-20 moves, most pieces still on board, queens present
+      // Middlegame: pieces developed, material exchanges happening, queens usually still present
+      // Endgame: few pieces left, queens often traded, or very low material
+      if (pieceCount <= 12 || (queenCount === 0 && pieceCount <= 18)) {
+        // Endgame: very few pieces or queens traded with low material
+        phaseEl.textContent = "Endgame";
+        phaseEl.style.color = "#e74c3c";
+      } else if (moveCount >= 20 && pieceCount > 20 && queenCount > 0) {
+        // Middlegame: enough moves played, good material, queens present
+        phaseEl.textContent = "Middlegame";
+        phaseEl.style.color = "#2ecc71";
+      } else if (moveCount >= 15 && (pieceCount <= 20 || rookCount >= 2)) {
+        // Transition to middlegame: pieces developed or material exchanges
         phaseEl.textContent = "Middlegame";
         phaseEl.style.color = "#2ecc71";
       } else {
-        phaseEl.textContent = "Endgame";
-        phaseEl.style.color = "#e74c3c";
+        // Opening: early game, most pieces on board
+        phaseEl.textContent = "Opening";
+        phaseEl.style.color = "#3498db";
       }
       
-      // Count pieces on board
-      const board = game.board();
-      let pieceCount = 0;
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 8; j++) {
-          if (board[i][j]) pieceCount++;
-        }
-      }
+      // Update pieces count display
       document.getElementById("pieces-count").textContent = pieceCount;
       
       // Update check status
@@ -3292,92 +3886,286 @@ function navigateToPreviousMove() {
         } else {
           capturedPieces.black.push(capturedPieceCode);
         }
+        
+        // Track captures by piece type for achievements (only player's captures)
+        const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
+        if (isPlayerMove) {
+          gameStats.totalCaptures++;
+          lifetimeStats.totalCaptures++;
+          
+          const pieceType = move.captured.toLowerCase();
+          if (pieceType === 'q') {
+            gameStats.capturesByQueen++;
+            lifetimeStats.capturesByQueen++;
+            // Also track that we captured a queen
+            lifetimeStats.capturedQueens++;
+          } else if (pieceType === 'r') {
+            gameStats.capturesByRook++;
+            lifetimeStats.capturesByRook++;
+            lifetimeStats.capturedRooks++;
+          } else if (pieceType === 'b') {
+            gameStats.capturesByBishop++;
+            lifetimeStats.capturesByBishop++;
+            lifetimeStats.capturedBishops++;
+          } else if (pieceType === 'n') {
+            gameStats.capturesByKnight++;
+            lifetimeStats.capturesByKnight++;
+            lifetimeStats.capturedKnights++;
+          } else if (pieceType === 'p') {
+            gameStats.capturesByPawn++;
+            lifetimeStats.capturesByPawn++;
+            lifetimeStats.capturedPawns++;
+          }
+          
+          saveLifetimeStats();
+        }
+      }
+      
+      // Track other move types
+      const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
+      if (isPlayerMove) {
+        if (move.flags && move.flags.includes('k')) {
+          gameStats.castlingMoves++;
+          lifetimeStats.castlingMoves++;
+        }
+        if (move.promotion) {
+          gameStats.promotions++;
+          lifetimeStats.promotions++;
+        }
+        if (move.flags && move.flags.includes('e')) {
+          gameStats.enPassants++;
+          lifetimeStats.enPassants++;
+        }
+        if (move.san && move.san.includes('+')) {
+          gameStats.checksGiven++;
+          lifetimeStats.checksGiven++;
+        }
+        saveLifetimeStats();
       }
     }
 
     function celebrateCheckmate(playerWon) {
       console.log('celebrateCheckmate called, playerWon:', playerWon);
       if (playerWon) {
-        // Victory celebration: massive confetti + sparkles + green pulse + brightness
+        // === VICTORY CELEBRATION - ULTRA ENHANCED ===
+        
+        // Screen flash effect
+        const screenFlash = document.createElement('div');
+        screenFlash.style.position = 'fixed';
+        screenFlash.style.top = '0';
+        screenFlash.style.left = '0';
+        screenFlash.style.width = '100%';
+        screenFlash.style.height = '100%';
+        screenFlash.style.background = 'radial-gradient(circle, rgba(46, 204, 113, 0.4) 0%, transparent 70%)';
+        screenFlash.style.pointerEvents = 'none';
+        screenFlash.style.zIndex = '9997';
+        screenFlash.style.animation = 'screenFlash 0.8s ease-out';
+        document.body.appendChild(screenFlash);
+        setTimeout(() => screenFlash.remove(), 800);
+
+        // Victory text animation
+        const victoryText = document.createElement('div');
+        victoryText.className = 'victory-text';
+        victoryText.textContent = 'Victory!';
+        victoryText.style.animation = 'textPop 1s ease-out';
+        document.body.appendChild(victoryText);
+        setTimeout(() => {
+          victoryText.style.transition = 'opacity 0.5s ease-out';
+          victoryText.style.opacity = '0';
+          setTimeout(() => victoryText.remove(), 500);
+        }, 2000);
+
+        // Overlay for confetti
         const overlay = document.createElement('div');
         overlay.className = 'checkmate-overlay';
         document.body.appendChild(overlay);
 
-        // Generate MORE confetti (200 pieces instead of 100)
-        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB'];
-        for (let i = 0; i < 200; i++) {
+        // Generate MASSIVE confetti with different shapes and trajectories
+        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
+        const shapes = ['circle', 'rect', 'star'];
+        
+        for (let i = 0; i < 400; i++) {
           setTimeout(() => {
             const confetti = document.createElement('div');
-            confetti.className = 'confetti';
+            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+            confetti.className = 'confetti ' + shape;
             confetti.style.left = Math.random() * 100 + '%';
-            confetti.style.top = -10 + 'px';
+            confetti.style.top = -20 + 'px';
             confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-            confetti.style.width = (Math.random() * 15 + 8) + 'px'; // Bigger confetti
-            confetti.style.height = (Math.random() * 15 + 8) + 'px';
-            confetti.style.opacity = Math.random() * 0.5 + 0.5;
-            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
-            confetti.style.animationDelay = (Math.random() * 0.5) + 's';
+            const size = Math.random() * 20 + 6;
+            confetti.style.width = size + 'px';
+            confetti.style.height = size + 'px';
+            confetti.style.opacity = Math.random() * 0.6 + 0.4;
+            const drift = (Math.random() - 0.5) * 200;
+            confetti.style.setProperty('--drift', drift + 'px');
+            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2.5)}s linear forwards`;
+            confetti.style.animationDelay = (Math.random() * 0.3) + 's';
             overlay.appendChild(confetti);
-
-            setTimeout(() => confetti.remove(), 3500);
-          }, i * 15); // Faster spawn rate
+            setTimeout(() => confetti.remove(), 5000);
+          }, i * 8);
         }
 
-        // Add sparkles around the board
+        // Fireworks explosions from board center
         const board = document.getElementById('board');
         const boardRect = board.getBoundingClientRect();
-        for (let i = 0; i < 30; i++) {
+        const centerX = boardRect.left + boardRect.width / 2;
+        const centerY = boardRect.top + boardRect.height / 2;
+
+        // Multiple firework bursts
+        for (let burst = 0; burst < 8; burst++) {
+          setTimeout(() => {
+            const numParticles = 30;
+            for (let i = 0; i < numParticles; i++) {
+              const angle = (Math.PI * 2 * i) / numParticles;
+              const distance = 100 + Math.random() * 150;
+              const particle = document.createElement('div');
+              particle.className = 'particle';
+              const tx = Math.cos(angle) * distance;
+              const ty = Math.sin(angle) * distance;
+              particle.style.setProperty('--tx', tx + 'px');
+              particle.style.setProperty('--ty', ty + 'px');
+              particle.style.left = centerX + 'px';
+              particle.style.top = centerY + 'px';
+              particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+              particle.style.animation = `particleTrail ${0.8 + Math.random() * 0.4}s ease-out forwards`;
+              document.body.appendChild(particle);
+              setTimeout(() => particle.remove(), 1200);
+            }
+          }, burst * 300);
+        }
+
+        // Enhanced sparkles around the board
+        for (let i = 0; i < 60; i++) {
           setTimeout(() => {
             const sparkle = document.createElement('div');
             sparkle.className = 'sparkle';
-            const angle = (Math.PI * 2 * i) / 30;
-            const distance = 300 + Math.random() * 100;
-            sparkle.style.left = (boardRect.left + boardRect.width / 2 + Math.cos(angle) * distance) + 'px';
-            sparkle.style.top = (boardRect.top + boardRect.height / 2 + Math.sin(angle) * distance) + 'px';
-            sparkle.style.animation = `sparkle ${0.8 + Math.random() * 0.4}s ease-out`;
+            const angle = (Math.PI * 2 * i) / 60;
+            const distance = 250 + Math.random() * 200;
+            sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
+            sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
+            sparkle.style.width = (15 + Math.random() * 20) + 'px';
+            sparkle.style.height = sparkle.style.width;
+            sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
             document.body.appendChild(sparkle);
-
-            setTimeout(() => sparkle.remove(), 1200);
-          }, i * 50);
+            setTimeout(() => sparkle.remove(), 1500);
+          }, i * 30);
         }
 
-        // Add dramatic victory pulse with brightness
-        board.style.animation = 'victoryPulse 1s ease-in-out 4'; // 4 pulses instead of 3
+        // Ripple effects from board center
+        for (let r = 0; r < 5; r++) {
+          setTimeout(() => {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = centerX + 'px';
+            ripple.style.top = centerY + 'px';
+            ripple.style.width = '20px';
+            ripple.style.height = '20px';
+            ripple.style.marginLeft = '-10px';
+            ripple.style.marginTop = '-10px';
+            ripple.style.animation = `ripple ${1.5}s ease-out`;
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 1500);
+          }, r * 200);
+        }
+
+        // ULTRA dramatic victory pulse with rotation and enhanced glow
+        board.style.animation = 'victoryPulse 0.8s ease-in-out 6';
+        board.style.transition = 'all 0.3s ease';
         setTimeout(() => {
           board.style.animation = '';
           board.style.filter = '';
-        }, 4000);
+          board.style.boxShadow = '';
+        }, 5000);
 
-        setTimeout(() => overlay.remove(), 5000);
+        setTimeout(() => overlay.remove(), 6000);
       } else {
-        // Defeat animation: INTENSE shake + red overlay + red glow + screen pulse
+        // === DEFEAT ANIMATION - ULTRA ENHANCED ===
+        
+        // Screen flash effect (red)
+        const screenFlash = document.createElement('div');
+        screenFlash.style.position = 'fixed';
+        screenFlash.style.top = '0';
+        screenFlash.style.left = '0';
+        screenFlash.style.width = '100%';
+        screenFlash.style.height = '100%';
+        screenFlash.style.background = 'radial-gradient(circle, rgba(231, 76, 60, 0.5) 0%, rgba(139, 0, 0, 0.3) 50%, transparent 100%)';
+        screenFlash.style.pointerEvents = 'none';
+        screenFlash.style.zIndex = '9997';
+        screenFlash.style.animation = 'screenFlash 1.2s ease-out';
+        document.body.appendChild(screenFlash);
+        setTimeout(() => screenFlash.remove(), 1200);
+
+        // Defeat text animation
+        const defeatText = document.createElement('div');
+        defeatText.className = 'defeat-text';
+        defeatText.textContent = 'Defeat!';
+        defeatText.style.animation = 'textPop 0.8s ease-out';
+        document.body.appendChild(defeatText);
+        setTimeout(() => {
+          defeatText.style.transition = 'opacity 0.5s ease-out';
+          defeatText.style.opacity = '0';
+          setTimeout(() => defeatText.remove(), 500);
+        }, 2000);
+
         const overlay = document.createElement('div');
         overlay.className = 'defeat-overlay';
         document.body.appendChild(overlay);
 
-        // Shake the entire game container for extra drama
+        // Shake the entire game container with more intensity
         const gameContainer = document.getElementById('game-container');
         if (gameContainer) {
-          gameContainer.style.animation = 'defeatPulse 1.5s ease-out';
+          gameContainer.style.animation = 'defeatPulse 2s ease-out';
+          gameContainer.style.filter = 'brightness(0.8)';
           setTimeout(() => {
             gameContainer.style.animation = '';
-          }, 1500);
+            gameContainer.style.filter = '';
+          }, 2000);
         }
 
+        // Shake the entire page
+        document.body.style.animation = 'defeatShake 2s ease-in-out';
+        setTimeout(() => {
+          document.body.style.animation = '';
+        }, 2000);
+
         const board = document.getElementById('board');
-        // Apply VERY intense shake and massive red glow
-        board.style.animation = 'defeatShake 1.5s ease-in-out';
-        board.style.boxShadow = '0 0 80px 20px rgba(220, 53, 69, 1), inset 0 0 40px rgba(220, 53, 69, 0.3)';
-        board.style.filter = 'brightness(0.7) saturate(1.5)';
+        
+        // ULTRA intense shake with massive red glow and distortion
+        board.style.animation = 'defeatShake 2s ease-in-out';
+        board.style.boxShadow = '0 0 100px 30px rgba(220, 53, 69, 1), inset 0 0 60px rgba(220, 53, 69, 0.5), 0 0 150px rgba(139, 0, 0, 0.8)';
+        board.style.filter = 'brightness(0.6) saturate(1.8) contrast(1.2)';
+        board.style.border = '4px solid rgba(220, 53, 69, 0.8)';
+        
+        // Red particles falling from board
+        const boardRect = board.getBoundingClientRect();
+        for (let i = 0; i < 50; i++) {
+          setTimeout(() => {
+            const particle = document.createElement('div');
+            particle.style.position = 'fixed';
+            particle.style.width = '6px';
+            particle.style.height = '6px';
+            particle.style.background = 'rgba(220, 53, 69, 0.9)';
+            particle.style.borderRadius = '50%';
+            particle.style.left = (boardRect.left + Math.random() * boardRect.width) + 'px';
+            particle.style.top = boardRect.top + 'px';
+            particle.style.zIndex = '10000';
+            particle.style.pointerEvents = 'none';
+            particle.style.animation = `confetti-fall ${1 + Math.random()}s linear forwards`;
+            particle.style.setProperty('--drift', (Math.random() - 0.5) * 50 + 'px');
+            document.body.appendChild(particle);
+            setTimeout(() => particle.remove(), 2000);
+          }, i * 30);
+        }
         
         setTimeout(() => {
           board.style.animation = '';
           board.style.boxShadow = '';
           board.style.filter = '';
-        }, 1500);
+          board.style.border = '';
+        }, 2000);
 
         // Remove overlay after animation
-        setTimeout(() => overlay.remove(), 1500);
+        setTimeout(() => overlay.remove(), 2500);
       }
     }
 
@@ -3462,11 +4250,979 @@ function navigateToPreviousMove() {
       moveContainer.innerHTML = `RESIGNATION! <span style="color:red;">You Lose!</span>`;
       gameOver = true;
       
+      // Play losing celebration
+      playSound('checkmate');
+      celebrateCheckmate(false);
+      
+      // Update statistics
+      playerStats.losses++;
+      savePlayerStats();
+      updatePlayerStatsDisplay();
+      
       // Send resignation to engine
       sendEngineCommand("resign").catch(err => console.error("Error sending resignation:", err));
-          a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      
+      // Show rematch modal
+      setTimeout(() => showRematchModal("You Resigned", "Would you like to play again?"), 2000);
+    }
+
+    function showRematchModal(title, message) {
+      const modal = document.getElementById('rematch-modal');
+      const titleEl = document.getElementById('rematch-title');
+      const messageEl = document.getElementById('rematch-message');
+      
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      
+      // Position modal over the board
+      const board = document.getElementById('board');
+      const boardRect = board.getBoundingClientRect();
+      
+      modal.classList.add('show');
+      
+      // Use requestAnimationFrame to ensure modal is rendered before positioning
+      requestAnimationFrame(() => {
+        const modalRect = modal.getBoundingClientRect();
+        // Center over the board
+        modal.style.left = (boardRect.left + boardRect.width / 2 - modalRect.width / 2) + 'px';
+        modal.style.top = (boardRect.top + boardRect.height / 2 - modalRect.height / 2) + 'px';
+        modal.style.position = 'fixed';
+      });
+    }
+
+    function closeRematchModal() {
+      document.getElementById('rematch-modal').classList.remove('show');
+    }
+
+    function startRematch() {
+      closeRematchModal();
+      
+      // Reset game state
+      gameOver = false;
+      
+      // Reset game
+      if (game) {
+        game.reset();
+      }
+      moveHistory = [];
+      currentMoveIndex = -1;
+      capturedPieces = { white: [], black: [] };
+      lastMoveSquares = { from: null, to: null };
+      premoves = [];
+      selectedSquare = null;
+      
+      // Reset game stats for new game
+      gameStats = {
+        capturesByQueen: 0,
+        capturesByRook: 0,
+        capturesByBishop: 0,
+        capturesByKnight: 0,
+        capturesByPawn: 0,
+        totalCaptures: 0,
+        checksGiven: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        enPassants: 0,
+        longestGame: 0,
+        shortestWin: Infinity
+      };
+      
+      // Reset UI
+      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
+      updateLastMove(null, "00:00.00", 0, 0);
+      updateTurnDisplay();
+      updateGameStats();
+      updateOpeningDisplay();
+      document.getElementById("opening-display").style.display = "none";
+      
+      // Reset board
+      if (board) {
+        board.position('start');
+      }
+      
+      // Clear highlights
+      $("#board .square-55d63").removeClass("highlight-last-move highlight-check premove-highlight premove-source");
+      
+      // Reset timers
+      const timeOption = document.getElementById("time-control").value;
+      if (timeOption !== "none") {
+        const [base, inc] = timeOption.split("|").map(Number);
+        whiteTime = base ? base * 1000 : 0;
+        blackTime = base ? base * 1000 : 0;
+        increment = inc || 0;
+        timeLimited = true;
+        document.getElementById("white-total").textContent = formatTime(whiteTime);
+        document.getElementById("black-total").textContent = formatTime(blackTime);
+        document.getElementById("timers-container").style.display = "flex";
+      } else {
+        timeLimited = false;
+        document.getElementById("timers-container").style.display = "none";
+      }
+      
+      // Clear notation
+      document.getElementById("notation-container").innerHTML = '';
+      
+      // Start new game
+      startTimer();
+      
+      // Restart engine
+      sendEngineCommand("start").then(() => {
+        applyEngineModifiers(currentEngineStyle);
+        if (playerColor === "black") {
+          engineMove();
+        }
+      }).catch(err => console.error("Error restarting engine:", err));
+    }
+
+    // === NEW FEATURE FUNCTIONS ===
+
+    function flipBoard() {
+      if (!board || !game) return;
+      const currentOrientation = board.orientation();
+      const newOrientation = currentOrientation === 'white' ? 'black' : 'white';
+      board.orientation(newOrientation);
+      playSound('move');
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      
+      // Create audio context for sound generation
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      switch(type) {
+        case 'move':
+          oscillator.frequency.value = 400;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.1);
+          break;
+        case 'capture':
+          oscillator.frequency.value = 600;
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.15);
+          break;
+        case 'check':
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+          break;
+        case 'checkmate':
+          // Victory sound
+          [400, 500, 600, 700].forEach((freq, i) => {
+            setTimeout(() => {
+              const osc = audioContext.createOscillator();
+              const gain = audioContext.createGain();
+              osc.connect(gain);
+              gain.connect(audioContext.destination);
+              osc.frequency.value = freq;
+              osc.type = 'sine';
+              gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+              osc.start(audioContext.currentTime);
+              osc.stop(audioContext.currentTime + 0.3);
+            }, i * 100);
+          });
+          break;
+      }
+    }
+
+    function loadPlayerStats() {
+      const saved = localStorage.getItem('playerStats');
+      if (saved) {
+        playerStats = JSON.parse(saved);
+      }
+    }
+
+    function savePlayerStats() {
+      localStorage.setItem('playerStats', JSON.stringify(playerStats));
+    }
+
+    function updatePlayerStatsDisplay() {
+      const total = playerStats.wins + playerStats.losses + playerStats.draws;
+      document.getElementById("total-games").textContent = total;
+      document.getElementById("total-wins").textContent = playerStats.wins;
+      document.getElementById("total-losses").textContent = playerStats.losses;
+      document.getElementById("total-draws").textContent = playerStats.draws;
+      const winRate = total > 0 ? Math.round((playerStats.wins / total) * 100) : 0;
+      document.getElementById("win-rate").textContent = winRate + '%';
+      document.getElementById("win-rate").style.color = winRate >= 50 ? '#2ecc71' : winRate >= 30 ? '#f39c12' : '#e74c3c';
+    }
+
+    function checkAchievements() {
+      const total = playerStats.wins + playerStats.losses + playerStats.draws;
+      const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+      
+      const newAchievements = [];
+      
+      // Game count achievements
+      if (total >= 1 && !achievements.includes('first_game')) {
+        newAchievements.push({ id: 'first_game', name: '🎮 First Game', desc: 'Played your first game' });
+        achievements.push('first_game');
+      }
+      if (playerStats.wins >= 1 && !achievements.includes('first_win')) {
+        newAchievements.push({ id: 'first_win', name: '🏆 First Victory', desc: 'Won your first game' });
+        achievements.push('first_win');
+      }
+      if (playerStats.wins >= 10 && !achievements.includes('ten_wins')) {
+        newAchievements.push({ id: 'ten_wins', name: '⭐ Decade of Wins', desc: 'Won 10 games' });
+        achievements.push('ten_wins');
+      }
+      if (playerStats.wins >= 50 && !achievements.includes('fifty_wins')) {
+        newAchievements.push({ id: 'fifty_wins', name: '👑 Master Player', desc: 'Won 50 games' });
+        achievements.push('fifty_wins');
+      }
+      if (total >= 100 && !achievements.includes('century')) {
+        newAchievements.push({ id: 'century', name: '💯 Century Club', desc: 'Played 100 games' });
+        achievements.push('century');
+      }
+      if (winRate >= 70 && total >= 10 && !achievements.includes('excellent')) {
+        newAchievements.push({ id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)' });
+        achievements.push('excellent');
+      }
+      
+      // In-game capture achievements (lifetime stats)
+      if (lifetimeStats.capturesByQueen >= 10 && !achievements.includes('queen_capturer')) {
+        newAchievements.push({ id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen' });
+        achievements.push('queen_capturer');
+      }
+      if (lifetimeStats.capturesByRook >= 10 && !achievements.includes('rook_capturer')) {
+        newAchievements.push({ id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook' });
+        achievements.push('rook_capturer');
+      }
+      if (lifetimeStats.capturesByBishop >= 10 && !achievements.includes('bishop_capturer')) {
+        newAchievements.push({ id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop' });
+        achievements.push('bishop_capturer');
+      }
+      if (lifetimeStats.capturesByKnight >= 10 && !achievements.includes('knight_capturer')) {
+        newAchievements.push({ id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight' });
+        achievements.push('knight_capturer');
+      }
+      if (lifetimeStats.capturesByPawn >= 10 && !achievements.includes('pawn_capturer')) {
+        newAchievements.push({ id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn' });
+        achievements.push('pawn_capturer');
+      }
+      if (lifetimeStats.totalCaptures >= 50 && !achievements.includes('capture_master')) {
+        newAchievements.push({ id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total' });
+        achievements.push('capture_master');
+      }
+      if (lifetimeStats.totalCaptures >= 100 && !achievements.includes('capture_legend')) {
+        newAchievements.push({ id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total' });
+        achievements.push('capture_legend');
+      }
+      
+      // Special move achievements
+      if (lifetimeStats.castlingMoves >= 5 && !achievements.includes('castler')) {
+        newAchievements.push({ id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times' });
+        achievements.push('castler');
+      }
+      if (lifetimeStats.promotions >= 5 && !achievements.includes('promoter')) {
+        newAchievements.push({ id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns' });
+        achievements.push('promoter');
+      }
+      if (lifetimeStats.enPassants >= 1 && !achievements.includes('en_passant')) {
+        newAchievements.push({ id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture' });
+        achievements.push('en_passant');
+      }
+      if (lifetimeStats.checksGiven >= 50 && !achievements.includes('check_giver')) {
+        newAchievements.push({ id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks' });
+        achievements.push('check_giver');
+      }
+      
+      // Milestone achievements (always achievable)
+      if (playerStats.wins >= 3 && !achievements.includes('three_wins')) {
+        newAchievements.push({ id: 'three_wins', name: '🔥 Three Wins', desc: 'Won 3 games', points: 25 });
+        achievements.push('three_wins');
+      }
+      if (playerStats.wins >= 5 && !achievements.includes('five_wins')) {
+        newAchievements.push({ id: 'five_wins', name: '⚡ Five Wins', desc: 'Won 5 games', points: 50 });
+        achievements.push('five_wins');
+      }
+      if (playerStats.wins >= 15 && !achievements.includes('fifteen_wins')) {
+        newAchievements.push({ id: 'fifteen_wins', name: '🌟 Fifteen Wins', desc: 'Won 15 games', points: 100 });
+        achievements.push('fifteen_wins');
+      }
+      if (playerStats.wins >= 100 && !achievements.includes('centurion')) {
+        newAchievements.push({ id: 'centurion', name: '💯 Centurion', desc: 'Won 100 games', points: 500 });
+        achievements.push('centurion');
+      }
+      if (winRate >= 80 && total >= 20 && !achievements.includes('grandmaster')) {
+        newAchievements.push({ id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', points: 300 });
+        achievements.push('grandmaster');
+      }
+      
+      // More motivating achievements
+      if (playerStats.wins >= 25 && !achievements.includes('quarter_century')) {
+        newAchievements.push({ id: 'quarter_century', name: '🎯 Quarter Century', desc: 'Won 25 games', points: 150 });
+        achievements.push('quarter_century');
+      }
+      if (playerStats.wins >= 200 && !achievements.includes('double_centurion')) {
+        newAchievements.push({ id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', points: 1000 });
+        achievements.push('double_centurion');
+      }
+      if (playerStats.wins >= 500 && !achievements.includes('half_millennium')) {
+        newAchievements.push({ id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', points: 2500 });
+        achievements.push('half_millennium');
+      }
+      if (total >= 50 && !achievements.includes('fifty_games')) {
+        newAchievements.push({ id: 'fifty_games', name: '📊 Fifty Games', desc: 'Played 50 games', points: 75 });
+        achievements.push('fifty_games');
+      }
+      if (total >= 250 && !achievements.includes('two_fifty')) {
+        newAchievements.push({ id: 'two_fifty', name: '📈 Two Fifty', desc: 'Played 250 games', points: 400 });
+        achievements.push('two_fifty');
+      }
+      if (total >= 500 && !achievements.includes('five_hundred')) {
+        newAchievements.push({ id: 'five_hundred', name: '🎲 Five Hundred', desc: 'Played 500 games', points: 800 });
+        achievements.push('five_hundred');
+      }
+      if (winRate >= 60 && total >= 10 && !achievements.includes('good_player')) {
+        newAchievements.push({ id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', points: 100 });
+        achievements.push('good_player');
+      }
+      if (winRate >= 90 && total >= 20 && !achievements.includes('near_perfect')) {
+        newAchievements.push({ id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', points: 500 });
+        achievements.push('near_perfect');
+      }
+      
+      // In-game action achievements
+      if (lifetimeStats.capturesByQueen >= 25 && !achievements.includes('queen_master')) {
+        newAchievements.push({ id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', points: 150 });
+        achievements.push('queen_master');
+      }
+      if (lifetimeStats.capturesByQueen >= 50 && !achievements.includes('queen_legend')) {
+        newAchievements.push({ id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', points: 300 });
+        achievements.push('queen_legend');
+      }
+      if (lifetimeStats.totalCaptures >= 200 && !achievements.includes('capture_king')) {
+        newAchievements.push({ id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', points: 400 });
+        achievements.push('capture_king');
+      }
+      if (lifetimeStats.totalCaptures >= 500 && !achievements.includes('capture_god')) {
+        newAchievements.push({ id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', points: 1000 });
+        achievements.push('capture_god');
+      }
+      if (lifetimeStats.castlingMoves >= 10 && !achievements.includes('castling_master')) {
+        newAchievements.push({ id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', points: 100 });
+        achievements.push('castling_master');
+      }
+      if (lifetimeStats.castlingMoves >= 25 && !achievements.includes('castling_legend')) {
+        newAchievements.push({ id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', points: 250 });
+        achievements.push('castling_legend');
+      }
+      if (lifetimeStats.promotions >= 10 && !achievements.includes('promotion_master')) {
+        newAchievements.push({ id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', points: 150 });
+        achievements.push('promotion_master');
+      }
+      if (lifetimeStats.promotions >= 25 && !achievements.includes('promotion_legend')) {
+        newAchievements.push({ id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', points: 300 });
+        achievements.push('promotion_legend');
+      }
+      if (lifetimeStats.checksGiven >= 100 && !achievements.includes('check_master')) {
+        newAchievements.push({ id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', points: 200 });
+        achievements.push('check_master');
+      }
+      if (lifetimeStats.checksGiven >= 250 && !achievements.includes('check_legend')) {
+        newAchievements.push({ id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', points: 400 });
+        achievements.push('check_legend');
+      }
+      if (lifetimeStats.enPassants >= 3 && !achievements.includes('en_passant_master')) {
+        newAchievements.push({ id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', points: 200 });
+        achievements.push('en_passant_master');
+      }
+      if (lifetimeStats.enPassants >= 10 && !achievements.includes('en_passant_legend')) {
+        newAchievements.push({ id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', points: 500 });
+        achievements.push('en_passant_legend');
+      }
+      
+      // Balanced play achievements
+      if (playerStats.draws >= 10 && !achievements.includes('peacemaker')) {
+        newAchievements.push({ id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', points: 100 });
+        achievements.push('peacemaker');
+      }
+      if (playerStats.draws >= 25 && !achievements.includes('diplomat')) {
+        newAchievements.push({ id: 'diplomat', name: '🤝 Diplomat', desc: 'Drew 25 games', points: 200 });
+        achievements.push('diplomat');
+      }
+      
+      // Captured piece achievements (what pieces you captured, not what captured them)
+      if (lifetimeStats.capturedQueens >= 5 && !achievements.includes('queen_hunter_5')) {
+        newAchievements.push({ id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', points: 200 });
+        achievements.push('queen_hunter_5');
+      }
+      if (lifetimeStats.capturedQueens >= 10 && !achievements.includes('queen_hunter_10')) {
+        newAchievements.push({ id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', points: 500 });
+        achievements.push('queen_hunter_10');
+      }
+      if (lifetimeStats.capturedRooks >= 10 && !achievements.includes('rook_hunter_10')) {
+        newAchievements.push({ id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', points: 150 });
+        achievements.push('rook_hunter_10');
+      }
+      if (lifetimeStats.capturedRooks >= 25 && !achievements.includes('rook_hunter_25')) {
+        newAchievements.push({ id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', points: 300 });
+        achievements.push('rook_hunter_25');
+      }
+      if (lifetimeStats.capturedBishops >= 10 && !achievements.includes('bishop_hunter_10')) {
+        newAchievements.push({ id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', points: 150 });
+        achievements.push('bishop_hunter_10');
+      }
+      if (lifetimeStats.capturedBishops >= 25 && !achievements.includes('bishop_hunter_25')) {
+        newAchievements.push({ id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', points: 300 });
+        achievements.push('bishop_hunter_25');
+      }
+      if (lifetimeStats.capturedKnights >= 10 && !achievements.includes('knight_hunter_10')) {
+        newAchievements.push({ id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', points: 150 });
+        achievements.push('knight_hunter_10');
+      }
+      if (lifetimeStats.capturedKnights >= 25 && !achievements.includes('knight_hunter_25')) {
+        newAchievements.push({ id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', points: 300 });
+        achievements.push('knight_hunter_25');
+      }
+      if (lifetimeStats.capturedPawns >= 50 && !achievements.includes('pawn_hunter_50')) {
+        newAchievements.push({ id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', points: 100 });
+        achievements.push('pawn_hunter_50');
+      }
+      if (lifetimeStats.capturedPawns >= 100 && !achievements.includes('pawn_hunter_100')) {
+        newAchievements.push({ id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', points: 200 });
+        achievements.push('pawn_hunter_100');
+      }
+      
+      if (newAchievements.length > 0) {
+        saveAchievements();
+        updateAchievementsDisplay();
+        updateTotalPoints();
+        showAchievementNotification(newAchievements);
+      }
+    }
+
+    function loadAchievements() {
+      const saved = localStorage.getItem('achievements');
+      if (saved) {
+        achievements = JSON.parse(saved);
+      }
+    }
+
+    function saveAchievements() {
+      localStorage.setItem('achievements', JSON.stringify(achievements));
+    }
+
+    function getAllAchievementsList() {
+      return [
+        // General Achievements
+        { id: 'first_game', name: '🎮 First Game', desc: 'Played your first game', category: 'General', points: 10, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 1 };
+        }},
+        { id: 'first_win', name: '🏆 First Victory', desc: 'Won your first game', category: 'General', points: 25, progress: () => {
+          return { current: playerStats.wins, target: 1 };
+        }},
+        { id: 'three_wins', name: '🔥 Three Wins', desc: 'Won 3 games', category: 'General', points: 25, progress: () => {
+          return { current: playerStats.wins, target: 3 };
+        }},
+        { id: 'five_wins', name: '⚡ Five Wins', desc: 'Won 5 games', category: 'General', points: 50, progress: () => {
+          return { current: playerStats.wins, target: 5 };
+        }},
+        { id: 'ten_wins', name: '⭐ Decade of Wins', desc: 'Won 10 games', category: 'General', points: 75, progress: () => {
+          return { current: playerStats.wins, target: 10 };
+        }},
+        { id: 'fifteen_wins', name: '🌟 Fifteen Wins', desc: 'Won 15 games', category: 'General', points: 100, progress: () => {
+          return { current: playerStats.wins, target: 15 };
+        }},
+        { id: 'quarter_century', name: '🎯 Quarter Century', desc: 'Won 25 games', category: 'General', points: 150, progress: () => {
+          return { current: playerStats.wins, target: 25 };
+        }},
+        { id: 'fifty_wins', name: '👑 Master Player', desc: 'Won 50 games', category: 'General', points: 200, progress: () => {
+          return { current: playerStats.wins, target: 50 };
+        }},
+        { id: 'centurion', name: '💯 Centurion', desc: 'Won 100 games', category: 'General', points: 500, progress: () => {
+          return { current: playerStats.wins, target: 100 };
+        }},
+        { id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', category: 'General', points: 1000, progress: () => {
+          return { current: playerStats.wins, target: 200 };
+        }},
+        { id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', category: 'General', points: 2500, progress: () => {
+          return { current: playerStats.wins, target: 500 };
+        }},
+        { id: 'fifty_games', name: '📊 Fifty Games', desc: 'Played 50 games', category: 'General', points: 75, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 50 };
+        }},
+        { id: 'century', name: '💯 Century Club', desc: 'Played 100 games', category: 'General', points: 150, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 100 };
+        }},
+        { id: 'two_fifty', name: '📈 Two Fifty', desc: 'Played 250 games', category: 'General', points: 400, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 250 };
+        }},
+        { id: 'five_hundred', name: '🎲 Five Hundred', desc: 'Played 500 games', category: 'General', points: 800, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 500 };
+        }},
+        { id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', category: 'General', points: 100, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: Math.round(winRate), target: 60, needsTotal: total >= 10 };
+        }},
+        { id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)', category: 'General', points: 200, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: Math.round(winRate), target: 70, needsTotal: total >= 10 };
+        }},
+        { id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', category: 'General', points: 300, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: Math.round(winRate), target: 80, needsTotal: total >= 20 };
+        }},
+        { id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', category: 'General', points: 500, progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: Math.round(winRate), target: 90, needsTotal: total >= 20 };
+        }},
+        { id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', category: 'General', points: 100, progress: () => {
+          return { current: playerStats.draws, target: 10 };
+        }},
+        { id: 'diplomat', name: '🤝 Diplomat', desc: 'Drew 25 games', category: 'General', points: 200, progress: () => {
+          return { current: playerStats.draws, target: 25 };
+        }},
+        
+        // Captured Piece Achievements (what pieces you captured)
+        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 200, groupKey: 'captured_queens', progress: () => {
+          return { current: lifetimeStats.capturedQueens, target: 5 };
+        }},
+        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 500, groupKey: 'captured_queens', progress: () => {
+          return { current: lifetimeStats.capturedQueens, target: 10 };
+        }},
+        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 150, groupKey: 'captured_rooks', progress: () => {
+          return { current: lifetimeStats.capturedRooks, target: 10 };
+        }},
+        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 300, groupKey: 'captured_rooks', progress: () => {
+          return { current: lifetimeStats.capturedRooks, target: 25 };
+        }},
+        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 150, groupKey: 'captured_bishops', progress: () => {
+          return { current: lifetimeStats.capturedBishops, target: 10 };
+        }},
+        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 300, groupKey: 'captured_bishops', progress: () => {
+          return { current: lifetimeStats.capturedBishops, target: 25 };
+        }},
+        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 150, groupKey: 'captured_knights', progress: () => {
+          return { current: lifetimeStats.capturedKnights, target: 10 };
+        }},
+        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 300, groupKey: 'captured_knights', progress: () => {
+          return { current: lifetimeStats.capturedKnights, target: 25 };
+        }},
+        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 100, groupKey: 'captured_pawns', progress: () => {
+          return { current: lifetimeStats.capturedPawns, target: 50 };
+        }},
+        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 200, groupKey: 'captured_pawns', progress: () => {
+          return { current: lifetimeStats.capturedPawns, target: 100 };
+        }},
+        
+        // Group keys for other achievement types
+        { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', category: 'In-Game', points: 50, groupKey: 'captures_with_queen', progress: () => {
+          return { current: lifetimeStats.capturesByQueen, target: 10 };
+        }},
+        { id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', category: 'In-Game', points: 150, groupKey: 'captures_with_queen', progress: () => {
+          return { current: lifetimeStats.capturesByQueen, target: 25 };
+        }},
+        { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', category: 'In-Game', points: 300, groupKey: 'captures_with_queen', progress: () => {
+          return { current: lifetimeStats.capturesByQueen, target: 50 };
+        }},
+        { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', category: 'In-Game', points: 50, groupKey: 'captures_with_rook', progress: () => {
+          return { current: lifetimeStats.capturesByRook, target: 10 };
+        }},
+        { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', category: 'In-Game', points: 50, groupKey: 'captures_with_bishop', progress: () => {
+          return { current: lifetimeStats.capturesByBishop, target: 10 };
+        }},
+        { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', category: 'In-Game', points: 50, groupKey: 'captures_with_knight', progress: () => {
+          return { current: lifetimeStats.capturesByKnight, target: 10 };
+        }},
+        { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', category: 'In-Game', points: 50, groupKey: 'captures_with_pawn', progress: () => {
+          return { current: lifetimeStats.capturesByPawn, target: 10 };
+        }},
+        { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', category: 'In-Game', points: 100, groupKey: 'total_captures', progress: () => {
+          return { current: lifetimeStats.totalCaptures, target: 50 };
+        }},
+        { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', category: 'In-Game', points: 200, groupKey: 'total_captures', progress: () => {
+          return { current: lifetimeStats.totalCaptures, target: 100 };
+        }},
+        { id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', category: 'In-Game', points: 400, groupKey: 'total_captures', progress: () => {
+          return { current: lifetimeStats.totalCaptures, target: 200 };
+        }},
+        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 1000, groupKey: 'total_captures', progress: () => {
+          return { current: lifetimeStats.totalCaptures, target: 500 };
+        }},
+        { id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', category: 'In-Game', points: 50, groupKey: 'castling', progress: () => {
+          return { current: lifetimeStats.castlingMoves, target: 5 };
+        }},
+        { id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', category: 'In-Game', points: 100, groupKey: 'castling', progress: () => {
+          return { current: lifetimeStats.castlingMoves, target: 10 };
+        }},
+        { id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', category: 'In-Game', points: 250, groupKey: 'castling', progress: () => {
+          return { current: lifetimeStats.castlingMoves, target: 25 };
+        }},
+        { id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns', category: 'In-Game', points: 75, groupKey: 'promotions', progress: () => {
+          return { current: lifetimeStats.promotions, target: 5 };
+        }},
+        { id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', category: 'In-Game', points: 150, groupKey: 'promotions', progress: () => {
+          return { current: lifetimeStats.promotions, target: 10 };
+        }},
+        { id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', category: 'In-Game', points: 300, groupKey: 'promotions', progress: () => {
+          return { current: lifetimeStats.promotions, target: 25 };
+        }},
+        { id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture', category: 'In-Game', points: 100, groupKey: 'en_passants', progress: () => {
+          return { current: lifetimeStats.enPassants, target: 1 };
+        }},
+        { id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', category: 'In-Game', points: 200, groupKey: 'en_passants', progress: () => {
+          return { current: lifetimeStats.enPassants, target: 3 };
+        }},
+        { id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', category: 'In-Game', points: 500, groupKey: 'en_passants', progress: () => {
+          return { current: lifetimeStats.enPassants, target: 10 };
+        }},
+        { id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks', category: 'In-Game', points: 75, groupKey: 'checks', progress: () => {
+          return { current: lifetimeStats.checksGiven, target: 50 };
+        }},
+        { id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', category: 'In-Game', points: 200, groupKey: 'checks', progress: () => {
+          return { current: lifetimeStats.checksGiven, target: 100 };
+        }},
+        { id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', category: 'In-Game', points: 400, groupKey: 'checks', progress: () => {
+          return { current: lifetimeStats.checksGiven, target: 250 };
+        }}
+      ];
+    }
+
+    function updateTotalPoints() {
+      const allAchievements = getAllAchievementsList();
+      let totalPoints = 0;
+      achievements.forEach(achId => {
+        const ach = allAchievements.find(a => a.id === achId);
+        if (ach && ach.points) {
+          totalPoints += ach.points;
+        }
+      });
+      const pointsEl = document.getElementById('total-achievement-points');
+      if (pointsEl) {
+        pointsEl.textContent = totalPoints.toLocaleString();
+      }
+    }
+
+    function updateAchievementsDisplay() {
+      const container = document.getElementById("achievements-list");
+      container.innerHTML = '';
+      
+      const allAchievements = getAllAchievementsList();
+      const unlocked = allAchievements.filter(ach => achievements.includes(ach.id));
+      
+      // Show only unlocked achievements in the small panel
+      unlocked.slice(0, 6).forEach(ach => {
+        const div = document.createElement('div');
+        div.className = 'stats-row';
+        const pointsText = ach.points ? ` <span style="color: #f39c12; font-weight: 700;">(${ach.points} pts)</span>` : '';
+        div.innerHTML = `
+          <span class="stats-label">${ach.name}:</span>
+          <span class="stats-value" style="font-size: 0.85em;">${ach.desc}${pointsText}</span>
+        `;
+        container.appendChild(div);
+      });
+      
+      if (unlocked.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'stats-row';
+        div.style.opacity = '0.6';
+        div.innerHTML = '<span class="stats-value" style="font-size: 0.9em; font-style: italic;">No achievements unlocked yet</span>';
+        container.appendChild(div);
+      }
+    }
+
+    function showAllAchievements() {
+      const modal = document.getElementById('all-achievements-modal');
+      const container = document.getElementById('all-achievements-list');
+      container.innerHTML = '';
+      
+      const allAchievements = getAllAchievementsList();
+      
+      // First group by category
+      const byCategory = {};
+      allAchievements.forEach(ach => {
+        if (!byCategory[ach.category]) {
+          byCategory[ach.category] = [];
+        }
+        byCategory[ach.category].push(ach);
+      });
+      
+      // Render by category
+      Object.keys(byCategory).forEach(category => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.style.marginBottom = '30px';
+        
+        const categoryTitle = document.createElement('h3');
+        categoryTitle.textContent = category;
+        categoryTitle.style.cssText = 'font-family: "Inter", sans-serif; font-size: 1.3em; font-weight: 700; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #3498db;';
+        categoryDiv.appendChild(categoryTitle);
+        
+        // Group achievements within category by groupKey
+        const grouped = {};
+        const ungrouped = [];
+        
+        byCategory[category].forEach(ach => {
+          if (ach.groupKey) {
+            if (!grouped[ach.groupKey]) {
+              grouped[ach.groupKey] = [];
+            }
+            grouped[ach.groupKey].push(ach);
+          } else {
+            ungrouped.push(ach);
+          }
+        });
+        
+        // Sort grouped achievements by target value
+        Object.keys(grouped).forEach(key => {
+          grouped[key].sort((a, b) => {
+            const aTarget = a.progress().target;
+            const bTarget = b.progress().target;
+            return aTarget - bTarget;
+          });
+        });
+        
+        // Render grouped achievements
+        Object.keys(grouped).forEach(groupKey => {
+          const group = grouped[groupKey];
+          const groupDiv = document.createElement('div');
+          groupDiv.className = 'achievement-group';
+          groupDiv.style.marginBottom = '20px';
+          
+          // Find the next achievement to work on
+          let nextAchievement = null;
+          let nextIndex = -1;
+          for (let i = 0; i < group.length; i++) {
+            const ach = group[i];
+            const isUnlocked = achievements.includes(ach.id);
+            if (!isUnlocked) {
+              nextAchievement = ach;
+              nextIndex = i;
+              break;
+            }
+          }
+          
+          // If all are unlocked, show the last one
+          if (!nextAchievement && group.length > 0) {
+            nextAchievement = group[group.length - 1];
+            nextIndex = group.length - 1;
+          }
+          
+          // Create the visible card (next achievement)
+          if (nextAchievement) {
+            const isUnlocked = achievements.includes(nextAchievement.id);
+            const progress = nextAchievement.progress();
+            const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+            const showProgress = !isUnlocked && progressPercent < 100;
+            const meetsRequirements = !progress.needsTotal || progress.needsTotal;
+            const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
+            
+            const card = document.createElement('div');
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+            card.style.position = 'relative';
+            
+            const pointsText = nextAchievement.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${nextAchievement.points} points</div>` : '';
+            
+            // Add expand button if there are more achievements in the group
+            const expandButton = group.length > 1 ? `
+              <button class="expand-group-btn" onclick="toggleAchievementGroup('${groupKey}')" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: rgba(52, 152, 219, 0.1);
+                border: 2px solid #3498db;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                cursor: pointer;
+                font-size: 1.2em;
+                color: #3498db;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                font-weight: 700;
+              " onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.1)'">
+                <span id="expand-icon-${groupKey}">▼</span>
+              </button>
+            ` : '';
+            
+            card.innerHTML = `
+              ${expandButton}
+              <div class="achievement-name">${nextAchievement.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+              <div class="achievement-desc">${nextAchievement.desc}</div>
+              ${pointsText}
+              ${showProgress && meetsRequirements && meetsNoLosses ? `
+                <div class="achievement-progress">${progress.current} / ${progress.target}</div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+              ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+            `;
+            
+            groupDiv.appendChild(card);
+            
+            // Create hidden container for all achievements in group
+            const allGroupAchievements = document.createElement('div');
+            allGroupAchievements.id = `group-${groupKey}`;
+            allGroupAchievements.className = 'achievement-group-all';
+            allGroupAchievements.style.display = 'none';
+            allGroupAchievements.style.marginTop = '10px';
+            allGroupAchievements.style.paddingTop = '10px';
+            allGroupAchievements.style.borderTop = '2px solid #e9ecef';
+            
+            group.forEach((ach, idx) => {
+              if (idx === nextIndex) return; // Skip the one already shown
+              
+              const isUnlocked = achievements.includes(ach.id);
+              const progress = ach.progress();
+              const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+              const showProgress = !isUnlocked && progressPercent < 100;
+              const meetsRequirements = !progress.needsTotal || progress.needsTotal;
+              const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
+              
+              const subCard = document.createElement('div');
+              subCard.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+              subCard.style.marginBottom = '10px';
+              
+              const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+              subCard.innerHTML = `
+                <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+                <div class="achievement-desc">${ach.desc}</div>
+                ${pointsText}
+                ${showProgress && meetsRequirements && meetsNoLosses ? `
+                  <div class="achievement-progress">${progress.current} / ${progress.target}</div>
+                  <div class="achievement-progress-bar">
+                    <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                  </div>
+                ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+              `;
+              
+              allGroupAchievements.appendChild(subCard);
+            });
+            
+            groupDiv.appendChild(allGroupAchievements);
+            categoryDiv.appendChild(groupDiv);
+          }
+        });
+        
+        // Render ungrouped achievements
+        if (ungrouped.length > 0) {
+          const categoryGrid = document.createElement('div');
+          categoryGrid.className = 'achievements-grid';
+          categoryGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
+          categoryGrid.style.marginBottom = '0';
+          
+          ungrouped.forEach(ach => {
+            const isUnlocked = achievements.includes(ach.id);
+            const progress = ach.progress();
+            const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+            const showProgress = !isUnlocked && progressPercent < 100;
+            const meetsRequirements = !progress.needsTotal || progress.needsTotal;
+            const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
+            
+            const card = document.createElement('div');
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+            
+            const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+            card.innerHTML = `
+              <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+              <div class="achievement-desc">${ach.desc}</div>
+              ${pointsText}
+              ${showProgress && meetsRequirements && meetsNoLosses ? `
+                <div class="achievement-progress">${progress.current} / ${progress.target}</div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+              ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+            `;
+            
+            categoryGrid.appendChild(card);
+          });
+          
+          categoryDiv.appendChild(categoryGrid);
+        }
+        
+        container.appendChild(categoryDiv);
+      });
+      
+      modal.classList.add('show');
+    }
+
+    function toggleAchievementGroup(groupKey) {
+      const groupDiv = document.getElementById(`group-${groupKey}`);
+      const icon = document.getElementById(`expand-icon-${groupKey}`);
+      
+      if (groupDiv.style.display === 'none') {
+        groupDiv.style.display = 'block';
+        icon.textContent = '▲';
+      } else {
+        groupDiv.style.display = 'none';
+        icon.textContent = '▼';
+      }
+    }
+
+    function closeAllAchievements() {
+      document.getElementById('all-achievements-modal').classList.remove('show');
+    }
+
+    function loadLifetimeStats() {
+      const saved = localStorage.getItem('lifetimeStats');
+      if (saved) {
+        lifetimeStats = JSON.parse(saved);
+      }
+    }
+
+    function saveLifetimeStats() {
+      localStorage.setItem('lifetimeStats', JSON.stringify(lifetimeStats));
+    }
+
+    function showAchievementNotification(newAchievements) {
+      newAchievements.forEach((ach, index) => {
+        setTimeout(() => {
+          const notification = document.createElement('div');
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4);
+            z-index: 10004;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            animation: slideInRight 0.5s ease-out;
+            max-width: 300px;
+          `;
+          notification.innerHTML = `
+            <div style="font-size: 1.5em; margin-bottom: 8px;">${ach.name}</div>
+            <div style="font-size: 0.9em; opacity: 0.95;">${ach.desc}</div>
+          `;
+          document.body.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.style.animation = 'slideOutRight 0.5s ease-in forwards';
+            setTimeout(() => notification.remove(), 500);
+          }, 3000);
+        }, index * 400);
+      });
     }
 
     function setupTimerDisplayOrder() {
@@ -3523,6 +5279,22 @@ function navigateToPreviousMove() {
       lastMoveSquares = { from: null, to: null };
       gameStartTime = new Date();
       premoves = []; // Clear any premoves
+      
+      // Reset game stats for new game
+      gameStats = {
+        capturesByQueen: 0,
+        capturesByRook: 0,
+        capturesByBishop: 0,
+        capturesByKnight: 0,
+        capturesByPawn: 0,
+        totalCaptures: 0,
+        checksGiven: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        enPassants: 0,
+        longestGame: 0,
+        shortestWin: Infinity
+      };
       selectedSquare = null; // Clear any selection
       
       // Hide the options panel with fade effect
@@ -3909,7 +5681,21 @@ function navigateToPreviousMove() {
       document.getElementById("game-stats-panel").style.display = "block";
       document.getElementById("export-pgn-btn").style.display = "block";
       document.getElementById("resign-btn").style.display = "block";
+      document.getElementById("flip-board-btn").style.display = "block";
+      document.getElementById("player-stats-panel").style.display = "block";
+      document.getElementById("achievements-panel").style.display = "block";
       document.getElementById("opening-display").style.display = "none";
+      
+      // Load sound settings
+      soundEnabled = document.getElementById("sound-effects").checked;
+      
+      // Load and display statistics
+      loadPlayerStats();
+      loadAchievements();
+      loadLifetimeStats();
+      updatePlayerStatsDisplay();
+      updateAchievementsDisplay();
+      updateTotalPoints();
       
       // Initialize stats
       updateGameStats();
@@ -3954,6 +5740,13 @@ function navigateToPreviousMove() {
         return;
       }
 
+      // Play sound effects
+      if (move.captured) {
+        playSound('capture');
+      } else {
+        playSound('move');
+      }
+
       trackCapturedPiece(move);
       lastMoveSquares = { from: source, to: target };
       
@@ -3971,8 +5764,18 @@ function navigateToPreviousMove() {
         // Replaced alert() with UI message
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>'; // Green text for win
+        playSound('checkmate');
         celebrateCheckmate(true);
         gameOver = true;
+        
+        // Update statistics and achievements
+        playerStats.wins++;
+        savePlayerStats();
+        updatePlayerStatsDisplay();
+        checkAchievements();
+        
+        // Show rematch modal
+        setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
         return;
       }
 
@@ -4033,11 +5836,22 @@ function navigateToPreviousMove() {
         updateOpeningDisplay();
         updateGameStats();
 
+        // Play sound for engine move
+        if (move.captured) {
+          playSound('capture');
+        } else {
+          playSound('move');
+        }
+        if (game.in_check()) {
+          playSound('check');
+        }
+
         if (game.in_checkmate()) {
           console.log('CHECKMATE DETECTED - Player Lost');
           // Replaced alert() with UI message
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'CHECKMATE! <span style="color:red;">You Lose!</span>';
+          playSound('checkmate');
           console.log('About to call celebrateCheckmate(false)');
           try {
             celebrateCheckmate(false);
@@ -4047,6 +5861,15 @@ function navigateToPreviousMove() {
           }
           gameOver = true;
           clearPremove();
+          
+          // Update statistics and achievements
+          playerStats.losses++;
+          savePlayerStats();
+          updatePlayerStatsDisplay();
+          checkAchievements();
+          
+          // Show rematch modal
+          setTimeout(() => showRematchModal("💔 Defeat", "You were checkmated! Play again?"), 2000);
           return;
         }
         
@@ -4092,9 +5915,19 @@ function navigateToPreviousMove() {
             if (game.in_checkmate()) {
               const moveContainer = document.getElementById("move-timer-container");
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
+              playSound('checkmate');
               celebrateCheckmate(true);
               gameOver = true;
               clearPremove();
+              
+              // Update statistics and achievements
+              playerStats.wins++;
+              savePlayerStats();
+              updatePlayerStatsDisplay();
+              checkAchievements();
+              
+              // Show rematch modal
+              setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
               return;
             }
             
@@ -4118,6 +5951,9 @@ function navigateToPreviousMove() {
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
         console.error('Engine connection error:', err);
         gameOver = true;
+        
+        // Show rematch modal for connection errors
+        setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
       }
     }
     function submitMove() {
@@ -4164,8 +6000,18 @@ function navigateToPreviousMove() {
       if (game.in_checkmate()) {
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
+        playSound('checkmate');
         celebrateCheckmate(true);
         gameOver = true;
+        
+        // Update statistics and achievements
+        playerStats.wins++;
+        savePlayerStats();
+        updatePlayerStatsDisplay();
+        checkAchievements();
+        
+        // Show rematch modal
+        setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
         return;
       }
 
