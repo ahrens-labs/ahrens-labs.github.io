@@ -2403,7 +2403,64 @@
       capturedRooks: 0,
       capturedBishops: 0,
       capturedKnights: 0,
-      capturedPawns: 0
+      capturedPawns: 0,
+      // Random achievement tracking
+      movesToE4: 0,
+      movesToD4: 0,
+      movesToE5: 0,
+      movesToD5: 0,
+      knightToF3: 0,
+      knightToC3: 0,
+      knightToF6: 0,
+      knightToC6: 0,
+      movesOnMove1: 0,
+      movesOnMove5: 0,
+      movesOnMove10: 0,
+      movesOnMove20: 0,
+      movesOnMove50: 0,
+      pawnToE4: 0,
+      pawnToD4: 0,
+      queenToD4: 0,
+      queenToE4: 0,
+      bishopToF4: 0,
+      rookToE1: 0,
+      kingToE1: 0,
+      consecutiveSamePiece: 0,
+      castledOnMove10: 0,
+      castledOnMove20: 0,
+      promotedToQueen: 0,
+      promotedToRook: 0,
+      promotedToBishop: 0,
+      promotedToKnight: 0,
+      checkOnMove1: 0,
+      checkOnMove5: 0,
+      captureOnMove1: 0,
+      captureOnMove10: 0,
+      // Additional tracking for varied requirements
+      movesToE4Multiple: 0,
+      movesToD4Multiple: 0,
+      knightToF3Multiple: 0,
+      knightToC3Multiple: 0,
+      queenToD4Multiple: 0,
+      promotedToQueenMultiple: 0,
+      // Random piece-to-square tracking
+      rookToA1: 0, rookToH1: 0, rookToA8: 0, rookToH8: 0,
+      bishopToC1: 0, bishopToF1: 0, bishopToC8: 0, bishopToF8: 0,
+      knightToG1: 0, knightToB1: 0, knightToG8: 0, knightToB8: 0,
+      queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
+      kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
+      pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
+      // Daily achievement tracking
+      dailyStats: {
+        lastResetDate: null,
+        gamesPlayedToday: 0,
+        movesMadeToday: 0,
+        capturesToday: 0,
+        checksGivenToday: 0,
+        uniqueSquaresVisitedToday: [],
+        longestGameToday: 0,
+        fastestWinToday: Infinity
+      }
     };
 
     // Engine personality presets
@@ -3223,11 +3280,18 @@
                 moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
                 gameOver = true;
                 
-                // Update statistics
-                playerStats.losses++;
-                savePlayerStats();
-                updatePlayerStatsDisplay();
-                checkAchievements();
+      // Update statistics
+      playerStats.losses++;
+      savePlayerStats();
+      updatePlayerStatsDisplay();
+      resetDailyStatsIfNeeded();
+      lifetimeStats.dailyStats.gamesPlayedToday++;
+      const moveCount = game.history().length;
+      if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+        lifetimeStats.dailyStats.longestGameToday = moveCount;
+      }
+      saveLifetimeStats();
+      checkAchievements();
                 
                 // Show rematch modal
                 setTimeout(() => showRematchModal("⏰ Time Out", "You ran out of time! Play again?"), 1500);
@@ -3944,6 +4008,130 @@ function navigateToPreviousMove() {
       }
     }
 
+    function trackRandomAchievements(move, source, target) {
+      const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
+      if (!isPlayerMove) return;
+      
+      const gameMoveNumber = game.history().length;
+      // Calculate player's move number (1st move, 2nd move, etc. for the player)
+      const playerMoveNumber = playerColor === 'white' 
+        ? Math.floor((gameMoveNumber + 1) / 2)  // White plays on odd moves: 1,3,5... -> 1,2,3...
+        : Math.floor(gameMoveNumber / 2);        // Black plays on even moves: 2,4,6... -> 1,2,3...
+      
+      const pieceType = move.piece.toLowerCase();
+      
+      // Track moves to specific squares
+      if (target === 'e4') {
+        lifetimeStats.movesToE4++;
+        lifetimeStats.movesToE4Multiple++;
+        if (pieceType === 'p') lifetimeStats.pawnToE4++;
+      }
+      if (target === 'd4') {
+        lifetimeStats.movesToD4++;
+        lifetimeStats.movesToD4Multiple++;
+        if (pieceType === 'p') lifetimeStats.pawnToD4++;
+      }
+      if (target === 'e5') lifetimeStats.movesToE5++;
+      if (target === 'd5') lifetimeStats.movesToD5++;
+      
+      // Track knight moves to specific squares
+      if (pieceType === 'n') {
+        if (target === 'f3') {
+          lifetimeStats.knightToF3++;
+          lifetimeStats.knightToF3Multiple++;
+        }
+        if (target === 'c3') {
+          lifetimeStats.knightToC3++;
+          lifetimeStats.knightToC3Multiple++;
+        }
+        if (target === 'f6') lifetimeStats.knightToF6++;
+        if (target === 'c6') lifetimeStats.knightToC6++;
+      }
+      
+      // Track moves on specific player move numbers (e.g., "on your 5th move")
+      if (playerMoveNumber === 1) lifetimeStats.movesOnMove1++;
+      if (playerMoveNumber === 5) lifetimeStats.movesOnMove5++;
+      if (playerMoveNumber === 10) lifetimeStats.movesOnMove10++;
+      if (playerMoveNumber === 20) lifetimeStats.movesOnMove20++;
+      if (playerMoveNumber === 50) lifetimeStats.movesOnMove50++;
+      
+      // Track specific piece moves to specific squares
+      if (pieceType === 'q') {
+        if (target === 'd4') {
+          lifetimeStats.queenToD4++;
+          lifetimeStats.queenToD4Multiple++;
+        }
+        if (target === 'e4') lifetimeStats.queenToE4++;
+      }
+      if (pieceType === 'b' && target === 'f4') lifetimeStats.bishopToF4++;
+      if (pieceType === 'b' && target === 'c1') lifetimeStats.bishopToC1++;
+      if (pieceType === 'b' && target === 'f1') lifetimeStats.bishopToF1++;
+      if (pieceType === 'b' && target === 'c8') lifetimeStats.bishopToC8++;
+      if (pieceType === 'b' && target === 'f8') lifetimeStats.bishopToF8++;
+      if (pieceType === 'r' && target === 'e1') lifetimeStats.rookToE1++;
+      if (pieceType === 'r' && target === 'a1') lifetimeStats.rookToA1++;
+      if (pieceType === 'r' && target === 'h1') lifetimeStats.rookToH1++;
+      if (pieceType === 'r' && target === 'a8') lifetimeStats.rookToA8++;
+      if (pieceType === 'r' && target === 'h8') lifetimeStats.rookToH8++;
+      if (pieceType === 'k' && target === 'e1') lifetimeStats.kingToE1++;
+      if (pieceType === 'k' && target === 'g1') lifetimeStats.kingToG1++;
+      if (pieceType === 'k' && target === 'c1') lifetimeStats.kingToC1++;
+      if (pieceType === 'k' && target === 'g8') lifetimeStats.kingToG8++;
+      if (pieceType === 'k' && target === 'c8') lifetimeStats.kingToC8++;
+      if (pieceType === 'n' && target === 'g1') lifetimeStats.knightToG1++;
+      if (pieceType === 'n' && target === 'b1') lifetimeStats.knightToB1++;
+      if (pieceType === 'n' && target === 'g8') lifetimeStats.knightToG8++;
+      if (pieceType === 'n' && target === 'b8') lifetimeStats.knightToB8++;
+      if (pieceType === 'q' && target === 'a1') lifetimeStats.queenToA1++;
+      if (pieceType === 'q' && target === 'h1') lifetimeStats.queenToH1++;
+      if (pieceType === 'q' && target === 'a8') lifetimeStats.queenToA8++;
+      if (pieceType === 'q' && target === 'h8') lifetimeStats.queenToH8++;
+      if (pieceType === 'p' && target === 'a2') lifetimeStats.pawnToA2++;
+      if (pieceType === 'p' && target === 'h2') lifetimeStats.pawnToH2++;
+      if (pieceType === 'p' && target === 'a7') lifetimeStats.pawnToA7++;
+      if (pieceType === 'p' && target === 'h7') lifetimeStats.pawnToH7++;
+      
+      // Track daily stats
+      resetDailyStatsIfNeeded();
+      lifetimeStats.dailyStats.movesMadeToday++;
+      if (move.captured) lifetimeStats.dailyStats.capturesToday++;
+      if (move.san && move.san.includes('+')) lifetimeStats.dailyStats.checksGivenToday++;
+      if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(target)) {
+        lifetimeStats.dailyStats.uniqueSquaresVisitedToday.push(target);
+      }
+      
+      // Track promotions
+      if (move.promotion) {
+        if (move.promotion === 'q') {
+          lifetimeStats.promotedToQueen++;
+          lifetimeStats.promotedToQueenMultiple++;
+        }
+        if (move.promotion === 'r') lifetimeStats.promotedToRook++;
+        if (move.promotion === 'b') lifetimeStats.promotedToBishop++;
+        if (move.promotion === 'n') lifetimeStats.promotedToKnight++;
+      }
+      
+      // Track castling on specific player move numbers
+      if (move.flags && move.flags.includes('k')) {
+        if (playerMoveNumber === 10) lifetimeStats.castledOnMove10++;
+        if (playerMoveNumber === 20) lifetimeStats.castledOnMove20++;
+      }
+      
+      // Track checks on specific player move numbers
+      if (move.san && move.san.includes('+')) {
+        if (playerMoveNumber === 1) lifetimeStats.checkOnMove1++;
+        if (playerMoveNumber === 5) lifetimeStats.checkOnMove5++;
+      }
+      
+      // Track captures on specific player move numbers
+      if (move.captured) {
+        if (playerMoveNumber === 1) lifetimeStats.captureOnMove1++;
+        if (playerMoveNumber === 10) lifetimeStats.captureOnMove10++;
+      }
+      
+      saveLifetimeStats();
+    }
+
     function celebrateCheckmate(playerWon) {
       console.log('celebrateCheckmate called, playerWon:', playerWon);
       if (playerWon) {
@@ -4258,6 +4446,14 @@ function navigateToPreviousMove() {
       playerStats.losses++;
       savePlayerStats();
       updatePlayerStatsDisplay();
+      resetDailyStatsIfNeeded();
+      lifetimeStats.dailyStats.gamesPlayedToday++;
+      const moveCount = game.history().length;
+      if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+        lifetimeStats.dailyStats.longestGameToday = moveCount;
+      }
+      saveLifetimeStats();
+      checkAchievements();
       
       // Send resignation to engine
       sendEngineCommand("resign").catch(err => console.error("Error sending resignation:", err));
@@ -4466,6 +4662,15 @@ function navigateToPreviousMove() {
       const total = playerStats.wins + playerStats.losses + playerStats.draws;
       const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
       
+      // Calculate total points for point-gated achievements
+      const allAchievements = getAllAchievementsList();
+      const totalPoints = allAchievements.reduce((sum, ach) => {
+        if (achievements.includes(ach.id) && ach.points) {
+          return sum + ach.points;
+        }
+        return sum;
+      }, 0);
+      
       const newAchievements = [];
       
       // Game count achievements
@@ -4570,12 +4775,18 @@ function navigateToPreviousMove() {
         achievements.push('quarter_century');
       }
       if (playerStats.wins >= 200 && !achievements.includes('double_centurion')) {
-        newAchievements.push({ id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', points: 1000 });
-        achievements.push('double_centurion');
+        const ach = allAchievements.find(a => a.id === 'double_centurion');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', points: 1500 });
+          achievements.push('double_centurion');
+        }
       }
       if (playerStats.wins >= 500 && !achievements.includes('half_millennium')) {
-        newAchievements.push({ id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', points: 2500 });
-        achievements.push('half_millennium');
+        const ach = allAchievements.find(a => a.id === 'half_millennium');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', points: 4000 });
+          achievements.push('half_millennium');
+        }
       }
       if (total >= 50 && !achievements.includes('fifty_games')) {
         newAchievements.push({ id: 'fifty_games', name: '📊 Fifty Games', desc: 'Played 50 games', points: 75 });
@@ -4594,8 +4805,11 @@ function navigateToPreviousMove() {
         achievements.push('good_player');
       }
       if (winRate >= 90 && total >= 20 && !achievements.includes('near_perfect')) {
-        newAchievements.push({ id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', points: 500 });
-        achievements.push('near_perfect');
+        const ach = allAchievements.find(a => a.id === 'near_perfect');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', points: 750 });
+          achievements.push('near_perfect');
+        }
       }
       
       // In-game action achievements
@@ -4612,8 +4826,11 @@ function navigateToPreviousMove() {
         achievements.push('capture_king');
       }
       if (lifetimeStats.totalCaptures >= 500 && !achievements.includes('capture_god')) {
-        newAchievements.push({ id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', points: 1000 });
-        achievements.push('capture_god');
+        const ach = allAchievements.find(a => a.id === 'capture_god');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', points: 1500 });
+          achievements.push('capture_god');
+        }
       }
       if (lifetimeStats.castlingMoves >= 10 && !achievements.includes('castling_master')) {
         newAchievements.push({ id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', points: 100 });
@@ -4644,8 +4861,11 @@ function navigateToPreviousMove() {
         achievements.push('en_passant_master');
       }
       if (lifetimeStats.enPassants >= 10 && !achievements.includes('en_passant_legend')) {
-        newAchievements.push({ id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', points: 500 });
-        achievements.push('en_passant_legend');
+        const ach = allAchievements.find(a => a.id === 'en_passant_legend');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', points: 800 });
+          achievements.push('en_passant_legend');
+        }
       }
       
       // Balanced play achievements
@@ -4664,8 +4884,11 @@ function navigateToPreviousMove() {
         achievements.push('queen_hunter_5');
       }
       if (lifetimeStats.capturedQueens >= 10 && !achievements.includes('queen_hunter_10')) {
-        newAchievements.push({ id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', points: 500 });
-        achievements.push('queen_hunter_10');
+        const ach = allAchievements.find(a => a.id === 'queen_hunter_10');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', points: 1000 });
+          achievements.push('queen_hunter_10');
+        }
       }
       if (lifetimeStats.capturedRooks >= 10 && !achievements.includes('rook_hunter_10')) {
         newAchievements.push({ id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', points: 150 });
@@ -4700,6 +4923,178 @@ function navigateToPreviousMove() {
         achievements.push('pawn_hunter_100');
       }
       
+      // Random achievements
+      if (lifetimeStats.movesToE4 >= 1 && !achievements.includes('move_to_e4')) {
+        newAchievements.push({ id: 'move_to_e4', name: '🎯 E4 Enthusiast', desc: 'Moved to e4', points: 25 });
+        achievements.push('move_to_e4');
+      }
+      if (lifetimeStats.movesToD4 >= 1 && !achievements.includes('move_to_d4')) {
+        newAchievements.push({ id: 'move_to_d4', name: '🎯 D4 Devotee', desc: 'Moved to d4', points: 25 });
+        achievements.push('move_to_d4');
+      }
+      if (lifetimeStats.pawnToE4 >= 1 && !achievements.includes('pawn_to_e4')) {
+        newAchievements.push({ id: 'pawn_to_e4', name: '♟️ E4 Pawn', desc: 'Moved a pawn to e4', points: 30 });
+        achievements.push('pawn_to_e4');
+      }
+      if (lifetimeStats.pawnToD4 >= 1 && !achievements.includes('pawn_to_d4')) {
+        newAchievements.push({ id: 'pawn_to_d4', name: '♟️ D4 Pawn', desc: 'Moved a pawn to d4', points: 30 });
+        achievements.push('pawn_to_d4');
+      }
+      if (lifetimeStats.knightToF3 >= 1 && !achievements.includes('knight_to_f3')) {
+        newAchievements.push({ id: 'knight_to_f3', name: '🐴 F3 Knight', desc: 'Moved a knight to f3', points: 20 });
+        achievements.push('knight_to_f3');
+      }
+      if (lifetimeStats.knightToC3 >= 1 && !achievements.includes('knight_to_c3')) {
+        newAchievements.push({ id: 'knight_to_c3', name: '🐴 C3 Knight', desc: 'Moved a knight to c3', points: 20 });
+        achievements.push('knight_to_c3');
+      }
+      if (lifetimeStats.queenToD4 >= 1 && !achievements.includes('queen_to_d4')) {
+        newAchievements.push({ id: 'queen_to_d4', name: '👸 Queen to D4', desc: 'Moved queen to d4', points: 50 });
+        achievements.push('queen_to_d4');
+      }
+      if (lifetimeStats.queenToE4 >= 1 && !achievements.includes('queen_to_e4')) {
+        newAchievements.push({ id: 'queen_to_e4', name: '👸 Queen to E4', desc: 'Moved queen to e4', points: 50 });
+        achievements.push('queen_to_e4');
+      }
+      if (lifetimeStats.bishopToF4 >= 1 && !achievements.includes('bishop_to_f4')) {
+        newAchievements.push({ id: 'bishop_to_f4', name: '♗ Bishop to F4', desc: 'Moved bishop to f4', points: 30 });
+        achievements.push('bishop_to_f4');
+      }
+      if (lifetimeStats.rookToE1 >= 1 && !achievements.includes('rook_to_e1')) {
+        newAchievements.push({ id: 'rook_to_e1', name: '🏰 Rook to E1', desc: 'Moved rook to e1', points: 30 });
+        achievements.push('rook_to_e1');
+      }
+      if (lifetimeStats.kingToE1 >= 1 && !achievements.includes('king_to_e1')) {
+        newAchievements.push({ id: 'king_to_e1', name: '👑 King to E1', desc: 'Moved king to e1', points: 40 });
+        achievements.push('king_to_e1');
+      }
+      if (lifetimeStats.movesOnMove1 >= 1 && !achievements.includes('move_on_1')) {
+        newAchievements.push({ id: 'move_on_1', name: '1️⃣ First Move', desc: 'Made a move on your 1st move', points: 15 });
+        achievements.push('move_on_1');
+      }
+      if (lifetimeStats.movesOnMove5 >= 1 && !achievements.includes('move_on_5')) {
+        newAchievements.push({ id: 'move_on_5', name: '5️⃣ Fifth Move', desc: 'Made a move on your 5th move', points: 20 });
+        achievements.push('move_on_5');
+      }
+      if (lifetimeStats.movesOnMove10 >= 1 && !achievements.includes('move_on_10')) {
+        newAchievements.push({ id: 'move_on_10', name: '🔟 Tenth Move', desc: 'Made a move on your 10th move', points: 25 });
+        achievements.push('move_on_10');
+      }
+      if (lifetimeStats.movesOnMove20 >= 1 && !achievements.includes('move_on_20')) {
+        newAchievements.push({ id: 'move_on_20', name: '2️⃣0️⃣ Twentieth Move', desc: 'Made a move on your 20th move', points: 30 });
+        achievements.push('move_on_20');
+      }
+      if (lifetimeStats.movesOnMove50 >= 1 && !achievements.includes('move_on_50')) {
+        newAchievements.push({ id: 'move_on_50', name: '5️⃣0️⃣ Fiftieth Move', desc: 'Made a move on your 50th move', points: 50 });
+        achievements.push('move_on_50');
+      }
+      if (lifetimeStats.castledOnMove10 >= 1 && !achievements.includes('castle_on_10')) {
+        newAchievements.push({ id: 'castle_on_10', name: '🏰 Castle on 10', desc: 'Castled on your 10th move', points: 75 });
+        achievements.push('castle_on_10');
+      }
+      if (lifetimeStats.castledOnMove20 >= 1 && !achievements.includes('castle_on_20')) {
+        newAchievements.push({ id: 'castle_on_20', name: '🏰 Castle on 20', desc: 'Castled on your 20th move', points: 75 });
+        achievements.push('castle_on_20');
+      }
+      if (lifetimeStats.promotedToQueen >= 1 && !achievements.includes('promote_to_queen')) {
+        newAchievements.push({ id: 'promote_to_queen', name: '👸 Queen Promotion', desc: 'Promoted to queen', points: 50 });
+        achievements.push('promote_to_queen');
+      }
+      if (lifetimeStats.promotedToRook >= 1 && !achievements.includes('promote_to_rook')) {
+        newAchievements.push({ id: 'promote_to_rook', name: '🏰 Rook Promotion', desc: 'Promoted to rook', points: 100 });
+        achievements.push('promote_to_rook');
+      }
+      if (lifetimeStats.promotedToBishop >= 1 && !achievements.includes('promote_to_bishop')) {
+        newAchievements.push({ id: 'promote_to_bishop', name: '♗ Bishop Promotion', desc: 'Promoted to bishop', points: 100 });
+        achievements.push('promote_to_bishop');
+      }
+      if (lifetimeStats.promotedToKnight >= 1 && !achievements.includes('promote_to_knight')) {
+        newAchievements.push({ id: 'promote_to_knight', name: '🐴 Knight Promotion', desc: 'Promoted to knight', points: 100 });
+        achievements.push('promote_to_knight');
+      }
+      if (lifetimeStats.checkOnMove1 >= 1 && !achievements.includes('check_on_1')) {
+        newAchievements.push({ id: 'check_on_1', name: '✓ Check on 1', desc: 'Gave check on your 1st move', points: 150 });
+        achievements.push('check_on_1');
+      }
+      if (lifetimeStats.checkOnMove5 >= 1 && !achievements.includes('check_on_5')) {
+        newAchievements.push({ id: 'check_on_5', name: '✓ Check on 5', desc: 'Gave check on your 5th move', points: 75 });
+        achievements.push('check_on_5');
+      }
+      if (lifetimeStats.captureOnMove1 >= 1 && !achievements.includes('capture_on_1')) {
+        newAchievements.push({ id: 'capture_on_1', name: '⚔️ Capture on 1', desc: 'Captured on your 1st move', points: 100 });
+        achievements.push('capture_on_1');
+      }
+      if (lifetimeStats.captureOnMove10 >= 1 && !achievements.includes('capture_on_10')) {
+        newAchievements.push({ id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Captured on your 10th move', points: 50 });
+        achievements.push('capture_on_10');
+      }
+      
+      // New random piece-to-square achievements
+      if (lifetimeStats.rookToA1 >= 1 && !achievements.includes('rook_to_a1')) {
+        newAchievements.push({ id: 'rook_to_a1', name: '🏰 Rook to A1', desc: 'Moved rook to a1', points: 30 });
+        achievements.push('rook_to_a1');
+      }
+      if (lifetimeStats.rookToH1 >= 1 && !achievements.includes('rook_to_h1')) {
+        newAchievements.push({ id: 'rook_to_h1', name: '🏰 Rook to H1', desc: 'Moved rook to h1', points: 30 });
+        achievements.push('rook_to_h1');
+      }
+      if (lifetimeStats.bishopToC1 >= 1 && !achievements.includes('bishop_to_c1')) {
+        newAchievements.push({ id: 'bishop_to_c1', name: '♗ Bishop to C1', desc: 'Moved bishop to c1', points: 25 });
+        achievements.push('bishop_to_c1');
+      }
+      if (lifetimeStats.bishopToF1 >= 1 && !achievements.includes('bishop_to_f1')) {
+        newAchievements.push({ id: 'bishop_to_f1', name: '♗ Bishop to F1', desc: 'Moved bishop to f1', points: 25 });
+        achievements.push('bishop_to_f1');
+      }
+      if (lifetimeStats.knightToG1 >= 1 && !achievements.includes('knight_to_g1')) {
+        newAchievements.push({ id: 'knight_to_g1', name: '🐴 Knight to G1', desc: 'Moved knight to g1', points: 20 });
+        achievements.push('knight_to_g1');
+      }
+      if (lifetimeStats.knightToB1 >= 1 && !achievements.includes('knight_to_b1')) {
+        newAchievements.push({ id: 'knight_to_b1', name: '🐴 Knight to B1', desc: 'Moved knight to b1', points: 20 });
+        achievements.push('knight_to_b1');
+      }
+      if (lifetimeStats.queenToA1 >= 1 && !achievements.includes('queen_to_a1')) {
+        newAchievements.push({ id: 'queen_to_a1', name: '👸 Queen to A1', desc: 'Moved queen to a1', points: 40 });
+        achievements.push('queen_to_a1');
+      }
+      if (lifetimeStats.queenToH1 >= 1 && !achievements.includes('queen_to_h1')) {
+        newAchievements.push({ id: 'queen_to_h1', name: '👸 Queen to H1', desc: 'Moved queen to h1', points: 40 });
+        achievements.push('queen_to_h1');
+      }
+      if (lifetimeStats.kingToG1 >= 1 && !achievements.includes('king_to_g1')) {
+        newAchievements.push({ id: 'king_to_g1', name: '👑 King to G1', desc: 'Moved king to g1', points: 35 });
+        achievements.push('king_to_g1');
+      }
+      if (lifetimeStats.kingToC1 >= 1 && !achievements.includes('king_to_c1')) {
+        newAchievements.push({ id: 'king_to_c1', name: '👑 King to C1', desc: 'Moved king to c1', points: 35 });
+        achievements.push('king_to_c1');
+      }
+      if (lifetimeStats.pawnToA2 >= 1 && !achievements.includes('pawn_to_a2')) {
+        newAchievements.push({ id: 'pawn_to_a2', name: '♟️ Pawn to A2', desc: 'Moved a pawn to a2', points: 20 });
+        achievements.push('pawn_to_a2');
+      }
+      if (lifetimeStats.pawnToH2 >= 1 && !achievements.includes('pawn_to_h2')) {
+        newAchievements.push({ id: 'pawn_to_h2', name: '♟️ Pawn to H2', desc: 'Moved a pawn to h2', points: 20 });
+        achievements.push('pawn_to_h2');
+      }
+      
+      // Daily achievements
+      resetDailyStatsIfNeeded();
+      const uniqueCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? lifetimeStats.dailyStats.uniqueSquaresVisitedToday.length : 0;
+      if (uniqueCount >= 20 && !achievements.includes('daily_explorer')) {
+        newAchievements.push({ id: 'daily_explorer', name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', points: 100 });
+        achievements.push('daily_explorer');
+      }
+      if (lifetimeStats.dailyStats.capturesToday >= 5 && !achievements.includes('daily_warrior')) {
+        newAchievements.push({ id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', points: 150 });
+        achievements.push('daily_warrior');
+      }
+      if (lifetimeStats.dailyStats.fastestWinToday <= 15 && lifetimeStats.dailyStats.fastestWinToday > 0 && lifetimeStats.dailyStats.fastestWinToday !== Infinity && !achievements.includes('daily_lightning')) {
+        newAchievements.push({ id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', points: 200 });
+        achievements.push('daily_lightning');
+      }
+      
       if (newAchievements.length > 0) {
         saveAchievements();
         updateAchievementsDisplay();
@@ -4721,185 +5116,362 @@ function navigateToPreviousMove() {
 
     function getAllAchievementsList() {
       return [
-        // General Achievements
-        { id: 'first_game', name: '🎮 First Game', desc: 'Played your first game', category: 'General', points: 10, progress: () => {
+        // General Achievements - Grouped
+        { id: 'first_game', name: '🎮 First Game', desc: 'Played your first game', category: 'General', points: 10, groupKey: 'games_played', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           return { current: total, target: 1 };
         }},
-        { id: 'first_win', name: '🏆 First Victory', desc: 'Won your first game', category: 'General', points: 25, progress: () => {
-          return { current: playerStats.wins, target: 1 };
-        }},
-        { id: 'three_wins', name: '🔥 Three Wins', desc: 'Won 3 games', category: 'General', points: 25, progress: () => {
-          return { current: playerStats.wins, target: 3 };
-        }},
-        { id: 'five_wins', name: '⚡ Five Wins', desc: 'Won 5 games', category: 'General', points: 50, progress: () => {
-          return { current: playerStats.wins, target: 5 };
-        }},
-        { id: 'ten_wins', name: '⭐ Decade of Wins', desc: 'Won 10 games', category: 'General', points: 75, progress: () => {
-          return { current: playerStats.wins, target: 10 };
-        }},
-        { id: 'fifteen_wins', name: '🌟 Fifteen Wins', desc: 'Won 15 games', category: 'General', points: 100, progress: () => {
-          return { current: playerStats.wins, target: 15 };
-        }},
-        { id: 'quarter_century', name: '🎯 Quarter Century', desc: 'Won 25 games', category: 'General', points: 150, progress: () => {
-          return { current: playerStats.wins, target: 25 };
-        }},
-        { id: 'fifty_wins', name: '👑 Master Player', desc: 'Won 50 games', category: 'General', points: 200, progress: () => {
-          return { current: playerStats.wins, target: 50 };
-        }},
-        { id: 'centurion', name: '💯 Centurion', desc: 'Won 100 games', category: 'General', points: 500, progress: () => {
-          return { current: playerStats.wins, target: 100 };
-        }},
-        { id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', category: 'General', points: 1000, progress: () => {
-          return { current: playerStats.wins, target: 200 };
-        }},
-        { id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', category: 'General', points: 2500, progress: () => {
-          return { current: playerStats.wins, target: 500 };
-        }},
-        { id: 'fifty_games', name: '📊 Fifty Games', desc: 'Played 50 games', category: 'General', points: 75, progress: () => {
+        { id: 'fifty_games', name: '📊 Fifty Games', desc: 'Played 50 games', category: 'General', points: 75, groupKey: 'games_played', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           return { current: total, target: 50 };
         }},
-        { id: 'century', name: '💯 Century Club', desc: 'Played 100 games', category: 'General', points: 150, progress: () => {
+        { id: 'century', name: '💯 Century Club', desc: 'Played 100 games', category: 'General', points: 150, groupKey: 'games_played', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           return { current: total, target: 100 };
         }},
-        { id: 'two_fifty', name: '📈 Two Fifty', desc: 'Played 250 games', category: 'General', points: 400, progress: () => {
+        { id: 'two_fifty', name: '📈 Two Fifty', desc: 'Played 250 games', category: 'General', points: 400, groupKey: 'games_played', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           return { current: total, target: 250 };
         }},
-        { id: 'five_hundred', name: '🎲 Five Hundred', desc: 'Played 500 games', category: 'General', points: 800, progress: () => {
+        { id: 'five_hundred', name: '🎲 Five Hundred', desc: 'Played 500 games', category: 'General', points: 800, groupKey: 'games_played', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           return { current: total, target: 500 };
         }},
-        { id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', category: 'General', points: 100, progress: () => {
+        { id: 'first_win', name: '🏆 First Victory', desc: 'Won your first game', category: 'General', points: 25, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 1 };
+        }},
+        { id: 'three_wins', name: '🔥 Three Wins', desc: 'Won 3 games', category: 'General', points: 25, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 3 };
+        }},
+        { id: 'five_wins', name: '⚡ Five Wins', desc: 'Won 5 games', category: 'General', points: 50, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 5 };
+        }},
+        { id: 'ten_wins', name: '⭐ Decade of Wins', desc: 'Won 10 games', category: 'General', points: 75, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 10 };
+        }},
+        { id: 'fifteen_wins', name: '🌟 Fifteen Wins', desc: 'Won 15 games', category: 'General', points: 100, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 15 };
+        }},
+        { id: 'quarter_century', name: '🎯 Quarter Century', desc: 'Won 25 games', category: 'General', points: 150, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 25 };
+        }},
+        { id: 'fifty_wins', name: '👑 Master Player', desc: 'Won 50 games', category: 'General', points: 200, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 50 };
+        }},
+        { id: 'centurion', name: '💯 Centurion', desc: 'Won 100 games', category: 'General', points: 500, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 100 };
+        }},
+        { id: 'double_centurion', name: '💯💯 Double Centurion', desc: 'Won 200 games', category: 'General', points: 1000, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 200 };
+        }},
+        { id: 'half_millennium', name: '🏆 Half Millennium', desc: 'Won 500 games', category: 'General', points: 2500, groupKey: 'wins', progress: () => {
+          return { current: playerStats.wins, target: 500 };
+        }},
+        { id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', category: 'General', points: 100, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 60, needsTotal: total >= 10 };
         }},
-        { id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)', category: 'General', points: 200, progress: () => {
+        { id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)', category: 'General', points: 200, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 70, needsTotal: total >= 10 };
         }},
-        { id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', category: 'General', points: 300, progress: () => {
+        { id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', category: 'General', points: 300, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 80, needsTotal: total >= 20 };
         }},
-        { id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', category: 'General', points: 500, progress: () => {
+        { id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', category: 'General', points: 750, requiredPoints: 15000, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 90, needsTotal: total >= 20 };
         }},
-        { id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', category: 'General', points: 100, progress: () => {
+        { id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', category: 'General', points: 100, groupKey: 'draws', progress: () => {
           return { current: playerStats.draws, target: 10 };
         }},
-        { id: 'diplomat', name: '🤝 Diplomat', desc: 'Drew 25 games', category: 'General', points: 200, progress: () => {
+        { id: 'diplomat', name: '🤝 Diplomat', desc: 'Drew 25 games', category: 'General', points: 200, groupKey: 'draws', progress: () => {
           return { current: playerStats.draws, target: 25 };
         }},
         
         // Captured Piece Achievements (what pieces you captured)
-        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 200, groupKey: 'captured_queens', progress: () => {
-          return { current: lifetimeStats.capturedQueens, target: 5 };
+        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 300, groupKey: 'captured_queens', progress: () => {
+          return { current: (lifetimeStats.capturedQueens || 0), target: 5 };
         }},
-        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 500, groupKey: 'captured_queens', progress: () => {
-          return { current: lifetimeStats.capturedQueens, target: 10 };
+        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 1000, requiredPoints: 20000, groupKey: 'captured_queens', progress: () => {
+          return { current: (lifetimeStats.capturedQueens || 0), target: 10 };
         }},
-        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 150, groupKey: 'captured_rooks', progress: () => {
-          return { current: lifetimeStats.capturedRooks, target: 10 };
+        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 200, groupKey: 'captured_rooks', progress: () => {
+          return { current: (lifetimeStats.capturedRooks || 0), target: 10 };
         }},
-        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 300, groupKey: 'captured_rooks', progress: () => {
-          return { current: lifetimeStats.capturedRooks, target: 25 };
+        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 450, groupKey: 'captured_rooks', progress: () => {
+          return { current: (lifetimeStats.capturedRooks || 0), target: 25 };
         }},
-        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 150, groupKey: 'captured_bishops', progress: () => {
-          return { current: lifetimeStats.capturedBishops, target: 10 };
+        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 200, groupKey: 'captured_bishops', progress: () => {
+          return { current: (lifetimeStats.capturedBishops || 0), target: 10 };
         }},
-        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 300, groupKey: 'captured_bishops', progress: () => {
-          return { current: lifetimeStats.capturedBishops, target: 25 };
+        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 450, groupKey: 'captured_bishops', progress: () => {
+          return { current: (lifetimeStats.capturedBishops || 0), target: 25 };
         }},
-        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 150, groupKey: 'captured_knights', progress: () => {
-          return { current: lifetimeStats.capturedKnights, target: 10 };
+        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 200, groupKey: 'captured_knights', progress: () => {
+          return { current: (lifetimeStats.capturedKnights || 0), target: 10 };
         }},
-        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 300, groupKey: 'captured_knights', progress: () => {
-          return { current: lifetimeStats.capturedKnights, target: 25 };
+        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 450, groupKey: 'captured_knights', progress: () => {
+          return { current: (lifetimeStats.capturedKnights || 0), target: 25 };
         }},
-        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 100, groupKey: 'captured_pawns', progress: () => {
-          return { current: lifetimeStats.capturedPawns, target: 50 };
+        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 150, groupKey: 'captured_pawns', progress: () => {
+          return { current: (lifetimeStats.capturedPawns || 0), target: 50 };
         }},
-        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 200, groupKey: 'captured_pawns', progress: () => {
-          return { current: lifetimeStats.capturedPawns, target: 100 };
+        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 300, groupKey: 'captured_pawns', progress: () => {
+          return { current: (lifetimeStats.capturedPawns || 0), target: 100 };
         }},
         
         // Group keys for other achievement types
         { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', category: 'In-Game', points: 50, groupKey: 'captures_with_queen', progress: () => {
-          return { current: lifetimeStats.capturesByQueen, target: 10 };
+          return { current: (lifetimeStats.capturesByQueen || 0), target: 10 };
         }},
         { id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', category: 'In-Game', points: 150, groupKey: 'captures_with_queen', progress: () => {
-          return { current: lifetimeStats.capturesByQueen, target: 25 };
+          return { current: (lifetimeStats.capturesByQueen || 0), target: 25 };
         }},
         { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', category: 'In-Game', points: 300, groupKey: 'captures_with_queen', progress: () => {
-          return { current: lifetimeStats.capturesByQueen, target: 50 };
+          return { current: (lifetimeStats.capturesByQueen || 0), target: 50 };
         }},
         { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', category: 'In-Game', points: 50, groupKey: 'captures_with_rook', progress: () => {
-          return { current: lifetimeStats.capturesByRook, target: 10 };
+          return { current: (lifetimeStats.capturesByRook || 0), target: 10 };
         }},
         { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', category: 'In-Game', points: 50, groupKey: 'captures_with_bishop', progress: () => {
-          return { current: lifetimeStats.capturesByBishop, target: 10 };
+          return { current: (lifetimeStats.capturesByBishop || 0), target: 10 };
         }},
         { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', category: 'In-Game', points: 50, groupKey: 'captures_with_knight', progress: () => {
-          return { current: lifetimeStats.capturesByKnight, target: 10 };
+          return { current: (lifetimeStats.capturesByKnight || 0), target: 10 };
         }},
         { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', category: 'In-Game', points: 50, groupKey: 'captures_with_pawn', progress: () => {
-          return { current: lifetimeStats.capturesByPawn, target: 10 };
+          return { current: (lifetimeStats.capturesByPawn || 0), target: 10 };
         }},
         { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', category: 'In-Game', points: 100, groupKey: 'total_captures', progress: () => {
-          return { current: lifetimeStats.totalCaptures, target: 50 };
+          return { current: (lifetimeStats.totalCaptures || 0), target: 50 };
         }},
         { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', category: 'In-Game', points: 200, groupKey: 'total_captures', progress: () => {
-          return { current: lifetimeStats.totalCaptures, target: 100 };
+          return { current: (lifetimeStats.totalCaptures || 0), target: 100 };
         }},
         { id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', category: 'In-Game', points: 400, groupKey: 'total_captures', progress: () => {
-          return { current: lifetimeStats.totalCaptures, target: 200 };
+          return { current: (lifetimeStats.totalCaptures || 0), target: 200 };
         }},
-        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 1000, groupKey: 'total_captures', progress: () => {
-          return { current: lifetimeStats.totalCaptures, target: 500 };
+        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 1500, requiredPoints: 30000, groupKey: 'total_captures', progress: () => {
+          return { current: (lifetimeStats.totalCaptures || 0), target: 500 };
         }},
         { id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', category: 'In-Game', points: 50, groupKey: 'castling', progress: () => {
-          return { current: lifetimeStats.castlingMoves, target: 5 };
+          return { current: (lifetimeStats.castlingMoves || 0), target: 5 };
         }},
         { id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', category: 'In-Game', points: 100, groupKey: 'castling', progress: () => {
-          return { current: lifetimeStats.castlingMoves, target: 10 };
+          return { current: (lifetimeStats.castlingMoves || 0), target: 10 };
         }},
         { id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', category: 'In-Game', points: 250, groupKey: 'castling', progress: () => {
-          return { current: lifetimeStats.castlingMoves, target: 25 };
+          return { current: (lifetimeStats.castlingMoves || 0), target: 25 };
         }},
         { id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns', category: 'In-Game', points: 75, groupKey: 'promotions', progress: () => {
-          return { current: lifetimeStats.promotions, target: 5 };
+          return { current: (lifetimeStats.promotions || 0), target: 5 };
         }},
         { id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', category: 'In-Game', points: 150, groupKey: 'promotions', progress: () => {
-          return { current: lifetimeStats.promotions, target: 10 };
+          return { current: (lifetimeStats.promotions || 0), target: 10 };
         }},
         { id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', category: 'In-Game', points: 300, groupKey: 'promotions', progress: () => {
-          return { current: lifetimeStats.promotions, target: 25 };
+          return { current: (lifetimeStats.promotions || 0), target: 25 };
         }},
         { id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture', category: 'In-Game', points: 100, groupKey: 'en_passants', progress: () => {
-          return { current: lifetimeStats.enPassants, target: 1 };
+          return { current: (lifetimeStats.enPassants || 0), target: 1 };
         }},
         { id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', category: 'In-Game', points: 200, groupKey: 'en_passants', progress: () => {
-          return { current: lifetimeStats.enPassants, target: 3 };
+          return { current: (lifetimeStats.enPassants || 0), target: 3 };
         }},
-        { id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', category: 'In-Game', points: 500, groupKey: 'en_passants', progress: () => {
-          return { current: lifetimeStats.enPassants, target: 10 };
+        { id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', category: 'In-Game', points: 800, requiredPoints: 25000, groupKey: 'en_passants', progress: () => {
+          return { current: (lifetimeStats.enPassants || 0), target: 10 };
         }},
         { id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks', category: 'In-Game', points: 75, groupKey: 'checks', progress: () => {
-          return { current: lifetimeStats.checksGiven, target: 50 };
+          return { current: (lifetimeStats.checksGiven || 0), target: 50 };
         }},
         { id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', category: 'In-Game', points: 200, groupKey: 'checks', progress: () => {
-          return { current: lifetimeStats.checksGiven, target: 100 };
+          return { current: (lifetimeStats.checksGiven || 0), target: 100 };
         }},
         { id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', category: 'In-Game', points: 400, groupKey: 'checks', progress: () => {
-          return { current: lifetimeStats.checksGiven, target: 250 };
+          return { current: (lifetimeStats.checksGiven || 0), target: 250 };
+        }},
+        
+        // Random/Fun Achievements - Grouped with varied requirements
+        { id: 'move_to_e4', name: '🎯 E4 Enthusiast', desc: 'Moved to e4', category: 'Random', points: 25, groupKey: 'moves_to_e4', progress: () => {
+          return { current: (lifetimeStats.movesToE4 || 0), target: 1 };
+        }},
+        { id: 'move_to_e4_5', name: '🎯 E4 Lover', desc: 'Moved to e4 five times', category: 'Random', points: 75, groupKey: 'moves_to_e4', progress: () => {
+          return { current: (lifetimeStats.movesToE4Multiple || 0), target: 5 };
+        }},
+        { id: 'move_to_e4_10', name: '🎯 E4 Master', desc: 'Moved to e4 ten times', category: 'Random', points: 150, groupKey: 'moves_to_e4', progress: () => {
+          return { current: (lifetimeStats.movesToE4Multiple || 0), target: 10 };
+        }},
+        { id: 'move_to_d4', name: '🎯 D4 Devotee', desc: 'Moved to d4', category: 'Random', points: 25, groupKey: 'moves_to_d4', progress: () => {
+          return { current: (lifetimeStats.movesToD4 || 0), target: 1 };
+        }},
+        { id: 'move_to_d4_5', name: '🎯 D4 Lover', desc: 'Moved to d4 five times', category: 'Random', points: 75, groupKey: 'moves_to_d4', progress: () => {
+          return { current: (lifetimeStats.movesToD4Multiple || 0), target: 5 };
+        }},
+        { id: 'move_to_d4_10', name: '🎯 D4 Master', desc: 'Moved to d4 ten times', category: 'Random', points: 150, groupKey: 'moves_to_d4', progress: () => {
+          return { current: (lifetimeStats.movesToD4Multiple || 0), target: 10 };
+        }},
+        { id: 'pawn_to_e4', name: '♟️ E4 Pawn', desc: 'Moved a pawn to e4', category: 'Random', points: 30, groupKey: 'pawn_to_e4', progress: () => {
+          return { current: (lifetimeStats.pawnToE4 || 0), target: 1 };
+        }},
+        { id: 'pawn_to_e4_3', name: '♟️ E4 Pawn Master', desc: 'Moved a pawn to e4 three times', category: 'Random', points: 100, groupKey: 'pawn_to_e4', progress: () => {
+          return { current: (lifetimeStats.pawnToE4 || 0), target: 3 };
+        }},
+        { id: 'pawn_to_d4', name: '♟️ D4 Pawn', desc: 'Moved a pawn to d4', category: 'Random', points: 30, groupKey: 'pawn_to_d4', progress: () => {
+          return { current: (lifetimeStats.pawnToD4 || 0), target: 1 };
+        }},
+        { id: 'pawn_to_d4_3', name: '♟️ D4 Pawn Master', desc: 'Moved a pawn to d4 three times', category: 'Random', points: 100, groupKey: 'pawn_to_d4', progress: () => {
+          return { current: (lifetimeStats.pawnToD4 || 0), target: 3 };
+        }},
+        { id: 'knight_to_f3', name: '🐴 F3 Knight', desc: 'Moved a knight to f3', category: 'Random', points: 20, groupKey: 'knight_to_f3', progress: () => {
+          return { current: (lifetimeStats.knightToF3 || 0), target: 1 };
+        }},
+        { id: 'knight_to_f3_5', name: '🐴 F3 Knight Master', desc: 'Moved a knight to f3 five times', category: 'Random', points: 75, groupKey: 'knight_to_f3', progress: () => {
+          return { current: (lifetimeStats.knightToF3Multiple || 0), target: 5 };
+        }},
+        { id: 'knight_to_c3', name: '🐴 C3 Knight', desc: 'Moved a knight to c3', category: 'Random', points: 20, groupKey: 'knight_to_c3', progress: () => {
+          return { current: (lifetimeStats.knightToC3 || 0), target: 1 };
+        }},
+        { id: 'knight_to_c3_5', name: '🐴 C3 Knight Master', desc: 'Moved a knight to c3 five times', category: 'Random', points: 75, groupKey: 'knight_to_c3', progress: () => {
+          return { current: (lifetimeStats.knightToC3Multiple || 0), target: 5 };
+        }},
+        { id: 'queen_to_d4', name: '👸 Queen to D4', desc: 'Moved queen to d4', category: 'Random', points: 50, groupKey: 'queen_to_d4', progress: () => {
+          return { current: (lifetimeStats.queenToD4 || 0), target: 1 };
+        }},
+        { id: 'queen_to_d4_3', name: '👸 Queen to D4 Master', desc: 'Moved queen to d4 three times', category: 'Random', points: 150, groupKey: 'queen_to_d4', progress: () => {
+          return { current: (lifetimeStats.queenToD4Multiple || 0), target: 3 };
+        }},
+        { id: 'queen_to_e4', name: '👸 Queen to E4', desc: 'Moved queen to e4', category: 'Random', points: 50, groupKey: 'queen_to_e4', progress: () => {
+          return { current: (lifetimeStats.queenToE4 || 0), target: 1 };
+        }},
+        { id: 'queen_to_e4_3', name: '👸 Queen to E4 Master', desc: 'Moved queen to e4 three times', category: 'Random', points: 150, groupKey: 'queen_to_e4', progress: () => {
+          return { current: (lifetimeStats.queenToE4 || 0), target: 3 };
+        }},
+        { id: 'bishop_to_f4', name: '♗ Bishop to F4', desc: 'Moved bishop to f4', category: 'Random', points: 30, groupKey: 'bishop_to_f4', progress: () => {
+          return { current: (lifetimeStats.bishopToF4 || 0), target: 1 };
+        }},
+        { id: 'bishop_to_f4_3', name: '♗ Bishop to F4 Master', desc: 'Moved bishop to f4 three times', category: 'Random', points: 100, groupKey: 'bishop_to_f4', progress: () => {
+          return { current: (lifetimeStats.bishopToF4 || 0), target: 3 };
+        }},
+        { id: 'rook_to_e1', name: '🏰 Rook to E1', desc: 'Moved rook to e1', category: 'Random', points: 30, groupKey: 'rook_to_e1', progress: () => {
+          return { current: (lifetimeStats.rookToE1 || 0), target: 1 };
+        }},
+        { id: 'rook_to_e1_3', name: '🏰 Rook to E1 Master', desc: 'Moved rook to e1 three times', category: 'Random', points: 100, groupKey: 'rook_to_e1', progress: () => {
+          return { current: (lifetimeStats.rookToE1 || 0), target: 3 };
+        }},
+        { id: 'king_to_e1', name: '👑 King to E1', desc: 'Moved king to e1', category: 'Random', points: 40, groupKey: 'king_to_e1', progress: () => {
+          return { current: (lifetimeStats.kingToE1 || 0), target: 1 };
+        }},
+        { id: 'king_to_e1_3', name: '👑 King to E1 Master', desc: 'Moved king to e1 three times', category: 'Random', points: 120, groupKey: 'king_to_e1', progress: () => {
+          return { current: (lifetimeStats.kingToE1 || 0), target: 3 };
+        }},
+        { id: 'move_on_1', name: '1️⃣ First Move', desc: 'Made a move on move 1', category: 'Random', points: 15, groupKey: 'moves_on_1', progress: () => {
+          return { current: (lifetimeStats.movesOnMove1 || 0), target: 1 };
+        }},
+        { id: 'move_on_5', name: '5️⃣ Fifth Move', desc: 'Made a move on move 5', category: 'Random', points: 20, groupKey: 'moves_on_5', progress: () => {
+          return { current: (lifetimeStats.movesOnMove5 || 0), target: 1 };
+        }},
+        { id: 'move_on_10', name: '🔟 Tenth Move', desc: 'Made a move on move 10', category: 'Random', points: 25, groupKey: 'moves_on_10', progress: () => {
+          return { current: (lifetimeStats.movesOnMove10 || 0), target: 1 };
+        }},
+        { id: 'move_on_20', name: '2️⃣0️⃣ Twentieth Move', desc: 'Made a move on move 20', category: 'Random', points: 30, groupKey: 'moves_on_20', progress: () => {
+          return { current: (lifetimeStats.movesOnMove20 || 0), target: 1 };
+        }},
+        { id: 'move_on_50', name: '5️⃣0️⃣ Fiftieth Move', desc: 'Made a move on move 50', category: 'Random', points: 50, groupKey: 'moves_on_50', progress: () => {
+          return { current: (lifetimeStats.movesOnMove50 || 0), target: 1 };
+        }},
+        { id: 'castle_on_10', name: '🏰 Castle on 10', desc: 'Castled on your 10th move', category: 'Random', points: 75, groupKey: 'castle_on_10', progress: () => {
+          return { current: (lifetimeStats.castledOnMove10 || 0), target: 1 };
+        }},
+        { id: 'castle_on_20', name: '🏰 Castle on 20', desc: 'Castled on your 20th move', category: 'Random', points: 75, groupKey: 'castle_on_20', progress: () => {
+          return { current: (lifetimeStats.castledOnMove20 || 0), target: 1 };
+        }},
+        { id: 'promote_to_queen', name: '👸 Queen Promotion', desc: 'Promoted to queen', category: 'Random', points: 50, groupKey: 'promote_to_queen', progress: () => {
+          return { current: (lifetimeStats.promotedToQueen || 0), target: 1 };
+        }},
+        { id: 'promote_to_queen_3', name: '👸 Queen Promoter', desc: 'Promoted to queen three times', category: 'Random', points: 150, groupKey: 'promote_to_queen', progress: () => {
+          return { current: (lifetimeStats.promotedToQueenMultiple || 0), target: 3 };
+        }},
+        { id: 'promote_to_rook', name: '🏰 Rook Promotion', desc: 'Promoted to rook', category: 'Random', points: 100, groupKey: 'promote_to_rook', progress: () => {
+          return { current: (lifetimeStats.promotedToRook || 0), target: 1 };
+        }},
+        { id: 'promote_to_bishop', name: '♗ Bishop Promotion', desc: 'Promoted to bishop', category: 'Random', points: 100, groupKey: 'promote_to_bishop', progress: () => {
+          return { current: (lifetimeStats.promotedToBishop || 0), target: 1 };
+        }},
+        { id: 'promote_to_knight', name: '🐴 Knight Promotion', desc: 'Promoted to knight', category: 'Random', points: 100, groupKey: 'promote_to_knight', progress: () => {
+          return { current: (lifetimeStats.promotedToKnight || 0), target: 1 };
+        }},
+        { id: 'check_on_1', name: '✓ Check on 1', desc: 'Gave check on your 1st move', category: 'Random', points: 150, groupKey: 'check_on_1', progress: () => {
+          return { current: (lifetimeStats.checkOnMove1 || 0), target: 1 };
+        }},
+        { id: 'check_on_5', name: '✓ Check on 5', desc: 'Gave check on your 5th move', category: 'Random', points: 75, groupKey: 'check_on_5', progress: () => {
+          return { current: (lifetimeStats.checkOnMove5 || 0), target: 1 };
+        }},
+        { id: 'capture_on_1', name: '⚔️ Capture on 1', desc: 'Captured on your 1st move', category: 'Random', points: 100, groupKey: 'capture_on_1', progress: () => {
+          return { current: (lifetimeStats.captureOnMove1 || 0), target: 1 };
+        }},
+        { id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Captured on your 10th move', category: 'Random', points: 50, groupKey: 'capture_on_10', progress: () => {
+          return { current: (lifetimeStats.captureOnMove10 || 0), target: 1 };
+        }},
+        
+        // More random piece-to-square achievements
+        { id: 'rook_to_a1', name: '🏰 Rook to A1', desc: 'Moved rook to a1', category: 'Random', points: 30, groupKey: 'rook_to_corners', progress: () => {
+          return { current: (lifetimeStats.rookToA1 || 0), target: 1 };
+        }},
+        { id: 'rook_to_h1', name: '🏰 Rook to H1', desc: 'Moved rook to h1', category: 'Random', points: 30, groupKey: 'rook_to_corners', progress: () => {
+          return { current: (lifetimeStats.rookToH1 || 0), target: 1 };
+        }},
+        { id: 'bishop_to_c1', name: '♗ Bishop to C1', desc: 'Moved bishop to c1', category: 'Random', points: 25, groupKey: 'bishop_to_start', progress: () => {
+          return { current: (lifetimeStats.bishopToC1 || 0), target: 1 };
+        }},
+        { id: 'bishop_to_f1', name: '♗ Bishop to F1', desc: 'Moved bishop to f1', category: 'Random', points: 25, groupKey: 'bishop_to_start', progress: () => {
+          return { current: (lifetimeStats.bishopToF1 || 0), target: 1 };
+        }},
+        { id: 'knight_to_g1', name: '🐴 Knight to G1', desc: 'Moved knight to g1', category: 'Random', points: 20, groupKey: 'knight_to_start', progress: () => {
+          return { current: (lifetimeStats.knightToG1 || 0), target: 1 };
+        }},
+        { id: 'knight_to_b1', name: '🐴 Knight to B1', desc: 'Moved knight to b1', category: 'Random', points: 20, groupKey: 'knight_to_start', progress: () => {
+          return { current: (lifetimeStats.knightToB1 || 0), target: 1 };
+        }},
+        { id: 'queen_to_a1', name: '👸 Queen to A1', desc: 'Moved queen to a1', category: 'Random', points: 40, groupKey: 'queen_to_corners', progress: () => {
+          return { current: (lifetimeStats.queenToA1 || 0), target: 1 };
+        }},
+        { id: 'queen_to_h1', name: '👸 Queen to H1', desc: 'Moved queen to h1', category: 'Random', points: 40, groupKey: 'queen_to_corners', progress: () => {
+          return { current: (lifetimeStats.queenToH1 || 0), target: 1 };
+        }},
+        { id: 'king_to_g1', name: '👑 King to G1', desc: 'Moved king to g1', category: 'Random', points: 35, groupKey: 'king_to_castle', progress: () => {
+          return { current: (lifetimeStats.kingToG1 || 0), target: 1 };
+        }},
+        { id: 'king_to_c1', name: '👑 King to C1', desc: 'Moved king to c1', category: 'Random', points: 35, groupKey: 'king_to_castle', progress: () => {
+          return { current: (lifetimeStats.kingToC1 || 0), target: 1 };
+        }},
+        { id: 'pawn_to_a2', name: '♟️ Pawn to A2', desc: 'Moved a pawn to a2', category: 'Random', points: 20, groupKey: 'pawn_to_edge', progress: () => {
+          return { current: (lifetimeStats.pawnToA2 || 0), target: 1 };
+        }},
+        { id: 'pawn_to_h2', name: '♟️ Pawn to H2', desc: 'Moved a pawn to h2', category: 'Random', points: 20, groupKey: 'pawn_to_edge', progress: () => {
+          return { current: (lifetimeStats.pawnToH2 || 0), target: 1 };
+        }},
+        
+        // Daily Achievements
+        { id: 'daily_explorer', name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', category: 'Daily', points: 100, isDaily: true, progress: () => {
+          resetDailyStatsIfNeeded();
+          const uniqueCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? 
+            (Array.isArray(lifetimeStats.dailyStats.uniqueSquaresVisitedToday) ? lifetimeStats.dailyStats.uniqueSquaresVisitedToday.length : 0) : 0;
+          return { current: uniqueCount, target: 20 };
+        }},
+        { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', category: 'Daily', points: 150, isDaily: true, progress: () => {
+          resetDailyStatsIfNeeded();
+          return { current: (lifetimeStats.dailyStats.capturesToday || 0), target: 5 };
+        }},
+        { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', category: 'Daily', points: 200, isDaily: true, progress: () => {
+          resetDailyStatsIfNeeded();
+          const fastestWin = lifetimeStats.dailyStats.fastestWinToday === Infinity ? 0 : lifetimeStats.dailyStats.fastestWinToday;
+          return { current: fastestWin > 0 && fastestWin <= 15 ? 1 : 0, target: 1 };
         }}
       ];
     }
@@ -5032,8 +5604,19 @@ function navigateToPreviousMove() {
             const meetsRequirements = !progress.needsTotal || progress.needsTotal;
             const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
             
+            // Check if achievement requires points to unlock
+            const allAchievements = getAllAchievementsList();
+            const totalPoints = allAchievements.reduce((sum, ach) => {
+              if (achievements.includes(ach.id) && ach.points) {
+                return sum + ach.points;
+              }
+              return sum;
+            }, 0);
+            const requiredPoints = nextAchievement.requiredPoints || 0;
+            const hasEnoughPoints = totalPoints >= requiredPoints;
+            
             const card = document.createElement('div');
-            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
             card.style.position = 'relative';
             
             const pointsText = nextAchievement.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${nextAchievement.points} points</div>` : '';
@@ -5062,17 +5645,23 @@ function navigateToPreviousMove() {
               </button>
             ` : '';
             
+            const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+              isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
+                </div>` :
+              progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
+              `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>`;
+            
             card.innerHTML = `
               ${expandButton}
               <div class="achievement-name">${nextAchievement.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
               <div class="achievement-desc">${nextAchievement.desc}</div>
               ${pointsText}
-              ${showProgress && meetsRequirements && meetsNoLosses ? `
-                <div class="achievement-progress">${progress.current} / ${progress.target}</div>
-                <div class="achievement-progress-bar">
-                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
-                </div>
-              ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+              ${progressDisplay}
             `;
             
             groupDiv.appendChild(card);
@@ -5097,20 +5686,34 @@ function navigateToPreviousMove() {
               const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
               
               const subCard = document.createElement('div');
-              subCard.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+              subCard.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
               subCard.style.marginBottom = '10px';
               
               const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+              const allAchievements = getAllAchievementsList();
+              const totalPoints = allAchievements.reduce((sum, a) => {
+                if (achievements.includes(a.id) && a.points) {
+                  return sum + a.points;
+                }
+                return sum;
+              }, 0);
+              const requiredPoints = ach.requiredPoints || 0;
+              const hasEnoughPoints = totalPoints >= requiredPoints;
+              const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+                isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
+                  <div class="achievement-progress-bar">
+                    <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
+                  </div>` :
+                progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
+                `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
+                  <div class="achievement-progress-bar">
+                    <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                  </div>`;
               subCard.innerHTML = `
                 <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
                 <div class="achievement-desc">${ach.desc}</div>
                 ${pointsText}
-                ${showProgress && meetsRequirements && meetsNoLosses ? `
-                  <div class="achievement-progress">${progress.current} / ${progress.target}</div>
-                  <div class="achievement-progress-bar">
-                    <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
-                  </div>
-                ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+                ${progressDisplay}
               `;
               
               allGroupAchievements.appendChild(subCard);
@@ -5137,19 +5740,33 @@ function navigateToPreviousMove() {
             const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
             
             const card = document.createElement('div');
-            card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+            card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
             
             const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+            const allAchievements = getAllAchievementsList();
+            const totalPoints = allAchievements.reduce((sum, a) => {
+              if (achievements.includes(a.id) && a.points) {
+                return sum + a.points;
+              }
+              return sum;
+            }, 0);
+            const requiredPoints = ach.requiredPoints || 0;
+            const hasEnoughPoints = totalPoints >= requiredPoints;
+            const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+              isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
+                </div>` :
+              progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
+              `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
+                <div class="achievement-progress-bar">
+                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>`;
             card.innerHTML = `
               <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
               <div class="achievement-desc">${ach.desc}</div>
               ${pointsText}
-              ${showProgress && meetsRequirements && meetsNoLosses ? `
-                <div class="achievement-progress">${progress.current} / ${progress.target}</div>
-                <div class="achievement-progress-bar">
-                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
-                </div>
-              ` : isUnlocked ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Unlocked</div>' : '<div class="achievement-progress" style="margin-top: 8px;">Locked</div>'}
+              ${progressDisplay}
             `;
             
             categoryGrid.appendChild(card);
@@ -5181,11 +5798,35 @@ function navigateToPreviousMove() {
       document.getElementById('all-achievements-modal').classList.remove('show');
     }
 
+    function resetDailyStatsIfNeeded() {
+      const today = new Date().toDateString();
+      if (!lifetimeStats.dailyStats || lifetimeStats.dailyStats.lastResetDate !== today) {
+        lifetimeStats.dailyStats = {
+          lastResetDate: today,
+          gamesPlayedToday: 0,
+          movesMadeToday: 0,
+          capturesToday: 0,
+          checksGivenToday: 0,
+          uniqueSquaresVisitedToday: [],
+          longestGameToday: 0,
+          fastestWinToday: Infinity
+        };
+        saveLifetimeStats();
+      }
+    }
+    
     function loadLifetimeStats() {
       const saved = localStorage.getItem('lifetimeStats');
       if (saved) {
-        lifetimeStats = JSON.parse(saved);
+        const loaded = JSON.parse(saved);
+        // Merge with default stats to ensure all properties exist
+        lifetimeStats = {
+          ...lifetimeStats,
+          ...loaded
+        };
       }
+      // Check if daily stats need reset
+      resetDailyStatsIfNeeded();
     }
 
     function saveLifetimeStats() {
@@ -5748,6 +6389,7 @@ function navigateToPreviousMove() {
       }
 
       trackCapturedPiece(move);
+      trackRandomAchievements(move, source, target);
       lastMoveSquares = { from: source, to: target };
       
       const prevTurn = game.turn() === "w" ? "b" : "w";
@@ -5772,6 +6414,16 @@ function navigateToPreviousMove() {
         playerStats.wins++;
         savePlayerStats();
         updatePlayerStatsDisplay();
+        resetDailyStatsIfNeeded();
+        lifetimeStats.dailyStats.gamesPlayedToday++;
+        const moveCount = game.history().length;
+        if (moveCount < lifetimeStats.dailyStats.fastestWinToday) {
+          lifetimeStats.dailyStats.fastestWinToday = moveCount;
+        }
+        if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+          lifetimeStats.dailyStats.longestGameToday = moveCount;
+        }
+        saveLifetimeStats();
         checkAchievements();
         
         // Show rematch modal
@@ -5866,6 +6518,13 @@ function navigateToPreviousMove() {
           playerStats.losses++;
           savePlayerStats();
           updatePlayerStatsDisplay();
+          resetDailyStatsIfNeeded();
+          lifetimeStats.dailyStats.gamesPlayedToday++;
+          const moveCount = game.history().length;
+          if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+            lifetimeStats.dailyStats.longestGameToday = moveCount;
+          }
+          saveLifetimeStats();
           checkAchievements();
           
           // Show rematch modal
@@ -5924,6 +6583,16 @@ function navigateToPreviousMove() {
               playerStats.wins++;
               savePlayerStats();
               updatePlayerStatsDisplay();
+              resetDailyStatsIfNeeded();
+              lifetimeStats.dailyStats.gamesPlayedToday++;
+              const moveCount = game.history().length;
+              if (moveCount < lifetimeStats.dailyStats.fastestWinToday) {
+                lifetimeStats.dailyStats.fastestWinToday = moveCount;
+              }
+              if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+                lifetimeStats.dailyStats.longestGameToday = moveCount;
+              }
+              saveLifetimeStats();
               checkAchievements();
               
               // Show rematch modal
@@ -6008,6 +6677,16 @@ function navigateToPreviousMove() {
         playerStats.wins++;
         savePlayerStats();
         updatePlayerStatsDisplay();
+        resetDailyStatsIfNeeded();
+        lifetimeStats.dailyStats.gamesPlayedToday++;
+        const moveCount = game.history().length;
+        if (moveCount < lifetimeStats.dailyStats.fastestWinToday) {
+          lifetimeStats.dailyStats.fastestWinToday = moveCount;
+        }
+        if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+          lifetimeStats.dailyStats.longestGameToday = moveCount;
+        }
+        saveLifetimeStats();
         checkAchievements();
         
         // Show rematch modal
