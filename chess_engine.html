@@ -511,7 +511,7 @@
     /* Move Timer */
     #move-timer-container {
       text-align: center;
-      margin: 20px auto;
+      margin: 0;
       font-family: "Inter", sans-serif;
       font-size: 1.3em;
       font-weight: 600;
@@ -528,7 +528,7 @@
     /* Last Move Container */
     #last-move-container {
       text-align: center;
-      margin: 20px auto;
+      margin: 0;
       font-family: "Inter", sans-serif;
       font-size: 1.2em;
       font-weight: 600;
@@ -849,30 +849,30 @@
 
     /* Premove highlighting */
     .square-55d63.premove-highlight {
-      background-color: rgba(200, 35, 51, 0.75) !important; /* Much darker, pure red */
-      box-shadow: inset 0 0 0 4px rgba(180, 20, 35, 1) !important;
+      background-color: rgba(215, 57, 65, 0.65) !important; /* Medium red between dark and light */
+      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
     
     div.premove-highlight {
-      background-color: rgba(200, 35, 51, 0.75) !important;
-      box-shadow: inset 0 0 0 4px rgba(180, 20, 35, 1) !important;
+      background-color: rgba(215, 57, 65, 0.65) !important;
+      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
     
-    /* Premove source highlighting (lighter but still red) */
+    /* Premove source highlighting (same color as destination) */
     .square-55d63.premove-source {
-      background-color: rgba(230, 80, 80, 0.55) !important; /* Lighter red, not pink */
-      box-shadow: inset 0 0 0 4px rgba(200, 60, 60, 0.8) !important;
+      background-color: rgba(215, 57, 65, 0.65) !important; /* Same medium red */
+      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
     
     div.premove-source {
-      background-color: rgba(230, 80, 80, 0.55) !important;
-      box-shadow: inset 0 0 0 4px rgba(200, 60, 60, 0.8) !important;
+      background-color: rgba(215, 57, 65, 0.65) !important;
+      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
 
     /* Custom Confirmation Modal */
     #confirm-modal {
       display: none;
-      position: absolute;
+      position: fixed;
       z-index: 10000;
       animation: popIn 0.2s ease-out;
     }
@@ -1402,8 +1402,13 @@
   </div>
 
   <div id="game-container">
-    <div id="move-timer-container">
-      Time for this move: <span id="timer">00:00.00</span>
+    <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
+      <div id="move-timer-container">
+        Time for this move: <span id="timer">00:00.00</span>
+      </div>
+      <div id="last-move-container">
+        Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
+      </div>
     </div>
 
     <div id="board-row">
@@ -1460,10 +1465,6 @@
         <button id="resign-btn" onclick="resignGame()" style="display: none;">Resign</button>
       </div>
     </div>
-  </div>
-
-  <div id="last-move-container">
-    Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
   </div>
 
   <!-- Custom Confirmation Modal -->
@@ -2356,6 +2357,10 @@ function navigateToPreviousMove() {
     }
 
     function clearPremove() {
+      if (premove && board) {
+        // Restore board position when clearing premove since we actually moved the piece
+        board.position(game.fen());
+      }
       premove = null;
       selectedSquare = null;
       $("#board .square-55d63").removeClass("premove-highlight premove-source");
@@ -2403,7 +2408,10 @@ function navigateToPreviousMove() {
           selectedSquare = null;
           removeHighlights();
           
-          // Clear any existing premove highlights
+          // Clear any existing premove and restore board position first
+          if (premove && board) {
+            board.position(game.fen());
+          }
           $("#board .square-55d63").removeClass("premove-highlight premove-source");
           
           // Store the premove
@@ -2411,11 +2419,26 @@ function navigateToPreviousMove() {
           premoveJustSet = true;
           console.log('Premove set via click:', premove);
           
-          // Add highlights - just show which squares are involved, don't move piece
-          setTimeout(() => {
-            $(`#board .square-${premoveFrom}`).addClass("premove-source");
-            $(`#board .square-${premoveTo}`).addClass("premove-highlight");
-          }, 0);
+          // Actually move the piece visually for premove (manually construct position)
+          if (board) {
+            // First restore to actual game position if there was a previous premove
+            board.position(game.fen());
+            
+            // Then manually move the piece in the position object
+            const pos = board.position();
+            const movingPiece = pos[premoveFrom];
+            if (movingPiece) {
+              delete pos[premoveFrom];
+              pos[premoveTo] = movingPiece;
+              board.position(pos);
+              
+              // Add highlights
+              setTimeout(() => {
+                $(`#board .square-${premoveFrom}`).addClass("premove-source");
+                $(`#board .square-${premoveTo}`).addClass("premove-highlight");
+              }, 0);
+            }
+          }
           return;
         } else {
           // Try to make a normal move
@@ -2744,16 +2767,25 @@ function navigateToPreviousMove() {
     function resignGame() {
       if (gameOver) return;
       
-      // Position the modal above the resign button
+      // Position the modal directly above the resign button (popping out of it)
       const modal = document.getElementById('confirm-modal');
       const resignBtn = document.getElementById('resign-btn');
-      const btnRect = resignBtn.getBoundingClientRect();
-      const modalWidth = 320; // max-width from CSS
       
-      modal.style.left = (btnRect.left + btnRect.width / 2 - modalWidth / 2) + 'px';
-      modal.style.bottom = (window.innerHeight - btnRect.top + 15) + 'px';
-      
+      // Show the modal first
       modal.classList.add('show');
+      
+      // Use requestAnimationFrame to ensure modal is rendered before getting dimensions
+      requestAnimationFrame(() => {
+        const modalRect = modal.getBoundingClientRect();
+        const btnRect = resignBtn.getBoundingClientRect();
+        
+        // Position centered horizontally above the button with a small gap
+        // Make it appear to "pop out" from the button
+        const gap = 8; // 8px gap between button and modal
+        modal.style.left = (btnRect.left + btnRect.width / 2 - modalRect.width / 2) + 'px';
+        modal.style.top = (btnRect.top - modalRect.height - gap) + 'px';
+        modal.style.position = 'fixed'; // Use fixed positioning relative to viewport
+      });
     }
 
     function closeConfirmModal() {
@@ -2950,14 +2982,21 @@ function navigateToPreviousMove() {
             premoveJustSet = true;
             console.log('Premove set via drag:', premove);
             
-            // Add highlights - just show which squares are involved, don't move piece
+            // Actually move the piece visually for premove
+            if (board) {
+              const tempGame = new Chess(game.fen());
+              tempGame.move({ from: source, to: target, promotion: 'q' });
+              board.position(tempGame.fen());
+            }
+            
+            // Add highlights
             setTimeout(() => {
               $(`#board .square-${source}`).addClass("premove-source");
               $(`#board .square-${target}`).addClass("premove-highlight");
             }, 0);
             
-            // Snapback - piece returns to source, we just show the highlights
-            return 'snapback';
+            // Don't snapback - keep the piece moved
+            return;
           }
           
           // Clear premove if player makes a manual move
@@ -3329,7 +3368,30 @@ function navigateToPreviousMove() {
         lastMoveSquares = { from: move.from, to: move.to };
         
         updateLastMove(data.move, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-        board.position(game.fen());
+        
+        // Check if there's a premove before updating board
+        const hasPremove = premove !== null;
+        const premoveInfo = hasPremove ? { from: premove.from, to: premove.to } : null;
+        
+        if (hasPremove) {
+          // Show opponent's move with premove still visible (but don't add highlights yet, we'll execute it soon)
+          const tempGame = new Chess(game.fen());
+          const tempMove = tempGame.move({ from: premoveInfo.from, to: premoveInfo.to, promotion: 'q' });
+          if (tempMove) {
+            // Premove is legal - show it on the board but without red highlights (we'll execute it next)
+            board.position(tempGame.fen());
+            // Remove any existing premove highlights - we're about to execute it
+            $("#board .square-55d63").removeClass("premove-highlight premove-source");
+          } else {
+            // Premove is illegal - just show opponent's move, clear highlights
+            board.position(game.fen());
+            clearPremove();
+          }
+        } else {
+          // No premove, just show opponent's move
+          board.position(game.fen());
+        }
+        
         highlightLastMove(move.from, move.to);
         highlightCheck();
         updateTurnDisplay();
@@ -3359,7 +3421,6 @@ function navigateToPreviousMove() {
           console.log('Premove exists, attempting to execute:', premove);
           const premoveFrom = premove.from;
           const premoveTo = premove.to;
-          clearPremove(); // Clear premove before attempting to execute
           
           const premoveAttempt = game.move({ from: premoveFrom, to: premoveTo, promotion: 'q' });
           console.log('Premove attempt result:', premoveAttempt);
@@ -3369,13 +3430,18 @@ function navigateToPreviousMove() {
             const from = premoveAttempt.from;
             const to = premoveAttempt.to;
             
+            // Clear premove state and remove any red highlights (it's now a real move)
+            premove = null;
+            $("#board .square-55d63").removeClass("premove-highlight premove-source");
+            
             trackCapturedPiece(premoveAttempt);
             lastMoveSquares = { from, to };
             
             const prevTurn = game.turn() === "w" ? "b" : "w";
             const premoveMoveTimeMs = 0; // Instant premove
             updateLastMove(premoveAttempt.san, "00:00.00", game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-            board.position(game.fen());
+            board.position(game.fen()); // Update to actual position (piece is already there)
+            // Highlight with normal last-move highlight (not red premove highlight)
             highlightLastMove(from, to);
             highlightCheck();
             updateTurnDisplay();
@@ -3396,8 +3462,9 @@ function navigateToPreviousMove() {
             await engineMove();
             return;
           } else {
-            // Premove is no longer legal - already cleared
-            console.log('Premove was not legal, cleared');
+            // Premove is no longer legal - restore board position
+            console.log('Premove was not legal, restoring board position');
+            clearPremove();
           }
         }
 
