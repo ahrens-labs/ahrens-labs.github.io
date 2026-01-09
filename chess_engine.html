@@ -388,27 +388,299 @@
           0 8px 20px rgba(0, 0, 0, 0.1);
     }
 
-    /* Board Color Themes */
-    .board-theme-classic .white-1e1d7 { background-color: #f0d9b5 !important; }
-    .board-theme-classic .black-3c85d { background-color: #b58863 !important; }
+    /* Board Color Themes with Enhanced Visual Effects */
+    .board-theme-classic .white-1e1d7 { 
+      background: linear-gradient(135deg, #f0d9b5 0%, #e8d0a8 100%);
+      box-shadow: inset 0 0 20px rgba(181, 136, 99, 0.1);
+    }
+    .board-theme-classic .black-3c85d { 
+      background: linear-gradient(135deg, #b58863 0%, #a67c52 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+    }
 
-    .board-theme-blue .white-1e1d7 { background-color: #dee3e6 !important; }
-    .board-theme-blue .black-3c85d { background-color: #8ca2ad !important; }
+    .board-theme-blue .white-1e1d7 { 
+      background: linear-gradient(135deg, #dee3e6 0%, #d0d8dd 100%);
+      box-shadow: inset 0 0 15px rgba(140, 162, 173, 0.15);
+    }
+    .board-theme-blue .black-3c85d { 
+      background: linear-gradient(135deg, #8ca2ad 0%, #7a95a3 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.25);
+    }
 
-    .board-theme-green .white-1e1d7 { background-color: #ffffdd !important; }
-    .board-theme-green .black-3c85d { background-color: #86a666 !important; }
+    .board-theme-green .white-1e1d7 { 
+      background: linear-gradient(135deg, #ffffdd 0%, #f5f5c8 100%);
+      box-shadow: inset 0 0 15px rgba(134, 166, 102, 0.1);
+    }
+    .board-theme-green .black-3c85d { 
+      background: linear-gradient(135deg, #86a666 0%, #75955a 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.2);
+    }
 
-    .board-theme-gray .white-1e1d7 { background-color: #e8e8e8 !important; }
-    .board-theme-gray .black-3c85d { background-color: #999999 !important; }
+    .board-theme-gray .white-1e1d7 { 
+      background: linear-gradient(135deg, #e8e8e8 0%, #dcdcdc 100%);
+      box-shadow: inset 0 0 10px rgba(153, 153, 153, 0.1);
+    }
+    .board-theme-gray .black-3c85d { 
+      background: linear-gradient(135deg, #999999 0%, #888888 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+    }
 
-    .board-theme-purple .white-1e1d7 { background-color: #e8d4f2 !important; }
-    .board-theme-purple .black-3c85d { background-color: #9b6db5 !important; }
+    .board-theme-purple .white-1e1d7 { 
+      background: linear-gradient(135deg, #e8d4f2 0%, #dfc5ed 100%);
+      box-shadow: inset 0 0 15px rgba(155, 109, 181, 0.15);
+    }
+    .board-theme-purple .black-3c85d { 
+      background: linear-gradient(135deg, #9b6db5 0%, #8a5da0 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.25);
+    }
 
-    .board-theme-wood .white-1e1d7 { background-color: #f4dec4 !important; }
-    .board-theme-wood .black-3c85d { background-color: #8b5a2b !important; }
+    .board-theme-wood .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #f4dec4 0%, #ead4b0 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(139, 90, 43, 0.03) 2px, rgba(139, 90, 43, 0.03) 4px);
+      box-shadow: inset 0 0 25px rgba(139, 90, 43, 0.2);
+    }
+    .board-theme-wood .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #8b5a2b 0%, #7a4a1f 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+    }
 
-    .board-theme-coral .white-1e1d7 { background-color: #ffebcd !important; }
-    .board-theme-coral .black-3c85d { background-color: #cd853f !important; }
+    .board-theme-coral .white-1e1d7 { 
+      background: linear-gradient(135deg, #ffebcd 0%, #ffe0b3 100%);
+      box-shadow: inset 0 0 15px rgba(205, 133, 63, 0.15);
+    }
+    .board-theme-coral .black-3c85d { 
+      background: linear-gradient(135deg, #cd853f 0%, #b87333 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .board-theme-marble .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #f5f5f0 0%, #ecece5 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(139, 134, 128, 0.05) 8px, rgba(139, 134, 128, 0.05) 10px);
+      box-shadow: inset 0 0 20px rgba(139, 134, 128, 0.1);
+    }
+    .board-theme-marble .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #8b8680 0%, #7d7872 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0, 0, 0, 0.1) 8px, rgba(0, 0, 0, 0.1) 10px);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .board-theme-dark .white-1e1d7 { 
+      background: linear-gradient(135deg, #4a5568 0%, #3d4758 100%);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+    }
+    .board-theme-dark .black-3c85d { 
+      background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .board-theme-neon .white-1e1d7 { 
+      background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+      box-shadow: inset 0 0 20px rgba(0, 172, 193, 0.3), 0 0 10px rgba(0, 172, 193, 0.2);
+    }
+    .board-theme-neon .black-3c85d { 
+      background: linear-gradient(135deg, #00acc1 0%, #00838f 100%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(0, 172, 193, 0.4);
+    }
+
+    .board-theme-emerald .white-1e1d7 { 
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      box-shadow: inset 0 0 15px rgba(40, 167, 69, 0.2);
+    }
+    .board-theme-emerald .black-3c85d { 
+      background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .board-theme-gold .white-1e1d7 { 
+      background: linear-gradient(135deg, #fff8dc 0%, #ffeaa7 100%);
+      box-shadow: inset 0 0 20px rgba(218, 165, 32, 0.3), 0 0 10px rgba(218, 165, 32, 0.1);
+    }
+    .board-theme-gold .black-3c85d { 
+      background: linear-gradient(135deg, #daa520 0%, #c4941c 100%);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(218, 165, 32, 0.3);
+    }
+
+    .board-theme-ocean .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%),
+        radial-gradient(circle at 30% 30%, rgba(0, 105, 92, 0.1) 0%, transparent 50%);
+      box-shadow: inset 0 0 20px rgba(0, 105, 92, 0.15);
+    }
+    .board-theme-ocean .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #00695c 0%, #004d40 100%),
+        radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.2) 0%, transparent 50%);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .board-theme-sunset .white-1e1d7 { 
+      background: linear-gradient(135deg, #ffe5cc 0%, #ffcc99 100%);
+      box-shadow: inset 0 0 20px rgba(255, 107, 53, 0.25);
+    }
+    .board-theme-sunset .black-3c85d { 
+      background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .board-theme-midnight .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #3a3f4b 0%, #2d323d 100%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.4);
+    }
+    .board-theme-midnight .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #1a1d24 0%, #0f1114 100%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.6);
+    }
+
+    .board-theme-forest .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(46, 125, 50, 0.05) 3px, rgba(46, 125, 50, 0.05) 6px);
+      box-shadow: inset 0 0 15px rgba(46, 125, 50, 0.15);
+    }
+    .board-theme-forest .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0, 0, 0, 0.1) 3px, rgba(0, 0, 0, 0.1) 6px);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.35);
+    }
+
+    .board-theme-royal .white-1e1d7 { 
+      background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+      box-shadow: inset 0 0 20px rgba(123, 31, 162, 0.25), 0 0 10px rgba(123, 31, 162, 0.1);
+    }
+    .board-theme-royal .black-3c85d { 
+      background: linear-gradient(135deg, #7b1fa2 0%, #6a1b9a 100%);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(123, 31, 162, 0.3);
+    }
+
+    .board-theme-ice .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%),
+        radial-gradient(circle at 20% 20%, rgba(2, 119, 189, 0.1) 0%, transparent 60%);
+      box-shadow: inset 0 0 20px rgba(2, 119, 189, 0.2);
+    }
+    .board-theme-ice .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #0277bd 0%, #01579b 100%),
+        radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.2) 0%, transparent 60%);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .board-theme-cherry .white-1e1d7 { 
+      background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+      box-shadow: inset 0 0 20px rgba(198, 40, 40, 0.2);
+    }
+    .board-theme-cherry .black-3c85d { 
+      background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Advanced Visual Effect Themes */
+    .board-theme-3d .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #f5f5f0 0%, #e8e8e0 50%, #f5f5f0 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0, 0, 0, 0.02) 4px, rgba(0, 0, 0, 0.02) 8px);
+      box-shadow: inset -2px -2px 8px rgba(0, 0, 0, 0.1), inset 2px 2px 8px rgba(255, 255, 255, 0.5);
+    }
+    .board-theme-3d .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #8b8680 0%, #7a7570 50%, #8b8680 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0, 0, 0, 0.1) 4px, rgba(0, 0, 0, 0.1) 8px);
+      box-shadow: inset -2px -2px 10px rgba(0, 0, 0, 0.4), inset 2px 2px 10px rgba(255, 255, 255, 0.1);
+    }
+
+    .board-theme-glass .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 240, 240, 0.8) 100%),
+        radial-gradient(circle at 30% 30%, rgba(200, 200, 255, 0.2) 0%, transparent 70%);
+      box-shadow: inset 0 0 30px rgba(200, 200, 255, 0.3), 0 0 20px rgba(200, 200, 255, 0.2);
+      backdrop-filter: blur(1px);
+    }
+    .board-theme-glass .black-3c85d { 
+      background: 
+        linear-gradient(135deg, rgba(100, 100, 150, 0.8) 0%, rgba(70, 70, 120, 0.9) 100%),
+        radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.4), 0 0 25px rgba(100, 100, 150, 0.3);
+      backdrop-filter: blur(1px);
+    }
+
+    .board-theme-carbon .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0, 0, 0, 0.03) 1px, rgba(0, 0, 0, 0.03) 2px),
+        repeating-linear-gradient(90deg, transparent, transparent 1px, rgba(0, 0, 0, 0.03) 1px, rgba(0, 0, 0, 0.03) 2px);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+    .board-theme-carbon .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(255, 255, 255, 0.05) 1px, rgba(255, 255, 255, 0.05) 2px),
+        repeating-linear-gradient(90deg, transparent, transparent 1px, rgba(255, 255, 255, 0.05) 1px, rgba(255, 255, 255, 0.05) 2px);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .board-theme-velvet .white-1e1d7 { 
+      background: 
+        radial-gradient(ellipse at 30% 30%, rgba(255, 255, 255, 0.8) 0%, transparent 50%),
+        linear-gradient(135deg, #f5f0f5 0%, #e8e0e8 100%);
+      box-shadow: inset 0 0 25px rgba(138, 43, 226, 0.15);
+    }
+    .board-theme-velvet .black-3c85d { 
+      background: 
+        radial-gradient(ellipse at 70% 70%, rgba(0, 0, 0, 0.3) 0%, transparent 50%),
+        linear-gradient(135deg, #8a2be2 0%, #6a1b9a 100%);
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(138, 43, 226, 0.3);
+    }
+
+    .board-theme-stone .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #d5d5d5 0%, #c0c0c0 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(0, 0, 0, 0.05) 6px, rgba(0, 0, 0, 0.05) 12px),
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3) 0%, transparent 40%);
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.15);
+    }
+    .board-theme-stone .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #696969 0%, #555555 100%),
+        repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(0, 0, 0, 0.15) 6px, rgba(0, 0, 0, 0.15) 12px),
+        radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.3) 0%, transparent 40%);
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.4);
+    }
+
+    .board-theme-cyber .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #00ff88 0%, #00cc6a 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 136, 0.1) 2px, rgba(0, 255, 136, 0.1) 4px);
+      box-shadow: inset 0 0 30px rgba(0, 255, 136, 0.4), 0 0 20px rgba(0, 255, 136, 0.3);
+    }
+    .board-theme-cyber .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #001a0f 0%, #000000 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 136, 0.2) 2px, rgba(0, 255, 136, 0.2) 4px);
+      box-shadow: inset 0 0 40px rgba(0, 255, 136, 0.5), 0 0 30px rgba(0, 255, 136, 0.4);
+    }
+
+    .board-theme-luxury .white-1e1d7 { 
+      background: 
+        linear-gradient(135deg, #fffef7 0%, #f5f4e8 100%),
+        radial-gradient(ellipse at 50% 50%, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+      box-shadow: inset 0 0 30px rgba(212, 175, 55, 0.2), 0 0 15px rgba(212, 175, 55, 0.1);
+    }
+    .board-theme-luxury .black-3c85d { 
+      background: 
+        linear-gradient(135deg, #d4af37 0%, #b8941f 100%),
+        radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(212, 175, 55, 0.4);
+    }
 
     /* Legal Move Highlights */
     .highlight-legal {
@@ -1355,6 +1627,25 @@
         <option value="purple">Purple</option>
         <option value="wood">Wood</option>
         <option value="coral">Coral</option>
+        <option value="marble">Marble</option>
+        <option value="dark">Dark</option>
+        <option value="neon">Neon</option>
+        <option value="emerald">Emerald</option>
+        <option value="gold">Gold</option>
+        <option value="ocean">Ocean</option>
+        <option value="sunset">Sunset</option>
+        <option value="midnight">Midnight</option>
+        <option value="forest">Forest</option>
+        <option value="royal">Royal</option>
+        <option value="ice">Ice</option>
+        <option value="cherry">Cherry</option>
+        <option value="3d">3D</option>
+        <option value="glass">Glass</option>
+        <option value="carbon">Carbon</option>
+        <option value="velvet">Velvet</option>
+        <option value="stone">Stone</option>
+        <option value="cyber">Cyber</option>
+        <option value="luxury">Luxury</option>
       </select>
       
       <label for="piece-style" style="margin-left: 20px;">Piece Style: </label>
@@ -1365,6 +1656,15 @@
         <option value="merida">Merida</option>
         <option value="pirouetti">Pirouetti</option>
         <option value="spatial">Spatial</option>
+        <option value="california">California</option>
+        <option value="cardinal">Cardinal</option>
+        <option value="chessnut">Chessnut</option>
+        <option value="chess7">Chess7</option>
+        <option value="reillycraig">Reilly Craig</option>
+        <option value="riohacha">Riohacha</option>
+        <option value="shapes">Shapes</option>
+        <option value="staunty">Staunty</option>
+        <option value="tatiana">Tatiana</option>
       </select>
     </div>
     
@@ -1630,7 +1930,16 @@
       cburnett: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
       merida: 'https://lichess1.org/assets/piece/merida/{piece}.svg',
       pirouetti: 'https://lichess1.org/assets/piece/pirouetti/{piece}.svg',
-      spatial: 'https://lichess1.org/assets/piece/spatial/{piece}.svg'
+      spatial: 'https://lichess1.org/assets/piece/spatial/{piece}.svg',
+      california: 'https://lichess1.org/assets/piece/california/{piece}.svg',
+      cardinal: 'https://lichess1.org/assets/piece/cardinal/{piece}.svg',
+      chessnut: 'https://lichess1.org/assets/piece/chessnut/{piece}.svg',
+      chess7: 'https://lichess1.org/assets/piece/chess7/{piece}.svg',
+      reillycraig: 'https://lichess1.org/assets/piece/reillycraig/{piece}.svg',
+      riohacha: 'https://lichess1.org/assets/piece/riohacha/{piece}.svg',
+      shapes: 'https://lichess1.org/assets/piece/shapes/{piece}.svg',
+      staunty: 'https://lichess1.org/assets/piece/staunty/{piece}.svg',
+      tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg'
     };
 
     // Opening Book Database
