@@ -1792,12 +1792,20 @@
           <span class="stats-value material-advantage" id="material-balance">Equal</span>
         </div>
         <div class="stats-row">
-          <span class="stats-label">Total Moves:</span>
-          <span class="stats-value" id="total-moves">0</span>
+          <span class="stats-label">Game Phase:</span>
+          <span class="stats-value" id="game-phase">Opening</span>
         </div>
         <div class="stats-row">
-          <span class="stats-label">Move Number:</span>
-          <span class="stats-value" id="move-number">1</span>
+          <span class="stats-label">Pieces on Board:</span>
+          <span class="stats-value" id="pieces-count">32</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Check Status:</span>
+          <span class="stats-value" id="check-status">None</span>
+        </div>
+        <div class="stats-row">
+          <span class="stats-label">Castling Rights:</span>
+          <span class="stats-value" id="castling-rights">Both</span>
         </div>
       </div>
 
@@ -2827,9 +2835,6 @@ function navigateToPreviousMove() {
         moveHistory.push(game.fen());
         currentMoveIndex = -1;
         updateNotationDisplay();
-        // Update move number (full move number, not half-move)
-        const moveNum = Math.ceil(game.history().length / 2);
-        document.getElementById("move-number").textContent = moveNum;
       }
 }
 
@@ -3159,21 +3164,73 @@ function navigateToPreviousMove() {
     }
 
     function updateGameStats() {
-      // Update move number
-      const moveNum = Math.ceil(game.history().length / 2);
-      if (game.history().length === 0) {
-        document.getElementById("move-number").textContent = "1";
-      } else {
-        document.getElementById("move-number").textContent = moveNum;
-      }
-      // Update total moves
-      document.getElementById("total-moves").textContent = game.history().length;
-      
       // Update captured pieces display
       updateCapturedPieces();
       
       // Calculate and update material balance
       updateMaterialBalance();
+      
+      // Update game phase
+      const moveCount = game.history().length;
+      const phaseEl = document.getElementById("game-phase");
+      if (moveCount < 10) {
+        phaseEl.textContent = "Opening";
+        phaseEl.style.color = "#3498db";
+      } else if (moveCount < 30) {
+        phaseEl.textContent = "Middlegame";
+        phaseEl.style.color = "#2ecc71";
+      } else {
+        phaseEl.textContent = "Endgame";
+        phaseEl.style.color = "#e74c3c";
+      }
+      
+      // Count pieces on board
+      const board = game.board();
+      let pieceCount = 0;
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          if (board[i][j]) pieceCount++;
+        }
+      }
+      document.getElementById("pieces-count").textContent = pieceCount;
+      
+      // Update check status
+      const checkEl = document.getElementById("check-status");
+      if (game.in_check()) {
+        const turn = game.turn();
+        checkEl.textContent = turn === 'w' ? "White in Check" : "Black in Check";
+        checkEl.style.color = "#e74c3c";
+        checkEl.style.fontWeight = "700";
+      } else {
+        checkEl.textContent = "None";
+        checkEl.style.color = "#7f8c8d";
+        checkEl.style.fontWeight = "500";
+      }
+      
+      // Update castling rights
+      const fen = game.fen();
+      const castlingRights = fen.split(' ')[2];
+      const castlingEl = document.getElementById("castling-rights");
+      if (castlingRights === '-') {
+        castlingEl.textContent = "None";
+        castlingEl.style.color = "#7f8c8d";
+      } else {
+        const whiteCanCastle = castlingRights.includes('K') || castlingRights.includes('Q');
+        const blackCanCastle = castlingRights.includes('k') || castlingRights.includes('q');
+        if (whiteCanCastle && blackCanCastle) {
+          castlingEl.textContent = "Both";
+          castlingEl.style.color = "#2ecc71";
+        } else if (whiteCanCastle) {
+          castlingEl.textContent = "White Only";
+          castlingEl.style.color = "#3498db";
+        } else if (blackCanCastle) {
+          castlingEl.textContent = "Black Only";
+          castlingEl.style.color = "#34495e";
+        } else {
+          castlingEl.textContent = "None";
+          castlingEl.style.color = "#7f8c8d";
+        }
+      }
     }
 
     function updateCapturedPieces() {
@@ -3481,9 +3538,6 @@ function navigateToPreviousMove() {
 
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
-      
-      // Initialize move number
-      document.getElementById("move-number").textContent = "1";
 
       // Destroy preview board and create game board
       if (board) {
