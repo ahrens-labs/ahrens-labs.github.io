@@ -1509,7 +1509,7 @@
     let lastMoveSquares = { from: null, to: null };
     let gameStartTime = null;
     let currentPieceStyle = 'wikipedia';
-    let premove = null; // Store premove as {from: 'e2', to: 'e4'}
+    let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
     let selectedSquare = null; // Track clicked piece for click-to-move
     let currentEngineStyle = 'balanced'; // Track current engine personality
 
@@ -2357,13 +2357,77 @@ function navigateToPreviousMove() {
     }
 
     function clearPremove() {
-      if (premove && board) {
-        // Restore board position when clearing premove since we actually moved the piece
+      if (premoves.length > 0 && board) {
+        // Restore board position when clearing premoves since we actually moved pieces
         board.position(game.fen());
       }
-      premove = null;
+      premoves = [];
       selectedSquare = null;
       $("#board .square-55d63").removeClass("premove-highlight premove-source");
+    }
+    
+    // Helper function to update board visual with all premoves applied
+    function updatePremoveVisual() {
+      if (!board || !game) return;
+      
+      if (premoves.length === 0) {
+        board.position(game.fen());
+        $("#board .square-55d63").removeClass("premove-highlight premove-source");
+        return;
+      }
+      
+      // Always start from the actual game position
+      // First, reset board to actual game position to get clean state
+      board.position(game.fen());
+      
+      // Use requestAnimationFrame to ensure board has updated, then apply premoves
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const pos = board.position();
+          if (!pos || Object.keys(pos).length === 0) {
+            // If position is empty, try to get it directly from game.fen() by setting it again
+            board.position(game.fen());
+            setTimeout(() => updatePremoveVisual(), 50);
+            return;
+          }
+          
+          // Create a deep copy of the position object
+          const newPos = {};
+          for (const square in pos) {
+            newPos[square] = pos[square];
+          }
+          
+          // Track all squares involved in premoves for highlighting
+          const highlightSquares = [];
+          
+          // Manually apply all premoves to show them visually
+          // For each premove in sequence, move the piece from source to destination
+          for (const pm of premoves) {
+            const piece = newPos[pm.from];
+            if (piece) {
+              // Remove piece from source
+              delete newPos[pm.from];
+              // Place piece on destination (overwriting anything there, as premoves can capture)
+              newPos[pm.to] = piece;
+              // Track squares for highlighting (both source and destination)
+              highlightSquares.push({ from: pm.from, to: pm.to });
+            }
+          }
+          
+          // Update board to show all premoves
+          board.position(newPos);
+          
+          // Clear all highlights first, then add red highlights for all premoves
+          requestAnimationFrame(() => {
+            $("#board .square-55d63").removeClass("premove-highlight premove-source");
+            
+            for (const sq of highlightSquares) {
+              $(`#board .square-${sq.from}`).addClass("premove-source");
+              $(`#board .square-${sq.to}`).addClass("premove-highlight");
+            }
+          });
+        });
+      });
     }
 
     function handleSquareClick(square) {
@@ -2408,37 +2472,14 @@ function navigateToPreviousMove() {
           selectedSquare = null;
           removeHighlights();
           
-          // Clear any existing premove and restore board position first
-          if (premove && board) {
-            board.position(game.fen());
-          }
-          $("#board .square-55d63").removeClass("premove-highlight premove-source");
-          
-          // Store the premove
-          premove = { from: premoveFrom, to: premoveTo };
+          // Add new premove to the array (chain of premoves)
+          const newPremove = { from: premoveFrom, to: premoveTo };
+          premoves.push(newPremove);
           premoveJustSet = true;
-          console.log('Premove set via click:', premove);
+          console.log('Premove added via click:', newPremove, 'Total premoves:', premoves.length);
           
-          // Actually move the piece visually for premove (manually construct position)
-          if (board) {
-            // First restore to actual game position if there was a previous premove
-            board.position(game.fen());
-            
-            // Then manually move the piece in the position object
-            const pos = board.position();
-            const movingPiece = pos[premoveFrom];
-            if (movingPiece) {
-              delete pos[premoveFrom];
-              pos[premoveTo] = movingPiece;
-              board.position(pos);
-              
-              // Add highlights
-              setTimeout(() => {
-                $(`#board .square-${premoveFrom}`).addClass("premove-source");
-                $(`#board .square-${premoveTo}`).addClass("premove-highlight");
-              }, 0);
-            }
-          }
+          // Update visual to show all premoves in the chain
+          updatePremoveVisual();
           return;
         } else {
           // Try to make a normal move
@@ -2489,6 +2530,13 @@ function navigateToPreviousMove() {
           selectedSquare = square;
           highlightLegalMoves(square);
           console.log('After setting, selectedSquare is:', selectedSquare);
+        }
+      } else {
+        // Clicked on empty square with no piece selected
+        // Cancel all premoves if it's the opponent's turn (when premoves can be set)
+        if (!isPlayerTurn && premoves.length > 0) {
+          console.log('Empty square clicked during opponent turn, canceling all premoves');
+          clearPremove();
         }
       }
     }
@@ -2860,7 +2908,7 @@ function navigateToPreviousMove() {
       capturedPieces = { white: [], black: [] };
       lastMoveSquares = { from: null, to: null };
       gameStartTime = new Date();
-      premove = null; // Clear any premove
+      premoves = []; // Clear any premoves
       selectedSquare = null; // Clear any selection
       
       // Hide the options panel with fade effect
@@ -2974,26 +3022,14 @@ function navigateToPreviousMove() {
               return 'snapback';
             }
             
-            // Clear any existing premove highlights
-            $("#board .square-55d63").removeClass("premove-highlight premove-source");
-            
-            // Store the premove
-            premove = { from: source, to: target };
+            // Add new premove to the array (chain of premoves)
+            const newPremove = { from: source, to: target };
+            premoves.push(newPremove);
             premoveJustSet = true;
-            console.log('Premove set via drag:', premove);
+            console.log('Premove added via drag:', newPremove, 'Total premoves:', premoves.length);
             
-            // Actually move the piece visually for premove
-            if (board) {
-              const tempGame = new Chess(game.fen());
-              tempGame.move({ from: source, to: target, promotion: 'q' });
-              board.position(tempGame.fen());
-            }
-            
-            // Add highlights
-            setTimeout(() => {
-              $(`#board .square-${source}`).addClass("premove-source");
-              $(`#board .square-${target}`).addClass("premove-highlight");
-            }, 0);
+            // Update visual to show all premoves in the chain
+            updatePremoveVisual();
             
             // Don't snapback - keep the piece moved
             return;
@@ -3059,24 +3095,14 @@ function navigateToPreviousMove() {
                   selectedSquare = square;
                   highlightLegalMoves(square);
                 } else {
-                  // Make premove
-                  $("#board .square-55d63").removeClass("premove-highlight premove-source");
-                  if (premove) {
-                    board.position(game.fen());
-                  }
+                  // Add new premove to the array (chain of premoves)
+                  const newPremove = { from: premoveFrom, to: premoveTo };
+                  premoves.push(newPremove);
+                  premoveJustSet = true;
+                  console.log('Premove added via onClick:', newPremove, 'Total premoves:', premoves.length);
                   
-                  premove = { from: premoveFrom, to: premoveTo };
-                  
-                  const pos = board.position();
-                  const movingPiece = pos[premoveFrom];
-                  delete pos[premoveFrom];
-                  pos[premoveTo] = movingPiece;
-                  board.position(pos);
-                  
-                  setTimeout(() => {
-                    $(`#board .square-${premoveFrom}`).addClass("premove-source");
-                    $(`#board .square-${premoveTo}`).addClass("premove-highlight");
-                  }, 0);
+                  // Update visual to show all premoves in the chain
+                  updatePremoveVisual();
                 }
                 return;
               }
@@ -3126,6 +3152,13 @@ function navigateToPreviousMove() {
                 selectedSquare = square;
                 highlightLegalMoves(square);
               }
+            }
+          } else {
+            // Clicked on empty square with no piece selected
+            // Cancel all premoves if it's the opponent's turn (when premoves can be set)
+            if (!isPlayerTurn && premoves.length > 0) {
+              console.log('Empty square clicked during opponent turn, canceling all premoves');
+              clearPremove();
             }
           }
         },
@@ -3193,13 +3226,21 @@ function navigateToPreviousMove() {
         });
       }, 100);
 
-      // Cancel premove on any mousedown/touchstart anywhere
+      // Cancel premoves on mousedown/touchstart outside of pieces/board
       let premoveJustSet = false;
       $(document).on('mousedown touchstart', function(e) {
         // Don't cancel if we just set a premove in the same event cycle
-        if (premove && !premoveJustSet) {
-          console.log('Mouse interaction detected, canceling premove');
-          clearPremove();
+        if (premoves.length > 0 && !premoveJustSet) {
+          // Check if the click is on the board or a piece
+          const $target = $(e.target);
+          const isOnBoard = $target.closest('#board').length > 0;
+          const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
+          
+          // Only cancel if clicking outside the board/pieces
+          if (!isOnBoard && !isOnPiece) {
+            console.log('Click detected outside board/pieces, canceling all premoves');
+            clearPremove();
+          }
         }
         premoveJustSet = false;
       });
@@ -3369,28 +3410,8 @@ function navigateToPreviousMove() {
         
         updateLastMove(data.move, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
         
-        // Check if there's a premove before updating board
-        const hasPremove = premove !== null;
-        const premoveInfo = hasPremove ? { from: premove.from, to: premove.to } : null;
-        
-        if (hasPremove) {
-          // Show opponent's move with premove still visible (but don't add highlights yet, we'll execute it soon)
-          const tempGame = new Chess(game.fen());
-          const tempMove = tempGame.move({ from: premoveInfo.from, to: premoveInfo.to, promotion: 'q' });
-          if (tempMove) {
-            // Premove is legal - show it on the board but without red highlights (we'll execute it next)
-            board.position(tempGame.fen());
-            // Remove any existing premove highlights - we're about to execute it
-            $("#board .square-55d63").removeClass("premove-highlight premove-source");
-          } else {
-            // Premove is illegal - just show opponent's move, clear highlights
-            board.position(game.fen());
-            clearPremove();
-          }
-        } else {
-          // No premove, just show opponent's move
-          board.position(game.fen());
-        }
+        // Show opponent's move first
+        board.position(game.fen());
         
         highlightLastMove(move.from, move.to);
         highlightCheck();
@@ -3415,32 +3436,38 @@ function navigateToPreviousMove() {
           return;
         }
         
-        // Check if there's a premove and execute it if legal
-        console.log('Checking for premove...', premove);
-        if (premove) {
-          console.log('Premove exists, attempting to execute:', premove);
-          const premoveFrom = premove.from;
-          const premoveTo = premove.to;
+        // Check if there are premoves and execute the first one if legal
+        console.log('Checking for premoves...', premoves);
+        if (premoves.length > 0) {
+          const firstPremove = premoves[0];
+          console.log('Attempting to execute first premove:', firstPremove);
           
-          const premoveAttempt = game.move({ from: premoveFrom, to: premoveTo, promotion: 'q' });
+          const premoveAttempt = game.move({ from: firstPremove.from, to: firstPremove.to, promotion: 'q' });
           console.log('Premove attempt result:', premoveAttempt);
+          
           if (premoveAttempt) {
-            // Premove is legal - it's already been executed
+            // Premove is legal - it's been executed, remove it from the array
             console.log('Premove was legal and executed!');
+            premoves.shift(); // Remove the executed premove
+            
             const from = premoveAttempt.from;
             const to = premoveAttempt.to;
-            
-            // Clear premove state and remove any red highlights (it's now a real move)
-            premove = null;
-            $("#board .square-55d63").removeClass("premove-highlight premove-source");
             
             trackCapturedPiece(premoveAttempt);
             lastMoveSquares = { from, to };
             
-            const prevTurn = game.turn() === "w" ? "b" : "w";
             const premoveMoveTimeMs = 0; // Instant premove
             updateLastMove(premoveAttempt.san, "00:00.00", game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-            board.position(game.fen()); // Update to actual position (piece is already there)
+            board.position(game.fen());
+            
+            // Remove red highlights for this executed premove
+            $("#board .square-55d63").removeClass("premove-highlight premove-source");
+            
+            // Update visual to show remaining premoves if any
+            if (premoves.length > 0) {
+              updatePremoveVisual();
+            }
+            
             // Highlight with normal last-move highlight (not red premove highlight)
             highlightLastMove(from, to);
             highlightCheck();
@@ -3453,17 +3480,19 @@ function navigateToPreviousMove() {
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
               celebrateCheckmate(true);
               gameOver = true;
+              clearPremove();
               return;
             }
             
-            // After premove, get engine response
-            console.log('Premove executed, now getting engine response...');
+            // After executing premove, get engine response
+            // The next premove in the chain will be executed after the engine moves
+            console.log('Premove executed, now getting engine response...', premoves.length, 'premoves remaining');
             startTimer();
             await engineMove();
             return;
           } else {
-            // Premove is no longer legal - restore board position
-            console.log('Premove was not legal, restoring board position');
+            // First premove is no longer legal - clear all premoves and restore board position
+            console.log('First premove was not legal, clearing all premoves');
             clearPremove();
           }
         }
