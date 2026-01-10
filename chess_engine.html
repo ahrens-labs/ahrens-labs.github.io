@@ -2659,7 +2659,9 @@
           movesMadeToday: 0,
           capturesToday: 0,
           checksGivenToday: 0,
-          uniqueSquaresVisitedToday: []
+          uniqueSquaresVisitedToday: [],
+          bishopMovesInBlindfoldToday: 0,
+          currentStreakNoPiecesLost: 0 // Current streak of moves without losing pieces in this game
         }
       };
     }
@@ -2671,6 +2673,17 @@
           lifetimeStats.winsByTimeControl[currentTimeControl] = 0;
         }
         lifetimeStats.winsByTimeControl[currentTimeControl]++;
+        
+        // Track wins by time control today (for daily challenges)
+        if (lifetimeStats.dailyStats) {
+          if (!lifetimeStats.dailyStats.winsByTimeControlToday) {
+            lifetimeStats.dailyStats.winsByTimeControlToday = {};
+          }
+          if (!lifetimeStats.dailyStats.winsByTimeControlToday[currentTimeControl]) {
+            lifetimeStats.dailyStats.winsByTimeControlToday[currentTimeControl] = 0;
+          }
+          lifetimeStats.dailyStats.winsByTimeControlToday[currentTimeControl]++;
+        }
       }
       
       // Track wins by personality
@@ -2707,6 +2720,16 @@
         else if (pieceType === 'r') lifetimeStats.checkmateWithRook = (lifetimeStats.checkmateWithRook || 0) + 1;
         else if (pieceType === 'q') lifetimeStats.checkmateWithQueen = (lifetimeStats.checkmateWithQueen || 0) + 1;
         else if (pieceType === 'p') lifetimeStats.checkmateWithPawn = (lifetimeStats.checkmateWithPawn || 0) + 1;
+        
+        // Track unique checkmate pieces today (for daily challenge)
+        if (lifetimeStats.dailyStats) {
+          if (!lifetimeStats.dailyStats.uniqueCheckmatePiecesToday) {
+            lifetimeStats.dailyStats.uniqueCheckmatePiecesToday = [];
+          }
+          if (!lifetimeStats.dailyStats.uniqueCheckmatePiecesToday.includes(pieceType)) {
+            lifetimeStats.dailyStats.uniqueCheckmatePiecesToday.push(pieceType);
+          }
+        }
       }
       
       // Track perfect games (no pieces lost)
@@ -2717,10 +2740,82 @@
         lifetimeStats.perfectGames = (lifetimeStats.perfectGames || 0) + 1;
       }
       
+      // Track material advantage at win (for daily challenge)
+      try {
+        const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+        let whiteMaterial = 0;
+        let blackMaterial = 0;
+        const board = game.board();
+        for (let i = 0; i < 8; i++) {
+          for (let j = 0; j < 8; j++) {
+            const piece = board[i][j];
+            if (piece) {
+              const value = pieceValues[piece.type];
+              if (piece.color === 'w') {
+                whiteMaterial += value;
+              } else {
+                blackMaterial += value;
+              }
+            }
+          }
+        }
+        const materialDiff = playerColor === 'white' ? (whiteMaterial - blackMaterial) : (blackMaterial - whiteMaterial);
+        if (materialDiff >= 3 && lifetimeStats.dailyStats) {
+          lifetimeStats.dailyStats.winsWithMaterialAdvantageToday = (lifetimeStats.dailyStats.winsWithMaterialAdvantageToday || 0) + 1;
+        }
+      } catch (e) {
+        console.error('Error calculating material advantage:', e);
+      }
+      
+      // Track opening played today (for daily challenge)
+      try {
+        if (typeof detectOpening === 'function') {
+          const opening = detectOpening();
+          if (opening && lifetimeStats.dailyStats) {
+            if (!lifetimeStats.dailyStats.uniqueOpeningsPlayedToday) {
+              lifetimeStats.dailyStats.uniqueOpeningsPlayedToday = [];
+            }
+            if (!lifetimeStats.dailyStats.uniqueOpeningsPlayedToday.includes(opening)) {
+              lifetimeStats.dailyStats.uniqueOpeningsPlayedToday.push(opening);
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error tracking opening:', e);
+      }
+      
       // Track win streak
       lifetimeStats.currentWinStreak = (lifetimeStats.currentWinStreak || 0) + 1;
       if (lifetimeStats.currentWinStreak > (lifetimeStats.longestWinStreak || 0)) {
         lifetimeStats.longestWinStreak = lifetimeStats.currentWinStreak;
+      }
+      
+      // Track blindfold wins
+      if (blindfoldMode) {
+        lifetimeStats.blindfoldWins = (lifetimeStats.blindfoldWins || 0) + 1;
+        // Track wins without move history (harder achievement)
+        if (!showHistoryInBlindfold) {
+          lifetimeStats.blindfoldWinsNoHistory = (lifetimeStats.blindfoldWinsNoHistory || 0) + 1;
+        }
+      }
+      
+      // Track unique personalities won against today (for daily challenge)
+      if (currentEngineStyle && lifetimeStats.dailyStats) {
+        if (!lifetimeStats.dailyStats.personalitiesWonToday) {
+          lifetimeStats.dailyStats.personalitiesWonToday = [];
+        }
+        if (!lifetimeStats.dailyStats.personalitiesWonToday.includes(currentEngineStyle)) {
+          lifetimeStats.dailyStats.personalitiesWonToday.push(currentEngineStyle);
+        }
+      }
+      
+      // Track longest streak without losing pieces in one game today
+      if (gameStats.dailyStats && gameStats.dailyStats.currentStreakNoPiecesLost) {
+        const currentStreak = gameStats.dailyStats.currentStreakNoPiecesLost || 0;
+        const longestStreak = lifetimeStats.dailyStats.longestStreakNoPiecesLostToday || 0;
+        if (currentStreak > longestStreak) {
+          lifetimeStats.dailyStats.longestStreakNoPiecesLostToday = currentStreak;
+        }
       }
       
       // Track total games
@@ -2744,6 +2839,7 @@
           lifetimeStats.dailyStats.movesMadeToday += gameStats.dailyStats.movesMadeToday || 0;
           lifetimeStats.dailyStats.capturesToday += gameStats.dailyStats.capturesToday || 0;
           lifetimeStats.dailyStats.checksGivenToday += gameStats.dailyStats.checksGivenToday || 0;
+          lifetimeStats.dailyStats.bishopMovesInBlindfoldToday += gameStats.dailyStats.bishopMovesInBlindfoldToday || 0;
           if (gameStats.dailyStats.uniqueSquaresVisitedToday) {
             gameStats.dailyStats.uniqueSquaresVisitedToday.forEach(square => {
               if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(square)) {
@@ -2762,6 +2858,15 @@
           }
         }
       });
+      
+      // Track games where we castled/promoted (once per game, not per move)
+      if (gameStats.castlingMoves > 0 && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.gamesCastledToday = (lifetimeStats.dailyStats.gamesCastledToday || 0) + 1;
+      }
+      if (gameStats.promotions > 0 && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.gamesPromotedToday = (lifetimeStats.dailyStats.gamesPromotedToday || 0) + 1;
+      }
+      
       saveLifetimeStats();
       // Reset gameStats after committing
       resetGameStats();
@@ -2842,7 +2947,11 @@
         fastestWinToday: Infinity,
         promotionsToday: 0,
         castlingToday: 0,
-        todayDailyIds: []
+        todayDailyIds: [],
+        // New daily challenge tracking
+        bishopMovesInBlindfoldToday: 0,
+        personalitiesWonToday: [], // Array of unique personality IDs won against today
+        longestStreakNoPiecesLostToday: 0 // Longest streak of moves without losing pieces in one game today
       },
       // Wins by time control
       winsByTimeControl: {
@@ -2871,7 +2980,10 @@
       perfectGames: 0, // Games won without losing any pieces
       comebackWins: 0, // Games won after being down material
       longestWinStreak: 0,
-      currentWinStreak: 0
+      currentWinStreak: 0,
+      // Blindfold achievement tracking
+      blindfoldWins: 0, // Total wins in blindfold mode (with or without history)
+      blindfoldWinsNoHistory: 0 // Wins in blindfold mode without move history
     };
 
     // Engine personality presets
@@ -4397,6 +4509,9 @@ function navigateToPreviousMove() {
     }
 
     function trackCapturedPiece(move) {
+      const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
+      const isOpponentMove = !isPlayerMove;
+      
       if (move.captured) {
         const capturedPieceCode = move.color === 'w' ? 'b' + move.captured.toUpperCase() : 'w' + move.captured.toUpperCase();
         if (move.color === 'w') {
@@ -4406,7 +4521,6 @@ function navigateToPreviousMove() {
         }
         
         // Track captures by piece type for achievements (only player's captures)
-        const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
         if (isPlayerMove) {
           gameStats.totalCaptures++;
           
@@ -4429,10 +4543,22 @@ function navigateToPreviousMove() {
             gameStats.capturedPawns++;
           }
         }
+        
+        // If opponent captured one of our pieces, reset the "no pieces lost" streak
+        if (isOpponentMove && gameStats.dailyStats) {
+          gameStats.dailyStats.currentStreakNoPiecesLost = 0;
+        }
+      } else {
+        // No capture happened - if it's a player move, increment the streak
+        if (isPlayerMove && gameStats.dailyStats) {
+          if (gameStats.dailyStats.currentStreakNoPiecesLost === undefined) {
+            gameStats.dailyStats.currentStreakNoPiecesLost = 0;
+          }
+          gameStats.dailyStats.currentStreakNoPiecesLost++;
+        }
       }
       
       // Track other move types
-      const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
       if (isPlayerMove) {
         if (move.flags && move.flags.includes('k')) {
           gameStats.castlingMoves++;
@@ -4509,6 +4635,17 @@ function navigateToPreviousMove() {
       if (pieceType === 'b' && target === 'f1') gameStats.bishopToF1++;
       if (pieceType === 'b' && target === 'c8') gameStats.bishopToC8++;
       if (pieceType === 'b' && target === 'f8') gameStats.bishopToF8++;
+      
+      // Track bishop moves in blindfold mode (for daily challenge)
+      if (pieceType === 'b' && blindfoldMode && gameStats.dailyStats) {
+        gameStats.dailyStats.bishopMovesInBlindfoldToday = (gameStats.dailyStats.bishopMovesInBlindfoldToday || 0) + 1;
+      }
+      
+      // Track streak of moves without losing pieces
+      // Initialize streak counter if needed
+      if (gameStats.dailyStats && gameStats.dailyStats.currentStreakNoPiecesLost === undefined) {
+        gameStats.dailyStats.currentStreakNoPiecesLost = 0;
+      }
       if (pieceType === 'r' && target === 'e1') gameStats.rookToE1++;
       if (pieceType === 'r' && target === 'a1') gameStats.rookToA1++;
       if (pieceType === 'r' && target === 'h1') gameStats.rookToH1++;
@@ -5131,49 +5268,49 @@ function navigateToPreviousMove() {
       
       // In-game capture achievements (lifetime stats)
       if (lifetimeStats.capturesByQueen >= 10 && !achievements.includes('queen_capturer')) {
-        newAchievements.push({ id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen' });
+        newAchievements.push({ id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', points: 100 });
         achievements.push('queen_capturer');
       }
       if (lifetimeStats.capturesByRook >= 10 && !achievements.includes('rook_capturer')) {
-        newAchievements.push({ id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook' });
+        newAchievements.push({ id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', points: 120 });
         achievements.push('rook_capturer');
       }
       if (lifetimeStats.capturesByBishop >= 10 && !achievements.includes('bishop_capturer')) {
-        newAchievements.push({ id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop' });
+        newAchievements.push({ id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', points: 130 });
         achievements.push('bishop_capturer');
       }
       if (lifetimeStats.capturesByKnight >= 10 && !achievements.includes('knight_capturer')) {
-        newAchievements.push({ id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight' });
+        newAchievements.push({ id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', points: 150 });
         achievements.push('knight_capturer');
       }
       if (lifetimeStats.capturesByPawn >= 10 && !achievements.includes('pawn_capturer')) {
-        newAchievements.push({ id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn' });
+        newAchievements.push({ id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', points: 200 });
         achievements.push('pawn_capturer');
       }
       if (lifetimeStats.totalCaptures >= 50 && !achievements.includes('capture_master')) {
-        newAchievements.push({ id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total' });
+        newAchievements.push({ id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', points: 200 });
         achievements.push('capture_master');
       }
       if (lifetimeStats.totalCaptures >= 100 && !achievements.includes('capture_legend')) {
-        newAchievements.push({ id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total' });
+        newAchievements.push({ id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', points: 400 });
         achievements.push('capture_legend');
       }
       
       // Special move achievements
       if (lifetimeStats.castlingMoves >= 5 && !achievements.includes('castler')) {
-        newAchievements.push({ id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times' });
+        newAchievements.push({ id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', points: 100 });
         achievements.push('castler');
       }
       if (lifetimeStats.promotions >= 5 && !achievements.includes('promoter')) {
-        newAchievements.push({ id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns' });
+        newAchievements.push({ id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns', points: 150 });
         achievements.push('promoter');
       }
       if (lifetimeStats.enPassants >= 1 && !achievements.includes('en_passant')) {
-        newAchievements.push({ id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture' });
+        newAchievements.push({ id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture', points: 150 });
         achievements.push('en_passant');
       }
       if (lifetimeStats.checksGiven >= 50 && !achievements.includes('check_giver')) {
-        newAchievements.push({ id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks' });
+        newAchievements.push({ id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks', points: 200 });
         achievements.push('check_giver');
       }
       
@@ -5244,56 +5381,74 @@ function navigateToPreviousMove() {
       
       // In-game action achievements
       if (lifetimeStats.capturesByQueen >= 25 && !achievements.includes('queen_master')) {
-        newAchievements.push({ id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', points: 150 });
+        newAchievements.push({ id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', points: 250 });
         achievements.push('queen_master');
       }
       if (lifetimeStats.capturesByQueen >= 50 && !achievements.includes('queen_legend')) {
-        newAchievements.push({ id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', points: 300 });
-        achievements.push('queen_legend');
+        const ach = allAchievements.find(a => a.id === 'queen_legend');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', points: 500 });
+          achievements.push('queen_legend');
+        }
       }
       if (lifetimeStats.totalCaptures >= 200 && !achievements.includes('capture_king')) {
-        newAchievements.push({ id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', points: 400 });
-        achievements.push('capture_king');
+        const ach = allAchievements.find(a => a.id === 'capture_king');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', points: 800 });
+          achievements.push('capture_king');
+        }
       }
       if (lifetimeStats.totalCaptures >= 500 && !achievements.includes('capture_god')) {
         const ach = allAchievements.find(a => a.id === 'capture_god');
         if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
-          newAchievements.push({ id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', points: 1500 });
+          newAchievements.push({ id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', points: 2000 });
           achievements.push('capture_god');
         }
       }
       if (lifetimeStats.castlingMoves >= 10 && !achievements.includes('castling_master')) {
-        newAchievements.push({ id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', points: 100 });
+        newAchievements.push({ id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', points: 200 });
         achievements.push('castling_master');
       }
       if (lifetimeStats.castlingMoves >= 25 && !achievements.includes('castling_legend')) {
-        newAchievements.push({ id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', points: 250 });
-        achievements.push('castling_legend');
+        const ach = allAchievements.find(a => a.id === 'castling_legend');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', points: 500 });
+          achievements.push('castling_legend');
+        }
       }
       if (lifetimeStats.promotions >= 10 && !achievements.includes('promotion_master')) {
-        newAchievements.push({ id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', points: 150 });
+        newAchievements.push({ id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', points: 300 });
         achievements.push('promotion_master');
       }
       if (lifetimeStats.promotions >= 25 && !achievements.includes('promotion_legend')) {
-        newAchievements.push({ id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', points: 300 });
-        achievements.push('promotion_legend');
+        const ach = allAchievements.find(a => a.id === 'promotion_legend');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', points: 600 });
+          achievements.push('promotion_legend');
+        }
       }
       if (lifetimeStats.checksGiven >= 100 && !achievements.includes('check_master')) {
-        newAchievements.push({ id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', points: 200 });
+        newAchievements.push({ id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', points: 400 });
         achievements.push('check_master');
       }
       if (lifetimeStats.checksGiven >= 250 && !achievements.includes('check_legend')) {
-        newAchievements.push({ id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', points: 400 });
-        achievements.push('check_legend');
+        const ach = allAchievements.find(a => a.id === 'check_legend');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', points: 800 });
+          achievements.push('check_legend');
+        }
       }
       if (lifetimeStats.enPassants >= 3 && !achievements.includes('en_passant_master')) {
-        newAchievements.push({ id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', points: 200 });
-        achievements.push('en_passant_master');
+        const ach = allAchievements.find(a => a.id === 'en_passant_master');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', points: 400 });
+          achievements.push('en_passant_master');
+        }
       }
       if (lifetimeStats.enPassants >= 10 && !achievements.includes('en_passant_legend')) {
         const ach = allAchievements.find(a => a.id === 'en_passant_legend');
         if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
-          newAchievements.push({ id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', points: 800 });
+          newAchievements.push({ id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', points: 1000 });
           achievements.push('en_passant_legend');
         }
       }
@@ -5310,46 +5465,58 @@ function navigateToPreviousMove() {
       
       // Captured piece achievements (what pieces you captured, not what captured them)
       if (lifetimeStats.capturedQueens >= 5 && !achievements.includes('queen_hunter_5')) {
-        newAchievements.push({ id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', points: 200 });
-        achievements.push('queen_hunter_5');
+        const ach = allAchievements.find(a => a.id === 'queen_hunter_5');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', points: 500 });
+          achievements.push('queen_hunter_5');
+        }
       }
       if (lifetimeStats.capturedQueens >= 10 && !achievements.includes('queen_hunter_10')) {
         const ach = allAchievements.find(a => a.id === 'queen_hunter_10');
         if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
-          newAchievements.push({ id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', points: 1000 });
+          newAchievements.push({ id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', points: 1500 });
           achievements.push('queen_hunter_10');
         }
       }
       if (lifetimeStats.capturedRooks >= 10 && !achievements.includes('rook_hunter_10')) {
-        newAchievements.push({ id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', points: 150 });
+        newAchievements.push({ id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', points: 300 });
         achievements.push('rook_hunter_10');
       }
       if (lifetimeStats.capturedRooks >= 25 && !achievements.includes('rook_hunter_25')) {
-        newAchievements.push({ id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', points: 300 });
-        achievements.push('rook_hunter_25');
+        const ach = allAchievements.find(a => a.id === 'rook_hunter_25');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', points: 750 });
+          achievements.push('rook_hunter_25');
+        }
       }
       if (lifetimeStats.capturedBishops >= 10 && !achievements.includes('bishop_hunter_10')) {
-        newAchievements.push({ id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', points: 150 });
+        newAchievements.push({ id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', points: 300 });
         achievements.push('bishop_hunter_10');
       }
       if (lifetimeStats.capturedBishops >= 25 && !achievements.includes('bishop_hunter_25')) {
-        newAchievements.push({ id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', points: 300 });
-        achievements.push('bishop_hunter_25');
+        const ach = allAchievements.find(a => a.id === 'bishop_hunter_25');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', points: 750 });
+          achievements.push('bishop_hunter_25');
+        }
       }
       if (lifetimeStats.capturedKnights >= 10 && !achievements.includes('knight_hunter_10')) {
-        newAchievements.push({ id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', points: 150 });
+        newAchievements.push({ id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', points: 300 });
         achievements.push('knight_hunter_10');
       }
       if (lifetimeStats.capturedKnights >= 25 && !achievements.includes('knight_hunter_25')) {
-        newAchievements.push({ id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', points: 300 });
-        achievements.push('knight_hunter_25');
+        const ach = allAchievements.find(a => a.id === 'knight_hunter_25');
+        if (!ach || !ach.requiredPoints || totalPoints >= ach.requiredPoints) {
+          newAchievements.push({ id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', points: 750 });
+          achievements.push('knight_hunter_25');
+        }
       }
       if (lifetimeStats.capturedPawns >= 50 && !achievements.includes('pawn_hunter_50')) {
-        newAchievements.push({ id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', points: 100 });
+        newAchievements.push({ id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', points: 250 });
         achievements.push('pawn_hunter_50');
       }
       if (lifetimeStats.capturedPawns >= 100 && !achievements.includes('pawn_hunter_100')) {
-        newAchievements.push({ id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', points: 200 });
+        newAchievements.push({ id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', points: 500 });
         achievements.push('pawn_hunter_100');
       }
       
@@ -5658,105 +5825,105 @@ function navigateToPreviousMove() {
         }},
         
         // Captured Piece Achievements (what pieces you captured)
-        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 300, groupKey: 'captured_queens', progress: () => {
+        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 500, requiredPoints: 2000, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 5 };
         }},
-        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 1000, requiredPoints: 20000, groupKey: 'captured_queens', progress: () => {
+        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 1500, requiredPoints: 20000, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 10 };
         }},
-        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 200, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 300, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 10 };
         }},
-        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 450, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 750, requiredPoints: 5000, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 25 };
         }},
-        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 200, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 300, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 10 };
         }},
-        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 450, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 750, requiredPoints: 5000, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 25 };
         }},
-        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 200, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 300, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 10 };
         }},
-        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 450, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 750, requiredPoints: 5000, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 25 };
         }},
-        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 150, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 250, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 50 };
         }},
-        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 300, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 500, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 100 };
         }},
         
         // Group keys for other achievement types
-        { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', category: 'In-Game', points: 50, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', category: 'In-Game', points: 100, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 10 };
         }},
-        { id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', category: 'In-Game', points: 150, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with queen', category: 'In-Game', points: 250, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 25 };
         }},
-        { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', category: 'In-Game', points: 300, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with queen', category: 'In-Game', points: 500, requiredPoints: 5000, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 50 };
         }},
-        { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', category: 'In-Game', points: 50, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', category: 'In-Game', points: 120, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 10 };
         }},
-        { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', category: 'In-Game', points: 50, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', category: 'In-Game', points: 130, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 10 };
         }},
-        { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', category: 'In-Game', points: 50, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', category: 'In-Game', points: 150, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 10 };
         }},
-        { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', category: 'In-Game', points: 50, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', category: 'In-Game', points: 200, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 10 };
         }},
-        { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', category: 'In-Game', points: 100, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', category: 'In-Game', points: 200, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 50 };
         }},
-        { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', category: 'In-Game', points: 200, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', category: 'In-Game', points: 400, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 100 };
         }},
-        { id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', category: 'In-Game', points: 400, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', category: 'In-Game', points: 800, requiredPoints: 8000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 200 };
         }},
-        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 1500, requiredPoints: 30000, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 2000, requiredPoints: 30000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 500 };
         }},
-        { id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', category: 'In-Game', points: 50, groupKey: 'castling', progress: () => {
+        { id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', category: 'In-Game', points: 100, groupKey: 'castling', progress: () => {
           return { current: (lifetimeStats.castlingMoves || 0), target: 5 };
         }},
-        { id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', category: 'In-Game', points: 100, groupKey: 'castling', progress: () => {
+        { id: 'castling_master', name: '🏰 Castling Master', desc: 'Castled 10 times', category: 'In-Game', points: 200, groupKey: 'castling', progress: () => {
           return { current: (lifetimeStats.castlingMoves || 0), target: 10 };
         }},
-        { id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', category: 'In-Game', points: 250, groupKey: 'castling', progress: () => {
+        { id: 'castling_legend', name: '🏰 Castling Legend', desc: 'Castled 25 times', category: 'In-Game', points: 500, requiredPoints: 3000, groupKey: 'castling', progress: () => {
           return { current: (lifetimeStats.castlingMoves || 0), target: 25 };
         }},
-        { id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns', category: 'In-Game', points: 75, groupKey: 'promotions', progress: () => {
+        { id: 'promoter', name: '⬆️ Promoter', desc: 'Promoted 5 pawns', category: 'In-Game', points: 150, groupKey: 'promotions', progress: () => {
           return { current: (lifetimeStats.promotions || 0), target: 5 };
         }},
-        { id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', category: 'In-Game', points: 150, groupKey: 'promotions', progress: () => {
+        { id: 'promotion_master', name: '⬆️ Promotion Master', desc: 'Promoted 10 pawns', category: 'In-Game', points: 300, groupKey: 'promotions', progress: () => {
           return { current: (lifetimeStats.promotions || 0), target: 10 };
         }},
-        { id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', category: 'In-Game', points: 300, groupKey: 'promotions', progress: () => {
+        { id: 'promotion_legend', name: '⬆️ Promotion Legend', desc: 'Promoted 25 pawns', category: 'In-Game', points: 600, requiredPoints: 3000, groupKey: 'promotions', progress: () => {
           return { current: (lifetimeStats.promotions || 0), target: 25 };
         }},
-        { id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture', category: 'In-Game', points: 100, groupKey: 'en_passants', progress: () => {
+        { id: 'en_passant', name: '🎯 En Passant', desc: 'Performed an en passant capture', category: 'In-Game', points: 150, groupKey: 'en_passants', progress: () => {
           return { current: (lifetimeStats.enPassants || 0), target: 1 };
         }},
-        { id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', category: 'In-Game', points: 200, groupKey: 'en_passants', progress: () => {
+        { id: 'en_passant_master', name: '🎯 En Passant Master', desc: 'Performed 3 en passants', category: 'In-Game', points: 400, requiredPoints: 1500, groupKey: 'en_passants', progress: () => {
           return { current: (lifetimeStats.enPassants || 0), target: 3 };
         }},
-        { id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', category: 'In-Game', points: 800, requiredPoints: 25000, groupKey: 'en_passants', progress: () => {
+        { id: 'en_passant_legend', name: '🎯 En Passant Legend', desc: 'Performed 10 en passants', category: 'In-Game', points: 1000, requiredPoints: 25000, groupKey: 'en_passants', progress: () => {
           return { current: (lifetimeStats.enPassants || 0), target: 10 };
         }},
-        { id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks', category: 'In-Game', points: 75, groupKey: 'checks', progress: () => {
+        { id: 'check_giver', name: '✓ Check Giver', desc: 'Gave 50 checks', category: 'In-Game', points: 200, groupKey: 'checks', progress: () => {
           return { current: (lifetimeStats.checksGiven || 0), target: 50 };
         }},
-        { id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', category: 'In-Game', points: 200, groupKey: 'checks', progress: () => {
+        { id: 'check_master', name: '✓ Check Master', desc: 'Gave 100 checks', category: 'In-Game', points: 400, groupKey: 'checks', progress: () => {
           return { current: (lifetimeStats.checksGiven || 0), target: 100 };
         }},
-        { id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', category: 'In-Game', points: 400, groupKey: 'checks', progress: () => {
+        { id: 'check_legend', name: '✓ Check Legend', desc: 'Gave 250 checks', category: 'In-Game', points: 800, requiredPoints: 15000, groupKey: 'checks', progress: () => {
           return { current: (lifetimeStats.checksGiven || 0), target: 250 };
         }},
         
@@ -5997,6 +6164,89 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           return { current: (lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
         }},
+        { id: 'daily_blindfold_bishop', name: '👁️♗ Blindfold Bishop Master', desc: 'Make 5 bishop moves in blindfold games today', category: 'Daily', points: 250, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
+          resetDailyStatsIfNeeded();
+          const lifetimeCount = lifetimeStats.dailyStats.bishopMovesInBlindfoldToday || 0;
+          const gameCount = (gameStats && gameStats.dailyStats && gameStats.dailyStats.bishopMovesInBlindfoldToday) || 0;
+          return { current: lifetimeCount + gameCount, target: 5 };
+        }},
+        { id: 'daily_personality_master', name: '🎭 Personality Master', desc: 'Beat 3 different engine personalities in one day', category: 'Daily', points: 350, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const uniquePersonalities = lifetimeStats.dailyStats.personalitiesWonToday || [];
+          return { current: uniquePersonalities.length, target: 3 };
+        }},
+        { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 10 consecutive moves in one game without losing a piece', category: 'Daily', points: 225, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 10 };
+          resetDailyStatsIfNeeded();
+          const longestStreak = lifetimeStats.dailyStats.longestStreakNoPiecesLostToday || 0;
+          const currentStreak = (gameStats && gameStats.dailyStats && gameStats.dailyStats.currentStreakNoPiecesLost) || 0;
+          return { current: Math.max(longestStreak, currentStreak), target: 10 };
+        }},
+        { id: 'daily_blitz_king', name: '⚡⚡ Blitz King', desc: 'Win 2 games with 1-minute time control today', category: 'Daily', points: 300, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          const winsByTime = lifetimeStats.dailyStats.winsByTimeControlToday || {};
+          // Time control '60' is for 1 minute
+          const wins1Min = winsByTime['60'] || 0;
+          return { current: wins1Min, target: 2 };
+        }},
+        { id: 'daily_time_master', name: '⏱️ Time Master', desc: 'Win games with 3 different time controls today', category: 'Daily', points: 280, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const timeControlsWon = lifetimeStats.dailyStats.winsByTimeControlToday || {};
+          const uniqueTimeControls = Object.keys(timeControlsWon).filter(tc => timeControlsWon[tc] > 0);
+          return { current: uniqueTimeControls.length, target: 3 };
+        }},
+        { id: 'daily_king_safety', name: "👑 King's Guard", desc: 'Castle in 3 different games today', category: 'Daily', points: 200, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const gamesWithCastling = (lifetimeStats.dailyStats.gamesCastledToday || 0);
+          return { current: gamesWithCastling, target: 3 };
+        }},
+        { id: 'daily_promotion_royalty', name: '👸 Promotion Royalty', desc: 'Promote a pawn in 2 different games today', category: 'Daily', points: 240, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          const gamesWithPromotion = (lifetimeStats.dailyStats.gamesPromotedToday || 0);
+          return { current: gamesWithPromotion, target: 2 };
+        }},
+        { id: 'daily_material_advantage', name: '⚖️ Material Master', desc: 'Win 2 games where you had a material advantage of 3+ points', category: 'Daily', points: 275, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          const winsWithAdvantage = (lifetimeStats.dailyStats.winsWithMaterialAdvantageToday || 0);
+          return { current: winsWithAdvantage, target: 2 };
+        }},
+        { id: 'daily_openings_expert', name: '📚 Opening Expert', desc: 'Play 3 different detected openings today', category: 'Daily', points: 220, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const uniqueOpenings = lifetimeStats.dailyStats.uniqueOpeningsPlayedToday || [];
+          return { current: uniqueOpenings.length, target: 3 };
+        }},
+        { id: 'daily_checkmate_artist', name: '🎨 Checkmate Artist', desc: 'Checkmate with 3 different pieces today (queen, rook, knight, bishop, or pawn)', category: 'Daily', points: 400, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const uniqueCheckmatePieces = lifetimeStats.dailyStats.uniqueCheckmatePiecesToday || [];
+          return { current: uniqueCheckmatePieces.length, target: 3 };
+        }},
+        
+        // ========================================================================
+        // ADD NEW DAILY CHALLENGES HERE
+        // ========================================================================
+        // Template for creating a new daily challenge:
+        // { id: 'daily_your_challenge_id', name: '🎯 Your Challenge Name', desc: 'Your challenge description', category: 'Daily', points: 150, isDaily: true, progress: () => {
+        //   if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: YOUR_TARGET };
+        //   resetDailyStatsIfNeeded();
+        //   // Track your stat from lifetimeStats.dailyStats.YOUR_STAT or gameStats.dailyStats.YOUR_STAT
+        //   return { current: ((lifetimeStats.dailyStats.YOUR_STAT || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.YOUR_STAT) || 0)), target: YOUR_TARGET };
+        // }},
+        //
+        // After adding a new daily challenge:
+        // 1. Add its ID to getAllDailyChallengeIds() function (see above)
+        // 2. Add it to one or more arrays in DAILY_CHALLENGES_CONFIG to include it in rotation
+        // 3. Make sure to track the stat in lifetimeStats.dailyStats and gameStats.dailyStats
+        // 4. Update resetDailyStatsIfNeeded() to reset your stat when day changes
+        // ========================================================================
         
         // Time Control Achievements
         { id: 'win_no_time', name: '⏰ Untimed Victory', desc: 'Win 5 games with no time control', category: 'Creative', points: 100, groupKey: 'time_control_wins', progress: () => {
@@ -6300,6 +6550,35 @@ function navigateToPreviousMove() {
         }},
         { id: 'underpromote_5', name: '🎭 Master Underpromoter', desc: 'Underpromote 5 times', category: 'Creative', points: 600, requiredPoints: 3000, groupKey: 'underpromotions', progress: () => {
           return { current: (lifetimeStats.underpromotions || 0), target: 5 };
+        }},
+        
+        // Blindfold Achievements
+        { id: 'blindfold_win_1', name: '👁️ First Blindfold Win', desc: 'Beat the engine in blindfold mode once', category: 'Creative', points: 300, groupKey: 'blindfold', progress: () => {
+          return { current: (lifetimeStats.blindfoldWins || 0), target: 1 };
+        }},
+        { id: 'blindfold_win_5', name: '👁️ Blindfold Player', desc: 'Beat the engine in blindfold mode 5 times', category: 'Creative', points: 800, requiredPoints: 2000, groupKey: 'blindfold', progress: () => {
+          return { current: (lifetimeStats.blindfoldWins || 0), target: 5 };
+        }},
+        { id: 'blindfold_win_10', name: '👁️ Blindfold Expert', desc: 'Beat the engine in blindfold mode 10 times', category: 'Creative', points: 1500, requiredPoints: 5000, groupKey: 'blindfold', progress: () => {
+          return { current: (lifetimeStats.blindfoldWins || 0), target: 10 };
+        }},
+        { id: 'blindfold_win_25', name: '👁️ Blindfold Master', desc: 'Beat the engine in blindfold mode 25 times', category: 'Creative', points: 3000, requiredPoints: 15000, groupKey: 'blindfold', progress: () => {
+          return { current: (lifetimeStats.blindfoldWins || 0), target: 25 };
+        }},
+        { id: 'blindfold_win_50', name: '👁️ Blindfold Legend', desc: 'Beat the engine in blindfold mode 50 times', category: 'Creative', points: 6000, requiredPoints: 30000, groupKey: 'blindfold', progress: () => {
+          return { current: (lifetimeStats.blindfoldWins || 0), target: 50 };
+        }},
+        { id: 'blindfold_no_history_1', name: '🎯 Pure Blindfold Win', desc: 'Beat the engine in blindfold mode without move history once', category: 'Creative', points: 500, requiredPoints: 1000, groupKey: 'blindfold_no_history', progress: () => {
+          return { current: (lifetimeStats.blindfoldWinsNoHistory || 0), target: 1 };
+        }},
+        { id: 'blindfold_no_history_5', name: '🎯 Pure Blindfold Expert', desc: 'Beat the engine in blindfold mode without move history 5 times', category: 'Creative', points: 1500, requiredPoints: 5000, groupKey: 'blindfold_no_history', progress: () => {
+          return { current: (lifetimeStats.blindfoldWinsNoHistory || 0), target: 5 };
+        }},
+        { id: 'blindfold_no_history_10', name: '🎯 Pure Blindfold Master', desc: 'Beat the engine in blindfold mode without move history 10 times', category: 'Creative', points: 3000, requiredPoints: 15000, groupKey: 'blindfold_no_history', progress: () => {
+          return { current: (lifetimeStats.blindfoldWinsNoHistory || 0), target: 10 };
+        }},
+        { id: 'blindfold_no_history_25', name: '🎯 Pure Blindfold Legend', desc: 'Beat the engine in blindfold mode without move history 25 times', category: 'Creative', points: 6000, requiredPoints: 30000, groupKey: 'blindfold_no_history', progress: () => {
+          return { current: (lifetimeStats.blindfoldWinsNoHistory || 0), target: 25 };
         }},
         
         // Total Games Milestones
@@ -7100,7 +7379,9 @@ function navigateToPreviousMove() {
         gamesAsWhite: 0,
         gamesAsBlack: 0,
         winsAsWhite: 0,
-        winsAsBlack: 0
+        winsAsBlack: 0,
+        blindfoldWins: 0,
+        blindfoldWinsNoHistory: 0
       };
       
       // Save everything
@@ -7155,15 +7436,89 @@ function navigateToPreviousMove() {
     // Make it globally accessible
     window.resetAllAchievements = resetAllAchievements;
 
+    // ========================================================================
+    // DAILY CHALLENGES CONFIGURATION
+    // ========================================================================
+    // This function returns all available daily challenge IDs.
+    // To add a new daily challenge:
+    // 1. Add the challenge definition in getAllAchievementsList() with isDaily: true
+    // 2. Add its ID to the array below
+    // 3. The system will automatically include it in validation and make it available
+    // ========================================================================
+    function getAllDailyChallengeIds() {
+      return [
+        'daily_explorer',    // Visit 20 unique squares
+        'daily_warrior',     // Make 5 captures
+        'daily_lightning',   // Win in under 15 moves
+        'daily_capturer',    // Make 10 captures
+        'daily_checker',     // Give 8 checks
+        'daily_longgame',    // Play 80+ move game
+        'daily_promoter',    // Promote 3 pawns
+        'daily_castler',     // Castle 2 times
+        'daily_comeback',    // Win 3 games
+        'daily_blindfold_bishop',  // Make 5 bishop moves in blindfold games
+        'daily_personality_master', // Beat 3 different personalities
+        'daily_survivor',    // Make 10 consecutive moves without losing a piece
+        'daily_blitz_king',  // Win 2 games with 1-minute time control
+        'daily_time_master', // Win games with 3 different time controls
+        'daily_king_safety', // Castle in 3 different games
+        'daily_promotion_royalty', // Promote a pawn in 2 different games
+        'daily_material_advantage', // Win 2 games with 3+ material advantage
+        'daily_openings_expert',    // Play 3 different detected openings
+        'daily_checkmate_artist'    // Checkmate with 3 different pieces
+        // ADD NEW DAILY CHALLENGE IDs HERE:
+        // 'daily_your_new_challenge',
+      ];
+    }
+    
+    // ========================================================================
+    // DAILY CHALLENGES SCHEDULE CONFIGURATION
+    // ========================================================================
+    // Easy-to-edit configuration: Each array contains 3 daily challenge IDs
+    // that will be active on that day. The system cycles through these sets
+    // based on the day of year (0-365), so if you have N sets, they will
+    // repeat every N days.
+    //
+    // To add new challenges to the schedule:
+    // 1. Add the challenge ID to getAllDailyChallengeIds() above
+    // 2. Add the challenge definition in getAllAchievementsList() with isDaily: true
+    // 3. Add it to one or more arrays below to include it in the rotation
+    // ========================================================================
+    const DAILY_CHALLENGES_CONFIG = [
+      // Day 0 (and cycles every 9 days)
+      ['daily_survivor', 'daily_blindfold_bishop', 'daily_personality_master'],
+      // Day 1
+      ['daily_capturer', 'daily_checkmate_artist', 'daily_longgame'],
+      // Day 2
+      ['daily_promoter', 'daily_castler', 'daily_comeback'],
+      // Day 3
+      ['daily_explorer', 'daily_capturer', 'daily_promoter'],
+      // Day 4
+      ['daily_warrior', 'daily_checker', 'daily_castler'],
+      // Day 5
+      ['daily_lightning', 'daily_longgame', 'daily_comeback'],
+      // Day 6
+      ['daily_explorer', 'daily_checker', 'daily_comeback'],
+      // Day 7
+      ['daily_warrior', 'daily_longgame', 'daily_promoter'],
+      // Day 8
+      ['daily_lightning', 'daily_capturer', 'daily_castler']
+      // ADD MORE DAYS HERE (each array should have exactly 3 challenge IDs):
+      // ['daily_challenge1', 'daily_challenge2', 'daily_challenge3'],
+    ];
+    
+    // Optional: Override specific dates with custom challenge sets
+    // Format: 'YYYY-MM-DD': ['challenge1', 'challenge2', 'challenge3']
+    // Example: '2024-12-25': ['daily_comeback', 'daily_lightning', 'daily_warrior']
+    const DAILY_CHALLENGES_SPECIFIC_DATES = {
+      // Add specific date overrides here, e.g.:
+      // '2024-12-25': ['daily_comeback', 'daily_lightning', 'daily_warrior'],
+      // '2025-01-01': ['daily_explorer', 'daily_capturer', 'daily_promoter']
+    };
+    // ========================================================================
+
     function getTodayDailyAchievements() {
       try {
-        // Pool of all possible daily achievements
-        const dailyPool = [
-          'daily_explorer', 'daily_warrior', 'daily_lightning',
-          'daily_capturer', 'daily_checker', 'daily_longgame',
-          'daily_promoter', 'daily_castler', 'daily_comeback'
-        ];
-        
         if (!lifetimeStats || !lifetimeStats.dailyStats) {
           // If lifetimeStats isn't initialized yet, return empty array
           return [];
@@ -7171,22 +7526,43 @@ function navigateToPreviousMove() {
         
         resetDailyStatsIfNeeded();
         
-        // If we already have today's selection, return it
-        if (lifetimeStats.dailyStats.todayDailyIds && Array.isArray(lifetimeStats.dailyStats.todayDailyIds)) {
-          return lifetimeStats.dailyStats.todayDailyIds;
+        // Get today's date string (YYYY-MM-DD format) for specific date lookups
+        const today = new Date();
+        const dateString = today.getFullYear() + '-' + 
+                          String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(today.getDate()).padStart(2, '0');
+        
+        // Check for specific date override first
+        let selected;
+        if (DAILY_CHALLENGES_SPECIFIC_DATES[dateString]) {
+          selected = DAILY_CHALLENGES_SPECIFIC_DATES[dateString];
+        } else {
+          // Use cycling pattern based on day of year
+          const startOfYear = new Date(today.getFullYear(), 0, 1);
+          const dayOfYear = Math.floor((today - startOfYear) / (1000 * 60 * 60 * 24));
+          
+          // Use day of year modulo number of challenge sets to cycle through them
+          const challengeSetIndex = dayOfYear % DAILY_CHALLENGES_CONFIG.length;
+          selected = DAILY_CHALLENGES_CONFIG[challengeSetIndex];
         }
         
-        // Otherwise, randomly select 3
-        const shuffled = [...dailyPool].sort(() => Math.random() - 0.5);
-        const selected = shuffled.slice(0, 3);
+        // Validate that all IDs exist (automatically uses all available daily challenge IDs)
+        const validDailyIds = getAllDailyChallengeIds();
+        const validatedSelected = selected.filter(id => validDailyIds.includes(id));
         
-        // Save today's selection
+        // Ensure we have exactly 3 challenges (fallback if config is wrong)
+        if (validatedSelected.length !== 3) {
+          console.warn('Daily challenges config error: Expected 3 challenges, got', validatedSelected.length, 'for date', dateString);
+          return ['daily_explorer', 'daily_warrior', 'daily_lightning']; // Fallback to default
+        }
+        
+        // Always save today's selection (ensures consistency and handles day changes)
         if (lifetimeStats.dailyStats) {
-          lifetimeStats.dailyStats.todayDailyIds = selected;
+          lifetimeStats.dailyStats.todayDailyIds = validatedSelected;
           saveLifetimeStats();
         }
         
-        return selected;
+        return validatedSelected;
       } catch (e) {
         console.error('Error in getTodayDailyAchievements:', e);
         return ['daily_explorer', 'daily_warrior', 'daily_lightning']; // Fallback to default
@@ -7224,7 +7600,7 @@ function navigateToPreviousMove() {
         lifetimeStats.lastPlayDate = todayDate.toISOString();
         
         // Clear ALL daily achievements when date changes
-        const allDailyIds = ['daily_explorer', 'daily_warrior', 'daily_lightning', 'daily_capturer', 'daily_checker', 'daily_longgame', 'daily_promoter', 'daily_castler', 'daily_comeback'];
+        const allDailyIds = getAllDailyChallengeIds();
         allDailyIds.forEach(id => {
           const index = achievements.indexOf(id);
           if (index > -1) {
@@ -7246,7 +7622,17 @@ function navigateToPreviousMove() {
           fastestWinToday: Infinity,
           promotionsToday: 0,
           castlingToday: 0,
-          checksToday: 0
+          checksToday: 0,
+          // New daily challenge tracking
+          bishopMovesInBlindfoldToday: 0,
+          personalitiesWonToday: [],
+          longestStreakNoPiecesLostToday: 0,
+          winsByTimeControlToday: {},
+          gamesCastledToday: 0,
+          gamesPromotedToday: 0,
+          winsWithMaterialAdvantageToday: 0,
+          uniqueOpeningsPlayedToday: [],
+          uniqueCheckmatePiecesToday: []
         };
         saveLifetimeStats();
       } else {
