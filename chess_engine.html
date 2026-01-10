@@ -2324,8 +2324,8 @@
 
   <div id="game-container">
     <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
-      <div id="move-timer-container">
-        Time for this move: <span id="timer">00:00.00</span>
+    <div id="move-timer-container">
+      Time for this move: <span id="timer">00:00.00</span>
       </div>
       <div id="last-move-container">
         Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
@@ -3808,7 +3808,7 @@ function navigateToPreviousMove() {
       container.style.maxHeight = maxHeight + 'px';
       // Group moves by full move (White + Black)
       for (let i = 0; i < history.length; i += 2) {
-        const moveNum = Math.floor(i / 2) + 1;
+          const moveNum = Math.floor(i / 2) + 1;
         const moveRow = document.createElement('div');
         moveRow.style.marginBottom = '4px';
         moveRow.style.display = 'flex';
@@ -3829,7 +3829,7 @@ function navigateToPreviousMove() {
         if (whiteMove) {
           const whiteSpan = document.createElement('span');
           whiteSpan.className = 'move-item';
-          if (currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1)) {
+        if (currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1)) {
             whiteSpan.classList.add('highlighted');
           }
           whiteSpan.setAttribute('data-move-index', i);
@@ -3867,7 +3867,7 @@ function navigateToPreviousMove() {
         container.appendChild(moveRow);
       }
     }
-    
+
     function jumpToMove(index) {
       if (!blindfoldMode && index >= 0 && index < moveHistory.length) {
         currentMoveIndex = index;
@@ -5525,8 +5525,14 @@ function navigateToPreviousMove() {
         
         try {
           const progress = ach.progress();
-          // Only unlock if progress reaches target (will be called after game completion)
-          if (progress.current >= progress.target && progress.target > 0) {
+          // Check if achievement has additional requirements (like minimum games played)
+          // needsTotal should be true or undefined (not false) to meet requirements
+          const meetsRequirements = progress.needsTotal !== false;
+          // needsNoLosses should be true or undefined (not false) to meet requirements
+          const meetsNoLosses = progress.needsNoLosses !== false;
+          
+          // Only unlock if progress reaches target AND all requirements are met
+          if (progress.current >= progress.target && progress.target > 0 && meetsRequirements && meetsNoLosses) {
             newAchievements.push({ 
               id: ach.id, 
               name: ach.name, 
@@ -5622,23 +5628,27 @@ function navigateToPreviousMove() {
         }},
         { id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', category: 'General', points: 100, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 10) return { current: 0, target: 60, needsTotal: false };
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
-          return { current: Math.round(winRate), target: 60, needsTotal: total >= 10 };
+          return { current: Math.round(winRate), target: 60, needsTotal: true };
         }},
         { id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)', category: 'General', points: 200, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 10) return { current: 0, target: 70, needsTotal: false };
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
-          return { current: Math.round(winRate), target: 70, needsTotal: total >= 10 };
+          return { current: Math.round(winRate), target: 70, needsTotal: true };
         }},
         { id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', category: 'General', points: 300, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 20) return { current: 0, target: 80, needsTotal: false };
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
-          return { current: Math.round(winRate), target: 80, needsTotal: total >= 20 };
+          return { current: Math.round(winRate), target: 80, needsTotal: true };
         }},
         { id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', category: 'General', points: 750, requiredPoints: 15000, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 20) return { current: 0, target: 90, needsTotal: false };
           const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
-          return { current: Math.round(winRate), target: 90, needsTotal: total >= 20 };
+          return { current: Math.round(winRate), target: 90, needsTotal: true };
         }},
         { id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', category: 'General', points: 100, groupKey: 'draws', progress: () => {
           return { current: playerStats.draws, target: 10 };
@@ -6436,9 +6446,27 @@ function navigateToPreviousMove() {
           const requiredPoints = ach.requiredPoints || 0;
           const hasEnoughPoints = totalPoints >= requiredPoints;
           
+          // Check if achievement is locked due to game count requirements
+          const meetsRequirements = progress.needsTotal !== false;
+          const meetsNoLosses = progress.needsNoLosses !== false;
+          let lockedMessage = '';
+          if (!meetsRequirements) {
+            const desc = ach.desc || '';
+            const gameMatch = desc.match(/(\d+)\+.*games?/i);
+            if (gameMatch) {
+              lockedMessage = `🔒 Locked - Need ${gameMatch[1]}+ games`;
+            } else {
+              lockedMessage = '🔒 Locked - Requirements not met';
+            }
+          } else if (!meetsNoLosses) {
+            lockedMessage = '🔒 Locked - Must win without losing pieces';
+          }
+          
           const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
           
-          const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+          const progressDisplay = 
+            lockedMessage ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">${lockedMessage}</div>` :
+            requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
             isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
               <div class="achievement-progress-bar">
                 <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
@@ -6563,8 +6591,10 @@ function navigateToPreviousMove() {
               progressPercent = 0;
             }
             const showProgress = !isUnlocked && progressPercent < 100;
-            const meetsRequirements = !progress.needsTotal || progress.needsTotal;
-            const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
+            // needsTotal should be true or undefined (not false) to meet requirements
+            const meetsRequirements = progress.needsTotal !== false;
+            // needsNoLosses should be true or undefined (not false) to meet requirements  
+            const meetsNoLosses = progress.needsNoLosses !== false;
             
             // Check if achievement requires points to unlock
             const allAchievements = getAllAchievementsList();
@@ -6607,7 +6637,23 @@ function navigateToPreviousMove() {
               </button>
             ` : '';
             
-            const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+            // Check if achievement is locked due to game count requirements
+            let lockedMessage = '';
+            if (!meetsRequirements) {
+              const desc = nextAchievement.desc || '';
+              const gameMatch = desc.match(/(\d+)\+.*games?/i);
+              if (gameMatch) {
+                lockedMessage = `🔒 Locked - Need ${gameMatch[1]}+ games`;
+              } else {
+                lockedMessage = '🔒 Locked - Requirements not met';
+              }
+            } else if (!meetsNoLosses) {
+              lockedMessage = '🔒 Locked - Must win without losing pieces';
+            }
+            
+            const progressDisplay = 
+              lockedMessage ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">${lockedMessage}</div>` :
+              requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
               isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
                 <div class="achievement-progress-bar">
                   <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
@@ -6650,8 +6696,10 @@ function navigateToPreviousMove() {
                 progressPercent = 0;
               }
               const showProgress = !isUnlocked && progressPercent < 100;
-              const meetsRequirements = !progress.needsTotal || progress.needsTotal;
-              const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
+              // needsTotal should be true or undefined (not false) to meet requirements
+              const meetsRequirements = progress.needsTotal !== false;
+              // needsNoLosses should be true or undefined (not false) to meet requirements
+              const meetsNoLosses = progress.needsNoLosses !== false;
               
               const subCard = document.createElement('div');
               subCard.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
@@ -6667,7 +6715,25 @@ function navigateToPreviousMove() {
               }, 0);
               const requiredPoints = ach.requiredPoints || 0;
               const hasEnoughPoints = totalPoints >= requiredPoints;
-              const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+              
+              // Check if achievement is locked due to game count requirements
+              let lockedMessage = '';
+              if (!meetsRequirements) {
+                // Extract game requirement from description or check specific achievements
+                const desc = ach.desc || '';
+                const gameMatch = desc.match(/(\d+)\+.*games?/i);
+                if (gameMatch) {
+                  lockedMessage = `🔒 Locked - Need ${gameMatch[1]}+ games`;
+                } else {
+                  lockedMessage = '🔒 Locked - Requirements not met';
+                }
+              } else if (!meetsNoLosses) {
+                lockedMessage = '🔒 Locked - Must win without losing pieces';
+              }
+              
+              const progressDisplay = 
+                lockedMessage ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">${lockedMessage}</div>` :
+                requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
                 isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
                   <div class="achievement-progress-bar">
                     <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
@@ -6717,7 +6783,26 @@ function navigateToPreviousMove() {
           }, 0);
           const requiredPoints = ach.requiredPoints || 0;
           const hasEnoughPoints = totalPoints >= requiredPoints;
-          const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+          
+          // Check if achievement is locked due to game count requirements
+          const meetsRequirements = progress.needsTotal !== false;
+          const meetsNoLosses = progress.needsNoLosses !== false;
+          let lockedMessage = '';
+          if (!meetsRequirements) {
+            const desc = ach.desc || '';
+            const gameMatch = desc.match(/(\d+)\+.*games?/i);
+            if (gameMatch) {
+              lockedMessage = `🔒 Locked - Need ${gameMatch[1]}+ games`;
+            } else {
+              lockedMessage = '🔒 Locked - Requirements not met';
+            }
+          } else if (!meetsNoLosses) {
+            lockedMessage = '🔒 Locked - Must win without losing pieces';
+          }
+          
+          const progressDisplay = 
+            lockedMessage ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">${lockedMessage}</div>` :
+            requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
             isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
               <div class="achievement-progress-bar">
                 <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
@@ -7555,7 +7640,7 @@ function navigateToPreviousMove() {
         },
         pieceTheme: pieceThemes[currentPieceStyle],
       });
-      
+
       // Add click-to-move functionality using mousedown/mouseup to avoid drag interference
       setTimeout(() => {
         let mouseDownSquare = null;
@@ -7630,7 +7715,7 @@ function navigateToPreviousMove() {
           // Only cancel if clicking outside the board/pieces
           if (!isOnBoard && !isOnPiece) {
             console.log('Click detected outside board/pieces, canceling all premoves');
-            clearPremove();
+          clearPremove();
           }
         }
         premoveJustSet = false;
