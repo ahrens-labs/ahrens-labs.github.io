@@ -1141,24 +1141,25 @@
       animation: illegalMoveBlink 0.4s ease-in-out !important;
     }
 
-    /* Premove highlighting */
-    .square-55d63.premove-highlight {
+    /* Premove highlighting - medium red between dark and light for both source and destination */
+    #board .square-55d63.premove-highlight,
+    #board div.premove-highlight {
       background-color: rgba(215, 57, 65, 0.65) !important; /* Medium red between dark and light */
       box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
     
-    div.premove-highlight {
-      background-color: rgba(215, 57, 65, 0.65) !important;
-      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
-    }
-    
     /* Premove source highlighting (same color as destination) */
-    .square-55d63.premove-source {
+    #board .square-55d63.premove-source,
+    #board div.premove-source {
       background-color: rgba(215, 57, 65, 0.65) !important; /* Same medium red */
       box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
     
-    div.premove-source {
+    /* Override all board theme colors for premove squares */
+    #board .premove-highlight.white-1e1d7,
+    #board .premove-source.white-1e1d7,
+    #board .premove-highlight.black-3c85d,
+    #board .premove-source.black-3c85d {
       background-color: rgba(215, 57, 65, 0.65) !important;
       box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
     }
@@ -1190,12 +1191,19 @@
     #rematch-modal {
       display: none;
       position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
       z-index: 10001;
-      animation: rematchPopIn 0.3s ease-out;
+      animation: fadeIn 0.3s ease-out;
+      justify-content: center;
+      align-items: center;
     }
 
     #rematch-modal.show {
-      display: block;
+      display: flex;
     }
 
     .rematch-dialog {
@@ -1280,6 +1288,127 @@
       }
     }
 
+    /* Reset Confirmation Modal */
+    #reset-confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10010;
+      animation: fadeIn 0.3s ease-out;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #reset-confirm-modal.show {
+      display: flex;
+    }
+
+    .reset-confirm-dialog {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      border-radius: 16px;
+      padding: 30px 35px;
+      box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        0 0 60px rgba(231, 76, 60, 0.2);
+      min-width: 350px;
+      max-width: 450px;
+      position: relative;
+      border: 3px solid #e74c3c;
+      text-align: center;
+    }
+
+    .reset-confirm-dialog h3 {
+      margin: 0 0 12px 0;
+      color: #e74c3c;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.4em;
+      font-weight: 700;
+    }
+
+    .reset-confirm-dialog p {
+      margin: 0 0 20px 0;
+      color: #555;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.05em;
+      line-height: 1.5;
+    }
+
+    .reset-confirm-dialog ul {
+      text-align: left;
+      margin: 15px 0 20px 0;
+      padding-left: 25px;
+      color: #666;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95em;
+      line-height: 1.6;
+    }
+
+    .reset-confirm-input {
+      width: 100%;
+      padding: 12px;
+      margin: 15px 0 20px 0;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1em;
+      text-align: center;
+      text-transform: uppercase;
+      box-sizing: border-box;
+    }
+
+    .reset-confirm-input:focus {
+      outline: none;
+      border-color: #e74c3c;
+      box-shadow: 0 0 8px rgba(231, 76, 60, 0.3);
+    }
+
+    .reset-confirm-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .reset-confirm-buttons button {
+      flex: 1;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .reset-confirm-buttons .reset-confirm-yes {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: white;
+      box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+    }
+
+    .reset-confirm-buttons .reset-confirm-yes:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(231, 76, 60, 0.4);
+      background: linear-gradient(135deg, #c0392b, #a93226);
+    }
+
+    .reset-confirm-buttons .reset-confirm-no {
+      background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+      color: #555;
+      box-shadow: 0 4px 12px rgba(189, 195, 199, 0.3);
+    }
+
+    .reset-confirm-buttons .reset-confirm-no:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(189, 195, 199, 0.4);
+      background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+    }
+
     /* All Achievements Modal */
     #all-achievements-modal {
       display: none;
@@ -1300,15 +1429,19 @@
 
     .all-achievements-dialog {
       background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-      margin: 2% auto;
-      max-width: 90%;
-      width: 1200px;
-      max-height: 90vh;
+      margin: 1% auto;
+      width: 98%;
+      max-width: 98%;
+      height: 98vh;
+      max-height: 98vh;
       border-radius: 20px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       padding: 30px;
       position: relative;
       animation: slideDown 0.4s ease-out;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
     }
 
     .achievements-header {
@@ -1318,6 +1451,7 @@
       margin-bottom: 25px;
       padding-bottom: 15px;
       border-bottom: 3px solid #3498db;
+      flex-shrink: 0;
     }
 
     .achievements-header h2 {
@@ -1353,9 +1487,10 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 15px;
-      max-height: calc(90vh - 120px);
       overflow-y: auto;
       padding-right: 10px;
+      flex: 1;
+      min-height: 0;
     }
 
     .achievement-card {
@@ -2324,14 +2459,31 @@
     </div>
   </div>
 
+  <!-- Reset Confirmation Modal -->
+  <div id="reset-confirm-modal">
+    <div class="reset-confirm-dialog">
+      <h3 id="reset-confirm-title">⚠️ Warning</h3>
+      <p id="reset-confirm-message">This will reset ALL achievements and points to zero!</p>
+      <div id="reset-confirm-list-container"></div>
+      <input type="text" id="reset-confirm-input" class="reset-confirm-input" placeholder="Type RESET to confirm" style="display: none;">
+      <div class="reset-confirm-buttons">
+        <button class="reset-confirm-yes" id="reset-confirm-yes-btn">Confirm</button>
+        <button class="reset-confirm-no" id="reset-confirm-no-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- All Achievements Modal -->
   <div id="all-achievements-modal">
     <div class="all-achievements-dialog">
       <div class="achievements-header">
         <h2>🏆 All Achievements</h2>
-        <button class="close-achievements-btn" onclick="closeAllAchievements()">✕</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="reset-achievements-btn" style="background: #e67e22; color: white; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;" onmouseover="this.style.background='#d35400'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#e67e22'; this.style.transform=''">Reset All</button>
+          <button class="close-achievements-btn" onclick="closeAllAchievements()">✕</button>
+        </div>
       </div>
-      <div id="all-achievements-list" class="achievements-grid"></div>
+      <div id="all-achievements-list" style="flex: 1; min-height: 0; width: 100%; overflow-y: auto;"></div>
     </div>
   </div>
 
@@ -2366,12 +2518,14 @@
     let gameStartTime = null;
     let currentPieceStyle = 'wikipedia';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
+    let premoveHighlightInterval = null; // Store interval ID for premove highlighting
     let selectedSquare = null; // Track clicked piece for click-to-move
     let currentEngineStyle = 'balanced'; // Track current engine personality
+    let currentTimeControl = 'none'; // Track current time control for achievements
     let soundEnabled = true; // Sound effects toggle
     let playerStats = { wins: 0, losses: 0, draws: 0 }; // Player statistics
     let achievements = []; // Achievements unlocked
-    let gameStats = { // In-game statistics for achievements
+    let gameStats = { // In-game statistics for achievements (temporary, only committed when game ends)
       capturesByQueen: 0,
       capturesByRook: 0,
       capturesByBishop: 0,
@@ -2383,8 +2537,235 @@
       promotions: 0,
       enPassants: 0,
       longestGame: 0,
-      shortestWin: Infinity
+      shortestWin: Infinity,
+      // Track what pieces were captured (not what captured them)
+      capturedQueens: 0,
+      capturedRooks: 0,
+      capturedBishops: 0,
+      capturedKnights: 0,
+      capturedPawns: 0,
+      // Random achievement tracking
+      movesToE4: 0,
+      movesToD4: 0,
+      movesToE5: 0,
+      movesToD5: 0,
+      knightToF3: 0,
+      knightToC3: 0,
+      knightToF6: 0,
+      knightToC6: 0,
+      movesOnMove1: 0,
+      movesOnMove5: 0,
+      movesOnMove10: 0,
+      movesOnMove20: 0,
+      movesOnMove50: 0,
+      pawnToE4: 0,
+      pawnToD4: 0,
+      queenToD4: 0,
+      queenToE4: 0,
+      bishopToF4: 0,
+      rookToE1: 0,
+      kingToE1: 0,
+      castledOnMove10: 0,
+      castledOnMove20: 0,
+      promotedToQueen: 0,
+      promotedToRook: 0,
+      promotedToBishop: 0,
+      promotedToKnight: 0,
+      checkOnMove5: 0,
+      captureOnMove10: 0,
+      // Additional tracking for varied requirements
+      movesToE4Multiple: 0,
+      movesToD4Multiple: 0,
+      knightToF3Multiple: 0,
+      knightToC3Multiple: 0,
+      queenToD4Multiple: 0,
+      promotedToQueenMultiple: 0,
+      // Random piece-to-square tracking
+      rookToA1: 0, rookToH1: 0, rookToA8: 0, rookToH8: 0,
+      bishopToC1: 0, bishopToF1: 0, bishopToC8: 0, bishopToF8: 0,
+      knightToG1: 0, knightToB1: 0, knightToG8: 0, knightToB8: 0,
+      queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
+      kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
+      pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
+      // Daily stats for this game
+      dailyStats: {
+        movesMadeToday: 0,
+        capturesToday: 0,
+        checksGivenToday: 0,
+        uniqueSquaresVisitedToday: []
+      }
     };
+    
+    function resetGameStats() {
+      gameStats = {
+        capturesByQueen: 0,
+        capturesByRook: 0,
+        capturesByBishop: 0,
+        capturesByKnight: 0,
+        capturesByPawn: 0,
+        totalCaptures: 0,
+        checksGiven: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        enPassants: 0,
+        longestGame: 0,
+        shortestWin: Infinity,
+        capturedQueens: 0,
+        capturedRooks: 0,
+        capturedBishops: 0,
+        capturedKnights: 0,
+        capturedPawns: 0,
+        movesToE4: 0,
+        movesToD4: 0,
+        movesToE5: 0,
+        movesToD5: 0,
+        knightToF3: 0,
+        knightToC3: 0,
+        knightToF6: 0,
+        knightToC6: 0,
+        movesOnMove1: 0,
+        movesOnMove5: 0,
+        movesOnMove10: 0,
+        movesOnMove20: 0,
+        movesOnMove50: 0,
+        pawnToE4: 0,
+        pawnToD4: 0,
+        queenToD4: 0,
+        queenToE4: 0,
+        bishopToF4: 0,
+        rookToE1: 0,
+        kingToE1: 0,
+        castledOnMove10: 0,
+        castledOnMove20: 0,
+        promotedToQueen: 0,
+        promotedToRook: 0,
+        promotedToBishop: 0,
+        promotedToKnight: 0,
+        checkOnMove5: 0,
+        captureOnMove10: 0,
+        movesToE4Multiple: 0,
+        movesToD4Multiple: 0,
+        knightToF3Multiple: 0,
+        knightToC3Multiple: 0,
+        queenToD4Multiple: 0,
+        promotedToQueenMultiple: 0,
+        rookToA1: 0, rookToH1: 0, rookToA8: 0, rookToH8: 0,
+        bishopToC1: 0, bishopToF1: 0, bishopToC8: 0, bishopToF8: 0,
+        knightToG1: 0, knightToB1: 0, knightToG8: 0, knightToB8: 0,
+        queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
+        kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
+        pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
+        dailyStats: {
+          movesMadeToday: 0,
+          capturesToday: 0,
+          checksGivenToday: 0,
+          uniqueSquaresVisitedToday: []
+        }
+      };
+    }
+    
+    function trackWinStats(moveCount, checkmatePiece = null) {
+      // Track wins by time control
+      if (currentTimeControl && lifetimeStats.winsByTimeControl) {
+        if (!lifetimeStats.winsByTimeControl[currentTimeControl]) {
+          lifetimeStats.winsByTimeControl[currentTimeControl] = 0;
+        }
+        lifetimeStats.winsByTimeControl[currentTimeControl]++;
+      }
+      
+      // Track wins by personality
+      if (currentEngineStyle && lifetimeStats.winsByPersonality) {
+        if (!lifetimeStats.winsByPersonality[currentEngineStyle]) {
+          lifetimeStats.winsByPersonality[currentEngineStyle] = 0;
+        }
+        lifetimeStats.winsByPersonality[currentEngineStyle]++;
+      }
+      
+      // Track wins by color
+      if (playerColor === 'white') {
+        lifetimeStats.winsAsWhite = (lifetimeStats.winsAsWhite || 0) + 1;
+      } else {
+        lifetimeStats.winsAsBlack = (lifetimeStats.winsAsBlack || 0) + 1;
+      }
+      
+      // Track creative achievements
+      if (moveCount <= 10) {
+        lifetimeStats.winsInUnder10Moves = (lifetimeStats.winsInUnder10Moves || 0) + 1;
+      }
+      if (moveCount <= 20) {
+        lifetimeStats.winsInUnder20Moves = (lifetimeStats.winsInUnder20Moves || 0) + 1;
+      }
+      if (moveCount >= 100) {
+        lifetimeStats.winsInOver100Moves = (lifetimeStats.winsInOver100Moves || 0) + 1;
+      }
+      
+      // Track checkmate piece
+      if (checkmatePiece) {
+        const pieceType = checkmatePiece.toLowerCase();
+        if (pieceType === 'n') lifetimeStats.checkmateWithKnight = (lifetimeStats.checkmateWithKnight || 0) + 1;
+        else if (pieceType === 'b') lifetimeStats.checkmateWithBishop = (lifetimeStats.checkmateWithBishop || 0) + 1;
+        else if (pieceType === 'r') lifetimeStats.checkmateWithRook = (lifetimeStats.checkmateWithRook || 0) + 1;
+        else if (pieceType === 'q') lifetimeStats.checkmateWithQueen = (lifetimeStats.checkmateWithQueen || 0) + 1;
+        else if (pieceType === 'p') lifetimeStats.checkmateWithPawn = (lifetimeStats.checkmateWithPawn || 0) + 1;
+      }
+      
+      // Track perfect games (no pieces lost)
+      const totalLost = (gameStats.capturedQueens || 0) + (gameStats.capturedRooks || 0) + 
+                       (gameStats.capturedBishops || 0) + (gameStats.capturedKnights || 0) + 
+                       (gameStats.capturedPawns || 0);
+      if (totalLost === 0) {
+        lifetimeStats.perfectGames = (lifetimeStats.perfectGames || 0) + 1;
+      }
+      
+      // Track win streak
+      lifetimeStats.currentWinStreak = (lifetimeStats.currentWinStreak || 0) + 1;
+      if (lifetimeStats.currentWinStreak > (lifetimeStats.longestWinStreak || 0)) {
+        lifetimeStats.longestWinStreak = lifetimeStats.currentWinStreak;
+      }
+      
+      // Track total games
+      lifetimeStats.totalGamesPlayed = (lifetimeStats.totalGamesPlayed || 0) + 1;
+      
+      saveLifetimeStats();
+    }
+    
+    function trackLossStats() {
+      // Reset win streak on loss
+      lifetimeStats.currentWinStreak = 0;
+      saveLifetimeStats();
+    }
+    
+    function commitGameStatsToLifetime() {
+      // Commit all gameStats to lifetimeStats
+      resetDailyStatsIfNeeded();
+      Object.keys(gameStats).forEach(key => {
+        if (key === 'dailyStats') {
+          // Handle daily stats separately
+          lifetimeStats.dailyStats.movesMadeToday += gameStats.dailyStats.movesMadeToday || 0;
+          lifetimeStats.dailyStats.capturesToday += gameStats.dailyStats.capturesToday || 0;
+          lifetimeStats.dailyStats.checksGivenToday += gameStats.dailyStats.checksGivenToday || 0;
+          if (gameStats.dailyStats.uniqueSquaresVisitedToday) {
+            gameStats.dailyStats.uniqueSquaresVisitedToday.forEach(square => {
+              if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(square)) {
+                lifetimeStats.dailyStats.uniqueSquaresVisitedToday.push(square);
+              }
+            });
+          }
+        } else if (typeof gameStats[key] === 'number') {
+          lifetimeStats[key] = (lifetimeStats[key] || 0) + gameStats[key];
+          // Track promotions and castling for daily achievements
+          if (key === 'promotions') {
+            lifetimeStats.dailyStats.promotionsToday = (lifetimeStats.dailyStats.promotionsToday || 0) + gameStats[key];
+          }
+          if (key === 'castlingMoves') {
+            lifetimeStats.dailyStats.castlingToday = (lifetimeStats.dailyStats.castlingToday || 0) + gameStats[key];
+          }
+        }
+      });
+      saveLifetimeStats();
+      // Reset gameStats after committing
+      resetGameStats();
+    }
     let lifetimeStats = { // Lifetime statistics
       capturesByQueen: 0,
       capturesByRook: 0,
@@ -2432,9 +2813,7 @@
       promotedToRook: 0,
       promotedToBishop: 0,
       promotedToKnight: 0,
-      checkOnMove1: 0,
       checkOnMove5: 0,
-      captureOnMove1: 0,
       captureOnMove10: 0,
       // Additional tracking for varied requirements
       movesToE4Multiple: 0,
@@ -2454,13 +2833,45 @@
       dailyStats: {
         lastResetDate: null,
         gamesPlayedToday: 0,
+        gamesWonToday: 0,
         movesMadeToday: 0,
         capturesToday: 0,
         checksGivenToday: 0,
         uniqueSquaresVisitedToday: [],
         longestGameToday: 0,
-        fastestWinToday: Infinity
-      }
+        fastestWinToday: Infinity,
+        promotionsToday: 0,
+        castlingToday: 0,
+        todayDailyIds: []
+      },
+      // Wins by time control
+      winsByTimeControl: {
+        none: 0,
+        '60': 0,
+        '180|2': 0,
+        '300|0': 0,
+        '600|0': 0,
+        '900|5': 0,
+        '3600|0': 0
+      },
+      // Wins by engine personality
+      winsByPersonality: {
+        balanced: 0,
+        aggressive: 0,
+        defensive: 0,
+        positional: 0,
+        material: 0,
+        tactical: 0,
+        custom: 0
+      },
+      // Creative achievement tracking
+      winsInUnder10Moves: 0,
+      winsInUnder20Moves: 0,
+      winsInOver100Moves: 0,
+      perfectGames: 0, // Games won without losing any pieces
+      comebackWins: 0, // Games won after being down material
+      longestWinStreak: 0,
+      currentWinStreak: 0
     };
 
     // Engine personality presets
@@ -3290,8 +3701,9 @@
       if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
         lifetimeStats.dailyStats.longestGameToday = moveCount;
       }
-      saveLifetimeStats();
-      checkAchievements();
+      trackLossStats();
+      commitGameStatsToLifetime();
+      checkAndUnlockAchievements();
                 
                 // Show rematch modal
                 setTimeout(() => showRematchModal("⏰ Time Out", "You ran out of time! Play again?"), 1500);
@@ -3490,6 +3902,7 @@ function navigateToPreviousMove() {
       if (!selectedSquare) {
         $("#board .square-55d63").removeClass("highlight-legal");
       }
+      // Don't remove premove highlights here - they're managed separately
     }
 
     function isPremoveLegal(from, to, piece) {
@@ -3548,12 +3961,19 @@ function navigateToPreviousMove() {
     }
 
     function clearPremove() {
+      // Clear highlighting interval
+      if (premoveHighlightInterval) {
+        clearInterval(premoveHighlightInterval);
+        premoveHighlightInterval = null;
+      }
+      
       if (premoves.length > 0 && board) {
         // Restore board position when clearing premoves since we actually moved pieces
         board.position(game.fen());
       }
       premoves = [];
       selectedSquare = null;
+      // Clear premove highlights
       $("#board .square-55d63").removeClass("premove-highlight premove-source");
     }
     
@@ -3561,8 +3981,16 @@ function navigateToPreviousMove() {
     function updatePremoveVisual() {
       if (!board || !game) return;
       
+      // Clear any existing interval
+      if (premoveHighlightInterval) {
+        clearInterval(premoveHighlightInterval);
+        premoveHighlightInterval = null;
+      }
+      
       if (premoves.length === 0) {
+        // Reset board to actual game position
         board.position(game.fen());
+        // Clear all premove highlights
         $("#board .square-55d63").removeClass("premove-highlight premove-source");
         return;
       }
@@ -3608,14 +4036,40 @@ function navigateToPreviousMove() {
           // Update board to show all premoves
           board.position(newPos);
           
-          // Clear all highlights first, then add red highlights for all premoves
-          requestAnimationFrame(() => {
+          // Function to apply highlights - will be called repeatedly
+          const applyHighlights = () => {
+            // Clear all highlights first
             $("#board .square-55d63").removeClass("premove-highlight premove-source");
             
+            // Apply highlights to all premove squares
             for (const sq of highlightSquares) {
-              $(`#board .square-${sq.from}`).addClass("premove-source");
-              $(`#board .square-${sq.to}`).addClass("premove-highlight");
+              const fromSquare = $(`#board .square-${sq.from}`);
+              const toSquare = $(`#board .square-${sq.to}`);
+              
+              if (fromSquare.length > 0) {
+                fromSquare.addClass("premove-source");
+              }
+              if (toSquare.length > 0) {
+                toSquare.addClass("premove-highlight");
+              }
             }
+          };
+          
+          // Clear all highlights first, then add red highlights for all premoves
+          requestAnimationFrame(() => {
+            applyHighlights();
+            
+            // Set up interval to continuously reapply highlights (they may be cleared by board updates)
+            premoveHighlightInterval = setInterval(() => {
+              if (premoves.length === 0) {
+                clearInterval(premoveHighlightInterval);
+                premoveHighlightInterval = null;
+                board.position(game.fen());
+                $("#board .square-55d63").removeClass("premove-highlight premove-source");
+                return;
+              }
+              applyHighlights();
+            }, 100);
           });
         });
       });
@@ -3955,33 +4409,25 @@ function navigateToPreviousMove() {
         const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
         if (isPlayerMove) {
           gameStats.totalCaptures++;
-          lifetimeStats.totalCaptures++;
           
           const pieceType = move.captured.toLowerCase();
           if (pieceType === 'q') {
             gameStats.capturesByQueen++;
-            lifetimeStats.capturesByQueen++;
             // Also track that we captured a queen
-            lifetimeStats.capturedQueens++;
+            gameStats.capturedQueens++;
           } else if (pieceType === 'r') {
             gameStats.capturesByRook++;
-            lifetimeStats.capturesByRook++;
-            lifetimeStats.capturedRooks++;
+            gameStats.capturedRooks++;
           } else if (pieceType === 'b') {
             gameStats.capturesByBishop++;
-            lifetimeStats.capturesByBishop++;
-            lifetimeStats.capturedBishops++;
+            gameStats.capturedBishops++;
           } else if (pieceType === 'n') {
             gameStats.capturesByKnight++;
-            lifetimeStats.capturesByKnight++;
-            lifetimeStats.capturedKnights++;
+            gameStats.capturedKnights++;
           } else if (pieceType === 'p') {
             gameStats.capturesByPawn++;
-            lifetimeStats.capturesByPawn++;
-            lifetimeStats.capturedPawns++;
+            gameStats.capturedPawns++;
           }
-          
-          saveLifetimeStats();
         }
       }
       
@@ -3990,21 +4436,16 @@ function navigateToPreviousMove() {
       if (isPlayerMove) {
         if (move.flags && move.flags.includes('k')) {
           gameStats.castlingMoves++;
-          lifetimeStats.castlingMoves++;
         }
         if (move.promotion) {
           gameStats.promotions++;
-          lifetimeStats.promotions++;
         }
         if (move.flags && move.flags.includes('e')) {
           gameStats.enPassants++;
-          lifetimeStats.enPassants++;
         }
         if (move.san && move.san.includes('+')) {
           gameStats.checksGiven++;
-          lifetimeStats.checksGiven++;
         }
-        saveLifetimeStats();
       }
     }
 
@@ -4020,116 +4461,121 @@ function navigateToPreviousMove() {
       
       const pieceType = move.piece.toLowerCase();
       
-      // Track moves to specific squares
+      // Track moves to specific squares (in gameStats, not lifetimeStats)
       if (target === 'e4') {
-        lifetimeStats.movesToE4++;
-        lifetimeStats.movesToE4Multiple++;
-        if (pieceType === 'p') lifetimeStats.pawnToE4++;
+        gameStats.movesToE4++;
+        gameStats.movesToE4Multiple++;
+        if (pieceType === 'p') gameStats.pawnToE4++;
       }
       if (target === 'd4') {
-        lifetimeStats.movesToD4++;
-        lifetimeStats.movesToD4Multiple++;
-        if (pieceType === 'p') lifetimeStats.pawnToD4++;
+        gameStats.movesToD4++;
+        gameStats.movesToD4Multiple++;
+        if (pieceType === 'p') gameStats.pawnToD4++;
       }
-      if (target === 'e5') lifetimeStats.movesToE5++;
-      if (target === 'd5') lifetimeStats.movesToD5++;
+      if (target === 'e5') gameStats.movesToE5++;
+      if (target === 'd5') gameStats.movesToD5++;
       
       // Track knight moves to specific squares
       if (pieceType === 'n') {
         if (target === 'f3') {
-          lifetimeStats.knightToF3++;
-          lifetimeStats.knightToF3Multiple++;
+          gameStats.knightToF3++;
+          gameStats.knightToF3Multiple++;
         }
         if (target === 'c3') {
-          lifetimeStats.knightToC3++;
-          lifetimeStats.knightToC3Multiple++;
+          gameStats.knightToC3++;
+          gameStats.knightToC3Multiple++;
         }
-        if (target === 'f6') lifetimeStats.knightToF6++;
-        if (target === 'c6') lifetimeStats.knightToC6++;
+        if (target === 'f6') gameStats.knightToF6++;
+        if (target === 'c6') gameStats.knightToC6++;
       }
       
       // Track moves on specific player move numbers (e.g., "on your 5th move")
-      if (playerMoveNumber === 1) lifetimeStats.movesOnMove1++;
-      if (playerMoveNumber === 5) lifetimeStats.movesOnMove5++;
-      if (playerMoveNumber === 10) lifetimeStats.movesOnMove10++;
-      if (playerMoveNumber === 20) lifetimeStats.movesOnMove20++;
-      if (playerMoveNumber === 50) lifetimeStats.movesOnMove50++;
+      if (playerMoveNumber === 1) gameStats.movesOnMove1++;
+      if (playerMoveNumber === 5) gameStats.movesOnMove5++;
+      if (playerMoveNumber === 10) gameStats.movesOnMove10++;
+      if (playerMoveNumber === 20) gameStats.movesOnMove20++;
+      if (playerMoveNumber === 50) gameStats.movesOnMove50++;
       
       // Track specific piece moves to specific squares
       if (pieceType === 'q') {
         if (target === 'd4') {
-          lifetimeStats.queenToD4++;
-          lifetimeStats.queenToD4Multiple++;
+          gameStats.queenToD4++;
+          gameStats.queenToD4Multiple++;
         }
-        if (target === 'e4') lifetimeStats.queenToE4++;
+        if (target === 'e4') gameStats.queenToE4++;
       }
-      if (pieceType === 'b' && target === 'f4') lifetimeStats.bishopToF4++;
-      if (pieceType === 'b' && target === 'c1') lifetimeStats.bishopToC1++;
-      if (pieceType === 'b' && target === 'f1') lifetimeStats.bishopToF1++;
-      if (pieceType === 'b' && target === 'c8') lifetimeStats.bishopToC8++;
-      if (pieceType === 'b' && target === 'f8') lifetimeStats.bishopToF8++;
-      if (pieceType === 'r' && target === 'e1') lifetimeStats.rookToE1++;
-      if (pieceType === 'r' && target === 'a1') lifetimeStats.rookToA1++;
-      if (pieceType === 'r' && target === 'h1') lifetimeStats.rookToH1++;
-      if (pieceType === 'r' && target === 'a8') lifetimeStats.rookToA8++;
-      if (pieceType === 'r' && target === 'h8') lifetimeStats.rookToH8++;
-      if (pieceType === 'k' && target === 'e1') lifetimeStats.kingToE1++;
-      if (pieceType === 'k' && target === 'g1') lifetimeStats.kingToG1++;
-      if (pieceType === 'k' && target === 'c1') lifetimeStats.kingToC1++;
-      if (pieceType === 'k' && target === 'g8') lifetimeStats.kingToG8++;
-      if (pieceType === 'k' && target === 'c8') lifetimeStats.kingToC8++;
-      if (pieceType === 'n' && target === 'g1') lifetimeStats.knightToG1++;
-      if (pieceType === 'n' && target === 'b1') lifetimeStats.knightToB1++;
-      if (pieceType === 'n' && target === 'g8') lifetimeStats.knightToG8++;
-      if (pieceType === 'n' && target === 'b8') lifetimeStats.knightToB8++;
-      if (pieceType === 'q' && target === 'a1') lifetimeStats.queenToA1++;
-      if (pieceType === 'q' && target === 'h1') lifetimeStats.queenToH1++;
-      if (pieceType === 'q' && target === 'a8') lifetimeStats.queenToA8++;
-      if (pieceType === 'q' && target === 'h8') lifetimeStats.queenToH8++;
-      if (pieceType === 'p' && target === 'a2') lifetimeStats.pawnToA2++;
-      if (pieceType === 'p' && target === 'h2') lifetimeStats.pawnToH2++;
-      if (pieceType === 'p' && target === 'a7') lifetimeStats.pawnToA7++;
-      if (pieceType === 'p' && target === 'h7') lifetimeStats.pawnToH7++;
+      if (pieceType === 'b' && target === 'f4') gameStats.bishopToF4++;
+      if (pieceType === 'b' && target === 'c1') gameStats.bishopToC1++;
+      if (pieceType === 'b' && target === 'f1') gameStats.bishopToF1++;
+      if (pieceType === 'b' && target === 'c8') gameStats.bishopToC8++;
+      if (pieceType === 'b' && target === 'f8') gameStats.bishopToF8++;
+      if (pieceType === 'r' && target === 'e1') gameStats.rookToE1++;
+      if (pieceType === 'r' && target === 'a1') gameStats.rookToA1++;
+      if (pieceType === 'r' && target === 'h1') gameStats.rookToH1++;
+      if (pieceType === 'r' && target === 'a8') gameStats.rookToA8++;
+      if (pieceType === 'r' && target === 'h8') gameStats.rookToH8++;
+      if (pieceType === 'k' && target === 'e1') gameStats.kingToE1++;
+      if (pieceType === 'k' && target === 'g1') gameStats.kingToG1++;
+      if (pieceType === 'k' && target === 'c1') gameStats.kingToC1++;
+      if (pieceType === 'k' && target === 'g8') gameStats.kingToG8++;
+      if (pieceType === 'k' && target === 'c8') gameStats.kingToC8++;
+      if (pieceType === 'n' && target === 'g1') gameStats.knightToG1++;
+      if (pieceType === 'n' && target === 'b1') gameStats.knightToB1++;
+      if (pieceType === 'n' && target === 'g8') gameStats.knightToG8++;
+      if (pieceType === 'n' && target === 'b8') gameStats.knightToB8++;
+      if (pieceType === 'q' && target === 'a1') gameStats.queenToA1++;
+      if (pieceType === 'q' && target === 'h1') gameStats.queenToH1++;
+      if (pieceType === 'q' && target === 'a8') gameStats.queenToA8++;
+      if (pieceType === 'q' && target === 'h8') gameStats.queenToH8++;
+      if (pieceType === 'p' && target === 'a2') gameStats.pawnToA2++;
+      if (pieceType === 'p' && target === 'h2') gameStats.pawnToH2++;
+      if (pieceType === 'p' && target === 'a7') gameStats.pawnToA7++;
+      if (pieceType === 'p' && target === 'h7') gameStats.pawnToH7++;
       
-      // Track daily stats
-      resetDailyStatsIfNeeded();
-      lifetimeStats.dailyStats.movesMadeToday++;
-      if (move.captured) lifetimeStats.dailyStats.capturesToday++;
-      if (move.san && move.san.includes('+')) lifetimeStats.dailyStats.checksGivenToday++;
-      if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(target)) {
-        lifetimeStats.dailyStats.uniqueSquaresVisitedToday.push(target);
+      // Track daily stats (temporary for this game)
+      gameStats.dailyStats.movesMadeToday++;
+      if (move.captured) gameStats.dailyStats.capturesToday++;
+      if (move.san && move.san.includes('+')) gameStats.dailyStats.checksGivenToday++;
+      if (!gameStats.dailyStats.uniqueSquaresVisitedToday.includes(target)) {
+        gameStats.dailyStats.uniqueSquaresVisitedToday.push(target);
       }
       
       // Track promotions
       if (move.promotion) {
         if (move.promotion === 'q') {
-          lifetimeStats.promotedToQueen++;
-          lifetimeStats.promotedToQueenMultiple++;
+          gameStats.promotedToQueen++;
+          gameStats.promotedToQueenMultiple++;
         }
-        if (move.promotion === 'r') lifetimeStats.promotedToRook++;
-        if (move.promotion === 'b') lifetimeStats.promotedToBishop++;
-        if (move.promotion === 'n') lifetimeStats.promotedToKnight++;
+        if (move.promotion === 'r') {
+          gameStats.promotedToRook++;
+          lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+        }
+        if (move.promotion === 'b') {
+          gameStats.promotedToBishop++;
+          lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+        }
+        if (move.promotion === 'n') {
+          gameStats.promotedToKnight++;
+          lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+        }
       }
       
       // Track castling on specific player move numbers
       if (move.flags && move.flags.includes('k')) {
-        if (playerMoveNumber === 10) lifetimeStats.castledOnMove10++;
-        if (playerMoveNumber === 20) lifetimeStats.castledOnMove20++;
+        if (playerMoveNumber === 10) gameStats.castledOnMove10++;
+        if (playerMoveNumber === 20) gameStats.castledOnMove20++;
+        gameStats.dailyStats.castlingToday++; // Track daily castling
       }
       
-      // Track checks on specific player move numbers
+      // Track checks on specific player move numbers (skip move 1 as it's impossible)
       if (move.san && move.san.includes('+')) {
-        if (playerMoveNumber === 1) lifetimeStats.checkOnMove1++;
-        if (playerMoveNumber === 5) lifetimeStats.checkOnMove5++;
+        if (playerMoveNumber === 5) gameStats.checkOnMove5++;
       }
       
-      // Track captures on specific player move numbers
+      // Track captures on specific player move numbers (skip move 1 as it's impossible for white)
       if (move.captured) {
-        if (playerMoveNumber === 1) lifetimeStats.captureOnMove1++;
-        if (playerMoveNumber === 10) lifetimeStats.captureOnMove10++;
+        if (playerMoveNumber === 10) gameStats.captureOnMove10++;
       }
-      
-      saveLifetimeStats();
     }
 
     function celebrateCheckmate(playerWon) {
@@ -4452,8 +4898,9 @@ function navigateToPreviousMove() {
       if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
         lifetimeStats.dailyStats.longestGameToday = moveCount;
       }
-      saveLifetimeStats();
-      checkAchievements();
+      trackLossStats();
+      commitGameStatsToLifetime();
+      checkAndUnlockAchievements();
       
       // Send resignation to engine
       sendEngineCommand("resign").catch(err => console.error("Error sending resignation:", err));
@@ -4467,23 +4914,21 @@ function navigateToPreviousMove() {
       const titleEl = document.getElementById('rematch-title');
       const messageEl = document.getElementById('rematch-message');
       
+      if (!modal || !titleEl || !messageEl) {
+        console.error('Rematch modal elements not found');
+        return;
+      }
+      
       titleEl.textContent = title;
       messageEl.textContent = message;
       
-      // Position modal over the board
-      const board = document.getElementById('board');
-      const boardRect = board.getBoundingClientRect();
+      // Reset any positioning styles
+      modal.style.left = '';
+      modal.style.top = '';
+      modal.style.position = 'fixed';
       
+      // Show the modal - it will be centered by flexbox
       modal.classList.add('show');
-      
-      // Use requestAnimationFrame to ensure modal is rendered before positioning
-      requestAnimationFrame(() => {
-        const modalRect = modal.getBoundingClientRect();
-        // Center over the board
-        modal.style.left = (boardRect.left + boardRect.width / 2 - modalRect.width / 2) + 'px';
-        modal.style.top = (boardRect.top + boardRect.height / 2 - modalRect.height / 2) + 'px';
-        modal.style.position = 'fixed';
-      });
     }
 
     function closeRematchModal() {
@@ -4506,22 +4951,7 @@ function navigateToPreviousMove() {
       lastMoveSquares = { from: null, to: null };
       premoves = [];
       selectedSquare = null;
-      
-      // Reset game stats for new game
-      gameStats = {
-        capturesByQueen: 0,
-        capturesByRook: 0,
-        capturesByBishop: 0,
-        capturesByKnight: 0,
-        capturesByPawn: 0,
-        totalCaptures: 0,
-        checksGiven: 0,
-        castlingMoves: 0,
-        promotions: 0,
-        enPassants: 0,
-        longestGame: 0,
-        shortestWin: Infinity
-      };
+      resetGameStats();
       
       // Reset UI
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
@@ -5012,17 +5442,9 @@ function navigateToPreviousMove() {
         newAchievements.push({ id: 'promote_to_knight', name: '🐴 Knight Promotion', desc: 'Promoted to knight', points: 100 });
         achievements.push('promote_to_knight');
       }
-      if (lifetimeStats.checkOnMove1 >= 1 && !achievements.includes('check_on_1')) {
-        newAchievements.push({ id: 'check_on_1', name: '✓ Check on 1', desc: 'Gave check on your 1st move', points: 150 });
-        achievements.push('check_on_1');
-      }
       if (lifetimeStats.checkOnMove5 >= 1 && !achievements.includes('check_on_5')) {
         newAchievements.push({ id: 'check_on_5', name: '✓ Check on 5', desc: 'Gave check on your 5th move', points: 75 });
         achievements.push('check_on_5');
-      }
-      if (lifetimeStats.captureOnMove1 >= 1 && !achievements.includes('capture_on_1')) {
-        newAchievements.push({ id: 'capture_on_1', name: '⚔️ Capture on 1', desc: 'Captured on your 1st move', points: 100 });
-        achievements.push('capture_on_1');
       }
       if (lifetimeStats.captureOnMove10 >= 1 && !achievements.includes('capture_on_10')) {
         newAchievements.push({ id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Captured on your 10th move', points: 50 });
@@ -5079,27 +5501,58 @@ function navigateToPreviousMove() {
         achievements.push('pawn_to_h2');
       }
       
-      // Daily achievements
+      // Check ALL achievements dynamically using their progress functions
+      // Skip daily achievements - they're checked separately to ensure only today's ones can be completed
       resetDailyStatsIfNeeded();
-      const uniqueCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? lifetimeStats.dailyStats.uniqueSquaresVisitedToday.length : 0;
-      if (uniqueCount >= 20 && !achievements.includes('daily_explorer')) {
-        newAchievements.push({ id: 'daily_explorer', name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', points: 100 });
-        achievements.push('daily_explorer');
-      }
-      if (lifetimeStats.dailyStats.capturesToday >= 5 && !achievements.includes('daily_warrior')) {
-        newAchievements.push({ id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', points: 150 });
-        achievements.push('daily_warrior');
-      }
-      if (lifetimeStats.dailyStats.fastestWinToday <= 15 && lifetimeStats.dailyStats.fastestWinToday > 0 && lifetimeStats.dailyStats.fastestWinToday !== Infinity && !achievements.includes('daily_lightning')) {
-        newAchievements.push({ id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', points: 200 });
-        achievements.push('daily_lightning');
-      }
+      const todayDailyIds = getTodayDailyAchievements();
+      
+      allAchievements.forEach(ach => {
+        // Skip if already unlocked
+        if (achievements.includes(ach.id)) return;
+        
+        // Skip daily achievements that aren't in today's selection
+        if (ach.isDaily && !todayDailyIds.includes(ach.id)) {
+          return;
+        }
+        
+        // Check point requirements for locked achievements
+        if (ach.requiredPoints && totalPoints < ach.requiredPoints) {
+          return; // Not enough points yet
+        }
+        
+        // Check if achievement has a progress function
+        if (!ach.progress) return;
+        
+        try {
+          const progress = ach.progress();
+          // Only unlock if progress reaches target (will be called after game completion)
+          if (progress.current >= progress.target && progress.target > 0) {
+            newAchievements.push({ 
+              id: ach.id, 
+              name: ach.name, 
+              desc: ach.desc, 
+              points: ach.points || 0 
+            });
+            achievements.push(ach.id);
+          }
+        } catch (e) {
+          console.error('Error checking achievement', ach.id, e);
+        }
+      });
+      
+      return newAchievements; // Return new achievements instead of showing immediately
+    }
+    
+    function checkAndUnlockAchievements() {
+      // This function is called after game completion to check and unlock achievements
+      const newAchievements = checkAchievements();
       
       if (newAchievements.length > 0) {
         saveAchievements();
         updateAchievementsDisplay();
         updateTotalPoints();
-        showAchievementNotification(newAchievements);
+        // Show notifications one at a time with delays
+        showAchievementNotificationsSequentially(newAchievements);
       }
     }
 
@@ -5308,25 +5761,43 @@ function navigateToPreviousMove() {
           return { current: (lifetimeStats.movesToE4Multiple || 0), target: 10 };
         }},
         { id: 'move_to_d4', name: '🎯 D4 Devotee', desc: 'Moved to d4', category: 'Random', points: 25, groupKey: 'moves_to_d4', progress: () => {
-          return { current: (lifetimeStats.movesToD4 || 0), target: 1 };
+          return { current: ((lifetimeStats.movesToD4 || 0) + ((gameStats && gameStats.movesToD4) || 0)), target: 1 };
         }},
         { id: 'move_to_d4_5', name: '🎯 D4 Lover', desc: 'Moved to d4 five times', category: 'Random', points: 75, groupKey: 'moves_to_d4', progress: () => {
-          return { current: (lifetimeStats.movesToD4Multiple || 0), target: 5 };
+          return { current: ((lifetimeStats.movesToD4Multiple || 0) + ((gameStats && gameStats.movesToD4Multiple) || 0)), target: 5 };
         }},
         { id: 'move_to_d4_10', name: '🎯 D4 Master', desc: 'Moved to d4 ten times', category: 'Random', points: 150, groupKey: 'moves_to_d4', progress: () => {
-          return { current: (lifetimeStats.movesToD4Multiple || 0), target: 10 };
+          return { current: ((lifetimeStats.movesToD4Multiple || 0) + ((gameStats && gameStats.movesToD4Multiple) || 0)), target: 10 };
+        }},
+        { id: 'move_to_d4_25', name: '🎯 D4 Expert', desc: 'Moved to d4 twenty-five times', category: 'Random', points: 300, groupKey: 'moves_to_d4', progress: () => {
+          return { current: ((lifetimeStats.movesToD4Multiple || 0) + ((gameStats && gameStats.movesToD4Multiple) || 0)), target: 25 };
+        }},
+        { id: 'move_to_d4_50', name: '🎯 D4 Legend', desc: 'Moved to d4 fifty times', category: 'Random', points: 500, groupKey: 'moves_to_d4', progress: () => {
+          return { current: ((lifetimeStats.movesToD4Multiple || 0) + ((gameStats && gameStats.movesToD4Multiple) || 0)), target: 50 };
         }},
         { id: 'pawn_to_e4', name: '♟️ E4 Pawn', desc: 'Moved a pawn to e4', category: 'Random', points: 30, groupKey: 'pawn_to_e4', progress: () => {
-          return { current: (lifetimeStats.pawnToE4 || 0), target: 1 };
+          return { current: ((lifetimeStats.pawnToE4 || 0) + ((gameStats && gameStats.pawnToE4) || 0)), target: 1 };
         }},
         { id: 'pawn_to_e4_3', name: '♟️ E4 Pawn Master', desc: 'Moved a pawn to e4 three times', category: 'Random', points: 100, groupKey: 'pawn_to_e4', progress: () => {
-          return { current: (lifetimeStats.pawnToE4 || 0), target: 3 };
+          return { current: ((lifetimeStats.pawnToE4 || 0) + ((gameStats && gameStats.pawnToE4) || 0)), target: 3 };
+        }},
+        { id: 'pawn_to_e4_10', name: '♟️ E4 Pawn Expert', desc: 'Moved a pawn to e4 ten times', category: 'Random', points: 250, groupKey: 'pawn_to_e4', progress: () => {
+          return { current: ((lifetimeStats.pawnToE4 || 0) + ((gameStats && gameStats.pawnToE4) || 0)), target: 10 };
+        }},
+        { id: 'pawn_to_e4_25', name: '♟️ E4 Pawn Legend', desc: 'Moved a pawn to e4 twenty-five times', category: 'Random', points: 500, groupKey: 'pawn_to_e4', progress: () => {
+          return { current: ((lifetimeStats.pawnToE4 || 0) + ((gameStats && gameStats.pawnToE4) || 0)), target: 25 };
         }},
         { id: 'pawn_to_d4', name: '♟️ D4 Pawn', desc: 'Moved a pawn to d4', category: 'Random', points: 30, groupKey: 'pawn_to_d4', progress: () => {
-          return { current: (lifetimeStats.pawnToD4 || 0), target: 1 };
+          return { current: ((lifetimeStats.pawnToD4 || 0) + ((gameStats && gameStats.pawnToD4) || 0)), target: 1 };
         }},
         { id: 'pawn_to_d4_3', name: '♟️ D4 Pawn Master', desc: 'Moved a pawn to d4 three times', category: 'Random', points: 100, groupKey: 'pawn_to_d4', progress: () => {
-          return { current: (lifetimeStats.pawnToD4 || 0), target: 3 };
+          return { current: ((lifetimeStats.pawnToD4 || 0) + ((gameStats && gameStats.pawnToD4) || 0)), target: 3 };
+        }},
+        { id: 'pawn_to_d4_10', name: '♟️ D4 Pawn Expert', desc: 'Moved a pawn to d4 ten times', category: 'Random', points: 250, groupKey: 'pawn_to_d4', progress: () => {
+          return { current: ((lifetimeStats.pawnToD4 || 0) + ((gameStats && gameStats.pawnToD4) || 0)), target: 10 };
+        }},
+        { id: 'pawn_to_d4_25', name: '♟️ D4 Pawn Legend', desc: 'Moved a pawn to d4 twenty-five times', category: 'Random', points: 500, groupKey: 'pawn_to_d4', progress: () => {
+          return { current: ((lifetimeStats.pawnToD4 || 0) + ((gameStats && gameStats.pawnToD4) || 0)), target: 25 };
         }},
         { id: 'knight_to_f3', name: '🐴 F3 Knight', desc: 'Moved a knight to f3', category: 'Random', points: 20, groupKey: 'knight_to_f3', progress: () => {
           return { current: (lifetimeStats.knightToF3 || 0), target: 1 };
@@ -5406,17 +5877,11 @@ function navigateToPreviousMove() {
         { id: 'promote_to_knight', name: '🐴 Knight Promotion', desc: 'Promoted to knight', category: 'Random', points: 100, groupKey: 'promote_to_knight', progress: () => {
           return { current: (lifetimeStats.promotedToKnight || 0), target: 1 };
         }},
-        { id: 'check_on_1', name: '✓ Check on 1', desc: 'Gave check on your 1st move', category: 'Random', points: 150, groupKey: 'check_on_1', progress: () => {
-          return { current: (lifetimeStats.checkOnMove1 || 0), target: 1 };
-        }},
         { id: 'check_on_5', name: '✓ Check on 5', desc: 'Gave check on your 5th move', category: 'Random', points: 75, groupKey: 'check_on_5', progress: () => {
-          return { current: (lifetimeStats.checkOnMove5 || 0), target: 1 };
-        }},
-        { id: 'capture_on_1', name: '⚔️ Capture on 1', desc: 'Captured on your 1st move', category: 'Random', points: 100, groupKey: 'capture_on_1', progress: () => {
-          return { current: (lifetimeStats.captureOnMove1 || 0), target: 1 };
+          return { current: ((lifetimeStats.checkOnMove5 || 0) + ((gameStats && gameStats.checkOnMove5) || 0)), target: 1 };
         }},
         { id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Captured on your 10th move', category: 'Random', points: 50, groupKey: 'capture_on_10', progress: () => {
-          return { current: (lifetimeStats.captureOnMove10 || 0), target: 1 };
+          return { current: ((lifetimeStats.captureOnMove10 || 0) + ((gameStats && gameStats.captureOnMove10) || 0)), target: 1 };
         }},
         
         // More random piece-to-square achievements
@@ -5459,19 +5924,386 @@ function navigateToPreviousMove() {
         
         // Daily Achievements
         { id: 'daily_explorer', name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', category: 'Daily', points: 100, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 20 };
           resetDailyStatsIfNeeded();
-          const uniqueCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? 
+          const lifetimeCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? 
             (Array.isArray(lifetimeStats.dailyStats.uniqueSquaresVisitedToday) ? lifetimeStats.dailyStats.uniqueSquaresVisitedToday.length : 0) : 0;
-          return { current: uniqueCount, target: 20 };
+          const gameCount = gameStats && gameStats.dailyStats && gameStats.dailyStats.uniqueSquaresVisitedToday ? gameStats.dailyStats.uniqueSquaresVisitedToday.length : 0;
+          // Combine unique squares from both (avoid duplicates)
+          const combined = new Set([...(lifetimeStats.dailyStats.uniqueSquaresVisitedToday || []), ...((gameStats && gameStats.dailyStats && gameStats.dailyStats.uniqueSquaresVisitedToday) || [])]);
+          return { current: combined.size, target: 20 };
         }},
         { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', category: 'Daily', points: 150, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 5 };
           resetDailyStatsIfNeeded();
-          return { current: (lifetimeStats.dailyStats.capturesToday || 0), target: 5 };
+          return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 5 };
         }},
         { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', category: 'Daily', points: 200, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
+          // Check if we've won a game today in under 15 moves
           const fastestWin = lifetimeStats.dailyStats.fastestWinToday === Infinity ? 0 : lifetimeStats.dailyStats.fastestWinToday;
-          return { current: fastestWin > 0 && fastestWin <= 15 ? 1 : 0, target: 1 };
+          // Also check current game if it's a win and game is over (with safety checks)
+          let currentGameWin = 0;
+          try {
+            if (typeof gameOver !== 'undefined' && gameOver && typeof game !== 'undefined' && game && typeof game.in_checkmate === 'function' && game.in_checkmate() && game.turn() !== (playerColor === 'white' ? 'w' : 'b')) {
+              const currentMoveCount = game.history().length;
+              if (currentMoveCount > 0 && currentMoveCount <= 15) {
+                currentGameWin = 1;
+              }
+            }
+          } catch (e) {
+            // If there's an error accessing game, just use lifetimeStats
+          }
+          return { current: (fastestWin > 0 && fastestWin <= 15) || currentGameWin ? 1 : 0, target: 1 };
+        }},
+        { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day', category: 'Daily', points: 180, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 10 };
+          resetDailyStatsIfNeeded();
+          return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 10 };
+        }},
+        { id: 'daily_checker', name: '✓ Daily Checker', desc: 'Give 8 checks in one day', category: 'Daily', points: 120, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 8 };
+          resetDailyStatsIfNeeded();
+          return { current: ((lifetimeStats.dailyStats.checksGivenToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.checksGivenToday) || 0)), target: 8 };
+        }},
+        { id: 'daily_longgame', name: '⏱️ Daily Marathon', desc: 'Play a game with 80+ moves today', category: 'Daily', points: 150, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          return { current: (lifetimeStats.dailyStats.longestGameToday >= 80 ? 1 : 0), target: 1 };
+        }},
+        { id: 'daily_promoter', name: '👑 Daily Promoter', desc: 'Promote 3 pawns in one day', category: 'Daily', points: 160, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          return { current: ((lifetimeStats.dailyStats.promotionsToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.promotionsToday) || 0)), target: 3 };
+        }},
+        { id: 'daily_castler', name: '🏰 Daily Castler', desc: 'Castle 2 times in one day', category: 'Daily', points: 110, isDaily: true, progress: () => {
+          if (!lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          return { current: ((lifetimeStats.dailyStats.castlingToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.castlingToday) || 0)), target: 2 };
+        }},
+        { id: 'daily_comeback', name: '💪 Daily Comeback', desc: 'Win 3 games in one day', category: 'Daily', points: 250, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          return { current: (lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
+        }},
+        
+        // Time Control Achievements
+        { id: 'win_no_time', name: '⏰ Untimed Victory', desc: 'Win 5 games with no time control', category: 'Creative', points: 100, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl.none) || 0, target: 5 };
+        }},
+        { id: 'win_1min', name: '⚡ Lightning Victory', desc: 'Win 3 games with 1 minute time control', category: 'Creative', points: 150, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['60']) || 0, target: 3 };
+        }},
+        { id: 'win_3min', name: '🚀 Rapid Victory', desc: 'Win 5 games with 3|2 time control', category: 'Creative', points: 120, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['180|2']) || 0, target: 5 };
+        }},
+        { id: 'win_5min', name: '⏱️ Five Minute Master', desc: 'Win 10 games with 5 minute time control', category: 'Creative', points: 200, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['300|0']) || 0, target: 10 };
+        }},
+        { id: 'win_10min', name: '🎯 Ten Minute Expert', desc: 'Win 10 games with 10 minute time control', category: 'Creative', points: 180, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['600|0']) || 0, target: 10 };
+        }},
+        { id: 'win_15min', name: '🏆 Classic Player', desc: 'Win 8 games with 15|5 time control', category: 'Creative', points: 160, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['900|5']) || 0, target: 8 };
+        }},
+        { id: 'win_60min', name: '♟️ Long Game Champion', desc: 'Win 5 games with 60 minute time control', category: 'Creative', points: 300, groupKey: 'time_control_wins', progress: () => {
+          return { current: (lifetimeStats.winsByTimeControl && lifetimeStats.winsByTimeControl['3600|0']) || 0, target: 5 };
+        }},
+        
+        // Personality Achievements
+        { id: 'beat_balanced', name: '⚖️ Balance Breaker', desc: 'Win 5 games against Balanced personality', category: 'Creative', points: 100, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.balanced) || 0, target: 5 };
+        }},
+        { id: 'beat_aggressive', name: '🛡️ Defense Master', desc: 'Win 3 games against Aggressive personality', category: 'Creative', points: 150, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.aggressive) || 0, target: 3 };
+        }},
+        { id: 'beat_defensive', name: '⚔️ Offensive Expert', desc: 'Win 3 games against Defensive personality', category: 'Creative', points: 150, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.defensive) || 0, target: 3 };
+        }},
+        { id: 'beat_positional', name: '🎯 Tactical Genius', desc: 'Win 3 games against Positional personality', category: 'Creative', points: 180, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.positional) || 0, target: 3 };
+        }},
+        { id: 'beat_material', name: '💎 Material Overcome', desc: 'Win 3 games against Material-Focused personality', category: 'Creative', points: 160, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.material) || 0, target: 3 };
+        }},
+        { id: 'beat_tactical', name: '🧠 Strategy Master', desc: 'Win 3 games against Tactical personality', category: 'Creative', points: 200, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.tactical) || 0, target: 3 };
+        }},
+        { id: 'beat_custom', name: '🎛️ Custom Conqueror', desc: 'Win 5 games against Custom personality', category: 'Creative', points: 120, groupKey: 'personality_wins', progress: () => {
+          return { current: (lifetimeStats.winsByPersonality && lifetimeStats.winsByPersonality.custom) || 0, target: 5 };
+        }},
+        { id: 'beat_all_personalities', name: '👑 Personality Slayer', desc: 'Win at least 1 game against all 7 personalities', category: 'Creative', points: 500, requiredPoints: 5000, groupKey: 'personality_wins', progress: () => {
+          if (!lifetimeStats.winsByPersonality) return { current: 0, target: 7 };
+          const personalities = ['balanced', 'aggressive', 'defensive', 'positional', 'material', 'tactical', 'custom'];
+          const beaten = personalities.filter(p => (lifetimeStats.winsByPersonality[p] || 0) >= 1).length;
+          return { current: beaten, target: 7 };
+        }},
+        
+        // Creative Speed Achievements
+        { id: 'speed_demon', name: '⚡ Speed Demon', desc: 'Win 5 games in under 10 moves', category: 'Creative', points: 300, groupKey: 'speed_wins', progress: () => {
+          return { current: (lifetimeStats.winsInUnder10Moves || 0), target: 5 };
+        }},
+        { id: 'blitz_master', name: '🚀 Blitz Master', desc: 'Win 10 games in under 20 moves', category: 'Creative', points: 400, groupKey: 'speed_wins', progress: () => {
+          return { current: (lifetimeStats.winsInUnder20Moves || 0), target: 10 };
+        }},
+        { id: 'marathon_winner', name: '🏃 Marathon Winner', desc: 'Win 3 games with 100+ moves', category: 'Creative', points: 350, groupKey: 'marathon_wins', progress: () => {
+          return { current: (lifetimeStats.winsInOver100Moves || 0), target: 3 };
+        }},
+        
+        // Win Streak Achievements
+        { id: 'streak_5', name: '🔥 Hot Streak', desc: 'Win 5 games in a row', category: 'Creative', points: 200, groupKey: 'win_streaks', progress: () => {
+          return { current: (lifetimeStats.currentWinStreak || 0), target: 5 };
+        }},
+        { id: 'streak_10', name: '🔥🔥 On Fire', desc: 'Win 10 games in a row', category: 'Creative', points: 400, groupKey: 'win_streaks', progress: () => {
+          return { current: (lifetimeStats.currentWinStreak || 0), target: 10 };
+        }},
+        { id: 'streak_20', name: '🔥🔥🔥 Unstoppable', desc: 'Win 20 games in a row', category: 'Creative', points: 800, requiredPoints: 10000, groupKey: 'win_streaks', progress: () => {
+          return { current: (lifetimeStats.currentWinStreak || 0), target: 20 };
+        }},
+        { id: 'longest_streak_10', name: '⭐ Best Streak', desc: 'Achieve a longest win streak of 10+', category: 'Creative', points: 300, groupKey: 'win_streaks', progress: () => {
+          return { current: (lifetimeStats.longestWinStreak || 0), target: 10 };
+        }},
+        { id: 'longest_streak_25', name: '🌟 Legendary Streak', desc: 'Achieve a longest win streak of 25+', category: 'Creative', points: 1000, requiredPoints: 15000, groupKey: 'win_streaks', progress: () => {
+          return { current: (lifetimeStats.longestWinStreak || 0), target: 25 };
+        }},
+        
+        // Additional Creative Achievements
+        { id: 'win_as_white', name: '⚪ White Specialist', desc: 'Win 20 games playing as White', category: 'Creative', points: 150, groupKey: 'color_wins', progress: () => {
+          // This would require tracking wins by color - placeholder for now
+          return { current: 0, target: 20 };
+        }},
+        { id: 'win_as_black', name: '⚫ Black Specialist', desc: 'Win 20 games playing as Black', category: 'Creative', points: 150, groupKey: 'color_wins', progress: () => {
+          // This would require tracking wins by color - placeholder for now
+          return { current: 0, target: 20 };
+        }},
+        { id: 'time_pressure', name: '⏳ Time Pressure', desc: 'Win 5 games with less than 10 seconds remaining', category: 'Creative', points: 400, groupKey: 'time_pressure', progress: () => {
+          // This would require tracking time remaining at win - placeholder
+          return { current: 0, target: 5 };
+        }},
+        { id: 'perfect_opening', name: '📖 Theory Master', desc: 'Win 10 games where opening was detected', category: 'Creative', points: 250, groupKey: 'opening_wins', progress: () => {
+          // This would require tracking games with detected openings - placeholder
+          return { current: 0, target: 10 };
+        }},
+        
+        // Milestone Win Achievements (High Engagement Drivers)
+        { id: 'hundred_wins', name: '💯 Century of Wins', desc: 'Win 100 games', category: 'General', points: 500, groupKey: 'milestone_wins', progress: () => {
+          return { current: playerStats.wins || 0, target: 100 };
+        }},
+        { id: 'five_hundred_wins', name: '🏆 Five Hundred Wins', desc: 'Win 500 games', category: 'General', points: 2000, requiredPoints: 5000, groupKey: 'milestone_wins', progress: () => {
+          return { current: playerStats.wins || 0, target: 500 };
+        }},
+        { id: 'thousand_wins', name: '👑 Thousand Wins', desc: 'Win 1000 games', category: 'General', points: 5000, requiredPoints: 15000, groupKey: 'milestone_wins', progress: () => {
+          return { current: playerStats.wins || 0, target: 1000 };
+        }},
+        
+        // Consistency Achievements (Daily Engagement)
+        { id: 'daily_player_3', name: '📅 Three Day Streak', desc: 'Play 3 days in a row', category: 'Creative', points: 150, groupKey: 'consistency', progress: () => {
+          return { current: (lifetimeStats.daysPlayedInARow || 0), target: 3 };
+        }},
+        { id: 'daily_player_7', name: '📅 Week Warrior', desc: 'Play 7 days in a row', category: 'Creative', points: 300, groupKey: 'consistency', progress: () => {
+          return { current: (lifetimeStats.daysPlayedInARow || 0), target: 7 };
+        }},
+        { id: 'daily_player_14', name: '📅 Two Week Champion', desc: 'Play 14 days in a row', category: 'Creative', points: 600, groupKey: 'consistency', progress: () => {
+          return { current: (lifetimeStats.daysPlayedInARow || 0), target: 14 };
+        }},
+        { id: 'daily_player_30', name: '📅 Monthly Master', desc: 'Play 30 days in a row', category: 'Creative', points: 1500, requiredPoints: 10000, groupKey: 'consistency', progress: () => {
+          return { current: (lifetimeStats.daysPlayedInARow || 0), target: 30 };
+        }},
+        
+        // Perfect Game Achievements
+        { id: 'perfect_game_1', name: '✨ Perfect Game', desc: 'Win a game without losing any pieces', category: 'Creative', points: 400, groupKey: 'perfect_games', progress: () => {
+          return { current: (lifetimeStats.perfectGames || 0), target: 1 };
+        }},
+        { id: 'perfect_game_5', name: '✨✨ Perfect Master', desc: 'Win 5 games without losing pieces', category: 'Creative', points: 1000, requiredPoints: 8000, groupKey: 'perfect_games', progress: () => {
+          return { current: (lifetimeStats.perfectGames || 0), target: 5 };
+        }},
+        
+        // Special Checkmate Achievements (points increase with difficulty - pawn is hardest, queen is easiest)
+        { id: 'checkmate_pawn', name: '♟️ Pawn Checkmate', desc: 'Checkmate with a pawn', category: 'Creative', points: 1000, requiredPoints: 3000, groupKey: 'special_checkmates', progress: () => {
+          return { current: (lifetimeStats.checkmateWithPawn || 0), target: 1 };
+        }},
+        { id: 'checkmate_knight', name: '🐴 Knight Checkmate', desc: 'Checkmate with a knight', category: 'Creative', points: 800, groupKey: 'special_checkmates', progress: () => {
+          return { current: (lifetimeStats.checkmateWithKnight || 0), target: 1 };
+        }},
+        { id: 'checkmate_bishop', name: '♗ Bishop Checkmate', desc: 'Checkmate with a bishop', category: 'Creative', points: 750, groupKey: 'special_checkmates', progress: () => {
+          return { current: (lifetimeStats.checkmateWithBishop || 0), target: 1 };
+        }},
+        { id: 'checkmate_rook', name: '🏰 Rook Checkmate', desc: 'Checkmate with a rook', category: 'Creative', points: 500, groupKey: 'special_checkmates', progress: () => {
+          return { current: (lifetimeStats.checkmateWithRook || 0), target: 1 };
+        }},
+        { id: 'checkmate_queen', name: '👸 Queen Checkmate', desc: 'Checkmate with a queen', category: 'Creative', points: 300, groupKey: 'special_checkmates', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 1 };
+        }},
+        
+        // Multiple Checkmate Achievements - Knight (hard, high points)
+        { id: 'checkmate_knight_5', name: '🐴🐴 Knight Specialist', desc: 'Checkmate with a knight 5 times', category: 'Creative', points: 2000, requiredPoints: 2000, groupKey: 'multiple_checkmates_knight', progress: () => {
+          return { current: (lifetimeStats.checkmateWithKnight || 0), target: 5 };
+        }},
+        { id: 'checkmate_knight_10', name: '🐴🐴🐴 Knight Master', desc: 'Checkmate with a knight 10 times', category: 'Creative', points: 4000, requiredPoints: 5000, groupKey: 'multiple_checkmates_knight', progress: () => {
+          return { current: (lifetimeStats.checkmateWithKnight || 0), target: 10 };
+        }},
+        { id: 'checkmate_knight_25', name: '🐴🐴🐴🐴 Knight Legend', desc: 'Checkmate with a knight 25 times', category: 'Creative', points: 8000, requiredPoints: 15000, groupKey: 'multiple_checkmates_knight', progress: () => {
+          return { current: (lifetimeStats.checkmateWithKnight || 0), target: 25 };
+        }},
+        { id: 'checkmate_knight_50', name: '🐴🐴🐴🐴🐴 Knight Grandmaster', desc: 'Checkmate with a knight 50 times', category: 'Creative', points: 15000, requiredPoints: 30000, groupKey: 'multiple_checkmates_knight', progress: () => {
+          return { current: (lifetimeStats.checkmateWithKnight || 0), target: 50 };
+        }},
+        
+        // Multiple Checkmate Achievements - Bishop (hard, high points)
+        { id: 'checkmate_bishop_5', name: '♗♗ Bishop Specialist', desc: 'Checkmate with a bishop 5 times', category: 'Creative', points: 1800, requiredPoints: 2000, groupKey: 'multiple_checkmates_bishop', progress: () => {
+          return { current: (lifetimeStats.checkmateWithBishop || 0), target: 5 };
+        }},
+        { id: 'checkmate_bishop_10', name: '♗♗♗ Bishop Master', desc: 'Checkmate with a bishop 10 times', category: 'Creative', points: 3500, requiredPoints: 5000, groupKey: 'multiple_checkmates_bishop', progress: () => {
+          return { current: (lifetimeStats.checkmateWithBishop || 0), target: 10 };
+        }},
+        { id: 'checkmate_bishop_25', name: '♗♗♗♗ Bishop Legend', desc: 'Checkmate with a bishop 25 times', category: 'Creative', points: 7000, requiredPoints: 15000, groupKey: 'multiple_checkmates_bishop', progress: () => {
+          return { current: (lifetimeStats.checkmateWithBishop || 0), target: 25 };
+        }},
+        { id: 'checkmate_bishop_50', name: '♗♗♗♗♗ Bishop Grandmaster', desc: 'Checkmate with a bishop 50 times', category: 'Creative', points: 14000, requiredPoints: 30000, groupKey: 'multiple_checkmates_bishop', progress: () => {
+          return { current: (lifetimeStats.checkmateWithBishop || 0), target: 50 };
+        }},
+        
+        // Multiple Checkmate Achievements - Rook (medium difficulty, medium points)
+        { id: 'checkmate_rook_5', name: '🏰🏰 Rook Specialist', desc: 'Checkmate with a rook 5 times', category: 'Creative', points: 1200, requiredPoints: 1500, groupKey: 'multiple_checkmates_rook', progress: () => {
+          return { current: (lifetimeStats.checkmateWithRook || 0), target: 5 };
+        }},
+        { id: 'checkmate_rook_10', name: '🏰🏰🏰 Rook Master', desc: 'Checkmate with a rook 10 times', category: 'Creative', points: 2200, requiredPoints: 4000, groupKey: 'multiple_checkmates_rook', progress: () => {
+          return { current: (lifetimeStats.checkmateWithRook || 0), target: 10 };
+        }},
+        { id: 'checkmate_rook_25', name: '🏰🏰🏰🏰 Rook Legend', desc: 'Checkmate with a rook 25 times', category: 'Creative', points: 4500, requiredPoints: 12000, groupKey: 'multiple_checkmates_rook', progress: () => {
+          return { current: (lifetimeStats.checkmateWithRook || 0), target: 25 };
+        }},
+        { id: 'checkmate_rook_50', name: '🏰🏰🏰🏰🏰 Rook Grandmaster', desc: 'Checkmate with a rook 50 times', category: 'Creative', points: 8500, requiredPoints: 25000, groupKey: 'multiple_checkmates_rook', progress: () => {
+          return { current: (lifetimeStats.checkmateWithRook || 0), target: 50 };
+        }},
+        
+        // Multiple Checkmate Achievements - Queen (easiest, lower points)
+        { id: 'checkmate_queen_5', name: '👸👸 Queen Specialist', desc: 'Checkmate with a queen 5 times', category: 'Creative', points: 500, requiredPoints: 1000, groupKey: 'multiple_checkmates_queen', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 5 };
+        }},
+        { id: 'checkmate_queen_10', name: '👸👸👸 Queen Master', desc: 'Checkmate with a queen 10 times', category: 'Creative', points: 800, requiredPoints: 3000, groupKey: 'multiple_checkmates_queen', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 10 };
+        }},
+        { id: 'checkmate_queen_25', name: '👸👸👸👸 Queen Legend', desc: 'Checkmate with a queen 25 times', category: 'Creative', points: 1500, requiredPoints: 10000, groupKey: 'multiple_checkmates_queen', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 25 };
+        }},
+        { id: 'checkmate_queen_50', name: '👸👸👸👸👸 Queen Grandmaster', desc: 'Checkmate with a queen 50 times', category: 'Creative', points: 2800, requiredPoints: 20000, groupKey: 'multiple_checkmates_queen', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 50 };
+        }},
+        { id: 'checkmate_queen_100', name: '👸👸👸👸👸👸 Queen Supreme', desc: 'Checkmate with a queen 100 times', category: 'Creative', points: 5000, requiredPoints: 40000, groupKey: 'multiple_checkmates_queen', progress: () => {
+          return { current: (lifetimeStats.checkmateWithQueen || 0), target: 100 };
+        }},
+        
+        // Multiple Checkmate Achievements - Pawn (Hardest, highest points!)
+        { id: 'checkmate_pawn_3', name: '♟️♟️♟️ Pawn Master', desc: 'Checkmate with a pawn 3 times', category: 'Creative', points: 4000, requiredPoints: 5000, groupKey: 'multiple_checkmates_pawn', progress: () => {
+          return { current: (lifetimeStats.checkmateWithPawn || 0), target: 3 };
+        }},
+        { id: 'checkmate_pawn_5', name: '♟️♟️♟️♟️ Pawn Legend', desc: 'Checkmate with a pawn 5 times', category: 'Creative', points: 8000, requiredPoints: 15000, groupKey: 'multiple_checkmates_pawn', progress: () => {
+          return { current: (lifetimeStats.checkmateWithPawn || 0), target: 5 };
+        }},
+        { id: 'checkmate_pawn_10', name: '♟️♟️♟️♟️♟️ Pawn Grandmaster', desc: 'Checkmate with a pawn 10 times', category: 'Creative', points: 18000, requiredPoints: 30000, groupKey: 'multiple_checkmates_pawn', progress: () => {
+          return { current: (lifetimeStats.checkmateWithPawn || 0), target: 10 };
+        }},
+        
+        // Variety Achievements (Encourage Trying Different Settings)
+        { id: 'play_all_time_controls', name: '⏰ Time Control Explorer', desc: 'Play games with all 7 time controls', category: 'Creative', points: 400, groupKey: 'variety', progress: () => {
+          if (!lifetimeStats.winsByTimeControl) return { current: 0, target: 7 };
+          const timeControls = ['none', '60', '180|2', '300|0', '600|0', '900|5', '3600|0'];
+          const played = timeControls.filter(tc => (lifetimeStats.winsByTimeControl[tc] || 0) > 0).length;
+          return { current: played, target: 7 };
+        }},
+        { id: 'play_all_personalities', name: '🎭 Personality Explorer', desc: 'Play games against all 7 personalities', category: 'Creative', points: 500, groupKey: 'variety', progress: () => {
+          if (!lifetimeStats.winsByPersonality) return { current: 0, target: 7 };
+          const personalities = ['balanced', 'aggressive', 'defensive', 'positional', 'material', 'tactical', 'custom'];
+          const played = personalities.filter(p => (lifetimeStats.winsByPersonality[p] || 0) > 0).length;
+          return { current: played, target: 7 };
+        }},
+        { id: 'win_both_colors', name: '⚪⚫ Color Master', desc: 'Win 10 games as White and 10 as Black', category: 'Creative', points: 300, groupKey: 'variety', progress: () => {
+          const whiteWins = (lifetimeStats.winsAsWhite || 0);
+          const blackWins = (lifetimeStats.winsAsBlack || 0);
+          const minWins = Math.min(whiteWins, blackWins);
+          return { current: minWins, target: 10 };
+        }},
+        
+        // Collection Achievements (Unlock All in Category)
+        { id: 'collect_all_general', name: '📚 General Collector', desc: 'Unlock all General achievements', category: 'Creative', points: 1000, requiredPoints: 5000, groupKey: 'collections', progress: () => {
+          const allAchievements = getAllAchievementsList();
+          const generalAchs = allAchievements.filter(a => a.category === 'General' && !a.isDaily);
+          const unlocked = generalAchs.filter(a => achievements.includes(a.id)).length;
+          return { current: unlocked, target: generalAchs.length };
+        }},
+        { id: 'collect_all_ingame', name: '⚔️ In-Game Collector', desc: 'Unlock all In-Game achievements', category: 'Creative', points: 1000, requiredPoints: 5000, groupKey: 'collections', progress: () => {
+          const allAchievements = getAllAchievementsList();
+          const ingameAchs = allAchievements.filter(a => a.category === 'In-Game' && !a.isDaily);
+          const unlocked = ingameAchs.filter(a => achievements.includes(a.id)).length;
+          return { current: unlocked, target: ingameAchs.length };
+        }},
+        { id: 'collect_all_random', name: '🎲 Random Collector', desc: 'Unlock all Random achievements', category: 'Creative', points: 1000, requiredPoints: 5000, groupKey: 'collections', progress: () => {
+          const allAchievements = getAllAchievementsList();
+          const randomAchs = allAchievements.filter(a => a.category === 'Random' && !a.isDaily);
+          const unlocked = randomAchs.filter(a => achievements.includes(a.id)).length;
+          return { current: unlocked, target: randomAchs.length };
+        }},
+        { id: 'collect_all_creative', name: '🎨 Creative Collector', desc: 'Unlock all Creative achievements', category: 'Creative', points: 2000, requiredPoints: 20000, groupKey: 'collections', progress: () => {
+          const allAchievements = getAllAchievementsList();
+          const creativeAchs = allAchievements.filter(a => a.category === 'Creative' && !a.isDaily);
+          const unlocked = creativeAchs.filter(a => achievements.includes(a.id)).length;
+          return { current: unlocked, target: creativeAchs.length };
+        }},
+        { id: 'collect_all', name: '🌟 Master Collector', desc: 'Unlock ALL achievements (except daily)', category: 'Creative', points: 10000, requiredPoints: 50000, groupKey: 'collections', progress: () => {
+          const allAchievements = getAllAchievementsList();
+          const nonDailyAchs = allAchievements.filter(a => !a.isDaily);
+          const unlocked = nonDailyAchs.filter(a => achievements.includes(a.id)).length;
+          return { current: unlocked, target: nonDailyAchs.length };
+        }},
+        
+        // Progress Achievements (Win Rate Milestones)
+        { id: 'winrate_50_20', name: '📈 Above Average', desc: 'Achieve 50%+ win rate (20+ games)', category: 'Creative', points: 200, groupKey: 'winrate', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 20) return { current: 0, target: 1 };
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: winRate >= 50 ? 1 : 0, target: 1 };
+        }},
+        { id: 'winrate_60_30', name: '📈 Strong Player', desc: 'Achieve 60%+ win rate (30+ games)', category: 'Creative', points: 400, groupKey: 'winrate', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 30) return { current: 0, target: 1 };
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: winRate >= 60 ? 1 : 0, target: 1 };
+        }},
+        { id: 'winrate_70_50', name: '📈 Excellent Player', desc: 'Achieve 70%+ win rate (50+ games)', category: 'Creative', points: 800, requiredPoints: 5000, groupKey: 'winrate', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 50) return { current: 0, target: 1 };
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: winRate >= 70 ? 1 : 0, target: 1 };
+        }},
+        { id: 'winrate_80_100', name: '📈 Master Level', desc: 'Achieve 80%+ win rate (100+ games)', category: 'Creative', points: 2000, requiredPoints: 15000, groupKey: 'winrate', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          if (total < 100) return { current: 0, target: 1 };
+          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          return { current: winRate >= 80 ? 1 : 0, target: 1 };
+        }},
+        
+        // Underpromotion Achievement
+        { id: 'underpromote', name: '🎭 Underpromoter', desc: 'Promote to rook, bishop, or knight', category: 'Creative', points: 200, groupKey: 'underpromotions', progress: () => {
+          return { current: (lifetimeStats.underpromotions || 0), target: 1 };
+        }},
+        { id: 'underpromote_5', name: '🎭 Master Underpromoter', desc: 'Underpromote 5 times', category: 'Creative', points: 600, requiredPoints: 3000, groupKey: 'underpromotions', progress: () => {
+          return { current: (lifetimeStats.underpromotions || 0), target: 5 };
+        }},
+        
+        // Total Games Milestones
+        { id: 'five_hundred_games', name: '🎮 Five Hundred Games', desc: 'Play 500 total games', category: 'General', points: 600, groupKey: 'total_games', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 500 };
+        }},
+        { id: 'thousand_games', name: '🎮 Thousand Games', desc: 'Play 1000 total games', category: 'General', points: 1500, requiredPoints: 10000, groupKey: 'total_games', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 1000 };
+        }},
+        { id: 'five_thousand_games', name: '🎮 Five Thousand Games', desc: 'Play 5000 total games', category: 'General', points: 5000, requiredPoints: 30000, groupKey: 'total_games', progress: () => {
+          const total = playerStats.wins + playerStats.losses + playerStats.draws;
+          return { current: total, target: 5000 };
         }}
       ];
     }
@@ -5520,30 +6352,147 @@ function navigateToPreviousMove() {
     }
 
     function showAllAchievements() {
-      const modal = document.getElementById('all-achievements-modal');
-      const container = document.getElementById('all-achievements-list');
-      container.innerHTML = '';
+      try {
+        const modal = document.getElementById('all-achievements-modal');
+        if (!modal) {
+          console.error('Achievements modal not found');
+          return;
+        }
+        const container = document.getElementById('all-achievements-list');
+        if (!container) {
+          console.error('Achievements list container not found');
+          return;
+        }
+        container.innerHTML = '';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.boxSizing = 'border-box';
+        
+        const allAchievements = getAllAchievementsList();
+        
+        // Get today's daily achievements (random selection)
+        resetDailyStatsIfNeeded();
+        const todayDailyIds = getTodayDailyAchievements();
+        const dailyAchievements = allAchievements.filter(ach => todayDailyIds.includes(ach.id));
+        const otherAchievements = allAchievements.filter(ach => !todayDailyIds.includes(ach.id));
+        
+        // Create a master 3-column grid that contains daily achievements at top, then regular achievements
+        const masterGrid = document.createElement('div');
+        masterGrid.style.display = 'grid';
+        masterGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        masterGrid.style.width = '100%';
+        masterGrid.style.gap = '20px';
+        masterGrid.style.marginBottom = '0';
+        masterGrid.style.overflowY = 'auto';
+        masterGrid.style.paddingRight = '10px';
+        masterGrid.style.boxSizing = 'border-box';
+        
+        // Daily title and achievements section - only if we have daily achievements
+        if (dailyAchievements.length > 0) {
+          // Daily title section - spans all 3 columns
+          const dailyTitleCard = document.createElement('div');
+          dailyTitleCard.style.gridColumn = 'span 3';
+          dailyTitleCard.style.textAlign = 'center';
+          dailyTitleCard.style.marginBottom = '15px';
+          dailyTitleCard.style.paddingBottom = '15px';
+          dailyTitleCard.style.borderBottom = '3px solid #f39c12';
+          
+          const dailyTitle = document.createElement('h2');
+          dailyTitle.textContent = '📅 Daily Challenges';
+          dailyTitle.style.cssText = 'font-family: "Inter", sans-serif; font-size: 1.3em; font-weight: 800; color: #e67e22; margin: 0 0 5px 0;';
+          dailyTitleCard.appendChild(dailyTitle);
+          
+          const dailySubtitle = document.createElement('div');
+          dailySubtitle.textContent = 'These reset and change every day at midnight!';
+          dailySubtitle.style.cssText = 'color: #d35400; font-style: italic; font-size: 0.85em;';
+          dailyTitleCard.appendChild(dailySubtitle);
+          
+          masterGrid.appendChild(dailyTitleCard);
+        
+          // Add exactly 3 daily achievements as the first row (one per column)
+        dailyAchievements.slice(0, 3).forEach(ach => {
+          const isUnlocked = achievements.includes(ach.id);
+          let progress, progressPercent;
+          try {
+            progress = ach.progress();
+            progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+          } catch (e) {
+            console.error('Error calculating progress for', ach.id, e);
+            progress = { current: 0, target: 1 };
+            progressPercent = 0;
+          }
+          
+          // Use EXACT same card styling as regular achievements
+          const card = document.createElement('div');
+          card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
+          
+          const allAchievementsForDaily = getAllAchievementsList();
+          const totalPoints = allAchievementsForDaily.reduce((sum, a) => {
+            if (achievements.includes(a.id) && a.points) {
+              return sum + a.points;
+            }
+            return sum;
+          }, 0);
+          const requiredPoints = ach.requiredPoints || 0;
+          const hasEnoughPoints = totalPoints >= requiredPoints;
+          
+          const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+          
+          const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+            isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
+              <div class="achievement-progress-bar">
+                <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
+              </div>` :
+            `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
+              <div class="achievement-progress-bar">
+                <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+              </div>`;
+          
+          card.innerHTML = `
+            <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+            <div class="achievement-desc">${ach.desc}</div>
+            ${pointsText}
+            ${progressDisplay}
+          `;
+          
+            masterGrid.appendChild(card);
+          });
+        
+          // Add divider line - spans all 3 columns
+          const divider = document.createElement('div');
+          divider.style.gridColumn = 'span 3';
+          divider.style.height = '3px';
+          divider.style.background = '#e9ecef';
+          divider.style.marginTop = '20px';
+          divider.style.marginBottom = '20px';
+          masterGrid.appendChild(divider);
+        }
       
-      const allAchievements = getAllAchievementsList();
-      
-      // First group by category
+      // First group other achievements by category - these continue in the same 3-column grid
       const byCategory = {};
-      allAchievements.forEach(ach => {
+      otherAchievements.forEach(ach => {
+        // Skip Daily category achievements - they're already shown above
+        if (ach.category === 'Daily') return;
         if (!byCategory[ach.category]) {
           byCategory[ach.category] = [];
         }
         byCategory[ach.category].push(ach);
       });
       
-      // Render by category
+      // Render by category - each category title spans 3 columns, achievements continue in grid
       Object.keys(byCategory).forEach(category => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.style.marginBottom = '30px';
+        // Category title spans all 3 columns
+        const categoryTitleCard = document.createElement('div');
+        categoryTitleCard.style.gridColumn = 'span 3';
+        categoryTitleCard.style.marginTop = '20px';
+        categoryTitleCard.style.marginBottom = '15px';
         
         const categoryTitle = document.createElement('h3');
         categoryTitle.textContent = category;
-        categoryTitle.style.cssText = 'font-family: "Inter", sans-serif; font-size: 1.3em; font-weight: 700; color: #2c3e50; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #3498db;';
-        categoryDiv.appendChild(categoryTitle);
+        categoryTitle.style.cssText = 'font-family: "Inter", sans-serif; font-size: 1.3em; font-weight: 700; color: #2c3e50; padding-bottom: 8px; border-bottom: 2px solid #3498db;';
+        categoryTitleCard.appendChild(categoryTitle);
+        
+        masterGrid.appendChild(categoryTitleCard);
         
         // Group achievements within category by groupKey
         const grouped = {};
@@ -5563,18 +6512,24 @@ function navigateToPreviousMove() {
         // Sort grouped achievements by target value
         Object.keys(grouped).forEach(key => {
           grouped[key].sort((a, b) => {
-            const aTarget = a.progress().target;
-            const bTarget = b.progress().target;
-            return aTarget - bTarget;
+            try {
+              const aTarget = a.progress().target;
+              const bTarget = b.progress().target;
+              return aTarget - bTarget;
+            } catch (e) {
+              console.error('Error sorting achievements:', e);
+              return 0;
+            }
           });
         });
         
-        // Render grouped achievements
+        // Render grouped achievements - add them to the master grid
         Object.keys(grouped).forEach(groupKey => {
           const group = grouped[groupKey];
           const groupDiv = document.createElement('div');
           groupDiv.className = 'achievement-group';
-          groupDiv.style.marginBottom = '20px';
+          // Don't set width - let grid handle it
+          // gridColumn span 1 is the default, so no need to set it
           
           // Find the next achievement to work on
           let nextAchievement = null;
@@ -5598,8 +6553,15 @@ function navigateToPreviousMove() {
           // Create the visible card (next achievement)
           if (nextAchievement) {
             const isUnlocked = achievements.includes(nextAchievement.id);
-            const progress = nextAchievement.progress();
-            const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+            let progress, progressPercent;
+            try {
+              progress = nextAchievement.progress();
+              progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+            } catch (e) {
+              console.error('Error calculating progress for', nextAchievement.id, e);
+              progress = { current: 0, target: 1 };
+              progressPercent = 0;
+            }
             const showProgress = !isUnlocked && progressPercent < 100;
             const meetsRequirements = !progress.needsTotal || progress.needsTotal;
             const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
@@ -5650,7 +6612,6 @@ function navigateToPreviousMove() {
                 <div class="achievement-progress-bar">
                   <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
                 </div>` :
-              progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
               `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
                 <div class="achievement-progress-bar">
                   <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
@@ -5679,8 +6640,15 @@ function navigateToPreviousMove() {
               if (idx === nextIndex) return; // Skip the one already shown
               
               const isUnlocked = achievements.includes(ach.id);
-              const progress = ach.progress();
-              const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+              let progress, progressPercent;
+              try {
+                progress = ach.progress();
+                progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+              } catch (e) {
+                console.error('Error calculating progress for', ach.id, e);
+                progress = { current: 0, target: 1 };
+                progressPercent = 0;
+              }
               const showProgress = !isUnlocked && progressPercent < 100;
               const meetsRequirements = !progress.needsTotal || progress.needsTotal;
               const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
@@ -5704,7 +6672,6 @@ function navigateToPreviousMove() {
                   <div class="achievement-progress-bar">
                     <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
                   </div>` :
-                progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
                 `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
                   <div class="achievement-progress-bar">
                     <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
@@ -5720,65 +6687,78 @@ function navigateToPreviousMove() {
             });
             
             groupDiv.appendChild(allGroupAchievements);
-            categoryDiv.appendChild(groupDiv);
+            masterGrid.appendChild(groupDiv); // Add directly to master grid
           }
         });
         
-        // Render ungrouped achievements
-        if (ungrouped.length > 0) {
-          const categoryGrid = document.createElement('div');
-          categoryGrid.className = 'achievements-grid';
-          categoryGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
-          categoryGrid.style.marginBottom = '0';
+        // Render ungrouped achievements - add directly to master grid
+        ungrouped.forEach(ach => {
+          const isUnlocked = achievements.includes(ach.id);
+          let progress, progressPercent;
+          try {
+            progress = ach.progress();
+            progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
+          } catch (e) {
+            console.error('Error calculating progress for', ach.id, e);
+            progress = { current: 0, target: 1 };
+            progressPercent = 0;
+          }
           
-          ungrouped.forEach(ach => {
-            const isUnlocked = achievements.includes(ach.id);
-            const progress = ach.progress();
-            const progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
-            const showProgress = !isUnlocked && progressPercent < 100;
-            const meetsRequirements = !progress.needsTotal || progress.needsTotal;
-            const meetsNoLosses = !progress.needsNoLosses || progress.needsNoLosses;
-            
-            const card = document.createElement('div');
-            card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
-            
-            const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
-            const allAchievements = getAllAchievementsList();
-            const totalPoints = allAchievements.reduce((sum, a) => {
-              if (achievements.includes(a.id) && a.points) {
-                return sum + a.points;
-              }
-              return sum;
-            }, 0);
-            const requiredPoints = ach.requiredPoints || 0;
-            const hasEnoughPoints = totalPoints >= requiredPoints;
-            const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
-              isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
-                <div class="achievement-progress-bar">
-                  <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
-                </div>` :
-              progress.current >= progress.target ? '<div class="achievement-progress" style="color: #2ecc71; margin-top: 8px;">✓ Ready to unlock!</div>' :
-              `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
-                <div class="achievement-progress-bar">
-                  <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
-                </div>`;
-            card.innerHTML = `
-              <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
-              <div class="achievement-desc">${ach.desc}</div>
-              ${pointsText}
-              ${progressDisplay}
-            `;
-            
-            categoryGrid.appendChild(card);
-          });
+          const card = document.createElement('div');
+          card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
           
-          categoryDiv.appendChild(categoryGrid);
-        }
-        
-        container.appendChild(categoryDiv);
+          const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
+          const allAchievementsList = getAllAchievementsList();
+          const totalPoints = allAchievementsList.reduce((sum, a) => {
+            if (achievements.includes(a.id) && a.points) {
+              return sum + a.points;
+            }
+            return sum;
+          }, 0);
+          const requiredPoints = ach.requiredPoints || 0;
+          const hasEnoughPoints = totalPoints >= requiredPoints;
+          const progressDisplay = requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
+            isUnlocked ? `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target} <span style="color: #2ecc71;">✓</span></div>
+              <div class="achievement-progress-bar">
+                <div class="achievement-progress-fill" style="width: 100%; background: #2ecc71;"></div>
+              </div>` :
+            `<div class="achievement-progress" style="margin-top: 8px;">${progress.current} / ${progress.target}</div>
+              <div class="achievement-progress-bar">
+                <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
+              </div>`;
+          card.innerHTML = `
+            <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+            <div class="achievement-desc">${ach.desc}</div>
+            ${pointsText}
+            ${progressDisplay}
+          `;
+          
+          masterGrid.appendChild(card);
+        });
       });
       
+      // Append the master grid to container
+      container.appendChild(masterGrid);
+      
+      // Add event listener for reset button
+      const resetBtn = document.getElementById('reset-achievements-btn');
+      if (resetBtn) {
+        // Remove any existing listeners
+        resetBtn.replaceWith(resetBtn.cloneNode(true));
+        const newResetBtn = document.getElementById('reset-achievements-btn');
+        newResetBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('Reset button clicked');
+          resetAllAchievements();
+        });
+      }
+      
       modal.classList.add('show');
+      } catch (e) {
+        console.error('Error in showAllAchievements:', e);
+        alert('Error loading achievements. Please check the console for details.');
+      }
     }
 
     function toggleAchievementGroup(groupKey) {
@@ -5797,20 +6777,396 @@ function navigateToPreviousMove() {
     function closeAllAchievements() {
       document.getElementById('all-achievements-modal').classList.remove('show');
     }
-
-    function resetDailyStatsIfNeeded() {
-      const today = new Date().toDateString();
-      if (!lifetimeStats.dailyStats || lifetimeStats.dailyStats.lastResetDate !== today) {
-        lifetimeStats.dailyStats = {
-          lastResetDate: today,
+    
+    // Reset confirmation state
+    let resetConfirmStage = 0; // 0 = not started, 1 = first warning, 2 = second warning, 3 = code input
+    
+    // Make reset function globally accessible
+    function resetAllAchievements() {
+      console.log('resetAllAchievements called');
+      resetConfirmStage = 1;
+      showResetConfirmModal(1);
+    }
+    
+    function showResetConfirmModal(stage) {
+      const modal = document.getElementById('reset-confirm-modal');
+      const titleEl = document.getElementById('reset-confirm-title');
+      const messageEl = document.getElementById('reset-confirm-message');
+      const listContainer = document.getElementById('reset-confirm-list-container');
+      const inputEl = document.getElementById('reset-confirm-input');
+      const yesBtn = document.getElementById('reset-confirm-yes-btn');
+      const noBtn = document.getElementById('reset-confirm-no-btn');
+      
+      if (!modal || !titleEl || !messageEl) {
+        console.error('Reset modal elements not found');
+        return;
+      }
+      
+      resetConfirmStage = stage;
+      
+      if (stage === 1) {
+        // First warning
+        titleEl.textContent = '⚠️ Warning';
+        messageEl.textContent = 'This will reset ALL achievements and points to zero!\n\nThis action cannot be undone.';
+        messageEl.style.color = '#555';
+        listContainer.innerHTML = '';
+        inputEl.style.display = 'none';
+        yesBtn.textContent = 'Continue';
+        yesBtn.onclick = () => showResetConfirmModal(2);
+        noBtn.onclick = closeResetConfirmModal;
+      } else if (stage === 2) {
+        // Second warning with list
+        titleEl.textContent = '⚠️ Are you ABSOLUTELY SURE?';
+        messageEl.textContent = 'This will delete:';
+        messageEl.style.color = '#555';
+        listContainer.innerHTML = '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li></ul>';
+        inputEl.style.display = 'none';
+        yesBtn.textContent = 'Continue';
+        yesBtn.onclick = () => showResetConfirmModal(3);
+        noBtn.onclick = closeResetConfirmModal;
+      } else if (stage === 3) {
+        // Code input
+        titleEl.textContent = '⚠️ Final Confirmation';
+        messageEl.textContent = 'Type "RESET" (all caps) to confirm:';
+        messageEl.style.color = '#555';
+        listContainer.innerHTML = '';
+        inputEl.style.display = 'block';
+        inputEl.value = '';
+        setTimeout(() => inputEl.focus(), 100);
+        yesBtn.textContent = 'Confirm Reset';
+        yesBtn.onclick = performReset;
+        noBtn.onclick = closeResetConfirmModal;
+        
+        // Allow Enter key to confirm
+        const handleKeyPress = function(e) {
+          if (e.key === 'Enter') {
+            performReset();
+          }
+        };
+        inputEl.onkeypress = handleKeyPress;
+      }
+      
+      modal.classList.add('show');
+    }
+    
+    function closeResetConfirmModal() {
+      const modal = document.getElementById('reset-confirm-modal');
+      const inputEl = document.getElementById('reset-confirm-input');
+      const messageEl = document.getElementById('reset-confirm-message');
+      const yesBtn = document.getElementById('reset-confirm-yes-btn');
+      const titleEl = document.getElementById('reset-confirm-title');
+      const dialog = modal ? modal.querySelector('.reset-confirm-dialog') : null;
+      
+      if (modal) {
+        modal.classList.remove('show');
+        resetConfirmStage = 0;
+      }
+      if (inputEl) {
+        inputEl.value = '';
+        inputEl.style.display = 'none';
+        inputEl.onkeypress = null;
+      }
+      if (messageEl) {
+        messageEl.style.color = '#555';
+      }
+      if (yesBtn) {
+        yesBtn.style.display = 'block';
+      }
+      if (titleEl) {
+        titleEl.style.color = '#e74c3c';
+      }
+      if (dialog) {
+        dialog.style.borderColor = '#e74c3c';
+      }
+    }
+    
+    function performReset() {
+      const inputEl = document.getElementById('reset-confirm-input');
+      const resetCode = inputEl ? inputEl.value.trim().toUpperCase() : '';
+      
+      if (resetCode !== 'RESET') {
+        const messageEl = document.getElementById('reset-confirm-message');
+        if (messageEl) {
+          messageEl.textContent = '❌ Invalid code. Type "RESET" (all caps) to confirm:';
+          messageEl.style.color = '#e74c3c';
+        }
+        if (inputEl) {
+          inputEl.value = '';
+          inputEl.focus();
+        }
+        return;
+      }
+      
+      closeResetConfirmModal();
+      
+      // Reset all achievements and stats
+      achievements = [];
+      playerStats = { wins: 0, losses: 0, draws: 0 };
+      lifetimeStats = {
+        capturesByQueen: 0,
+        capturesByRook: 0,
+        capturesByBishop: 0,
+        capturesByKnight: 0,
+        capturesByPawn: 0,
+        totalCaptures: 0,
+        checksGiven: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        enPassants: 0,
+        longestGame: 0,
+        shortestWin: Infinity,
+        capturedQueens: 0,
+        capturedRooks: 0,
+        capturedBishops: 0,
+        capturedKnights: 0,
+        capturedPawns: 0,
+        movesToE4: 0,
+        movesToD4: 0,
+        movesToE5: 0,
+        movesToD5: 0,
+        knightToF3: 0,
+        knightToC3: 0,
+        knightToF6: 0,
+        knightToC6: 0,
+        movesOnMove1: 0,
+        movesOnMove5: 0,
+        movesOnMove10: 0,
+        movesOnMove20: 0,
+        movesOnMove50: 0,
+        pawnToE4: 0,
+        pawnToD4: 0,
+        queenToD4: 0,
+        queenToE4: 0,
+        bishopToF4: 0,
+        rookToE1: 0,
+        kingToE1: 0,
+        consecutiveSamePiece: 0,
+        castledOnMove10: 0,
+        castledOnMove20: 0,
+        promotedToQueen: 0,
+        promotedToRook: 0,
+        promotedToBishop: 0,
+        promotedToKnight: 0,
+        checkOnMove5: 0,
+        captureOnMove10: 0,
+        movesToE4Multiple: 0,
+        movesToD4Multiple: 0,
+        knightToF3Multiple: 0,
+        knightToC3Multiple: 0,
+        queenToD4Multiple: 0,
+        promotedToQueenMultiple: 0,
+        rookToA1: 0, rookToH1: 0, rookToA8: 0, rookToH8: 0,
+        bishopToC1: 0, bishopToF1: 0, bishopToC8: 0, bishopToF8: 0,
+        knightToG1: 0, knightToB1: 0, knightToG8: 0, knightToB8: 0,
+        queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
+        kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
+        pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
+        dailyStats: {
+          lastResetDate: null,
           gamesPlayedToday: 0,
+          gamesWonToday: 0,
           movesMadeToday: 0,
           capturesToday: 0,
           checksGivenToday: 0,
           uniqueSquaresVisitedToday: [],
           longestGameToday: 0,
-          fastestWinToday: Infinity
+          fastestWinToday: Infinity,
+          promotionsToday: 0,
+          castlingToday: 0,
+          todayDailyIds: []
+        },
+        winsByTimeControl: {
+          none: 0,
+          '60': 0,
+          '180|2': 0,
+          '300|0': 0,
+          '600|0': 0,
+          '900|5': 0,
+          '3600|0': 0
+        },
+        winsByPersonality: {
+          balanced: 0,
+          aggressive: 0,
+          defensive: 0,
+          positional: 0,
+          material: 0,
+          tactical: 0,
+          custom: 0
+        },
+        winsInUnder10Moves: 0,
+        winsInUnder20Moves: 0,
+        winsInOver100Moves: 0,
+        perfectGames: 0,
+        comebackWins: 0,
+        longestWinStreak: 0,
+        currentWinStreak: 0,
+        // Engagement tracking
+        daysPlayedInARow: 0,
+        lastPlayDate: null,
+        totalGamesPlayed: 0,
+        gamesWithoutLosingPieces: 0,
+        winsWithOnlyPawns: 0,
+        checkmateWithKnight: 0,
+        checkmateWithBishop: 0,
+        checkmateWithRook: 0,
+        checkmateWithQueen: 0,
+        checkmateWithPawn: 0,
+        underpromotions: 0,
+        gamesAsWhite: 0,
+        gamesAsBlack: 0,
+        winsAsWhite: 0,
+        winsAsBlack: 0
+      };
+      
+      // Save everything
+      saveAchievements();
+      savePlayerStats();
+      saveLifetimeStats();
+      
+      // Update displays
+      updateAchievementsDisplay();
+      updatePlayerStatsDisplay();
+      updateTotalPoints();
+      
+      // Refresh the achievements modal if it's open
+      if (document.getElementById('all-achievements-modal').classList.contains('show')) {
+        showAllAchievements();
+      }
+      
+      // Show success message in modal style
+      setTimeout(() => {
+        const modal = document.getElementById('reset-confirm-modal');
+        const titleEl = document.getElementById('reset-confirm-title');
+        const messageEl = document.getElementById('reset-confirm-message');
+        const listContainer = document.getElementById('reset-confirm-list-container');
+        const inputEl = document.getElementById('reset-confirm-input');
+        const yesBtn = document.getElementById('reset-confirm-yes-btn');
+        const noBtn = document.getElementById('reset-confirm-no-btn');
+        
+        if (modal && titleEl && messageEl) {
+          const dialog = modal.querySelector('.reset-confirm-dialog');
+          titleEl.textContent = '✅ Success!';
+          titleEl.style.color = '#2ecc71';
+          messageEl.textContent = 'All achievements and statistics have been reset successfully!';
+          messageEl.style.color = '#555';
+          listContainer.innerHTML = '';
+          inputEl.style.display = 'none';
+          yesBtn.style.display = 'none';
+          noBtn.textContent = 'Close';
+          noBtn.onclick = closeResetConfirmModal;
+          if (dialog) {
+            dialog.style.borderColor = '#2ecc71';
+          }
+          modal.classList.add('show');
+          
+          // Auto-close after 2 seconds
+          setTimeout(() => {
+            closeResetConfirmModal();
+          }, 2000);
+        }
+      }, 100);
+    }
+    
+    // Make it globally accessible
+    window.resetAllAchievements = resetAllAchievements;
+
+    function getTodayDailyAchievements() {
+      try {
+        // Pool of all possible daily achievements
+        const dailyPool = [
+          'daily_explorer', 'daily_warrior', 'daily_lightning',
+          'daily_capturer', 'daily_checker', 'daily_longgame',
+          'daily_promoter', 'daily_castler', 'daily_comeback'
+        ];
+        
+        if (!lifetimeStats || !lifetimeStats.dailyStats) {
+          // If lifetimeStats isn't initialized yet, return empty array
+          return [];
+        }
+        
+        resetDailyStatsIfNeeded();
+        
+        // If we already have today's selection, return it
+        if (lifetimeStats.dailyStats.todayDailyIds && Array.isArray(lifetimeStats.dailyStats.todayDailyIds)) {
+          return lifetimeStats.dailyStats.todayDailyIds;
+        }
+        
+        // Otherwise, randomly select 3
+        const shuffled = [...dailyPool].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
+        
+        // Save today's selection
+        if (lifetimeStats.dailyStats) {
+          lifetimeStats.dailyStats.todayDailyIds = selected;
+          saveLifetimeStats();
+        }
+        
+        return selected;
+      } catch (e) {
+        console.error('Error in getTodayDailyAchievements:', e);
+        return ['daily_explorer', 'daily_warrior', 'daily_lightning']; // Fallback to default
+      }
+    }
+
+    function resetDailyStatsIfNeeded() {
+      const today = new Date().toDateString();
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      
+      if (!lifetimeStats.dailyStats || lifetimeStats.dailyStats.lastResetDate !== today) {
+        // Track days played in a row
+        if (lifetimeStats.lastPlayDate) {
+          const lastPlayDate = new Date(lifetimeStats.lastPlayDate);
+          lastPlayDate.setHours(0, 0, 0, 0);
+          const daysDiff = Math.floor((todayDate - lastPlayDate) / (1000 * 60 * 60 * 24));
+          
+          if (daysDiff === 1) {
+            // Consecutive day
+            lifetimeStats.daysPlayedInARow = (lifetimeStats.daysPlayedInARow || 0) + 1;
+          } else if (daysDiff > 1) {
+            // Streak broken
+            lifetimeStats.daysPlayedInARow = 1;
+          } else if (daysDiff === 0) {
+            // Same day, don't change streak
+          } else {
+            // First time playing
+            lifetimeStats.daysPlayedInARow = 1;
+          }
+        } else {
+          // First time playing
+          lifetimeStats.daysPlayedInARow = 1;
+        }
+        lifetimeStats.lastPlayDate = todayDate.toISOString();
+        
+        // Clear ALL daily achievements when date changes
+        const allDailyIds = ['daily_explorer', 'daily_warrior', 'daily_lightning', 'daily_capturer', 'daily_checker', 'daily_longgame', 'daily_promoter', 'daily_castler', 'daily_comeback'];
+        allDailyIds.forEach(id => {
+          const index = achievements.indexOf(id);
+          if (index > -1) {
+            achievements.splice(index, 1);
+          }
+        });
+        saveAchievements();
+        
+        lifetimeStats.dailyStats = {
+          lastResetDate: today,
+          todayDailyIds: null, // Will be set by getTodayDailyAchievements
+          gamesPlayedToday: 0,
+          gamesWonToday: 0,
+          movesMadeToday: 0,
+          capturesToday: 0,
+          checksGivenToday: 0,
+          uniqueSquaresVisitedToday: [],
+          longestGameToday: 0,
+          fastestWinToday: Infinity,
+          promotionsToday: 0,
+          castlingToday: 0,
+          checksToday: 0
         };
+        saveLifetimeStats();
+      } else {
+        // Same day - update last play date but don't reset streak
+        lifetimeStats.lastPlayDate = todayDate.toISOString();
         saveLifetimeStats();
       }
     }
@@ -5834,6 +7190,12 @@ function navigateToPreviousMove() {
     }
 
     function showAchievementNotification(newAchievements) {
+      // Legacy function - redirects to sequential version
+      showAchievementNotificationsSequentially(newAchievements);
+    }
+    
+    function showAchievementNotificationsSequentially(newAchievements) {
+      // Show achievements one at a time after game completion
       newAchievements.forEach((ach, index) => {
         setTimeout(() => {
           const notification = document.createElement('div');
@@ -5852,17 +7214,19 @@ function navigateToPreviousMove() {
             animation: slideInRight 0.5s ease-out;
             max-width: 300px;
           `;
+          const pointsText = ach.points ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 5px;">+${ach.points} points</div>` : '';
           notification.innerHTML = `
             <div style="font-size: 1.5em; margin-bottom: 8px;">${ach.name}</div>
             <div style="font-size: 0.9em; opacity: 0.95;">${ach.desc}</div>
+            ${pointsText}
           `;
           document.body.appendChild(notification);
           
           setTimeout(() => {
             notification.style.animation = 'slideOutRight 0.5s ease-in forwards';
             setTimeout(() => notification.remove(), 500);
-          }, 3000);
-        }, index * 400);
+          }, 3500); // Show each notification for 3.5 seconds
+        }, index * 4000); // 4 second delay between each notification
       });
     }
 
@@ -5891,7 +7255,22 @@ function navigateToPreviousMove() {
       gameOver = false;
       
       const side = document.getElementById("color-select").value;
-      const timeOption = document.getElementById("time-control").value;      blindfoldMode = document.getElementById("blindfold-mode").checked;      showHistoryInBlindfold = document.getElementById("show-history").checked;      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
+      const timeOption = document.getElementById("time-control").value;
+      blindfoldMode = document.getElementById("blindfold-mode").checked;
+      showHistoryInBlindfold = document.getElementById("show-history").checked;
+      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
+      
+      // Track current game settings for achievements
+      currentTimeControl = timeOption;
+      
+      // Track games as white/black
+      if (playerColor === 'white') {
+        lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
+      } else {
+        lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
+      }
+      saveLifetimeStats();
+      
       const [base, inc] =
         timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
 
@@ -5919,23 +7298,8 @@ function navigateToPreviousMove() {
       capturedPieces = { white: [], black: [] };
       lastMoveSquares = { from: null, to: null };
       gameStartTime = new Date();
+      resetGameStats();
       premoves = []; // Clear any premoves
-      
-      // Reset game stats for new game
-      gameStats = {
-        capturesByQueen: 0,
-        capturesByRook: 0,
-        capturesByBishop: 0,
-        capturesByKnight: 0,
-        capturesByPawn: 0,
-        totalCaptures: 0,
-        checksGiven: 0,
-        castlingMoves: 0,
-        promotions: 0,
-        enPassants: 0,
-        longestGame: 0,
-        shortestWin: Infinity
-      };
       selectedSquare = null; // Clear any selection
       
       // Hide the options panel with fade effect
@@ -6390,6 +7754,7 @@ function navigateToPreviousMove() {
 
       trackCapturedPiece(move);
       trackRandomAchievements(move, source, target);
+      // Don't check achievements during moves - only after game completion
       lastMoveSquares = { from: source, to: target };
       
       const prevTurn = game.turn() === "w" ? "b" : "w";
@@ -6416,6 +7781,7 @@ function navigateToPreviousMove() {
         updatePlayerStatsDisplay();
         resetDailyStatsIfNeeded();
         lifetimeStats.dailyStats.gamesPlayedToday++;
+        lifetimeStats.dailyStats.gamesWonToday++;
         const moveCount = game.history().length;
         if (moveCount < lifetimeStats.dailyStats.fastestWinToday) {
           lifetimeStats.dailyStats.fastestWinToday = moveCount;
@@ -6423,8 +7789,21 @@ function navigateToPreviousMove() {
         if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
           lifetimeStats.dailyStats.longestGameToday = moveCount;
         }
-        saveLifetimeStats();
-        checkAchievements();
+        // Get checkmate piece from last move (the move that caused checkmate)
+        let checkmatePiece = null;
+        try {
+          const history = game.history({ verbose: true });
+          if (history.length > 0) {
+            const lastMove = history[history.length - 1];
+            // The piece that delivered checkmate is the piece that moved
+            checkmatePiece = lastMove ? lastMove.piece : null;
+          }
+        } catch (e) {
+          console.error('Error getting checkmate piece:', e);
+        }
+        trackWinStats(moveCount, checkmatePiece);
+        commitGameStatsToLifetime();
+        checkAndUnlockAchievements();
         
         // Show rematch modal
         setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
@@ -6487,6 +7866,11 @@ function navigateToPreviousMove() {
         updateTurnDisplay();
         updateOpeningDisplay();
         updateGameStats();
+        
+        // Re-apply premove highlights if there are any (shouldn't be, but just in case)
+        if (premoves.length > 0) {
+          updatePremoveVisual();
+        }
 
         // Play sound for engine move
         if (move.captured) {
@@ -6524,8 +7908,8 @@ function navigateToPreviousMove() {
           if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
             lifetimeStats.dailyStats.longestGameToday = moveCount;
           }
-          saveLifetimeStats();
-          checkAchievements();
+          commitGameStatsToLifetime();
+          checkAndUnlockAchievements();
           
           // Show rematch modal
           setTimeout(() => showRematchModal("💔 Defeat", "You were checkmated! Play again?"), 2000);
@@ -6592,8 +7976,11 @@ function navigateToPreviousMove() {
               if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
                 lifetimeStats.dailyStats.longestGameToday = moveCount;
               }
-              saveLifetimeStats();
-              checkAchievements();
+              // Get checkmate piece from the premove that was just executed
+              let checkmatePiece = premoveAttempt ? premoveAttempt.piece : null;
+              trackWinStats(moveCount, checkmatePiece);
+              commitGameStatsToLifetime();
+              checkAndUnlockAchievements();
               
               // Show rematch modal
               setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
@@ -6679,6 +8066,7 @@ function navigateToPreviousMove() {
         updatePlayerStatsDisplay();
         resetDailyStatsIfNeeded();
         lifetimeStats.dailyStats.gamesPlayedToday++;
+        lifetimeStats.dailyStats.gamesWonToday++;
         const moveCount = game.history().length;
         if (moveCount < lifetimeStats.dailyStats.fastestWinToday) {
           lifetimeStats.dailyStats.fastestWinToday = moveCount;
@@ -6686,8 +8074,21 @@ function navigateToPreviousMove() {
         if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
           lifetimeStats.dailyStats.longestGameToday = moveCount;
         }
-        saveLifetimeStats();
-        checkAchievements();
+        // Get checkmate piece from last move (the move that caused checkmate)
+        let checkmatePiece = null;
+        try {
+          const history = game.history({ verbose: true });
+          if (history.length > 0) {
+            const lastMove = history[history.length - 1];
+            // The piece that delivered checkmate is the piece that moved
+            checkmatePiece = lastMove ? lastMove.piece : null;
+          }
+        } catch (e) {
+          console.error('Error getting checkmate piece:', e);
+        }
+        trackWinStats(moveCount, checkmatePiece);
+        commitGameStatsToLifetime();
+        checkAndUnlockAchievements();
         
         // Show rematch modal
         setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
