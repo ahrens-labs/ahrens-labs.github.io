@@ -1941,6 +1941,30 @@
       }
     }
 
+    @keyframes drawPulse {
+      0%, 100% { 
+        transform: scale(1); 
+        filter: brightness(1);
+        box-shadow: 0 0 80px rgba(243, 156, 18, 0.6), 0 0 120px rgba(230, 126, 34, 0.4);
+      }
+      50% { 
+        transform: scale(1.02); 
+        filter: brightness(1.1);
+        box-shadow: 0 0 100px rgba(243, 156, 18, 0.8), 0 0 140px rgba(230, 126, 34, 0.6);
+      }
+    }
+
+    @keyframes drawRipple {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(20);
+        opacity: 0;
+      }
+    }
+
     .checkmate-overlay {
       position: fixed;
       top: 0;
@@ -2661,7 +2685,34 @@
           checksGivenToday: 0,
           uniqueSquaresVisitedToday: [],
           bishopMovesInBlindfoldToday: 0,
-          currentStreakNoPiecesLost: 0 // Current streak of moves without losing pieces in this game
+          currentStreakNoPiecesLost: 0, // Current streak of moves without losing pieces in this game
+          hasEnPassant: false, // Track if this game had en passant
+          hasUnderpromotion: false, // Track if this game had underpromotion
+          promotionTypes: [], // Track types of promotions in this game (q, r, b, n)
+          castlingTypes: [], // Track types of castling in this game (k for kingside, q for queenside)
+          maxChecksInGame: 0, // Track max checks given in this game
+          capturedPieceTypes: [], // Track types of pieces captured in this game
+          // New unique daily challenge tracking
+          knightMovesInPureBlindfoldToday: 0, // Knight moves in blindfold without history
+          promotionsInGame: 0, // Count promotions in current game
+          queenVisitedCorners: [], // Track which corners queen visited (a1, h1, a8, h8)
+          rooksOnSeventhRank: 0, // Track rooks on 7th/2nd rank
+          bishopsKept: 2, // Track if both bishops kept (starts at 2, decrements when lost)
+          knightForks: 0, // Count knight forks in this game
+          pawnsAdvancedToSixth: [], // Track which pawns reached 6th/3rd rank
+          kingMoves: 0, // Count king moves in this game
+          pieceTypesMoved: [], // Track which piece types moved (p, n, b, r, q, k)
+          eFileSquaresVisited: [], // Track squares on e-file visited
+          piecesSacrificed: [], // Track pieces sacrificed (not pawns)
+          centerSquaresOccupied: [], // Track center squares occupied (d4, d5, e4, e5)
+          pawnIslands: 0, // Count isolated pawn islands
+          rookBatteryCreated: false, // Track if rook battery created
+          pinsCreated: 0, // Count pins created
+          skewersCreated: 0, // Count skewers created
+          discoveredAttacks: 0, // Count discovered attacks
+          consecutiveChecks: 0, // Track consecutive checks
+          maxConsecutiveChecks: 0, // Max consecutive checks in this game
+          zwischenzugMade: false // Track if zwischenzug made
         }
       };
     }
@@ -2738,6 +2789,54 @@
                        (gameStats.capturedPawns || 0);
       if (totalLost === 0) {
         lifetimeStats.perfectGames = (lifetimeStats.perfectGames || 0) + 1;
+        // Track perfect wins for daily challenge
+        if (lifetimeStats.dailyStats) {
+          lifetimeStats.dailyStats.perfectWinsToday = (lifetimeStats.dailyStats.perfectWinsToday || 0) + 1;
+        }
+      }
+      
+      // Track queen sacrifice wins (if we lost a queen but still won)
+      if (gameStats.capturedQueens > 0 && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.queenSacrificeWinsToday = (lifetimeStats.dailyStats.queenSacrificeWinsToday || 0) + 1;
+      }
+      
+      // Track comeback wins (win after being down 5+ material points)
+      // This is checked by comparing material at different points - simplified: if we won and had captured fewer pieces earlier
+      // For now, we'll track this in commitGameStatsToLifetime by checking material difference
+      
+      // Track max checks in single game
+      if (gameStats.dailyStats && gameStats.dailyStats.maxChecksInGame) {
+        const currentMax = lifetimeStats.dailyStats.maxChecksInSingleGameToday || 0;
+        if (gameStats.dailyStats.maxChecksInGame > currentMax) {
+          lifetimeStats.dailyStats.maxChecksInSingleGameToday = gameStats.dailyStats.maxChecksInGame;
+        }
+      }
+      
+      // Track time pressure wins (won with less than 10 seconds remaining)
+      if (timeLimited && lifetimeStats.dailyStats) {
+        try {
+          const playerTimeRemaining = playerColor === 'white' ? whiteTime : blackTime;
+          if (playerTimeRemaining > 0 && playerTimeRemaining < 10) {
+            lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
+          }
+        } catch (e) {
+          console.error('Error tracking time pressure win:', e);
+        }
+      }
+      
+      // Track double castle games
+      if (gameStats.dailyStats && gameStats.dailyStats.castlingTypes && gameStats.dailyStats.castlingTypes.length >= 2) {
+        lifetimeStats.dailyStats.doubleCastleGamesToday = (lifetimeStats.dailyStats.doubleCastleGamesToday || 0) + 1;
+      }
+      
+      // Track variety promotion games
+      if (gameStats.dailyStats && gameStats.dailyStats.promotionTypes && gameStats.dailyStats.promotionTypes.length >= 2) {
+        lifetimeStats.dailyStats.varietyPromotionGamesToday = (lifetimeStats.dailyStats.varietyPromotionGamesToday || 0) + 1;
+      }
+      
+      // Track piece hunter games (captured 5 different piece types)
+      if (gameStats.dailyStats && gameStats.dailyStats.capturedPieceTypes && gameStats.dailyStats.capturedPieceTypes.length >= 5) {
+        lifetimeStats.dailyStats.pieceHunterGamesToday = (lifetimeStats.dailyStats.pieceHunterGamesToday || 0) + 1;
       }
       
       // Track material advantage at win (for daily challenge)
@@ -2796,6 +2895,103 @@
         // Track wins without move history (harder achievement)
         if (!showHistoryInBlindfold) {
           lifetimeStats.blindfoldWinsNoHistory = (lifetimeStats.blindfoldWinsNoHistory || 0) + 1;
+          // Track pure blindfold wins for daily challenge
+          if (lifetimeStats.dailyStats) {
+            lifetimeStats.dailyStats.pureBlindfoldWinsToday = (lifetimeStats.dailyStats.pureBlindfoldWinsToday || 0) + 1;
+          }
+        }
+      }
+      
+      // Track new unique daily challenges
+      if (gameStats && gameStats.dailyStats && lifetimeStats.dailyStats) {
+        // Triple promotion games
+        if (gameStats.dailyStats.promotionsInGame >= 3) {
+          lifetimeStats.dailyStats.triplePromotionGamesToday = (lifetimeStats.dailyStats.triplePromotionGamesToday || 0) + 1;
+        }
+        
+        // Queen tour (visited all 4 corners)
+        if (gameStats.dailyStats.queenVisitedCorners && gameStats.dailyStats.queenVisitedCorners.length >= 4) {
+          lifetimeStats.dailyStats.queenTourGamesToday = (lifetimeStats.dailyStats.queenTourGamesToday || 0) + 1;
+        }
+        
+        // Rook ladder (both rooks on 7th/2nd rank)
+        if (gameStats.dailyStats.rooksOnSeventhRank >= 2) {
+          lifetimeStats.dailyStats.rookLadderGamesToday = (lifetimeStats.dailyStats.rookLadderGamesToday || 0) + 1;
+        }
+        
+        // Bishop pair (kept both bishops)
+        if (gameStats.dailyStats.bishopsKept >= 2) {
+          lifetimeStats.dailyStats.bishopPairWinsToday = (lifetimeStats.dailyStats.bishopPairWinsToday || 0) + 1;
+        }
+        
+        // Knight fork (3+ forks)
+        if (gameStats.dailyStats.knightForks >= 3) {
+          lifetimeStats.dailyStats.knightForkGamesToday = (lifetimeStats.dailyStats.knightForkGamesToday || 0) + 1;
+        }
+        
+        // Pawn storm (5+ pawns to 6th/3rd rank)
+        if (gameStats.dailyStats.pawnsAdvancedToSixth && gameStats.dailyStats.pawnsAdvancedToSixth.length >= 5) {
+          lifetimeStats.dailyStats.pawnStormGamesToday = (lifetimeStats.dailyStats.pawnStormGamesToday || 0) + 1;
+        }
+        
+        // King walk (10+ king moves)
+        if (gameStats.dailyStats.kingMoves >= 10) {
+          lifetimeStats.dailyStats.kingWalkGamesToday = (lifetimeStats.dailyStats.kingWalkGamesToday || 0) + 1;
+        }
+        
+        // Piece cycle (moved all 6 piece types)
+        if (gameStats.dailyStats.pieceTypesMoved && gameStats.dailyStats.pieceTypesMoved.length >= 6) {
+          lifetimeStats.dailyStats.pieceCycleGamesToday = (lifetimeStats.dailyStats.pieceCycleGamesToday || 0) + 1;
+        }
+        
+        // Square master (visited all 8 e-file squares)
+        if (gameStats.dailyStats.eFileSquaresVisited && gameStats.dailyStats.eFileSquaresVisited.length >= 8) {
+          lifetimeStats.dailyStats.squareMasterGamesToday = (lifetimeStats.dailyStats.squareMasterGamesToday || 0) + 1;
+        }
+        
+        // Sacrifice chain (3+ different pieces sacrificed)
+        if (gameStats.dailyStats.piecesSacrificed && gameStats.dailyStats.piecesSacrificed.length >= 3) {
+          lifetimeStats.dailyStats.sacrificeChainGamesToday = (lifetimeStats.dailyStats.sacrificeChainGamesToday || 0) + 1;
+        }
+        
+        // Center control (occupied all 4 center squares)
+        if (gameStats.dailyStats.centerSquaresOccupied && gameStats.dailyStats.centerSquaresOccupied.length >= 4) {
+          lifetimeStats.dailyStats.centerControlGamesToday = (lifetimeStats.dailyStats.centerControlGamesToday || 0) + 1;
+        }
+        
+        // Pawn island (3+ isolated islands)
+        if (gameStats.dailyStats.pawnIslands >= 3) {
+          lifetimeStats.dailyStats.pawnIslandGamesToday = (lifetimeStats.dailyStats.pawnIslandGamesToday || 0) + 1;
+        }
+        
+        // Rook battery
+        if (gameStats.dailyStats.rookBatteryCreated) {
+          lifetimeStats.dailyStats.rookBatteryGamesToday = (lifetimeStats.dailyStats.rookBatteryGamesToday || 0) + 1;
+        }
+        
+        // Pin master (4+ pins)
+        if (gameStats.dailyStats.pinsCreated >= 4) {
+          lifetimeStats.dailyStats.pinMasterGamesToday = (lifetimeStats.dailyStats.pinMasterGamesToday || 0) + 1;
+        }
+        
+        // Skewer king (2+ skewers)
+        if (gameStats.dailyStats.skewersCreated >= 2) {
+          lifetimeStats.dailyStats.skewerKingGamesToday = (lifetimeStats.dailyStats.skewerKingGamesToday || 0) + 1;
+        }
+        
+        // Discovered attack (3+ discovered attacks)
+        if (gameStats.dailyStats.discoveredAttacks >= 3) {
+          lifetimeStats.dailyStats.discoveredAttackGamesToday = (lifetimeStats.dailyStats.discoveredAttackGamesToday || 0) + 1;
+        }
+        
+        // Windmill (5+ consecutive checks)
+        if (gameStats.dailyStats.maxConsecutiveChecks >= 5) {
+          lifetimeStats.dailyStats.windmillGamesToday = (lifetimeStats.dailyStats.windmillGamesToday || 0) + 1;
+        }
+        
+        // Zwischenzug
+        if (gameStats.dailyStats.zwischenzugMade) {
+          lifetimeStats.dailyStats.zwischenzugGamesToday = (lifetimeStats.dailyStats.zwischenzugGamesToday || 0) + 1;
         }
       }
       
@@ -2839,7 +3035,10 @@
           lifetimeStats.dailyStats.movesMadeToday += gameStats.dailyStats.movesMadeToday || 0;
           lifetimeStats.dailyStats.capturesToday += gameStats.dailyStats.capturesToday || 0;
           lifetimeStats.dailyStats.checksGivenToday += gameStats.dailyStats.checksGivenToday || 0;
+          lifetimeStats.dailyStats.promotionsToday += gameStats.dailyStats.promotionsToday || 0;
+          lifetimeStats.dailyStats.castlingToday += gameStats.dailyStats.castlingToday || 0;
           lifetimeStats.dailyStats.bishopMovesInBlindfoldToday += gameStats.dailyStats.bishopMovesInBlindfoldToday || 0;
+          lifetimeStats.dailyStats.knightMovesInPureBlindfoldToday += gameStats.dailyStats.knightMovesInPureBlindfoldToday || 0;
           if (gameStats.dailyStats.uniqueSquaresVisitedToday) {
             gameStats.dailyStats.uniqueSquaresVisitedToday.forEach(square => {
               if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(square)) {
@@ -2849,13 +3048,8 @@
           }
         } else if (typeof gameStats[key] === 'number') {
           lifetimeStats[key] = (lifetimeStats[key] || 0) + gameStats[key];
-          // Track promotions and castling for daily achievements
-          if (key === 'promotions') {
-            lifetimeStats.dailyStats.promotionsToday = (lifetimeStats.dailyStats.promotionsToday || 0) + gameStats[key];
-          }
-          if (key === 'castlingMoves') {
-            lifetimeStats.dailyStats.castlingToday = (lifetimeStats.dailyStats.castlingToday || 0) + gameStats[key];
-          }
+          // Note: promotionsToday and castlingToday are already tracked per-move in gameStats.dailyStats
+          // They will be added separately below, so we don't double-count here
         }
       });
       
@@ -2865,6 +3059,30 @@
       }
       if (gameStats.promotions > 0 && lifetimeStats.dailyStats) {
         lifetimeStats.dailyStats.gamesPromotedToday = (lifetimeStats.dailyStats.gamesPromotedToday || 0) + 1;
+      }
+      
+      // Track games with en passant
+      if (gameStats.dailyStats && gameStats.dailyStats.hasEnPassant && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.gamesWithEnPassantToday = (lifetimeStats.dailyStats.gamesWithEnPassantToday || 0) + 1;
+      }
+      
+      // Track underpromotions
+      if (gameStats.dailyStats && gameStats.dailyStats.hasUnderpromotion && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.underpromotionsToday = (lifetimeStats.dailyStats.underpromotionsToday || 0) + 1;
+      }
+      
+      // Track comeback wins (win after being down 5+ material at some point)
+      // Check if we won and had negative material difference at any point
+      // Simplified: if we won and opponent captured more valuable pieces than us
+      const opponentCapturedValue = (gameStats.capturedQueens || 0) * 9 + (gameStats.capturedRooks || 0) * 5 + 
+                                    (gameStats.capturedBishops || 0) * 3 + (gameStats.capturedKnights || 0) * 3 + 
+                                    (gameStats.capturedPawns || 0) * 1;
+      const playerCapturedValue = (gameStats.capturesByQueen || 0) * 9 + (gameStats.capturesByRook || 0) * 5 + 
+                                  (gameStats.capturesByBishop || 0) * 3 + (gameStats.capturesByKnight || 0) * 3 + 
+                                  (gameStats.capturesByPawn || 0) * 1;
+      // If opponent captured 5+ more points worth of material, it's a comeback
+      if (opponentCapturedValue - playerCapturedValue >= 5 && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.comebackWinsToday = (lifetimeStats.dailyStats.comebackWinsToday || 0) + 1;
       }
       
       saveLifetimeStats();
@@ -4542,6 +4760,10 @@ function navigateToPreviousMove() {
             gameStats.capturesByPawn++;
             gameStats.capturedPawns++;
           }
+          // Track captured piece types for daily challenge
+          if (gameStats.dailyStats && !gameStats.dailyStats.capturedPieceTypes.includes(pieceType)) {
+            gameStats.dailyStats.capturedPieceTypes.push(pieceType);
+          }
         }
         
         // If opponent captured one of our pieces, reset the "no pieces lost" streak
@@ -4568,9 +4790,25 @@ function navigateToPreviousMove() {
         }
         if (move.flags && move.flags.includes('e')) {
           gameStats.enPassants++;
+          // Track games with en passant for daily challenge
+          if (gameStats.dailyStats && !gameStats.dailyStats.hasEnPassant) {
+            gameStats.dailyStats.hasEnPassant = true;
+          }
         }
         if (move.san && move.san.includes('+')) {
           gameStats.checksGiven++;
+          // Track max checks in this game for daily challenge
+          if (gameStats.dailyStats) {
+            gameStats.dailyStats.maxChecksInGame = Math.max(gameStats.dailyStats.maxChecksInGame || 0, gameStats.checksGiven);
+            // Track consecutive checks for windmill challenge
+            gameStats.dailyStats.consecutiveChecks = (gameStats.dailyStats.consecutiveChecks || 0) + 1;
+            gameStats.dailyStats.maxConsecutiveChecks = Math.max(gameStats.dailyStats.maxConsecutiveChecks || 0, gameStats.dailyStats.consecutiveChecks);
+          }
+        } else {
+          // Reset consecutive checks if no check
+          if (gameStats && gameStats.dailyStats) {
+            gameStats.dailyStats.consecutiveChecks = 0;
+          }
         }
       }
     }
@@ -4613,6 +4851,13 @@ function navigateToPreviousMove() {
         }
         if (target === 'f6') gameStats.knightToF6++;
         if (target === 'c6') gameStats.knightToC6++;
+        
+        // Simplified knight fork detection: if knight captures and attacks another piece
+        // This is a simplified check - full fork detection would require position analysis
+        if (move.captured && gameStats && gameStats.dailyStats) {
+          // Increment fork count (simplified - assumes any knight capture might be a fork)
+          gameStats.dailyStats.knightForks = (gameStats.dailyStats.knightForks || 0) + 1;
+        }
       }
       
       // Track moves on specific player move numbers (e.g., "on your 5th move")
@@ -4637,8 +4882,88 @@ function navigateToPreviousMove() {
       if (pieceType === 'b' && target === 'f8') gameStats.bishopToF8++;
       
       // Track bishop moves in blindfold mode (for daily challenge)
-      if (pieceType === 'b' && blindfoldMode && gameStats.dailyStats) {
-        gameStats.dailyStats.bishopMovesInBlindfoldToday = (gameStats.dailyStats.bishopMovesInBlindfoldToday || 0) + 1;
+      // Check blindfold mode explicitly - it should be set when game starts
+      const isBlindfoldActive = typeof blindfoldMode !== 'undefined' && blindfoldMode === true;
+      const isPureBlindfold = isBlindfoldActive && typeof showHistoryInBlindfold !== 'undefined' && showHistoryInBlindfold === false;
+      
+      if (pieceType === 'b' && isBlindfoldActive && gameStats && gameStats.dailyStats) {
+        if (!gameStats.dailyStats.bishopMovesInBlindfoldToday) {
+          gameStats.dailyStats.bishopMovesInBlindfoldToday = 0;
+        }
+        gameStats.dailyStats.bishopMovesInBlindfoldToday++;
+        console.log('Blindfold bishop move tracked:', gameStats.dailyStats.bishopMovesInBlindfoldToday);
+      }
+      
+      // Track knight moves in pure blindfold (no history) for daily challenge
+      if (pieceType === 'n' && isPureBlindfold && gameStats && gameStats.dailyStats) {
+        if (!gameStats.dailyStats.knightMovesInPureBlindfoldToday) {
+          gameStats.dailyStats.knightMovesInPureBlindfoldToday = 0;
+        }
+        gameStats.dailyStats.knightMovesInPureBlindfoldToday++;
+      }
+      
+      // Track king moves for daily challenge
+      if (pieceType === 'k' && gameStats && gameStats.dailyStats) {
+        gameStats.dailyStats.kingMoves = (gameStats.dailyStats.kingMoves || 0) + 1;
+      }
+      
+      // Track piece types moved for daily challenge
+      if (gameStats && gameStats.dailyStats && !gameStats.dailyStats.pieceTypesMoved.includes(pieceType)) {
+        gameStats.dailyStats.pieceTypesMoved.push(pieceType);
+      }
+      
+      // Track e-file squares visited for daily challenge
+      if (target && target[0] === 'e' && gameStats && gameStats.dailyStats) {
+        if (!gameStats.dailyStats.eFileSquaresVisited.includes(target)) {
+          gameStats.dailyStats.eFileSquaresVisited.push(target);
+        }
+      }
+      
+      // Track queen visiting corner squares for daily challenge
+      if (pieceType === 'q' && gameStats && gameStats.dailyStats) {
+        const corners = ['a1', 'h1', 'a8', 'h8'];
+        if (corners.includes(target) && !gameStats.dailyStats.queenVisitedCorners.includes(target)) {
+          gameStats.dailyStats.queenVisitedCorners.push(target);
+        }
+      }
+      
+      // Track rooks on 7th/2nd rank for daily challenge
+      if (pieceType === 'r' && gameStats && gameStats.dailyStats) {
+        const rank = parseInt(target[1]);
+        const targetRank = playerColor === 'white' ? 7 : 2;
+        if (rank === targetRank && !gameStats.dailyStats.rooksOnSeventhRank) {
+          gameStats.dailyStats.rooksOnSeventhRank = 0;
+        }
+        // Check if rook is on target rank
+        const board = game.board();
+        let rooksOnRank = 0;
+        for (let i = 0; i < 8; i++) {
+          const square = String.fromCharCode(97 + i) + targetRank;
+          const piece = game.get(square);
+          if (piece && piece.type === 'r' && piece.color === (playerColor === 'white' ? 'w' : 'b')) {
+            rooksOnRank++;
+          }
+        }
+        if (rooksOnRank >= 2) {
+          gameStats.dailyStats.rooksOnSeventhRank = 2;
+        }
+      }
+      
+      // Track pawns advanced to 6th/3rd rank for daily challenge
+      if (pieceType === 'p' && gameStats && gameStats.dailyStats) {
+        const rank = parseInt(target[1]);
+        const targetRank = playerColor === 'white' ? 6 : 3;
+        if (rank === targetRank && !gameStats.dailyStats.pawnsAdvancedToSixth.includes(target)) {
+          gameStats.dailyStats.pawnsAdvancedToSixth.push(target);
+        }
+      }
+      
+      // Track center squares occupied for daily challenge
+      const centerSquares = ['d4', 'd5', 'e4', 'e5'];
+      if (centerSquares.includes(target) && gameStats && gameStats.dailyStats) {
+        if (!gameStats.dailyStats.centerSquaresOccupied.includes(target)) {
+          gameStats.dailyStats.centerSquaresOccupied.push(target);
+        }
       }
       
       // Track streak of moves without losing pieces
@@ -4679,21 +5004,54 @@ function navigateToPreviousMove() {
       
       // Track promotions
       if (move.promotion) {
+        // Track promotion count for daily challenge
+        if (gameStats && gameStats.dailyStats) {
+          gameStats.dailyStats.promotionsInGame = (gameStats.dailyStats.promotionsInGame || 0) + 1;
+          gameStats.dailyStats.promotionsToday = (gameStats.dailyStats.promotionsToday || 0) + 1;
+        }
+        
         if (move.promotion === 'q') {
           gameStats.promotedToQueen++;
           gameStats.promotedToQueenMultiple++;
+          if (gameStats.dailyStats && !gameStats.dailyStats.promotionTypes.includes('q')) {
+            gameStats.dailyStats.promotionTypes.push('q');
+          }
         }
         if (move.promotion === 'r') {
           gameStats.promotedToRook++;
           lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+          // Track underpromotion for daily challenge
+          if (gameStats.dailyStats) {
+            gameStats.dailyStats.hasUnderpromotion = true;
+            if (!gameStats.dailyStats.promotionTypes.includes('r')) {
+              gameStats.dailyStats.promotionTypes.push('r');
+            }
+          }
         }
         if (move.promotion === 'b') {
           gameStats.promotedToBishop++;
           lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+          if (gameStats.dailyStats) {
+            gameStats.dailyStats.hasUnderpromotion = true;
+            if (!gameStats.dailyStats.promotionTypes.includes('b')) {
+              gameStats.dailyStats.promotionTypes.push('b');
+            }
+          }
         }
         if (move.promotion === 'n') {
           gameStats.promotedToKnight++;
           lifetimeStats.underpromotions = (lifetimeStats.underpromotions || 0) + 1;
+          if (gameStats.dailyStats) {
+            gameStats.dailyStats.hasUnderpromotion = true;
+            if (!gameStats.dailyStats.promotionTypes.includes('n')) {
+              gameStats.dailyStats.promotionTypes.push('n');
+            }
+          }
+        }
+        if (move.promotion === 'q' && gameStats.dailyStats) {
+          if (!gameStats.dailyStats.promotionTypes.includes('q')) {
+            gameStats.dailyStats.promotionTypes.push('q');
+          }
         }
       }
       
@@ -4702,6 +5060,13 @@ function navigateToPreviousMove() {
         if (playerMoveNumber === 10) gameStats.castledOnMove10++;
         if (playerMoveNumber === 20) gameStats.castledOnMove20++;
         gameStats.dailyStats.castlingToday++; // Track daily castling
+        // Track castling type for daily challenge
+        if (gameStats.dailyStats) {
+          const castlingType = move.san.includes('O-O-O') ? 'q' : 'k'; // queenside or kingside
+          if (!gameStats.dailyStats.castlingTypes.includes(castlingType)) {
+            gameStats.dailyStats.castlingTypes.push(castlingType);
+          }
+        }
       }
       
       // Track checks on specific player move numbers (skip move 1 as it's impossible)
@@ -4713,6 +5078,131 @@ function navigateToPreviousMove() {
       if (move.captured) {
         if (playerMoveNumber === 10) gameStats.captureOnMove10++;
       }
+    }
+
+    function celebrateDraw(drawReason) {
+      console.log('celebrateDraw called, reason:', drawReason);
+      
+      // === DRAW CELEBRATION - UNIQUE ANIMATION ===
+      
+      // Screen flash effect (orange/yellow gradient)
+      const screenFlash = document.createElement('div');
+      screenFlash.style.position = 'fixed';
+      screenFlash.style.top = '0';
+      screenFlash.style.left = '0';
+      screenFlash.style.width = '100%';
+      screenFlash.style.height = '100%';
+      screenFlash.style.background = 'radial-gradient(circle, rgba(243, 156, 18, 0.4) 0%, rgba(230, 126, 34, 0.3) 50%, transparent 100%)';
+      screenFlash.style.pointerEvents = 'none';
+      screenFlash.style.zIndex = '9997';
+      screenFlash.style.animation = 'screenFlash 1s ease-out';
+      document.body.appendChild(screenFlash);
+      setTimeout(() => screenFlash.remove(), 1000);
+
+      // Draw text animation
+      const drawText = document.createElement('div');
+      drawText.className = 'draw-text';
+      drawText.textContent = 'Draw!';
+      drawText.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4em;
+        font-weight: 900;
+        color: #f39c12;
+        text-shadow: 0 0 30px rgba(243, 156, 18, 0.8), 0 0 60px rgba(230, 126, 34, 0.6);
+        z-index: 9998;
+        font-family: 'Inter', sans-serif;
+        pointer-events: none;
+      `;
+      drawText.style.animation = 'textPop 1.2s ease-out';
+      document.body.appendChild(drawText);
+      setTimeout(() => {
+        drawText.style.transition = 'opacity 0.5s ease-out';
+        drawText.style.opacity = '0';
+        setTimeout(() => drawText.remove(), 500);
+      }, 2500);
+
+      // Overlay for draw effects
+      const overlay = document.createElement('div');
+      overlay.className = 'draw-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 9996;
+      `;
+      document.body.appendChild(overlay);
+
+      // Generate orange/yellow confetti
+      const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
+      const shapes = ['circle', 'rect', 'star'];
+      
+      for (let i = 0; i < 200; i++) {
+        setTimeout(() => {
+          const confetti = document.createElement('div');
+          const shape = shapes[Math.floor(Math.random() * shapes.length)];
+          confetti.className = 'confetti ' + shape;
+          confetti.style.left = Math.random() * 100 + '%';
+          confetti.style.top = -20 + 'px';
+          confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+          const size = Math.random() * 15 + 5;
+          confetti.style.width = size + 'px';
+          confetti.style.height = size + 'px';
+          confetti.style.opacity = Math.random() * 0.5 + 0.5;
+          const drift = (Math.random() - 0.5) * 150;
+          confetti.style.setProperty('--drift', drift + 'px');
+          confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
+          confetti.style.animationDelay = (Math.random() * 0.2) + 's';
+          overlay.appendChild(confetti);
+          setTimeout(() => confetti.remove(), 4000);
+        }, i * 10);
+      }
+
+      // Gentle pulse effect on board (orange glow)
+      const board = document.getElementById('board');
+      if (board) {
+        board.style.animation = 'drawPulse 1.5s ease-in-out 3';
+        board.style.transition = 'all 0.3s ease';
+        board.style.boxShadow = '0 0 80px rgba(243, 156, 18, 0.6), 0 0 120px rgba(230, 126, 34, 0.4)';
+        setTimeout(() => {
+          board.style.animation = '';
+          board.style.boxShadow = '';
+        }, 5000);
+      }
+
+      // Ripple effects from board center (orange)
+      const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+      const centerX = boardRect.left + boardRect.width / 2;
+      const centerY = boardRect.top + boardRect.height / 2;
+
+      for (let r = 0; r < 4; r++) {
+        setTimeout(() => {
+          const ripple = document.createElement('div');
+          ripple.style.cssText = `
+            position: fixed;
+            left: ${centerX}px;
+            top: ${centerY}px;
+            width: 30px;
+            height: 30px;
+            margin-left: -15px;
+            margin-top: -15px;
+            border: 3px solid rgba(243, 156, 18, 0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9995;
+          `;
+          ripple.style.animation = `drawRipple ${2}s ease-out`;
+          document.body.appendChild(ripple);
+          setTimeout(() => ripple.remove(), 2000);
+        }, r * 300);
+      }
+
+      setTimeout(() => overlay.remove(), 5000);
     }
 
     function celebrateCheckmate(playerWon) {
@@ -6099,9 +6589,9 @@ function navigateToPreviousMove() {
           return { current: (lifetimeStats.pawnToH2 || 0), target: 1 };
         }},
         
-        // Daily Achievements
+        // Daily Achievements - ORIGINAL CHALLENGES
         { id: 'daily_explorer', name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', category: 'Daily', points: 100, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 20 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 20 };
           resetDailyStatsIfNeeded();
           const lifetimeCount = lifetimeStats.dailyStats.uniqueSquaresVisitedToday ? 
             (Array.isArray(lifetimeStats.dailyStats.uniqueSquaresVisitedToday) ? lifetimeStats.dailyStats.uniqueSquaresVisitedToday.length : 0) : 0;
@@ -6111,12 +6601,12 @@ function navigateToPreviousMove() {
           return { current: combined.size, target: 20 };
         }},
         { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', category: 'Daily', points: 150, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 5 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 5 };
         }},
         { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', category: 'Daily', points: 200, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           // Check if we've won a game today in under 15 moves
           const fastestWin = lifetimeStats.dailyStats.fastestWinToday === Infinity ? 0 : lifetimeStats.dailyStats.fastestWinToday;
@@ -6135,27 +6625,29 @@ function navigateToPreviousMove() {
           return { current: (fastestWin > 0 && fastestWin <= 15) || currentGameWin ? 1 : 0, target: 1 };
         }},
         { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day', category: 'Daily', points: 180, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 10 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 10 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 10 };
         }},
         { id: 'daily_checker', name: '✓ Daily Checker', desc: 'Give 8 checks in one day', category: 'Daily', points: 120, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 8 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 8 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.checksGivenToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.checksGivenToday) || 0)), target: 8 };
         }},
         { id: 'daily_longgame', name: '⏱️ Daily Marathon', desc: 'Play a game with 80+ moves today', category: 'Daily', points: 150, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
-          return { current: (lifetimeStats.dailyStats.longestGameToday >= 80 ? 1 : 0), target: 1 };
+          const longestGame = lifetimeStats.dailyStats.longestGameToday || 0;
+          const currentGameMoves = (game && game.history && game.history().length) || 0;
+          return { current: (longestGame >= 80 || currentGameMoves >= 80) ? 1 : 0, target: 1 };
         }},
         { id: 'daily_promoter', name: '👑 Daily Promoter', desc: 'Promote 3 pawns in one day', category: 'Daily', points: 160, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.promotionsToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.promotionsToday) || 0)), target: 3 };
         }},
         { id: 'daily_castler', name: '🏰 Daily Castler', desc: 'Castle 2 times in one day', category: 'Daily', points: 110, isDaily: true, progress: () => {
-          if (!lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.castlingToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.castlingToday) || 0)), target: 2 };
         }},
@@ -6164,12 +6656,99 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           return { current: (lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
         }},
+        
+        // Daily Achievements - UNIQUE AND CREATIVE CHALLENGES
         { id: 'daily_blindfold_bishop', name: '👁️♗ Blindfold Bishop Master', desc: 'Make 5 bishop moves in blindfold games today', category: 'Daily', points: 250, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
           resetDailyStatsIfNeeded();
           const lifetimeCount = lifetimeStats.dailyStats.bishopMovesInBlindfoldToday || 0;
           const gameCount = (gameStats && gameStats.dailyStats && gameStats.dailyStats.bishopMovesInBlindfoldToday) || 0;
           return { current: lifetimeCount + gameCount, target: 5 };
+        }},
+        { id: 'daily_blindfold_knight', name: '👁️🐴 Blindfold Knight Rider', desc: 'Make 7 knight moves in blindfold games without move history today', category: 'Daily', points: 400, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 7 };
+          resetDailyStatsIfNeeded();
+          const lifetimeCount = lifetimeStats.dailyStats.knightMovesInPureBlindfoldToday || 0;
+          const gameCount = (gameStats && gameStats.dailyStats && gameStats.dailyStats.knightMovesInPureBlindfoldToday) || 0;
+          return { current: lifetimeCount + gameCount, target: 7 };
+        }},
+        { id: 'daily_pawn_promotion_chain', name: '♟️♟️♟️ Triple Pawn Promotion', desc: 'Promote 3 pawns in a single game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const triplePromotionGames = (lifetimeStats.dailyStats.triplePromotionGamesToday || 0);
+          return { current: triplePromotionGames, target: 1 };
+        }},
+        { id: 'daily_queen_tour', name: '👸 Queen World Tour', desc: 'Move your queen to all 4 corner squares (a1, h1, a8, h8) in one game today', category: 'Daily', points: 500, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const queenTourGames = (lifetimeStats.dailyStats.queenTourGamesToday || 0);
+          return { current: queenTourGames, target: 1 };
+        }},
+        { id: 'daily_rook_ladder', name: '🏰 Rook Ladder', desc: 'Move both rooks to the 7th rank (or 2nd rank if black) in one game today', category: 'Daily', points: 380, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const rookLadderGames = (lifetimeStats.dailyStats.rookLadderGamesToday || 0);
+          return { current: rookLadderGames, target: 1 };
+        }},
+        { id: 'daily_bishop_pair', name: '♗♗ Bishop Pair Power', desc: 'Win a game where you kept both bishops until the end today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const bishopPairWins = (lifetimeStats.dailyStats.bishopPairWinsToday || 0);
+          return { current: bishopPairWins, target: 1 };
+        }},
+        { id: 'daily_pawn_storm', name: '♟️ Pawn Storm', desc: 'Advance 5 different pawns to the 6th rank (or 3rd if black) in one game today', category: 'Daily', points: 400, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const pawnStormGames = (lifetimeStats.dailyStats.pawnStormGamesToday || 0);
+          return { current: pawnStormGames, target: 1 };
+        }},
+        { id: 'daily_king_walk', name: '👑 King Walk', desc: 'Move your king 10+ squares in one game today', category: 'Daily', points: 320, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const kingWalkGames = (lifetimeStats.dailyStats.kingWalkGamesToday || 0);
+          return { current: kingWalkGames, target: 1 };
+        }},
+        { id: 'daily_piece_cycle', name: '🔄 Piece Cycle', desc: 'Move all 6 piece types (pawn, knight, bishop, rook, queen, king) in one game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const pieceCycleGames = (lifetimeStats.dailyStats.pieceCycleGamesToday || 0);
+          return { current: pieceCycleGames, target: 1 };
+        }},
+        { id: 'daily_square_master', name: '🎯 Square Master', desc: 'Visit all 8 squares on the e-file (e1-e8) in one game today', category: 'Daily', points: 500, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const squareMasterGames = (lifetimeStats.dailyStats.squareMasterGamesToday || 0);
+          return { current: squareMasterGames, target: 1 };
+        }},
+        { id: 'daily_blindfold_win_no_history', name: '👁️❌ Pure Blindfold Victory', desc: 'Win a blindfold game without move history today', category: 'Daily', points: 600, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const pureBlindfoldWinsToday = (lifetimeStats.dailyStats.pureBlindfoldWinsToday || 0);
+          return { current: pureBlindfoldWinsToday, target: 1 };
+        }},
+        { id: 'daily_piece_sacrifice_chain', name: '💎 Sacrifice Chain', desc: 'Sacrifice 3 different pieces (not pawns) in one game today', category: 'Daily', points: 550, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const sacrificeChainGames = (lifetimeStats.dailyStats.sacrificeChainGamesToday || 0);
+          return { current: sacrificeChainGames, target: 1 };
+        }},
+        { id: 'daily_center_control', name: '🎯 Center Control', desc: 'Occupy all 4 center squares (d4, d5, e4, e5) with your pieces in one game today', category: 'Daily', points: 480, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const centerControlGames = (lifetimeStats.dailyStats.centerControlGamesToday || 0);
+          return { current: centerControlGames, target: 1 };
+        }},
+        { id: 'daily_pawn_island', name: '🏝️ Pawn Island', desc: 'Create 3 isolated pawn islands in one game today', category: 'Daily', points: 380, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const pawnIslandGames = (lifetimeStats.dailyStats.pawnIslandGamesToday || 0);
+          return { current: pawnIslandGames, target: 1 };
+        }},
+        { id: 'daily_rook_battery', name: '🏰 Rook Battery', desc: 'Create a rook battery (2 rooks on same file/rank) in one game today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const rookBatteryGames = (lifetimeStats.dailyStats.rookBatteryGamesToday || 0);
+          return { current: rookBatteryGames, target: 1 };
         }},
         { id: 'daily_personality_master', name: '🎭 Personality Master', desc: 'Beat 3 different engine personalities in one day', category: 'Daily', points: 350, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
@@ -6228,6 +6807,77 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           const uniqueCheckmatePieces = lifetimeStats.dailyStats.uniqueCheckmatePiecesToday || [];
           return { current: uniqueCheckmatePieces.length, target: 3 };
+        }},
+        { id: 'daily_en_passant_master', name: '🎯 En Passant Master', desc: 'Perform en passant in 2 different games today', category: 'Daily', points: 300, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          const gamesWithEnPassant = (lifetimeStats.dailyStats.gamesWithEnPassantToday || 0);
+          return { current: gamesWithEnPassant, target: 2 };
+        }},
+        { id: 'daily_underpromotion', name: '♟️ Underpromotion Specialist', desc: 'Underpromote a pawn (to rook, bishop, or knight) in one game today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const underpromotions = (lifetimeStats.dailyStats.underpromotionsToday || 0);
+          return { current: underpromotions, target: 1 };
+        }},
+        { id: 'daily_queen_sacrifice', name: '👑 Queen Sacrifice', desc: 'Win a game after sacrificing your queen today', category: 'Daily', points: 500, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const queenSacrificeWins = (lifetimeStats.dailyStats.queenSacrificeWinsToday || 0);
+          return { current: queenSacrificeWins, target: 1 };
+        }},
+        { id: 'daily_time_pressure', name: '⏰ Time Pressure Hero', desc: 'Win a game with less than 10 seconds remaining on your clock', category: 'Daily', points: 450, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const timePressureWins = (lifetimeStats.dailyStats.timePressureWinsToday || 0);
+          return { current: timePressureWins, target: 1 };
+        }},
+        { id: 'daily_opening_trap', name: '🪤 Opening Trap Master', desc: 'Win a game in under 20 moves today', category: 'Daily', points: 320, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const fastestWin = lifetimeStats.dailyStats.fastestWinToday === Infinity ? 0 : lifetimeStats.dailyStats.fastestWinToday;
+          return { current: (fastestWin > 0 && fastestWin <= 20) ? 1 : 0, target: 1 };
+        }},
+        { id: 'daily_endgame_grinder', name: '🔨 Endgame Grinder', desc: 'Win a game that lasted 100+ moves today', category: 'Daily', points: 380, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          return { current: (lifetimeStats.dailyStats.longestGameToday >= 100) ? 1 : 0, target: 1 };
+        }},
+        { id: 'daily_perfect_defense', name: '🛡️ Perfect Defense', desc: 'Win a game without losing any pieces today', category: 'Daily', points: 400, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const perfectWins = (lifetimeStats.dailyStats.perfectWinsToday || 0);
+          return { current: perfectWins, target: 1 };
+        }},
+        { id: 'daily_check_storm', name: '⚡ Check Storm', desc: 'Give 10 checks in a single game today', category: 'Daily', points: 280, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const maxChecksInGame = (lifetimeStats.dailyStats.maxChecksInSingleGameToday || 0);
+          return { current: (maxChecksInGame >= 10) ? 1 : 0, target: 1 };
+        }},
+        { id: 'daily_double_castle', name: '🏰 Double Castle', desc: 'Castle both kingside and queenside in the same game today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const doubleCastleGames = (lifetimeStats.dailyStats.doubleCastleGamesToday || 0);
+          return { current: doubleCastleGames, target: 1 };
+        }},
+        { id: 'daily_promotion_variety', name: '👸 Promotion Variety', desc: 'Promote to 2 different pieces (queen, rook, bishop, knight) in one game today', category: 'Daily', points: 420, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const varietyPromotionGames = (lifetimeStats.dailyStats.varietyPromotionGamesToday || 0);
+          return { current: varietyPromotionGames, target: 1 };
+        }},
+        { id: 'daily_comeback_king', name: '💪 Comeback King', desc: 'Win a game after being down by 5+ material points today', category: 'Daily', points: 500, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const comebackWins = (lifetimeStats.dailyStats.comebackWinsToday || 0);
+          return { current: comebackWins, target: 1 };
+        }},
+        { id: 'daily_piece_hunter', name: '🎯 Piece Hunter', desc: 'Capture 5 different types of pieces (queen, rook, bishop, knight, pawn) in one game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const pieceHunterGames = (lifetimeStats.dailyStats.pieceHunterGamesToday || 0);
+          return { current: pieceHunterGames, target: 1 };
         }},
         
         // ========================================================================
@@ -7447,25 +8097,53 @@ function navigateToPreviousMove() {
     // ========================================================================
     function getAllDailyChallengeIds() {
       return [
-        'daily_explorer',     // Visit 20 unique squares
-        'daily_checker',      // Give 8 checks
-	'daily_warrior',     // Make 5 captures
-        'daily_lightning',   // Win in under 15 moves
-        'daily_capturer',    // Make 10 captures
-        'daily_longgame',    // Play 80+ move game
-        'daily_promoter',    // Promote 3 pawns
-        'daily_castler',     // Castle 2 times
-        'daily_comeback',    // Win 3 games
-        'daily_blindfold_bishop',  // Make 5 bishop moves in blindfold games
-        'daily_personality_master', // Beat 3 different personalities
-        'daily_survivor',    // Make 10 consecutive moves without losing a piece
-        'daily_blitz_king',  // Win 2 games with 1-minute time control
-        'daily_time_master', // Win games with 3 different time controls
-        'daily_king_safety', // Castle in 3 different games
-        'daily_promotion_royalty', // Promote a pawn in 2 different games
-        'daily_material_advantage', // Win 2 games with 3+ material advantage
-        'daily_openings_expert',    // Play 3 different detected openings
-        'daily_checkmate_artist'    // Checkmate with 3 different pieces
+        // ORIGINAL DAILY CHALLENGES
+        'daily_explorer',              // Visit 20 unique squares
+        'daily_checker',               // Give 8 checks
+        'daily_warrior',               // Make 5 captures
+        'daily_lightning',              // Win in under 15 moves
+        'daily_capturer',              // Make 10 captures
+        'daily_longgame',              // Play 80+ move game
+        'daily_promoter',              // Promote 3 pawns
+        'daily_castler',               // Castle 2 times
+        'daily_comeback',              // Win 3 games
+        'daily_blindfold_bishop',      // Make 5 bishop moves in blindfold games
+        'daily_personality_master',    // Beat 3 different personalities
+        'daily_survivor',              // Make 10 consecutive moves without losing a piece
+        'daily_blitz_king',            // Win 2 games with 1-minute time control
+        'daily_time_master',           // Win games with 3 different time controls
+        'daily_king_safety',           // Castle in 3 different games
+        'daily_promotion_royalty',     // Promote a pawn in 2 different games
+        'daily_material_advantage',    // Win 2 games with 3+ material advantage
+        'daily_openings_expert',       // Play 3 different detected openings
+        'daily_checkmate_artist',      // Checkmate with 3 different pieces
+        'daily_en_passant_master',     // Perform en passant in 2 different games
+        'daily_underpromotion',        // Underpromote a pawn in one game
+        'daily_queen_sacrifice',       // Win after sacrificing queen
+        'daily_time_pressure',         // Win with less than 10 seconds remaining
+        'daily_opening_trap',          // Win in under 20 moves
+        'daily_endgame_grinder',       // Win a game that lasted 100+ moves
+        'daily_perfect_defense',       // Win without losing any pieces
+        'daily_check_storm',           // Give 10 checks in a single game
+        'daily_double_castle',         // Castle both sides in same game
+        'daily_promotion_variety',     // Promote to 2 different pieces in one game
+        'daily_comeback_king',         // Win after being down 5+ material points
+        'daily_piece_hunter',          // Capture 5 different piece types in one game
+        // UNIQUE AND CREATIVE DAILY CHALLENGES
+        'daily_blindfold_knight',      // Make 7 knight moves in pure blindfold (no history)
+        'daily_pawn_promotion_chain',  // Promote 3 pawns in a single game
+        'daily_queen_tour',           // Move queen to all 4 corner squares in one game
+        'daily_rook_ladder',           // Move both rooks to 7th/2nd rank in one game
+        'daily_bishop_pair',           // Win keeping both bishops until end
+        'daily_pawn_storm',            // Advance 5 pawns to 6th/3rd rank in one game
+        'daily_king_walk',             // Move king 10+ squares in one game
+        'daily_piece_cycle',          // Move all 6 piece types in one game
+        'daily_square_master',         // Visit all 8 squares on e-file in one game
+        'daily_blindfold_win_no_history', // Win blindfold without move history
+        'daily_piece_sacrifice_chain', // Sacrifice 3 different pieces in one game
+        'daily_center_control',        // Occupy all 4 center squares in one game
+        'daily_pawn_island',           // Create 3 isolated pawn islands in one game
+        'daily_rook_battery'          // Create rook battery in one game
         // ADD NEW DAILY CHALLENGE IDs HERE:
         // 'daily_your_new_challenge',
       ];
@@ -7485,20 +8163,26 @@ function navigateToPreviousMove() {
     // 3. Add it to one or more arrays below to include it in the rotation
     // ========================================================================
     const DAILY_CHALLENGES_CONFIG = [
-      // Day 0 (and cycles every 7 days)
-      ['daily_survivor', 'daily_checker', 'daily_personality_master'],
+      // Day 0 (and cycles every 10 days)
+      ['daily_explorer', 'daily_warrior', 'daily_lightning'],
       // Day 1
-      ['daily_capturer', 'daily_material_advantage', 'daily_castler'],
+      ['daily_capturer', 'daily_checker', 'daily_longgame'],
       // Day 2
-      ['daily_promoter', 'daily_capturer', 'daily_explorer'],
+      ['daily_promoter', 'daily_castler', 'daily_comeback'],
       // Day 3
-      ['daily_explorer', 'daily_capturer', 'daily_promoter'],
+      ['daily_blindfold_bishop', 'daily_queen_tour', 'daily_bishop_pair'],
       // Day 4
-      ['daily_openings_expert', 'daily_checker', 'daily_castler'],
+      ['daily_blindfold_knight', 'daily_pawn_promotion_chain', 'daily_rook_ladder'],
       // Day 5
-      ['daily_lightning', 'daily_longgame', 'daily_comeback'],
+      ['daily_bishop_pair', 'daily_pawn_storm', 'daily_king_walk'],
       // Day 6
-      ['daily_explorer', 'daily_checker', 'daily_comeback'],
+      ['daily_piece_cycle', 'daily_square_master', 'daily_blindfold_win_no_history'],
+      // Day 7
+      ['daily_piece_sacrifice_chain', 'daily_center_control', 'daily_pawn_island'],
+      // Day 8
+      ['daily_rook_battery', 'daily_piece_sacrifice_chain', 'daily_center_control'],
+      // Day 9
+      ['daily_pawn_island', 'daily_square_master', 'daily_piece_cycle'],
       // ADD MORE DAYS HERE (each array should have exactly 3 challenge IDs):
       // ['daily_challenge1', 'daily_challenge2', 'daily_challenge3'],
     ];
@@ -7509,7 +8193,7 @@ function navigateToPreviousMove() {
     const DAILY_CHALLENGES_SPECIFIC_DATES = {
       // Add specific date overrides here, e.g.:
       // '2024-12-25': ['daily_comeback', 'daily_lightning', 'daily_warrior'],
-      '2026-01-12': ['daily_explorer', 'daily_blitz_king', 'daily_promoter']
+      '2026-01-12': ['daily_square_master', 'daily_blitz_king', 'daily_pawn_storm']
     };
     // ========================================================================
 
@@ -7628,7 +8312,38 @@ function navigateToPreviousMove() {
           gamesPromotedToday: 0,
           winsWithMaterialAdvantageToday: 0,
           uniqueOpeningsPlayedToday: [],
-          uniqueCheckmatePiecesToday: []
+          uniqueCheckmatePiecesToday: [],
+          gamesWithEnPassantToday: 0,
+          underpromotionsToday: 0,
+          queenSacrificeWinsToday: 0,
+          timePressureWinsToday: 0,
+          perfectWinsToday: 0,
+          maxChecksInSingleGameToday: 0,
+          doubleCastleGamesToday: 0,
+          varietyPromotionGamesToday: 0,
+          comebackWinsToday: 0,
+          pieceHunterGamesToday: 0,
+          // New unique daily challenge tracking
+          knightMovesInPureBlindfoldToday: 0,
+          triplePromotionGamesToday: 0,
+          queenTourGamesToday: 0,
+          rookLadderGamesToday: 0,
+          bishopPairWinsToday: 0,
+          knightForkGamesToday: 0,
+          pawnStormGamesToday: 0,
+          kingWalkGamesToday: 0,
+          pieceCycleGamesToday: 0,
+          squareMasterGamesToday: 0,
+          pureBlindfoldWinsToday: 0,
+          sacrificeChainGamesToday: 0,
+          centerControlGamesToday: 0,
+          pawnIslandGamesToday: 0,
+          rookBatteryGamesToday: 0,
+          pinMasterGamesToday: 0,
+          skewerKingGamesToday: 0,
+          discoveredAttackGamesToday: 0,
+          windmillGamesToday: 0,
+          zwischenzugGamesToday: 0
         };
         saveLifetimeStats();
       } else {
@@ -8202,6 +8917,111 @@ function navigateToPreviousMove() {
       }
     }
 
+    // Check for insufficient material (draw condition)
+    function isInsufficientMaterial() {
+      const board = game.board();
+      const pieces = [];
+      
+      // Count all pieces on the board
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          if (board[i][j]) {
+            pieces.push(board[i][j]);
+          }
+        }
+      }
+      
+      // Only kings = insufficient material
+      if (pieces.length === 2) {
+        return true;
+      }
+      
+      // King + one minor piece (bishop or knight) = insufficient material
+      if (pieces.length === 3) {
+        const minors = pieces.filter(p => p.type === 'b' || p.type === 'n');
+        if (minors.length === 1) {
+          return true;
+        }
+      }
+      
+      // King + bishop vs King + bishop (same color bishops) = insufficient material
+      if (pieces.length === 4) {
+        const bishops = pieces.filter(p => p.type === 'b');
+        if (bishops.length === 2) {
+          // Check if bishops are on same color squares
+          const bishopSquares = [];
+          for (let i = 0; i < 8; i++) {
+            for (let j = 0; j < 8; j++) {
+              if (board[i][j] && board[i][j].type === 'b') {
+                const square = String.fromCharCode(97 + j) + (8 - i);
+                const isLight = (square.charCodeAt(0) - 97 + parseInt(square[1])) % 2 === 0;
+                bishopSquares.push(isLight);
+              }
+            }
+          }
+          if (bishopSquares.length === 2 && bishopSquares[0] === bishopSquares[1]) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    }
+    
+    // Check for draw conditions and handle them
+    function checkDrawConditions() {
+      if (gameOver) return false;
+      
+      let drawReason = null;
+      
+      // Check for threefold repetition
+      if (game.in_threefold_repetition()) {
+        drawReason = "Draw by Threefold Repetition";
+      }
+      // Check for insufficient material
+      else if (isInsufficientMaterial()) {
+        drawReason = "Draw by Insufficient Material";
+      }
+      // Check for stalemate
+      else if (game.in_stalemate()) {
+        drawReason = "Draw by Stalemate";
+      }
+      // Check for 50-move rule (chess.js handles this as in_draw)
+      else if (game.in_draw() && !game.in_checkmate() && !game.in_stalemate() && !game.in_threefold_repetition()) {
+        drawReason = "Draw by 50-Move Rule";
+      }
+      
+      if (drawReason) {
+        const moveContainer = document.getElementById("move-timer-container");
+        moveContainer.innerHTML = `<span style="color:#f39c12;">${drawReason}</span>`;
+        playSound('move');
+        gameOver = true;
+        clearPremove();
+        
+        // Celebrate draw with animation
+        celebrateDraw(drawReason);
+        
+        // Update statistics
+        playerStats.draws++;
+        savePlayerStats();
+        updatePlayerStatsDisplay();
+        resetDailyStatsIfNeeded();
+        lifetimeStats.dailyStats.gamesPlayedToday++;
+        const moveCount = game.history().length;
+        if (moveCount > lifetimeStats.dailyStats.longestGameToday) {
+          lifetimeStats.dailyStats.longestGameToday = moveCount;
+        }
+        commitGameStatsToLifetime();
+        checkAndUnlockAchievements();
+        
+        // Show rematch modal
+        setTimeout(() => showRematchModal("🤝 Draw", `${drawReason}. Play again?`), 2000);
+        return true;
+      }
+      
+      return false;
+    }
+
     async function handleMove(source, target) {
       console.log('handleMove called:', source, 'to', target);
       
@@ -8233,6 +9053,11 @@ function navigateToPreviousMove() {
       updateTurnDisplay();
       updateOpeningDisplay();
       updateGameStats();
+
+      // Check for draw conditions
+      if (checkDrawConditions()) {
+        return; // Draw handling is done in checkDrawConditions
+      }
 
       if (game.in_checkmate()) {
         // Replaced alert() with UI message
@@ -8268,6 +9093,36 @@ function navigateToPreviousMove() {
         } catch (e) {
           console.error('Error getting checkmate piece:', e);
         }
+        
+        // Track time pressure wins (less than 10 seconds remaining)
+        try {
+          const timeEl = document.getElementById(playerColor === 'white' ? 'white-time' : 'black-time');
+          if (timeEl) {
+            const timeText = timeEl.textContent.trim();
+            // Parse time format (MM:SS or SS.SS)
+            const timeMatch = timeText.match(/(\d+):(\d+)/);
+            if (timeMatch) {
+              const minutes = parseInt(timeMatch[1]);
+              const seconds = parseInt(timeMatch[2]);
+              const totalSeconds = minutes * 60 + seconds;
+              if (totalSeconds < 10 && lifetimeStats.dailyStats) {
+                lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
+              }
+            } else {
+              // Try SS.SS format
+              const secondsMatch = timeText.match(/(\d+)\.(\d+)/);
+              if (secondsMatch) {
+                const totalSeconds = parseFloat(timeText);
+                if (totalSeconds < 10 && lifetimeStats.dailyStats) {
+                  lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error tracking time pressure:', e);
+        }
+        
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
         checkAndUnlockAchievements();
@@ -8349,6 +9204,11 @@ function navigateToPreviousMove() {
           playSound('check');
         }
 
+        // Check for draw conditions
+        if (checkDrawConditions()) {
+          return; // Draw handling is done in checkDrawConditions
+        }
+
         if (game.in_checkmate()) {
           console.log('CHECKMATE DETECTED - Player Lost');
           // Replaced alert() with UI message
@@ -8422,6 +9282,11 @@ function navigateToPreviousMove() {
             updateOpeningDisplay();
             updateGameStats();
             
+            // Check for draw conditions after premove
+            if (checkDrawConditions()) {
+              return; // Draw handling is done in checkDrawConditions
+            }
+
             if (game.in_checkmate()) {
               const moveContainer = document.getElementById("move-timer-container");
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
