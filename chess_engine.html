@@ -4727,6 +4727,10 @@ function navigateToPreviousMove() {
     }
 
     function trackCapturedPiece(move) {
+      if (!move) {
+        console.warn('trackCapturedPiece called with null/undefined move');
+        return;
+      }
       const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
       const isOpponentMove = !isPlayerMove;
       
@@ -5125,7 +5129,7 @@ function navigateToPreviousMove() {
       }, 2500);
 
       // Overlay for draw effects
-      const overlay = document.createElement('div');
+        const overlay = document.createElement('div');
       overlay.className = 'draw-overlay';
       overlay.style.cssText = `
         position: fixed;
@@ -5136,29 +5140,29 @@ function navigateToPreviousMove() {
         pointer-events: none;
         z-index: 9996;
       `;
-      document.body.appendChild(overlay);
+        document.body.appendChild(overlay);
 
       // Generate orange/yellow confetti
       const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
       const shapes = ['circle', 'rect', 'star'];
       
-      for (let i = 0; i < 200; i++) {
-        setTimeout(() => {
-          const confetti = document.createElement('div');
+        for (let i = 0; i < 200; i++) {
+          setTimeout(() => {
+            const confetti = document.createElement('div');
           const shape = shapes[Math.floor(Math.random() * shapes.length)];
           confetti.className = 'confetti ' + shape;
-          confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.left = Math.random() * 100 + '%';
           confetti.style.top = -20 + 'px';
-          confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
           const size = Math.random() * 15 + 5;
           confetti.style.width = size + 'px';
           confetti.style.height = size + 'px';
-          confetti.style.opacity = Math.random() * 0.5 + 0.5;
+            confetti.style.opacity = Math.random() * 0.5 + 0.5;
           const drift = (Math.random() - 0.5) * 150;
           confetti.style.setProperty('--drift', drift + 'px');
-          confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
+            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
           confetti.style.animationDelay = (Math.random() * 0.2) + 's';
-          overlay.appendChild(confetti);
+            overlay.appendChild(confetti);
           setTimeout(() => confetti.remove(), 4000);
         }, i * 10);
       }
@@ -9170,6 +9174,14 @@ function navigateToPreviousMove() {
         // Stop timer *before* making the move on the game object
         const moveTimeMs = stopTimerAndUpdateTotal(game.turn()); 
         const move = game.move(data.move);
+        
+        if (!move) {
+          console.error('ERROR: Invalid move returned from engine:', data.move);
+          const moveContainer = document.getElementById("move-timer-container");
+          moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">Invalid move returned.</span>';
+          return;
+        }
+        
         console.log('Move applied to game. New position:', game.fen());
         console.log('Is checkmate?', game.in_checkmate());
         console.log('Is check?', game.in_check());
@@ -9286,7 +9298,7 @@ function navigateToPreviousMove() {
             if (checkDrawConditions()) {
               return; // Draw handling is done in checkDrawConditions
             }
-
+            
             if (game.in_checkmate()) {
               const moveContainer = document.getElementById("move-timer-container");
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
