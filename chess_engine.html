@@ -6164,18 +6164,14 @@ function navigateToPreviousMove() {
       }
       
       // Check ALL achievements dynamically using their progress functions
-      // Skip daily achievements - they're checked separately to ensure only today's ones can be completed
+      // Daily achievements reset each day via resetDailyStatsIfNeeded(), so we can safely
+      // check ALL daily achievements here (not just the 3 featured "daily challenges").
       resetDailyStatsIfNeeded();
       const todayDailyIds = getTodayDailyAchievements();
       
       allAchievements.forEach(ach => {
         // Skip if already unlocked
         if (achievements.includes(ach.id)) return;
-        
-        // Skip daily achievements that aren't in today's selection
-        if (ach.isDaily && !todayDailyIds.includes(ach.id)) {
-          return;
-        }
         
         // Check point requirements for locked achievements
         if (ach.requiredPoints && totalPoints < ach.requiredPoints) {
@@ -8101,7 +8097,9 @@ function navigateToPreviousMove() {
     // 3. The system will automatically include it in validation and make it available
     // ========================================================================
     function getAllDailyChallengeIds() {
-      return [
+      // Keep a hardcoded fallback list, but ALSO derive IDs from the
+      // achievement definitions so new daily challenges can't be forgotten here.
+      const fallbackIds = [
         // ORIGINAL DAILY CHALLENGES
         'daily_explorer',              // Visit 20 unique squares
         'daily_checker',               // Give 8 checks
@@ -8152,6 +8150,17 @@ function navigateToPreviousMove() {
         // ADD NEW DAILY CHALLENGE IDs HERE:
         // 'daily_your_new_challenge',
       ];
+
+      try {
+        const all = (typeof getAllAchievementsList === 'function') ? getAllAchievementsList() : [];
+        const derivedIds = (Array.isArray(all) ? all : [])
+          .filter(a => a && a.isDaily === true && typeof a.id === 'string' && a.id.length > 0)
+          .map(a => a.id);
+
+        return Array.from(new Set([...fallbackIds, ...derivedIds]));
+      } catch (e) {
+        return fallbackIds;
+      }
     }
     
     // ========================================================================
@@ -8198,19 +8207,20 @@ function navigateToPreviousMove() {
     const DAILY_CHALLENGES_SPECIFIC_DATES = {
       // Add specific date overrides here, e.g.:
       // '2024-12-25': ['daily_comeback', 'daily_lightning', 'daily_warrior'],
-      '2026-01-14': ['daily_center_control', 'daily_longgame', 'daily_double_castle'],
-      '2026-01-15': ['daily_queen_tour', 'daily_rook_ladder', 'daily_time_pressure']
+      '2026-01-20': ['daily_king_walk', 'daily_time_pressure', 'daily_double_castle'],
+      '2026-01-21': ['daily_queen_tour', 'daily_rook_ladder', 'daily_time_pressure']
     };
     // ========================================================================
 
     function getTodayDailyAchievements() {
       try {
-        if (!lifetimeStats || !lifetimeStats.dailyStats) {
+        if (!lifetimeStats) {
           // If lifetimeStats isn't initialized yet, return empty array
           return [];
         }
         
         resetDailyStatsIfNeeded();
+        if (!lifetimeStats.dailyStats) return [];
         
         // Get today's date string (YYYY-MM-DD format) for specific date lookups
         const today = new Date();
