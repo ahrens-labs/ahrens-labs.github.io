@@ -1142,27 +1142,76 @@
       animation: illegalMoveBlink 0.4s ease-in-out !important;
     }
 
-    /* Premove highlighting - medium red between dark and light for both source and destination */
+    /* Premove highlighting - full square red highlight for both source and destination (same shade) */
     #board .square-55d63.premove-highlight,
-    #board div.premove-highlight {
-      background-color: rgba(215, 57, 65, 0.65) !important; /* Medium red between dark and light */
-      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
-    }
-    
-    /* Premove source highlighting (same color as destination) */
+    #board div.premove-highlight,
     #board .square-55d63.premove-source,
     #board div.premove-source {
-      background-color: rgba(215, 57, 65, 0.65) !important; /* Same medium red */
-      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
+      background-color: rgba(215, 57, 65, 0.65) !important; /* Medium red - full square coverage */
+      background-image: none !important; /* Override all background gradients for full square coverage */
+      box-shadow: none !important; /* No border, only highlight */
     }
     
-    /* Override all board theme colors for premove squares */
+    /* Override all board theme colors for premove squares - ensure full square coverage */
     #board .premove-highlight.white-1e1d7,
     #board .premove-source.white-1e1d7,
     #board .premove-highlight.black-3c85d,
-    #board .premove-source.black-3c85d {
-      background-color: rgba(215, 57, 65, 0.65) !important;
-      box-shadow: inset 0 0 0 4px rgba(190, 40, 47, 0.9) !important;
+    #board .premove-source.black-3c85d,
+    #board .board-theme-classic .premove-highlight,
+    #board .board-theme-classic .premove-source,
+    #board .board-theme-blue .premove-highlight,
+    #board .board-theme-blue .premove-source,
+    #board .board-theme-green .premove-highlight,
+    #board .board-theme-green .premove-source,
+    #board .board-theme-gray .premove-highlight,
+    #board .board-theme-gray .premove-source,
+    #board .board-theme-purple .premove-highlight,
+    #board .board-theme-purple .premove-source,
+    #board .board-theme-wood .premove-highlight,
+    #board .board-theme-wood .premove-source,
+    #board .board-theme-coral .premove-highlight,
+    #board .board-theme-coral .premove-source,
+    #board .board-theme-marble .premove-highlight,
+    #board .board-theme-marble .premove-source,
+    #board .board-theme-dark .premove-highlight,
+    #board .board-theme-dark .premove-source,
+    #board .board-theme-neon .premove-highlight,
+    #board .board-theme-neon .premove-source,
+    #board .board-theme-emerald .premove-highlight,
+    #board .board-theme-emerald .premove-source,
+    #board .board-theme-gold .premove-highlight,
+    #board .board-theme-gold .premove-source,
+    #board .board-theme-ocean .premove-highlight,
+    #board .board-theme-ocean .premove-source,
+    #board .board-theme-sunset .premove-highlight,
+    #board .board-theme-sunset .premove-source,
+    #board .board-theme-midnight .premove-highlight,
+    #board .board-theme-midnight .premove-source,
+    #board .board-theme-forest .premove-highlight,
+    #board .board-theme-forest .premove-source,
+    #board .board-theme-royal .premove-highlight,
+    #board .board-theme-royal .premove-source,
+    #board .board-theme-ice .premove-highlight,
+    #board .board-theme-ice .premove-source,
+    #board .board-theme-cherry .premove-highlight,
+    #board .board-theme-cherry .premove-source,
+    #board .board-theme-3d .premove-highlight,
+    #board .board-theme-3d .premove-source,
+    #board .board-theme-glass .premove-highlight,
+    #board .board-theme-glass .premove-source,
+    #board .board-theme-carbon .premove-highlight,
+    #board .board-theme-carbon .premove-source,
+    #board .board-theme-velvet .premove-highlight,
+    #board .board-theme-velvet .premove-source,
+    #board .board-theme-stone .premove-highlight,
+    #board .board-theme-stone .premove-source,
+    #board .board-theme-cyber .premove-highlight,
+    #board .board-theme-cyber .premove-source,
+    #board .board-theme-luxury .premove-highlight,
+    #board .board-theme-luxury .premove-source {
+      background-color: rgba(215, 57, 65, 0.65) !important; /* Same medium red for full square */
+      background-image: none !important; /* Override all background gradients for full square coverage */
+      box-shadow: none !important; /* No border, only highlight */
     }
 
 
@@ -1186,6 +1235,75 @@
         transform: translateX(400px);
         opacity: 0;
       }
+    }
+
+    /* Promotion Selection Modal */
+    #promotion-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #promotion-modal.show {
+      display: flex;
+    }
+
+    #promotion-container {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 
+          0 15px 35px rgba(0, 0, 0, 0.3),
+          0 5px 15px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      max-width: 400px;
+      animation: slideInRight 0.3s ease-out;
+    }
+
+    #promotion-container h3 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #2c3e50;
+      font-family: "Inter", sans-serif;
+      font-size: 1.3rem;
+    }
+
+    #promotion-pieces {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .promotion-piece {
+      width: 80px;
+      height: 80px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 3px solid transparent;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-color: #ffffff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .promotion-piece:hover {
+      transform: translateY(-5px) scale(1.1);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      border-color: #3498db;
+    }
+
+    .promotion-piece:active {
+      transform: translateY(-2px) scale(1.05);
     }
 
     /* Rematch Modal */
@@ -2472,6 +2590,19 @@
     </div>
   </div>
 
+  <!-- Promotion Selection Modal -->
+  <div id="promotion-modal">
+    <div id="promotion-container">
+      <h3>Choose Promotion Piece</h3>
+      <div id="promotion-pieces">
+        <div class="promotion-piece" data-piece="q" id="promote-queen"></div>
+        <div class="promotion-piece" data-piece="r" id="promote-rook"></div>
+        <div class="promotion-piece" data-piece="b" id="promote-bishop"></div>
+        <div class="promotion-piece" data-piece="n" id="promote-knight"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Rematch Modal -->
   <div id="rematch-modal">
     <div class="rematch-dialog">
@@ -2545,6 +2676,7 @@
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
     let premoveHighlightInterval = null; // Store interval ID for premove highlighting
     let selectedSquare = null; // Track clicked piece for click-to-move
+    let pendingPromotionMove = null; // Track pending promotion move {from, to}
     let currentEngineStyle = 'balanced'; // Track current engine personality
     let currentTimeControl = 'none'; // Track current time control for achievements
     let soundEnabled = true; // Sound effects toggle
@@ -2826,9 +2958,16 @@
         }
       }
       
-      // Track double castle games
-      if (gameStats.dailyStats && gameStats.dailyStats.castlingTypes && gameStats.dailyStats.castlingTypes.length >= 2) {
-        lifetimeStats.dailyStats.doubleCastleGamesToday = (lifetimeStats.dailyStats.doubleCastleGamesToday || 0) + 1;
+      // Track castling types across all games today (for double castle challenge)
+      if (gameStats.dailyStats && gameStats.dailyStats.castlingTypes && lifetimeStats.dailyStats) {
+        if (!lifetimeStats.dailyStats.castlingTypesToday) {
+          lifetimeStats.dailyStats.castlingTypesToday = [];
+        }
+        gameStats.dailyStats.castlingTypes.forEach(type => {
+          if (!lifetimeStats.dailyStats.castlingTypesToday.includes(type)) {
+            lifetimeStats.dailyStats.castlingTypesToday.push(type);
+          }
+        });
       }
       
       // Track variety promotion games
@@ -4387,21 +4526,24 @@ function navigateToPreviousMove() {
             }
           };
           
-          // Clear all highlights first, then add red highlights for all premoves
+          // Apply highlights immediately, then set up interval to keep them applied
+          applyHighlights();
+          
+          // Set up interval to continuously reapply highlights (they may be cleared by board updates)
+          premoveHighlightInterval = setInterval(() => {
+            if (premoves.length === 0) {
+              clearInterval(premoveHighlightInterval);
+              premoveHighlightInterval = null;
+              board.position(game.fen());
+              $("#board .square-55d63").removeClass("premove-highlight premove-source");
+              return;
+            }
+            applyHighlights();
+          }, 100);
+          
+          // Also apply highlights after next frame to ensure they stick
           requestAnimationFrame(() => {
             applyHighlights();
-            
-            // Set up interval to continuously reapply highlights (they may be cleared by board updates)
-            premoveHighlightInterval = setInterval(() => {
-              if (premoves.length === 0) {
-                clearInterval(premoveHighlightInterval);
-                premoveHighlightInterval = null;
-                board.position(game.fen());
-                $("#board .square-55d63").removeClass("premove-highlight premove-source");
-                return;
-              }
-              applyHighlights();
-            }, 100);
           });
         });
       });
@@ -4473,7 +4615,13 @@ function navigateToPreviousMove() {
             selectedSquare = null;
             removeHighlights();
             console.log('Calling handleMove');
-            handleMove(moveFrom, moveTo);
+            
+            // Check if this is a promotion move
+            if (isPromotionMove(moveFrom, moveTo)) {
+              showPromotionModal(moveFrom, moveTo);
+            } else {
+              handleMove(moveFrom, moveTo);
+            }
             return;
           } else if (piece) {
             const pieceColorFull = piece.color === 'w' ? 'white' : 'black';
@@ -6619,7 +6767,7 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 5 };
         }},
-        { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', category: 'Daily', points: 200, isDaily: true, progress: () => {
+        { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win a game in under 15 moves today', category: 'Daily', points: 350, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           // Check if we've won a game today in under 15 moves
@@ -6655,7 +6803,7 @@ function navigateToPreviousMove() {
           const currentGameMoves = (game && game.history && game.history().length) || 0;
           return { current: (longestGame >= 80 || currentGameMoves >= 80) ? 1 : 0, target: 1 };
         }},
-        { id: 'daily_promoter', name: '👑 Daily Promoter', desc: 'Promote 3 pawns in one day', category: 'Daily', points: 160, isDaily: true, progress: () => {
+        { id: 'daily_promoter', name: '👑 Daily Promoter', desc: 'Promote 3 pawns in one day', category: 'Daily', points: 250, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.promotionsToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.promotionsToday) || 0)), target: 3 };
@@ -6665,7 +6813,7 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.castlingToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.castlingToday) || 0)), target: 2 };
         }},
-        { id: 'daily_comeback', name: '💪 Daily Comeback', desc: 'Win 3 games in one day', category: 'Daily', points: 250, isDaily: true, progress: () => {
+        { id: 'daily_comeback', name: '💪 Daily Comeback', desc: 'Win 3 games in one day', category: 'Daily', points: 300, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
           return { current: (lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
@@ -6686,7 +6834,7 @@ function navigateToPreviousMove() {
           const gameCount = (gameStats && gameStats.dailyStats && gameStats.dailyStats.knightMovesInPureBlindfoldToday) || 0;
           return { current: lifetimeCount + gameCount, target: 7 };
         }},
-        { id: 'daily_pawn_promotion_chain', name: '♟️♟️♟️ Triple Pawn Promotion', desc: 'Promote 3 pawns in a single game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
+        { id: 'daily_pawn_promotion_chain', name: '♟️♟️♟️ Triple Pawn Promotion', desc: 'Promote 3 pawns in a single game today', category: 'Daily', points: 550, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const triplePromotionGames = (lifetimeStats.dailyStats.triplePromotionGamesToday || 0);
@@ -6704,7 +6852,7 @@ function navigateToPreviousMove() {
           const rookLadderGames = (lifetimeStats.dailyStats.rookLadderGamesToday || 0);
           return { current: rookLadderGames, target: 1 };
         }},
-        { id: 'daily_bishop_pair', name: '♗♗ Bishop Pair Power', desc: 'Win a game where you kept both bishops until the end today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+        { id: 'daily_bishop_pair', name: '♗♗ Bishop Pair Power', desc: 'Win a game where you kept both bishops until the end today', category: 'Daily', points: 400, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const bishopPairWins = (lifetimeStats.dailyStats.bishopPairWinsToday || 0);
@@ -6722,7 +6870,7 @@ function navigateToPreviousMove() {
           const kingWalkGames = (lifetimeStats.dailyStats.kingWalkGamesToday || 0);
           return { current: kingWalkGames, target: 1 };
         }},
-        { id: 'daily_piece_cycle', name: '🔄 Piece Cycle', desc: 'Move all 6 piece types (pawn, knight, bishop, rook, queen, king) in one game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
+        { id: 'daily_piece_cycle', name: '🔄 Piece Cycle', desc: 'Move all 6 piece types (pawn, knight, bishop, rook, queen, king) in one game today', category: 'Daily', points: 500, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const pieceCycleGames = (lifetimeStats.dailyStats.pieceCycleGamesToday || 0);
@@ -6822,13 +6970,13 @@ function navigateToPreviousMove() {
           const uniqueCheckmatePieces = lifetimeStats.dailyStats.uniqueCheckmatePiecesToday || [];
           return { current: uniqueCheckmatePieces.length, target: 3 };
         }},
-        { id: 'daily_en_passant_master', name: '🎯 En Passant Master', desc: 'Perform en passant in 2 different games today', category: 'Daily', points: 300, isDaily: true, progress: () => {
+        { id: 'daily_en_passant_master', name: '🎯 En Passant Master', desc: 'Perform en passant in 2 different games today', category: 'Daily', points: 400, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           const gamesWithEnPassant = (lifetimeStats.dailyStats.gamesWithEnPassantToday || 0);
           return { current: gamesWithEnPassant, target: 2 };
         }},
-        { id: 'daily_underpromotion', name: '♟️ Underpromotion Specialist', desc: 'Underpromote a pawn (to rook, bishop, or knight) in one game today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+        { id: 'daily_underpromotion', name: '♟️ Underpromotion Specialist', desc: 'Underpromote a pawn (to rook, bishop, or knight) in one game today', category: 'Daily', points: 450, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const underpromotions = (lifetimeStats.dailyStats.underpromotionsToday || 0);
@@ -6840,13 +6988,13 @@ function navigateToPreviousMove() {
           const queenSacrificeWins = (lifetimeStats.dailyStats.queenSacrificeWinsToday || 0);
           return { current: queenSacrificeWins, target: 1 };
         }},
-        { id: 'daily_time_pressure', name: '⏰ Time Pressure Hero', desc: 'Win a game with less than 10 seconds remaining on your clock', category: 'Daily', points: 450, isDaily: true, progress: () => {
+        { id: 'daily_time_pressure', name: '⏰ Time Pressure Hero', desc: 'Win a game with less than 10 seconds remaining on your clock', category: 'Daily', points: 500, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const timePressureWins = (lifetimeStats.dailyStats.timePressureWinsToday || 0);
           return { current: timePressureWins, target: 1 };
         }},
-        { id: 'daily_opening_trap', name: '🪤 Opening Trap Master', desc: 'Win a game in under 20 moves today', category: 'Daily', points: 320, isDaily: true, progress: () => {
+        { id: 'daily_opening_trap', name: '🪤 Opening Trap Master', desc: 'Win a game in under 20 moves today', category: 'Daily', points: 380, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const fastestWin = lifetimeStats.dailyStats.fastestWinToday === Infinity ? 0 : lifetimeStats.dailyStats.fastestWinToday;
@@ -6857,7 +7005,7 @@ function navigateToPreviousMove() {
           resetDailyStatsIfNeeded();
           return { current: (lifetimeStats.dailyStats.longestGameToday >= 100) ? 1 : 0, target: 1 };
         }},
-        { id: 'daily_perfect_defense', name: '🛡️ Perfect Defense', desc: 'Win a game without losing any pieces today', category: 'Daily', points: 400, isDaily: true, progress: () => {
+        { id: 'daily_perfect_defense', name: '🛡️ Perfect Defense', desc: 'Win a game without losing any pieces today', category: 'Daily', points: 500, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const perfectWins = (lifetimeStats.dailyStats.perfectWinsToday || 0);
@@ -6869,11 +7017,14 @@ function navigateToPreviousMove() {
           const maxChecksInGame = (lifetimeStats.dailyStats.maxChecksInSingleGameToday || 0);
           return { current: (maxChecksInGame >= 10) ? 1 : 0, target: 1 };
         }},
-        { id: 'daily_double_castle', name: '🏰 Double Castle', desc: 'Castle both kingside and queenside in the same game today', category: 'Daily', points: 350, isDaily: true, progress: () => {
+        { id: 'daily_double_castle', name: '🏰 Double Castle', desc: 'Castle both kingside and queenside across all games today', category: 'Daily', points: 300, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
-          const doubleCastleGames = (lifetimeStats.dailyStats.doubleCastleGamesToday || 0);
-          return { current: doubleCastleGames, target: 1 };
+          const castlingTypesToday = lifetimeStats.dailyStats.castlingTypesToday || [];
+          // Check if we have both kingside ('k') and queenside ('q') castling across all games today
+          const hasKingside = castlingTypesToday.includes('k');
+          const hasQueenside = castlingTypesToday.includes('q');
+          return { current: (hasKingside && hasQueenside) ? 1 : 0, target: 1 };
         }},
         { id: 'daily_promotion_variety', name: '👸 Promotion Variety', desc: 'Promote to 2 different pieces (queen, rook, bishop, knight) in one game today', category: 'Daily', points: 420, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
@@ -8352,7 +8503,7 @@ function navigateToPreviousMove() {
           timePressureWinsToday: 0,
           perfectWinsToday: 0,
           maxChecksInSingleGameToday: 0,
-          doubleCastleGamesToday: 0,
+          castlingTypesToday: [], // Track castling types across all games today (k for kingside, q for queenside)
           varietyPromotionGamesToday: 0,
           comebackWinsToday: 0,
           pieceHunterGamesToday: 0,
@@ -8634,8 +8785,11 @@ function navigateToPreviousMove() {
             premoveJustSet = true;
             console.log('Premove added via drag:', newPremove, 'Total premoves:', premoves.length);
             
-            // Update visual to show all premoves in the chain
-            updatePremoveVisual();
+            // Update visual to show all premoves in the chain immediately
+            // Use setTimeout to ensure board has finished updating after drop
+            setTimeout(() => {
+              updatePremoveVisual();
+            }, 10);
             
             // Don't snapback - keep the piece moved
             return;
@@ -8657,7 +8811,13 @@ function navigateToPreviousMove() {
           
           // Move is legal - undo it and let handleMove process it properly
           game.undo();
-          handleMove(source, target);
+          
+          // Check if this is a promotion move
+          if (isPromotionMove(source, target)) {
+            showPromotionModal(source, target);
+          } else {
+            handleMove(source, target);
+          }
         },
         onSnapEnd: () => {
           // Clean up after drag/drop (clicks are handled in onDrop)
@@ -8713,16 +8873,24 @@ function navigateToPreviousMove() {
                 return;
               }
             } else {
-              // Try to make a normal move
-              const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+              // Try to make a normal move - check if it's a promotion first
+              const testMove = game.move({ from: selectedSquare, to: square, promotion: 'q' });
               
-              if (move) {
+              if (testMove) {
                 // Legal move
                 clearPremove();
+                const moveFrom = selectedSquare;
+                const moveTo = square;
                 selectedSquare = null;
                 removeHighlights();
                 game.undo();
-                handleMove(move.from, move.to);
+                
+                // Check if this is a promotion move
+                if (isPromotionMove(moveFrom, moveTo)) {
+                  showPromotionModal(moveFrom, moveTo);
+                } else {
+                  handleMove(moveFrom, moveTo);
+                }
                 return;
               } else if (piece) {
                 // Illegal move but clicked on own piece - change selection
@@ -9055,11 +9223,92 @@ function navigateToPreviousMove() {
       return false;
     }
 
-    async function handleMove(source, target) {
-      console.log('handleMove called:', source, 'to', target);
+    // Check if a move would be a promotion
+    function isPromotionMove(from, to) {
+      const piece = game.get(from);
+      if (!piece || piece.type !== 'p') {
+        return false;
+      }
+      // White pawn on 7th rank (rank 7) moving to 8th rank (rank 8)
+      // Black pawn on 2nd rank (rank 2) moving to 1st rank (rank 1)
+      const fromRank = parseInt(from[1]);
+      const toRank = parseInt(to[1]);
+      return (piece.color === 'w' && fromRank === 7 && toRank === 8) ||
+             (piece.color === 'b' && fromRank === 2 && toRank === 1);
+    }
+
+    // Show promotion selection modal
+    function showPromotionModal(from, to) {
+      pendingPromotionMove = { from, to };
+      const piece = game.get(from);
+      const isWhite = piece && piece.color === 'w';
+      
+      // Set piece images based on color
+      const piecePrefix = isWhite ? 'w' : 'b';
+      const pieceStyle = currentPieceStyle;
+      const piecePath = `lib/img/chesspieces/${pieceStyle}/${piecePrefix}`;
+      
+      document.getElementById('promote-queen').style.backgroundImage = `url(${piecePath}Q.png)`;
+      document.getElementById('promote-rook').style.backgroundImage = `url(${piecePath}R.png)`;
+      document.getElementById('promote-bishop').style.backgroundImage = `url(${piecePath}B.png)`;
+      document.getElementById('promote-knight').style.backgroundImage = `url(${piecePath}N.png)`;
+      
+      document.getElementById('promotion-modal').classList.add('show');
+    }
+
+    // Hide promotion selection modal
+    function hidePromotionModal() {
+      document.getElementById('promotion-modal').classList.remove('show');
+      pendingPromotionMove = null;
+    }
+
+    // Execute promotion move with selected piece
+    function executePromotionMove(promotionPiece) {
+      if (!pendingPromotionMove) {
+        return;
+      }
+      
+      const { from, to } = pendingPromotionMove;
+      hidePromotionModal();
+      handleMove(from, to, promotionPiece);
+    }
+
+    // Initialize promotion modal event handlers (use event delegation for reliability)
+    function initPromotionHandlers() {
+      const promotionModal = document.getElementById('promotion-modal');
+      const promotionContainer = document.getElementById('promotion-container');
+      
+      if (promotionModal && promotionContainer) {
+        // Handle promotion piece selection
+        promotionContainer.addEventListener('click', function(e) {
+          const piece = e.target.closest('.promotion-piece');
+          if (piece) {
+            const promotionType = piece.getAttribute('data-piece');
+            executePromotionMove(promotionType);
+          }
+        });
+        
+        // Close modal when clicking outside the container (on the backdrop)
+        promotionModal.addEventListener('click', function(e) {
+          if (e.target === promotionModal) {
+            hidePromotionModal();
+          }
+        });
+      }
+    }
+    
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPromotionHandlers);
+    } else {
+      initPromotionHandlers();
+    }
+
+    async function handleMove(source, target, promotion = 'q') {
+      console.log('handleMove called:', source, 'to', target, 'promotion:', promotion);
       
       removeHighlights();
-      const move = game.move({ from: source, to: target, promotion: "q" });
+      const move = game.move({ from: source, to: target, promotion: promotion });
       if (!move) {
         console.log('Move was invalid in handleMove (should not happen)');
         return;
