@@ -2817,7 +2817,8 @@
       if (timeLimited && lifetimeStats.dailyStats) {
         try {
           const playerTimeRemaining = playerColor === 'white' ? whiteTime : blackTime;
-          if (playerTimeRemaining > 0 && playerTimeRemaining < 10) {
+          // whiteTime/blackTime are stored in milliseconds
+          if (playerTimeRemaining > 0 && playerTimeRemaining < 10 * 1000) {
             lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
           }
         } catch (e) {
@@ -5715,14 +5716,18 @@ function navigateToPreviousMove() {
       document.getElementById("total-wins").textContent = playerStats.wins;
       document.getElementById("total-losses").textContent = playerStats.losses;
       document.getElementById("total-draws").textContent = playerStats.draws;
-      const winRate = total > 0 ? Math.round((playerStats.wins / total) * 100) : 0;
+      // Draws count as half a win and half a loss for win rate
+      const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+      const winRate = total > 0 ? Math.round((effectiveWins / total) * 100) : 0;
       document.getElementById("win-rate").textContent = winRate + '%';
       document.getElementById("win-rate").style.color = winRate >= 50 ? '#2ecc71' : winRate >= 30 ? '#f39c12' : '#e74c3c';
     }
 
     function checkAchievements() {
       const total = playerStats.wins + playerStats.losses + playerStats.draws;
-      const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+      // Draws count as half a win and half a loss for win rate
+      const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+      const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
       
       // Calculate total points for point-gated achievements
       const allAchievements = getAllAchievementsList();
@@ -6163,15 +6168,19 @@ function navigateToPreviousMove() {
         achievements.push('pawn_to_h2');
       }
       
-      // Check ALL achievements dynamically using their progress functions
-      // Daily achievements reset each day via resetDailyStatsIfNeeded(), so we can safely
-      // check ALL daily achievements here (not just the 3 featured "daily challenges").
+      // Check ALL achievements dynamically using their progress functions.
+      // Daily achievements should ONLY be awardable if they're selected for today.
       resetDailyStatsIfNeeded();
       const todayDailyIds = getTodayDailyAchievements();
       
       allAchievements.forEach(ach => {
         // Skip if already unlocked
         if (achievements.includes(ach.id)) return;
+        
+        // Only award daily achievements that are active for TODAY
+        if (ach.isDaily && !todayDailyIds.includes(ach.id)) {
+          return;
+        }
         
         // Check point requirements for locked achievements
         if (ach.requiredPoints && totalPoints < ach.requiredPoints) {
@@ -6287,25 +6296,29 @@ function navigateToPreviousMove() {
         { id: 'good_player', name: '👍 Good Player', desc: '60%+ win rate (10+ games)', category: 'General', points: 100, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 10) return { current: 0, target: 60, needsTotal: false };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 60, needsTotal: true };
         }},
         { id: 'excellent', name: '🌟 Excellent Player', desc: '70%+ win rate (10+ games)', category: 'General', points: 200, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 10) return { current: 0, target: 70, needsTotal: false };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 70, needsTotal: true };
         }},
         { id: 'grandmaster', name: '🎖️ Grandmaster', desc: '80%+ win rate (20+ games)', category: 'General', points: 300, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 20) return { current: 0, target: 80, needsTotal: false };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 80, needsTotal: true };
         }},
         { id: 'near_perfect', name: '✨ Near Perfect', desc: '90%+ win rate (20+ games)', category: 'General', points: 750, requiredPoints: 15000, groupKey: 'win_rate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 20) return { current: 0, target: 90, needsTotal: false };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: Math.round(winRate), target: 90, needsTotal: true };
         }},
         { id: 'peacemaker', name: '🤝 Peacemaker', desc: 'Drew 10 games', category: 'General', points: 100, groupKey: 'draws', progress: () => {
@@ -7173,25 +7186,29 @@ function navigateToPreviousMove() {
         { id: 'winrate_50_20', name: '📈 Above Average', desc: 'Achieve 50%+ win rate (20+ games)', category: 'Creative', points: 200, groupKey: 'winrate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 20) return { current: 0, target: 1 };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: winRate >= 50 ? 1 : 0, target: 1 };
         }},
         { id: 'winrate_60_30', name: '📈 Strong Player', desc: 'Achieve 60%+ win rate (30+ games)', category: 'Creative', points: 400, groupKey: 'winrate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 30) return { current: 0, target: 1 };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: winRate >= 60 ? 1 : 0, target: 1 };
         }},
         { id: 'winrate_70_50', name: '📈 Excellent Player', desc: 'Achieve 70%+ win rate (50+ games)', category: 'Creative', points: 800, requiredPoints: 5000, groupKey: 'winrate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 50) return { current: 0, target: 1 };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: winRate >= 70 ? 1 : 0, target: 1 };
         }},
         { id: 'winrate_80_100', name: '📈 Master Level', desc: 'Achieve 80%+ win rate (100+ games)', category: 'Creative', points: 2000, requiredPoints: 15000, groupKey: 'winrate', progress: () => {
           const total = playerStats.wins + playerStats.losses + playerStats.draws;
           if (total < 100) return { current: 0, target: 1 };
-          const winRate = total > 0 ? (playerStats.wins / total) * 100 : 0;
+          const effectiveWins = (playerStats.wins || 0) + 0.5 * (playerStats.draws || 0);
+          const winRate = total > 0 ? (effectiveWins / total) * 100 : 0;
           return { current: winRate >= 80 ? 1 : 0, target: 1 };
         }},
         
@@ -9110,35 +9127,6 @@ function navigateToPreviousMove() {
           console.error('Error getting checkmate piece:', e);
         }
         
-        // Track time pressure wins (less than 10 seconds remaining)
-        try {
-          const timeEl = document.getElementById(playerColor === 'white' ? 'white-time' : 'black-time');
-          if (timeEl) {
-            const timeText = timeEl.textContent.trim();
-            // Parse time format (MM:SS or SS.SS)
-            const timeMatch = timeText.match(/(\d+):(\d+)/);
-            if (timeMatch) {
-              const minutes = parseInt(timeMatch[1]);
-              const seconds = parseInt(timeMatch[2]);
-              const totalSeconds = minutes * 60 + seconds;
-              if (totalSeconds < 10 && lifetimeStats.dailyStats) {
-                lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
-              }
-            } else {
-              // Try SS.SS format
-              const secondsMatch = timeText.match(/(\d+)\.(\d+)/);
-              if (secondsMatch) {
-                const totalSeconds = parseFloat(timeText);
-                if (totalSeconds < 10 && lifetimeStats.dailyStats) {
-                  lifetimeStats.dailyStats.timePressureWinsToday = (lifetimeStats.dailyStats.timePressureWinsToday || 0) + 1;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Error tracking time pressure:', e);
-        }
-        
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
         checkAndUnlockAchievements();
@@ -9393,6 +9381,9 @@ function navigateToPreviousMove() {
       moveInput.style.borderColor = "#3498db";
       
       trackCapturedPiece(move);
+      // Track per-game daily challenge stats for typed moves too
+      // (e.g., Piece Cycle depends on pieceTypesMoved)
+      trackRandomAchievements(move, move.from, move.to);
       lastMoveSquares = { from: move.from, to: move.to };
       
       const prevTurn = game.turn() === "w" ? "b" : "w";
