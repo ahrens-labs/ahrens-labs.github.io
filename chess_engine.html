@@ -183,9 +183,7 @@
     }
 
     /* Engine personality styles removed for performance */
-      border-color: #3498db;
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
-    }
+
 
     /* Option elements styling */
     select option {
@@ -8685,9 +8683,8 @@ function navigateToPreviousMove() {
       
       startTimer();
       
-      // Initialize engine and apply modifiers before allowing moves
+      // Initialize engine
       await sendEngineCommand("start");
-      await applyEngineModifiers(currentEngineStyle);
       
       if (playerColor === "black") {
         engineMove();
