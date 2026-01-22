@@ -182,127 +182,7 @@
       cursor: pointer;
     }
 
-    /* Engine personality selector - make it stand out */
-    #engine-style {
-      border: 3px solid #6c757d;
-      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-      font-weight: 600;
-      min-width: 180px;
-      box-shadow: 0 3px 10px rgba(108, 117, 125, 0.15);
-      position: relative;
-      transition: all 0.4s ease;
-    }
-
-    /* Personality color classes */
-    #engine-style.personality-balanced {
-      border-color: #6c757d;
-      box-shadow: 0 3px 10px rgba(108, 117, 125, 0.3), 0 0 15px rgba(108, 117, 125, 0.2);
-      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-    }
-
-    #engine-style.personality-aggressive {
-      border-color: #e74c3c;
-      box-shadow: 0 3px 12px rgba(231, 76, 60, 0.4), 0 0 20px rgba(231, 76, 60, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #fff5f5 100%);
-    }
-
-    #engine-style.personality-defensive {
-      border-color: #3498db;
-      box-shadow: 0 3px 12px rgba(52, 152, 219, 0.4), 0 0 20px rgba(52, 152, 219, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #f0f8ff 100%);
-    }
-
-    #engine-style.personality-positional {
-      border-color: #9b59b6;
-      box-shadow: 0 3px 12px rgba(155, 89, 182, 0.4), 0 0 20px rgba(155, 89, 182, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #f8f0ff 100%);
-    }
-
-    #engine-style.personality-material {
-      border-color: #f39c12;
-      box-shadow: 0 3px 12px rgba(243, 156, 18, 0.4), 0 0 20px rgba(243, 156, 18, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #fffaf0 100%);
-    }
-
-    #engine-style.personality-tactical {
-      border-color: #1abc9c;
-      box-shadow: 0 3px 12px rgba(26, 188, 156, 0.4), 0 0 20px rgba(26, 188, 156, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #f0fff8 100%);
-    }
-
-    #engine-style:hover {
-      transform: translateY(-2px) scale(1.02);
-      filter: brightness(1.05);
-    }
-
-    #engine-style:focus {
-      outline: none;
-      transform: scale(1.03);
-    }
-
-    /* Custom personality class */
-    #engine-style.personality-custom {
-      border-color: #34495e;
-      box-shadow: 0 3px 12px rgba(52, 73, 94, 0.4), 0 0 20px rgba(52, 73, 94, 0.3);
-      background: linear-gradient(145deg, #ffffff 0%, #f5f6fa 100%);
-    }
-
-    /* Custom modifiers panel */
-    #custom-modifiers-panel {
-      background: linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%);
-      border: 2px solid #34495e;
-      border-radius: 15px;
-      padding: 20px;
-      margin: 15px 0;
-      box-shadow: 0 4px 15px rgba(52, 73, 94, 0.15);
-      animation: slideDown 0.3s ease;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .modifier-input-group {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .modifier-input-group label {
-      flex: 1;
-      font-size: 0.95em;
-      font-weight: 500;
-      color: #2c3e50;
-      text-align: left;
-    }
-
-    .modifier-input-group input[type="number"] {
-      width: 80px;
-      padding: 8px 12px;
-      border: 2px solid #34495e;
-      border-radius: 10px;
-      font-family: "Roboto Mono", monospace;
-      font-size: 0.95em;
-      text-align: center;
-      transition: all 0.3s ease;
-      background: white;
-    }
-
-    .modifier-input-group input[type="number"]:hover {
-      border-color: #5d6d7e;
-      box-shadow: 0 2px 8px rgba(52, 73, 94, 0.2);
-    }
-
-    .modifier-input-group input[type="number"]:focus {
-      outline: none;
+    /* Engine personality styles removed for performance */
       border-color: #3498db;
       box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
     }
@@ -2386,60 +2266,7 @@
       </select>
     </div>
     
-    <div class="control-row">
-      <label for="engine-style">Engine Personality:</label>
-      <select id="engine-style" onchange="changeEngineStyle()">
-        <option value="balanced">⚖️ Balanced</option>
-        <option value="aggressive">⚔️ Aggressive</option>
-        <option value="defensive">🛡️ Defensive</option>
-        <option value="positional">🎯 Positional</option>
-        <option value="material">💎 Material-Focused</option>
-        <option value="tactical">⚡ Tactical</option>
-        <option value="custom">🎛️ Custom</option>
-      </select>
-    </div>
-    
-    <!-- Custom modifiers panel -->
-    <div id="custom-modifiers-panel" style="display: none;">
-      <div style="text-align: center; margin-bottom: 15px; font-weight: 600; color: #2c3e50;">
-        Customize Engine Modifiers (0.0 - 3.0)
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 600px; margin: 0 auto;">
-        <div class="modifier-input-group">
-          <label for="mod-material">Material:</label>
-          <input type="number" id="mod-material" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-king-safety">King Safety:</label>
-          <input type="number" id="mod-king-safety" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-centralization">Centralization:</label>
-          <input type="number" id="mod-centralization" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-attack">Attack:</label>
-          <input type="number" id="mod-attack" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-piece-activity">Piece Activity:</label>
-          <input type="number" id="mod-piece-activity" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-defense">Defense:</label>
-          <input type="number" id="mod-defense" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div class="modifier-input-group">
-          <label for="mod-pawn-structure">Pawn Structure:</label>
-          <input type="number" id="mod-pawn-structure" min="0" max="3" step="0.1" value="1.0" onchange="updateCustomModifiers()">
-        </div>
-        <div style="grid-column: 1 / -1; text-align: center; margin-top: 5px;">
-          <button onclick="resetCustomModifiers()" style="padding: 8px 20px; font-size: 0.9em; background: linear-gradient(135deg, #95a5a6, #7f8c8d); border: none; border-radius: 15px; color: white; cursor: pointer; font-weight: 600;">
-            Reset to 1.0
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- Engine personality selector removed for performance -->
     
     <div class="control-row">
       <label for="blindfold-mode">
@@ -2677,7 +2504,7 @@
     let premoveHighlightInterval = null; // Store interval ID for premove highlighting
     let selectedSquare = null; // Track clicked piece for click-to-move
     let pendingPromotionMove = null; // Track pending promotion move {from, to}
-    let currentEngineStyle = 'balanced'; // Track current engine personality
+    // Engine personality removed for performance
     let currentTimeControl = 'none'; // Track current time control for achievements
     let soundEnabled = true; // Sound effects toggle
     let playerStats = { wins: 0, losses: 0, draws: 0 }; // Player statistics
@@ -2870,13 +2697,7 @@
         }
       }
       
-      // Track wins by personality
-      if (currentEngineStyle && lifetimeStats.winsByPersonality) {
-        if (!lifetimeStats.winsByPersonality[currentEngineStyle]) {
-          lifetimeStats.winsByPersonality[currentEngineStyle] = 0;
-        }
-        lifetimeStats.winsByPersonality[currentEngineStyle]++;
-      }
+      // Personality tracking removed
       
       // Track wins by color
       if (playerColor === 'white') {
@@ -3136,15 +2957,7 @@
         }
       }
       
-      // Track unique personalities won against today (for daily challenge)
-      if (currentEngineStyle && lifetimeStats.dailyStats) {
-        if (!lifetimeStats.dailyStats.personalitiesWonToday) {
-          lifetimeStats.dailyStats.personalitiesWonToday = [];
-        }
-        if (!lifetimeStats.dailyStats.personalitiesWonToday.includes(currentEngineStyle)) {
-          lifetimeStats.dailyStats.personalitiesWonToday.push(currentEngineStyle);
-        }
-      }
+      // Personality tracking removed
       
       // Track longest streak without losing pieces in one game today
       if (gameStats.dailyStats && gameStats.dailyStats.currentStreakNoPiecesLost) {
@@ -3309,7 +3122,7 @@
         todayDailyIds: [],
         // New daily challenge tracking
         bishopMovesInBlindfoldToday: 0,
-        personalitiesWonToday: [], // Array of unique personality IDs won against today
+        // Personality tracking removed
         longestStreakNoPiecesLostToday: 0 // Longest streak of moves without losing pieces in one game today
       },
       // Wins by time control
@@ -3345,72 +3158,7 @@
       blindfoldWinsNoHistory: 0 // Wins in blindfold mode without move history
     };
 
-    // Engine personality presets
-    const enginePersonalities = {
-      balanced: {
-        material: 1.0,
-        king_safety_b: 1.0, king_safety_w: 1.0,
-        centralization_b: 1.0, centralization_w: 1.0,
-        attack_b: 1.0, attack_w: 1.0,
-        piece_activity_b: 1.0, piece_activity_w: 1.0,
-        defense_b: 1.0, defense_w: 1.0,
-        pawn_structure_b: 1.0, pawn_structure_w: 1.0
-      },
-      aggressive: {
-        material: 0.7,
-        king_safety_b: 0.5, king_safety_w: 0.5,
-        centralization_b: 1.5, centralization_w: 1.5,
-        attack_b: 2.5, attack_w: 2.5,
-        piece_activity_b: 1.8, piece_activity_w: 1.8,
-        defense_b: 0.4, defense_w: 0.4,
-        pawn_structure_b: 0.6, pawn_structure_w: 0.6
-      },
-      defensive: {
-        material: 1.2,
-        king_safety_b: 2.2, king_safety_w: 2.2,
-        centralization_b: 0.7, centralization_w: 0.7,
-        attack_b: 0.5, attack_w: 0.5,
-        piece_activity_b: 0.6, piece_activity_w: 0.6,
-        defense_b: 2.0, defense_w: 2.0,
-        pawn_structure_b: 1.8, pawn_structure_w: 1.8
-      },
-      positional: {
-        material: 0.8,
-        king_safety_b: 1.4, king_safety_w: 1.4,
-        centralization_b: 2.0, centralization_w: 2.0,
-        attack_b: 0.7, attack_w: 0.7,
-        piece_activity_b: 1.5, piece_activity_w: 1.5,
-        defense_b: 1.6, defense_w: 1.6,
-        pawn_structure_b: 1.9, pawn_structure_w: 1.9
-      },
-      material: {
-        material: 2.5,
-        king_safety_b: 0.7, king_safety_w: 0.7,
-        centralization_b: 0.6, centralization_w: 0.6,
-        attack_b: 0.9, attack_w: 0.9,
-        piece_activity_b: 0.5, piece_activity_w: 0.5,
-        defense_b: 0.7, defense_w: 0.7,
-        pawn_structure_b: 1.1, pawn_structure_w: 1.1
-      },
-      tactical: {
-        material: 0.9,
-        king_safety_b: 0.6, king_safety_w: 0.6,
-        centralization_b: 1.6, centralization_w: 1.6,
-        attack_b: 2.2, attack_w: 2.2,
-        piece_activity_b: 2.0, piece_activity_w: 2.0,
-        defense_b: 0.7, defense_w: 0.7,
-        pawn_structure_b: 0.8, pawn_structure_w: 0.8
-      },
-      custom: {
-        material: 1.0,
-        king_safety_b: 1.0, king_safety_w: 1.0,
-        centralization_b: 1.0, centralization_w: 1.0,
-        attack_b: 1.0, attack_w: 1.0,
-        piece_activity_b: 1.0, piece_activity_w: 1.0,
-        defense_b: 1.0, defense_w: 1.0,
-        pawn_structure_b: 1.0, pawn_structure_w: 1.0
-      }
-    };
+    // Engine personality presets removed for performance
 
     // Piece style themes
     const pieceThemes = {
@@ -3702,87 +3450,7 @@
       }
     }
 
-    function updateCustomModifiers() {
-      // Helper function to clamp values between 0 and 3
-      const clampValue = (value) => {
-        const num = parseFloat(value);
-        if (isNaN(num)) return 1.0;
-        return Math.max(0, Math.min(3, num));
-      };
-      
-      // Get values and clamp them
-      const material = clampValue(document.getElementById('mod-material').value);
-      const kingSafety = clampValue(document.getElementById('mod-king-safety').value);
-      const centralization = clampValue(document.getElementById('mod-centralization').value);
-      const attack = clampValue(document.getElementById('mod-attack').value);
-      const pieceActivity = clampValue(document.getElementById('mod-piece-activity').value);
-      const defense = clampValue(document.getElementById('mod-defense').value);
-      const pawnStructure = clampValue(document.getElementById('mod-pawn-structure').value);
-      
-      // Update input fields with clamped values
-      document.getElementById('mod-material').value = material.toFixed(1);
-      document.getElementById('mod-king-safety').value = kingSafety.toFixed(1);
-      document.getElementById('mod-centralization').value = centralization.toFixed(1);
-      document.getElementById('mod-attack').value = attack.toFixed(1);
-      document.getElementById('mod-piece-activity').value = pieceActivity.toFixed(1);
-      document.getElementById('mod-defense').value = defense.toFixed(1);
-      document.getElementById('mod-pawn-structure').value = pawnStructure.toFixed(1);
-      
-      // Update the custom personality in enginePersonalities object
-      enginePersonalities.custom.material = material;
-      enginePersonalities.custom.king_safety_b = kingSafety;
-      enginePersonalities.custom.king_safety_w = kingSafety;
-      enginePersonalities.custom.centralization_b = centralization;
-      enginePersonalities.custom.centralization_w = centralization;
-      enginePersonalities.custom.attack_b = attack;
-      enginePersonalities.custom.attack_w = attack;
-      enginePersonalities.custom.piece_activity_b = pieceActivity;
-      enginePersonalities.custom.piece_activity_w = pieceActivity;
-      enginePersonalities.custom.defense_b = defense;
-      enginePersonalities.custom.defense_w = defense;
-      enginePersonalities.custom.pawn_structure_b = pawnStructure;
-      enginePersonalities.custom.pawn_structure_w = pawnStructure;
-      
-      // Save to localStorage
-      localStorage.setItem('customModifiers', JSON.stringify({
-        material: material,
-        king_safety: kingSafety,
-        centralization: centralization,
-        attack: attack,
-        piece_activity: pieceActivity,
-        defense: defense,
-        pawn_structure: pawnStructure
-      }));
-      
-      // Apply modifiers in real-time
-      applyEngineModifiers('custom');
-    }
-
-    function resetCustomModifiers() {
-      document.getElementById('mod-material').value = 1.0;
-      document.getElementById('mod-king-safety').value = 1.0;
-      document.getElementById('mod-centralization').value = 1.0;
-      document.getElementById('mod-attack').value = 1.0;
-      document.getElementById('mod-piece-activity').value = 1.0;
-      document.getElementById('mod-defense').value = 1.0;
-      document.getElementById('mod-pawn-structure').value = 1.0;
-      updateCustomModifiers();
-    }
-
-    function loadCustomModifiers() {
-      const saved = localStorage.getItem('customModifiers');
-      if (saved) {
-        const custom = JSON.parse(saved);
-        document.getElementById('mod-material').value = custom.material || 1.0;
-        document.getElementById('mod-king-safety').value = custom.king_safety || 1.0;
-        document.getElementById('mod-centralization').value = custom.centralization || 1.0;
-        document.getElementById('mod-attack').value = custom.attack || 1.0;
-        document.getElementById('mod-piece-activity').value = custom.piece_activity || 1.0;
-        document.getElementById('mod-defense').value = custom.defense || 1.0;
-        document.getElementById('mod-pawn-structure').value = custom.pawn_structure || 1.0;
-        updateCustomModifiers();
-      }
-    }
+    // Personality modifier functions removed for performance
 
     function toggleHistoryOption() {
       const blindfoldChecked = document.getElementById("blindfold-mode").checked;
@@ -3809,90 +3477,7 @@
       localStorage.setItem('chessboardStyle', style);
     }
 
-    function changeEngineStyle() {
-      const style = document.getElementById("engine-style").value;
-      const selector = document.getElementById("engine-style");
-      const customPanel = document.getElementById("custom-modifiers-panel");
-      currentEngineStyle = style;
-      
-      // Remove all personality classes
-      selector.className = selector.className.replace(/personality-\w+/g, '').trim();
-      
-      // Add new personality class for color
-      selector.classList.add('personality-' + style);
-      
-      // Show/hide custom modifiers panel
-      if (style === 'custom') {
-        customPanel.style.display = 'block';
-        loadCustomModifiers();
-      } else {
-        customPanel.style.display = 'none';
-      }
-      
-      // Save preference to localStorage
-      localStorage.setItem('enginePersonality', style);
-      
-      // Apply modifiers to engine
-      applyEngineModifiers(style);
-    }
-
-    async function applyEngineModifiers(personality) {
-      const baseModifiers = enginePersonalities[personality];
-      
-      if (!baseModifiers) {
-        console.error('Unknown engine personality:', personality);
-        return;
-      }
-
-      // Determine which color the engine is playing
-      const engineColor = playerColor === 'white' ? 'black' : 'white';
-      // NOTE: Code internals are reversed from board!
-      // _b modifiers = WHITE pieces on board, _w modifiers = BLACK pieces on board
-      const engineSuffix = engineColor === 'black' ? '_w' : '_b';
-      const playerSuffix = engineColor === 'black' ? '_b' : '_w';
-
-      // Build asymmetric modifiers: engine gets personality, player gets balanced (1.0)
-      const modifiers = {
-        material: baseModifiers.material, // Material is symmetric
-      };
-
-      // For each personality trait, apply it to engine's color only
-      const traits = ['king_safety', 'centralization', 'attack', 'piece_activity', 'defense', 'pawn_structure'];
-      
-      traits.forEach(trait => {
-        // Engine's color gets the personality modifier
-        modifiers[trait + engineSuffix] = baseModifiers[trait + engineSuffix];
-        // Player's color gets balanced modifier (1.0)
-        modifiers[trait + playerSuffix] = 1.0;
-      });
-
-      console.log('Applying asymmetric modifiers:', {
-        personality,
-        engineColor,
-        engineSuffix,
-        playerSuffix,
-        engineModifiers: modifiers
-      });
-
-      try {
-        const response = await fetch('https://hedgehoglover23.pythonanywhere.com/modifiers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(modifiers)
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Engine modifiers updated (asymmetric):', data);
-        } else {
-          console.error('Failed to update engine modifiers:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error updating engine modifiers:', error);
-      }
-    }
+    // Engine personality functions removed for performance
 
     function changePieceStyle() {
       const style = document.getElementById("piece-style").value;
@@ -3991,19 +3576,7 @@
         currentPieceStyle = savedPieceStyle;
         document.getElementById('piece-style').value = savedPieceStyle;
 
-        // Load saved engine personality
-        const savedEngineStyle = localStorage.getItem('enginePersonality') || 'balanced';
-        currentEngineStyle = savedEngineStyle;
-        const engineStyleSelect = document.getElementById('engine-style');
-        engineStyleSelect.value = savedEngineStyle;
-        // Apply personality color on load
-        engineStyleSelect.classList.add('personality-' + savedEngineStyle);
-        
-        // Show custom panel if custom personality was selected
-        if (savedEngineStyle === 'custom') {
-          document.getElementById('custom-modifiers-panel').style.display = 'block';
-          loadCustomModifiers();
-        }
+        // Engine personality loading removed
 
         // Initialize game object for preview board
         game = new Chess();
@@ -5774,7 +5347,7 @@ function navigateToPreviousMove() {
       
       // Restart engine
       sendEngineCommand("start").then(() => {
-        applyEngineModifiers(currentEngineStyle);
+        // Personality modifiers removed
         if (playerColor === "black") {
           engineMove();
         }
@@ -6915,7 +6488,8 @@ function navigateToPreviousMove() {
         { id: 'daily_personality_master', name: '🎭 Personality Master', desc: 'Beat 3 different engine personalities in one day', category: 'Daily', points: 350, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
-          const uniquePersonalities = lifetimeStats.dailyStats.personalitiesWonToday || [];
+          // Personality tracking removed
+          const uniquePersonalities = [];
           return { current: uniquePersonalities.length, target: 3 };
         }},
         { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 10 consecutive moves in one game without losing a piece', category: 'Daily', points: 225, isDaily: true, progress: () => {
@@ -7111,7 +6685,8 @@ function navigateToPreviousMove() {
         { id: 'beat_all_personalities', name: '👑 Personality Slayer', desc: 'Win at least 1 game against all 7 personalities', category: 'Creative', points: 500, requiredPoints: 5000, groupKey: 'personality_wins', progress: () => {
           if (!lifetimeStats.winsByPersonality) return { current: 0, target: 7 };
           const personalities = ['balanced', 'aggressive', 'defensive', 'positional', 'material', 'tactical', 'custom'];
-          const beaten = personalities.filter(p => (lifetimeStats.winsByPersonality[p] || 0) >= 1).length;
+          // Personality tracking removed
+          const beaten = 0;
           return { current: beaten, target: 7 };
         }},
         
@@ -7291,7 +6866,8 @@ function navigateToPreviousMove() {
         { id: 'play_all_personalities', name: '🎭 Personality Explorer', desc: 'Play games against all 7 personalities', category: 'Creative', points: 500, groupKey: 'variety', progress: () => {
           if (!lifetimeStats.winsByPersonality) return { current: 0, target: 7 };
           const personalities = ['balanced', 'aggressive', 'defensive', 'positional', 'material', 'tactical', 'custom'];
-          const played = personalities.filter(p => (lifetimeStats.winsByPersonality[p] || 0) > 0).length;
+          // Personality tracking removed
+          const played = 0;
           return { current: played, target: 7 };
         }},
         { id: 'win_both_colors', name: '⚪⚫ Color Master', desc: 'Win 10 games as White and 10 as Black', category: 'Creative', points: 300, groupKey: 'variety', progress: () => {
@@ -8489,7 +8065,7 @@ function navigateToPreviousMove() {
           checksToday: 0,
           // New daily challenge tracking
           bishopMovesInBlindfoldToday: 0,
-          personalitiesWonToday: [],
+          // Personality tracking removed
           longestStreakNoPiecesLostToday: 0,
           winsByTimeControlToday: {},
           gamesCastledToday: 0,
