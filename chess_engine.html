@@ -8286,7 +8286,7 @@ function navigateToPreviousMove() {
       }
     }
 
-    function toggleAchievementGroup(groupKey) {
+   function toggleAchievementGroup(groupKey) {
       const groupDiv = document.getElementById(`group-${groupKey}`);
       const icon = document.getElementById(`expand-icon-${groupKey}`);
       
@@ -9699,7 +9699,7 @@ function navigateToPreviousMove() {
       } else {
         playSound('move');
       }
-
+      clearRightClickHighlights();
       trackCapturedPiece(move);
       trackRandomAchievements(move, source, target);
       // Don't check achievements during moves - only after game completion
