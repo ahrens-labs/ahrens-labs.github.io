@@ -1035,14 +1035,14 @@
     #board .premove-highlight.white-1e1d7,
     #board .premove-source.white-1e1d7,
     #board .right-click-highlight.white-1e1d7 {
-      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on light squares */
+      background-color: rgba(200, 0, 0, 0.50) !important; /* Slightly brighter, less dull red on light squares */
     }
     
     /* Dark squares - slightly brighter red, less difference from light */
     #board .premove-highlight.black-3c85d,
     #board .premove-source.black-3c85d,
     #board .right-click-highlight.black-3c85d {
-      background-color: rgba(200, 0, 0, 0.65) !important; /* Slightly brighter, less dull red on dark squares */
+      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on dark squares */
     }
     
     /* Override all board theme colors for premove and right-click squares */
@@ -1207,7 +1207,7 @@
     #board .board-theme-luxury .premove-highlight.white-1e1d7,
     #board .board-theme-luxury .premove-source.white-1e1d7,
     #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
-      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on light squares */
+      background-color: rgba(200, 0, 0, 0.50) !important; /* Slightly brighter, less dull red on light squares */
     }
     
     /* Dark squares in all themes - darker red */
@@ -1289,7 +1289,7 @@
     #board .board-theme-luxury .premove-highlight.black-3c85d,
     #board .board-theme-luxury .premove-source.black-3c85d,
     #board .board-theme-luxury .right-click-highlight.black-3c85d {
-      background-color: rgba(200, 0, 0, 0.65) !important; /* Slightly brighter, less dull red on dark squares */
+      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on dark squares */
     }
 
 
@@ -4432,7 +4432,7 @@ function navigateToPreviousMove() {
         // Base at x=0 spans from y=0 to y=8 (8 units wide, matching stroke-width)
         // Point at x=6, y=4 (forward direction)
         polygon.setAttribute('points', '0 0, 0 8, 6 4');
-        polygon.setAttribute('fill', 'rgba(200, 180, 0, 1)');
+        polygon.setAttribute('fill', 'rgba(240, 180, 0, 0.7)');
         polygon.setAttribute('stroke', 'none');
         marker.appendChild(polygon);
         defsEl.appendChild(marker);
@@ -4513,7 +4513,7 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${midX} ${midY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', 'rgba(200, 180, 0, 1)');
+          path.setAttribute('stroke', 'rgba(240, 180, 0, 0.7)');
           path.setAttribute('stroke-width', '8');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
