@@ -4432,7 +4432,7 @@ function navigateToPreviousMove() {
         // Base at x=0 spans from y=0 to y=8 (8 units wide, matching stroke-width)
         // Point at x=6, y=4 (forward direction)
         polygon.setAttribute('points', '0 0, 0 8, 6 4');
-        polygon.setAttribute('fill', 'rgba(240, 180, 0, 0.7)');
+        polygon.setAttribute('fill', 'rgba(250, 180, 0, 0.7)');
         polygon.setAttribute('stroke', 'none');
         marker.appendChild(polygon);
         defsEl.appendChild(marker);
@@ -4513,7 +4513,7 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${midX} ${midY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', 'rgba(240, 180, 0, 0.7)');
+          path.setAttribute('stroke', 'rgba(250, 180, 0, 0.7)');
           path.setAttribute('stroke-width', '8');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
@@ -4536,7 +4536,7 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', 'rgba(200, 180, 0, 0.6)');
+          path.setAttribute('stroke', 'rgba(250, 180, 0, 0.7)');
           path.setAttribute('stroke-width', '8');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
