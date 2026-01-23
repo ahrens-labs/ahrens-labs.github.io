@@ -1020,76 +1020,276 @@
       animation: illegalMoveBlink 0.4s ease-in-out !important;
     }
 
-    /* Premove highlighting - full square red highlight for both source and destination (same shade) */
+    /* Premove and right-click highlighting - same red color, lighter on light squares, darker on dark squares */
     #board .square-55d63.premove-highlight,
     #board div.premove-highlight,
     #board .square-55d63.premove-source,
-    #board div.premove-source {
-      background-color: rgba(215, 57, 65, 0.65) !important; /* Medium red - full square coverage */
+    #board div.premove-source,
+    #board .square-55d63.right-click-highlight,
+    #board div.right-click-highlight {
       background-image: none !important; /* Override all background gradients for full square coverage */
       box-shadow: none !important; /* No border, only highlight */
     }
     
-    /* Override all board theme colors for premove squares - ensure full square coverage */
+    /* Light squares - slightly brighter red, less difference from dark */
     #board .premove-highlight.white-1e1d7,
     #board .premove-source.white-1e1d7,
+    #board .right-click-highlight.white-1e1d7 {
+      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on light squares */
+    }
+    
+    /* Dark squares - slightly brighter red, less difference from light */
     #board .premove-highlight.black-3c85d,
     #board .premove-source.black-3c85d,
+    #board .right-click-highlight.black-3c85d {
+      background-color: rgba(200, 0, 0, 0.65) !important; /* Slightly brighter, less dull red on dark squares */
+    }
+    
+    /* Override all board theme colors for premove and right-click squares */
     #board .board-theme-classic .premove-highlight,
     #board .board-theme-classic .premove-source,
+    #board .board-theme-classic .right-click-highlight,
     #board .board-theme-blue .premove-highlight,
     #board .board-theme-blue .premove-source,
+    #board .board-theme-blue .right-click-highlight,
     #board .board-theme-green .premove-highlight,
     #board .board-theme-green .premove-source,
+    #board .board-theme-green .right-click-highlight,
     #board .board-theme-gray .premove-highlight,
     #board .board-theme-gray .premove-source,
+    #board .board-theme-gray .right-click-highlight,
     #board .board-theme-purple .premove-highlight,
     #board .board-theme-purple .premove-source,
+    #board .board-theme-purple .right-click-highlight,
     #board .board-theme-wood .premove-highlight,
     #board .board-theme-wood .premove-source,
+    #board .board-theme-wood .right-click-highlight,
     #board .board-theme-coral .premove-highlight,
     #board .board-theme-coral .premove-source,
+    #board .board-theme-coral .right-click-highlight,
     #board .board-theme-marble .premove-highlight,
     #board .board-theme-marble .premove-source,
+    #board .board-theme-marble .right-click-highlight,
     #board .board-theme-dark .premove-highlight,
     #board .board-theme-dark .premove-source,
+    #board .board-theme-dark .right-click-highlight,
     #board .board-theme-neon .premove-highlight,
     #board .board-theme-neon .premove-source,
+    #board .board-theme-neon .right-click-highlight,
     #board .board-theme-emerald .premove-highlight,
     #board .board-theme-emerald .premove-source,
+    #board .board-theme-emerald .right-click-highlight,
     #board .board-theme-gold .premove-highlight,
     #board .board-theme-gold .premove-source,
+    #board .board-theme-gold .right-click-highlight,
     #board .board-theme-ocean .premove-highlight,
     #board .board-theme-ocean .premove-source,
+    #board .board-theme-ocean .right-click-highlight,
     #board .board-theme-sunset .premove-highlight,
     #board .board-theme-sunset .premove-source,
+    #board .board-theme-sunset .right-click-highlight,
     #board .board-theme-midnight .premove-highlight,
     #board .board-theme-midnight .premove-source,
+    #board .board-theme-midnight .right-click-highlight,
     #board .board-theme-forest .premove-highlight,
     #board .board-theme-forest .premove-source,
+    #board .board-theme-forest .right-click-highlight,
     #board .board-theme-royal .premove-highlight,
     #board .board-theme-royal .premove-source,
+    #board .board-theme-royal .right-click-highlight,
     #board .board-theme-ice .premove-highlight,
     #board .board-theme-ice .premove-source,
+    #board .board-theme-ice .right-click-highlight,
     #board .board-theme-cherry .premove-highlight,
     #board .board-theme-cherry .premove-source,
+    #board .board-theme-cherry .right-click-highlight,
     #board .board-theme-3d .premove-highlight,
     #board .board-theme-3d .premove-source,
+    #board .board-theme-3d .right-click-highlight,
     #board .board-theme-glass .premove-highlight,
     #board .board-theme-glass .premove-source,
+    #board .board-theme-glass .right-click-highlight,
     #board .board-theme-carbon .premove-highlight,
     #board .board-theme-carbon .premove-source,
+    #board .board-theme-carbon .right-click-highlight,
     #board .board-theme-velvet .premove-highlight,
     #board .board-theme-velvet .premove-source,
+    #board .board-theme-velvet .right-click-highlight,
     #board .board-theme-stone .premove-highlight,
     #board .board-theme-stone .premove-source,
+    #board .board-theme-stone .right-click-highlight,
     #board .board-theme-cyber .premove-highlight,
     #board .board-theme-cyber .premove-source,
+    #board .board-theme-cyber .right-click-highlight,
     #board .board-theme-luxury .premove-highlight,
-    #board .board-theme-luxury .premove-source {
-      background-color: rgba(215, 57, 65, 0.65) !important; /* Same medium red for full square */
+    #board .board-theme-luxury .premove-source,
+    #board .board-theme-luxury .right-click-highlight {
       background-image: none !important; /* Override all background gradients for full square coverage */
       box-shadow: none !important; /* No border, only highlight */
+    }
+    
+    /* Light squares in all themes - darker red (but still lighter than dark squares) */
+    #board .board-theme-classic .premove-highlight.white-1e1d7,
+    #board .board-theme-classic .premove-source.white-1e1d7,
+    #board .board-theme-classic .right-click-highlight.white-1e1d7,
+    #board .board-theme-blue .premove-highlight.white-1e1d7,
+    #board .board-theme-blue .premove-source.white-1e1d7,
+    #board .board-theme-blue .right-click-highlight.white-1e1d7,
+    #board .board-theme-green .premove-highlight.white-1e1d7,
+    #board .board-theme-green .premove-source.white-1e1d7,
+    #board .board-theme-green .right-click-highlight.white-1e1d7,
+    #board .board-theme-gray .premove-highlight.white-1e1d7,
+    #board .board-theme-gray .premove-source.white-1e1d7,
+    #board .board-theme-gray .right-click-highlight.white-1e1d7,
+    #board .board-theme-purple .premove-highlight.white-1e1d7,
+    #board .board-theme-purple .premove-source.white-1e1d7,
+    #board .board-theme-purple .right-click-highlight.white-1e1d7,
+    #board .board-theme-wood .premove-highlight.white-1e1d7,
+    #board .board-theme-wood .premove-source.white-1e1d7,
+    #board .board-theme-wood .right-click-highlight.white-1e1d7,
+    #board .board-theme-coral .premove-highlight.white-1e1d7,
+    #board .board-theme-coral .premove-source.white-1e1d7,
+    #board .board-theme-coral .right-click-highlight.white-1e1d7,
+    #board .board-theme-marble .premove-highlight.white-1e1d7,
+    #board .board-theme-marble .premove-source.white-1e1d7,
+    #board .board-theme-marble .right-click-highlight.white-1e1d7,
+    #board .board-theme-dark .premove-highlight.white-1e1d7,
+    #board .board-theme-dark .premove-source.white-1e1d7,
+    #board .board-theme-dark .right-click-highlight.white-1e1d7,
+    #board .board-theme-neon .premove-highlight.white-1e1d7,
+    #board .board-theme-neon .premove-source.white-1e1d7,
+    #board .board-theme-neon .right-click-highlight.white-1e1d7,
+    #board .board-theme-emerald .premove-highlight.white-1e1d7,
+    #board .board-theme-emerald .premove-source.white-1e1d7,
+    #board .board-theme-emerald .right-click-highlight.white-1e1d7,
+    #board .board-theme-gold .premove-highlight.white-1e1d7,
+    #board .board-theme-gold .premove-source.white-1e1d7,
+    #board .board-theme-gold .right-click-highlight.white-1e1d7,
+    #board .board-theme-ocean .premove-highlight.white-1e1d7,
+    #board .board-theme-ocean .premove-source.white-1e1d7,
+    #board .board-theme-ocean .right-click-highlight.white-1e1d7,
+    #board .board-theme-sunset .premove-highlight.white-1e1d7,
+    #board .board-theme-sunset .premove-source.white-1e1d7,
+    #board .board-theme-sunset .right-click-highlight.white-1e1d7,
+    #board .board-theme-midnight .premove-highlight.white-1e1d7,
+    #board .board-theme-midnight .premove-source.white-1e1d7,
+    #board .board-theme-midnight .right-click-highlight.white-1e1d7,
+    #board .board-theme-forest .premove-highlight.white-1e1d7,
+    #board .board-theme-forest .premove-source.white-1e1d7,
+    #board .board-theme-forest .right-click-highlight.white-1e1d7,
+    #board .board-theme-royal .premove-highlight.white-1e1d7,
+    #board .board-theme-royal .premove-source.white-1e1d7,
+    #board .board-theme-royal .right-click-highlight.white-1e1d7,
+    #board .board-theme-ice .premove-highlight.white-1e1d7,
+    #board .board-theme-ice .premove-source.white-1e1d7,
+    #board .board-theme-ice .right-click-highlight.white-1e1d7,
+    #board .board-theme-cherry .premove-highlight.white-1e1d7,
+    #board .board-theme-cherry .premove-source.white-1e1d7,
+    #board .board-theme-cherry .right-click-highlight.white-1e1d7,
+    #board .board-theme-3d .premove-highlight.white-1e1d7,
+    #board .board-theme-3d .premove-source.white-1e1d7,
+    #board .board-theme-3d .right-click-highlight.white-1e1d7,
+    #board .board-theme-glass .premove-highlight.white-1e1d7,
+    #board .board-theme-glass .premove-source.white-1e1d7,
+    #board .board-theme-glass .right-click-highlight.white-1e1d7,
+    #board .board-theme-carbon .premove-highlight.white-1e1d7,
+    #board .board-theme-carbon .premove-source.white-1e1d7,
+    #board .board-theme-carbon .right-click-highlight.white-1e1d7,
+    #board .board-theme-velvet .premove-highlight.white-1e1d7,
+    #board .board-theme-velvet .premove-source.white-1e1d7,
+    #board .board-theme-velvet .right-click-highlight.white-1e1d7,
+    #board .board-theme-stone .premove-highlight.white-1e1d7,
+    #board .board-theme-stone .premove-source.white-1e1d7,
+    #board .board-theme-stone .right-click-highlight.white-1e1d7,
+    #board .board-theme-cyber .premove-highlight.white-1e1d7,
+    #board .board-theme-cyber .premove-source.white-1e1d7,
+    #board .board-theme-cyber .right-click-highlight.white-1e1d7,
+    #board .board-theme-luxury .premove-highlight.white-1e1d7,
+    #board .board-theme-luxury .premove-source.white-1e1d7,
+    #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
+      background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on light squares */
+    }
+    
+    /* Dark squares in all themes - darker red */
+    #board .board-theme-classic .premove-highlight.black-3c85d,
+    #board .board-theme-classic .premove-source.black-3c85d,
+    #board .board-theme-classic .right-click-highlight.black-3c85d,
+    #board .board-theme-blue .premove-highlight.black-3c85d,
+    #board .board-theme-blue .premove-source.black-3c85d,
+    #board .board-theme-blue .right-click-highlight.black-3c85d,
+    #board .board-theme-green .premove-highlight.black-3c85d,
+    #board .board-theme-green .premove-source.black-3c85d,
+    #board .board-theme-green .right-click-highlight.black-3c85d,
+    #board .board-theme-gray .premove-highlight.black-3c85d,
+    #board .board-theme-gray .premove-source.black-3c85d,
+    #board .board-theme-gray .right-click-highlight.black-3c85d,
+    #board .board-theme-purple .premove-highlight.black-3c85d,
+    #board .board-theme-purple .premove-source.black-3c85d,
+    #board .board-theme-purple .right-click-highlight.black-3c85d,
+    #board .board-theme-wood .premove-highlight.black-3c85d,
+    #board .board-theme-wood .premove-source.black-3c85d,
+    #board .board-theme-wood .right-click-highlight.black-3c85d,
+    #board .board-theme-coral .premove-highlight.black-3c85d,
+    #board .board-theme-coral .premove-source.black-3c85d,
+    #board .board-theme-coral .right-click-highlight.black-3c85d,
+    #board .board-theme-marble .premove-highlight.black-3c85d,
+    #board .board-theme-marble .premove-source.black-3c85d,
+    #board .board-theme-marble .right-click-highlight.black-3c85d,
+    #board .board-theme-dark .premove-highlight.black-3c85d,
+    #board .board-theme-dark .premove-source.black-3c85d,
+    #board .board-theme-dark .right-click-highlight.black-3c85d,
+    #board .board-theme-neon .premove-highlight.black-3c85d,
+    #board .board-theme-neon .premove-source.black-3c85d,
+    #board .board-theme-neon .right-click-highlight.black-3c85d,
+    #board .board-theme-emerald .premove-highlight.black-3c85d,
+    #board .board-theme-emerald .premove-source.black-3c85d,
+    #board .board-theme-emerald .right-click-highlight.black-3c85d,
+    #board .board-theme-gold .premove-highlight.black-3c85d,
+    #board .board-theme-gold .premove-source.black-3c85d,
+    #board .board-theme-gold .right-click-highlight.black-3c85d,
+    #board .board-theme-ocean .premove-highlight.black-3c85d,
+    #board .board-theme-ocean .premove-source.black-3c85d,
+    #board .board-theme-ocean .right-click-highlight.black-3c85d,
+    #board .board-theme-sunset .premove-highlight.black-3c85d,
+    #board .board-theme-sunset .premove-source.black-3c85d,
+    #board .board-theme-sunset .right-click-highlight.black-3c85d,
+    #board .board-theme-midnight .premove-highlight.black-3c85d,
+    #board .board-theme-midnight .premove-source.black-3c85d,
+    #board .board-theme-midnight .right-click-highlight.black-3c85d,
+    #board .board-theme-forest .premove-highlight.black-3c85d,
+    #board .board-theme-forest .premove-source.black-3c85d,
+    #board .board-theme-forest .right-click-highlight.black-3c85d,
+    #board .board-theme-royal .premove-highlight.black-3c85d,
+    #board .board-theme-royal .premove-source.black-3c85d,
+    #board .board-theme-royal .right-click-highlight.black-3c85d,
+    #board .board-theme-ice .premove-highlight.black-3c85d,
+    #board .board-theme-ice .premove-source.black-3c85d,
+    #board .board-theme-ice .right-click-highlight.black-3c85d,
+    #board .board-theme-cherry .premove-highlight.black-3c85d,
+    #board .board-theme-cherry .premove-source.black-3c85d,
+    #board .board-theme-cherry .right-click-highlight.black-3c85d,
+    #board .board-theme-3d .premove-highlight.black-3c85d,
+    #board .board-theme-3d .premove-source.black-3c85d,
+    #board .board-theme-3d .right-click-highlight.black-3c85d,
+    #board .board-theme-glass .premove-highlight.black-3c85d,
+    #board .board-theme-glass .premove-source.black-3c85d,
+    #board .board-theme-glass .right-click-highlight.black-3c85d,
+    #board .board-theme-carbon .premove-highlight.black-3c85d,
+    #board .board-theme-carbon .premove-source.black-3c85d,
+    #board .board-theme-carbon .right-click-highlight.black-3c85d,
+    #board .board-theme-velvet .premove-highlight.black-3c85d,
+    #board .board-theme-velvet .premove-source.black-3c85d,
+    #board .board-theme-velvet .right-click-highlight.black-3c85d,
+    #board .board-theme-stone .premove-highlight.black-3c85d,
+    #board .board-theme-stone .premove-source.black-3c85d,
+    #board .board-theme-stone .right-click-highlight.black-3c85d,
+    #board .board-theme-cyber .premove-highlight.black-3c85d,
+    #board .board-theme-cyber .premove-source.black-3c85d,
+    #board .board-theme-cyber .right-click-highlight.black-3c85d,
+    #board .board-theme-luxury .premove-highlight.black-3c85d,
+    #board .board-theme-luxury .premove-source.black-3c85d,
+    #board .board-theme-luxury .right-click-highlight.black-3c85d {
+      background-color: rgba(200, 0, 0, 0.65) !important; /* Slightly brighter, less dull red on dark squares */
     }
 
 
@@ -1182,6 +1382,28 @@
 
     .promotion-piece:active {
       transform: translateY(-2px) scale(1.05);
+    }
+
+
+    /* Arrow overlay container */
+    #arrow-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      overflow: visible;
+    }
+
+    #arrow-overlay svg {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
     }
 
     /* Rematch Modal */
@@ -2314,7 +2536,11 @@
         </div>
 
         <div id="board-timers-container">
-          <div id="board"></div>
+          <div id="board" style="position: relative;">
+            <div id="arrow-overlay">
+              <svg id="arrow-svg"></svg>
+            </div>
+          </div>
           <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
 
           <div id="timers-container">
@@ -2507,6 +2733,13 @@
     let soundEnabled = true; // Sound effects toggle
     let playerStats = { wins: 0, losses: 0, draws: 0 }; // Player statistics
     let achievements = []; // Achievements unlocked
+    
+    // Right-click highlighting and arrows
+    let rightClickHighlightedSquares = new Set(); // Track squares highlighted with right-click
+    let arrows = []; // Track arrows as [{from: 'e2', to: 'e4'}, ...]
+    let rightClickHighlightInterval = null; // Interval to continuously reapply right-click highlights
+    let isRightClickDragging = false; // Track if user is right-click dragging
+    let rightClickStartSquare = null; // Track starting square for right-click drag
     let gameStats = { // In-game statistics for achievements (temporary, only committed when game ends)
       capturesByQueen: 0,
       capturesByRook: 0,
@@ -3509,6 +3742,14 @@
     }
 
     function recreateBoard() {
+      if (board) {
+        board.destroy();
+        // Reset right-click handler flag so handlers can be reattached
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false;
+        }
+      }
       board = Chessboard("board", {
         draggable: true,
         position: game ? game.fen() : "start",
@@ -3558,6 +3799,19 @@
         },
         pieceTheme: pieceThemes[currentPieceStyle],
       });
+      
+      // Ensure arrow overlay exists (it may have been removed by board.destroy())
+      ensureArrowOverlay();
+      
+      // Initialize right-click handlers after board is created
+      setTimeout(() => {
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false; // Reset flag
+        }
+        ensureArrowOverlay(); // Ensure again after a delay
+        initRightClickHandlers();
+      }, 100);
     }
 
  $(document).ready(function() {
@@ -3588,6 +3842,25 @@
           orientation: 'white',
           pieceTheme: pieceThemes[currentPieceStyle]
         });
+        
+        // Reset right-click handler flag
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false;
+        }
+        
+      // Ensure arrow overlay exists
+      ensureArrowOverlay();
+      
+      // Initialize right-click handlers after board is created
+      setTimeout(() => {
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false; // Reset flag
+        }
+        ensureArrowOverlay(); // Ensure again after a delay
+        initRightClickHandlers();
+      }, 100);
         
         console.log('Preview board created with config:', {
           draggable: false
@@ -3714,7 +3987,11 @@
         const elapsed = performance.now() - timerStart;
 
         // 1. Always update the move timer display (Counts up)
-        document.getElementById("timer").textContent = formatTime(elapsed);
+        // Use requestAnimationFrame to ensure timer updates aren't blocked by DOM operations
+        const timerEl = document.getElementById("timer");
+        if (timerEl) {
+          timerEl.textContent = formatTime(elapsed);
+        }
 
         // 2. ONLY manage total time deduction/check if it's time limited AND the player's turn
         if (timeLimited && isPlayerTurn) {
@@ -3724,13 +4001,18 @@
             const newTime = playerTimeRef - elapsed;
 
             // Update the player's total remaining time (countdown)
-            document.getElementById(totalTimeElementId).textContent = formatTime(newTime);
+            const totalTimeEl = document.getElementById(totalTimeElementId);
+            if (totalTimeEl) {
+              totalTimeEl.textContent = formatTime(newTime);
+            }
             
             if (newTime <= 0) {
                 clearInterval(timerInterval);
                 // Replaced alert() with UI message
                 const moveContainer = document.getElementById("move-timer-container");
-                moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
+                if (moveContainer) {
+                  moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
+                }
                 gameOver = true;
                 
       // Update statistics
@@ -3947,6 +4229,483 @@ function navigateToPreviousMove() {
       // Don't remove premove highlights here - they're managed separately
     }
 
+    // Right-click highlighting and arrow functions
+    function getSquareFromElement(element) {
+      // Traverse up the DOM to find the square element
+      let el = element;
+      let maxDepth = 10; // Prevent infinite loops
+      let depth = 0;
+      
+      while (el && el.id !== 'board' && depth < maxDepth) {
+        depth++;
+        
+        // Check if this element is a square div
+        if (el.classList && el.classList.contains('square-55d63')) {
+          // Method 1: Try to get square name from data attribute
+          if (el.dataset && el.dataset.square) {
+            return el.dataset.square;
+          }
+          
+          // Method 2: Try to get from jQuery data
+          const $el = $(el);
+          const jqData = $el.data('square');
+          if (jqData) {
+            return jqData;
+          }
+          
+          // Method 3: Extract from class names (e.g., "square-e2")
+          const classes = el.className.split(/\s+/);
+          for (const cls of classes) {
+            if (cls.startsWith('square-') && cls !== 'square-55d63') {
+              const squareName = cls.replace('square-', '');
+              // Validate it's a valid square name (a-h, 1-8)
+              if (squareName.length === 2 && 
+                  squareName[0] >= 'a' && squareName[0] <= 'h' &&
+                  squareName[1] >= '1' && squareName[1] <= '8') {
+                return squareName;
+              }
+            }
+          }
+          
+          // Method 4: Try to get from ID attribute
+          if (el.id && el.id.startsWith('square-')) {
+            const squareName = el.id.replace('square-', '');
+            if (squareName.length === 2 && 
+                squareName[0] >= 'a' && squareName[0] <= 'h' &&
+                squareName[1] >= '1' && squareName[1] <= '8') {
+              return squareName;
+            }
+          }
+        }
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    function toggleSquareHighlight(square) {
+      if (!square) return;
+      
+      const squareEl = $(`#board .square-${square}`);
+      if (squareEl.length === 0) return;
+      
+      if (rightClickHighlightedSquares.has(square)) {
+        // Remove highlight
+        squareEl.removeClass('right-click-highlight');
+        rightClickHighlightedSquares.delete(square);
+        
+        // Clear interval if no more highlights
+        if (rightClickHighlightedSquares.size === 0 && rightClickHighlightInterval) {
+          clearInterval(rightClickHighlightInterval);
+          rightClickHighlightInterval = null;
+        }
+      } else {
+        // Add highlight - use same approach as premove to ensure colors match
+        squareEl.addClass('right-click-highlight');
+        rightClickHighlightedSquares.add(square);
+        
+        // Set up interval to continuously reapply highlights (like premove does)
+        // Use longer interval to reduce interference with timer
+        if (!rightClickHighlightInterval) {
+          rightClickHighlightInterval = setInterval(() => {
+            if (rightClickHighlightedSquares.size === 0) {
+              clearInterval(rightClickHighlightInterval);
+              rightClickHighlightInterval = null;
+              return;
+            }
+            // Reapply all highlights - use requestAnimationFrame to avoid blocking timer
+            requestAnimationFrame(() => {
+              rightClickHighlightedSquares.forEach(sq => {
+                const el = $(`#board .square-${sq}`);
+                if (el.length > 0) {
+                  el.addClass('right-click-highlight');
+                }
+              });
+            });
+          }, 200);
+        }
+      }
+    }
+
+    // Check if a move is a knight move
+    function isKnightMove(from, to) {
+      const fromFile = from.charCodeAt(0) - 'a'.charCodeAt(0);
+      const fromRank = parseInt(from[1]) - 1;
+      const toFile = to.charCodeAt(0) - 'a'.charCodeAt(0);
+      const toRank = parseInt(to[1]) - 1;
+      
+      const fileDiff = Math.abs(toFile - fromFile);
+      const rankDiff = Math.abs(toRank - fromRank);
+      
+      return (fileDiff === 2 && rankDiff === 1) || (fileDiff === 1 && rankDiff === 2);
+    }
+
+    function ensureArrowOverlay() {
+      const boardEl = document.getElementById('board');
+      if (!boardEl) return false;
+      
+      let overlayEl = document.getElementById('arrow-overlay');
+      if (!overlayEl) {
+        console.log('Creating arrow overlay');
+        overlayEl = document.createElement('div');
+        overlayEl.id = 'arrow-overlay';
+        boardEl.appendChild(overlayEl);
+      }
+      
+      let svg = document.getElementById('arrow-svg');
+      if (!svg) {
+        console.log('Creating arrow SVG');
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.id = 'arrow-svg';
+        overlayEl.appendChild(svg);
+      }
+      
+      return true;
+    }
+
+    function drawArrows() {
+      console.log('drawArrows() called, arrows array:', arrows);
+      
+      // Ensure overlay exists before trying to use it
+      if (!ensureArrowOverlay()) {
+        console.log('Failed to ensure arrow overlay exists');
+        return;
+      }
+      
+      const svg = document.getElementById('arrow-svg');
+      if (!svg) {
+        console.log('Arrow SVG not found!');
+        return;
+      }
+      
+      const overlayEl = document.getElementById('arrow-overlay');
+      if (!overlayEl) {
+        console.log('Arrow overlay not found!');
+        return;
+      }
+      
+      // Clear existing arrows but keep defs
+      const defs = svg.querySelector('defs');
+      svg.innerHTML = '';
+      if (defs) {
+        svg.appendChild(defs);
+      }
+      
+      const boardEl = document.getElementById('board');
+      if (!boardEl) {
+        console.log('Board element not found!');
+        return;
+      }
+      
+      const boardRect = boardEl.getBoundingClientRect();
+      console.log('Board rect:', boardRect.width, 'x', boardRect.height);
+      
+      // Set SVG viewBox and dimensions to match board
+      svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
+      svg.setAttribute('width', boardRect.width);
+      svg.setAttribute('height', boardRect.height);
+      svg.style.position = 'absolute';
+      svg.style.top = '0';
+      svg.style.left = '0';
+      svg.style.pointerEvents = 'none';
+      
+      const squareSize = boardRect.width / 8;
+      
+      // Create arrowhead marker if it doesn't exist
+      let defsEl = svg.querySelector('defs');
+      if (!defsEl) {
+        defsEl = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.appendChild(defsEl);
+      }
+      
+      let marker = svg.querySelector('#arrowhead');
+      if (!marker) {
+        marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        marker.setAttribute('id', 'arrowhead');
+        marker.setAttribute('markerWidth', '4');
+        marker.setAttribute('markerHeight', '8');
+        marker.setAttribute('refX', '3');
+        marker.setAttribute('refY', '4');
+        marker.setAttribute('orient', 'auto');
+        marker.setAttribute('viewBox', '0 0 8 8');
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        // Arrowhead that extends seamlessly from line: base width matches line stroke-width (8)
+        // Base at x=0 spans from y=0 to y=8 (8 units wide, matching stroke-width)
+        // Point at x=6, y=4 (forward direction)
+        polygon.setAttribute('points', '0 0, 0 8, 6 4');
+        polygon.setAttribute('fill', 'rgba(200, 180, 0, 1)');
+        polygon.setAttribute('stroke', 'none');
+        marker.appendChild(polygon);
+        defsEl.appendChild(marker);
+        console.log('Created arrowhead marker');
+      }
+      
+      if (arrows.length === 0) {
+        console.log('No arrows to draw');
+        return;
+      }
+      
+      console.log('Drawing', arrows.length, 'arrow(s)');
+      
+      arrows.forEach((arrow, index) => {
+        console.log(`Arrow ${index}: from ${arrow.from} to ${arrow.to}`);
+        
+        const fromSquare = $(`#board .square-${arrow.from}`);
+        const toSquare = $(`#board .square-${arrow.to}`);
+        
+        console.log(`  From square found:`, fromSquare.length > 0, 'To square found:', toSquare.length > 0);
+        
+        if (fromSquare.length === 0 || toSquare.length === 0) {
+          console.log(`  Skipping arrow ${index} - squares not found`);
+          return;
+        }
+        
+        const fromRect = fromSquare[0].getBoundingClientRect();
+        const toRect = toSquare[0].getBoundingClientRect();
+        
+        // Calculate center points relative to board (overlay is positioned at 0,0 relative to board)
+        const fromX = (fromRect.left - boardRect.left) + fromRect.width / 2;
+        const fromY = (fromRect.top - boardRect.top) + fromRect.height / 2;
+        const toX = (toRect.left - boardRect.left) + toRect.width / 2;
+        const toY = (toRect.top - boardRect.top) + toRect.height / 2;
+        
+        console.log(`  Coordinates: from (${fromX}, ${fromY}) to (${toX}, ${toY})`);
+        
+        // Check if it's a knight move
+        if (isKnightMove(arrow.from, arrow.to)) {
+          console.log(`  Drawing L-shaped arrow for knight move`);
+          // Draw L-shaped arrow for knight moves
+          const fromFile = arrow.from.charCodeAt(0) - 'a'.charCodeAt(0);
+          const fromRank = parseInt(arrow.from[1]) - 1;
+          const toFile = arrow.to.charCodeAt(0) - 'a'.charCodeAt(0);
+          const toRank = parseInt(arrow.to[1]) - 1;
+          
+          const fileDiff = toFile - fromFile;
+          const rankDiff = toRank - fromRank;
+          
+          // Determine which direction to go first (file or rank)
+          // Go horizontally first if |fileDiff| > |rankDiff|, otherwise vertically first
+          let midX, midY;
+          if (Math.abs(fileDiff) > Math.abs(rankDiff)) {
+            // Go horizontally first
+            midX = toX;
+            midY = fromY;
+          } else {
+            // Go vertically first
+            midX = fromX;
+            midY = toY;
+          }
+          
+          // Adjust start/end points to be at square edges
+          const dx1 = midX - fromX;
+          const dy1 = midY - fromY;
+          const angle1 = Math.atan2(dy1, dx1);
+          const adjustedFromX = fromX + Math.cos(angle1) * (squareSize / 2 - 5);
+          const adjustedFromY = fromY + Math.sin(angle1) * (squareSize / 2 - 5);
+          
+          const dx2 = toX - midX;
+          const dy2 = toY - midY;
+          const angle2 = Math.atan2(dy2, dx2);
+          // Line ends where arrowhead tip will be - extend line further into square
+          const adjustedToX = toX - Math.cos(angle2) * (squareSize / 2 - 15);
+          const adjustedToY = toY - Math.sin(angle2) * (squareSize / 2 - 15);
+          
+          // Create L-shaped path
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${midX} ${midY} L ${adjustedToX} ${adjustedToY}`;
+          path.setAttribute('d', pathData);
+          path.setAttribute('stroke', 'rgba(200, 180, 0, 1)');
+          path.setAttribute('stroke-width', '8');
+          path.setAttribute('fill', 'none');
+          path.setAttribute('marker-end', 'url(#arrowhead)');
+          svg.appendChild(path);
+          console.log(`  Created L-shaped path:`, pathData);
+        } else {
+          console.log(`  Drawing straight arrow`);
+          // Draw straight arrow for non-knight moves
+          const dx = toX - fromX;
+          const dy = toY - fromY;
+          const angle = Math.atan2(dy, dx);
+          
+          // Adjust start/end points to be at square edges
+          const adjustedFromX = fromX + Math.cos(angle) * (squareSize / 2 - 5);
+          const adjustedFromY = fromY + Math.sin(angle) * (squareSize / 2 - 5);
+          const adjustedToX = toX - Math.cos(angle) * (squareSize / 2 - 15);
+          const adjustedToY = toY - Math.sin(angle) * (squareSize / 2 - 15);
+          
+          // Create path for arrow line
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${adjustedToX} ${adjustedToY}`;
+          path.setAttribute('d', pathData);
+          path.setAttribute('stroke', 'rgba(200, 180, 0, 0.6)');
+          path.setAttribute('stroke-width', '8');
+          path.setAttribute('fill', 'none');
+          path.setAttribute('marker-end', 'url(#arrowhead)');
+          svg.appendChild(path);
+          console.log(`  Created straight path:`, pathData);
+        }
+      });
+      
+      console.log('Finished drawing arrows, SVG children:', svg.children.length);
+    }
+
+    function clearRightClickHighlights() {
+      rightClickHighlightedSquares.forEach(square => {
+        $(`#board .square-${square}`).removeClass('right-click-highlight');
+      });
+      rightClickHighlightedSquares.clear();
+      
+      // Clear interval
+      if (rightClickHighlightInterval) {
+        clearInterval(rightClickHighlightInterval);
+        rightClickHighlightInterval = null;
+      }
+    }
+
+    function clearArrows() {
+      arrows = [];
+      drawArrows();
+    }
+
+    function initRightClickHandlers() {
+      const boardEl = document.getElementById('board');
+      if (!boardEl) return;
+      
+      // Prevent context menu on right-click - use capture phase on document to catch all elements including pieces
+      const preventContextMenu = function(e) {
+        // Only prevent if clicking on board or pieces
+        const target = e.target;
+        if (boardEl.contains(target) || target.closest('#board')) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      };
+      document.addEventListener('contextmenu', preventContextMenu, true);
+      
+      // Handle right-click down - use capture phase to catch before chessboard.js
+      boardEl.addEventListener('mousedown', function(e) {
+        if (e.button === 2) { // Right mouse button
+          // Check if game is started
+          const isGameStarted = document.getElementById("choose-side").style.display === "none";
+          if (!isGameStarted) {
+            return; // Don't allow highlighting before game starts
+          }
+          
+          e.preventDefault();
+          e.stopPropagation();
+          const square = getSquareFromElement(e.target);
+          console.log('Right-click mousedown, square:', square, 'target:', e.target);
+          if (square) {
+            isRightClickDragging = true;
+            rightClickStartSquare = square;
+            console.log('Started right-click drag from:', square);
+          }
+        }
+      }, true); // Use capture phase
+      
+      // Handle right-click up (on document to catch even if mouse leaves board)
+      const handleRightClickUp = function(e) {
+        if (e.button === 2) { // Right mouse button
+          e.preventDefault();
+          e.stopPropagation();
+          
+          console.log('Right-click mouseup, isRightClickDragging:', isRightClickDragging, 'rightClickStartSquare:', rightClickStartSquare);
+          
+          if (isRightClickDragging && rightClickStartSquare) {
+            // Try to get the square from the current mouse position
+            const elements = document.elementsFromPoint(e.clientX, e.clientY);
+            let square = null;
+            for (const el of elements) {
+              square = getSquareFromElement(el);
+              if (square) break;
+            }
+            
+            console.log('Found end square:', square, 'from elements:', elements.length);
+            
+            if (square && square !== rightClickStartSquare) {
+              // Drawing arrow
+              const arrowKey = `${rightClickStartSquare}-${square}`;
+              const existingIndex = arrows.findIndex(a => `${a.from}-${a.to}` === arrowKey);
+              
+              console.log('Creating arrow from', rightClickStartSquare, 'to', square, 'existingIndex:', existingIndex);
+              
+              if (existingIndex >= 0) {
+                // Remove arrow if it exists
+                arrows.splice(existingIndex, 1);
+                console.log('Removed arrow, arrows array now:', arrows);
+              } else {
+                // Add arrow
+                arrows.push({ from: rightClickStartSquare, to: square });
+                console.log('Added arrow, arrows array now:', arrows);
+              }
+              // Draw arrows immediately
+              setTimeout(() => {
+                console.log('Calling drawArrows() after arrow add/remove');
+                drawArrows();
+              }, 10);
+            } else if (square === rightClickStartSquare) {
+              // Single right-click on same square - toggle highlight
+              // Check if game is started
+              const isGameStarted = document.getElementById("choose-side").style.display === "none";
+              if (isGameStarted) {
+                console.log('Same square clicked, toggling highlight');
+                toggleSquareHighlight(square);
+              }
+            } else {
+              console.log('No valid square found for arrow');
+            }
+            // If square is null, user dragged outside board - don't do anything
+          }
+          
+          isRightClickDragging = false;
+          rightClickStartSquare = null;
+          
+          // Redraw all arrows after mouseup
+          setTimeout(() => {
+            console.log('Calling drawArrows() after mouseup');
+            drawArrows();
+          }, 10);
+        }
+      };
+      document.addEventListener('mouseup', handleRightClickUp, true);
+      
+      // Redraw arrows when board is updated (debounced to prevent interference with timer)
+      let arrowRedrawTimeout = null;
+      const observer = new MutationObserver(function() {
+        // Clear any pending redraw
+        if (arrowRedrawTimeout) {
+          clearTimeout(arrowRedrawTimeout);
+        }
+        // Debounce arrow redraw to prevent excessive calls that could interfere with timer
+        arrowRedrawTimeout = setTimeout(() => {
+          drawArrows();
+          arrowRedrawTimeout = null;
+        }, 150);
+      });
+      observer.observe(boardEl, { childList: true, subtree: true });
+      
+      // Clear highlights and arrows on left-click anywhere (board or outside)
+      document.addEventListener('click', function(e) {
+        // Only handle left clicks (button 0)
+        if (e.button !== 0) return;
+        
+        // Don't clear if clicking on UI controls
+        const target = e.target;
+        if (target.closest('#choose-side') || 
+            target.closest('button') || 
+            target.closest('select') ||
+            target.closest('input')) {
+          return;
+        }
+        
+        // Clear right-click highlights and arrows
+        clearRightClickHighlights();
+        clearArrows();
+      }, true);
+      
+      boardEl._rightClickHandlersInitialized = true;
+    }
+
     function isPremoveLegal(from, to, piece) {
       // Validate if a premove would be theoretically legal for this piece type
       // on an empty board (or for pawns, with diagonal capture squares occupied)
@@ -4101,6 +4860,7 @@ function navigateToPreviousMove() {
           applyHighlights();
           
           // Set up interval to continuously reapply highlights (they may be cleared by board updates)
+          // Use longer interval to reduce interference with timer
           premoveHighlightInterval = setInterval(() => {
             if (premoves.length === 0) {
               clearInterval(premoveHighlightInterval);
@@ -4109,8 +4869,11 @@ function navigateToPreviousMove() {
               $("#board .square-55d63").removeClass("premove-highlight premove-source");
               return;
             }
-            applyHighlights();
-          }, 100);
+            // Use requestAnimationFrame to avoid blocking timer updates
+            requestAnimationFrame(() => {
+              applyHighlights();
+            });
+          }, 200);
           
           // Also apply highlights after next frame to ensure they stick
           requestAnimationFrame(() => {
@@ -5360,6 +6123,11 @@ function navigateToPreviousMove() {
       const newOrientation = currentOrientation === 'white' ? 'black' : 'white';
       board.orientation(newOrientation);
       playSound('move');
+      
+      // Redraw arrows after board flip
+      setTimeout(() => {
+        drawArrows();
+      }, 100);
     }
 
     function playSound(type) {
@@ -8194,6 +8962,18 @@ function navigateToPreviousMove() {
     async function startGame() {
       gameOver = false;
       
+      // Clear right-click highlights and arrows when starting new game
+      try {
+        if (typeof clearRightClickHighlights === 'function') {
+          clearRightClickHighlights();
+        }
+        if (typeof clearArrows === 'function') {
+          clearArrows();
+        }
+      } catch (e) {
+        console.log('Error clearing highlights/arrows:', e);
+      }
+      
       const side = document.getElementById("color-select").value;
       const timeOption = document.getElementById("time-control").value;
       blindfoldMode = document.getElementById("blindfold-mode").checked;
@@ -8259,7 +9039,15 @@ function navigateToPreviousMove() {
       // Destroy preview board and create game board
       if (board) {
         board.destroy();
+        // Reset right-click handler flag so handlers can be reattached
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false;
+        }
       }
+      
+      // Ensure arrow overlay exists (it may have been removed by board.destroy())
+      ensureArrowOverlay();
       
       board = Chessboard("board", {
         draggable: true,
@@ -8513,6 +9301,19 @@ function navigateToPreviousMove() {
         pieceTheme: pieceThemes[currentPieceStyle],
       });
 
+      // Ensure arrow overlay exists
+      ensureArrowOverlay();
+      
+      // Initialize right-click handlers after board is created
+      setTimeout(() => {
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false; // Reset flag
+        }
+        ensureArrowOverlay(); // Ensure again after a delay
+        initRightClickHandlers();
+      }, 100);
+
       // Add click-to-move functionality using mousedown/mouseup to avoid drag interference
       setTimeout(() => {
         let mouseDownSquare = null;
@@ -8574,20 +9375,25 @@ function navigateToPreviousMove() {
         });
       }, 100);
 
-      // Cancel premoves on mousedown/touchstart outside of pieces/board
+      // Cancel premoves and clear highlights on mousedown/touchstart outside of pieces/board
       let premoveJustSet = false;
       $(document).on('mousedown touchstart', function(e) {
-        // Don't cancel if we just set a premove in the same event cycle
-        if (premoves.length > 0 && !premoveJustSet) {
-          // Check if the click is on the board or a piece
-          const $target = $(e.target);
-          const isOnBoard = $target.closest('#board').length > 0;
-          const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
-          
-          // Only cancel if clicking outside the board/pieces
-          if (!isOnBoard && !isOnPiece) {
+        // Check if the click is on the board or a piece
+        const $target = $(e.target);
+        const isOnBoard = $target.closest('#board').length > 0;
+        const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
+        
+        // Only cancel if clicking outside the board/pieces
+        if (!isOnBoard && !isOnPiece) {
+          // Don't cancel premoves if we just set one in the same event cycle
+          if (premoves.length > 0 && !premoveJustSet) {
             console.log('Click detected outside board/pieces, canceling all premoves');
-          clearPremove();
+            clearPremove();
+          }
+          
+          // Clear right-click highlights
+          if (rightClickHighlightedSquares.size > 0) {
+            clearRightClickHighlights();
           }
         }
         premoveJustSet = false;
