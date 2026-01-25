@@ -1465,6 +1465,20 @@
       text-align: center;
     }
 
+    .rematch-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .rematch-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
     .rematch-dialog h3 {
       margin: 0 0 12px 0;
       color: #2c3e50;
@@ -1503,6 +1517,10 @@
       background: linear-gradient(135deg, #3498db, #2980b9);
       color: white;
       box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
     .rematch-buttons .rematch-yes:hover {
@@ -1651,6 +1669,137 @@
       transform: translateY(-2px);
       box-shadow: 0 6px 16px rgba(189, 195, 199, 0.4);
       background: linear-gradient(135deg, #bdc3c7, #95a5a6);
+    }
+
+    /* Shop purchase confirmation */
+    #shop-confirm-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 10008;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    #shop-confirm-modal.show {
+      display: flex;
+    }
+
+    .shop-confirm-dialog {
+      background: linear-gradient(145deg, #fff 0%, #f8f9fa 100%);
+      border-radius: 16px;
+      padding: 28px 32px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+      min-width: 320px;
+      max-width: 400px;
+      text-align: center;
+      border: 2px solid #f39c12;
+    }
+
+    .shop-confirm-dialog h3 {
+      margin: 0 0 12px 0;
+      color: #2c3e50;
+      font-size: 1.3em;
+      font-weight: 700;
+    }
+
+    .shop-confirm-dialog p {
+      margin: 0 0 24px 0;
+      color: #555;
+      font-size: 1.05em;
+      line-height: 1.5;
+    }
+
+    .shop-confirm-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .shop-confirm-buttons button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    #shop-confirm-cancel {
+      background: #ecf0f1;
+      color: #555;
+    }
+
+    #shop-confirm-cancel:hover {
+      background: #bdc3c7;
+    }
+
+    #shop-confirm-buy {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      color: white;
+    }
+
+    #shop-confirm-buy:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
+    }
+
+    /* Notification toast */
+    #notification-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10010;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast-item {
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-size: 1em;
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      animation: toastIn 0.3s ease-out;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .toast-item.success {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: white;
+    }
+
+    .toast-item.error {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: white;
+    }
+
+    .toast-item.info {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     /* Shop Modal */
@@ -1841,6 +1990,84 @@
       border-radius: 12px;
       font-size: 0.75em;
       font-weight: 700;
+    }
+
+    /* Settings Modal */
+    #settings-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10007;
+      animation: fadeIn 0.3s ease-out;
+      overflow-y: auto;
+    }
+
+    #settings-modal.show {
+      display: block;
+    }
+
+    .settings-dialog {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      margin: 5% auto;
+      width: 90%;
+      max-width: 480px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      position: relative;
+      animation: slideDown 0.4s ease-out;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #e9ecef;
+    }
+
+    .settings-header h2 {
+      margin: 0;
+      color: #2c3e50;
+    }
+
+    .settings-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .settings-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-row label {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 1em;
+    }
+
+    .settings-row select {
+      padding: 12px 16px;
+      font-size: 1em;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      background: white;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+    }
+
+    .settings-row select:focus {
+      outline: none;
+      border-color: #9b59b6;
+      box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.2);
     }
 
     /* All Achievements Modal */
@@ -2838,7 +3065,8 @@
         </div>
         <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
         <button onclick="showAllAchievements()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">View All Achievements</button>
-        <button onclick="showShop()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(243, 156, 18, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">🛒 Shop</button>
+        <button onclick="showShop()" class="shop-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(243, 156, 18, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Shop"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Shop</button>
+        <button onclick="showSettings()" class="settings-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Settings"><span aria-hidden="true">⚙</span> Settings</button>
       </div>
 
       <div id="game-buttons">
@@ -2876,10 +3104,11 @@
   <!-- Rematch Modal -->
   <div id="rematch-modal">
     <div class="rematch-dialog">
+      <div id="rematch-icon" class="rematch-icon"></div>
       <h3 id="rematch-title">Game Over</h3>
       <p id="rematch-message">Would you like to play again?</p>
       <div class="rematch-buttons">
-        <button class="rematch-yes" onclick="startRematch()">🔄 Rematch</button>
+        <button class="rematch-yes" onclick="startRematch()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Rematch</button>
         <button class="rematch-no" onclick="closeRematchModal()">Close</button>
       </div>
     </div>
@@ -2899,14 +3128,29 @@
     </div>
   </div>
 
+  <!-- Shop purchase confirmation -->
+  <div id="shop-confirm-modal">
+    <div class="shop-confirm-dialog">
+      <h3>Confirm purchase</h3>
+      <p id="shop-confirm-message"></p>
+      <div class="shop-confirm-buttons">
+        <button id="shop-confirm-cancel" onclick="closeShopConfirm()">Cancel</button>
+        <button id="shop-confirm-buy" onclick="confirmShopPurchase()">Buy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- In-UI notification toast -->
+  <div id="notification-toast"></div>
+
   <!-- Shop Modal -->
   <div id="shop-modal">
     <div class="shop-dialog">
       <div class="shop-header">
-        <h2>🛒 Shop</h2>
+        <h2 style="font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 10px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Shop</h2>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <div style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 1.1em;">
-            Points: <span id="shop-points-display">0</span>
+          <div style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 1.1em; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;">
+            Available: <span id="shop-points-display">0</span> pts
           </div>
           <button class="close-achievements-btn" onclick="closeShop()">×</button>
         </div>
@@ -2918,6 +3162,30 @@
           <button class="shop-tab" onclick="switchShopTab('colors')">🎨 Colors</button>
         </div>
         <div id="shop-items-container" class="shop-items-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal">
+    <div class="settings-dialog">
+      <div class="settings-header">
+        <h2 style="font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;"><span aria-hidden="true">⚙</span> Settings</h2>
+        <button class="close-achievements-btn" onclick="closeSettings()">×</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-row">
+          <label for="settings-board-style">Board style</label>
+          <select id="settings-board-style" onchange="applySettingsBoard()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-piece-style">Piece style</label>
+          <select id="settings-piece-style" onchange="applySettingsPiece()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-highlight-color">Highlight &amp; arrow color</label>
+          <select id="settings-highlight-color" onchange="applySettingsColor()"></select>
+        </div>
       </div>
     </div>
   </div>
@@ -2974,11 +3242,11 @@
       if (stored) {
         return JSON.parse(stored);
       }
-      // Initialize with Classic board and Classic pieces unlocked
+      // Initialize with Classic board, Classic pieces, and Red color unlocked
       return {
         boards: ['classic'],
         pieces: ['classic'],
-        colors: []
+        colors: ['red']
       };
     }
     
@@ -3001,63 +3269,78 @@
       return unlocked[category].includes(itemId);
     }
     
-    // Shop items with pricing
+    // Points spent in shop (persisted); spendable = total - spent
+    function getSpentPoints() {
+      const v = localStorage.getItem('shopPointsSpent');
+      return v ? parseInt(v, 10) : 0;
+    }
+    
+    function addSpentPoints(amount) {
+      const n = getSpentPoints() + amount;
+      localStorage.setItem('shopPointsSpent', String(n));
+    }
+    
+    function getSpendablePoints() {
+      return Math.max(0, getTotalPoints() - getSpentPoints());
+    }
+    
+    // Shop items with pricing (expensive – points are spent on purchase)
     const shopItems = {
       boards: [
         { id: 'classic', name: 'Classic', price: 0, preview: '⚪⚫', coolness: 1 },
-        { id: 'blue', name: 'Blue', price: 50, preview: '🔵', coolness: 2 },
-        { id: 'green', name: 'Green', price: 50, preview: '🟢', coolness: 2 },
-        { id: 'gray', name: 'Gray', price: 50, preview: '⚪', coolness: 2 },
-        { id: 'purple', name: 'Purple', price: 75, preview: '🟣', coolness: 3 },
-        { id: 'wood', name: 'Wood', price: 100, preview: '🪵', coolness: 4 },
-        { id: 'coral', name: 'Coral', price: 100, preview: '🪸', coolness: 4 },
-        { id: 'marble', name: 'Marble', price: 150, preview: '⚪', coolness: 5 },
-        { id: 'dark', name: 'Dark', price: 75, preview: '⚫', coolness: 3 },
-        { id: 'neon', name: 'Neon', price: 200, preview: '💡', coolness: 6 },
-        { id: 'emerald', name: 'Emerald', price: 150, preview: '💚', coolness: 5 },
-        { id: 'gold', name: 'Gold', price: 300, preview: '🟡', coolness: 7 },
-        { id: 'ocean', name: 'Ocean', price: 200, preview: '🌊', coolness: 6 },
-        { id: 'sunset', name: 'Sunset', price: 250, preview: '🌅', coolness: 7 },
-        { id: 'midnight', name: 'Midnight', price: 200, preview: '🌙', coolness: 6 },
-        { id: 'forest', name: 'Forest', price: 175, preview: '🌲', coolness: 5 },
-        { id: 'royal', name: 'Royal', price: 400, preview: '👑', coolness: 8 },
-        { id: 'ice', name: 'Ice', price: 250, preview: '❄️', coolness: 7 },
-        { id: 'cherry', name: 'Cherry', price: 200, preview: '🍒', coolness: 6 },
-        { id: '3d', name: '3D', price: 500, preview: '🎲', coolness: 9 },
-        { id: 'glass', name: 'Glass', price: 450, preview: '💎', coolness: 9 },
-        { id: 'carbon', name: 'Carbon', price: 350, preview: '⚫', coolness: 8 },
-        { id: 'velvet', name: 'Velvet', price: 400, preview: '🟣', coolness: 8 },
-        { id: 'stone', name: 'Stone', price: 300, preview: '🪨', coolness: 7 },
-        { id: 'cyber', name: 'Cyber', price: 600, preview: '🤖', coolness: 10 },
-        { id: 'luxury', name: 'Luxury', price: 750, preview: '💎', coolness: 10 }
+        { id: 'blue', name: 'Blue', price: 500, preview: '🔵', coolness: 2 },
+        { id: 'green', name: 'Green', price: 500, preview: '🟢', coolness: 2 },
+        { id: 'gray', name: 'Gray', price: 500, preview: '⚪', coolness: 2 },
+        { id: 'purple', name: 'Purple', price: 750, preview: '🟣', coolness: 3 },
+        { id: 'wood', name: 'Wood', price: 1200, preview: '🪵', coolness: 4 },
+        { id: 'coral', name: 'Coral', price: 1200, preview: '🪸', coolness: 4 },
+        { id: 'marble', name: 'Marble', price: 1800, preview: '⚪', coolness: 5 },
+        { id: 'dark', name: 'Dark', price: 800, preview: '⚫', coolness: 3 },
+        { id: 'neon', name: 'Neon', price: 2800, preview: '💡', coolness: 6 },
+        { id: 'emerald', name: 'Emerald', price: 2000, preview: '💚', coolness: 5 },
+        { id: 'gold', name: 'Gold', price: 4000, preview: '🟡', coolness: 7 },
+        { id: 'ocean', name: 'Ocean', price: 2800, preview: '🌊', coolness: 6 },
+        { id: 'sunset', name: 'Sunset', price: 3500, preview: '🌅', coolness: 7 },
+        { id: 'midnight', name: 'Midnight', price: 2800, preview: '🌙', coolness: 6 },
+        { id: 'forest', name: 'Forest', price: 2200, preview: '🌲', coolness: 5 },
+        { id: 'royal', name: 'Royal', price: 5500, preview: '👑', coolness: 8 },
+        { id: 'ice', name: 'Ice', price: 3500, preview: '❄️', coolness: 7 },
+        { id: 'cherry', name: 'Cherry', price: 2800, preview: '🍒', coolness: 6 },
+        { id: '3d', name: '3D', price: 6500, preview: '🎲', coolness: 9 },
+        { id: 'glass', name: 'Glass', price: 6000, preview: '💎', coolness: 9 },
+        { id: 'carbon', name: 'Carbon', price: 4500, preview: '⚫', coolness: 8 },
+        { id: 'velvet', name: 'Velvet', price: 5500, preview: '🟣', coolness: 8 },
+        { id: 'stone', name: 'Stone', price: 4000, preview: '🪨', coolness: 7 },
+        { id: 'cyber', name: 'Cyber', price: 8000, preview: '🤖', coolness: 10 },
+        { id: 'luxury', name: 'Luxury', price: 10000, preview: '💎', coolness: 10 }
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
-        { id: 'alpha', name: 'Alpha', price: 100, preview: '♟️', coolness: 3 },
-        { id: 'cburnett', name: 'CBurnett', price: 150, preview: '♟️', coolness: 4 },
-        { id: 'merida', name: 'Merida', price: 200, preview: '♟️', coolness: 5 },
-        { id: 'pirouetti', name: 'Pirouetti', price: 250, preview: '♟️', coolness: 6 },
-        { id: 'spatial', name: 'Spatial', price: 300, preview: '♟️', coolness: 7 },
-        { id: 'california', name: 'California', price: 350, preview: '♟️', coolness: 7 },
-        { id: 'cardinal', name: 'Cardinal', price: 400, preview: '♟️', coolness: 8 },
-        { id: 'chessnut', name: 'Chessnut', price: 450, preview: '♟️', coolness: 8 },
-        { id: 'chess7', name: 'Chess7', price: 500, preview: '♟️', coolness: 9 },
-        { id: 'reillycraig', name: 'Reilly Craig', price: 550, preview: '♟️', coolness: 9 },
-        { id: 'riohacha', name: 'Riohacha', price: 600, preview: '♟️', coolness: 9 },
-        { id: 'shapes', name: 'Shapes', price: 700, preview: '♟️', coolness: 10 },
-        { id: 'staunty', name: 'Staunty', price: 800, preview: '♟️', coolness: 10 },
-        { id: 'tatiana', name: 'Tatiana', price: 1000, preview: '♟️', coolness: 10 }
+        { id: 'alpha', name: 'Alpha', price: 1200, preview: '♟️', coolness: 3 },
+        { id: 'cburnett', name: 'CBurnett', price: 1800, preview: '♟️', coolness: 4 },
+        { id: 'merida', name: 'Merida', price: 2500, preview: '♟️', coolness: 5 },
+        { id: 'pirouetti', name: 'Pirouetti', price: 3200, preview: '♟️', coolness: 6 },
+        { id: 'spatial', name: 'Spatial', price: 4000, preview: '♟️', coolness: 7 },
+        { id: 'california', name: 'California', price: 4500, preview: '♟️', coolness: 7 },
+        { id: 'cardinal', name: 'Cardinal', price: 5200, preview: '♟️', coolness: 8 },
+        { id: 'chessnut', name: 'Chessnut', price: 5800, preview: '♟️', coolness: 8 },
+        { id: 'chess7', name: 'Chess7', price: 6500, preview: '♟️', coolness: 9 },
+        { id: 'reillycraig', name: 'Reilly Craig', price: 7200, preview: '♟️', coolness: 9 },
+        { id: 'riohacha', name: 'Riohacha', price: 8000, preview: '♟️', coolness: 9 },
+        { id: 'shapes', name: 'Shapes', price: 9500, preview: '♟️', coolness: 10 },
+        { id: 'staunty', name: 'Staunty', price: 11000, preview: '♟️', coolness: 10 },
+        { id: 'tatiana', name: 'Tatiana', price: 15000, preview: '♟️', coolness: 10 }
       ],
       colors: [
         { id: 'red', name: 'Red Highlights/Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
-        { id: 'blue', name: 'Blue Highlights/Arrows', price: 150, preview: '🔵', coolness: 4, description: 'Cool blue' },
-        { id: 'green', name: 'Green Highlights/Arrows', price: 150, preview: '🟢', coolness: 4, description: 'Fresh green' },
-        { id: 'purple', name: 'Purple Highlights/Arrows', price: 200, preview: '🟣', coolness: 5, description: 'Royal purple' },
-        { id: 'gold', name: 'Gold Highlights/Arrows', price: 300, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
-        { id: 'orange', name: 'Orange Highlights/Arrows', price: 175, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
-        { id: 'pink', name: 'Pink Highlights/Arrows', price: 200, preview: '🩷', coolness: 5, description: 'Pretty pink' },
-        { id: 'cyan', name: 'Cyan Highlights/Arrows', price: 250, preview: '🔷', coolness: 6, description: 'Electric cyan' },
-        { id: 'rainbow', name: 'Rainbow Highlights/Arrows', price: 500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+        { id: 'blue', name: 'Blue Highlights/Arrows', price: 2000, preview: '🔵', coolness: 4, description: 'Cool blue' },
+        { id: 'green', name: 'Green Highlights/Arrows', price: 2000, preview: '🟢', coolness: 4, description: 'Fresh green' },
+        { id: 'purple', name: 'Purple Highlights/Arrows', price: 2800, preview: '🟣', coolness: 5, description: 'Royal purple' },
+        { id: 'gold', name: 'Gold Highlights/Arrows', price: 4000, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
+        { id: 'orange', name: 'Orange Highlights/Arrows', price: 2400, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
+        { id: 'pink', name: 'Pink Highlights/Arrows', price: 2800, preview: '🩷', coolness: 5, description: 'Pretty pink' },
+        { id: 'cyan', name: 'Cyan Highlights/Arrows', price: 3400, preview: '🔷', coolness: 6, description: 'Electric cyan' },
+        { id: 'rainbow', name: 'Rainbow Highlights/Arrows', price: 6500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
       ]
     };
     
@@ -4042,7 +4325,7 @@
       
       // Check if unlocked
       if (!isUnlocked('boards', style)) {
-        alert('This board style is locked! Visit the shop to unlock it.');
+        showNotification('This board style is locked. Visit the shop to unlock it.', 'info');
         // Reset to last unlocked style
         const unlocked = getUnlockedItems();
         if (unlocked.boards.length > 0) {
@@ -4073,7 +4356,7 @@
       
       // Check if unlocked
       if (!isUnlocked('pieces', style)) {
-        alert('This piece style is locked! Visit the shop to unlock it.');
+        showNotification('This piece style is locked. Visit the shop to unlock it.', 'info');
         // Reset to last unlocked style
         const unlocked = getUnlockedItems();
         if (unlocked.pieces.length > 0) {
@@ -4213,11 +4496,61 @@
         modal.classList.remove('show');
       }
     }
+
+    // In-UI notification (no alert)
+    function showNotification(message, type) {
+      type = type || 'info';
+      const container = document.getElementById('notification-toast');
+      if (!container) return;
+      const el = document.createElement('div');
+      el.className = 'toast-item ' + type;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-10px)';
+        setTimeout(() => el.remove(), 300);
+      }, 4000);
+    }
+
+    // Shop purchase confirmation (pending purchase state)
+    let pendingPurchase = null;
+
+    function showShopConfirm(category, itemId, price, name) {
+      const modal = document.getElementById('shop-confirm-modal');
+      const msg = document.getElementById('shop-confirm-message');
+      if (!modal || !msg) return;
+      pendingPurchase = { category, itemId, price, name };
+      msg.textContent = `Buy "${name}" for ${price} points?`;
+      modal.classList.add('show');
+    }
+
+    function closeShopConfirm() {
+      const modal = document.getElementById('shop-confirm-modal');
+      if (modal) modal.classList.remove('show');
+      pendingPurchase = null;
+    }
+
+    (function initShopConfirmBackdrop() {
+      const m = document.getElementById('shop-confirm-modal');
+      if (m) m.addEventListener('click', function(e) { if (e.target === m) closeShopConfirm(); });
+    })();
+
+    function confirmShopPurchase() {
+      if (!pendingPurchase) {
+        closeShopConfirm();
+        return;
+      }
+      const { category, itemId, price, name } = pendingPurchase;
+      closeShopConfirm();
+      pendingPurchase = null;
+      purchaseItem(category, itemId, price, name);
+    }
     
     function updateShopPoints() {
       const pointsEl = document.getElementById('shop-points-display');
       if (pointsEl) {
-        pointsEl.textContent = getTotalPoints();
+        pointsEl.textContent = getSpendablePoints();
       }
     }
     
@@ -4244,14 +4577,14 @@
       const unlocked = getUnlockedItems();
       const currentBoardStyle = localStorage.getItem('chessboardStyle') || 'classic';
       const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
-      const totalPoints = getTotalPoints();
+      const spendable = getSpendablePoints();
       
       items.forEach(item => {
         const isUnlocked = unlocked[currentShopTab].includes(item.id);
         const isEquipped = (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
                           (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
                           (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor));
-        const canAfford = item.price <= totalPoints;
+        const canAfford = item.price <= spendable;
         
         const itemDiv = document.createElement('div');
         itemDiv.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
@@ -4308,10 +4641,12 @@
         } else {
           button.textContent = 'Unlock';
           button.classList.add('unlock');
-          button.disabled = !canAfford;
-          if (canAfford) {
-            button.onclick = () => purchaseItem(currentShopTab, item.id, item.price);
-          }
+          button.disabled = false;
+          button.onclick = () => {
+            const afford = getSpendablePoints() >= item.price;
+            if (afford) showShopConfirm(currentShopTab, item.id, item.price, item.name);
+            else showNotification(`Not enough points. You need ${item.price} but have ${getSpendablePoints()} available.`, 'error');
+          };
         }
         itemDiv.appendChild(button);
         
@@ -4319,18 +4654,20 @@
       });
     }
     
-    function purchaseItem(category, itemId, price) {
-      const totalPoints = getTotalPoints();
-      if (totalPoints < price) {
-        alert(`Not enough points! You need ${price} points but only have ${totalPoints}.`);
+    function purchaseItem(category, itemId, price, name) {
+      const spendable = getSpendablePoints();
+      if (spendable < price) {
+        showNotification(`Not enough points. You need ${price} but have ${spendable} available.`, 'error');
         return;
       }
-      
+      const displayName = name || (shopItems[category] && shopItems[category].find(i => i.id === itemId)?.name) || itemId;
       if (unlockItem(category, itemId)) {
+        addSpentPoints(price);
         updateShopPoints();
         renderShopItems();
         updateStyleDropdowns();
-        alert(`Unlocked ${shopItems[category].find(i => i.id === itemId).name}!`);
+        if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+        showNotification(`Unlocked ${displayName}! (-${price} points)`, 'success');
       }
     }
     
@@ -4614,6 +4951,127 @@
           changePieceStyle();
         }
       }
+    }
+
+    function showSettings() {
+      const modal = document.getElementById('settings-modal');
+      if (!modal) return;
+      updateSettingsDropdowns();
+      modal.classList.add('show');
+    }
+
+    function closeSettings() {
+      const modal = document.getElementById('settings-modal');
+      if (modal) modal.classList.remove('show');
+    }
+
+    function updateSettingsDropdowns() {
+      const unlocked = getUnlockedItems();
+      const boardSel = document.getElementById('settings-board-style');
+      const pieceSel = document.getElementById('settings-piece-style');
+      const colorSel = document.getElementById('settings-highlight-color');
+      const currentBoard = localStorage.getItem('chessboardStyle') || 'classic';
+      const currentPiece = localStorage.getItem('chessPieceStyle') || 'classic';
+      const currentColor = localStorage.getItem('highlightColor') || 'red';
+
+      if (boardSel) {
+        boardSel.innerHTML = '';
+        shopItems.boards.forEach(b => {
+          if (unlocked.boards.includes(b.id)) {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = b.name;
+            boardSel.appendChild(opt);
+          }
+        });
+        boardSel.value = unlocked.boards.includes(currentBoard) ? currentBoard : (unlocked.boards[0] || 'classic');
+      }
+
+      if (pieceSel) {
+        pieceSel.innerHTML = '';
+        shopItems.pieces.forEach(p => {
+          if (unlocked.pieces.includes(p.id)) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            pieceSel.appendChild(opt);
+          }
+        });
+        pieceSel.value = unlocked.pieces.includes(currentPiece) ? currentPiece : (unlocked.pieces[0] || 'classic');
+      }
+
+      if (colorSel) {
+        colorSel.innerHTML = '';
+        shopItems.colors.forEach(c => {
+          if (unlocked.colors.includes(c.id)) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            colorSel.appendChild(opt);
+          }
+        });
+        if (unlocked.colors.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = 'red';
+          opt.textContent = 'Red Highlights/Arrows';
+          colorSel.appendChild(opt);
+          if (!unlocked.colors.includes('red')) unlockItem('colors', 'red');
+        }
+        colorSel.value = unlocked.colors.includes(currentColor) ? currentColor : (unlocked.colors[0] || 'red');
+      }
+    }
+
+    function applySettingsBoard() {
+      const sel = document.getElementById('settings-board-style');
+      if (!sel) return;
+      const v = sel.value;
+      const boardEl = document.getElementById('board-style');
+      if (boardEl) {
+        boardEl.value = v;
+        changeBoardStyle();
+      } else {
+        const boardElement = document.getElementById('board');
+        if (boardElement) {
+          boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
+          boardElement.classList.add('board-theme-' + v);
+        }
+        localStorage.setItem('chessboardStyle', v);
+      }
+    }
+
+    function applySettingsPiece() {
+      const sel = document.getElementById('settings-piece-style');
+      if (!sel) return;
+      const v = sel.value;
+      const pieceEl = document.getElementById('piece-style');
+      if (pieceEl) {
+        pieceEl.value = v;
+        changePieceStyle();
+      } else {
+        currentPieceStyle = v;
+        localStorage.setItem('chessPieceStyle', v);
+        if (board) {
+          const pos = board.position();
+          board.destroy();
+          const isGame = document.getElementById('choose-side') && document.getElementById('choose-side').style.display === 'none';
+          if (isGame && game && !gameOver) recreateBoard();
+          else {
+            board = Chessboard('board', { draggable: false, position: pos, orientation: 'white', pieceTheme: pieceThemes[v] });
+            board.position(pos);
+          }
+        }
+      }
+    }
+
+    function applySettingsColor() {
+      const sel = document.getElementById('settings-highlight-color');
+      if (!sel) return;
+      const v = sel.value;
+      currentHighlightColor = v;
+      currentArrowColor = v;
+      applyColorTheme(v);
+      localStorage.setItem('highlightColor', v);
+      localStorage.setItem('arrowColor', v);
     }
 
     $(document).ready(function() {
@@ -6419,10 +6877,9 @@ function navigateToPreviousMove() {
       document.body.appendChild(screenFlash);
       setTimeout(() => screenFlash.remove(), 1000);
 
-      // Draw text animation
+      // Draw text animation with icon
       const drawText = document.createElement('div');
       drawText.className = 'draw-text';
-      drawText.textContent = 'Draw!';
       drawText.style.cssText = `
         position: fixed;
         top: 50%;
@@ -6435,7 +6892,18 @@ function navigateToPreviousMove() {
         z-index: 9998;
         font-family: 'Inter', sans-serif;
         pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
       `;
+      const drawIcon = document.createElement('div');
+      drawIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="15" x2="16" y2="15"/></svg>';
+      drawIcon.style.color = '#f39c12';
+      drawText.appendChild(drawIcon);
+      const drawLabel = document.createElement('span');
+      drawLabel.textContent = 'Draw!';
+      drawText.appendChild(drawLabel);
       drawText.style.animation = 'textPop 1.2s ease-out';
       document.body.appendChild(drawText);
       setTimeout(() => {
@@ -6544,10 +7012,20 @@ function navigateToPreviousMove() {
         document.body.appendChild(screenFlash);
         setTimeout(() => screenFlash.remove(), 800);
 
-        // Victory text animation
+        // Victory text animation with icon
         const victoryText = document.createElement('div');
         victoryText.className = 'victory-text';
-        victoryText.textContent = 'Victory!';
+        victoryText.style.display = 'flex';
+        victoryText.style.flexDirection = 'column';
+        victoryText.style.alignItems = 'center';
+        victoryText.style.gap = '12px';
+        const victoryIcon = document.createElement('div');
+        victoryIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
+        victoryIcon.style.color = '#2ecc71';
+        victoryText.appendChild(victoryIcon);
+        const victoryLabel = document.createElement('span');
+        victoryLabel.textContent = 'Victory!';
+        victoryText.appendChild(victoryLabel);
         victoryText.style.animation = 'textPop 1s ease-out';
         document.body.appendChild(victoryText);
         setTimeout(() => {
@@ -6676,10 +7154,20 @@ function navigateToPreviousMove() {
         document.body.appendChild(screenFlash);
         setTimeout(() => screenFlash.remove(), 1200);
 
-        // Defeat text animation
+        // Defeat text animation with icon
         const defeatText = document.createElement('div');
         defeatText.className = 'defeat-text';
-        defeatText.textContent = 'Defeat!';
+        defeatText.style.display = 'flex';
+        defeatText.style.flexDirection = 'column';
+        defeatText.style.alignItems = 'center';
+        defeatText.style.gap = '12px';
+        const defeatIcon = document.createElement('div');
+        defeatIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        defeatIcon.style.color = '#e74c3c';
+        defeatText.appendChild(defeatIcon);
+        const defeatLabel = document.createElement('span');
+        defeatLabel.textContent = 'Defeat!';
+        defeatText.appendChild(defeatLabel);
         defeatText.style.animation = 'textPop 0.8s ease-out';
         document.body.appendChild(defeatText);
         setTimeout(() => {
@@ -6856,8 +7344,22 @@ function navigateToPreviousMove() {
       setTimeout(() => showRematchModal("You Resigned", "Would you like to play again?"), 2000);
     }
 
+    function getRematchIcon(type) {
+      const icons = {
+        victory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+        defeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+        draw: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="15" x2="16" y2="15"/></svg>',
+        resign: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+        timeout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+      };
+      return icons[type] || icons.default;
+    }
+
     function showRematchModal(title, message) {
       const modal = document.getElementById('rematch-modal');
+      const iconEl = document.getElementById('rematch-icon');
       const titleEl = document.getElementById('rematch-title');
       const messageEl = document.getElementById('rematch-message');
       
@@ -6866,15 +7368,26 @@ function navigateToPreviousMove() {
         return;
       }
       
-      titleEl.textContent = title;
+      let type = 'default';
+      const t = (title || '').toLowerCase();
+      if (t.includes('victory') || t.includes('won') || t.includes('🎉')) type = 'victory';
+      else if (t.includes('defeat') || t.includes('checkmate') || t.includes('💔')) type = 'defeat';
+      else if (t.includes('draw') || t.includes('🤝')) type = 'draw';
+      else if (t.includes('resign')) type = 'resign';
+      else if (t.includes('time') || t.includes('⏰')) type = 'timeout';
+      else if (t.includes('connection') || t.includes('error') || t.includes('⚠')) type = 'error';
+
+      const plainTitle = title.replace(/[\u{1F300}-\u{1F9FF}]|[\u2600-\u26FF]|[\u2700-\u27BF]/gu, '').trim() || title;
+      if (iconEl) {
+        iconEl.innerHTML = getRematchIcon(type);
+        iconEl.style.color = type === 'victory' ? '#2ecc71' : type === 'defeat' ? '#e74c3c' : type === 'draw' ? '#f39c12' : '#3498db';
+      }
+      titleEl.textContent = plainTitle;
       messageEl.textContent = message;
       
-      // Reset any positioning styles
       modal.style.left = '';
       modal.style.top = '';
       modal.style.position = 'fixed';
-      
-      // Show the modal - it will be centered by flexbox
       modal.classList.add('show');
     }
 
@@ -9124,7 +9637,7 @@ function navigateToPreviousMove() {
       modal.classList.add('show');
       } catch (e) {
         console.error('Error in showAllAchievements:', e);
-        alert('Error loading achievements. Please check the console for details.');
+        if (typeof showNotification === 'function') showNotification('Error loading achievements. Check the console for details.', 'error');
       }
     }
 
@@ -9387,6 +9900,10 @@ function navigateToPreviousMove() {
         blindfoldWinsNoHistory: 0
       };
       
+      // Reset shop: clear spent points, reset unlocks to defaults
+      localStorage.setItem('shopPointsSpent', '0');
+      saveUnlockedItems({ boards: ['classic'], pieces: ['classic'], colors: ['red'] });
+      
       // Save everything
       saveAchievements();
       savePlayerStats();
@@ -9401,6 +9918,9 @@ function navigateToPreviousMove() {
       if (document.getElementById('all-achievements-modal').classList.contains('show')) {
         showAllAchievements();
       }
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+      if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+      if (typeof updateShopPoints === 'function') updateShopPoints();
       
       // Show success message in modal style
       setTimeout(() => {
