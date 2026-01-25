@@ -1653,6 +1653,196 @@
       background: linear-gradient(135deg, #bdc3c7, #95a5a6);
     }
 
+    /* Shop Modal */
+    #shop-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10006;
+      animation: fadeIn 0.3s ease-out;
+      overflow-y: auto;
+    }
+
+    #shop-modal.show {
+      display: block;
+    }
+
+    .shop-dialog {
+      background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+      margin: 2% auto;
+      width: 90%;
+      max-width: 1200px;
+      max-height: 90vh;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      position: relative;
+      animation: slideDown 0.4s ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .shop-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #e9ecef;
+    }
+
+    .shop-header h2 {
+      margin: 0;
+      color: #2c3e50;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+    }
+
+    .shop-content {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .shop-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .shop-tab {
+      background: transparent;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1em;
+      font-weight: 600;
+      color: #7f8c8d;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+    }
+
+    .shop-tab:hover {
+      color: #3498db;
+    }
+
+    .shop-tab.active {
+      color: #3498db;
+      border-bottom-color: #3498db;
+    }
+
+    .shop-items-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      padding: 10px;
+    }
+
+    .shop-item {
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .shop-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .shop-item.unlocked {
+      border-color: #2ecc71;
+      background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+    }
+
+    .shop-item.locked {
+      opacity: 0.7;
+      filter: grayscale(0.5);
+    }
+
+    .shop-item-name {
+      font-size: 1.2em;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+    }
+
+    .shop-item-price {
+      font-size: 1.1em;
+      font-weight: 700;
+      color: #f39c12;
+      margin: 10px 0;
+    }
+
+    .shop-item-preview {
+      width: 100%;
+      height: 120px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin: 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2em;
+    }
+
+    .shop-item-button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+    }
+
+    .shop-item-button.unlock {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+    }
+
+    .shop-item-button.unlock:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+    }
+
+    .shop-item-button.unlock:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .shop-item-button.equipped {
+      background: linear-gradient(135deg, #2ecc71, #27ae60);
+      color: white;
+    }
+
+    .shop-item-button.equipped:hover {
+      background: linear-gradient(135deg, #27ae60, #229954);
+    }
+
+    .shop-item-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #2ecc71;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: 700;
+    }
+
     /* All Achievements Modal */
     #all-achievements-modal {
       display: none;
@@ -2496,7 +2686,7 @@
       
       <label for="piece-style" style="margin-left: 20px;">Piece Style: </label>
       <select id="piece-style" onchange="changePieceStyle()">
-        <option value="wikipedia">Wikipedia</option>
+        <option value="classic">Classic</option>
         <option value="alpha">Alpha</option>
         <option value="cburnett">CBurnett</option>
         <option value="merida">Merida</option>
@@ -2648,6 +2838,7 @@
         </div>
         <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
         <button onclick="showAllAchievements()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">View All Achievements</button>
+        <button onclick="showShop()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(243, 156, 18, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">🛒 Shop</button>
       </div>
 
       <div id="game-buttons">
@@ -2708,6 +2899,29 @@
     </div>
   </div>
 
+  <!-- Shop Modal -->
+  <div id="shop-modal">
+    <div class="shop-dialog">
+      <div class="shop-header">
+        <h2>🛒 Shop</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <div style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 1.1em;">
+            Points: <span id="shop-points-display">0</span>
+          </div>
+          <button class="close-achievements-btn" onclick="closeShop()">×</button>
+        </div>
+      </div>
+      <div class="shop-content">
+        <div class="shop-tabs">
+          <button class="shop-tab active" onclick="switchShopTab('boards')">🎨 Board Styles</button>
+          <button class="shop-tab" onclick="switchShopTab('pieces')">♟️ Piece Styles</button>
+          <button class="shop-tab" onclick="switchShopTab('colors')">🎨 Colors</button>
+        </div>
+        <div id="shop-items-container" class="shop-items-container"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- All Achievements Modal -->
   <div id="all-achievements-modal">
     <div class="all-achievements-dialog">
@@ -2751,8 +2965,109 @@
     let capturedPieces = { white: [], black: [] };
     let lastMoveSquares = { from: null, to: null };
     let gameStartTime = null;
-    let currentPieceStyle = 'wikipedia';
+    let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
+    
+    // Shop system - unlock tracking
+    function getUnlockedItems() {
+      const stored = localStorage.getItem('unlockedItems');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+      // Initialize with Classic board and Classic pieces unlocked
+      return {
+        boards: ['classic'],
+        pieces: ['classic'],
+        colors: []
+      };
+    }
+    
+    function saveUnlockedItems(items) {
+      localStorage.setItem('unlockedItems', JSON.stringify(items));
+    }
+    
+    function unlockItem(category, itemId) {
+      const unlocked = getUnlockedItems();
+      if (!unlocked[category].includes(itemId)) {
+        unlocked[category].push(itemId);
+        saveUnlockedItems(unlocked);
+        return true;
+      }
+      return false;
+    }
+    
+    function isUnlocked(category, itemId) {
+      const unlocked = getUnlockedItems();
+      return unlocked[category].includes(itemId);
+    }
+    
+    // Shop items with pricing
+    const shopItems = {
+      boards: [
+        { id: 'classic', name: 'Classic', price: 0, preview: '⚪⚫', coolness: 1 },
+        { id: 'blue', name: 'Blue', price: 50, preview: '🔵', coolness: 2 },
+        { id: 'green', name: 'Green', price: 50, preview: '🟢', coolness: 2 },
+        { id: 'gray', name: 'Gray', price: 50, preview: '⚪', coolness: 2 },
+        { id: 'purple', name: 'Purple', price: 75, preview: '🟣', coolness: 3 },
+        { id: 'wood', name: 'Wood', price: 100, preview: '🪵', coolness: 4 },
+        { id: 'coral', name: 'Coral', price: 100, preview: '🪸', coolness: 4 },
+        { id: 'marble', name: 'Marble', price: 150, preview: '⚪', coolness: 5 },
+        { id: 'dark', name: 'Dark', price: 75, preview: '⚫', coolness: 3 },
+        { id: 'neon', name: 'Neon', price: 200, preview: '💡', coolness: 6 },
+        { id: 'emerald', name: 'Emerald', price: 150, preview: '💚', coolness: 5 },
+        { id: 'gold', name: 'Gold', price: 300, preview: '🟡', coolness: 7 },
+        { id: 'ocean', name: 'Ocean', price: 200, preview: '🌊', coolness: 6 },
+        { id: 'sunset', name: 'Sunset', price: 250, preview: '🌅', coolness: 7 },
+        { id: 'midnight', name: 'Midnight', price: 200, preview: '🌙', coolness: 6 },
+        { id: 'forest', name: 'Forest', price: 175, preview: '🌲', coolness: 5 },
+        { id: 'royal', name: 'Royal', price: 400, preview: '👑', coolness: 8 },
+        { id: 'ice', name: 'Ice', price: 250, preview: '❄️', coolness: 7 },
+        { id: 'cherry', name: 'Cherry', price: 200, preview: '🍒', coolness: 6 },
+        { id: '3d', name: '3D', price: 500, preview: '🎲', coolness: 9 },
+        { id: 'glass', name: 'Glass', price: 450, preview: '💎', coolness: 9 },
+        { id: 'carbon', name: 'Carbon', price: 350, preview: '⚫', coolness: 8 },
+        { id: 'velvet', name: 'Velvet', price: 400, preview: '🟣', coolness: 8 },
+        { id: 'stone', name: 'Stone', price: 300, preview: '🪨', coolness: 7 },
+        { id: 'cyber', name: 'Cyber', price: 600, preview: '🤖', coolness: 10 },
+        { id: 'luxury', name: 'Luxury', price: 750, preview: '💎', coolness: 10 }
+      ],
+      pieces: [
+        { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
+        { id: 'alpha', name: 'Alpha', price: 100, preview: '♟️', coolness: 3 },
+        { id: 'cburnett', name: 'CBurnett', price: 150, preview: '♟️', coolness: 4 },
+        { id: 'merida', name: 'Merida', price: 200, preview: '♟️', coolness: 5 },
+        { id: 'pirouetti', name: 'Pirouetti', price: 250, preview: '♟️', coolness: 6 },
+        { id: 'spatial', name: 'Spatial', price: 300, preview: '♟️', coolness: 7 },
+        { id: 'california', name: 'California', price: 350, preview: '♟️', coolness: 7 },
+        { id: 'cardinal', name: 'Cardinal', price: 400, preview: '♟️', coolness: 8 },
+        { id: 'chessnut', name: 'Chessnut', price: 450, preview: '♟️', coolness: 8 },
+        { id: 'chess7', name: 'Chess7', price: 500, preview: '♟️', coolness: 9 },
+        { id: 'reillycraig', name: 'Reilly Craig', price: 550, preview: '♟️', coolness: 9 },
+        { id: 'riohacha', name: 'Riohacha', price: 600, preview: '♟️', coolness: 9 },
+        { id: 'shapes', name: 'Shapes', price: 700, preview: '♟️', coolness: 10 },
+        { id: 'staunty', name: 'Staunty', price: 800, preview: '♟️', coolness: 10 },
+        { id: 'tatiana', name: 'Tatiana', price: 1000, preview: '♟️', coolness: 10 }
+      ],
+      colors: [
+        { id: 'red', name: 'Red Highlights/Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
+        { id: 'blue', name: 'Blue Highlights/Arrows', price: 150, preview: '🔵', coolness: 4, description: 'Cool blue' },
+        { id: 'green', name: 'Green Highlights/Arrows', price: 150, preview: '🟢', coolness: 4, description: 'Fresh green' },
+        { id: 'purple', name: 'Purple Highlights/Arrows', price: 200, preview: '🟣', coolness: 5, description: 'Royal purple' },
+        { id: 'gold', name: 'Gold Highlights/Arrows', price: 300, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
+        { id: 'orange', name: 'Orange Highlights/Arrows', price: 175, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
+        { id: 'pink', name: 'Pink Highlights/Arrows', price: 200, preview: '🩷', coolness: 5, description: 'Pretty pink' },
+        { id: 'cyan', name: 'Cyan Highlights/Arrows', price: 250, preview: '🔷', coolness: 6, description: 'Electric cyan' },
+        { id: 'rainbow', name: 'Rainbow Highlights/Arrows', price: 500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+      ]
+    };
+    
+    let currentShopTab = 'boards';
+    let currentHighlightColor = 'red';
+    let currentArrowColor = 'red';
+    
+    // Initialize arrow colors
+    window.currentArrowColor = 'rgba(250, 180, 0, 0.7)';
+    window.currentArrowFillColor = 'rgba(250, 180, 0, 1)';
     let premoveHighlightInterval = null; // Store interval ID for premove highlighting
     let selectedSquare = null; // Track clicked piece for click-to-move
     let pendingPromotionMove = null; // Track pending promotion move {from, to}
@@ -3421,7 +3736,7 @@
 
     // Piece style themes
     const pieceThemes = {
-      wikipedia: 'lib/img/chesspieces/wikipedia/{piece}.png',
+      classic: 'lib/img/chesspieces/wikipedia/{piece}.png',
       alpha: 'https://lichess1.org/assets/piece/alpha/{piece}.svg',
       cburnett: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
       merida: 'https://lichess1.org/assets/piece/merida/{piece}.svg',
@@ -3724,6 +4039,21 @@
 
     function changeBoardStyle() {
       const style = document.getElementById("board-style").value;
+      
+      // Check if unlocked
+      if (!isUnlocked('boards', style)) {
+        alert('This board style is locked! Visit the shop to unlock it.');
+        // Reset to last unlocked style
+        const unlocked = getUnlockedItems();
+        if (unlocked.boards.length > 0) {
+          document.getElementById("board-style").value = unlocked.boards[0];
+          style = unlocked.boards[0];
+        } else {
+          document.getElementById("board-style").value = 'classic';
+          style = 'classic';
+        }
+      }
+      
       const boardElement = document.getElementById("board");
       
       // Remove all theme classes
@@ -3739,7 +4069,22 @@
     // Engine personality functions removed for performance
 
     function changePieceStyle() {
-      const style = document.getElementById("piece-style").value;
+      let style = document.getElementById("piece-style").value;
+      
+      // Check if unlocked
+      if (!isUnlocked('pieces', style)) {
+        alert('This piece style is locked! Visit the shop to unlock it.');
+        // Reset to last unlocked style
+        const unlocked = getUnlockedItems();
+        if (unlocked.pieces.length > 0) {
+          document.getElementById("piece-style").value = unlocked.pieces[0];
+          style = unlocked.pieces[0];
+        } else {
+          document.getElementById("piece-style").value = 'classic';
+          style = 'classic';
+        }
+      }
+      
       currentPieceStyle = style;
       
       // Save preference to localStorage
@@ -3841,20 +4186,490 @@
         initRightClickHandlers();
       }, 100);
     }
+    
+    // Shop Functions
+    function getTotalPoints() {
+      const allAchievements = getAllAchievementsList();
+      return allAchievements.reduce((sum, ach) => {
+        if (achievements.includes(ach.id) && ach.points) {
+          return sum + ach.points;
+        }
+        return sum;
+      }, 0);
+    }
+    
+    function showShop() {
+      const modal = document.getElementById('shop-modal');
+      if (!modal) return;
+      
+      modal.classList.add('show');
+      updateShopPoints();
+      renderShopItems();
+    }
+    
+    function closeShop() {
+      const modal = document.getElementById('shop-modal');
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    }
+    
+    function updateShopPoints() {
+      const pointsEl = document.getElementById('shop-points-display');
+      if (pointsEl) {
+        pointsEl.textContent = getTotalPoints();
+      }
+    }
+    
+    function switchShopTab(tab) {
+      currentShopTab = tab;
+      const tabs = document.querySelectorAll('.shop-tab');
+      tabs.forEach((t, index) => {
+        t.classList.remove('active');
+        if ((tab === 'boards' && index === 0) || 
+            (tab === 'pieces' && index === 1) || 
+            (tab === 'colors' && index === 2)) {
+          t.classList.add('active');
+        }
+      });
+      renderShopItems();
+    }
+    
+    function renderShopItems() {
+      const container = document.getElementById('shop-items-container');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      const items = shopItems[currentShopTab];
+      const unlocked = getUnlockedItems();
+      const currentBoardStyle = localStorage.getItem('chessboardStyle') || 'classic';
+      const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
+      const totalPoints = getTotalPoints();
+      
+      items.forEach(item => {
+        const isUnlocked = unlocked[currentShopTab].includes(item.id);
+        const isEquipped = (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
+                          (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
+                          (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor));
+        const canAfford = item.price <= totalPoints;
+        
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        if (isUnlocked) {
+          const badge = document.createElement('div');
+          badge.className = 'shop-item-badge';
+          badge.textContent = '✓';
+          itemDiv.appendChild(badge);
+        }
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'shop-item-name';
+        nameDiv.textContent = item.name;
+        itemDiv.appendChild(nameDiv);
+        
+        const previewDiv = document.createElement('div');
+        previewDiv.className = 'shop-item-preview';
+        previewDiv.textContent = item.preview;
+        itemDiv.appendChild(previewDiv);
+        
+        if (item.description) {
+          const descDiv = document.createElement('div');
+          descDiv.style.cssText = 'font-size: 0.85em; color: #7f8c8d; margin: 5px 0;';
+          descDiv.textContent = item.description;
+          itemDiv.appendChild(descDiv);
+        }
+        
+        const priceDiv = document.createElement('div');
+        priceDiv.className = 'shop-item-price';
+        if (isUnlocked) {
+          priceDiv.textContent = 'Unlocked';
+          priceDiv.style.color = '#2ecc71';
+        } else {
+          priceDiv.textContent = `${item.price} points`;
+          if (!canAfford) {
+            priceDiv.style.color = '#e74c3c';
+          }
+        }
+        itemDiv.appendChild(priceDiv);
+        
+        const button = document.createElement('button');
+        button.className = 'shop-item-button';
+        if (isUnlocked) {
+          if (isEquipped) {
+            button.textContent = 'Equipped';
+            button.classList.add('equipped');
+            button.disabled = true;
+          } else {
+            button.textContent = 'Equip';
+            button.classList.add('equip');
+            button.onclick = () => equipItem(currentShopTab, item.id);
+          }
+        } else {
+          button.textContent = 'Unlock';
+          button.classList.add('unlock');
+          button.disabled = !canAfford;
+          if (canAfford) {
+            button.onclick = () => purchaseItem(currentShopTab, item.id, item.price);
+          }
+        }
+        itemDiv.appendChild(button);
+        
+        container.appendChild(itemDiv);
+      });
+    }
+    
+    function purchaseItem(category, itemId, price) {
+      const totalPoints = getTotalPoints();
+      if (totalPoints < price) {
+        alert(`Not enough points! You need ${price} points but only have ${totalPoints}.`);
+        return;
+      }
+      
+      if (unlockItem(category, itemId)) {
+        updateShopPoints();
+        renderShopItems();
+        updateStyleDropdowns();
+        alert(`Unlocked ${shopItems[category].find(i => i.id === itemId).name}!`);
+      }
+    }
+    
+    function equipItem(category, itemId) {
+      if (category === 'boards') {
+        document.getElementById('board-style').value = itemId;
+        changeBoardStyle();
+      } else if (category === 'pieces') {
+        document.getElementById('piece-style').value = itemId;
+        changePieceStyle();
+      } else if (category === 'colors') {
+        currentHighlightColor = itemId;
+        currentArrowColor = itemId;
+        applyColorTheme(itemId);
+        localStorage.setItem('highlightColor', itemId);
+        localStorage.setItem('arrowColor', itemId);
+      }
+      renderShopItems();
+    }
+    
+    function applyColorTheme(colorId) {
+      const colorMap = {
+        red: { highlightLight: 'rgba(200, 0, 0, 0.50)', highlightDark: 'rgba(200, 0, 0, 0.55)', arrow: 'rgba(250, 180, 0, 0.7)', arrowFill: 'rgba(250, 180, 0, 1)' },
+        blue: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)' },
+        green: { highlightLight: 'rgba(46, 204, 113, 0.50)', highlightDark: 'rgba(46, 204, 113, 0.55)', arrow: 'rgba(46, 204, 113, 0.7)', arrowFill: 'rgba(46, 204, 113, 1)' },
+        purple: { highlightLight: 'rgba(155, 89, 182, 0.50)', highlightDark: 'rgba(155, 89, 182, 0.55)', arrow: 'rgba(155, 89, 182, 0.7)', arrowFill: 'rgba(155, 89, 182, 1)' },
+        gold: { highlightLight: 'rgba(241, 196, 15, 0.50)', highlightDark: 'rgba(241, 196, 15, 0.55)', arrow: 'rgba(241, 196, 15, 0.7)', arrowFill: 'rgba(241, 196, 15, 1)' },
+        orange: { highlightLight: 'rgba(243, 156, 18, 0.50)', highlightDark: 'rgba(243, 156, 18, 0.55)', arrow: 'rgba(243, 156, 18, 0.7)', arrowFill: 'rgba(243, 156, 18, 1)' },
+        pink: { highlightLight: 'rgba(236, 112, 99, 0.50)', highlightDark: 'rgba(236, 112, 99, 0.55)', arrow: 'rgba(236, 112, 99, 0.7)', arrowFill: 'rgba(236, 112, 99, 1)' },
+        cyan: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)' },
+        rainbow: { highlightLight: 'rgba(200, 0, 0, 0.50)', highlightDark: 'rgba(200, 0, 0, 0.55)', arrow: 'rgba(250, 180, 0, 0.7)', arrowFill: 'rgba(250, 180, 0, 1)' }
+      };
+      
+      const colors = colorMap[colorId] || colorMap.red;
+      
+      // Update highlight colors using CSS custom properties or style tag
+      let styleTag = document.getElementById('dynamic-color-styles');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-color-styles';
+        document.head.appendChild(styleTag);
+      }
+      
+      styleTag.textContent = `
+        #board .premove-highlight.white-1e1d7,
+        #board .premove-source.white-1e1d7,
+        #board .right-click-highlight.white-1e1d7 {
+          background-color: ${colors.highlightLight} !important;
+        }
+        #board .premove-highlight.black-3c85d,
+        #board .premove-source.black-3c85d,
+        #board .right-click-highlight.black-3c85d {
+          background-color: ${colors.highlightDark} !important;
+        }
+        #board .board-theme-classic .premove-highlight.white-1e1d7,
+        #board .board-theme-classic .premove-source.white-1e1d7,
+        #board .board-theme-classic .right-click-highlight.white-1e1d7,
+        #board .board-theme-blue .premove-highlight.white-1e1d7,
+        #board .board-theme-blue .premove-source.white-1e1d7,
+        #board .board-theme-blue .right-click-highlight.white-1e1d7,
+        #board .board-theme-green .premove-highlight.white-1e1d7,
+        #board .board-theme-green .premove-source.white-1e1d7,
+        #board .board-theme-green .right-click-highlight.white-1e1d7,
+        #board .board-theme-gray .premove-highlight.white-1e1d7,
+        #board .board-theme-gray .premove-source.white-1e1d7,
+        #board .board-theme-gray .right-click-highlight.white-1e1d7,
+        #board .board-theme-purple .premove-highlight.white-1e1d7,
+        #board .board-theme-purple .premove-source.white-1e1d7,
+        #board .board-theme-purple .right-click-highlight.white-1e1d7,
+        #board .board-theme-wood .premove-highlight.white-1e1d7,
+        #board .board-theme-wood .premove-source.white-1e1d7,
+        #board .board-theme-wood .right-click-highlight.white-1e1d7,
+        #board .board-theme-coral .premove-highlight.white-1e1d7,
+        #board .board-theme-coral .premove-source.white-1e1d7,
+        #board .board-theme-coral .right-click-highlight.white-1e1d7,
+        #board .board-theme-marble .premove-highlight.white-1e1d7,
+        #board .board-theme-marble .premove-source.white-1e1d7,
+        #board .board-theme-marble .right-click-highlight.white-1e1d7,
+        #board .board-theme-dark .premove-highlight.white-1e1d7,
+        #board .board-theme-dark .premove-source.white-1e1d7,
+        #board .board-theme-dark .right-click-highlight.white-1e1d7,
+        #board .board-theme-neon .premove-highlight.white-1e1d7,
+        #board .board-theme-neon .premove-source.white-1e1d7,
+        #board .board-theme-neon .right-click-highlight.white-1e1d7,
+        #board .board-theme-emerald .premove-highlight.white-1e1d7,
+        #board .board-theme-emerald .premove-source.white-1e1d7,
+        #board .board-theme-emerald .right-click-highlight.white-1e1d7,
+        #board .board-theme-gold .premove-highlight.white-1e1d7,
+        #board .board-theme-gold .premove-source.white-1e1d7,
+        #board .board-theme-gold .right-click-highlight.white-1e1d7,
+        #board .board-theme-ocean .premove-highlight.white-1e1d7,
+        #board .board-theme-ocean .premove-source.white-1e1d7,
+        #board .board-theme-ocean .right-click-highlight.white-1e1d7,
+        #board .board-theme-sunset .premove-highlight.white-1e1d7,
+        #board .board-theme-sunset .premove-source.white-1e1d7,
+        #board .board-theme-sunset .right-click-highlight.white-1e1d7,
+        #board .board-theme-midnight .premove-highlight.white-1e1d7,
+        #board .board-theme-midnight .premove-source.white-1e1d7,
+        #board .board-theme-midnight .right-click-highlight.white-1e1d7,
+        #board .board-theme-forest .premove-highlight.white-1e1d7,
+        #board .board-theme-forest .premove-source.white-1e1d7,
+        #board .board-theme-forest .right-click-highlight.white-1e1d7,
+        #board .board-theme-royal .premove-highlight.white-1e1d7,
+        #board .board-theme-royal .premove-source.white-1e1d7,
+        #board .board-theme-royal .right-click-highlight.white-1e1d7,
+        #board .board-theme-ice .premove-highlight.white-1e1d7,
+        #board .board-theme-ice .premove-source.white-1e1d7,
+        #board .board-theme-ice .right-click-highlight.white-1e1d7,
+        #board .board-theme-cherry .premove-highlight.white-1e1d7,
+        #board .board-theme-cherry .premove-source.white-1e1d7,
+        #board .board-theme-cherry .right-click-highlight.white-1e1d7,
+        #board .board-theme-3d .premove-highlight.white-1e1d7,
+        #board .board-theme-3d .premove-source.white-1e1d7,
+        #board .board-theme-3d .right-click-highlight.white-1e1d7,
+        #board .board-theme-glass .premove-highlight.white-1e1d7,
+        #board .board-theme-glass .premove-source.white-1e1d7,
+        #board .board-theme-glass .right-click-highlight.white-1e1d7,
+        #board .board-theme-carbon .premove-highlight.white-1e1d7,
+        #board .board-theme-carbon .premove-source.white-1e1d7,
+        #board .board-theme-carbon .right-click-highlight.white-1e1d7,
+        #board .board-theme-velvet .premove-highlight.white-1e1d7,
+        #board .board-theme-velvet .premove-source.white-1e1d7,
+        #board .board-theme-velvet .right-click-highlight.white-1e1d7,
+        #board .board-theme-stone .premove-highlight.white-1e1d7,
+        #board .board-theme-stone .premove-source.white-1e1d7,
+        #board .board-theme-stone .right-click-highlight.white-1e1d7,
+        #board .board-theme-cyber .premove-highlight.white-1e1d7,
+        #board .board-theme-cyber .premove-source.white-1e1d7,
+        #board .board-theme-cyber .right-click-highlight.white-1e1d7,
+        #board .board-theme-luxury .premove-highlight.white-1e1d7,
+        #board .board-theme-luxury .premove-source.white-1e1d7,
+        #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
+          background-color: ${colors.highlightLight} !important;
+        }
+        #board .board-theme-classic .premove-highlight.black-3c85d,
+        #board .board-theme-classic .premove-source.black-3c85d,
+        #board .board-theme-classic .right-click-highlight.black-3c85d,
+        #board .board-theme-blue .premove-highlight.black-3c85d,
+        #board .board-theme-blue .premove-source.black-3c85d,
+        #board .board-theme-blue .right-click-highlight.black-3c85d,
+        #board .board-theme-green .premove-highlight.black-3c85d,
+        #board .board-theme-green .premove-source.black-3c85d,
+        #board .board-theme-green .right-click-highlight.black-3c85d,
+        #board .board-theme-gray .premove-highlight.black-3c85d,
+        #board .board-theme-gray .premove-source.black-3c85d,
+        #board .board-theme-gray .right-click-highlight.black-3c85d,
+        #board .board-theme-purple .premove-highlight.black-3c85d,
+        #board .board-theme-purple .premove-source.black-3c85d,
+        #board .board-theme-purple .right-click-highlight.black-3c85d,
+        #board .board-theme-wood .premove-highlight.black-3c85d,
+        #board .board-theme-wood .premove-source.black-3c85d,
+        #board .board-theme-wood .right-click-highlight.black-3c85d,
+        #board .board-theme-coral .premove-highlight.black-3c85d,
+        #board .board-theme-coral .premove-source.black-3c85d,
+        #board .board-theme-coral .right-click-highlight.black-3c85d,
+        #board .board-theme-marble .premove-highlight.black-3c85d,
+        #board .board-theme-marble .premove-source.black-3c85d,
+        #board .board-theme-marble .right-click-highlight.black-3c85d,
+        #board .board-theme-dark .premove-highlight.black-3c85d,
+        #board .board-theme-dark .premove-source.black-3c85d,
+        #board .board-theme-dark .right-click-highlight.black-3c85d,
+        #board .board-theme-neon .premove-highlight.black-3c85d,
+        #board .board-theme-neon .premove-source.black-3c85d,
+        #board .board-theme-neon .right-click-highlight.black-3c85d,
+        #board .board-theme-emerald .premove-highlight.black-3c85d,
+        #board .board-theme-emerald .premove-source.black-3c85d,
+        #board .board-theme-emerald .right-click-highlight.black-3c85d,
+        #board .board-theme-gold .premove-highlight.black-3c85d,
+        #board .board-theme-gold .premove-source.black-3c85d,
+        #board .board-theme-gold .right-click-highlight.black-3c85d,
+        #board .board-theme-ocean .premove-highlight.black-3c85d,
+        #board .board-theme-ocean .premove-source.black-3c85d,
+        #board .board-theme-ocean .right-click-highlight.black-3c85d,
+        #board .board-theme-sunset .premove-highlight.black-3c85d,
+        #board .board-theme-sunset .premove-source.black-3c85d,
+        #board .board-theme-sunset .right-click-highlight.black-3c85d,
+        #board .board-theme-midnight .premove-highlight.black-3c85d,
+        #board .board-theme-midnight .premove-source.black-3c85d,
+        #board .board-theme-midnight .right-click-highlight.black-3c85d,
+        #board .board-theme-forest .premove-highlight.black-3c85d,
+        #board .board-theme-forest .premove-source.black-3c85d,
+        #board .board-theme-forest .right-click-highlight.black-3c85d,
+        #board .board-theme-royal .premove-highlight.black-3c85d,
+        #board .board-theme-royal .premove-source.black-3c85d,
+        #board .board-theme-royal .right-click-highlight.black-3c85d,
+        #board .board-theme-ice .premove-highlight.black-3c85d,
+        #board .board-theme-ice .premove-source.black-3c85d,
+        #board .board-theme-ice .right-click-highlight.black-3c85d,
+        #board .board-theme-cherry .premove-highlight.black-3c85d,
+        #board .board-theme-cherry .premove-source.black-3c85d,
+        #board .board-theme-cherry .right-click-highlight.black-3c85d,
+        #board .board-theme-3d .premove-highlight.black-3c85d,
+        #board .board-theme-3d .premove-source.black-3c85d,
+        #board .board-theme-3d .right-click-highlight.black-3c85d,
+        #board .board-theme-glass .premove-highlight.black-3c85d,
+        #board .board-theme-glass .premove-source.black-3c85d,
+        #board .board-theme-glass .right-click-highlight.black-3c85d,
+        #board .board-theme-carbon .premove-highlight.black-3c85d,
+        #board .board-theme-carbon .premove-source.black-3c85d,
+        #board .board-theme-carbon .right-click-highlight.black-3c85d,
+        #board .board-theme-velvet .premove-highlight.black-3c85d,
+        #board .board-theme-velvet .premove-source.black-3c85d,
+        #board .board-theme-velvet .right-click-highlight.black-3c85d,
+        #board .board-theme-stone .premove-highlight.black-3c85d,
+        #board .board-theme-stone .premove-source.black-3c85d,
+        #board .board-theme-stone .right-click-highlight.black-3c85d,
+        #board .board-theme-cyber .premove-highlight.black-3c85d,
+        #board .board-theme-cyber .premove-source.black-3c85d,
+        #board .board-theme-cyber .right-click-highlight.black-3c85d,
+        #board .board-theme-luxury .premove-highlight.black-3c85d,
+        #board .board-theme-luxury .premove-source.black-3c85d,
+        #board .board-theme-luxury .right-click-highlight.black-3c85d {
+          background-color: ${colors.highlightDark} !important;
+        }
+      `;
+      
+      // Store arrow colors for use in drawArrows
+      window.currentArrowColor = colors.arrow;
+      window.currentArrowFillColor = colors.arrowFill;
+      
+      // Redraw arrows with new color
+      if (typeof drawArrows === 'function') {
+        drawArrows();
+      }
+    }
+    
+    function updateStyleDropdowns() {
+      const unlocked = getUnlockedItems();
+      
+      // Update board style dropdown
+      const boardSelect = document.getElementById('board-style');
+      if (boardSelect) {
+        const currentValue = boardSelect.value;
+        boardSelect.innerHTML = '';
+        shopItems.boards.forEach(board => {
+          if (unlocked.boards.includes(board.id)) {
+            const option = document.createElement('option');
+            option.value = board.id;
+            option.textContent = board.name;
+            boardSelect.appendChild(option);
+          }
+        });
+        // Restore selection if still unlocked
+        if (unlocked.boards.includes(currentValue)) {
+          boardSelect.value = currentValue;
+        } else if (unlocked.boards.length > 0) {
+          boardSelect.value = unlocked.boards[0];
+          changeBoardStyle();
+        }
+      }
+      
+      // Update piece style dropdown
+      const pieceSelect = document.getElementById('piece-style');
+      if (pieceSelect) {
+        const currentValue = pieceSelect.value || 'classic';
+        pieceSelect.innerHTML = '';
+        shopItems.pieces.forEach(piece => {
+          if (unlocked.pieces.includes(piece.id)) {
+            const option = document.createElement('option');
+            option.value = piece.id;
+            option.textContent = piece.name;
+            pieceSelect.appendChild(option);
+          }
+        });
+        // Ensure at least Classic is available
+        if (pieceSelect.options.length === 0) {
+          const option = document.createElement('option');
+          option.value = 'classic';
+          option.textContent = 'Classic';
+          pieceSelect.appendChild(option);
+          unlockItem('pieces', 'classic');
+        }
+        // Restore selection if still unlocked
+        if (unlocked.pieces.includes(currentValue)) {
+          pieceSelect.value = currentValue;
+        } else if (unlocked.pieces.length > 0) {
+          pieceSelect.value = unlocked.pieces[0];
+          changePieceStyle();
+        } else {
+          pieceSelect.value = 'classic';
+          changePieceStyle();
+        }
+      }
+    }
 
- $(document).ready(function() {
+    $(document).ready(function() {
 	 		
         console.log("The page has finished loading!");
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
-        document.getElementById('board-style').value = savedStyle;
+        // Ensure saved style is unlocked, otherwise use classic
+        const unlocked = getUnlockedItems();
+        if (!unlocked.boards.includes(savedStyle)) {
+          localStorage.setItem('chessboardStyle', 'classic');
+          document.getElementById('board-style').value = 'classic';
+        } else {
+          document.getElementById('board-style').value = savedStyle;
+        }
         changeBoardStyle();
 
         // Load saved piece style
-        const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'wikipedia';
-        currentPieceStyle = savedPieceStyle;
-        document.getElementById('piece-style').value = savedPieceStyle;
+        const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
+        // Ensure saved style is unlocked, otherwise use classic
+        if (!unlocked.pieces.includes(savedPieceStyle)) {
+          localStorage.setItem('chessPieceStyle', 'classic');
+          currentPieceStyle = 'classic';
+          document.getElementById('piece-style').value = 'classic';
+        } else {
+          currentPieceStyle = savedPieceStyle;
+          document.getElementById('piece-style').value = savedPieceStyle;
+        }
+        
+        // Load saved colors and apply theme
+        currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
+        currentArrowColor = localStorage.getItem('arrowColor') || 'red';
+        if (!unlocked.colors.includes(currentHighlightColor) && currentHighlightColor !== 'red') {
+          currentHighlightColor = 'red';
+          localStorage.setItem('highlightColor', 'red');
+        }
+        if (!unlocked.colors.includes(currentArrowColor) && currentArrowColor !== 'red') {
+          currentArrowColor = 'red';
+          localStorage.setItem('arrowColor', 'red');
+        }
+        applyColorTheme(currentHighlightColor);
+        
+        // Initialize unlocked items if needed
+        if (unlocked.boards.length === 0) {
+          unlockItem('boards', 'classic');
+        }
+        if (unlocked.pieces.length === 0) {
+          unlockItem('pieces', 'classic');
+        }
+        if (!unlocked.colors.includes('red')) {
+          unlockItem('colors', 'red');
+        }
+        
+        // Update dropdowns to only show unlocked items
+        updateStyleDropdowns();
 
         // Engine personality loading removed
 
@@ -4451,10 +5266,16 @@ function navigateToPreviousMove() {
         // Base at x=0 spans from y=0 to y=8 (8 units wide, matching stroke-width)
         // Point at x=6, y=4 (forward direction)
         polygon.setAttribute('points', '0 0, 0 8, 6 4');
-        polygon.setAttribute('fill', 'rgba(250, 180, 0, 1)');
+        polygon.setAttribute('fill', window.currentArrowFillColor || 'rgba(250, 180, 0, 1)');
         polygon.setAttribute('stroke', 'none');
         marker.appendChild(polygon);
         defsEl.appendChild(marker);
+      } else {
+        // Update existing marker color
+        const polygon = marker.querySelector('polygon');
+        if (polygon) {
+          polygon.setAttribute('fill', window.currentArrowFillColor || 'rgba(250, 180, 0, 1)');
+        }
       }
       
       if (arrows.length === 0) {
@@ -4522,7 +5343,7 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${midX} ${midY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', 'rgba(250, 180, 0, 0.7)');
+          path.setAttribute('stroke', window.currentArrowColor || 'rgba(250, 180, 0, 0.7)');
           path.setAttribute('stroke-width', '10');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
@@ -4543,7 +5364,7 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', 'rgba(250, 180, 0, 0.7)');
+          path.setAttribute('stroke', window.currentArrowColor || 'rgba(250, 180, 0, 0.7)');
           path.setAttribute('stroke-width', '10');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
@@ -5152,12 +5973,34 @@ function navigateToPreviousMove() {
       const whiteCapDiv = document.getElementById("white-captures-display");
       const blackCapDiv = document.getElementById("black-captures-display");
       
+      // Get the current piece theme path
+      const pieceTheme = pieceThemes[currentPieceStyle] || pieceThemes['classic'];
+      const isLocal = pieceTheme.includes('lib/img/chesspieces/');
+      
       whiteCapDiv.innerHTML = capturedPieces.white.length > 0 ? 
-        capturedPieces.white.map(p => `<div class="captured-piece" style="background-image: url('lib/img/chesspieces/wikipedia/${p}.png')"></div>`).join('') :
+        capturedPieces.white.map(p => {
+          if (isLocal) {
+            const piecePath = pieceTheme.replace('{piece}', p);
+            return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
+          } else {
+            // For remote SVGs, use the theme URL
+            const piecePath = pieceTheme.replace('{piece}', p);
+            return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
+          }
+        }).join('') :
         '';
       
       blackCapDiv.innerHTML = capturedPieces.black.length > 0 ? 
-        capturedPieces.black.map(p => `<div class="captured-piece" style="background-image: url('lib/img/chesspieces/wikipedia/${p}.png')"></div>`).join('') :
+        capturedPieces.black.map(p => {
+          if (isLocal) {
+            const piecePath = pieceTheme.replace('{piece}', p);
+            return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
+          } else {
+            // For remote SVGs, use the theme URL
+            const piecePath = pieceTheme.replace('{piece}', p);
+            return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
+          }
+        }).join('') :
         '';
     }
 
