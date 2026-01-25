@@ -31,6 +31,25 @@
     button, #achievements-list, #all-achievements-list, .achievement-card, .stats-row {
       font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
     }
+    
+    /* Make trophy emojis yellow in achievement headings */
+    #all-achievements-modal h2,
+    #achievements-panel h3 {
+      color: #FFD700;
+      text-shadow: 0 0 3px rgba(255, 215, 0, 0.5);
+    }
+    
+    /* Make trophy emojis yellow in achievement names */
+    .achievement-name {
+      color: #2c3e50;
+    }
+    
+    /* Style trophy emoji in achievement names - wrap in span via JavaScript */
+    .trophy-emoji {
+      color: #FFD700;
+      text-shadow: 0 0 3px rgba(255, 215, 0, 0.5);
+      filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.8));
+    }
 
     body::before {
       content: '';
@@ -1701,6 +1720,8 @@
       align-items: center;
       justify-content: center;
       font-weight: 600;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+      line-height: 1;
     }
 
     .close-achievements-btn:hover {
@@ -2620,7 +2641,7 @@
       </div>
 
       <div id="achievements-panel" style="display: none; background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); margin: 15px auto; max-width: 600px; border: 1px solid rgba(52, 152, 219, 0.1); font-family: 'Inter', sans-serif;">
-        <h3 style="text-align: center; font-size: 1.05rem; font-weight: 600; color: #2c3e50; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef;">🏆 Achievements</h3>
+        <h3 style="text-align: center; font-size: 1.05rem; font-weight: 600; color: #2c3e50; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e9ecef;"><span class="trophy-emoji">🏆</span> Achievements</h3>
         <div style="text-align: center; margin-bottom: 12px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border-radius: 8px; font-weight: 700; font-size: 1.1em;">
           <div style="font-size: 0.85em; opacity: 0.95; margin-bottom: 4px;">Total Points</div>
           <div id="total-achievement-points" style="font-size: 1.5em;">0</div>
@@ -2691,10 +2712,10 @@
   <div id="all-achievements-modal">
     <div class="all-achievements-dialog">
       <div class="achievements-header">
-        <h2>🏆 All Achievements</h2>
+        <h2><span class="trophy-emoji">🏆</span> All Achievements</h2>
         <div style="display: flex; gap: 10px; align-items: center;">
           <button id="reset-achievements-btn" style="background: #e67e22; color: white; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;" onmouseover="this.style.background='#d35400'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#e67e22'; this.style.transform=''">Reset All</button>
-          <button class="close-achievements-btn" onclick="closeAllAchievements()">✕</button>
+          <button class="close-achievements-btn" onclick="closeAllAchievements()">×</button>
         </div>
       </div>
       <div id="all-achievements-list" style="flex: 1; min-height: 0; width: 100%; overflow-y: auto;"></div>
@@ -7816,8 +7837,8 @@ function navigateToPreviousMove() {
           dailyTitleCard.style.borderBottom = '3px solid #f39c12';
           
           const dailyTitle = document.createElement('h2');
-          dailyTitle.textContent = '📅 Daily Challenges';
-          dailyTitle.style.cssText = 'font-family: "Inter", sans-serif; font-size: 1.3em; font-weight: 800; color: #e67e22; margin: 0 0 5px 0;';
+          dailyTitle.innerHTML = '<span class="trophy-emoji">🏆</span> Daily Challenges';
+          dailyTitle.style.cssText = 'font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif; font-size: 1.3em; font-weight: 800; color: #e67e22; margin: 0 0 5px 0;';
           dailyTitleCard.appendChild(dailyTitle);
           
           const dailySubtitle = document.createElement('div');
@@ -7872,6 +7893,9 @@ function navigateToPreviousMove() {
           
           const pointsText = ach.points ? `<div style="font-size: 0.9em; color: #f39c12; font-weight: 700; margin-top: 5px;">${ach.points} points</div>` : '';
           
+          // Wrap trophy emoji in span with yellow color
+          const achievementName = ach.name.replace(/🏆/g, '<span class="trophy-emoji">🏆</span>');
+          
           const progressDisplay = 
             lockedMessage ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">${lockedMessage}</div>` :
             requiredPoints > 0 && !hasEnoughPoints ? `<div class="achievement-progress" style="margin-top: 8px; color: #e74c3c;">🔒 Locked - Need ${requiredPoints} points (You have ${totalPoints})</div>` :
@@ -7885,7 +7909,7 @@ function navigateToPreviousMove() {
               </div>`;
           
           card.innerHTML = `
-            <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+            <div class="achievement-name">${achievementName} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
             <div class="achievement-desc">${ach.desc}</div>
             ${pointsText}
             ${progressDisplay}
@@ -8071,9 +8095,12 @@ function navigateToPreviousMove() {
                   <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
                 </div>`;
             
+            // Wrap trophy emoji in span with yellow color
+            const nextAchievementName = nextAchievement.name.replace(/🏆/g, '<span class="trophy-emoji">🏆</span>');
+            
             card.innerHTML = `
               ${expandButton}
-              <div class="achievement-name">${nextAchievement.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+              <div class="achievement-name">${nextAchievementName} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
               <div class="achievement-desc">${nextAchievement.desc}</div>
               ${pointsText}
               ${progressDisplay}
@@ -8219,8 +8246,12 @@ function navigateToPreviousMove() {
               <div class="achievement-progress-bar">
                 <div class="achievement-progress-fill" style="width: ${progressPercent}%"></div>
               </div>`;
+          
+          // Wrap trophy emoji in span with yellow color
+          const achievementName = ach.name.replace(/🏆/g, '<span class="trophy-emoji">🏆</span>');
+          
           card.innerHTML = `
-            <div class="achievement-name">${ach.name} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
+            <div class="achievement-name">${achievementName} ${isUnlocked ? '<span style="color: #2ecc71; font-size: 0.9em;">✓</span>' : ''}</div>
             <div class="achievement-desc">${ach.desc}</div>
             ${pointsText}
             ${progressDisplay}
