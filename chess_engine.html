@@ -4345,7 +4345,6 @@ function navigateToPreviousMove() {
       
       let overlayEl = document.getElementById('arrow-overlay');
       if (!overlayEl) {
-        console.log('Creating arrow overlay');
         overlayEl = document.createElement('div');
         overlayEl.id = 'arrow-overlay';
         boardEl.appendChild(overlayEl);
@@ -4353,7 +4352,6 @@ function navigateToPreviousMove() {
       
       let svg = document.getElementById('arrow-svg');
       if (!svg) {
-        console.log('Creating arrow SVG');
         svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.id = 'arrow-svg';
         overlayEl.appendChild(svg);
@@ -4363,23 +4361,18 @@ function navigateToPreviousMove() {
     }
 
     function drawArrows() {
-      console.log('drawArrows() called, arrows array:', arrows);
-      
       // Ensure overlay exists before trying to use it
       if (!ensureArrowOverlay()) {
-        console.log('Failed to ensure arrow overlay exists');
         return;
       }
       
       const svg = document.getElementById('arrow-svg');
       if (!svg) {
-        console.log('Arrow SVG not found!');
         return;
       }
       
       const overlayEl = document.getElementById('arrow-overlay');
       if (!overlayEl) {
-        console.log('Arrow overlay not found!');
         return;
       }
       
@@ -4392,12 +4385,10 @@ function navigateToPreviousMove() {
       
       const boardEl = document.getElementById('board');
       if (!boardEl) {
-        console.log('Board element not found!');
         return;
       }
       
       const boardRect = boardEl.getBoundingClientRect();
-      console.log('Board rect:', boardRect.width, 'x', boardRect.height);
       
       // Set SVG viewBox and dimensions to match board
       svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
@@ -4436,26 +4427,17 @@ function navigateToPreviousMove() {
         polygon.setAttribute('stroke', 'none');
         marker.appendChild(polygon);
         defsEl.appendChild(marker);
-        console.log('Created arrowhead marker');
       }
       
       if (arrows.length === 0) {
-        console.log('No arrows to draw');
         return;
       }
       
-      console.log('Drawing', arrows.length, 'arrow(s)');
-      
       arrows.forEach((arrow, index) => {
-        console.log(`Arrow ${index}: from ${arrow.from} to ${arrow.to}`);
-        
         const fromSquare = $(`#board .square-${arrow.from}`);
         const toSquare = $(`#board .square-${arrow.to}`);
         
-        console.log(`  From square found:`, fromSquare.length > 0, 'To square found:', toSquare.length > 0);
-        
         if (fromSquare.length === 0 || toSquare.length === 0) {
-          console.log(`  Skipping arrow ${index} - squares not found`);
           return;
         }
         
@@ -4472,7 +4454,6 @@ function navigateToPreviousMove() {
         
         // Check if it's a knight move
         if (isKnightMove(arrow.from, arrow.to)) {
-          console.log(`  Drawing L-shaped arrow for knight move`);
           // Draw L-shaped arrow for knight moves
           const fromFile = arrow.from.charCodeAt(0) - 'a'.charCodeAt(0);
           const fromRank = parseInt(arrow.from[1]) - 1;
@@ -4518,9 +4499,7 @@ function navigateToPreviousMove() {
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
           svg.appendChild(path);
-          console.log(`  Created L-shaped path:`, pathData);
         } else {
-          console.log(`  Drawing straight arrow`);
           // Draw straight arrow for non-knight moves
           const dx = toX - fromX;
           const dy = toY - fromY;
@@ -4541,11 +4520,8 @@ function navigateToPreviousMove() {
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
           svg.appendChild(path);
-          console.log(`  Created straight path:`, pathData);
         }
       });
-      
-      console.log('Finished drawing arrows, SVG children:', svg.children.length);
     }
 
     function clearRightClickHighlights() {
@@ -4594,11 +4570,9 @@ function navigateToPreviousMove() {
           e.preventDefault();
           e.stopPropagation();
           const square = getSquareFromElement(e.target);
-          console.log('Right-click mousedown, square:', square, 'target:', e.target);
           if (square) {
             isRightClickDragging = true;
             rightClickStartSquare = square;
-            console.log('Started right-click drag from:', square);
           }
         }
       }, true); // Use capture phase
@@ -4609,8 +4583,6 @@ function navigateToPreviousMove() {
           e.preventDefault();
           e.stopPropagation();
           
-          console.log('Right-click mouseup, isRightClickDragging:', isRightClickDragging, 'rightClickStartSquare:', rightClickStartSquare);
-          
           if (isRightClickDragging && rightClickStartSquare) {
             // Try to get the square from the current mouse position
             const elements = document.elementsFromPoint(e.clientX, e.clientY);
@@ -4620,27 +4592,20 @@ function navigateToPreviousMove() {
               if (square) break;
             }
             
-            console.log('Found end square:', square, 'from elements:', elements.length);
-            
             if (square && square !== rightClickStartSquare) {
               // Drawing arrow
               const arrowKey = `${rightClickStartSquare}-${square}`;
               const existingIndex = arrows.findIndex(a => `${a.from}-${a.to}` === arrowKey);
               
-              console.log('Creating arrow from', rightClickStartSquare, 'to', square, 'existingIndex:', existingIndex);
-              
               if (existingIndex >= 0) {
                 // Remove arrow if it exists
                 arrows.splice(existingIndex, 1);
-                console.log('Removed arrow, arrows array now:', arrows);
               } else {
                 // Add arrow
                 arrows.push({ from: rightClickStartSquare, to: square });
-                console.log('Added arrow, arrows array now:', arrows);
               }
               // Draw arrows immediately
               setTimeout(() => {
-                console.log('Calling drawArrows() after arrow add/remove');
                 drawArrows();
               }, 10);
             } else if (square === rightClickStartSquare) {
@@ -4648,11 +4613,8 @@ function navigateToPreviousMove() {
               // Check if game is started
               const isGameStarted = document.getElementById("choose-side").style.display === "none";
               if (isGameStarted) {
-                console.log('Same square clicked, toggling highlight');
                 toggleSquareHighlight(square);
               }
-            } else {
-              console.log('No valid square found for arrow');
             }
             // If square is null, user dragged outside board - don't do anything
           }
@@ -4662,7 +4624,6 @@ function navigateToPreviousMove() {
           
           // Redraw all arrows after mouseup
           setTimeout(() => {
-            console.log('Calling drawArrows() after mouseup');
             drawArrows();
           }, 10);
         }
