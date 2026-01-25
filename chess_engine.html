@@ -24,6 +24,12 @@
       min-height: 100vh;
       overflow-x: hidden;
       position: relative;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+    }
+    
+    /* Ensure emojis render properly */
+    button, #achievements-list, #all-achievements-list, .achievement-card, .stats-row {
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
     }
 
     body::before {
@@ -1720,6 +1726,7 @@
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
     }
 
     .achievement-card.unlocked {
@@ -1753,14 +1760,14 @@
       font-weight: 700;
       color: #2c3e50;
       margin-bottom: 8px;
-      font-family: 'Inter', sans-serif;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
     }
 
     .achievement-desc {
       font-size: 0.9em;
       color: #7f8c8d;
       margin-bottom: 8px;
-      font-family: 'Inter', sans-serif;
+      font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
     }
 
     .achievement-progress {
@@ -2541,7 +2548,7 @@
               <svg id="arrow-svg"></svg>
             </div>
           </div>
-          <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
+          <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
 
           <div id="timers-container">
               <!-- The divs here will be reordered by JavaScript in startGame() based on playerColor. -->
@@ -8878,7 +8885,7 @@ function navigateToPreviousMove() {
             border-radius: 12px;
             box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4);
             z-index: 10004;
-            font-family: 'Inter', sans-serif;
+            font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
             font-weight: 600;
             animation: slideInRight 0.5s ease-out;
             max-width: 300px;

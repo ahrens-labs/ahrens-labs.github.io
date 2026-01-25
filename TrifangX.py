@@ -33,6 +33,17 @@ MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
 WHITE_PIECES = {'P', 'N', 'B', 'R', 'Q'}
 BLACK_PIECES = {'p', 'n', 'b', 'r', 'q'}
 ALL_PIECES = WHITE_PIECES | BLACK_PIECES
+# Frozensets for hot-path piece checks (avoid repeated set creation in loops)
+ROOK_QUEEN_B = frozenset({'r', 'q'})
+ROOK_QUEEN_W = frozenset({'R', 'Q'})
+BISHOP_QUEEN_B = frozenset({'b', 'q'})
+BISHOP_QUEEN_W = frozenset({'B', 'Q'})
+RQ_OR_EMPTY = frozenset({'0', 'r', 'q', 'R', 'Q'})
+BQ_OR_EMPTY = frozenset({'0', 'b', 'q', 'B', 'Q'})
+BLACK_BN = frozenset({'b', 'n'})
+BLACK_NR = frozenset({'n', 'r'})
+WHITE_BN = frozenset({'B', 'N'})
+WHITE_NR = frozenset({'N', 'R'})
 
 # Pre-compute board indices (avoid creating lists repeatedly)
 BOARD_ROWS = tuple(range(8))
@@ -173,7 +184,7 @@ def find_king(board, color):
 
 # Fast board copying - much faster than deepcopy for 8x8 lists
 def fast_copy_board(board):
-    return [row[:] for row in board]
+    return [r[:] for r in board]
 
 def initialize_board():
     # On a web server, you cannot use input().
@@ -470,10 +481,8 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                       print(indices_to_pos(target_row2, target_col2))
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
-                start = time.perf_counter()
                 current_score = score(board, 'w')
-                end = time.perf_counter()
-                scoring_time += (end - start)
+                scoring_time += 0
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -593,10 +602,8 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 0 and best_piece2 == 'p':
                                 board[target_row2][target_col2] = 'q'
-                            start = time.perf_counter()
                             current_score = score(board, 'w')
-                            end = time.perf_counter()
-                            scoring_time += (end - start)
+                            scoring_time += 0
                             for move in good_moves:
                                 if (from_row, from_col, from_row, from_col, piece, '0') == move:
                                     current_score += 0.5
@@ -916,10 +923,11 @@ def _score_uncached(board, turn, castled, castled_white):
     piece_positions = []
 
     # Single pass: count pieces, calculate material, gather positions
-    # Cache board[row] access for better performance
+    # Cache board[row] to avoid repeated indexing in inner loop
     for row in range(8):
+        row_data = board[row]
         for col in range(8):
-            piece = board[row][col]
+            piece = row_data[col]
             if piece == '0': continue
             pieces += 1
             material_score += PIECE_VALUES.get(piece, 0)
@@ -1306,10 +1314,10 @@ def check_defenders_lower(board, row, col):
             new_row = row + i * direction[0]
             new_col = col + i * direction[1]
             if 0 <= new_row < 8 and 0 <= new_col < 8:
-                if board[new_row][new_col] in {'r', 'q'}:
+                if board[new_row][new_col] in ROOK_QUEEN_B:
                     if not is_pinned_to_king(board, new_row, new_col, 'b'):
                       defenders += 1
-                if board[new_row][new_col] not in ['0', 'r', 'q', 'R', 'Q']:
+                if board[new_row][new_col] not in RQ_OR_EMPTY:
                     break
             else:
                 break
@@ -1320,10 +1328,10 @@ def check_defenders_lower(board, row, col):
             new_row = row + i * direction[0]
             new_col = col + i * direction[1]
             if 0 <= new_row < 8 and 0 <= new_col < 8:
-                if board[new_row][new_col] in {'b', 'q'}:
+                if board[new_row][new_col] in BISHOP_QUEEN_B:
                     if not is_pinned_to_king(board, new_row, new_col, 'b'):
                       defenders += 1
-                if board[new_row][new_col] not in ['0', 'b', 'q', 'B', 'Q']:
+                if board[new_row][new_col] not in BQ_OR_EMPTY:
                     break
             else:
                 break
@@ -1362,10 +1370,10 @@ def check_defenders_upper(board, row, col):
             new_row = row + i * direction[0]
             new_col = col + i * direction[1]
             if 0 <= new_row < 8 and 0 <= new_col < 8:
-                if board[new_row][new_col] in {'R', 'Q'}:
+                if board[new_row][new_col] in ROOK_QUEEN_W:
                     if not is_pinned_to_king(board, new_row, new_col, 'w'):
                       defenders += 1
-                if board[new_row][new_col] not in ['0', 'r', 'q', 'R', 'Q']:
+                if board[new_row][new_col] not in RQ_OR_EMPTY:
                     break
             else:
                 break
@@ -1376,10 +1384,10 @@ def check_defenders_upper(board, row, col):
             new_row = row + i * direction[0]
             new_col = col + i * direction[1]
             if 0 <= new_row < 8 and 0 <= new_col < 8:
-                if board[new_row][new_col] in {'B', 'Q'}:
+                if board[new_row][new_col] in BISHOP_QUEEN_W:
                     if not is_pinned_to_king(board, new_row, new_col, 'w'):
                       defenders += 1
-                if board[new_row][new_col] not in ['0', 'b', 'q', 'B', 'Q']:
+                if board[new_row][new_col] not in BQ_OR_EMPTY:
                     break
             else:
                 break
@@ -2899,14 +2907,14 @@ def is_pinned_to_king(board, row, col, player):
     piece = board[row][col]
     opponent = 'b' if player == 'w' else 'w'
     if player == 'b':
-        if piece in {'b', 'n'}:
+        if piece in BLACK_BN:
             directions = [(1, 0), (-1, 0)]
             for direction in directions:
                 for i in range(1, 8):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'R', 'Q'}:
+                        if board[new_row][new_col] in ROOK_QUEEN_W:
                             threat = True
                         if board[new_row][new_col] == 'k':
                             king = True
@@ -2925,7 +2933,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'R', 'Q'}:
+                        if board[new_row][new_col] in ROOK_QUEEN_W:
                             threat = True
                         if board[new_row][new_col] == 'k':
                             king = True
@@ -2935,7 +2943,7 @@ def is_pinned_to_king(board, row, col, player):
                             break
                     else:
                         break
-        if piece in {'n', 'r'}:
+        if piece in BLACK_NR:
             threat = False
             king = False
             directions = [(1, 1), (-1, -1)]
@@ -2944,7 +2952,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'B', 'Q'}:
+                        if board[new_row][new_col] in BISHOP_QUEEN_W:
                             threat = True
                         if board[new_row][new_col] == 'k':
                             king = True
@@ -2963,7 +2971,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'B', 'Q'}:
+                        if board[new_row][new_col] in BISHOP_QUEEN_W:
                             threat = True
                         if board[new_row][new_col] == 'k':
                             king = True
@@ -2975,7 +2983,7 @@ def is_pinned_to_king(board, row, col, player):
                         break
 
     elif player == 'w':
-        if piece in {'B', 'N'}:
+        if piece in WHITE_BN:
             threat = False
             king = False
             directions = [(0, 1), (0, -1)]
@@ -2984,7 +2992,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'r', 'q'}:
+                        if board[new_row][new_col] in ROOK_QUEEN_B:
                             threat = True
                         if board[new_row][new_col] == 'K':
                             king = True
@@ -3003,7 +3011,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'r', 'q'}:
+                        if board[new_row][new_col] in ROOK_QUEEN_B:
                             threat = True
                         if board[new_row][new_col] == 'K':
                             king = True
@@ -3013,7 +3021,7 @@ def is_pinned_to_king(board, row, col, player):
                             break
                     else:
                         break
-        if piece in {'N', 'R'}:
+        if piece in WHITE_NR:
             threat = False
             king = False
             directions = [(1, 1), (-1, -1)]
@@ -3022,7 +3030,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'b', 'q'}:
+                        if board[new_row][new_col] in BISHOP_QUEEN_B:
                             threat = True
                         if board[new_row][new_col] == 'K':
                             king = True
@@ -3041,7 +3049,7 @@ def is_pinned_to_king(board, row, col, player):
                     new_row = row + i * direction[0]
                     new_col = col + i * direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if board[new_row][new_col] in {'b', 'q'}:
+                        if board[new_row][new_col] in BISHOP_QUEEN_B:
                             threat = True
                         if board[new_row][new_col] == 'K':
                             king = True
@@ -6083,10 +6091,8 @@ def best_move_player(board):
                                 board[target_row][target_col] = best_piece
                                 if target_row == 0 and best_piece == 'p':
                                     board[target_row][target_col] = 'q'
-                                start = time.perf_counter()
                                 current_score = score(board, 'w')
-                                end = time.perf_counter()
-                                score_time += (end - start)
+                                score_time += 0
                                 board[best_row][best_col] = best_piece
                                 board[target_row][target_col] = captured
                                 if current_score < previous_score:
@@ -6130,10 +6136,8 @@ def best_move_player(board):
                                 board[target_row][target_col] = best_piece
                                 if target_row == 0 and best_piece == 'p':
                                     board[target_row][target_col] = 'q'
-                                start = time.perf_counter()
                                 current_score = score(board, 'w')
-                                end = time.perf_counter()
-                                score_time += (end - start)
+                                score_time += 0
                                 board[best_row][best_col] = best_piece
                                 board[target_row][target_col] = captured
                                 if current_score < previous_score:
@@ -6178,10 +6182,8 @@ def best_move_player(board):
                                 board[target_row][target_col] = best_piece
                                 if target_row == 0 and best_piece == 'p':
                                     board[target_row][target_col] = 'q'
-                                start = time.perf_counter()
                                 current_score = score(board, 'w')
-                                end = time.perf_counter()
-                                score_time += (end - start)
+                                score_time += 0
                                 board[best_row][best_col] = best_piece
                                 board[target_row][target_col] = captured
                                 if current_score < previous_score:
@@ -6226,10 +6228,8 @@ def best_move_player(board):
                                 board[target_row][target_col] = best_piece
                                 if target_row == 0 and best_piece == 'p':
                                     board[target_row][target_col] = 'q'
-                                start = time.perf_counter()
                                 current_score = score(board, 'w')
-                                end = time.perf_counter()
-                                score_time += (end - start)
+                                score_time += 0
                                 board[best_row][best_col] = best_piece
                                 board[target_row][target_col] = captured
                                 if current_score < previous_score:
@@ -6297,10 +6297,8 @@ def best_move_player(board):
                                             board[target_row][target_col] = best_piece
                                             if target_row == 0 and best_piece == 'p':
                                                 board[target_row][target_col] = 'q'
-                                            start = time.perf_counter()
                                             current_score = score(board, 'w')
-                                            end = time.perf_counter()
-                                            score_time += (end - start)
+                                            score_time += 0
                                             board[best_row][best_col] = best_piece
                                             board[target_row][target_col] = captured
                                             if current_score < previous_score:
@@ -6370,10 +6368,8 @@ def best_move_player(board):
                                                 board[target_row][target_col] = best_piece
                                                 if target_row == 0 and best_piece == 'p':
                                                     board[target_row][target_col] = 'q'
-                                                start = time.perf_counter()
                                                 current_score = score(board, 'w')
-                                                end = time.perf_counter()
-                                                score_time += (end - start)
+                                                score_time += 0
                                                 board[best_row][best_col] = best_piece
                                                 board[target_row][target_col] = captured
                                                 if current_score < previous_score:
@@ -6460,10 +6456,8 @@ def best_move_player(board):
                                                 board[target_row][target_col] = best_piece
                                                 if target_row == 0 and best_piece == 'p':
                                                     board[target_row][target_col] = 'q'
-                                                start = time.perf_counter()
                                                 current_score = score(board, 'w')
-                                                end = time.perf_counter()
-                                                score_time += (end - start)
+                                                score_time += 0
                                                 board[best_row][best_col] = best_piece
                                                 board[target_row][target_col] = captured
                                                 if current_score < previous_score:
@@ -6539,10 +6533,8 @@ def best_move_player(board):
                                                 board[target_row][target_col] = best_piece
                                                 if target_row == 0 and best_piece == 'p':
                                                     board[target_row][target_col] = 'q'
-                                                start = time.perf_counter()
                                                 current_score = score(board, 'w')
-                                                end = time.perf_counter()
-                                                score_time += (end - start)
+                                                score_time += 0
                                                 board[best_row][best_col] = best_piece
                                                 board[target_row][target_col] = captured
                                                 if current_score < previous_score:
@@ -6617,10 +6609,8 @@ def best_move_player(board):
                                             board[target_row][target_col] = best_piece
                                             if target_row == 0 and best_piece == 'p':
                                                 board[target_row][target_col] = 'q'
-                                            start = time.perf_counter()
                                             current_score = score(board, 'w')
-                                            end = time.perf_counter()
-                                            score_time += (end - start)
+                                            score_time += 0
                                             board[best_row][best_col] = best_piece
                                             board[target_row][target_col] = captured
                                             if current_score < previous_score:
@@ -6686,10 +6676,8 @@ def best_move2(board):
                         board[row][col] = '0'
                         board[row-2][col] = 'p'
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            start = time.perf_counter()
                             current_score = score(board, 'w')
-                            end = time.perf_counter()
-                            score_time += (end - start)
+                            score_time += 0
                             if current_score > previous_score:
                                 previous_score = current_score
                                 best_moves = [(row, col, row-2, col, 'p')]
@@ -6704,10 +6692,8 @@ def best_move2(board):
                         if row-1 == 0:
                             board[row-1][col] = 'q'
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            start = time.perf_counter()
                             current_score = score(board, 'w')
-                            end = time.perf_counter()
-                            score_time += (end - start)
+                            score_time += 0
                             if current_score > previous_score:
                                 previous_score = current_score
                                 best_moves = [(row, col, row-1, col, 'p')]
@@ -6723,10 +6709,8 @@ def best_move2(board):
                         if row-1 == 0:
                             board[row-1][col-1] = 'q'
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            start = time.perf_counter()
                             current_score = score(board, 'w')
-                            end = time.perf_counter()
-                            score_time += (end - start)
+                            score_time += 0
                             if current_score > previous_score:
                                 previous_score = current_score
                                 best_moves = [(row, col, row-1, col-1, 'p')]
@@ -6743,10 +6727,8 @@ def best_move2(board):
                             board[row-1][col+1] = 'q'
                             promotion = True
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            start = time.perf_counter()
                             current_score = score(board, 'w')
-                            end = time.perf_counter()
-                            score_time += (end - start)
+                            score_time += 0
                             if current_score > previous_score:
                                 previous_score = current_score
                                 best_moves = [(row, col, row-1, col+1, 'p')]
@@ -6778,10 +6760,8 @@ def best_move2(board):
                                     best_moves.append((row, col, new_row, new_col, piece))
                             else:
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                    start = time.perf_counter()
                                     current_score = score(board, 'w')
-                                    end = time.perf_counter()
-                                    score_time += (end - start)
+                                    score_time += 0
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, 'n')]
@@ -6816,10 +6796,8 @@ def best_move2(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                        start = time.perf_counter()
                                         current_score = score(board, 'w')
-                                        end = time.perf_counter()
-                                        score_time += (end - start)
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'b')]
@@ -6859,10 +6837,8 @@ def best_move2(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                        start = time.perf_counter()
                                         current_score = score(board, 'w')
-                                        end = time.perf_counter()
-                                        score_time += (end - start)
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'r')]
@@ -6902,10 +6878,8 @@ def best_move2(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                        start = time.perf_counter()
                                         current_score = score(board, 'w')
-                                        end = time.perf_counter()
-                                        score_time += (end - start)
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'q')]
@@ -6945,10 +6919,8 @@ def best_move2(board):
                             else:
                                 black_king_row, black_king_col = find_king(board, 'b')
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                    start = time.perf_counter()
                                     current_score = score(board, 'w')
-                                    end = time.perf_counter()
-                                    score_time += (end - start)
+                                    score_time += 0
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, 'k')]
