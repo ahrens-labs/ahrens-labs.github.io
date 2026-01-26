@@ -67,6 +67,111 @@
       z-index: -1;
     }
 
+    /* Header auth buttons */
+    .header-content {
+      position: relative;
+    }
+    
+    #header-auth-buttons {
+      z-index: 10;
+    }
+    
+    #header-auth-buttons button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    #login-page input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+    
+    #login-page-tabs .account-tab.active {
+      color: #3498db;
+      border-bottom-color: #3498db;
+    }
+    
+    /* Login page - fixed styling, not affected by themes */
+    #login-page {
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8f2f7 50%, #f0f4f8 100%) !important;
+      background-attachment: fixed !important;
+    }
+    
+    #login-page-container {
+      background: white !important;
+      color: #333 !important;
+    }
+    
+    #login-page-container h2 {
+      color: #2c3e50 !important;
+    }
+    
+    #login-page-container label {
+      color: #333 !important;
+    }
+    
+    #login-page-container input {
+      background: white !important;
+      color: #333 !important;
+      border: 2px solid #ddd !important;
+    }
+    
+    #login-page-container input:focus {
+      border-color: #3498db !important;
+    }
+    
+    /* Prevent theme styles from affecting login page */
+    .page-theme-light #login-page,
+    .page-theme-dark #login-page,
+    .page-theme-midnight #login-page,
+    .page-theme-ocean #login-page,
+    .page-theme-forest #login-page,
+    .page-theme-sunset #login-page,
+    .page-theme-cyber #login-page,
+    .page-theme-space #login-page,
+    .page-theme-aurora #login-page,
+    .page-theme-matrix #login-page,
+    .page-theme-retro #login-page,
+    .page-theme-galaxy #login-page,
+    .page-theme-fire #login-page {
+      background: linear-gradient(135deg, #f0f4f8 0%, #e8f2f7 50%, #f0f4f8 100%) !important;
+    }
+    
+    .page-theme-light #login-page-container,
+    .page-theme-dark #login-page-container,
+    .page-theme-midnight #login-page-container,
+    .page-theme-ocean #login-page-container,
+    .page-theme-forest #login-page-container,
+    .page-theme-sunset #login-page-container,
+    .page-theme-cyber #login-page-container,
+    .page-theme-space #login-page-container,
+    .page-theme-aurora #login-page-container,
+    .page-theme-matrix #login-page-container,
+    .page-theme-retro #login-page-container,
+    .page-theme-galaxy #login-page-container,
+    .page-theme-fire #login-page-container {
+      background: white !important;
+      color: #333 !important;
+    }
+    
+    /* Mobile responsive for header buttons */
+    @media (max-width: 768px) {
+      #header-auth-buttons {
+        position: static;
+        margin-top: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      #header-auth-buttons button {
+        font-size: 0.8em;
+        padding: 6px 12px;
+      }
+      .header-content {
+        padding-bottom: 60px;
+      }
+    }
+
     /* Main content container */
     main {
       display: flex;
@@ -4286,13 +4391,64 @@
                         <li><a href="chess_engine.html" class="active">Chess Engine</a></li>
                     </ul>
                 </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 0.5em; right: 0.5em; display: flex; gap: 8px; align-items: center;">
+                    <button id="header-login-btn" onclick="showLoginPage()" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="showLoginPage('signup')" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
             </div>
         </header>
 	    
-	<h2>
+  <!-- Login/Signup Page -->
+  <div id="login-page" style="display: none; min-height: calc(100vh - 200px); display: flex; justify-content: center; align-items: center; padding: 40px 20px; position: relative; z-index: 1000;">
+    <div id="login-page-container" style="background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); padding: 40px; max-width: 450px; width: 100%; position: relative; z-index: 1001;">
+      <h2 style="text-align: center; margin-bottom: 30px; font-family: 'Inter', sans-serif;">Chess Engine Account</h2>
+      
+      <!-- Login/Signup Tabs -->
+      <div id="login-page-tabs" style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e9ecef;">
+        <button id="login-page-tab-login" class="account-tab active" onclick="switchLoginPageTab('login')" style="flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; color: #666; transition: all 0.3s;">Login</button>
+        <button id="login-page-tab-signup" class="account-tab" onclick="switchLoginPageTab('signup')" style="flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; color: #666; transition: all 0.3s;">Sign Up</button>
+      </div>
+      
+      <!-- Login Form -->
+      <div id="login-page-login-form">
+        <div style="margin-bottom: 20px;">
+          <label for="login-page-email" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Email:</label>
+          <input type="email" id="login-page-email" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
+        </div>
+        <div style="margin-bottom: 25px;">
+          <label for="login-page-password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Password:</label>
+          <input type="password" id="login-page-password" placeholder="Password" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
+        </div>
+        <button onclick="handleLoginPageLogin()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.3s;">Login</button>
+      </div>
+      
+      <!-- Signup Form -->
+      <div id="login-page-signup-form" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <label for="login-page-signup-username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Username:</label>
+          <input type="text" id="login-page-signup-username" placeholder="Choose a username" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
+        </div>
+        <div style="margin-bottom: 20px;">
+          <label for="login-page-signup-email" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Email:</label>
+          <input type="email" id="login-page-signup-email" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
+        </div>
+        <div style="margin-bottom: 25px;">
+          <label for="login-page-signup-password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Password:</label>
+          <input type="password" id="login-page-signup-password" placeholder="Choose a password" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
+        </div>
+        <button onclick="handleLoginPageSignup()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.3s;">Sign Up</button>
+      </div>
+      
+      <p style="text-align: center; margin-top: 25px; color: #666; font-size: 0.9em;">You need an account to play chess</p>
+    </div>
+  </div>
+
+	<h2 id="game-title" style="display: none;">
     Play Chess against Trifang<span class="sharp">X</span>
     </h2>
-  <div id="choose-side">
+  <div id="choose-side" style="display: none;">
     <div class="control-row">
       <label for="color-select">Choose your side: </label>
       <select id="color-select">
@@ -4390,7 +4546,7 @@
     </div>
   </div>
 
-  <div id="game-container">
+  <div id="game-container" style="display: none;">
     <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
     <div id="move-timer-container">
       Time for this move: <span id="timer">00:00.00</span>
@@ -4650,6 +4806,87 @@
       </div>
     </div>
   </div>
+
+  <!-- Account Modal -->
+  <div id="account-modal" class="modal">
+    <div class="modal-dialog" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2>Account</h2>
+        <button class="close-btn" onclick="closeAccountModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <!-- Login/Signup Tabs -->
+        <div id="account-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+          <button id="tab-login" class="account-tab active" onclick="switchAccountTab('login')">Login</button>
+          <button id="tab-signup" class="account-tab" onclick="switchAccountTab('signup')">Sign Up</button>
+        </div>
+        
+        <!-- Login Form -->
+        <div id="login-form" class="account-form">
+          <div style="margin-bottom: 15px;">
+            <label for="login-email">Email:</label>
+            <input type="email" id="login-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div style="margin-bottom: 15px;">
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <button onclick="handleLoginSubmit()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Login</button>
+        </div>
+        
+        <!-- Signup Form -->
+        <div id="signup-form" class="account-form" style="display: none;">
+          <div style="margin-bottom: 15px;">
+            <label for="signup-username">Username:</label>
+            <input type="text" id="signup-username" placeholder="Choose a username" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div style="margin-bottom: 15px;">
+            <label for="signup-email">Email:</label>
+            <input type="email" id="signup-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div style="margin-bottom: 15px;">
+            <label for="signup-password">Password:</label>
+            <input type="password" id="signup-password" placeholder="Choose a password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <button onclick="handleSignupSubmit()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Sign Up</button>
+        </div>
+        
+        <!-- Logged In View -->
+        <div id="account-info" style="display: none;">
+          <p id="account-username" style="font-size: 1.2em; font-weight: 600; margin-bottom: 20px;"></p>
+          <button onclick="handleLogout()" style="width: 100%; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Logout</button>
+          <button onclick="loadUserDataFromAccount()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Load from Account</button>
+          <button onclick="syncLocalDataToAccount()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Save to Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+  .account-tab {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    color: #666;
+    transition: all 0.3s;
+  }
+  .account-tab.active {
+    color: #3498db;
+    border-bottom-color: #3498db;
+  }
+  .account-form {
+    margin-top: 20px;
+  }
+  .account-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
+  }
+  </style>
 
   <!-- All Achievements Modal -->
   <div id="all-achievements-modal">
@@ -6629,6 +6866,11 @@
     }
 
     function applyPageTheme(themeId) {
+      // Only apply theme if user is logged in
+      if (!isLoggedIn || !currentSessionId) {
+        return;
+      }
+      
       currentPageTheme = themeId;
       document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean', 'page-theme-forest', 'page-theme-sunset', 'page-theme-cyber', 'page-theme-space', 'page-theme-aurora', 'page-theme-matrix', 'page-theme-retro', 'page-theme-galaxy', 'page-theme-fire');
       document.documentElement.classList.add('page-theme-' + themeId);
@@ -6979,6 +7221,9 @@
     $(document).ready(function() {
 	 		
         console.log("The page has finished loading!");
+        
+        // Initialize account system
+        initAccountSystem();
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
@@ -7023,12 +7268,15 @@
         applyArrowColor(currentArrowColor);
         applyLegalMoveDotStyle(currentLegalDot);
 
-        // Load saved page theme, move effect
+        // Load saved page theme, move effect (but don't apply theme until logged in)
         currentPageTheme = localStorage.getItem('pageTheme') || 'light';
         currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
         if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
         if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
-        applyPageTheme(currentPageTheme);
+        // Only apply theme if logged in
+        if (isLoggedIn && currentSessionId) {
+          applyPageTheme(currentPageTheme);
+        }
         applyMoveEffect(currentMoveEffect);
         
         // Initialize unlocked items if needed
@@ -12209,6 +12457,13 @@ function navigateToPreviousMove() {
     }
 
     async function startGame() {
+      // Check if user is logged in
+      if (!isLoggedIn || !currentSessionId) {
+        showNotification('Please login to play', 'error');
+        showLoginPage();
+        return;
+      }
+      
       gameOver = false;
       
       // Clear right-click highlights and arrows when starting new game
@@ -12932,6 +13187,12 @@ function navigateToPreviousMove() {
     }
 
     async function handleMove(source, target, promotion = 'q') {
+      // Check if user is logged in
+      if (!isLoggedIn || !currentSessionId) {
+        showNotification('Please login to play', 'error');
+        showLoginPage();
+        return;
+      }
       console.log('handleMove called:', source, 'to', target, 'promotion:', promotion);
       
       removeHighlights();
@@ -13320,7 +13581,498 @@ function navigateToPreviousMove() {
 
       startTimer();
       engineMove();
-    }  </script>
+    }
+
+    // Account Management Code
+    // Configuration
+    const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+
+    // Account state
+    let currentSessionId = null;
+    let currentUserId = null;
+    let isLoggedIn = false;
+
+    // Initialize account system
+    function initAccountSystem() {
+      // Check for existing session
+      const savedSession = localStorage.getItem('chessSessionId');
+      if (savedSession) {
+        currentSessionId = savedSession;
+        checkSession();
+      } else {
+        // No session - show login page
+        showLoginPage();
+      }
+      
+      // Add account UI to page
+      addAccountUI();
+      updateHeaderAuthButtons();
+    }
+    
+    // Show login page
+    function showLoginPage(tab = 'login') {
+      document.getElementById('login-page').style.display = 'flex';
+      document.getElementById('game-title').style.display = 'none';
+      document.getElementById('choose-side').style.display = 'none';
+      document.getElementById('game-container').style.display = 'none';
+      switchLoginPageTab(tab);
+    }
+    
+    // Hide login page and show game
+    function hideLoginPage() {
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('game-title').style.display = 'block';
+      document.getElementById('choose-side').style.display = 'block';
+      document.getElementById('game-container').style.display = 'block';
+    }
+    
+    // Switch login page tab
+    function switchLoginPageTab(tab) {
+      const loginTab = document.getElementById('login-page-tab-login');
+      const signupTab = document.getElementById('login-page-tab-signup');
+      const loginForm = document.getElementById('login-page-login-form');
+      const signupForm = document.getElementById('login-page-signup-form');
+      
+      if (loginTab && signupTab) {
+        loginTab.classList.toggle('active', tab === 'login');
+        signupTab.classList.toggle('active', tab === 'signup');
+        if (loginTab.classList.contains('active')) {
+          loginTab.style.color = '#3498db';
+          loginTab.style.borderBottomColor = '#3498db';
+        } else {
+          loginTab.style.color = '#666';
+          loginTab.style.borderBottomColor = 'transparent';
+        }
+        if (signupTab.classList.contains('active')) {
+          signupTab.style.color = '#3498db';
+          signupTab.style.borderBottomColor = '#3498db';
+        } else {
+          signupTab.style.color = '#666';
+          signupTab.style.borderBottomColor = 'transparent';
+        }
+      }
+      
+      if (loginForm && signupForm) {
+        loginForm.style.display = tab === 'login' ? 'block' : 'none';
+        signupForm.style.display = tab === 'signup' ? 'block' : 'none';
+      }
+    }
+    
+    // Handle login from login page
+    async function handleLoginPageLogin() {
+      const email = document.getElementById('login-page-email').value;
+      const password = document.getElementById('login-page-password').value;
+      if (!email || !password) {
+        showNotification('Please enter email and password', 'error');
+        return;
+      }
+      const success = await login(email, password);
+      if (success) {
+        hideLoginPage();
+        updateHeaderAuthButtons();
+      }
+    }
+    
+    // Handle signup from login page
+    async function handleLoginPageSignup() {
+      const username = document.getElementById('login-page-signup-username').value;
+      const email = document.getElementById('login-page-signup-email').value;
+      const password = document.getElementById('login-page-signup-password').value;
+      if (!username || !email || !password) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+      }
+      const success = await signup(email, password, username);
+      if (success) {
+        hideLoginPage();
+        updateHeaderAuthButtons();
+      }
+    }
+    
+    // Update header auth buttons
+    function updateHeaderAuthButtons() {
+      const loginBtn = document.getElementById('header-login-btn');
+      const signupBtn = document.getElementById('header-signup-btn');
+      const logoutBtn = document.getElementById('header-logout-btn');
+      const usernameSpan = document.getElementById('header-username');
+      
+      if (isLoggedIn) {
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (signupBtn) signupBtn.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'block';
+        if (usernameSpan) {
+          const username = localStorage.getItem('accountUsername') || 'User';
+          usernameSpan.textContent = username;
+          usernameSpan.style.display = 'inline-block';
+        }
+      } else {
+        if (loginBtn) loginBtn.style.display = 'block';
+        if (signupBtn) signupBtn.style.display = 'block';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (usernameSpan) usernameSpan.style.display = 'none';
+      }
+    }
+
+    // Check if session is valid
+    async function checkSession() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user`, {
+          headers: {
+            'Authorization': `Bearer ${currentSessionId}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          isLoggedIn = true;
+          currentUserId = userData.userId || null;
+          updateAccountUI(true, userData.username || userData.email);
+          // Sync user data to localStorage
+          syncUserDataToLocal(userData);
+          // Hide login page, show game
+          hideLoginPage();
+          updateHeaderAuthButtons();
+          // Apply theme after login
+          const savedTheme = localStorage.getItem('pageTheme') || 'light';
+          applyPageTheme(savedTheme);
+        } else {
+          // Session invalid
+          logout();
+          showLoginPage();
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+        logout();
+        showLoginPage();
+      }
+    }
+
+    // Signup
+    async function signup(email, password, username) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password, username })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          currentSessionId = data.sessionId;
+          currentUserId = data.userId;
+          isLoggedIn = true;
+          localStorage.setItem('chessSessionId', currentSessionId);
+          localStorage.setItem('accountUsername', username);
+          updateAccountUI(true, username);
+          showNotification('Account created successfully!', 'success');
+          closeAccountModal();
+          // Sync current localStorage data to account
+          await syncLocalDataToAccount();
+          updateHeaderAuthButtons();
+          // Apply theme after signup
+          const savedTheme = localStorage.getItem('pageTheme') || 'light';
+          applyPageTheme(savedTheme);
+          return true;
+        } else {
+          showNotification(data.error || 'Signup failed', 'error');
+          return false;
+        }
+      } catch (error) {
+        console.error('Signup error:', error);
+        showNotification('Signup failed. Please try again.', 'error');
+        return false;
+      }
+    }
+
+    // Login
+    async function login(email, password) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          currentSessionId = data.sessionId;
+          currentUserId = data.userId;
+          isLoggedIn = true;
+          localStorage.setItem('chessSessionId', currentSessionId);
+          updateAccountUI(true, email);
+          showNotification('Logged in successfully!', 'success');
+          closeAccountModal();
+          // Load user data from account
+          await loadUserDataFromAccount();
+          updateHeaderAuthButtons();
+          // Apply theme after login
+          const savedTheme = localStorage.getItem('pageTheme') || 'light';
+          applyPageTheme(savedTheme);
+          return true;
+        } else {
+          showNotification(data.error || 'Login failed', 'error');
+          return false;
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        showNotification('Login failed. Please try again.', 'error');
+        return false;
+      }
+    }
+
+    // Logout
+    async function logout() {
+      if (currentSessionId) {
+        try {
+          await fetch(`${API_BASE_URL}/api/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${currentSessionId}`
+            }
+          });
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      }
+      
+      currentSessionId = null;
+      currentUserId = null;
+      isLoggedIn = false;
+      localStorage.removeItem('chessSessionId');
+      localStorage.removeItem('accountUsername');
+      updateAccountUI(false, null);
+      updateHeaderAuthButtons();
+      // Remove all theme classes on logout
+      document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean', 'page-theme-forest', 'page-theme-sunset', 'page-theme-cyber', 'page-theme-space', 'page-theme-aurora', 'page-theme-matrix', 'page-theme-retro', 'page-theme-galaxy', 'page-theme-fire');
+      showNotification('Logged out', 'success');
+      showLoginPage();
+    }
+
+    // Sync local data to account
+    async function syncLocalDataToAccount() {
+      if (!isLoggedIn) return;
+      
+      try {
+        // Collect all user data from localStorage
+        const userData = {
+          achievements: JSON.parse(localStorage.getItem('achievements') || '{}'),
+          points: parseInt(localStorage.getItem('totalPoints') || '0'),
+          shopUnlocks: getUnlockedItems(),
+          settings: {
+            boardStyle: localStorage.getItem('chessboardStyle') || 'classic',
+            pieceStyle: localStorage.getItem('chessPieceStyle') || 'classic',
+            highlightColor: localStorage.getItem('highlightColor') || 'red',
+            arrowColor: localStorage.getItem('arrowColor') || 'red',
+            legalMoveDotStyle: localStorage.getItem('legalMoveDotStyle') || 'blue-circle',
+            pageTheme: localStorage.getItem('pageTheme') || 'light',
+            moveEffect: localStorage.getItem('moveEffect') || 'default'
+          },
+          stats: {
+            gamesPlayed: parseInt(localStorage.getItem('gamesPlayed') || '0'),
+            gamesWon: parseInt(localStorage.getItem('gamesWon') || '0'),
+            gamesLost: parseInt(localStorage.getItem('gamesLost') || '0'),
+            gamesDrawn: parseInt(localStorage.getItem('gamesDrawn') || '0')
+          }
+        };
+        
+        const response = await fetch(`${API_BASE_URL}/api/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSessionId}`
+          },
+          body: JSON.stringify(userData)
+        });
+        
+        if (response.ok) {
+          console.log('Data synced to account');
+          showNotification('Data saved to account', 'success');
+        }
+      } catch (error) {
+        console.error('Sync error:', error);
+        showNotification('Failed to sync data', 'error');
+      }
+    }
+
+    // Load user data from account
+    async function loadUserDataFromAccount() {
+      if (!isLoggedIn) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/user`, {
+          headers: {
+            'Authorization': `Bearer ${currentSessionId}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          syncUserDataToLocal(userData);
+          showNotification('Data loaded from account', 'success');
+        }
+      } catch (error) {
+        console.error('Load error:', error);
+        showNotification('Failed to load data', 'error');
+      }
+    }
+
+    // Sync user data from account to localStorage
+    function syncUserDataToLocal(userData) {
+      if (userData.achievements) {
+        localStorage.setItem('achievements', JSON.stringify(userData.achievements));
+      }
+      if (userData.points !== undefined) {
+        localStorage.setItem('totalPoints', userData.points.toString());
+      }
+      if (userData.shopUnlocks) {
+        localStorage.setItem('unlockedItems', JSON.stringify(userData.shopUnlocks));
+      }
+      if (userData.settings) {
+        Object.keys(userData.settings).forEach(key => {
+          const settingKey = key === 'boardStyle' ? 'chessboardStyle' :
+                            key === 'pieceStyle' ? 'chessPieceStyle' :
+                            key === 'highlightColor' ? 'highlightColor' :
+                            key === 'arrowColor' ? 'arrowColor' :
+                            key === 'legalMoveDotStyle' ? 'legalMoveDotStyle' :
+                            key === 'pageTheme' ? 'pageTheme' :
+                            key === 'moveEffect' ? 'moveEffect' : key;
+          localStorage.setItem(settingKey, userData.settings[key]);
+        });
+      }
+      if (userData.stats) {
+        Object.keys(userData.stats).forEach(key => {
+          localStorage.setItem(key, userData.stats[key].toString());
+        });
+      }
+      
+      // Refresh UI
+      if (typeof updateShopPoints === 'function') updateShopPoints();
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+      if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+      if (typeof renderShopItems === 'function') renderShopItems();
+    }
+
+    // Add account UI to page
+    function addAccountUI() {
+      // Add account button to sidebar (near shop/settings buttons)
+      const achievementsPanel = document.getElementById('achievements-panel');
+      if (achievementsPanel) {
+        const accountBtn = document.createElement('button');
+        accountBtn.id = 'account-btn';
+        accountBtn.onclick = showAccountModal;
+        accountBtn.style.cssText = 'width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: "Inter", sans-serif;';
+        accountBtn.textContent = 'Account';
+        accountBtn.onmouseover = function() { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'; };
+        accountBtn.onmouseout = function() { this.style.transform=''; this.style.boxShadow=''; };
+        achievementsPanel.appendChild(accountBtn);
+      }
+    }
+
+    // Update account UI based on login state
+    function updateAccountUI(loggedIn, username) {
+      const accountBtn = document.getElementById('account-btn');
+      if (accountBtn) {
+        if (loggedIn) {
+          accountBtn.textContent = `Account: ${username || 'User'}`;
+          accountBtn.style.background = 'linear-gradient(135deg, #2ecc71, #27ae60)';
+        } else {
+          accountBtn.textContent = 'Account';
+          accountBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
+        }
+      }
+      updateAccountModalView();
+    }
+
+    // Show account modal
+    function showAccountModal() {
+      const modal = document.getElementById('account-modal');
+      if (modal) {
+        modal.classList.add('show');
+        updateAccountModalView();
+      }
+    }
+
+    // Close account modal
+    function closeAccountModal() {
+      const modal = document.getElementById('account-modal');
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    }
+
+    // Account tab switching
+    function switchAccountTab(tab) {
+      document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+      document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+      document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+    }
+
+    // Handle login submit
+    async function handleLoginSubmit() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      if (!email || !password) {
+        showNotification('Please enter email and password', 'error');
+        return;
+      }
+      await login(email, password);
+    }
+
+    // Handle signup submit
+    async function handleSignupSubmit() {
+      const username = document.getElementById('signup-username').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      if (!username || !email || !password) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+      }
+      await signup(email, password, username);
+    }
+
+    // Handle logout
+    async function handleLogout() {
+      await logout();
+    }
+
+    // Update account modal view based on login state
+    function updateAccountModalView() {
+      const isLoggedIn = currentSessionId !== null;
+      const accountTabs = document.getElementById('account-tabs');
+      const loginForm = document.getElementById('login-form');
+      const signupForm = document.getElementById('signup-form');
+      const accountInfo = document.getElementById('account-info');
+      
+      if (accountTabs) accountTabs.style.display = isLoggedIn ? 'none' : 'flex';
+      if (loginForm) loginForm.style.display = isLoggedIn ? 'none' : 'block';
+      if (signupForm) signupForm.style.display = 'none';
+      if (accountInfo) accountInfo.style.display = isLoggedIn ? 'block' : 'none';
+      
+      if (isLoggedIn && accountInfo) {
+        const username = localStorage.getItem('accountUsername') || 'User';
+        const usernameEl = document.getElementById('account-username');
+        if (usernameEl) usernameEl.textContent = `Logged in as: ${username}`;
+      }
+    }
+
+    // Auto-sync on data changes (call this after important actions)
+    function autoSync() {
+      if (isLoggedIn) {
+        // Debounce sync calls
+        if (window.syncTimeout) clearTimeout(window.syncTimeout);
+        window.syncTimeout = setTimeout(() => {
+          syncLocalDataToAccount();
+        }, 2000); // Sync 2 seconds after last change
+      }
+    }
+  </script>
   <div class="push"></div>
     </div>
   <footer>
