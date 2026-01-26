@@ -75,6 +75,8 @@
       padding: 20px;
       max-width: 1200px;
       margin: 0 auto;
+      position: relative;
+      z-index: 1;
     }
 
     /* Main Title Styling */
@@ -129,6 +131,7 @@
       border: 1px solid rgba(52, 152, 219, 0.1);
       position: relative;
       overflow: hidden;
+      z-index: 1;
     }
 
     #choose-side::before {
@@ -269,6 +272,8 @@
       min-height: 450px;
       justify-content: flex-start;
       align-self: flex-start;
+      position: relative;
+      z-index: 1;
     }
 
     /* Chess Board Styling */
@@ -284,6 +289,7 @@
       position: relative;
       background-color: white;
       transition: all 0.3s ease;
+      z-index: 1;
     }
 
     #board:hover {
@@ -598,7 +604,7 @@
       left: 50%;
       width: 20px;
       height: 20px;
-      background: radial-gradient(circle, #3498db, transparent);
+      background: radial-gradient(circle, rgba(128, 128, 128, 0.6), transparent);
       border-radius: 50%;
       transform: translate(-50%, -50%);
       pointer-events: none;
@@ -630,6 +636,17 @@
 
     #board img:active {
       cursor: grabbing;
+    }
+    
+    /* Ensure dragged pieces appear above the board */
+    .chessboard-dragging-piece {
+      z-index: 10000 !important;
+      position: relative;
+    }
+    
+    /* Chessboard.js creates a dragging element - ensure it's above everything */
+    body > img[src*="pieces"] {
+      z-index: 10000 !important;
     }
 
     /* Only show yellow border on legal move targets during drag */
@@ -665,6 +682,8 @@
       min-width: 250px;
       min-height: 150px;
       visibility: visible !important;
+      position: relative;
+      z-index: 1;
     }
 
     #timers-container div {
@@ -702,6 +721,8 @@
       border: 1px solid #e9ecef;
       max-width: 300px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 1;
     }
 
     /* Last Move Container */
@@ -719,6 +740,8 @@
       border: 1px solid #e9ecef;
       max-width: 500px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      position: relative;
+      z-index: 1;
     }
 
     #turn-color {
@@ -742,6 +765,8 @@
       border: 1px solid rgba(52, 152, 219, 0.1);
       font-family: 'Inter', sans-serif;
       display: none;
+      position: relative;
+      z-index: 1;
     }
 
     #game-stats-panel h3 {
@@ -809,6 +834,8 @@
       align-items: flex-start;
       gap: 25px;
       align-items: flex-start;
+      position: relative;
+      z-index: 1;
     }
     
     /* Ensure board container has flexible height to accommodate flip button */
@@ -2008,6 +2035,12 @@
     .shop-preview-theme > div {
       pointer-events: none;
     }
+    .shop-preview-legal-dot {
+      width: 24px;
+      height: 24px;
+      margin: 0 auto;
+      display: block;
+    }
     /* Preview animations */
     @keyframes light-float-preview {
       0%, 100% { transform: translateY(0) translateX(0); opacity: 0.8; }
@@ -2885,6 +2918,8 @@
       display: none;
       color: #34495e;
       flex-shrink: 0;
+      position: relative;
+      z-index: 1;
     }
     
     #notation-container .move-item.highlighted {
@@ -4557,7 +4592,9 @@
         <div class="shop-tabs">
           <button class="shop-tab active" onclick="switchShopTab('boards')">🎨 Boards</button>
           <button class="shop-tab" onclick="switchShopTab('pieces')">♟️ Pieces</button>
-          <button class="shop-tab" onclick="switchShopTab('colors')">🎨 Colors</button>
+          <button class="shop-tab" onclick="switchShopTab('highlightColors')">🎨 Highlights</button>
+          <button class="shop-tab" onclick="switchShopTab('arrowColors')">➡️ Arrows</button>
+          <button class="shop-tab" onclick="switchShopTab('legalMoveDots')">⚫ Dots</button>
           <button class="shop-tab" onclick="switchShopTab('themes')">🌓 Themes</button>
           <button class="shop-tab" onclick="switchShopTab('checkmateEffects')">🎉 Checkmate</button>
           <button class="shop-tab" onclick="switchShopTab('timeControls')">⏱️ Time</button>
@@ -4584,8 +4621,16 @@
           <select id="settings-piece-style" onchange="applySettingsPiece()"></select>
         </div>
         <div class="settings-row">
-          <label for="settings-highlight-color">Highlight &amp; arrow color</label>
-          <select id="settings-highlight-color" onchange="applySettingsColor()"></select>
+          <label for="settings-highlight-color">Square highlight color</label>
+          <select id="settings-highlight-color" onchange="applySettingsHighlightColor()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-arrow-color">Arrow color</label>
+          <select id="settings-arrow-color" onchange="applySettingsArrowColor()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-legal-dot-style">Legal move dot style</label>
+          <select id="settings-legal-dot-style" onchange="applySettingsLegalDotStyle()"></select>
         </div>
         <div class="settings-row">
           <label for="settings-page-theme">Page theme</label>
@@ -4655,20 +4700,31 @@
     const defaultUnlocked = {
       boards: ['classic'],
       pieces: ['classic'],
-      colors: ['red'],
+      highlightColors: ['red'],
+      arrowColors: ['red'],
+      legalMoveDots: ['blue-circle'],
       themes: ['light'],
       moveEffects: ['default'],
-      checkmateEffects: ['default'],
+      checkmateEffects: [],
       timeControls: ['none']
     };
 
     function getUnlockedItems() {
       const stored = localStorage.getItem('unlockedItems');
       const parsed = stored ? JSON.parse(stored) : {};
+      // Handle backward compatibility - migrate old 'colors' to both highlightColors and arrowColors
+      if (parsed.colors && !parsed.highlightColors && !parsed.arrowColors) {
+        parsed.highlightColors = parsed.colors;
+        parsed.arrowColors = parsed.colors;
+        delete parsed.colors;
+        saveUnlockedItems(parsed);
+      }
       return {
         boards: parsed.boards || defaultUnlocked.boards,
         pieces: parsed.pieces || defaultUnlocked.pieces,
-        colors: parsed.colors || defaultUnlocked.colors,
+        highlightColors: parsed.highlightColors || defaultUnlocked.highlightColors,
+        arrowColors: parsed.arrowColors || defaultUnlocked.arrowColors,
+        legalMoveDots: parsed.legalMoveDots || defaultUnlocked.legalMoveDots,
         themes: parsed.themes || defaultUnlocked.themes,
         moveEffects: parsed.moveEffects || defaultUnlocked.moveEffects,
         checkmateEffects: parsed.checkmateEffects || defaultUnlocked.checkmateEffects,
@@ -4775,16 +4831,41 @@
         { id: 'staunty', name: 'Staunty', price: 11000, preview: '♟️', coolness: 10 },
         { id: 'tatiana', name: 'Tatiana', price: 15000, preview: '♟️', coolness: 10 }
       ],
-      colors: [
-        { id: 'red', name: 'Red Highlights/Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
-        { id: 'blue', name: 'Blue Highlights/Arrows', price: 2000, preview: '🔵', coolness: 4, description: 'Cool blue' },
-        { id: 'green', name: 'Green Highlights/Arrows', price: 2000, preview: '🟢', coolness: 4, description: 'Fresh green' },
-        { id: 'purple', name: 'Purple Highlights/Arrows', price: 2800, preview: '🟣', coolness: 5, description: 'Royal purple' },
-        { id: 'gold', name: 'Gold Highlights/Arrows', price: 4000, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
-        { id: 'orange', name: 'Orange Highlights/Arrows', price: 2400, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
-        { id: 'pink', name: 'Pink Highlights/Arrows', price: 2800, preview: '🩷', coolness: 5, description: 'Pretty pink' },
-        { id: 'cyan', name: 'Cyan Highlights/Arrows', price: 3400, preview: '🔷', coolness: 6, description: 'Electric cyan' },
-        { id: 'rainbow', name: 'Rainbow Highlights/Arrows', price: 6500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+      highlightColors: [
+        { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
+        { id: 'blue', name: 'Blue Highlights', price: 2000, preview: '🔵', coolness: 4, description: 'Cool blue' },
+        { id: 'green', name: 'Green Highlights', price: 2000, preview: '🟢', coolness: 4, description: 'Fresh green' },
+        { id: 'purple', name: 'Purple Highlights', price: 2800, preview: '🟣', coolness: 5, description: 'Royal purple' },
+        { id: 'gold', name: 'Gold Highlights', price: 4000, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
+        { id: 'orange', name: 'Orange Highlights', price: 2400, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
+        { id: 'pink', name: 'Pink Highlights', price: 2800, preview: '🩷', coolness: 5, description: 'Pretty pink' },
+        { id: 'cyan', name: 'Cyan Highlights', price: 3400, preview: '🔷', coolness: 6, description: 'Electric cyan' },
+        { id: 'rainbow', name: 'Rainbow Highlights', price: 6500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+      ],
+      arrowColors: [
+        { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
+        { id: 'blue', name: 'Blue Arrows', price: 2000, preview: '🔵', coolness: 4, description: 'Cool blue' },
+        { id: 'green', name: 'Green Arrows', price: 2000, preview: '🟢', coolness: 4, description: 'Fresh green' },
+        { id: 'purple', name: 'Purple Arrows', price: 2800, preview: '🟣', coolness: 5, description: 'Royal purple' },
+        { id: 'gold', name: 'Gold Arrows', price: 4000, preview: '🟡', coolness: 7, description: 'Luxurious gold' },
+        { id: 'orange', name: 'Orange Arrows', price: 2400, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
+        { id: 'pink', name: 'Pink Arrows', price: 2800, preview: '🩷', coolness: 5, description: 'Pretty pink' },
+        { id: 'cyan', name: 'Cyan Arrows', price: 3400, preview: '🔷', coolness: 6, description: 'Electric cyan' },
+        { id: 'rainbow', name: 'Rainbow Arrows', price: 6500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+      ],
+      legalMoveDots: [
+        { id: 'blue-circle', name: 'Gray Circle', price: 0, preview: '⚪', coolness: 1, description: 'Classic gray dot', color: 'rgba(128, 128, 128, 0.6)', shape: 'circle' },
+        { id: 'red-circle', name: 'Red Circle', price: 1500, preview: '🔴', coolness: 3, description: 'Red dot', color: '#e74c3c', shape: 'circle' },
+        { id: 'green-circle', name: 'Green Circle', price: 1500, preview: '🟢', coolness: 3, description: 'Green dot', color: '#2ecc71', shape: 'circle' },
+        { id: 'purple-circle', name: 'Purple Circle', price: 2000, preview: '🟣', coolness: 4, description: 'Purple dot', color: '#9b59b6', shape: 'circle' },
+        { id: 'gold-circle', name: 'Gold Circle', price: 3000, preview: '🟡', coolness: 6, description: 'Gold dot', color: '#f1c40f', shape: 'circle' },
+        { id: 'blue-square', name: 'Blue Square', price: 1800, preview: '⬛', coolness: 4, description: 'Blue square', color: '#3498db', shape: 'square' },
+        { id: 'red-square', name: 'Red Square', price: 2000, preview: '⬛', coolness: 4, description: 'Red square', color: '#e74c3c', shape: 'square' },
+        { id: 'green-square', name: 'Green Square', price: 2000, preview: '⬛', coolness: 4, description: 'Green square', color: '#2ecc71', shape: 'square' },
+        { id: 'blue-diamond', name: 'Blue Diamond', price: 2200, preview: '💠', coolness: 5, description: 'Blue diamond', color: '#3498db', shape: 'diamond' },
+        { id: 'red-diamond', name: 'Red Diamond', price: 2500, preview: '💠', coolness: 5, description: 'Red diamond', color: '#e74c3c', shape: 'diamond' },
+        { id: 'gold-star', name: 'Gold Star', price: 3500, preview: '⭐', coolness: 7, description: 'Gold star', color: '#f1c40f', shape: 'star' },
+        { id: 'rainbow-circle', name: 'Rainbow Circle', price: 5000, preview: '🌈', coolness: 9, description: 'Rainbow dot', color: 'rainbow', shape: 'circle' }
       ],
       themes: [
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
@@ -6068,7 +6149,7 @@
       }
     }
     
-    const shopTabOrder = ['boards', 'pieces', 'colors', 'themes', 'checkmateEffects', 'timeControls'];
+    const shopTabOrder = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'checkmateEffects', 'timeControls'];
     function switchShopTab(tab) {
       currentShopTab = tab;
       const tabs = document.querySelectorAll('.shop-tab');
@@ -6183,15 +6264,41 @@
           img.className = 'shop-preview-piece';
           wrap.appendChild(img);
         });
-      } else if (category === 'colors' && colorMap[item.id]) {
+      } else if ((category === 'highlightColors' || category === 'arrowColors') && colorMap[item.id]) {
         const swatch = document.createElement('div');
         swatch.className = 'shop-preview-swatch';
         swatch.style.background = colorMap[item.id].h;
         wrap.appendChild(swatch);
-        const arr = document.createElement('div');
-        arr.className = 'shop-preview-arrow';
-        arr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + (colorMap[item.id].a || colorMap[item.id].h) + '" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-        wrap.appendChild(arr);
+        if (category === 'arrowColors') {
+          const arr = document.createElement('div');
+          arr.className = 'shop-preview-arrow';
+          arr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + (colorMap[item.id].a || colorMap[item.id].h) + '" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+          wrap.appendChild(arr);
+        }
+      } else if (category === 'legalMoveDots' && item.color && item.shape) {
+        const dot = document.createElement('div');
+        dot.className = 'shop-preview-legal-dot';
+        dot.style.width = '24px';
+        dot.style.height = '24px';
+        dot.style.margin = '0 auto';
+        if (item.color === 'rainbow') {
+          dot.style.background = 'linear-gradient(135deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)';
+          dot.style.backgroundSize = '200% 200%';
+          dot.style.animation = 'rainbow-shift 3s ease infinite';
+        } else {
+          dot.style.background = item.color;
+        }
+        if (item.shape === 'circle') {
+          dot.style.borderRadius = '50%';
+        } else if (item.shape === 'square') {
+          dot.style.borderRadius = '0';
+        } else if (item.shape === 'diamond') {
+          dot.style.borderRadius = '0';
+          dot.style.transform = 'rotate(45deg)';
+        } else if (item.shape === 'star') {
+          dot.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+        }
+        wrap.appendChild(dot);
       } else if (category === 'themes' && themePreviews[item.id]) {
         const th = document.createElement('div');
         th.className = 'shop-preview-theme';
@@ -6251,9 +6358,12 @@
       
       items.forEach(item => {
         const isUnlocked = (unlocked[currentShopTab] || []).includes(item.id);
+        const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
         const isEquipped = (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
                           (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
-                          (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor)) ||
+                          (currentShopTab === 'highlightColors' && item.id === currentHighlightColor) ||
+                          (currentShopTab === 'arrowColors' && item.id === currentArrowColor) ||
+                          (currentShopTab === 'legalMoveDots' && item.id === currentLegalDot) ||
                           (currentShopTab === 'themes' && item.id === currentTheme) ||
                           (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
                           (currentShopTab === 'timeControls' && item.id === currentTime);
@@ -6357,12 +6467,17 @@
       } else if (category === 'pieces') {
         document.getElementById('piece-style').value = itemId;
         changePieceStyle();
-      } else if (category === 'colors') {
+      } else if (category === 'highlightColors') {
         currentHighlightColor = itemId;
-        currentArrowColor = itemId;
-        applyColorTheme(itemId);
+        applyHighlightColor(itemId);
         localStorage.setItem('highlightColor', itemId);
+      } else if (category === 'arrowColors') {
+        currentArrowColor = itemId;
+        applyArrowColor(itemId);
         localStorage.setItem('arrowColor', itemId);
+      } else if (category === 'legalMoveDots') {
+        applyLegalMoveDotStyle(itemId);
+        localStorage.setItem('legalMoveDotStyle', itemId);
       } else if (category === 'themes') {
         currentPageTheme = itemId;
         applyPageTheme(itemId);
@@ -6383,20 +6498,21 @@
       renderShopItems();
     }
     
-    function applyColorTheme(colorId) {
-      const colorMap = {
-        red: { highlightLight: 'rgba(200, 0, 0, 0.50)', highlightDark: 'rgba(200, 0, 0, 0.55)', arrow: 'rgba(250, 180, 0, 0.7)', arrowFill: 'rgba(250, 180, 0, 1)' },
-        blue: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)' },
-        green: { highlightLight: 'rgba(46, 204, 113, 0.50)', highlightDark: 'rgba(46, 204, 113, 0.55)', arrow: 'rgba(46, 204, 113, 0.7)', arrowFill: 'rgba(46, 204, 113, 1)' },
-        purple: { highlightLight: 'rgba(155, 89, 182, 0.50)', highlightDark: 'rgba(155, 89, 182, 0.55)', arrow: 'rgba(155, 89, 182, 0.7)', arrowFill: 'rgba(155, 89, 182, 1)' },
-        gold: { highlightLight: 'rgba(241, 196, 15, 0.50)', highlightDark: 'rgba(241, 196, 15, 0.55)', arrow: 'rgba(241, 196, 15, 0.7)', arrowFill: 'rgba(241, 196, 15, 1)' },
-        orange: { highlightLight: 'rgba(243, 156, 18, 0.50)', highlightDark: 'rgba(243, 156, 18, 0.55)', arrow: 'rgba(243, 156, 18, 0.7)', arrowFill: 'rgba(243, 156, 18, 1)' },
-        pink: { highlightLight: 'rgba(236, 112, 99, 0.50)', highlightDark: 'rgba(236, 112, 99, 0.55)', arrow: 'rgba(236, 112, 99, 0.7)', arrowFill: 'rgba(236, 112, 99, 1)' },
-        cyan: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)' },
-        rainbow: { isRainbow: true }
-      };
-      
-      // Update highlight colors using CSS custom properties or style tag
+    // Color map for highlights and arrows
+    const colorMap = {
+      red: { highlightLight: 'rgba(200, 0, 0, 0.50)', highlightDark: 'rgba(200, 0, 0, 0.55)', arrow: 'rgba(250, 180, 0, 0.7)', arrowFill: 'rgba(250, 180, 0, 1)', h: 'rgba(200,0,0,0.5)', a: 'rgba(250,180,0,0.9)' },
+      blue: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)', h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+      green: { highlightLight: 'rgba(46, 204, 113, 0.50)', highlightDark: 'rgba(46, 204, 113, 0.55)', arrow: 'rgba(46, 204, 113, 0.7)', arrowFill: 'rgba(46, 204, 113, 1)', h: 'rgba(46,204,113,0.5)', a: 'rgba(46,204,113,0.9)' },
+      purple: { highlightLight: 'rgba(155, 89, 182, 0.50)', highlightDark: 'rgba(155, 89, 182, 0.55)', arrow: 'rgba(155, 89, 182, 0.7)', arrowFill: 'rgba(155, 89, 182, 1)', h: 'rgba(155,89,182,0.5)', a: 'rgba(155,89,182,0.9)' },
+      gold: { highlightLight: 'rgba(241, 196, 15, 0.50)', highlightDark: 'rgba(241, 196, 15, 0.55)', arrow: 'rgba(241, 196, 15, 0.7)', arrowFill: 'rgba(241, 196, 15, 1)', h: 'rgba(241,196,15,0.5)', a: 'rgba(241,196,15,0.9)' },
+      orange: { highlightLight: 'rgba(243, 156, 18, 0.50)', highlightDark: 'rgba(243, 156, 18, 0.55)', arrow: 'rgba(243, 156, 18, 0.7)', arrowFill: 'rgba(243, 156, 18, 1)', h: 'rgba(243,156,18,0.5)', a: 'rgba(243,156,18,0.9)' },
+      pink: { highlightLight: 'rgba(236, 112, 99, 0.50)', highlightDark: 'rgba(236, 112, 99, 0.55)', arrow: 'rgba(236, 112, 99, 0.7)', arrowFill: 'rgba(236, 112, 99, 1)', h: 'rgba(236,112,99,0.5)', a: 'rgba(236,112,99,0.9)' },
+      cyan: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)', h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+      rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
+    };
+    
+    function applyHighlightColor(colorId) {
+      // Update highlight colors only (not arrows)
       let styleTag = document.getElementById('dynamic-color-styles');
       if (!styleTag) {
         styleTag = document.createElement('style');
@@ -6404,12 +6520,18 @@
         document.head.appendChild(styleTag);
       }
       
+      // Get existing content and preserve arrow color settings
+      let existingContent = styleTag.textContent || '';
+      
       if (colorId === 'rainbow') {
-        // Rainbow: animated gradient
-        styleTag.textContent = `
-          @keyframes rainbow-hue {
-            0% { filter: hue-rotate(0deg); }
-            100% { filter: hue-rotate(360deg); }
+        // Remove old highlight rules
+        existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
+        existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
+        styleTag.textContent = existingContent + `
+          @keyframes rainbow-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
           }
           #board .premove-highlight.white-1e1d7,
           #board .premove-source.white-1e1d7,
@@ -6421,185 +6543,13 @@
             background-size: 200% 200% !important;
             animation: rainbow-shift 3s ease infinite !important;
           }
-          @keyframes rainbow-shift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-          #board .board-theme-classic .premove-highlight.white-1e1d7,
-          #board .board-theme-classic .premove-source.white-1e1d7,
-          #board .board-theme-classic .right-click-highlight.white-1e1d7,
-          #board .board-theme-blue .premove-highlight.white-1e1d7,
-          #board .board-theme-blue .premove-source.white-1e1d7,
-          #board .board-theme-blue .right-click-highlight.white-1e1d7,
-          #board .board-theme-green .premove-highlight.white-1e1d7,
-          #board .board-theme-green .premove-source.white-1e1d7,
-          #board .board-theme-green .right-click-highlight.white-1e1d7,
-          #board .board-theme-gray .premove-highlight.white-1e1d7,
-          #board .board-theme-gray .premove-source.white-1e1d7,
-          #board .board-theme-gray .right-click-highlight.white-1e1d7,
-          #board .board-theme-purple .premove-highlight.white-1e1d7,
-          #board .board-theme-purple .premove-source.white-1e1d7,
-          #board .board-theme-purple .right-click-highlight.white-1e1d7,
-          #board .board-theme-wood .premove-highlight.white-1e1d7,
-          #board .board-theme-wood .premove-source.white-1e1d7,
-          #board .board-theme-wood .right-click-highlight.white-1e1d7,
-          #board .board-theme-coral .premove-highlight.white-1e1d7,
-          #board .board-theme-coral .premove-source.white-1e1d7,
-          #board .board-theme-coral .right-click-highlight.white-1e1d7,
-          #board .board-theme-marble .premove-highlight.white-1e1d7,
-          #board .board-theme-marble .premove-source.white-1e1d7,
-          #board .board-theme-marble .right-click-highlight.white-1e1d7,
-          #board .board-theme-dark .premove-highlight.white-1e1d7,
-          #board .board-theme-dark .premove-source.white-1e1d7,
-          #board .board-theme-dark .right-click-highlight.white-1e1d7,
-          #board .board-theme-neon .premove-highlight.white-1e1d7,
-          #board .board-theme-neon .premove-source.white-1e1d7,
-          #board .board-theme-neon .right-click-highlight.white-1e1d7,
-          #board .board-theme-emerald .premove-highlight.white-1e1d7,
-          #board .board-theme-emerald .premove-source.white-1e1d7,
-          #board .board-theme-emerald .right-click-highlight.white-1e1d7,
-          #board .board-theme-gold .premove-highlight.white-1e1d7,
-          #board .board-theme-gold .premove-source.white-1e1d7,
-          #board .board-theme-gold .right-click-highlight.white-1e1d7,
-          #board .board-theme-ocean .premove-highlight.white-1e1d7,
-          #board .board-theme-ocean .premove-source.white-1e1d7,
-          #board .board-theme-ocean .right-click-highlight.white-1e1d7,
-          #board .board-theme-sunset .premove-highlight.white-1e1d7,
-          #board .board-theme-sunset .premove-source.white-1e1d7,
-          #board .board-theme-sunset .right-click-highlight.white-1e1d7,
-          #board .board-theme-midnight .premove-highlight.white-1e1d7,
-          #board .board-theme-midnight .premove-source.white-1e1d7,
-          #board .board-theme-midnight .right-click-highlight.white-1e1d7,
-          #board .board-theme-forest .premove-highlight.white-1e1d7,
-          #board .board-theme-forest .premove-source.white-1e1d7,
-          #board .board-theme-forest .right-click-highlight.white-1e1d7,
-          #board .board-theme-royal .premove-highlight.white-1e1d7,
-          #board .board-theme-royal .premove-source.white-1e1d7,
-          #board .board-theme-royal .right-click-highlight.white-1e1d7,
-          #board .board-theme-ice .premove-highlight.white-1e1d7,
-          #board .board-theme-ice .premove-source.white-1e1d7,
-          #board .board-theme-ice .right-click-highlight.white-1e1d7,
-          #board .board-theme-cherry .premove-highlight.white-1e1d7,
-          #board .board-theme-cherry .premove-source.white-1e1d7,
-          #board .board-theme-cherry .right-click-highlight.white-1e1d7,
-          #board .board-theme-3d .premove-highlight.white-1e1d7,
-          #board .board-theme-3d .premove-source.white-1e1d7,
-          #board .board-theme-3d .right-click-highlight.white-1e1d7,
-          #board .board-theme-glass .premove-highlight.white-1e1d7,
-          #board .board-theme-glass .premove-source.white-1e1d7,
-          #board .board-theme-glass .right-click-highlight.white-1e1d7,
-          #board .board-theme-carbon .premove-highlight.white-1e1d7,
-          #board .board-theme-carbon .premove-source.white-1e1d7,
-          #board .board-theme-carbon .right-click-highlight.white-1e1d7,
-          #board .board-theme-velvet .premove-highlight.white-1e1d7,
-          #board .board-theme-velvet .premove-source.white-1e1d7,
-          #board .board-theme-velvet .right-click-highlight.white-1e1d7,
-          #board .board-theme-stone .premove-highlight.white-1e1d7,
-          #board .board-theme-stone .premove-source.white-1e1d7,
-          #board .board-theme-stone .right-click-highlight.white-1e1d7,
-          #board .board-theme-cyber .premove-highlight.white-1e1d7,
-          #board .board-theme-cyber .premove-source.white-1e1d7,
-          #board .board-theme-cyber .right-click-highlight.white-1e1d7,
-          #board .board-theme-luxury .premove-highlight.white-1e1d7,
-          #board .board-theme-luxury .premove-source.white-1e1d7,
-          #board .board-theme-luxury .right-click-highlight.white-1e1d7,
-          #board .board-theme-classic .premove-highlight.black-3c85d,
-          #board .board-theme-classic .premove-source.black-3c85d,
-          #board .board-theme-classic .right-click-highlight.black-3c85d,
-          #board .board-theme-blue .premove-highlight.black-3c85d,
-          #board .board-theme-blue .premove-source.black-3c85d,
-          #board .board-theme-blue .right-click-highlight.black-3c85d,
-          #board .board-theme-green .premove-highlight.black-3c85d,
-          #board .board-theme-green .premove-source.black-3c85d,
-          #board .board-theme-green .right-click-highlight.black-3c85d,
-          #board .board-theme-gray .premove-highlight.black-3c85d,
-          #board .board-theme-gray .premove-source.black-3c85d,
-          #board .board-theme-gray .right-click-highlight.black-3c85d,
-          #board .board-theme-purple .premove-highlight.black-3c85d,
-          #board .board-theme-purple .premove-source.black-3c85d,
-          #board .board-theme-purple .right-click-highlight.black-3c85d,
-          #board .board-theme-wood .premove-highlight.black-3c85d,
-          #board .board-theme-wood .premove-source.black-3c85d,
-          #board .board-theme-wood .right-click-highlight.black-3c85d,
-          #board .board-theme-coral .premove-highlight.black-3c85d,
-          #board .board-theme-coral .premove-source.black-3c85d,
-          #board .board-theme-coral .right-click-highlight.black-3c85d,
-          #board .board-theme-marble .premove-highlight.black-3c85d,
-          #board .board-theme-marble .premove-source.black-3c85d,
-          #board .board-theme-marble .right-click-highlight.black-3c85d,
-          #board .board-theme-dark .premove-highlight.black-3c85d,
-          #board .board-theme-dark .premove-source.black-3c85d,
-          #board .board-theme-dark .right-click-highlight.black-3c85d,
-          #board .board-theme-neon .premove-highlight.black-3c85d,
-          #board .board-theme-neon .premove-source.black-3c85d,
-          #board .board-theme-neon .right-click-highlight.black-3c85d,
-          #board .board-theme-emerald .premove-highlight.black-3c85d,
-          #board .board-theme-emerald .premove-source.black-3c85d,
-          #board .board-theme-emerald .right-click-highlight.black-3c85d,
-          #board .board-theme-gold .premove-highlight.black-3c85d,
-          #board .board-theme-gold .premove-source.black-3c85d,
-          #board .board-theme-gold .right-click-highlight.black-3c85d,
-          #board .board-theme-ocean .premove-highlight.black-3c85d,
-          #board .board-theme-ocean .premove-source.black-3c85d,
-          #board .board-theme-ocean .right-click-highlight.black-3c85d,
-          #board .board-theme-sunset .premove-highlight.black-3c85d,
-          #board .board-theme-sunset .premove-source.black-3c85d,
-          #board .board-theme-sunset .right-click-highlight.black-3c85d,
-          #board .board-theme-midnight .premove-highlight.black-3c85d,
-          #board .board-theme-midnight .premove-source.black-3c85d,
-          #board .board-theme-midnight .right-click-highlight.black-3c85d,
-          #board .board-theme-forest .premove-highlight.black-3c85d,
-          #board .board-theme-forest .premove-source.black-3c85d,
-          #board .board-theme-forest .right-click-highlight.black-3c85d,
-          #board .board-theme-royal .premove-highlight.black-3c85d,
-          #board .board-theme-royal .premove-source.black-3c85d,
-          #board .board-theme-royal .right-click-highlight.black-3c85d,
-          #board .board-theme-ice .premove-highlight.black-3c85d,
-          #board .board-theme-ice .premove-source.black-3c85d,
-          #board .board-theme-ice .right-click-highlight.black-3c85d,
-          #board .board-theme-cherry .premove-highlight.black-3c85d,
-          #board .board-theme-cherry .premove-source.black-3c85d,
-          #board .board-theme-cherry .right-click-highlight.black-3c85d,
-          #board .board-theme-3d .premove-highlight.black-3c85d,
-          #board .board-theme-3d .premove-source.black-3c85d,
-          #board .board-theme-3d .right-click-highlight.black-3c85d,
-          #board .board-theme-glass .premove-highlight.black-3c85d,
-          #board .board-theme-glass .premove-source.black-3c85d,
-          #board .board-theme-glass .right-click-highlight.black-3c85d,
-          #board .board-theme-carbon .premove-highlight.black-3c85d,
-          #board .board-theme-carbon .premove-source.black-3c85d,
-          #board .board-theme-carbon .right-click-highlight.black-3c85d,
-          #board .board-theme-velvet .premove-highlight.black-3c85d,
-          #board .board-theme-velvet .premove-source.black-3c85d,
-          #board .board-theme-velvet .right-click-highlight.black-3c85d,
-          #board .board-theme-stone .premove-highlight.black-3c85d,
-          #board .board-theme-stone .premove-source.black-3c85d,
-          #board .board-theme-stone .right-click-highlight.black-3c85d,
-          #board .board-theme-cyber .premove-highlight.black-3c85d,
-          #board .board-theme-cyber .premove-source.black-3c85d,
-          #board .board-theme-cyber .right-click-highlight.black-3c85d,
-          #board .board-theme-luxury .premove-highlight.black-3c85d,
-          #board .board-theme-luxury .premove-source.black-3c85d,
-          #board .board-theme-luxury .right-click-highlight.black-3c85d {
-            background: linear-gradient(135deg, rgba(255,0,0,0.65), rgba(255,127,0,0.65), rgba(255,255,0,0.65), rgba(0,255,0,0.65), rgba(0,0,255,0.65), rgba(75,0,130,0.65), rgba(148,0,211,0.65)) !important;
-            background-size: 200% 200% !important;
-            animation: rainbow-shift 3s ease infinite !important;
-          }
         `;
-        // Rainbow arrows: animated gradient
-        // Create rainbow gradient def for SVG arrows - will be created/updated in drawArrows
-        window.currentArrowColor = 'url(#rainbow-gradient)';
-        window.currentArrowFillColor = 'url(#rainbow-gradient)';
-        window.rainbowMode = true;
-        // Ensure gradient exists when arrows are drawn
-        if (typeof drawArrows === 'function') {
-          drawArrows();
-        }
       } else {
-        // Normal colors
         const colors = colorMap[colorId] || colorMap.red;
-        styleTag.textContent = `
+        // Remove old highlight rules
+        existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
+        existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
+        styleTag.textContent = existingContent + `
           #board .premove-highlight.white-1e1d7,
           #board .premove-source.white-1e1d7,
           #board .right-click-highlight.white-1e1d7 {
@@ -6610,181 +6560,72 @@
           #board .right-click-highlight.black-3c85d {
             background-color: ${colors.highlightDark} !important;
           }
-          #board .board-theme-classic .premove-highlight.white-1e1d7,
-          #board .board-theme-classic .premove-source.white-1e1d7,
-          #board .board-theme-classic .right-click-highlight.white-1e1d7,
-          #board .board-theme-blue .premove-highlight.white-1e1d7,
-          #board .board-theme-blue .premove-source.white-1e1d7,
-          #board .board-theme-blue .right-click-highlight.white-1e1d7,
-          #board .board-theme-green .premove-highlight.white-1e1d7,
-          #board .board-theme-green .premove-source.white-1e1d7,
-          #board .board-theme-green .right-click-highlight.white-1e1d7,
-          #board .board-theme-gray .premove-highlight.white-1e1d7,
-          #board .board-theme-gray .premove-source.white-1e1d7,
-          #board .board-theme-gray .right-click-highlight.white-1e1d7,
-          #board .board-theme-purple .premove-highlight.white-1e1d7,
-          #board .board-theme-purple .premove-source.white-1e1d7,
-          #board .board-theme-purple .right-click-highlight.white-1e1d7,
-          #board .board-theme-wood .premove-highlight.white-1e1d7,
-          #board .board-theme-wood .premove-source.white-1e1d7,
-          #board .board-theme-wood .right-click-highlight.white-1e1d7,
-          #board .board-theme-coral .premove-highlight.white-1e1d7,
-          #board .board-theme-coral .premove-source.white-1e1d7,
-          #board .board-theme-coral .right-click-highlight.white-1e1d7,
-          #board .board-theme-marble .premove-highlight.white-1e1d7,
-          #board .board-theme-marble .premove-source.white-1e1d7,
-          #board .board-theme-marble .right-click-highlight.white-1e1d7,
-          #board .board-theme-dark .premove-highlight.white-1e1d7,
-          #board .board-theme-dark .premove-source.white-1e1d7,
-          #board .board-theme-dark .right-click-highlight.white-1e1d7,
-          #board .board-theme-neon .premove-highlight.white-1e1d7,
-          #board .board-theme-neon .premove-source.white-1e1d7,
-          #board .board-theme-neon .right-click-highlight.white-1e1d7,
-          #board .board-theme-emerald .premove-highlight.white-1e1d7,
-          #board .board-theme-emerald .premove-source.white-1e1d7,
-          #board .board-theme-emerald .right-click-highlight.white-1e1d7,
-          #board .board-theme-gold .premove-highlight.white-1e1d7,
-          #board .board-theme-gold .premove-source.white-1e1d7,
-          #board .board-theme-gold .right-click-highlight.white-1e1d7,
-          #board .board-theme-ocean .premove-highlight.white-1e1d7,
-          #board .board-theme-ocean .premove-source.white-1e1d7,
-          #board .board-theme-ocean .right-click-highlight.white-1e1d7,
-          #board .board-theme-sunset .premove-highlight.white-1e1d7,
-          #board .board-theme-sunset .premove-source.white-1e1d7,
-          #board .board-theme-sunset .right-click-highlight.white-1e1d7,
-          #board .board-theme-midnight .premove-highlight.white-1e1d7,
-          #board .board-theme-midnight .premove-source.white-1e1d7,
-          #board .board-theme-midnight .right-click-highlight.white-1e1d7,
-          #board .board-theme-forest .premove-highlight.white-1e1d7,
-          #board .board-theme-forest .premove-source.white-1e1d7,
-          #board .board-theme-forest .right-click-highlight.white-1e1d7,
-          #board .board-theme-royal .premove-highlight.white-1e1d7,
-          #board .board-theme-royal .premove-source.white-1e1d7,
-          #board .board-theme-royal .right-click-highlight.white-1e1d7,
-          #board .board-theme-ice .premove-highlight.white-1e1d7,
-          #board .board-theme-ice .premove-source.white-1e1d7,
-          #board .board-theme-ice .right-click-highlight.white-1e1d7,
-          #board .board-theme-cherry .premove-highlight.white-1e1d7,
-          #board .board-theme-cherry .premove-source.white-1e1d7,
-          #board .board-theme-cherry .right-click-highlight.white-1e1d7,
-          #board .board-theme-3d .premove-highlight.white-1e1d7,
-          #board .board-theme-3d .premove-source.white-1e1d7,
-          #board .board-theme-3d .right-click-highlight.white-1e1d7,
-          #board .board-theme-glass .premove-highlight.white-1e1d7,
-          #board .board-theme-glass .premove-source.white-1e1d7,
-          #board .board-theme-glass .right-click-highlight.white-1e1d7,
-          #board .board-theme-carbon .premove-highlight.white-1e1d7,
-          #board .board-theme-carbon .premove-source.white-1e1d7,
-          #board .board-theme-carbon .right-click-highlight.white-1e1d7,
-          #board .board-theme-velvet .premove-highlight.white-1e1d7,
-          #board .board-theme-velvet .premove-source.white-1e1d7,
-          #board .board-theme-velvet .right-click-highlight.white-1e1d7,
-          #board .board-theme-stone .premove-highlight.white-1e1d7,
-          #board .board-theme-stone .premove-source.white-1e1d7,
-          #board .board-theme-stone .right-click-highlight.white-1e1d7,
-          #board .board-theme-cyber .premove-highlight.white-1e1d7,
-          #board .board-theme-cyber .premove-source.white-1e1d7,
-          #board .board-theme-cyber .right-click-highlight.white-1e1d7,
-          #board .board-theme-luxury .premove-highlight.white-1e1d7,
-          #board .board-theme-luxury .premove-source.white-1e1d7,
-          #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
-            background-color: ${colors.highlightLight} !important;
-          }
-          #board .board-theme-classic .premove-highlight.black-3c85d,
-          #board .board-theme-classic .premove-source.black-3c85d,
-          #board .board-theme-classic .right-click-highlight.black-3c85d,
-          #board .board-theme-blue .premove-highlight.black-3c85d,
-          #board .board-theme-blue .premove-source.black-3c85d,
-          #board .board-theme-blue .right-click-highlight.black-3c85d,
-          #board .board-theme-green .premove-highlight.black-3c85d,
-          #board .board-theme-green .premove-source.black-3c85d,
-          #board .board-theme-green .right-click-highlight.black-3c85d,
-          #board .board-theme-gray .premove-highlight.black-3c85d,
-          #board .board-theme-gray .premove-source.black-3c85d,
-          #board .board-theme-gray .right-click-highlight.black-3c85d,
-          #board .board-theme-purple .premove-highlight.black-3c85d,
-          #board .board-theme-purple .premove-source.black-3c85d,
-          #board .board-theme-purple .right-click-highlight.black-3c85d,
-          #board .board-theme-wood .premove-highlight.black-3c85d,
-          #board .board-theme-wood .premove-source.black-3c85d,
-          #board .board-theme-wood .right-click-highlight.black-3c85d,
-          #board .board-theme-coral .premove-highlight.black-3c85d,
-          #board .board-theme-coral .premove-source.black-3c85d,
-          #board .board-theme-coral .right-click-highlight.black-3c85d,
-          #board .board-theme-marble .premove-highlight.black-3c85d,
-          #board .board-theme-marble .premove-source.black-3c85d,
-          #board .board-theme-marble .right-click-highlight.black-3c85d,
-          #board .board-theme-dark .premove-highlight.black-3c85d,
-          #board .board-theme-dark .premove-source.black-3c85d,
-          #board .board-theme-dark .right-click-highlight.black-3c85d,
-          #board .board-theme-neon .premove-highlight.black-3c85d,
-          #board .board-theme-neon .premove-source.black-3c85d,
-          #board .board-theme-neon .right-click-highlight.black-3c85d,
-          #board .board-theme-emerald .premove-highlight.black-3c85d,
-          #board .board-theme-emerald .premove-source.black-3c85d,
-          #board .board-theme-emerald .right-click-highlight.black-3c85d,
-          #board .board-theme-gold .premove-highlight.black-3c85d,
-          #board .board-theme-gold .premove-source.black-3c85d,
-          #board .board-theme-gold .right-click-highlight.black-3c85d,
-          #board .board-theme-ocean .premove-highlight.black-3c85d,
-          #board .board-theme-ocean .premove-source.black-3c85d,
-          #board .board-theme-ocean .right-click-highlight.black-3c85d,
-          #board .board-theme-sunset .premove-highlight.black-3c85d,
-          #board .board-theme-sunset .premove-source.black-3c85d,
-          #board .board-theme-sunset .right-click-highlight.black-3c85d,
-          #board .board-theme-midnight .premove-highlight.black-3c85d,
-          #board .board-theme-midnight .premove-source.black-3c85d,
-          #board .board-theme-midnight .right-click-highlight.black-3c85d,
-          #board .board-theme-forest .premove-highlight.black-3c85d,
-          #board .board-theme-forest .premove-source.black-3c85d,
-          #board .board-theme-forest .right-click-highlight.black-3c85d,
-          #board .board-theme-royal .premove-highlight.black-3c85d,
-          #board .board-theme-royal .premove-source.black-3c85d,
-          #board .board-theme-royal .right-click-highlight.black-3c85d,
-          #board .board-theme-ice .premove-highlight.black-3c85d,
-          #board .board-theme-ice .premove-source.black-3c85d,
-          #board .board-theme-ice .right-click-highlight.black-3c85d,
-          #board .board-theme-cherry .premove-highlight.black-3c85d,
-          #board .board-theme-cherry .premove-source.black-3c85d,
-          #board .board-theme-cherry .right-click-highlight.black-3c85d,
-          #board .board-theme-3d .premove-highlight.black-3c85d,
-          #board .board-theme-3d .premove-source.black-3c85d,
-          #board .board-theme-3d .right-click-highlight.black-3c85d,
-          #board .board-theme-glass .premove-highlight.black-3c85d,
-          #board .board-theme-glass .premove-source.black-3c85d,
-          #board .board-theme-glass .right-click-highlight.black-3c85d,
-          #board .board-theme-carbon .premove-highlight.black-3c85d,
-          #board .board-theme-carbon .premove-source.black-3c85d,
-          #board .board-theme-carbon .right-click-highlight.black-3c85d,
-          #board .board-theme-velvet .premove-highlight.black-3c85d,
-          #board .board-theme-velvet .premove-source.black-3c85d,
-          #board .board-theme-velvet .right-click-highlight.black-3c85d,
-          #board .board-theme-stone .premove-highlight.black-3c85d,
-          #board .board-theme-stone .premove-source.black-3c85d,
-          #board .board-theme-stone .right-click-highlight.black-3c85d,
-          #board .board-theme-cyber .premove-highlight.black-3c85d,
-          #board .board-theme-cyber .premove-source.black-3c85d,
-          #board .board-theme-cyber .right-click-highlight.black-3c85d,
-          #board .board-theme-luxury .premove-highlight.black-3c85d,
-          #board .board-theme-luxury .premove-source.black-3c85d,
-          #board .board-theme-luxury .right-click-highlight.black-3c85d {
-            background-color: ${colors.highlightDark} !important;
-          }
         `;
+      }
+    }
+    
+    function applyArrowColor(colorId) {
+      // Update arrow colors only
+      if (colorId === 'rainbow') {
+        window.currentArrowColor = 'url(#rainbow-gradient)';
+        window.currentArrowFillColor = 'url(#rainbow-gradient)';
+        window.rainbowMode = true;
+        if (typeof drawArrows === 'function') {
+          drawArrows();
+        }
+      } else {
+        const colors = colorMap[colorId] || colorMap.red;
         window.currentArrowColor = colors.arrow;
         window.currentArrowFillColor = colors.arrowFill;
         window.rainbowMode = false;
-        // Clear rainbow animation if it exists
         if (window.rainbowArrowAnim) {
           clearInterval(window.rainbowArrowAnim);
           window.rainbowArrowAnim = null;
         }
+        if (typeof drawArrows === 'function') {
+          drawArrows();
+        }
+      }
+    }
+    
+    function applyLegalMoveDotStyle(dotId) {
+      const dotItem = shopItems.legalMoveDots.find(d => d.id === dotId);
+      if (!dotItem) return;
+      
+      let styleTag = document.getElementById('dynamic-legal-dot-styles');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-legal-dot-styles';
+        document.head.appendChild(styleTag);
       }
       
-      // Redraw arrows with new color
-      if (typeof drawArrows === 'function') {
-        drawArrows();
+      const color = dotItem.color;
+      const shape = dotItem.shape;
+      
+      let dotStyle = '';
+      if (color === 'rainbow') {
+        dotStyle = 'background: linear-gradient(135deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3); background-size: 200% 200%; animation: rainbow-shift 3s ease infinite;';
+      } else {
+        dotStyle = `background: radial-gradient(circle, ${color}, transparent);`;
       }
+      
+      let shapeStyle = '';
+      if (shape === 'circle') {
+        shapeStyle = 'border-radius: 50%;';
+      } else if (shape === 'square') {
+        shapeStyle = 'border-radius: 0;';
+      } else if (shape === 'diamond') {
+        shapeStyle = 'border-radius: 0; transform: translate(-50%, -50%) rotate(45deg);';
+      } else if (shape === 'star') {
+        shapeStyle = 'clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);';
+      }
+      
+      styleTag.textContent = `
+        .highlight-legal::after {
+          ${dotStyle}
+          ${shapeStyle}
+        }
+      `;
     }
 
     function applyPageTheme(themeId) {
@@ -6903,10 +6744,11 @@
       const unlocked = getUnlockedItems();
       const boardSel = document.getElementById('settings-board-style');
       const pieceSel = document.getElementById('settings-piece-style');
-      const colorSel = document.getElementById('settings-highlight-color');
       const currentBoard = localStorage.getItem('chessboardStyle') || 'classic';
       const currentPiece = localStorage.getItem('chessPieceStyle') || 'classic';
-      const currentColor = localStorage.getItem('highlightColor') || 'red';
+      const currentHighlight = localStorage.getItem('highlightColor') || 'red';
+      const currentArrow = localStorage.getItem('arrowColor') || 'red';
+      const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
 
       if (boardSel) {
         boardSel.innerHTML = '';
@@ -6934,26 +6776,49 @@
         pieceSel.value = unlocked.pieces.includes(currentPiece) ? currentPiece : (unlocked.pieces[0] || 'classic');
       }
 
-      if (colorSel) {
-        colorSel.innerHTML = '';
-        shopItems.colors.forEach(c => {
-          if (unlocked.colors.includes(c.id)) {
+      const highlightSel = document.getElementById('settings-highlight-color');
+      const arrowSel = document.getElementById('settings-arrow-color');
+      const legalDotSel = document.getElementById('settings-legal-dot-style');
+      
+      if (highlightSel) {
+        highlightSel.innerHTML = '';
+        shopItems.highlightColors.forEach(c => {
+          if (unlocked.highlightColors.includes(c.id)) {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = c.name;
-            colorSel.appendChild(opt);
+            highlightSel.appendChild(opt);
           }
         });
-        if (unlocked.colors.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = 'red';
-          opt.textContent = 'Red Highlights/Arrows';
-          colorSel.appendChild(opt);
-          if (!unlocked.colors.includes('red')) unlockItem('colors', 'red');
-        }
-        colorSel.value = unlocked.colors.includes(currentColor) ? currentColor : (unlocked.colors[0] || 'red');
+        highlightSel.value = unlocked.highlightColors.includes(currentHighlight) ? currentHighlight : (unlocked.highlightColors[0] || 'red');
       }
-
+      
+      if (arrowSel) {
+        arrowSel.innerHTML = '';
+        shopItems.arrowColors.forEach(c => {
+          if (unlocked.arrowColors.includes(c.id)) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            arrowSel.appendChild(opt);
+          }
+        });
+        arrowSel.value = unlocked.arrowColors.includes(currentArrow) ? currentArrow : (unlocked.arrowColors[0] || 'red');
+      }
+      
+      if (legalDotSel) {
+        legalDotSel.innerHTML = '';
+        shopItems.legalMoveDots.forEach(d => {
+          if (unlocked.legalMoveDots.includes(d.id)) {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.name;
+            legalDotSel.appendChild(opt);
+          }
+        });
+        legalDotSel.value = unlocked.legalMoveDots.includes(currentLegalDot) ? currentLegalDot : (unlocked.legalMoveDots[0] || 'blue-circle');
+      }
+      
       const themeSel = document.getElementById('settings-page-theme');
       const checkmateAddonsEl = document.getElementById('settings-checkmate-addons');
       const timeSel = document.getElementById('settings-time-control');
@@ -7054,15 +6919,30 @@
       }
     }
 
-    function applySettingsColor() {
+    function applySettingsHighlightColor() {
       const sel = document.getElementById('settings-highlight-color');
       if (!sel) return;
       const v = sel.value;
       currentHighlightColor = v;
-      currentArrowColor = v;
-      applyColorTheme(v);
+      applyHighlightColor(v);
       localStorage.setItem('highlightColor', v);
+    }
+    
+    function applySettingsArrowColor() {
+      const sel = document.getElementById('settings-arrow-color');
+      if (!sel) return;
+      const v = sel.value;
+      currentArrowColor = v;
+      applyArrowColor(v);
       localStorage.setItem('arrowColor', v);
+    }
+    
+    function applySettingsLegalDotStyle() {
+      const sel = document.getElementById('settings-legal-dot-style');
+      if (!sel) return;
+      const v = sel.value;
+      applyLegalMoveDotStyle(v);
+      localStorage.setItem('legalMoveDotStyle', v);
     }
 
     function applySettingsTheme() {
@@ -7127,15 +7007,21 @@
         // Load saved colors and apply theme
         currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
         currentArrowColor = localStorage.getItem('arrowColor') || 'red';
-        if (!unlocked.colors.includes(currentHighlightColor) && currentHighlightColor !== 'red') {
+        const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
+        if (!(unlocked.highlightColors || []).includes(currentHighlightColor) && currentHighlightColor !== 'red') {
           currentHighlightColor = 'red';
           localStorage.setItem('highlightColor', 'red');
         }
-        if (!unlocked.colors.includes(currentArrowColor) && currentArrowColor !== 'red') {
+        if (!(unlocked.arrowColors || []).includes(currentArrowColor) && currentArrowColor !== 'red') {
           currentArrowColor = 'red';
           localStorage.setItem('arrowColor', 'red');
         }
-        applyColorTheme(currentHighlightColor);
+        if (!(unlocked.legalMoveDots || []).includes(currentLegalDot) && currentLegalDot !== 'blue-circle') {
+          localStorage.setItem('legalMoveDotStyle', 'blue-circle');
+        }
+        applyHighlightColor(currentHighlightColor);
+        applyArrowColor(currentArrowColor);
+        applyLegalMoveDotStyle(currentLegalDot);
 
         // Load saved page theme, move effect
         currentPageTheme = localStorage.getItem('pageTheme') || 'light';
@@ -7152,8 +7038,14 @@
         if (unlocked.pieces.length === 0) {
           unlockItem('pieces', 'classic');
         }
-        if (!unlocked.colors.includes('red')) {
-          unlockItem('colors', 'red');
+        if (!(unlocked.highlightColors || []).includes('red')) {
+          unlockItem('highlightColors', 'red');
+        }
+        if (!(unlocked.arrowColors || []).includes('red')) {
+          unlockItem('arrowColors', 'red');
+        }
+        if (!(unlocked.legalMoveDots || []).includes('blue-circle')) {
+          unlockItem('legalMoveDots', 'blue-circle');
         }
         if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
         if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
@@ -12542,10 +12434,8 @@ function navigateToPreviousMove() {
           // Clean up after drag/drop (clicks are handled in onDrop)
           $("#board .square-55d63").removeClass("legal-target");
           
-          // Only remove highlights if not in click-to-move mode
-          if (!selectedSquare) {
-            removeHighlights();
-          }
+          // Don't remove legal move dots here - they should stay until a new piece is clicked
+          // Only remove highlights if a move was actually made (handled in handleMove)
         },
         onClick: (square) => {
           const turn = game.turn();
