@@ -2002,6 +2002,104 @@
       height: 48px;
       border-radius: 6px;
       box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+      position: relative;
+      overflow: hidden;
+    }
+    .shop-preview-theme > div {
+      pointer-events: none;
+    }
+    /* Preview animations */
+    @keyframes light-float-preview {
+      0%, 100% { transform: translateY(0) translateX(0); opacity: 0.8; }
+      50% { transform: translateY(-2px) translateX(1px); opacity: 1; }
+    }
+    @keyframes dark-drift-preview {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+      50% { transform: translateY(-2px) scale(1.02); opacity: 1; }
+    }
+    @keyframes midnight-pulse-preview {
+      0%, 100% { transform: scale(1) translateY(0); opacity: 0.9; }
+      50% { transform: scale(1.05) translateY(-1px); opacity: 1; }
+    }
+    @keyframes midnight-stars-preview {
+      0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+      100% { transform: translateY(48px) rotate(90deg); opacity: 0.3; }
+    }
+    @keyframes ocean-glow-preview {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+      50% { transform: translateY(-1px) scale(1.02); opacity: 1; }
+    }
+    @keyframes ocean-waves-preview {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      50% { transform: translateX(-5px) translateY(-1px); }
+    }
+    @keyframes forest-drift-preview {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-1px) translateX(0.5px); }
+    }
+    @keyframes forest-leaves-preview {
+      0% { transform: translateY(0) rotate(0deg); opacity: 0.9; }
+      100% { transform: translateY(48px) rotate(180deg); opacity: 0.2; }
+    }
+    @keyframes sunset-glow-preview {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.03); }
+    }
+    @keyframes sunset-rays-preview {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes cyber-grid-preview {
+      0% { background-position: 0 0; }
+      100% { background-position: 10px 10px; }
+    }
+    @keyframes cyber-scan-preview {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 100% 100%; }
+    }
+    @keyframes space-nebula-preview {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+      50% { transform: scale(1.05) rotate(2deg); opacity: 1; }
+    }
+    @keyframes space-twinkle-preview {
+      0%, 100% { opacity: 0.8; filter: brightness(1); }
+      50% { opacity: 1; filter: brightness(1.5); }
+    }
+    @keyframes aurora-wave-preview {
+      0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.8; }
+      50% { transform: translateY(-2px) scaleY(1.05); opacity: 1; }
+    }
+    @keyframes aurora-sweep-preview {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-10px); }
+    }
+    @keyframes matrix-rain-preview {
+      0% { transform: translateY(0); opacity: 0.9; }
+      100% { transform: translateY(48px); opacity: 0.2; }
+    }
+    @keyframes retro-scan-preview {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(2px); }
+    }
+    @keyframes retro-sweep-preview {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-10px); }
+    }
+    @keyframes galaxy-rotate-preview {
+      0% { transform: rotate(0deg) scale(1); }
+      100% { transform: rotate(360deg) scale(1.05); }
+    }
+    @keyframes galaxy-spiral-preview {
+      0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+      100% { transform: rotate(360deg) scale(1.1); opacity: 0.8; }
+    }
+    @keyframes fire-wave-preview {
+      0%, 100% { transform: scaleY(1) translateY(0); opacity: 0.85; }
+      50% { transform: scaleY(1.1) translateY(-1px); opacity: 1; }
+    }
+    @keyframes fire-flicker-preview {
+      0%, 100% { transform: translateX(0); opacity: 0.9; }
+      50% { transform: translateX(-2px); opacity: 1; }
     }
 
     .shop-preview-emoji {
@@ -2140,6 +2238,48 @@
       outline: none;
       border-color: #9b59b6;
       box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.2);
+    }
+
+    .settings-checkmate-addons-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .settings-checkmate-addons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .settings-checkmate-addon {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      transition: background 0.2s;
+      font-size: 0.95em;
+    }
+
+    .settings-checkmate-addon:hover {
+      background: rgba(155, 89, 182, 0.1);
+    }
+
+    .settings-checkmate-addon input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #9b59b6;
+    }
+
+    .settings-checkmate-none {
+      color: #7f8c8d;
+      font-style: italic;
+      padding: 8px;
+      font-size: 0.9em;
     }
 
     /* All Achievements Modal */
@@ -2913,8 +3053,45 @@
       color: inherit;
     }
     .page-theme-light body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background-image: radial-gradient(circle at 20% 80%, rgba(52, 152, 219, 0.06) 0%, transparent 45%),
         radial-gradient(circle at 80% 20%, rgba(46, 204, 113, 0.05) 0%, transparent 45%);
+      animation: light-float 30s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-light body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background-image: 
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 300px,
+          rgba(52, 152, 219, 0.02) 300px,
+          rgba(46, 204, 113, 0.02) 350px,
+          transparent 400px
+        );
+      animation: light-drift 25s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes light-float {
+      0%, 100% { transform: translateY(0) translateX(0); opacity: 0.8; }
+      50% { transform: translateY(-20px) translateX(10px); opacity: 1; }
+    }
+    @keyframes light-drift {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100px); }
     }
 
     .page-theme-dark body,
@@ -2923,8 +3100,44 @@
       color: #e8e8e8 !important;
     }
     .page-theme-dark body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(138, 43, 226, 0.08) 0%, transparent 50%),
         radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 150, 199, 0.06) 0%, transparent 50%);
+      animation: dark-drift 25s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-dark body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background-image: 
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 200px,
+          rgba(138, 43, 226, 0.03) 200px,
+          rgba(138, 43, 226, 0.03) 202px
+        );
+      animation: dark-sweep 30s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes dark-drift {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+      50% { transform: translateY(-15px) scale(1.05); opacity: 1; }
+    }
+    @keyframes dark-sweep {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100px); }
     }
     .page-theme-dark main,
     .page-theme-dark .wrapper,
@@ -2959,8 +3172,51 @@
       color: #b8cde8 !important;
     }
     .page-theme-midnight body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background-image: radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 55%),
         radial-gradient(circle at 10% 90%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+      animation: midnight-pulse 20s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-midnight body::after {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: 0;
+      width: 100%;
+      height: 200%;
+      background-image: 
+        /* Realistic twinkling stars with varying sizes and brightness */
+        radial-gradient(1.5px 1.5px at 15% 20%, rgba(59, 130, 246, 1) 0%, rgba(59, 130, 246, 0.6) 30%, transparent 60%),
+        radial-gradient(1px 1px at 45% 60%, rgba(99, 102, 241, 0.9) 0%, rgba(99, 102, 241, 0.5) 35%, transparent 65%),
+        radial-gradient(2px 2px at 75% 30%, rgba(59, 130, 246, 1) 0%, rgba(59, 130, 246, 0.7) 25%, transparent 55%),
+        radial-gradient(1px 1px at 25% 80%, rgba(99, 102, 241, 0.8) 0%, rgba(99, 102, 241, 0.4) 40%, transparent 70%),
+        radial-gradient(1.5px 1.5px at 55% 15%, rgba(59, 130, 246, 0.95) 0%, rgba(59, 130, 246, 0.55) 32%, transparent 62%),
+        radial-gradient(1px 1px at 85% 70%, rgba(99, 102, 241, 0.85) 0%, rgba(99, 102, 241, 0.45) 38%, transparent 68%),
+        radial-gradient(2px 2px at 35% 45%, rgba(59, 130, 246, 1) 0%, rgba(59, 130, 246, 0.65) 28%, transparent 58%),
+        radial-gradient(1px 1px at 65% 85%, rgba(99, 102, 241, 0.9) 0%, rgba(99, 102, 241, 0.5) 33%, transparent 63%);
+      background-size: 100% 100%;
+      animation: midnight-stars 50s linear infinite, midnight-twinkle 4s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes midnight-pulse {
+      0%, 100% { transform: scale(1) translateY(0); opacity: 0.9; }
+      50% { transform: scale(1.1) translateY(-10px); opacity: 1; }
+    }
+    @keyframes midnight-stars {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(100vh) rotate(180deg); }
+    }
+    @keyframes midnight-twinkle {
+      0%, 100% { opacity: 0.7; filter: brightness(1); }
+      50% { opacity: 1; filter: brightness(1.4); }
     }
     .page-theme-midnight main,
     .page-theme-midnight .wrapper,
@@ -2992,11 +3248,72 @@
     .page-theme-ocean body,
     html.page-theme-ocean body {
       background: linear-gradient(160deg, #021c2e 0%, #0a3452 25%, #0d4a6e 50%, #0a3452 75%, #021c2e 100%) !important;
+      background-size: 200% 200% !important;
+      animation: ocean-flow 15s ease-in-out infinite !important;
       color: #b8e0f0 !important;
+      position: relative;
+      overflow-x: hidden;
+    }
+    @keyframes ocean-flow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
     }
     .page-theme-ocean body::before {
-      background-image: radial-gradient(ellipse 90% 50% at 30% 10%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(ellipse 90% 50% at 30% 10%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
         radial-gradient(ellipse 70% 50% at 80% 90%, rgba(20, 184, 166, 0.1) 0%, transparent 50%);
+      animation: ocean-glow 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-ocean body::after {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 400%;
+      height: 45%;
+      background: 
+        /* Realistic wave shapes - using SVG-like curves approximated with gradients */
+        radial-gradient(ellipse 250px 40px at 0% 100%, rgba(6, 182, 212, 0.5) 0%, rgba(6, 182, 212, 0.3) 20%, rgba(6, 182, 212, 0.15) 40%, transparent 65%),
+        radial-gradient(ellipse 220px 35px at 12% 100%, rgba(20, 184, 166, 0.45) 0%, rgba(20, 184, 166, 0.25) 22%, rgba(20, 184, 166, 0.12) 42%, transparent 67%),
+        radial-gradient(ellipse 280px 45px at 25% 100%, rgba(6, 182, 212, 0.52) 0%, rgba(6, 182, 212, 0.32) 18%, rgba(6, 182, 212, 0.16) 38%, transparent 63%),
+        radial-gradient(ellipse 240px 38px at 37% 100%, rgba(20, 184, 166, 0.47) 0%, rgba(20, 184, 166, 0.27) 21%, rgba(20, 184, 166, 0.13) 41%, transparent 66%),
+        radial-gradient(ellipse 260px 42px at 50% 100%, rgba(6, 182, 212, 0.5) 0%, rgba(6, 182, 212, 0.3) 20%, rgba(6, 182, 212, 0.15) 40%, transparent 65%),
+        radial-gradient(ellipse 230px 36px at 62% 100%, rgba(20, 184, 166, 0.45) 0%, rgba(20, 184, 166, 0.25) 22%, rgba(20, 184, 166, 0.12) 42%, transparent 67%),
+        radial-gradient(ellipse 270px 44px at 75% 100%, rgba(6, 182, 212, 0.52) 0%, rgba(6, 182, 212, 0.32) 18%, rgba(6, 182, 212, 0.16) 38%, transparent 63%),
+        radial-gradient(ellipse 250px 40px at 87% 100%, rgba(20, 184, 166, 0.47) 0%, rgba(20, 184, 166, 0.27) 21%, rgba(20, 184, 166, 0.13) 41%, transparent 66%),
+        linear-gradient(180deg, transparent 0%, rgba(20, 184, 166, 0.35) 35%, rgba(6, 182, 212, 0.3) 70%, rgba(6, 182, 212, 0.2) 100%);
+      background-size: 25% 100%;
+      animation: ocean-waves 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+      mask-image: 
+        repeating-linear-gradient(
+          0deg,
+          transparent 0%,
+          transparent 1.5%,
+          rgba(0,0,0,0.9) 1.5%,
+          rgba(0,0,0,0.9) 2.5%,
+          transparent 2.5%,
+          transparent 4%
+        );
+    }
+    @keyframes ocean-glow {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.8; }
+      50% { transform: translateY(-10px) scale(1.05); opacity: 1; }
+    }
+    @keyframes ocean-waves {
+      0%, 100% { transform: translateX(0) translateY(0); }
+      25% { transform: translateX(-25%) translateY(-10px); }
+      50% { transform: translateX(-50%) translateY(0); }
+      75% { transform: translateX(-25%) translateY(10px); }
     }
     .page-theme-ocean main,
     .page-theme-ocean .wrapper,
@@ -3045,6 +3362,876 @@
     @keyframes piece-glow {
       0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
       50% { filter: drop-shadow(0 0 8px rgba(255,255,255,0.6)); }
+    }
+
+    /* New Enhanced Themes with Animations and Effects */
+    
+    /* Forest Theme - Animated leaves/particles */
+    .page-theme-forest body,
+    html.page-theme-forest body {
+      background: linear-gradient(135deg, #1a3d2e 0%, #2d5a3d 25%, #3d7a4d 50%, #2d5a3d 75%, #1a3d2e 100%) !important;
+      color: #d4edda !important;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .page-theme-forest body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(circle at 20% 30%, rgba(76, 175, 80, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(139, 195, 74, 0.12) 0%, transparent 40%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(76, 175, 80, 0.03) 2px, rgba(76, 175, 80, 0.03) 4px);
+      animation: forest-drift 20s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-forest body::after {
+      content: '';
+      position: fixed;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 200%;
+      background-image: 
+        /* Leaf shapes using radial gradients */
+        radial-gradient(ellipse 12px 18px at 8% 0%, rgba(76, 175, 80, 0.6) 0%, rgba(76, 175, 80, 0.3) 40%, transparent 70%),
+        radial-gradient(ellipse 10px 15px at 25% 5%, rgba(139, 195, 74, 0.5) 0%, rgba(139, 195, 74, 0.25) 45%, transparent 75%),
+        radial-gradient(ellipse 14px 20px at 42% 2%, rgba(76, 175, 80, 0.55) 0%, rgba(76, 175, 80, 0.28) 42%, transparent 72%),
+        radial-gradient(ellipse 11px 16px at 58% 8%, rgba(139, 195, 74, 0.6) 0%, rgba(139, 195, 74, 0.3) 40%, transparent 70%),
+        radial-gradient(ellipse 13px 19px at 75% 3%, rgba(76, 175, 80, 0.5) 0%, rgba(76, 175, 80, 0.25) 45%, transparent 75%),
+        radial-gradient(ellipse 9px 14px at 92% 6%, rgba(139, 195, 74, 0.55) 0%, rgba(139, 195, 74, 0.28) 42%, transparent 72%),
+        /* More leaves at different positions */
+        radial-gradient(ellipse 12px 18px at 15% 0%, rgba(76, 175, 80, 0.5) 0%, rgba(76, 175, 80, 0.25) 45%, transparent 75%),
+        radial-gradient(ellipse 10px 15px at 35% 5%, rgba(139, 195, 74, 0.6) 0%, rgba(139, 195, 74, 0.3) 40%, transparent 70%),
+        radial-gradient(ellipse 14px 20px at 55% 2%, rgba(76, 175, 80, 0.55) 0%, rgba(76, 175, 80, 0.28) 42%, transparent 72%),
+        radial-gradient(ellipse 11px 16px at 72% 8%, rgba(139, 195, 74, 0.5) 0%, rgba(139, 195, 74, 0.25) 45%, transparent 75%),
+        radial-gradient(ellipse 13px 19px at 88% 3%, rgba(76, 175, 80, 0.6) 0%, rgba(76, 175, 80, 0.3) 40%, transparent 70%);
+      background-size: 100% 50%;
+      animation: forest-leaves 18s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes forest-drift {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-10px) translateX(5px); }
+    }
+    @keyframes forest-leaves {
+      0% { transform: translateY(0) rotate(0deg); opacity: 0.9; }
+      25% { transform: translateY(25vh) rotate(90deg) translateX(10px); opacity: 0.7; }
+      50% { transform: translateY(50vh) rotate(180deg) translateX(-5px); opacity: 0.5; }
+      75% { transform: translateY(75vh) rotate(270deg) translateX(15px); opacity: 0.4; }
+      100% { transform: translateY(100vh) rotate(360deg) translateX(5px); opacity: 0.2; }
+    }
+    .page-theme-forest main,
+    .page-theme-forest .wrapper,
+    .page-theme-forest #choose-side,
+    .page-theme-forest #game-stats-panel,
+    .page-theme-forest #notation-container,
+    .page-theme-forest #player-stats-panel,
+    .page-theme-forest #achievements-panel,
+    .page-theme-forest .rematch-dialog,
+    .page-theme-forest .shop-dialog,
+    .page-theme-forest .settings-dialog,
+    .page-theme-forest .all-achievements-dialog,
+    .page-theme-forest .reset-confirm-dialog,
+    .page-theme-forest .shop-confirm-dialog {
+      background: linear-gradient(165deg, #2d5a3d 0%, #1f4a2f 40%, #153d25 100%) !important;
+      color: #d4edda !important;
+      border-color: #4caf50 !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(76, 175, 80, 0.15), 0 0 20px rgba(76, 175, 80, 0.1) !important;
+    }
+    .page-theme-forest h1, .page-theme-forest h2, .page-theme-forest h3,
+    .page-theme-forest .stats-label, .page-theme-forest .stats-value,
+    .page-theme-forest label { color: #c8e6c9 !important; text-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+    .page-theme-forest select, .page-theme-forest input {
+      background: #1f4a2f !important;
+      color: #d4edda !important;
+      border-color: #4caf50 !important;
+      box-shadow: 0 0 10px rgba(76, 175, 80, 0.2) !important;
+    }
+
+    /* Sunset Theme - Animated warm gradient */
+    .page-theme-sunset body,
+    html.page-theme-sunset body {
+      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 20%, #ffcc02 40%, #f7931e 60%, #ff6b35 80%, #c44536 100%) !important;
+      background-size: 200% 200% !important;
+      animation: sunset-shift 15s ease infinite !important;
+      color: #fff5e6 !important;
+    }
+    @keyframes sunset-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .page-theme-sunset body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(ellipse 100% 50% at 50% 0%, rgba(255, 193, 7, 0.2) 0%, transparent 60%),
+        radial-gradient(circle at 20% 80%, rgba(255, 87, 34, 0.15) 0%, transparent 50%);
+      animation: sunset-glow 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-sunset body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background-image: 
+        /* Realistic sun rays - radiating from center */
+        repeating-conic-gradient(
+          from 0deg at 50% 0%,
+          transparent 0deg,
+          transparent 2deg,
+          rgba(255, 193, 7, 0.08) 2deg,
+          rgba(255, 193, 7, 0.12) 3deg,
+          rgba(255, 140, 0, 0.1) 4deg,
+          rgba(255, 140, 0, 0.06) 5deg,
+          transparent 6deg,
+          transparent 8deg
+        ),
+        repeating-conic-gradient(
+          from 1deg at 50% 0%,
+          transparent 0deg,
+          transparent 3deg,
+          rgba(255, 193, 7, 0.06) 3deg,
+          rgba(255, 193, 7, 0.1) 4deg,
+          rgba(255, 140, 0, 0.08) 5deg,
+          rgba(255, 140, 0, 0.04) 6deg,
+          transparent 7deg,
+          transparent 9deg
+        );
+      background-size: 200% 200%;
+      animation: sunset-rays 25s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(1px);
+    }
+    @keyframes sunset-glow {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    @keyframes sunset-rays {
+      0% { transform: translateX(0) rotate(0deg); background-position: 0% 0%; }
+      100% { transform: translateX(-100px) rotate(360deg); background-position: 100% 100%; }
+    }
+    .page-theme-sunset main,
+    .page-theme-sunset .wrapper,
+    .page-theme-sunset #choose-side,
+    .page-theme-sunset #game-stats-panel,
+    .page-theme-sunset #notation-container,
+    .page-theme-sunset #player-stats-panel,
+    .page-theme-sunset #achievements-panel,
+    .page-theme-sunset .rematch-dialog,
+    .page-theme-sunset .shop-dialog,
+    .page-theme-sunset .settings-dialog,
+    .page-theme-sunset .all-achievements-dialog,
+    .page-theme-sunset .reset-confirm-dialog,
+    .page-theme-sunset .shop-confirm-dialog {
+      background: linear-gradient(165deg, #f7931e 0%, #ff6b35 40%, #c44536 100%) !important;
+      color: #fff5e6 !important;
+      border-color: #ff9800 !important;
+      box-shadow: 0 4px 24px rgba(255, 152, 0, 0.4), inset 0 1px 0 rgba(255, 193, 7, 0.2) !important;
+    }
+    .page-theme-sunset h1, .page-theme-sunset h2, .page-theme-sunset h3,
+    .page-theme-sunset .stats-label, .page-theme-sunset .stats-value,
+    .page-theme-sunset label { color: #ffe082 !important; text-shadow: 0 0 15px rgba(255, 193, 7, 0.5); }
+    .page-theme-sunset select, .page-theme-sunset input {
+      background: #ff6b35 !important;
+      color: #fff5e6 !important;
+      border-color: #ff9800 !important;
+      box-shadow: 0 0 15px rgba(255, 152, 0, 0.3) !important;
+    }
+
+    /* Cyber Theme - Neon grid & glitch effects */
+    .page-theme-cyber body,
+    html.page-theme-cyber body {
+      background: #0a0a0f !important;
+      background-image: 
+        linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px !important;
+      animation: cyber-grid 20s linear infinite !important;
+      color: #00ffff !important;
+      position: relative;
+    }
+    @keyframes cyber-grid {
+      0% { background-position: 0 0; }
+      100% { background-position: 50px 50px; }
+    }
+    .page-theme-cyber body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(ellipse 80% 40% at 50% 0%, rgba(0, 255, 255, 0.15) 0%, transparent 60%),
+        radial-gradient(circle at 20% 80%, rgba(255, 0, 255, 0.1) 0%, transparent 50%);
+      animation: cyber-pulse 3s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-cyber body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(0deg, transparent 0%, rgba(0, 255, 255, 0.1) 50%, transparent 100%),
+        linear-gradient(90deg, transparent 0%, rgba(255, 0, 255, 0.08) 50%, transparent 100%);
+      background-size: 200% 200%;
+      animation: cyber-scan 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes cyber-pulse {
+      0%, 100% { opacity: 0.6; filter: blur(0px); }
+      50% { opacity: 1; filter: blur(2px); }
+    }
+    @keyframes cyber-scan {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 100% 100%; }
+    }
+    .page-theme-cyber main,
+    .page-theme-cyber .wrapper,
+    .page-theme-cyber #choose-side,
+    .page-theme-cyber #game-stats-panel,
+    .page-theme-cyber #notation-container,
+    .page-theme-cyber #player-stats-panel,
+    .page-theme-cyber #achievements-panel,
+    .page-theme-cyber .rematch-dialog,
+    .page-theme-cyber .shop-dialog,
+    .page-theme-cyber .settings-dialog,
+    .page-theme-cyber .all-achievements-dialog,
+    .page-theme-cyber .reset-confirm-dialog,
+    .page-theme-cyber .shop-confirm-dialog {
+      background: linear-gradient(165deg, #0f0f1a 0%, #050508 100%) !important;
+      color: #00ffff !important;
+      border: 2px solid #00ffff !important;
+      box-shadow: 
+        0 4px 24px rgba(0, 255, 255, 0.5),
+        inset 0 0 20px rgba(0, 255, 255, 0.1),
+        0 0 40px rgba(0, 255, 255, 0.3) !important;
+      animation: cyber-glitch 0.3s infinite;
+    }
+    @keyframes cyber-glitch {
+      0%, 100% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+    }
+    .page-theme-cyber h1, .page-theme-cyber h2, .page-theme-cyber h3,
+    .page-theme-cyber .stats-label, .page-theme-cyber .stats-value,
+    .page-theme-cyber label { 
+      color: #00ffff !important; 
+      text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
+    }
+    .page-theme-cyber select, .page-theme-cyber input {
+      background: #0a0a0f !important;
+      color: #00ffff !important;
+      border: 2px solid #00ffff !important;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5) !important;
+    }
+
+    /* Space Theme - Animated stars & nebula */
+    .page-theme-space body,
+    html.page-theme-space body {
+      background: #000011 !important;
+      background-image: 
+        radial-gradient(2px 2px at 20% 30%, #fff, transparent),
+        radial-gradient(2px 2px at 60% 70%, #fff, transparent),
+        radial-gradient(1px 1px at 50% 50%, #fff, transparent),
+        radial-gradient(1px 1px at 80% 10%, #fff, transparent),
+        radial-gradient(2px 2px at 90% 40%, #fff, transparent),
+        radial-gradient(1px 1px at 33% 60%, #fff, transparent),
+        radial-gradient(3px 3px at 10% 80%, #fff, transparent),
+        radial-gradient(1px 1px at 70% 20%, #fff, transparent);
+      background-size: 200% 200%, 180% 180%, 160% 160%, 140% 140%, 120% 120%, 100% 100%, 80% 80%, 60% 60% !important;
+      animation: space-twinkle 20s linear infinite !important;
+      color: #e0e0ff !important;
+    }
+    @keyframes space-twinkle {
+      0% { background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
+      100% { background-position: 100% 100%, 90% 90%, 80% 80%, 70% 70%, 60% 60%, 50% 50%, 40% 40%, 30% 30%; }
+    }
+    .page-theme-space body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(ellipse 100% 60% at 30% 20%, rgba(138, 43, 226, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse 80% 50% at 70% 80%, rgba(30, 144, 255, 0.25) 0%, transparent 50%);
+      animation: space-nebula 25s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-space body::after {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: 0;
+      width: 100%;
+      height: 200%;
+      background-image: 
+        /* Shooting stars with trails */
+        linear-gradient(45deg, transparent 0%, rgba(255, 255, 255, 0.8) 2%, rgba(255, 255, 255, 0.6) 4%, transparent 8%),
+        linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.7) 2%, rgba(255, 255, 255, 0.5) 4%, transparent 8%),
+        linear-gradient(60deg, transparent 0%, rgba(255, 255, 255, 0.75) 1.5%, rgba(255, 255, 255, 0.55) 3%, transparent 7%),
+        /* Twinkling stars */
+        radial-gradient(1.5px 1.5px at 20% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.5) 30%, transparent 60%),
+        radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 35%, transparent 65%),
+        radial-gradient(2px 2px at 50% 50%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.6) 25%, transparent 55%),
+        radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.45) 32%, transparent 62%),
+        radial-gradient(2px 2px at 90% 40%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.55) 28%, transparent 58%);
+      background-size: 200% 200%, 100% 100%, 150% 150%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+      background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%;
+      animation: space-shooting-stars 25s linear infinite, space-twinkle 3s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes space-nebula {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+      50% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+    }
+    @keyframes space-shooting-stars {
+      0% { background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
+      100% { background-position: 200% 200%, 0% 0%, 150% 150%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
+    }
+    @keyframes space-twinkle {
+      0%, 100% { opacity: 0.8; filter: brightness(1); }
+      50% { opacity: 1; filter: brightness(1.5); }
+    }
+    .page-theme-space main,
+    .page-theme-space .wrapper,
+    .page-theme-space #choose-side,
+    .page-theme-space #game-stats-panel,
+    .page-theme-space #notation-container,
+    .page-theme-space #player-stats-panel,
+    .page-theme-space #achievements-panel,
+    .page-theme-space .rematch-dialog,
+    .page-theme-space .shop-dialog,
+    .page-theme-space .settings-dialog,
+    .page-theme-space .all-achievements-dialog,
+    .page-theme-space .reset-confirm-dialog,
+    .page-theme-space .shop-confirm-dialog {
+      background: linear-gradient(165deg, #1a1a2e 0%, #0a0a1a 50%, #000011 100%) !important;
+      color: #e0e0ff !important;
+      border-color: #8a2be2 !important;
+      box-shadow: 0 4px 24px rgba(138, 43, 226, 0.4), inset 0 0 30px rgba(30, 144, 255, 0.1) !important;
+    }
+    .page-theme-space h1, .page-theme-space h2, .page-theme-space h3,
+    .page-theme-space .stats-label, .page-theme-space .stats-value,
+    .page-theme-space label { color: #b8b8ff !important; text-shadow: 0 0 15px rgba(138, 43, 226, 0.6); }
+    .page-theme-space select, .page-theme-space input {
+      background: #0a0a1a !important;
+      color: #e0e0ff !important;
+      border-color: #8a2be2 !important;
+      box-shadow: 0 0 20px rgba(138, 43, 226, 0.3) !important;
+    }
+
+    /* Aurora Theme - Northern lights effect */
+    .page-theme-aurora body,
+    html.page-theme-aurora body {
+      background: linear-gradient(135deg, #0a1929 0%, #1a2f4a 25%, #2d4a6b 50%, #1a2f4a 75%, #0a1929 100%) !important;
+      background-size: 400% 400% !important;
+      animation: aurora-shift 12s ease infinite !important;
+      color: #e0f2ff !important;
+    }
+    @keyframes aurora-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .page-theme-aurora body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(180deg, transparent 0%, rgba(0, 255, 127, 0.2) 20%, rgba(0, 191, 255, 0.25) 40%, rgba(138, 43, 226, 0.2) 60%, transparent 80%),
+        linear-gradient(180deg, transparent 10%, rgba(0, 255, 127, 0.15) 30%, rgba(0, 191, 255, 0.2) 50%, rgba(138, 43, 226, 0.15) 70%, transparent 90%);
+      background-size: 100% 200%;
+      animation: aurora-wave 8s ease-in-out infinite;
+      filter: blur(40px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-aurora body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background-image: 
+        /* Flowing aurora bands - more realistic wavy patterns */
+        repeating-linear-gradient(
+          0deg,
+          transparent 0%,
+          transparent 5%,
+          rgba(0, 255, 127, 0.15) 5%,
+          rgba(0, 255, 127, 0.25) 8%,
+          rgba(0, 191, 255, 0.2) 10%,
+          rgba(0, 191, 255, 0.3) 13%,
+          rgba(138, 43, 226, 0.15) 15%,
+          rgba(138, 43, 226, 0.25) 18%,
+          transparent 20%,
+          transparent 25%,
+          rgba(0, 255, 127, 0.12) 25%,
+          rgba(0, 255, 127, 0.22) 28%,
+          rgba(0, 191, 255, 0.18) 30%,
+          rgba(0, 191, 255, 0.28) 33%,
+          rgba(138, 43, 226, 0.12) 35%,
+          rgba(138, 43, 226, 0.22) 38%,
+          transparent 40%
+        );
+      background-size: 200px 100%;
+      animation: aurora-sweep 15s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(2px);
+    }
+    @keyframes aurora-wave {
+      0%, 100% { transform: translateY(0) scaleY(1); opacity: 0.8; }
+      25% { transform: translateY(-15px) scaleY(1.08); opacity: 0.9; }
+      50% { transform: translateY(-25px) scaleY(1.15); opacity: 1; }
+      75% { transform: translateY(-15px) scaleY(1.08); opacity: 0.9; }
+    }
+    @keyframes aurora-sweep {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-100px); }
+    }
+    .page-theme-aurora main,
+    .page-theme-aurora .wrapper,
+    .page-theme-aurora #choose-side,
+    .page-theme-aurora #game-stats-panel,
+    .page-theme-aurora #notation-container,
+    .page-theme-aurora #player-stats-panel,
+    .page-theme-aurora #achievements-panel,
+    .page-theme-aurora .rematch-dialog,
+    .page-theme-aurora .shop-dialog,
+    .page-theme-aurora .settings-dialog,
+    .page-theme-aurora .all-achievements-dialog,
+    .page-theme-aurora .reset-confirm-dialog,
+    .page-theme-aurora .shop-confirm-dialog {
+      background: linear-gradient(165deg, #1a2f4a 0%, #0f1e35 50%, #0a1929 100%) !important;
+      color: #e0f2ff !important;
+      border-color: #00ff7f !important;
+      box-shadow: 0 4px 24px rgba(0, 255, 127, 0.3), inset 0 0 40px rgba(0, 191, 255, 0.15) !important;
+    }
+    .page-theme-aurora h1, .page-theme-aurora h2, .page-theme-aurora h3,
+    .page-theme-aurora .stats-label, .page-theme-aurora .stats-value,
+    .page-theme-aurora label { color: #b0e0ff !important; text-shadow: 0 0 20px rgba(0, 255, 127, 0.5); }
+    .page-theme-aurora select, .page-theme-aurora input {
+      background: #0f1e35 !important;
+      color: #e0f2ff !important;
+      border-color: #00ff7f !important;
+      box-shadow: 0 0 25px rgba(0, 255, 127, 0.4) !important;
+    }
+
+    /* Matrix Theme - Falling code rain */
+    .page-theme-matrix body,
+    html.page-theme-matrix body {
+      background: #000000 !important;
+      color: #00ff00 !important;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .page-theme-matrix body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-matrix body::after {
+      content: '';
+      position: fixed;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 200%;
+      background-image: 
+        /* Vertical code streams - multiple columns */
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 8px,
+          rgba(0, 255, 0, 0.4) 8px,
+          rgba(0, 255, 0, 0.4) 10px,
+          transparent 10px,
+          transparent 18px,
+          rgba(0, 255, 0, 0.3) 18px,
+          rgba(0, 255, 0, 0.3) 20px,
+          transparent 20px,
+          transparent 28px,
+          rgba(0, 255, 0, 0.5) 28px,
+          rgba(0, 255, 0, 0.5) 30px,
+          transparent 30px,
+          transparent 38px,
+          rgba(0, 255, 0, 0.2) 38px,
+          rgba(0, 255, 0, 0.2) 40px,
+          transparent 40px,
+          transparent 48px,
+          rgba(0, 255, 0, 0.45) 48px,
+          rgba(0, 255, 0, 0.45) 50px,
+          transparent 50px
+        );
+      background-size: 60px 100%;
+      background-position: 0 0, 20px 0, 40px 0, 60px 0, 80px 0, 100px 0, 120px 0, 140px 0, 160px 0, 180px 0;
+      animation: matrix-rain 4s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes matrix-rain {
+      0% { transform: translateY(0); opacity: 0.9; }
+      50% { opacity: 0.6; }
+      100% { transform: translateY(100vh); opacity: 0.2; }
+    }
+    .page-theme-matrix main,
+    .page-theme-matrix .wrapper,
+    .page-theme-matrix #choose-side,
+    .page-theme-matrix #game-stats-panel,
+    .page-theme-matrix #notation-container,
+    .page-theme-matrix #player-stats-panel,
+    .page-theme-matrix #achievements-panel,
+    .page-theme-matrix .rematch-dialog,
+    .page-theme-matrix .shop-dialog,
+    .page-theme-matrix .settings-dialog,
+    .page-theme-matrix .all-achievements-dialog,
+    .page-theme-matrix .reset-confirm-dialog,
+    .page-theme-matrix .shop-confirm-dialog {
+      background: #000000 !important;
+      color: #00ff00 !important;
+      border: 2px solid #00ff00 !important;
+      box-shadow: 
+        0 4px 24px rgba(0, 255, 0, 0.5),
+        inset 0 0 30px rgba(0, 255, 0, 0.1),
+        0 0 50px rgba(0, 255, 0, 0.3) !important;
+      text-shadow: 0 0 10px #00ff00;
+    }
+    .page-theme-matrix h1, .page-theme-matrix h2, .page-theme-matrix h3,
+    .page-theme-matrix .stats-label, .page-theme-matrix .stats-value,
+    .page-theme-matrix label { 
+      color: #00ff00 !important; 
+      text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+    }
+    .page-theme-matrix select, .page-theme-matrix input {
+      background: #000000 !important;
+      color: #00ff00 !important;
+      border: 2px solid #00ff00 !important;
+      box-shadow: 0 0 20px rgba(0, 255, 0, 0.5) !important;
+      text-shadow: 0 0 5px #00ff00;
+    }
+
+    /* Retro Theme - 80s scanlines & glow */
+    .page-theme-retro body,
+    html.page-theme-retro body {
+      background: linear-gradient(135deg, #1a0033 0%, #330066 25%, #6600cc 50%, #330066 75%, #1a0033 100%) !important;
+      background-size: 200% 200% !important;
+      animation: retro-shift 10s ease infinite !important;
+      color: #ff00ff !important;
+      position: relative;
+    }
+    @keyframes retro-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .page-theme-retro body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 255, 0.1) 2px, rgba(255, 0, 255, 0.1) 4px);
+      animation: retro-scan 0.1s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-retro body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%;
+      height: 100%;
+      background-image: 
+        repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 100px,
+          rgba(255, 0, 255, 0.05) 100px,
+          rgba(255, 0, 255, 0.05) 102px
+        );
+      animation: retro-sweep 8s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes retro-scan {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(4px); }
+    }
+    @keyframes retro-sweep {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100px); }
+    }
+    .page-theme-retro main,
+    .page-theme-retro .wrapper,
+    .page-theme-retro #choose-side,
+    .page-theme-retro #game-stats-panel,
+    .page-theme-retro #notation-container,
+    .page-theme-retro #player-stats-panel,
+    .page-theme-retro #achievements-panel,
+    .page-theme-retro .rematch-dialog,
+    .page-theme-retro .shop-dialog,
+    .page-theme-retro .settings-dialog,
+    .page-theme-retro .all-achievements-dialog,
+    .page-theme-retro .reset-confirm-dialog,
+    .page-theme-retro .shop-confirm-dialog {
+      background: linear-gradient(165deg, #330066 0%, #1a0033 50%, #000000 100%) !important;
+      color: #ff00ff !important;
+      border: 3px solid #ff00ff !important;
+      box-shadow: 
+        0 4px 24px rgba(255, 0, 255, 0.6),
+        inset 0 0 40px rgba(255, 0, 255, 0.2),
+        0 0 60px rgba(255, 0, 255, 0.4) !important;
+    }
+    .page-theme-retro h1, .page-theme-retro h2, .page-theme-retro h3,
+    .page-theme-retro .stats-label, .page-theme-retro .stats-value,
+    .page-theme-retro label { 
+      color: #ff00ff !important; 
+      text-shadow: 0 0 15px #ff00ff, 0 0 30px #ff00ff, 0 0 45px #ff00ff;
+    }
+    .page-theme-retro select, .page-theme-retro input {
+      background: #1a0033 !important;
+      color: #ff00ff !important;
+      border: 2px solid #ff00ff !important;
+      box-shadow: 0 0 25px rgba(255, 0, 255, 0.6) !important;
+      text-shadow: 0 0 10px #ff00ff;
+    }
+
+    /* Galaxy Theme - Spiral galaxy animation */
+    .page-theme-galaxy body,
+    html.page-theme-galaxy body {
+      background: radial-gradient(ellipse at center, #1a0033 0%, #000011 50%, #000000 100%) !important;
+      background-size: 200% 200% !important;
+      animation: galaxy-spin 30s linear infinite !important;
+      color: #e0b0ff !important;
+    }
+    @keyframes galaxy-spin {
+      0% { background-position: 0% 50%, 0% 50%; transform: rotate(0deg); }
+      100% { background-position: 100% 50%, 100% 50%; transform: rotate(360deg); }
+    }
+    .page-theme-galaxy body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(ellipse 100% 50% at 50% 50%, rgba(138, 43, 226, 0.4) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 40% at 50% 50%, rgba(75, 0, 130, 0.3) 0%, transparent 70%),
+        conic-gradient(from 0deg at 50% 50%, transparent 0%, rgba(138, 43, 226, 0.2) 30%, transparent 60%, rgba(75, 0, 130, 0.2) 90%, transparent 100%);
+      animation: galaxy-rotate 20s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-galaxy body::after {
+      content: '';
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      height: 200%;
+      background-image: 
+        /* Spiral arms of galaxy */
+        repeating-conic-gradient(
+          from 0deg at 50% 50%,
+          transparent 0deg,
+          transparent 15deg,
+          rgba(138, 43, 226, 0.15) 15deg,
+          rgba(138, 43, 226, 0.25) 18deg,
+          rgba(75, 0, 130, 0.2) 20deg,
+          rgba(75, 0, 130, 0.15) 22deg,
+          transparent 25deg,
+          transparent 40deg
+        ),
+        repeating-conic-gradient(
+          from 180deg at 50% 50%,
+          transparent 0deg,
+          transparent 15deg,
+          rgba(138, 43, 226, 0.12) 15deg,
+          rgba(138, 43, 226, 0.22) 18deg,
+          rgba(75, 0, 130, 0.18) 20deg,
+          rgba(75, 0, 130, 0.13) 22deg,
+          transparent 25deg,
+          transparent 40deg
+        ),
+        radial-gradient(ellipse at center, transparent 0%, rgba(138, 43, 226, 0.1) 25%, transparent 55%);
+      transform: translate(-50%, -50%);
+      animation: galaxy-spiral 20s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(3px);
+    }
+    @keyframes galaxy-rotate {
+      0% { transform: rotate(0deg) scale(1); }
+      100% { transform: rotate(360deg) scale(1.1); }
+    }
+    @keyframes galaxy-spiral {
+      0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { transform: translate(-50%, -50%) rotate(360deg) scale(1.15); opacity: 0.8; }
+    }
+    .page-theme-galaxy main,
+    .page-theme-galaxy .wrapper,
+    .page-theme-galaxy #choose-side,
+    .page-theme-galaxy #game-stats-panel,
+    .page-theme-galaxy #notation-container,
+    .page-theme-galaxy #player-stats-panel,
+    .page-theme-galaxy #achievements-panel,
+    .page-theme-galaxy .rematch-dialog,
+    .page-theme-galaxy .shop-dialog,
+    .page-theme-galaxy .settings-dialog,
+    .page-theme-galaxy .all-achievements-dialog,
+    .page-theme-galaxy .reset-confirm-dialog,
+    .page-theme-galaxy .shop-confirm-dialog {
+      background: radial-gradient(ellipse at center, #2d1a4d 0%, #1a0033 50%, #000011 100%) !important;
+      color: #e0b0ff !important;
+      border-color: #8a2be2 !important;
+      box-shadow: 0 4px 24px rgba(138, 43, 226, 0.5), inset 0 0 50px rgba(138, 43, 226, 0.2) !important;
+    }
+    .page-theme-galaxy h1, .page-theme-galaxy h2, .page-theme-galaxy h3,
+    .page-theme-galaxy .stats-label, .page-theme-galaxy .stats-value,
+    .page-theme-galaxy label { color: #d4a5ff !important; text-shadow: 0 0 20px rgba(138, 43, 226, 0.8); }
+    .page-theme-galaxy select, .page-theme-galaxy input {
+      background: #1a0033 !important;
+      color: #e0b0ff !important;
+      border-color: #8a2be2 !important;
+      box-shadow: 0 0 30px rgba(138, 43, 226, 0.5) !important;
+    }
+
+    /* Fire Theme - Animated flames */
+    .page-theme-fire body,
+    html.page-theme-fire body {
+      background: linear-gradient(180deg, #000000 0%, #1a0000 20%, #4d0000 40%, #800000 60%, #4d0000 80%, #1a0000 100%) !important;
+      background-size: 100% 200% !important;
+      animation: fire-flicker 3s ease-in-out infinite !important;
+      color: #ffcc99 !important;
+    }
+    @keyframes fire-flicker {
+      0%, 100% { background-position: 0% 0%; }
+      50% { background-position: 0% 100%; }
+    }
+    .page-theme-fire body::before {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 60%;
+      background-image: 
+        radial-gradient(ellipse 100% 60% at 50% 100%, rgba(255, 69, 0, 0.4) 0%, rgba(255, 140, 0, 0.3) 30%, transparent 70%),
+        radial-gradient(ellipse 80% 50% at 30% 100%, rgba(255, 140, 0, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse 80% 50% at 70% 100%, rgba(255, 69, 0, 0.3) 0%, transparent 50%);
+      animation: fire-wave 2s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .page-theme-fire body::after {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 300%;
+      height: 50%;
+      background-image: 
+        /* Flame shapes - multiple layers for realistic fire */
+        radial-gradient(ellipse 80px 120px at 5% 100%, rgba(255, 69, 0, 0.6) 0%, rgba(255, 140, 0, 0.4) 25%, rgba(255, 200, 0, 0.2) 50%, transparent 70%),
+        radial-gradient(ellipse 70px 110px at 12% 100%, rgba(255, 140, 0, 0.5) 0%, rgba(255, 69, 0, 0.35) 30%, rgba(255, 200, 0, 0.15) 55%, transparent 75%),
+        radial-gradient(ellipse 90px 130px at 20% 100%, rgba(255, 69, 0, 0.65) 0%, rgba(255, 140, 0, 0.45) 22%, rgba(255, 200, 0, 0.25) 48%, transparent 68%),
+        radial-gradient(ellipse 75px 115px at 28% 100%, rgba(255, 140, 0, 0.55) 0%, rgba(255, 69, 0, 0.38) 28%, rgba(255, 200, 0, 0.18) 52%, transparent 72%),
+        radial-gradient(ellipse 85px 125px at 36% 100%, rgba(255, 69, 0, 0.6) 0%, rgba(255, 140, 0, 0.4) 25%, rgba(255, 200, 0, 0.2) 50%, transparent 70%),
+        radial-gradient(ellipse 72px 112px at 44% 100%, rgba(255, 140, 0, 0.5) 0%, rgba(255, 69, 0, 0.35) 30%, rgba(255, 200, 0, 0.15) 55%, transparent 75%),
+        radial-gradient(ellipse 88px 128px at 52% 100%, rgba(255, 69, 0, 0.65) 0%, rgba(255, 140, 0, 0.45) 22%, rgba(255, 200, 0, 0.25) 48%, transparent 68%),
+        radial-gradient(ellipse 78px 118px at 60% 100%, rgba(255, 140, 0, 0.55) 0%, rgba(255, 69, 0, 0.38) 28%, rgba(255, 200, 0, 0.18) 52%, transparent 72%),
+        radial-gradient(ellipse 82px 122px at 68% 100%, rgba(255, 69, 0, 0.6) 0%, rgba(255, 140, 0, 0.4) 25%, rgba(255, 200, 0, 0.2) 50%, transparent 70%),
+        radial-gradient(ellipse 74px 114px at 76% 100%, rgba(255, 140, 0, 0.5) 0%, rgba(255, 69, 0, 0.35) 30%, rgba(255, 200, 0, 0.15) 55%, transparent 75%),
+        radial-gradient(ellipse 86px 126px at 84% 100%, rgba(255, 69, 0, 0.65) 0%, rgba(255, 140, 0, 0.45) 22%, rgba(255, 200, 0, 0.25) 48%, transparent 68%),
+        radial-gradient(ellipse 76px 116px at 92% 100%, rgba(255, 140, 0, 0.55) 0%, rgba(255, 69, 0, 0.38) 28%, rgba(255, 200, 0, 0.18) 52%, transparent 72%);
+      background-size: 33.33% 100%;
+      animation: fire-flicker-horizontal 4s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes fire-wave {
+      0%, 100% { transform: scaleY(1) translateY(0) scaleX(1); opacity: 0.85; }
+      25% { transform: scaleY(1.15) translateY(-8px) scaleX(1.05); opacity: 0.95; }
+      50% { transform: scaleY(1.25) translateY(-12px) scaleX(1.1); opacity: 1; }
+      75% { transform: scaleY(1.15) translateY(-8px) scaleX(1.05); opacity: 0.95; }
+    }
+    @keyframes fire-flicker-horizontal {
+      0%, 100% { transform: translateX(0); }
+      33% { transform: translateX(-33.33%); }
+      66% { transform: translateX(-66.66%); }
+    }
+    .page-theme-fire main,
+    .page-theme-fire .wrapper,
+    .page-theme-fire #choose-side,
+    .page-theme-fire #game-stats-panel,
+    .page-theme-fire #notation-container,
+    .page-theme-fire #player-stats-panel,
+    .page-theme-fire #achievements-panel,
+    .page-theme-fire .rematch-dialog,
+    .page-theme-fire .shop-dialog,
+    .page-theme-fire .settings-dialog,
+    .page-theme-fire .all-achievements-dialog,
+    .page-theme-fire .reset-confirm-dialog,
+    .page-theme-fire .shop-confirm-dialog {
+      background: linear-gradient(165deg, #4d0000 0%, #330000 40%, #1a0000 100%) !important;
+      color: #ffcc99 !important;
+      border-color: #ff4500 !important;
+      box-shadow: 0 4px 24px rgba(255, 69, 0, 0.5), inset 0 0 40px rgba(255, 140, 0, 0.2) !important;
+    }
+    .page-theme-fire h1, .page-theme-fire h2, .page-theme-fire h3,
+    .page-theme-fire .stats-label, .page-theme-fire .stats-value,
+    .page-theme-fire label { color: #ffaa66 !important; text-shadow: 0 0 20px rgba(255, 69, 0, 0.8); }
+    .page-theme-fire select, .page-theme-fire input {
+      background: #330000 !important;
+      color: #ffcc99 !important;
+      border-color: #ff4500 !important;
+      box-shadow: 0 0 25px rgba(255, 69, 0, 0.5) !important;
     }
   </style>
 </head>
@@ -3372,7 +4559,6 @@
           <button class="shop-tab" onclick="switchShopTab('pieces')">♟️ Pieces</button>
           <button class="shop-tab" onclick="switchShopTab('colors')">🎨 Colors</button>
           <button class="shop-tab" onclick="switchShopTab('themes')">🌓 Themes</button>
-          <button class="shop-tab" onclick="switchShopTab('moveEffects')">➡️ Move</button>
           <button class="shop-tab" onclick="switchShopTab('checkmateEffects')">🎉 Checkmate</button>
           <button class="shop-tab" onclick="switchShopTab('timeControls')">⏱️ Time</button>
         </div>
@@ -3404,10 +4590,6 @@
         <div class="settings-row">
           <label for="settings-page-theme">Page theme</label>
           <select id="settings-page-theme" onchange="applySettingsTheme()"></select>
-        </div>
-        <div class="settings-row">
-          <label for="settings-move-effect">Move effect</label>
-          <select id="settings-move-effect" onchange="applySettingsMoveEffect()"></select>
         </div>
         <div class="settings-row settings-checkmate-addons-row">
           <label>Checkmate add-ons</label>
@@ -3608,14 +4790,16 @@
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
         { id: 'dark', name: 'Dark', price: 2500, preview: '🌑', coolness: 5, description: 'Dark page theme' },
         { id: 'midnight', name: 'Midnight', price: 3500, preview: '🌙', coolness: 7, description: 'Deep blue-black' },
-        { id: 'ocean', name: 'Ocean', price: 3500, preview: '🌊', coolness: 7, description: 'Blue-teal page' }
-      ],
-      moveEffects: [
-        { id: 'default', name: 'Default', price: 0, preview: '➡️', coolness: 1, description: 'Standard move' },
-        { id: 'slide', name: 'Slide', price: 500, preview: '⏩', coolness: 3, description: 'Smooth slide' },
-        { id: 'bounce', name: 'Bounce', price: 1000, preview: '↩️', coolness: 5, description: 'Bouncy landing' },
-        { id: 'pop', name: 'Pop', price: 1200, preview: '💫', coolness: 6, description: 'Pop on land' },
-        { id: 'glow', name: 'Glow', price: 700, preview: '✨', coolness: 4, description: 'Subtle glow' }
+        { id: 'ocean', name: 'Ocean', price: 3500, preview: '🌊', coolness: 7, description: 'Blue-teal page' },
+        { id: 'forest', name: 'Forest', price: 4000, preview: '🌲', coolness: 8, description: 'Nature vibes with particles' },
+        { id: 'sunset', name: 'Sunset', price: 4000, preview: '🌅', coolness: 8, description: 'Warm gradient animation' },
+        { id: 'cyber', name: 'Cyber', price: 5000, preview: '💻', coolness: 9, description: 'Neon grid & glitch effects' },
+        { id: 'space', name: 'Space', price: 5000, preview: '🚀', coolness: 9, description: 'Animated stars & nebula' },
+        { id: 'aurora', name: 'Aurora', price: 6000, preview: '🌌', coolness: 10, description: 'Northern lights effect' },
+        { id: 'matrix', name: 'Matrix', price: 5500, preview: '🔢', coolness: 9, description: 'Falling code rain' },
+        { id: 'retro', name: 'Retro', price: 4500, preview: '📺', coolness: 8, description: '80s scanlines & glow' },
+        { id: 'galaxy', name: 'Galaxy', price: 6000, preview: '🌠', coolness: 10, description: 'Spiral galaxy animation' },
+        { id: 'fire', name: 'Fire', price: 5000, preview: '🔥', coolness: 9, description: 'Animated flames' }
       ],
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 1500, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
@@ -3638,7 +4822,6 @@
     let currentArrowColor = 'red';
     let currentPageTheme = 'light';
     let currentMoveEffect = 'default';
-    let currentCheckmateEffect = 'default';
 
     // Board preview colors for shop (white/black square styles)
     const boardPreviewColors = {
@@ -4885,7 +6068,7 @@
       }
     }
     
-    const shopTabOrder = ['boards', 'pieces', 'colors', 'themes', 'moveEffects', 'checkmateEffects', 'timeControls'];
+    const shopTabOrder = ['boards', 'pieces', 'colors', 'themes', 'checkmateEffects', 'timeControls'];
     function switchShopTab(tab) {
       currentShopTab = tab;
       const tabs = document.querySelectorAll('.shop-tab');
@@ -4912,10 +6095,69 @@
         rainbow: { h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
       };
       const themePreviews = {
-        light: 'linear-gradient(135deg,#f0f4f8 0%,#e8f2f7 50%,#f0f4f8 100%)',
-        dark: 'linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 50%,#1a1a1a 100%)',
-        midnight: 'linear-gradient(135deg,#0a0e17 0%,#1a2332 50%,#0a0e17 100%)',
-        ocean: 'linear-gradient(135deg,#0d2137 0%,#1a3a52 50%,#0d2137 100%)'
+        light: {
+          base: 'linear-gradient(135deg,#f0f4f8 0%,#e8f2f7 50%,#f0f4f8 100%)',
+          before: 'background:radial-gradient(circle at 20% 80%,rgba(52,152,219,0.06) 0%,transparent 45%),radial-gradient(circle at 80% 20%,rgba(46,204,113,0.05) 0%,transparent 45%);animation:light-float-preview 8s ease-in-out infinite;'
+        },
+        dark: {
+          base: 'linear-gradient(145deg,#0f0f0f 0%,#1c1c1e 25%,#252528 50%,#1c1c1e 75%,#0f0f0f 100%)',
+          before: 'background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(138,43,226,0.08) 0%,transparent 50%),radial-gradient(ellipse 60% 40% at 100% 100%,rgba(0,150,199,0.06) 0%,transparent 50%);animation:dark-drift-preview 12s ease-in-out infinite;'
+        },
+        midnight: {
+          base: 'linear-gradient(160deg,#050810 0%,#0e1628 20%,#151f3a 40%,#0e1628 70%,#050810 100%)',
+          before: 'background:radial-gradient(ellipse 100% 60% at 50% 0%,rgba(59,130,246,0.12) 0%,transparent 55%),radial-gradient(circle at 10% 90%,rgba(99,102,241,0.08) 0%,transparent 40%);animation:midnight-pulse-preview 10s ease-in-out infinite;',
+          after: 'background:radial-gradient(1px 1px at 15% 20%,rgba(59,130,246,0.8) 0%,transparent 50%),radial-gradient(1px 1px at 45% 60%,rgba(99,102,241,0.6) 0%,transparent 50%),radial-gradient(2px 2px at 75% 30%,rgba(59,130,246,0.7) 0%,transparent 50%);animation:midnight-stars-preview 6s linear infinite;'
+        },
+        ocean: {
+          base: 'linear-gradient(160deg,#021c2e 0%,#0a3452 25%,#0d4a6e 50%,#0a3452 75%,#021c2e 100%)',
+          before: 'background:radial-gradient(ellipse 90% 50% at 30% 10%,rgba(6,182,212,0.15) 0%,transparent 50%),radial-gradient(ellipse 70% 50% at 80% 90%,rgba(20,184,166,0.1) 0%,transparent 50%);animation:ocean-glow-preview 4s ease-in-out infinite;',
+          after: 'background:radial-gradient(ellipse 40px 8px at 0% 100%,rgba(6,182,212,0.4) 0%,rgba(6,182,212,0.2) 30%,transparent 60%),radial-gradient(ellipse 35px 7px at 25% 100%,rgba(20,184,166,0.35) 0%,rgba(20,184,166,0.15) 35%,transparent 65%),radial-gradient(ellipse 45px 9px at 50% 100%,rgba(6,182,212,0.4) 0%,rgba(6,182,212,0.2) 30%,transparent 60%);background-size:100% 100%;animation:ocean-waves-preview 3s ease-in-out infinite;bottom:0;height:40%;'
+        },
+        forest: {
+          base: 'linear-gradient(135deg,#1a3d2e 0%,#2d5a3d 25%,#3d7a4d 50%,#2d5a3d 75%,#1a3d2e 100%)',
+          before: 'background:radial-gradient(circle at 20% 30%,rgba(76,175,80,0.15) 0%,transparent 40%),radial-gradient(circle at 80% 70%,rgba(139,195,74,0.12) 0%,transparent 40%);animation:forest-drift-preview 10s ease-in-out infinite;',
+          after: 'background:radial-gradient(ellipse 6px 9px at 10% 0%,rgba(76,175,80,0.6) 0%,rgba(76,175,80,0.3) 40%,transparent 70%),radial-gradient(ellipse 5px 8px at 30% 5%,rgba(139,195,74,0.5) 0%,rgba(139,195,74,0.25) 45%,transparent 75%),radial-gradient(ellipse 7px 10px at 50% 2%,rgba(76,175,80,0.55) 0%,rgba(76,175,80,0.28) 42%,transparent 72%);animation:forest-leaves-preview 4s linear infinite;'
+        },
+        sunset: {
+          base: 'linear-gradient(135deg,#ff6b35 0%,#f7931e 20%,#ffcc02 40%,#f7931e 60%,#ff6b35 80%,#c44536 100%)',
+          before: 'background:radial-gradient(ellipse 100% 50% at 50% 0%,rgba(255,193,7,0.2) 0%,transparent 60%),radial-gradient(circle at 20% 80%,rgba(255,87,34,0.15) 0%,transparent 50%);animation:sunset-glow-preview 4s ease-in-out infinite;',
+          after: 'background:repeating-conic-gradient(from 0deg at 50% 0%,transparent 0deg,transparent 2deg,rgba(255,193,7,0.08) 2deg,rgba(255,193,7,0.12) 3deg,transparent 6deg);animation:sunset-rays-preview 8s linear infinite;filter:blur(0.5px);'
+        },
+        cyber: {
+          base: 'linear-gradient(135deg,#0a0a0f 0%,#1a1a2a 50%,#0a0a0f 100%)',
+          before: 'background:linear-gradient(rgba(0,255,255,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,255,0.1) 1px,transparent 1px);background-size:10px 10px;animation:cyber-grid-preview 3s linear infinite;',
+          after: 'background:linear-gradient(0deg,transparent 0%,rgba(0,255,255,0.1) 50%,transparent 100%),linear-gradient(90deg,transparent 0%,rgba(255,0,255,0.08) 50%,transparent 100%);background-size:200% 200%;animation:cyber-scan-preview 2s linear infinite;'
+        },
+        space: {
+          base: 'radial-gradient(ellipse at center,#1a1a2e 0%,#0a0a1a 50%,#000011 100%)',
+          before: 'background:radial-gradient(ellipse 100% 60% at 30% 20%,rgba(138,43,226,0.3) 0%,transparent 50%),radial-gradient(ellipse 80% 50% at 70% 80%,rgba(30,144,255,0.25) 0%,transparent 50%);animation:space-nebula-preview 12s ease-in-out infinite;',
+          after: 'background:radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,0.9) 0%,transparent 60%),radial-gradient(1px 1px at 60% 70%,rgba(255,255,255,0.8) 0%,transparent 65%),radial-gradient(2px 2px at 50% 50%,rgba(255,255,255,1) 0%,transparent 55%);animation:space-twinkle-preview 2s ease-in-out infinite;'
+        },
+        aurora: {
+          base: 'linear-gradient(135deg,#0a1929 0%,#1a2f4a 25%,#2d4a6b 50%,#1a2f4a 75%,#0a1929 100%)',
+          before: 'background:linear-gradient(180deg,transparent 0%,rgba(0,255,127,0.2) 20%,rgba(0,191,255,0.25) 40%,rgba(138,43,226,0.2) 60%,transparent 80%);filter:blur(8px);animation:aurora-wave-preview 4s ease-in-out infinite;',
+          after: 'background:repeating-linear-gradient(0deg,transparent 0%,transparent 5%,rgba(0,255,127,0.15) 5%,rgba(0,191,255,0.2) 10%,rgba(138,43,226,0.15) 15%,transparent 20%);background-size:50px 100%;animation:aurora-sweep-preview 6s ease-in-out infinite;filter:blur(1px);'
+        },
+        matrix: {
+          base: 'linear-gradient(135deg,#000000 0%,#001100 50%,#000000 100%)',
+          before: 'background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,0,0.03) 2px,rgba(0,255,0,0.03) 4px),repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(0,255,0,0.03) 2px,rgba(0,255,0,0.03) 4px);',
+          after: 'background:repeating-linear-gradient(0deg,transparent 0px,transparent 4px,rgba(0,255,0,0.4) 4px,rgba(0,255,0,0.4) 5px,transparent 5px);background-size:100% 10px;animation:matrix-rain-preview 2s linear infinite;'
+        },
+        retro: {
+          base: 'linear-gradient(135deg,#1a0033 0%,#330066 25%,#6600cc 50%,#330066 75%,#1a0033 100%)',
+          before: 'background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,0,255,0.1) 2px,rgba(255,0,255,0.1) 4px);animation:retro-scan-preview 0.2s linear infinite;',
+          after: 'background:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,0,255,0.05) 20px,rgba(255,0,255,0.05) 22px);animation:retro-sweep-preview 4s linear infinite;'
+        },
+        galaxy: {
+          base: 'radial-gradient(ellipse at center,#2d1a4d 0%,#1a0033 50%,#000011 100%)',
+          before: 'background:radial-gradient(ellipse 100% 50% at 50% 50%,rgba(138,43,226,0.4) 0%,transparent 60%),radial-gradient(ellipse 80% 40% at 50% 50%,rgba(75,0,130,0.3) 0%,transparent 70%),conic-gradient(from 0deg at 50% 50%,transparent 0%,rgba(138,43,226,0.2) 30%,transparent 60%,rgba(75,0,130,0.2) 90%,transparent 100%);animation:galaxy-rotate-preview 10s linear infinite;',
+          after: 'background:repeating-conic-gradient(from 0deg at 50% 50%,transparent 0deg,transparent 15deg,rgba(138,43,226,0.15) 15deg,rgba(138,43,226,0.25) 18deg,transparent 25deg);animation:galaxy-spiral-preview 8s linear infinite;filter:blur(1px);'
+        },
+        fire: {
+          base: 'linear-gradient(180deg,#000000 0%,#1a0000 20%,#4d0000 40%,#800000 60%,#4d0000 80%,#1a0000 100%)',
+          before: 'background:radial-gradient(ellipse 100% 60% at 50% 100%,rgba(255,69,0,0.4) 0%,rgba(255,140,0,0.3) 30%,transparent 70%),radial-gradient(ellipse 80% 50% at 30% 100%,rgba(255,140,0,0.3) 0%,transparent 50%),radial-gradient(ellipse 80% 50% at 70% 100%,rgba(255,69,0,0.3) 0%,transparent 50%);bottom:0;height:60%;animation:fire-wave-preview 1s ease-in-out infinite;',
+          after: 'background:radial-gradient(ellipse 20px 30px at 5% 100%,rgba(255,69,0,0.6) 0%,rgba(255,140,0,0.4) 25%,transparent 70%),radial-gradient(ellipse 18px 28px at 25% 100%,rgba(255,140,0,0.5) 0%,rgba(255,69,0,0.35) 30%,transparent 75%),radial-gradient(ellipse 22px 32px at 50% 100%,rgba(255,69,0,0.65) 0%,rgba(255,140,0,0.45) 22%,transparent 68%);background-size:100% 100%;bottom:0;height:50%;animation:fire-flicker-preview 2s ease-in-out infinite;'
+        }
       };
       if (category === 'boards' && boardPreviewColors[item.id]) {
         const g = document.createElement('div');
@@ -4953,14 +6195,35 @@
       } else if (category === 'themes' && themePreviews[item.id]) {
         const th = document.createElement('div');
         th.className = 'shop-preview-theme';
-        th.style.background = themePreviews[item.id];
+        th.setAttribute('data-theme', item.id);
+        const preview = themePreviews[item.id];
+        // Handle both old string format and new object format
+        if (typeof preview === 'string') {
+          th.style.background = preview;
+        } else {
+          // Set base background
+          th.style.background = preview.base;
+          th.style.position = 'relative';
+          th.style.overflow = 'hidden';
+          // Add animated layers for realistic previews
+          if (preview.before) {
+            const before = document.createElement('div');
+            before.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;' + preview.before;
+            th.appendChild(before);
+          }
+          if (preview.after) {
+            const after = document.createElement('div');
+            after.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;' + preview.after;
+            th.appendChild(after);
+          }
+        }
         wrap.appendChild(th);
       } else {
         const emoji = document.createElement('span');
         emoji.className = 'shop-preview-emoji';
         emoji.textContent = item.preview || '?';
         wrap.appendChild(emoji);
-        if (['moveEffects', 'checkmateEffects', 'timeControls'].includes(category)) {
+        if (['checkmateEffects', 'timeControls'].includes(category)) {
           const hint = document.createElement('span');
           hint.className = 'shop-preview-hint';
           hint.textContent = 'Preview in game';
@@ -4992,7 +6255,6 @@
                           (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
                           (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor)) ||
                           (currentShopTab === 'themes' && item.id === currentTheme) ||
-                          (currentShopTab === 'moveEffects' && item.id === currentMove) ||
                           (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
                           (currentShopTab === 'timeControls' && item.id === currentTime);
         const canAfford = item.price <= spendable;
@@ -5043,9 +6305,9 @@
         button.className = 'shop-item-button';
         if (isUnlocked) {
           if (isCheckmateAddon) {
-            button.textContent = (isEquipped ? 'Enabled' : 'Enable') + ' (Settings)';
+            button.textContent = isEquipped ? 'Enabled ✓' : 'Enable';
             button.classList.add(isEquipped ? 'equipped' : 'equip');
-            if (!isEquipped) button.onclick = () => { toggleCheckmateAddon(item.id); renderShopItems(); };
+            button.onclick = () => { toggleCheckmateAddon(item.id); renderShopItems(); if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns(); };
           } else if (isEquipped) {
             button.textContent = 'Equipped';
             button.classList.add('equipped');
@@ -5131,10 +6393,8 @@
         orange: { highlightLight: 'rgba(243, 156, 18, 0.50)', highlightDark: 'rgba(243, 156, 18, 0.55)', arrow: 'rgba(243, 156, 18, 0.7)', arrowFill: 'rgba(243, 156, 18, 1)' },
         pink: { highlightLight: 'rgba(236, 112, 99, 0.50)', highlightDark: 'rgba(236, 112, 99, 0.55)', arrow: 'rgba(236, 112, 99, 0.7)', arrowFill: 'rgba(236, 112, 99, 1)' },
         cyan: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)' },
-        rainbow: { highlightLight: 'rgba(200, 0, 0, 0.50)', highlightDark: 'rgba(200, 0, 0, 0.55)', arrow: 'rgba(250, 180, 0, 0.7)', arrowFill: 'rgba(250, 180, 0, 1)' }
+        rainbow: { isRainbow: true }
       };
-      
-      const colors = colorMap[colorId] || colorMap.red;
       
       // Update highlight colors using CSS custom properties or style tag
       let styleTag = document.getElementById('dynamic-color-styles');
@@ -5144,182 +6404,382 @@
         document.head.appendChild(styleTag);
       }
       
-      styleTag.textContent = `
-        #board .premove-highlight.white-1e1d7,
-        #board .premove-source.white-1e1d7,
-        #board .right-click-highlight.white-1e1d7 {
-          background-color: ${colors.highlightLight} !important;
+      if (colorId === 'rainbow') {
+        // Rainbow: animated gradient
+        styleTag.textContent = `
+          @keyframes rainbow-hue {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+          }
+          #board .premove-highlight.white-1e1d7,
+          #board .premove-source.white-1e1d7,
+          #board .right-click-highlight.white-1e1d7,
+          #board .premove-highlight.black-3c85d,
+          #board .premove-source.black-3c85d,
+          #board .right-click-highlight.black-3c85d {
+            background: linear-gradient(135deg, rgba(255,0,0,0.6), rgba(255,127,0,0.6), rgba(255,255,0,0.6), rgba(0,255,0,0.6), rgba(0,0,255,0.6), rgba(75,0,130,0.6), rgba(148,0,211,0.6)) !important;
+            background-size: 200% 200% !important;
+            animation: rainbow-shift 3s ease infinite !important;
+          }
+          @keyframes rainbow-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          #board .board-theme-classic .premove-highlight.white-1e1d7,
+          #board .board-theme-classic .premove-source.white-1e1d7,
+          #board .board-theme-classic .right-click-highlight.white-1e1d7,
+          #board .board-theme-blue .premove-highlight.white-1e1d7,
+          #board .board-theme-blue .premove-source.white-1e1d7,
+          #board .board-theme-blue .right-click-highlight.white-1e1d7,
+          #board .board-theme-green .premove-highlight.white-1e1d7,
+          #board .board-theme-green .premove-source.white-1e1d7,
+          #board .board-theme-green .right-click-highlight.white-1e1d7,
+          #board .board-theme-gray .premove-highlight.white-1e1d7,
+          #board .board-theme-gray .premove-source.white-1e1d7,
+          #board .board-theme-gray .right-click-highlight.white-1e1d7,
+          #board .board-theme-purple .premove-highlight.white-1e1d7,
+          #board .board-theme-purple .premove-source.white-1e1d7,
+          #board .board-theme-purple .right-click-highlight.white-1e1d7,
+          #board .board-theme-wood .premove-highlight.white-1e1d7,
+          #board .board-theme-wood .premove-source.white-1e1d7,
+          #board .board-theme-wood .right-click-highlight.white-1e1d7,
+          #board .board-theme-coral .premove-highlight.white-1e1d7,
+          #board .board-theme-coral .premove-source.white-1e1d7,
+          #board .board-theme-coral .right-click-highlight.white-1e1d7,
+          #board .board-theme-marble .premove-highlight.white-1e1d7,
+          #board .board-theme-marble .premove-source.white-1e1d7,
+          #board .board-theme-marble .right-click-highlight.white-1e1d7,
+          #board .board-theme-dark .premove-highlight.white-1e1d7,
+          #board .board-theme-dark .premove-source.white-1e1d7,
+          #board .board-theme-dark .right-click-highlight.white-1e1d7,
+          #board .board-theme-neon .premove-highlight.white-1e1d7,
+          #board .board-theme-neon .premove-source.white-1e1d7,
+          #board .board-theme-neon .right-click-highlight.white-1e1d7,
+          #board .board-theme-emerald .premove-highlight.white-1e1d7,
+          #board .board-theme-emerald .premove-source.white-1e1d7,
+          #board .board-theme-emerald .right-click-highlight.white-1e1d7,
+          #board .board-theme-gold .premove-highlight.white-1e1d7,
+          #board .board-theme-gold .premove-source.white-1e1d7,
+          #board .board-theme-gold .right-click-highlight.white-1e1d7,
+          #board .board-theme-ocean .premove-highlight.white-1e1d7,
+          #board .board-theme-ocean .premove-source.white-1e1d7,
+          #board .board-theme-ocean .right-click-highlight.white-1e1d7,
+          #board .board-theme-sunset .premove-highlight.white-1e1d7,
+          #board .board-theme-sunset .premove-source.white-1e1d7,
+          #board .board-theme-sunset .right-click-highlight.white-1e1d7,
+          #board .board-theme-midnight .premove-highlight.white-1e1d7,
+          #board .board-theme-midnight .premove-source.white-1e1d7,
+          #board .board-theme-midnight .right-click-highlight.white-1e1d7,
+          #board .board-theme-forest .premove-highlight.white-1e1d7,
+          #board .board-theme-forest .premove-source.white-1e1d7,
+          #board .board-theme-forest .right-click-highlight.white-1e1d7,
+          #board .board-theme-royal .premove-highlight.white-1e1d7,
+          #board .board-theme-royal .premove-source.white-1e1d7,
+          #board .board-theme-royal .right-click-highlight.white-1e1d7,
+          #board .board-theme-ice .premove-highlight.white-1e1d7,
+          #board .board-theme-ice .premove-source.white-1e1d7,
+          #board .board-theme-ice .right-click-highlight.white-1e1d7,
+          #board .board-theme-cherry .premove-highlight.white-1e1d7,
+          #board .board-theme-cherry .premove-source.white-1e1d7,
+          #board .board-theme-cherry .right-click-highlight.white-1e1d7,
+          #board .board-theme-3d .premove-highlight.white-1e1d7,
+          #board .board-theme-3d .premove-source.white-1e1d7,
+          #board .board-theme-3d .right-click-highlight.white-1e1d7,
+          #board .board-theme-glass .premove-highlight.white-1e1d7,
+          #board .board-theme-glass .premove-source.white-1e1d7,
+          #board .board-theme-glass .right-click-highlight.white-1e1d7,
+          #board .board-theme-carbon .premove-highlight.white-1e1d7,
+          #board .board-theme-carbon .premove-source.white-1e1d7,
+          #board .board-theme-carbon .right-click-highlight.white-1e1d7,
+          #board .board-theme-velvet .premove-highlight.white-1e1d7,
+          #board .board-theme-velvet .premove-source.white-1e1d7,
+          #board .board-theme-velvet .right-click-highlight.white-1e1d7,
+          #board .board-theme-stone .premove-highlight.white-1e1d7,
+          #board .board-theme-stone .premove-source.white-1e1d7,
+          #board .board-theme-stone .right-click-highlight.white-1e1d7,
+          #board .board-theme-cyber .premove-highlight.white-1e1d7,
+          #board .board-theme-cyber .premove-source.white-1e1d7,
+          #board .board-theme-cyber .right-click-highlight.white-1e1d7,
+          #board .board-theme-luxury .premove-highlight.white-1e1d7,
+          #board .board-theme-luxury .premove-source.white-1e1d7,
+          #board .board-theme-luxury .right-click-highlight.white-1e1d7,
+          #board .board-theme-classic .premove-highlight.black-3c85d,
+          #board .board-theme-classic .premove-source.black-3c85d,
+          #board .board-theme-classic .right-click-highlight.black-3c85d,
+          #board .board-theme-blue .premove-highlight.black-3c85d,
+          #board .board-theme-blue .premove-source.black-3c85d,
+          #board .board-theme-blue .right-click-highlight.black-3c85d,
+          #board .board-theme-green .premove-highlight.black-3c85d,
+          #board .board-theme-green .premove-source.black-3c85d,
+          #board .board-theme-green .right-click-highlight.black-3c85d,
+          #board .board-theme-gray .premove-highlight.black-3c85d,
+          #board .board-theme-gray .premove-source.black-3c85d,
+          #board .board-theme-gray .right-click-highlight.black-3c85d,
+          #board .board-theme-purple .premove-highlight.black-3c85d,
+          #board .board-theme-purple .premove-source.black-3c85d,
+          #board .board-theme-purple .right-click-highlight.black-3c85d,
+          #board .board-theme-wood .premove-highlight.black-3c85d,
+          #board .board-theme-wood .premove-source.black-3c85d,
+          #board .board-theme-wood .right-click-highlight.black-3c85d,
+          #board .board-theme-coral .premove-highlight.black-3c85d,
+          #board .board-theme-coral .premove-source.black-3c85d,
+          #board .board-theme-coral .right-click-highlight.black-3c85d,
+          #board .board-theme-marble .premove-highlight.black-3c85d,
+          #board .board-theme-marble .premove-source.black-3c85d,
+          #board .board-theme-marble .right-click-highlight.black-3c85d,
+          #board .board-theme-dark .premove-highlight.black-3c85d,
+          #board .board-theme-dark .premove-source.black-3c85d,
+          #board .board-theme-dark .right-click-highlight.black-3c85d,
+          #board .board-theme-neon .premove-highlight.black-3c85d,
+          #board .board-theme-neon .premove-source.black-3c85d,
+          #board .board-theme-neon .right-click-highlight.black-3c85d,
+          #board .board-theme-emerald .premove-highlight.black-3c85d,
+          #board .board-theme-emerald .premove-source.black-3c85d,
+          #board .board-theme-emerald .right-click-highlight.black-3c85d,
+          #board .board-theme-gold .premove-highlight.black-3c85d,
+          #board .board-theme-gold .premove-source.black-3c85d,
+          #board .board-theme-gold .right-click-highlight.black-3c85d,
+          #board .board-theme-ocean .premove-highlight.black-3c85d,
+          #board .board-theme-ocean .premove-source.black-3c85d,
+          #board .board-theme-ocean .right-click-highlight.black-3c85d,
+          #board .board-theme-sunset .premove-highlight.black-3c85d,
+          #board .board-theme-sunset .premove-source.black-3c85d,
+          #board .board-theme-sunset .right-click-highlight.black-3c85d,
+          #board .board-theme-midnight .premove-highlight.black-3c85d,
+          #board .board-theme-midnight .premove-source.black-3c85d,
+          #board .board-theme-midnight .right-click-highlight.black-3c85d,
+          #board .board-theme-forest .premove-highlight.black-3c85d,
+          #board .board-theme-forest .premove-source.black-3c85d,
+          #board .board-theme-forest .right-click-highlight.black-3c85d,
+          #board .board-theme-royal .premove-highlight.black-3c85d,
+          #board .board-theme-royal .premove-source.black-3c85d,
+          #board .board-theme-royal .right-click-highlight.black-3c85d,
+          #board .board-theme-ice .premove-highlight.black-3c85d,
+          #board .board-theme-ice .premove-source.black-3c85d,
+          #board .board-theme-ice .right-click-highlight.black-3c85d,
+          #board .board-theme-cherry .premove-highlight.black-3c85d,
+          #board .board-theme-cherry .premove-source.black-3c85d,
+          #board .board-theme-cherry .right-click-highlight.black-3c85d,
+          #board .board-theme-3d .premove-highlight.black-3c85d,
+          #board .board-theme-3d .premove-source.black-3c85d,
+          #board .board-theme-3d .right-click-highlight.black-3c85d,
+          #board .board-theme-glass .premove-highlight.black-3c85d,
+          #board .board-theme-glass .premove-source.black-3c85d,
+          #board .board-theme-glass .right-click-highlight.black-3c85d,
+          #board .board-theme-carbon .premove-highlight.black-3c85d,
+          #board .board-theme-carbon .premove-source.black-3c85d,
+          #board .board-theme-carbon .right-click-highlight.black-3c85d,
+          #board .board-theme-velvet .premove-highlight.black-3c85d,
+          #board .board-theme-velvet .premove-source.black-3c85d,
+          #board .board-theme-velvet .right-click-highlight.black-3c85d,
+          #board .board-theme-stone .premove-highlight.black-3c85d,
+          #board .board-theme-stone .premove-source.black-3c85d,
+          #board .board-theme-stone .right-click-highlight.black-3c85d,
+          #board .board-theme-cyber .premove-highlight.black-3c85d,
+          #board .board-theme-cyber .premove-source.black-3c85d,
+          #board .board-theme-cyber .right-click-highlight.black-3c85d,
+          #board .board-theme-luxury .premove-highlight.black-3c85d,
+          #board .board-theme-luxury .premove-source.black-3c85d,
+          #board .board-theme-luxury .right-click-highlight.black-3c85d {
+            background: linear-gradient(135deg, rgba(255,0,0,0.65), rgba(255,127,0,0.65), rgba(255,255,0,0.65), rgba(0,255,0,0.65), rgba(0,0,255,0.65), rgba(75,0,130,0.65), rgba(148,0,211,0.65)) !important;
+            background-size: 200% 200% !important;
+            animation: rainbow-shift 3s ease infinite !important;
+          }
+        `;
+        // Rainbow arrows: animated gradient
+        // Create rainbow gradient def for SVG arrows - will be created/updated in drawArrows
+        window.currentArrowColor = 'url(#rainbow-gradient)';
+        window.currentArrowFillColor = 'url(#rainbow-gradient)';
+        window.rainbowMode = true;
+        // Ensure gradient exists when arrows are drawn
+        if (typeof drawArrows === 'function') {
+          drawArrows();
         }
-        #board .premove-highlight.black-3c85d,
-        #board .premove-source.black-3c85d,
-        #board .right-click-highlight.black-3c85d {
-          background-color: ${colors.highlightDark} !important;
+      } else {
+        // Normal colors
+        const colors = colorMap[colorId] || colorMap.red;
+        styleTag.textContent = `
+          #board .premove-highlight.white-1e1d7,
+          #board .premove-source.white-1e1d7,
+          #board .right-click-highlight.white-1e1d7 {
+            background-color: ${colors.highlightLight} !important;
+          }
+          #board .premove-highlight.black-3c85d,
+          #board .premove-source.black-3c85d,
+          #board .right-click-highlight.black-3c85d {
+            background-color: ${colors.highlightDark} !important;
+          }
+          #board .board-theme-classic .premove-highlight.white-1e1d7,
+          #board .board-theme-classic .premove-source.white-1e1d7,
+          #board .board-theme-classic .right-click-highlight.white-1e1d7,
+          #board .board-theme-blue .premove-highlight.white-1e1d7,
+          #board .board-theme-blue .premove-source.white-1e1d7,
+          #board .board-theme-blue .right-click-highlight.white-1e1d7,
+          #board .board-theme-green .premove-highlight.white-1e1d7,
+          #board .board-theme-green .premove-source.white-1e1d7,
+          #board .board-theme-green .right-click-highlight.white-1e1d7,
+          #board .board-theme-gray .premove-highlight.white-1e1d7,
+          #board .board-theme-gray .premove-source.white-1e1d7,
+          #board .board-theme-gray .right-click-highlight.white-1e1d7,
+          #board .board-theme-purple .premove-highlight.white-1e1d7,
+          #board .board-theme-purple .premove-source.white-1e1d7,
+          #board .board-theme-purple .right-click-highlight.white-1e1d7,
+          #board .board-theme-wood .premove-highlight.white-1e1d7,
+          #board .board-theme-wood .premove-source.white-1e1d7,
+          #board .board-theme-wood .right-click-highlight.white-1e1d7,
+          #board .board-theme-coral .premove-highlight.white-1e1d7,
+          #board .board-theme-coral .premove-source.white-1e1d7,
+          #board .board-theme-coral .right-click-highlight.white-1e1d7,
+          #board .board-theme-marble .premove-highlight.white-1e1d7,
+          #board .board-theme-marble .premove-source.white-1e1d7,
+          #board .board-theme-marble .right-click-highlight.white-1e1d7,
+          #board .board-theme-dark .premove-highlight.white-1e1d7,
+          #board .board-theme-dark .premove-source.white-1e1d7,
+          #board .board-theme-dark .right-click-highlight.white-1e1d7,
+          #board .board-theme-neon .premove-highlight.white-1e1d7,
+          #board .board-theme-neon .premove-source.white-1e1d7,
+          #board .board-theme-neon .right-click-highlight.white-1e1d7,
+          #board .board-theme-emerald .premove-highlight.white-1e1d7,
+          #board .board-theme-emerald .premove-source.white-1e1d7,
+          #board .board-theme-emerald .right-click-highlight.white-1e1d7,
+          #board .board-theme-gold .premove-highlight.white-1e1d7,
+          #board .board-theme-gold .premove-source.white-1e1d7,
+          #board .board-theme-gold .right-click-highlight.white-1e1d7,
+          #board .board-theme-ocean .premove-highlight.white-1e1d7,
+          #board .board-theme-ocean .premove-source.white-1e1d7,
+          #board .board-theme-ocean .right-click-highlight.white-1e1d7,
+          #board .board-theme-sunset .premove-highlight.white-1e1d7,
+          #board .board-theme-sunset .premove-source.white-1e1d7,
+          #board .board-theme-sunset .right-click-highlight.white-1e1d7,
+          #board .board-theme-midnight .premove-highlight.white-1e1d7,
+          #board .board-theme-midnight .premove-source.white-1e1d7,
+          #board .board-theme-midnight .right-click-highlight.white-1e1d7,
+          #board .board-theme-forest .premove-highlight.white-1e1d7,
+          #board .board-theme-forest .premove-source.white-1e1d7,
+          #board .board-theme-forest .right-click-highlight.white-1e1d7,
+          #board .board-theme-royal .premove-highlight.white-1e1d7,
+          #board .board-theme-royal .premove-source.white-1e1d7,
+          #board .board-theme-royal .right-click-highlight.white-1e1d7,
+          #board .board-theme-ice .premove-highlight.white-1e1d7,
+          #board .board-theme-ice .premove-source.white-1e1d7,
+          #board .board-theme-ice .right-click-highlight.white-1e1d7,
+          #board .board-theme-cherry .premove-highlight.white-1e1d7,
+          #board .board-theme-cherry .premove-source.white-1e1d7,
+          #board .board-theme-cherry .right-click-highlight.white-1e1d7,
+          #board .board-theme-3d .premove-highlight.white-1e1d7,
+          #board .board-theme-3d .premove-source.white-1e1d7,
+          #board .board-theme-3d .right-click-highlight.white-1e1d7,
+          #board .board-theme-glass .premove-highlight.white-1e1d7,
+          #board .board-theme-glass .premove-source.white-1e1d7,
+          #board .board-theme-glass .right-click-highlight.white-1e1d7,
+          #board .board-theme-carbon .premove-highlight.white-1e1d7,
+          #board .board-theme-carbon .premove-source.white-1e1d7,
+          #board .board-theme-carbon .right-click-highlight.white-1e1d7,
+          #board .board-theme-velvet .premove-highlight.white-1e1d7,
+          #board .board-theme-velvet .premove-source.white-1e1d7,
+          #board .board-theme-velvet .right-click-highlight.white-1e1d7,
+          #board .board-theme-stone .premove-highlight.white-1e1d7,
+          #board .board-theme-stone .premove-source.white-1e1d7,
+          #board .board-theme-stone .right-click-highlight.white-1e1d7,
+          #board .board-theme-cyber .premove-highlight.white-1e1d7,
+          #board .board-theme-cyber .premove-source.white-1e1d7,
+          #board .board-theme-cyber .right-click-highlight.white-1e1d7,
+          #board .board-theme-luxury .premove-highlight.white-1e1d7,
+          #board .board-theme-luxury .premove-source.white-1e1d7,
+          #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
+            background-color: ${colors.highlightLight} !important;
+          }
+          #board .board-theme-classic .premove-highlight.black-3c85d,
+          #board .board-theme-classic .premove-source.black-3c85d,
+          #board .board-theme-classic .right-click-highlight.black-3c85d,
+          #board .board-theme-blue .premove-highlight.black-3c85d,
+          #board .board-theme-blue .premove-source.black-3c85d,
+          #board .board-theme-blue .right-click-highlight.black-3c85d,
+          #board .board-theme-green .premove-highlight.black-3c85d,
+          #board .board-theme-green .premove-source.black-3c85d,
+          #board .board-theme-green .right-click-highlight.black-3c85d,
+          #board .board-theme-gray .premove-highlight.black-3c85d,
+          #board .board-theme-gray .premove-source.black-3c85d,
+          #board .board-theme-gray .right-click-highlight.black-3c85d,
+          #board .board-theme-purple .premove-highlight.black-3c85d,
+          #board .board-theme-purple .premove-source.black-3c85d,
+          #board .board-theme-purple .right-click-highlight.black-3c85d,
+          #board .board-theme-wood .premove-highlight.black-3c85d,
+          #board .board-theme-wood .premove-source.black-3c85d,
+          #board .board-theme-wood .right-click-highlight.black-3c85d,
+          #board .board-theme-coral .premove-highlight.black-3c85d,
+          #board .board-theme-coral .premove-source.black-3c85d,
+          #board .board-theme-coral .right-click-highlight.black-3c85d,
+          #board .board-theme-marble .premove-highlight.black-3c85d,
+          #board .board-theme-marble .premove-source.black-3c85d,
+          #board .board-theme-marble .right-click-highlight.black-3c85d,
+          #board .board-theme-dark .premove-highlight.black-3c85d,
+          #board .board-theme-dark .premove-source.black-3c85d,
+          #board .board-theme-dark .right-click-highlight.black-3c85d,
+          #board .board-theme-neon .premove-highlight.black-3c85d,
+          #board .board-theme-neon .premove-source.black-3c85d,
+          #board .board-theme-neon .right-click-highlight.black-3c85d,
+          #board .board-theme-emerald .premove-highlight.black-3c85d,
+          #board .board-theme-emerald .premove-source.black-3c85d,
+          #board .board-theme-emerald .right-click-highlight.black-3c85d,
+          #board .board-theme-gold .premove-highlight.black-3c85d,
+          #board .board-theme-gold .premove-source.black-3c85d,
+          #board .board-theme-gold .right-click-highlight.black-3c85d,
+          #board .board-theme-ocean .premove-highlight.black-3c85d,
+          #board .board-theme-ocean .premove-source.black-3c85d,
+          #board .board-theme-ocean .right-click-highlight.black-3c85d,
+          #board .board-theme-sunset .premove-highlight.black-3c85d,
+          #board .board-theme-sunset .premove-source.black-3c85d,
+          #board .board-theme-sunset .right-click-highlight.black-3c85d,
+          #board .board-theme-midnight .premove-highlight.black-3c85d,
+          #board .board-theme-midnight .premove-source.black-3c85d,
+          #board .board-theme-midnight .right-click-highlight.black-3c85d,
+          #board .board-theme-forest .premove-highlight.black-3c85d,
+          #board .board-theme-forest .premove-source.black-3c85d,
+          #board .board-theme-forest .right-click-highlight.black-3c85d,
+          #board .board-theme-royal .premove-highlight.black-3c85d,
+          #board .board-theme-royal .premove-source.black-3c85d,
+          #board .board-theme-royal .right-click-highlight.black-3c85d,
+          #board .board-theme-ice .premove-highlight.black-3c85d,
+          #board .board-theme-ice .premove-source.black-3c85d,
+          #board .board-theme-ice .right-click-highlight.black-3c85d,
+          #board .board-theme-cherry .premove-highlight.black-3c85d,
+          #board .board-theme-cherry .premove-source.black-3c85d,
+          #board .board-theme-cherry .right-click-highlight.black-3c85d,
+          #board .board-theme-3d .premove-highlight.black-3c85d,
+          #board .board-theme-3d .premove-source.black-3c85d,
+          #board .board-theme-3d .right-click-highlight.black-3c85d,
+          #board .board-theme-glass .premove-highlight.black-3c85d,
+          #board .board-theme-glass .premove-source.black-3c85d,
+          #board .board-theme-glass .right-click-highlight.black-3c85d,
+          #board .board-theme-carbon .premove-highlight.black-3c85d,
+          #board .board-theme-carbon .premove-source.black-3c85d,
+          #board .board-theme-carbon .right-click-highlight.black-3c85d,
+          #board .board-theme-velvet .premove-highlight.black-3c85d,
+          #board .board-theme-velvet .premove-source.black-3c85d,
+          #board .board-theme-velvet .right-click-highlight.black-3c85d,
+          #board .board-theme-stone .premove-highlight.black-3c85d,
+          #board .board-theme-stone .premove-source.black-3c85d,
+          #board .board-theme-stone .right-click-highlight.black-3c85d,
+          #board .board-theme-cyber .premove-highlight.black-3c85d,
+          #board .board-theme-cyber .premove-source.black-3c85d,
+          #board .board-theme-cyber .right-click-highlight.black-3c85d,
+          #board .board-theme-luxury .premove-highlight.black-3c85d,
+          #board .board-theme-luxury .premove-source.black-3c85d,
+          #board .board-theme-luxury .right-click-highlight.black-3c85d {
+            background-color: ${colors.highlightDark} !important;
+          }
+        `;
+        window.currentArrowColor = colors.arrow;
+        window.currentArrowFillColor = colors.arrowFill;
+        window.rainbowMode = false;
+        // Clear rainbow animation if it exists
+        if (window.rainbowArrowAnim) {
+          clearInterval(window.rainbowArrowAnim);
+          window.rainbowArrowAnim = null;
         }
-        #board .board-theme-classic .premove-highlight.white-1e1d7,
-        #board .board-theme-classic .premove-source.white-1e1d7,
-        #board .board-theme-classic .right-click-highlight.white-1e1d7,
-        #board .board-theme-blue .premove-highlight.white-1e1d7,
-        #board .board-theme-blue .premove-source.white-1e1d7,
-        #board .board-theme-blue .right-click-highlight.white-1e1d7,
-        #board .board-theme-green .premove-highlight.white-1e1d7,
-        #board .board-theme-green .premove-source.white-1e1d7,
-        #board .board-theme-green .right-click-highlight.white-1e1d7,
-        #board .board-theme-gray .premove-highlight.white-1e1d7,
-        #board .board-theme-gray .premove-source.white-1e1d7,
-        #board .board-theme-gray .right-click-highlight.white-1e1d7,
-        #board .board-theme-purple .premove-highlight.white-1e1d7,
-        #board .board-theme-purple .premove-source.white-1e1d7,
-        #board .board-theme-purple .right-click-highlight.white-1e1d7,
-        #board .board-theme-wood .premove-highlight.white-1e1d7,
-        #board .board-theme-wood .premove-source.white-1e1d7,
-        #board .board-theme-wood .right-click-highlight.white-1e1d7,
-        #board .board-theme-coral .premove-highlight.white-1e1d7,
-        #board .board-theme-coral .premove-source.white-1e1d7,
-        #board .board-theme-coral .right-click-highlight.white-1e1d7,
-        #board .board-theme-marble .premove-highlight.white-1e1d7,
-        #board .board-theme-marble .premove-source.white-1e1d7,
-        #board .board-theme-marble .right-click-highlight.white-1e1d7,
-        #board .board-theme-dark .premove-highlight.white-1e1d7,
-        #board .board-theme-dark .premove-source.white-1e1d7,
-        #board .board-theme-dark .right-click-highlight.white-1e1d7,
-        #board .board-theme-neon .premove-highlight.white-1e1d7,
-        #board .board-theme-neon .premove-source.white-1e1d7,
-        #board .board-theme-neon .right-click-highlight.white-1e1d7,
-        #board .board-theme-emerald .premove-highlight.white-1e1d7,
-        #board .board-theme-emerald .premove-source.white-1e1d7,
-        #board .board-theme-emerald .right-click-highlight.white-1e1d7,
-        #board .board-theme-gold .premove-highlight.white-1e1d7,
-        #board .board-theme-gold .premove-source.white-1e1d7,
-        #board .board-theme-gold .right-click-highlight.white-1e1d7,
-        #board .board-theme-ocean .premove-highlight.white-1e1d7,
-        #board .board-theme-ocean .premove-source.white-1e1d7,
-        #board .board-theme-ocean .right-click-highlight.white-1e1d7,
-        #board .board-theme-sunset .premove-highlight.white-1e1d7,
-        #board .board-theme-sunset .premove-source.white-1e1d7,
-        #board .board-theme-sunset .right-click-highlight.white-1e1d7,
-        #board .board-theme-midnight .premove-highlight.white-1e1d7,
-        #board .board-theme-midnight .premove-source.white-1e1d7,
-        #board .board-theme-midnight .right-click-highlight.white-1e1d7,
-        #board .board-theme-forest .premove-highlight.white-1e1d7,
-        #board .board-theme-forest .premove-source.white-1e1d7,
-        #board .board-theme-forest .right-click-highlight.white-1e1d7,
-        #board .board-theme-royal .premove-highlight.white-1e1d7,
-        #board .board-theme-royal .premove-source.white-1e1d7,
-        #board .board-theme-royal .right-click-highlight.white-1e1d7,
-        #board .board-theme-ice .premove-highlight.white-1e1d7,
-        #board .board-theme-ice .premove-source.white-1e1d7,
-        #board .board-theme-ice .right-click-highlight.white-1e1d7,
-        #board .board-theme-cherry .premove-highlight.white-1e1d7,
-        #board .board-theme-cherry .premove-source.white-1e1d7,
-        #board .board-theme-cherry .right-click-highlight.white-1e1d7,
-        #board .board-theme-3d .premove-highlight.white-1e1d7,
-        #board .board-theme-3d .premove-source.white-1e1d7,
-        #board .board-theme-3d .right-click-highlight.white-1e1d7,
-        #board .board-theme-glass .premove-highlight.white-1e1d7,
-        #board .board-theme-glass .premove-source.white-1e1d7,
-        #board .board-theme-glass .right-click-highlight.white-1e1d7,
-        #board .board-theme-carbon .premove-highlight.white-1e1d7,
-        #board .board-theme-carbon .premove-source.white-1e1d7,
-        #board .board-theme-carbon .right-click-highlight.white-1e1d7,
-        #board .board-theme-velvet .premove-highlight.white-1e1d7,
-        #board .board-theme-velvet .premove-source.white-1e1d7,
-        #board .board-theme-velvet .right-click-highlight.white-1e1d7,
-        #board .board-theme-stone .premove-highlight.white-1e1d7,
-        #board .board-theme-stone .premove-source.white-1e1d7,
-        #board .board-theme-stone .right-click-highlight.white-1e1d7,
-        #board .board-theme-cyber .premove-highlight.white-1e1d7,
-        #board .board-theme-cyber .premove-source.white-1e1d7,
-        #board .board-theme-cyber .right-click-highlight.white-1e1d7,
-        #board .board-theme-luxury .premove-highlight.white-1e1d7,
-        #board .board-theme-luxury .premove-source.white-1e1d7,
-        #board .board-theme-luxury .right-click-highlight.white-1e1d7 {
-          background-color: ${colors.highlightLight} !important;
-        }
-        #board .board-theme-classic .premove-highlight.black-3c85d,
-        #board .board-theme-classic .premove-source.black-3c85d,
-        #board .board-theme-classic .right-click-highlight.black-3c85d,
-        #board .board-theme-blue .premove-highlight.black-3c85d,
-        #board .board-theme-blue .premove-source.black-3c85d,
-        #board .board-theme-blue .right-click-highlight.black-3c85d,
-        #board .board-theme-green .premove-highlight.black-3c85d,
-        #board .board-theme-green .premove-source.black-3c85d,
-        #board .board-theme-green .right-click-highlight.black-3c85d,
-        #board .board-theme-gray .premove-highlight.black-3c85d,
-        #board .board-theme-gray .premove-source.black-3c85d,
-        #board .board-theme-gray .right-click-highlight.black-3c85d,
-        #board .board-theme-purple .premove-highlight.black-3c85d,
-        #board .board-theme-purple .premove-source.black-3c85d,
-        #board .board-theme-purple .right-click-highlight.black-3c85d,
-        #board .board-theme-wood .premove-highlight.black-3c85d,
-        #board .board-theme-wood .premove-source.black-3c85d,
-        #board .board-theme-wood .right-click-highlight.black-3c85d,
-        #board .board-theme-coral .premove-highlight.black-3c85d,
-        #board .board-theme-coral .premove-source.black-3c85d,
-        #board .board-theme-coral .right-click-highlight.black-3c85d,
-        #board .board-theme-marble .premove-highlight.black-3c85d,
-        #board .board-theme-marble .premove-source.black-3c85d,
-        #board .board-theme-marble .right-click-highlight.black-3c85d,
-        #board .board-theme-dark .premove-highlight.black-3c85d,
-        #board .board-theme-dark .premove-source.black-3c85d,
-        #board .board-theme-dark .right-click-highlight.black-3c85d,
-        #board .board-theme-neon .premove-highlight.black-3c85d,
-        #board .board-theme-neon .premove-source.black-3c85d,
-        #board .board-theme-neon .right-click-highlight.black-3c85d,
-        #board .board-theme-emerald .premove-highlight.black-3c85d,
-        #board .board-theme-emerald .premove-source.black-3c85d,
-        #board .board-theme-emerald .right-click-highlight.black-3c85d,
-        #board .board-theme-gold .premove-highlight.black-3c85d,
-        #board .board-theme-gold .premove-source.black-3c85d,
-        #board .board-theme-gold .right-click-highlight.black-3c85d,
-        #board .board-theme-ocean .premove-highlight.black-3c85d,
-        #board .board-theme-ocean .premove-source.black-3c85d,
-        #board .board-theme-ocean .right-click-highlight.black-3c85d,
-        #board .board-theme-sunset .premove-highlight.black-3c85d,
-        #board .board-theme-sunset .premove-source.black-3c85d,
-        #board .board-theme-sunset .right-click-highlight.black-3c85d,
-        #board .board-theme-midnight .premove-highlight.black-3c85d,
-        #board .board-theme-midnight .premove-source.black-3c85d,
-        #board .board-theme-midnight .right-click-highlight.black-3c85d,
-        #board .board-theme-forest .premove-highlight.black-3c85d,
-        #board .board-theme-forest .premove-source.black-3c85d,
-        #board .board-theme-forest .right-click-highlight.black-3c85d,
-        #board .board-theme-royal .premove-highlight.black-3c85d,
-        #board .board-theme-royal .premove-source.black-3c85d,
-        #board .board-theme-royal .right-click-highlight.black-3c85d,
-        #board .board-theme-ice .premove-highlight.black-3c85d,
-        #board .board-theme-ice .premove-source.black-3c85d,
-        #board .board-theme-ice .right-click-highlight.black-3c85d,
-        #board .board-theme-cherry .premove-highlight.black-3c85d,
-        #board .board-theme-cherry .premove-source.black-3c85d,
-        #board .board-theme-cherry .right-click-highlight.black-3c85d,
-        #board .board-theme-3d .premove-highlight.black-3c85d,
-        #board .board-theme-3d .premove-source.black-3c85d,
-        #board .board-theme-3d .right-click-highlight.black-3c85d,
-        #board .board-theme-glass .premove-highlight.black-3c85d,
-        #board .board-theme-glass .premove-source.black-3c85d,
-        #board .board-theme-glass .right-click-highlight.black-3c85d,
-        #board .board-theme-carbon .premove-highlight.black-3c85d,
-        #board .board-theme-carbon .premove-source.black-3c85d,
-        #board .board-theme-carbon .right-click-highlight.black-3c85d,
-        #board .board-theme-velvet .premove-highlight.black-3c85d,
-        #board .board-theme-velvet .premove-source.black-3c85d,
-        #board .board-theme-velvet .right-click-highlight.black-3c85d,
-        #board .board-theme-stone .premove-highlight.black-3c85d,
-        #board .board-theme-stone .premove-source.black-3c85d,
-        #board .board-theme-stone .right-click-highlight.black-3c85d,
-        #board .board-theme-cyber .premove-highlight.black-3c85d,
-        #board .board-theme-cyber .premove-source.black-3c85d,
-        #board .board-theme-cyber .right-click-highlight.black-3c85d,
-        #board .board-theme-luxury .premove-highlight.black-3c85d,
-        #board .board-theme-luxury .premove-source.black-3c85d,
-        #board .board-theme-luxury .right-click-highlight.black-3c85d {
-          background-color: ${colors.highlightDark} !important;
-        }
-      `;
-      
-      // Store arrow colors for use in drawArrows
-      window.currentArrowColor = colors.arrow;
-      window.currentArrowFillColor = colors.arrowFill;
+      }
       
       // Redraw arrows with new color
       if (typeof drawArrows === 'function') {
@@ -5329,7 +6789,7 @@
 
     function applyPageTheme(themeId) {
       currentPageTheme = themeId;
-      document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean');
+      document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean', 'page-theme-forest', 'page-theme-sunset', 'page-theme-cyber', 'page-theme-space', 'page-theme-aurora', 'page-theme-matrix', 'page-theme-retro', 'page-theme-galaxy', 'page-theme-fire');
       document.documentElement.classList.add('page-theme-' + themeId);
     }
 
@@ -5495,11 +6955,9 @@
       }
 
       const themeSel = document.getElementById('settings-page-theme');
-      const moveSel = document.getElementById('settings-move-effect');
       const checkmateAddonsEl = document.getElementById('settings-checkmate-addons');
       const timeSel = document.getElementById('settings-time-control');
       const currentTheme = localStorage.getItem('pageTheme') || 'light';
-      const currentMove = localStorage.getItem('moveEffect') || 'default';
       const checkmateEnabled = getCheckmateAddonsEnabled();
       const currentTime = (document.getElementById('time-control') && document.getElementById('time-control').value) || 'none';
 
@@ -5514,18 +6972,6 @@
           }
         });
         themeSel.value = (unlocked.themes || []).includes(currentTheme) ? currentTheme : ((unlocked.themes && unlocked.themes[0]) || 'light');
-      }
-      if (moveSel && shopItems.moveEffects) {
-        moveSel.innerHTML = '';
-        shopItems.moveEffects.forEach(m => {
-          if ((unlocked.moveEffects || []).includes(m.id)) {
-            const o = document.createElement('option');
-            o.value = m.id;
-            o.textContent = m.name;
-            moveSel.appendChild(o);
-          }
-        });
-        moveSel.value = (unlocked.moveEffects || []).includes(currentMove) ? currentMove : ((unlocked.moveEffects && unlocked.moveEffects[0]) || 'default');
       }
       if (checkmateAddonsEl && shopItems.checkmateEffects) {
         checkmateAddonsEl.innerHTML = '';
@@ -5691,13 +7137,11 @@
         }
         applyColorTheme(currentHighlightColor);
 
-        // Load saved page theme, move effect, checkmate effect
+        // Load saved page theme, move effect
         currentPageTheme = localStorage.getItem('pageTheme') || 'light';
         currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
-        currentCheckmateEffect = localStorage.getItem('checkmateEffect') || 'default';
         if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
         if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
-        if (!(unlocked.checkmateEffects || []).includes(currentCheckmateEffect)) currentCheckmateEffect = 'default';
         applyPageTheme(currentPageTheme);
         applyMoveEffect(currentMoveEffect);
         
@@ -5713,7 +7157,6 @@
         }
         if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
         if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
-        if (!(unlocked.checkmateEffects || []).length) unlockItem('checkmateEffects', 'default');
         if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
         
         // Update dropdowns to only show unlocked items
@@ -6335,6 +7778,35 @@ function navigateToPreviousMove() {
         svg.appendChild(defsEl);
       }
       
+      // Create rainbow gradient if rainbow mode is enabled
+      if (window.rainbowMode) {
+        // Clear old rainbow gradients
+        const oldGrads = defsEl.querySelectorAll('[id^="rainbow-gradient-"]');
+        oldGrads.forEach(g => g.remove());
+        // Start animation if not already running
+        if (!window.rainbowArrowAnim && arrows.length > 0) {
+          let offset = 0;
+          window.rainbowArrowAnim = setInterval(() => {
+            offset = (offset + 1) % 100;
+            const grads = defsEl.querySelectorAll('[id^="rainbow-gradient-"]');
+            grads.forEach(grad => {
+              const stops = grad.querySelectorAll('stop');
+              stops.forEach((stop, i) => {
+                const baseOffset = (i * 100 / (stops.length - 1));
+                const newOffset = (baseOffset + offset) % 100;
+                stop.setAttribute('offset', newOffset + '%');
+              });
+            });
+          }, 100);
+        }
+      } else {
+        // Clear rainbow animation if disabled
+        if (window.rainbowArrowAnim) {
+          clearInterval(window.rainbowArrowAnim);
+          window.rainbowArrowAnim = null;
+        }
+      }
+      
       let marker = svg.querySelector('#arrowhead');
       if (!marker) {
         marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -6427,7 +7899,48 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${midX} ${midY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', window.currentArrowColor || 'rgba(250, 180, 0, 0.7)');
+          
+          // Create rainbow gradient for this arrow if in rainbow mode
+          let arrowColor = window.currentArrowColor || 'rgba(250, 180, 0, 0.7)';
+          if (window.rainbowMode) {
+            const gradId = `rainbow-gradient-${index}`;
+            let grad = defsEl.querySelector(`#${gradId}`);
+            if (!grad) {
+              grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+              grad.setAttribute('id', gradId);
+              grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+              const stops = [
+                { offset: '0%', color: '#ff0000' },
+                { offset: '16.66%', color: '#ff7f00' },
+                { offset: '33.33%', color: '#ffff00' },
+                { offset: '50%', color: '#00ff00' },
+                { offset: '66.66%', color: '#0000ff' },
+                { offset: '83.33%', color: '#4b0082' },
+                { offset: '100%', color: '#9400d3' }
+              ];
+              stops.forEach(s => {
+                const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop.setAttribute('offset', s.offset);
+                stop.setAttribute('stop-color', s.color);
+                grad.appendChild(stop);
+              });
+              defsEl.appendChild(grad);
+            }
+            // Set gradient along the arrow direction (use the main segment)
+            const segDx = adjustedToX - adjustedFromX;
+            const segDy = adjustedToY - adjustedFromY;
+            const segLen = Math.sqrt(segDx * segDx + segDy * segDy);
+            grad.setAttribute('x1', adjustedFromX.toString());
+            grad.setAttribute('y1', adjustedFromY.toString());
+            grad.setAttribute('x2', (adjustedFromX + segDx).toString());
+            grad.setAttribute('y2', (adjustedFromY + segDy).toString());
+            arrowColor = `url(#${gradId})`;
+            // Update arrowhead fill too
+            const markerPoly = marker.querySelector('polygon');
+            if (markerPoly) markerPoly.setAttribute('fill', arrowColor);
+          }
+          
+          path.setAttribute('stroke', arrowColor);
           path.setAttribute('stroke-width', '10');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
@@ -6448,7 +7961,45 @@ function navigateToPreviousMove() {
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           const pathData = `M ${adjustedFromX} ${adjustedFromY} L ${adjustedToX} ${adjustedToY}`;
           path.setAttribute('d', pathData);
-          path.setAttribute('stroke', window.currentArrowColor || 'rgba(250, 180, 0, 0.7)');
+          
+          // Create rainbow gradient for this arrow if in rainbow mode
+          let arrowColor = window.currentArrowColor || 'rgba(250, 180, 0, 0.7)';
+          if (window.rainbowMode) {
+            const gradId = `rainbow-gradient-${index}`;
+            let grad = defsEl.querySelector(`#${gradId}`);
+            if (!grad) {
+              grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+              grad.setAttribute('id', gradId);
+              grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+              const stops = [
+                { offset: '0%', color: '#ff0000' },
+                { offset: '16.66%', color: '#ff7f00' },
+                { offset: '33.33%', color: '#ffff00' },
+                { offset: '50%', color: '#00ff00' },
+                { offset: '66.66%', color: '#0000ff' },
+                { offset: '83.33%', color: '#4b0082' },
+                { offset: '100%', color: '#9400d3' }
+              ];
+              stops.forEach(s => {
+                const stop = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+                stop.setAttribute('offset', s.offset);
+                stop.setAttribute('stop-color', s.color);
+                grad.appendChild(stop);
+              });
+              defsEl.appendChild(grad);
+            }
+            // Set gradient along the arrow direction
+            grad.setAttribute('x1', adjustedFromX.toString());
+            grad.setAttribute('y1', adjustedFromY.toString());
+            grad.setAttribute('x2', adjustedToX.toString());
+            grad.setAttribute('y2', adjustedToY.toString());
+            arrowColor = `url(#${gradId})`;
+            // Update arrowhead fill too
+            const markerPoly = marker.querySelector('polygon');
+            if (markerPoly) markerPoly.setAttribute('fill', arrowColor);
+          }
+          
+          path.setAttribute('stroke', arrowColor);
           path.setAttribute('stroke-width', '10');
           path.setAttribute('fill', 'none');
           path.setAttribute('marker-end', 'url(#arrowhead)');
@@ -7540,273 +9091,149 @@ function navigateToPreviousMove() {
     }
 
     function celebrateCheckmate(playerWon) {
-      const effect = localStorage.getItem('checkmateEffect') || currentCheckmateEffect || 'default';
-      if (effect === 'simple-pulse') {
-        const isVictory = !!playerWon;
-        const flash = document.createElement('div');
-        flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,' + (isVictory ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)') + ' 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
-        document.body.appendChild(flash);
-        setTimeout(() => flash.remove(), 600);
-        const txt = document.createElement('div');
-        txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;';
-        txt.style.color = isVictory ? '#2ecc71' : '#e74c3c';
-        txt.innerHTML = '<span>' + (isVictory ? 'Victory!' : 'Defeat!') + '</span>';
-        document.body.appendChild(txt);
-        setTimeout(() => { txt.style.opacity = '0'; txt.style.transition = 'opacity 0.4s'; setTimeout(() => txt.remove(), 400); }, 1500);
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl.style.animation = (isVictory ? 'victoryPulse' : 'defeatPulse') + ' 0.8s ease-in-out 1';
-          setTimeout(() => { boardEl.style.animation = ''; }, 1000);
-        }
-        return;
-      }
+      const addons = typeof getCheckmateAddonsEnabled === 'function' ? getCheckmateAddonsEnabled() : [];
+      const isVictory = !!playerWon;
 
-      if (playerWon) {
-        // === VICTORY CELEBRATION - ULTRA ENHANCED ===
-        const effectVictory = effect === 'confetti' ? 'confetti' : effect === 'fireworks' ? 'fireworks' : 'default';
-        
-        // Screen flash effect
-        const screenFlash = document.createElement('div');
-        screenFlash.style.position = 'fixed';
-        screenFlash.style.top = '0';
-        screenFlash.style.left = '0';
-        screenFlash.style.width = '100%';
-        screenFlash.style.height = '100%';
-        screenFlash.style.background = 'radial-gradient(circle, rgba(46, 204, 113, 0.4) 0%, transparent 70%)';
-        screenFlash.style.pointerEvents = 'none';
-        screenFlash.style.zIndex = '9997';
-        screenFlash.style.animation = 'screenFlash 0.8s ease-out';
-        document.body.appendChild(screenFlash);
-        setTimeout(() => screenFlash.remove(), 800);
+      // Base: subtle flash + "Victory!" / "Defeat!" text (always)
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,' + (isVictory ? 'rgba(46,204,113,0.25)' : 'rgba(231,76,60,0.25)') + ' 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 600);
+      const txt = document.createElement('div');
+      txt.className = isVictory ? 'victory-text' : 'defeat-text';
+      txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px;';
+      txt.style.color = isVictory ? '#2ecc71' : '#e74c3c';
+      txt.innerHTML = (isVictory ? '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg><span>Victory!</span>' : '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>Defeat!</span>');
+      document.body.appendChild(txt);
+      setTimeout(() => { txt.style.transition = 'opacity 0.4s'; txt.style.opacity = '0'; setTimeout(() => txt.remove(), 400); }, 1800);
 
-        // Victory text animation with icon
-        const victoryText = document.createElement('div');
-        victoryText.className = 'victory-text';
-        victoryText.style.display = 'flex';
-        victoryText.style.flexDirection = 'column';
-        victoryText.style.alignItems = 'center';
-        victoryText.style.gap = '12px';
-        const victoryIcon = document.createElement('div');
-        victoryIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>';
-        victoryIcon.style.color = '#2ecc71';
-        victoryText.appendChild(victoryIcon);
-        const victoryLabel = document.createElement('span');
-        victoryLabel.textContent = 'Victory!';
-        victoryText.appendChild(victoryLabel);
-        victoryText.style.animation = 'textPop 1s ease-out';
-        document.body.appendChild(victoryText);
-        setTimeout(() => {
-          victoryText.style.transition = 'opacity 0.5s ease-out';
-          victoryText.style.opacity = '0';
-          setTimeout(() => victoryText.remove(), 500);
-        }, 2000);
-
-        // Overlay for confetti
-        const overlay = document.createElement('div');
-        overlay.className = 'checkmate-overlay';
-        document.body.appendChild(overlay);
-
-        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
-        const shapes = ['circle', 'rect', 'star'];
-
-        if (effectVictory !== 'fireworks') {
+      if (isVictory) {
+        // Add-on: confetti
+        if (addons.includes('confetti')) {
+          const overlay = document.createElement('div');
+          overlay.className = 'checkmate-overlay';
+          overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9996;';
+          document.body.appendChild(overlay);
+          const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
+          const shapes = ['circle', 'rect', 'star'];
           for (let i = 0; i < 400; i++) {
             setTimeout(() => {
-              const confetti = document.createElement('div');
-              const shape = shapes[Math.floor(Math.random() * shapes.length)];
-              confetti.className = 'confetti ' + shape;
-              confetti.style.left = Math.random() * 100 + '%';
-              confetti.style.top = -20 + 'px';
-              confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-              const size = Math.random() * 20 + 6;
-              confetti.style.width = size + 'px';
-              confetti.style.height = size + 'px';
-              confetti.style.opacity = Math.random() * 0.6 + 0.4;
-              const drift = (Math.random() - 0.5) * 200;
-              confetti.style.setProperty('--drift', drift + 'px');
-              confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2.5)}s linear forwards`;
-              confetti.style.animationDelay = (Math.random() * 0.3) + 's';
-              overlay.appendChild(confetti);
-              setTimeout(() => confetti.remove(), 5000);
+              const c = document.createElement('div');
+              c.className = 'confetti ' + shapes[Math.floor(Math.random() * shapes.length)];
+              c.style.left = Math.random() * 100 + '%';
+              c.style.top = '-20px';
+              c.style.background = colors[Math.floor(Math.random() * colors.length)];
+              const s = Math.random() * 20 + 6;
+              c.style.width = s + 'px';
+              c.style.height = s + 'px';
+              c.style.opacity = Math.random() * 0.6 + 0.4;
+              c.style.setProperty('--drift', (Math.random() - 0.5) * 200 + 'px');
+              c.style.animation = `confetti-fall ${(Math.random() * 2 + 2.5)}s linear forwards`;
+              c.style.animationDelay = (Math.random() * 0.3) + 's';
+              overlay.appendChild(c);
+              setTimeout(() => c.remove(), 5000);
             }, i * 8);
+          }
+          setTimeout(() => overlay.remove(), 6000);
+        }
+
+        // Add-on: fireworks
+        if (addons.includes('fireworks')) {
+          const board = document.getElementById('board');
+          const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+          const centerX = boardRect.left + boardRect.width / 2;
+          const centerY = boardRect.top + boardRect.height / 2;
+          const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
+          for (let burst = 0; burst < 8; burst++) {
+            setTimeout(() => {
+              const numParticles = 30;
+              for (let i = 0; i < numParticles; i++) {
+                const angle = (Math.PI * 2 * i) / numParticles;
+                const distance = 100 + Math.random() * 150;
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+                p.style.setProperty('--tx', tx + 'px');
+                p.style.setProperty('--ty', ty + 'px');
+                p.style.left = centerX + 'px';
+                p.style.top = centerY + 'px';
+                p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                p.style.animation = `particleTrail ${0.8 + Math.random() * 0.4}s ease-out forwards`;
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1200);
+              }
+            }, burst * 300);
+          }
+          for (let i = 0; i < 60; i++) {
+            setTimeout(() => {
+              const sparkle = document.createElement('div');
+              sparkle.className = 'sparkle';
+              const angle = (Math.PI * 2 * i) / 60;
+              const distance = 250 + Math.random() * 200;
+              sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
+              sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
+              sparkle.style.width = (15 + Math.random() * 20) + 'px';
+              sparkle.style.height = sparkle.style.width;
+              sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
+              document.body.appendChild(sparkle);
+              setTimeout(() => sparkle.remove(), 1500);
+            }, i * 30);
           }
         }
 
-        const board = document.getElementById('board');
-        const boardRect = board ? board.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
-        const centerX = boardRect.left + boardRect.width / 2;
-        const centerY = boardRect.top + boardRect.height / 2;
-
-        if (effectVictory !== 'confetti') {
-        // Multiple firework bursts
-        for (let burst = 0; burst < 8; burst++) {
-          setTimeout(() => {
-            const numParticles = 30;
-            for (let i = 0; i < numParticles; i++) {
-              const angle = (Math.PI * 2 * i) / numParticles;
-              const distance = 100 + Math.random() * 150;
-              const particle = document.createElement('div');
-              particle.className = 'particle';
-              const tx = Math.cos(angle) * distance;
-              const ty = Math.sin(angle) * distance;
-              particle.style.setProperty('--tx', tx + 'px');
-              particle.style.setProperty('--ty', ty + 'px');
-              particle.style.left = centerX + 'px';
-              particle.style.top = centerY + 'px';
-              particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-              particle.style.animation = `particleTrail ${0.8 + Math.random() * 0.4}s ease-out forwards`;
-              document.body.appendChild(particle);
-              setTimeout(() => particle.remove(), 1200);
-            }
-          }, burst * 300);
+        // Add-on: pulse
+        if (addons.includes('pulse')) {
+          const boardEl = document.getElementById('board');
+          if (boardEl) {
+            boardEl.style.animation = 'victoryPulse 0.8s ease-in-out 6';
+            boardEl.style.transition = 'all 0.3s ease';
+            setTimeout(() => { boardEl.style.animation = ''; boardEl.style.filter = ''; boardEl.style.boxShadow = ''; }, 5000);
+          }
         }
-        }
-
-        if (effectVictory !== 'confetti') {
-        // Enhanced sparkles around the board
-        for (let i = 0; i < 60; i++) {
-          setTimeout(() => {
-            const sparkle = document.createElement('div');
-            sparkle.className = 'sparkle';
-            const angle = (Math.PI * 2 * i) / 60;
-            const distance = 250 + Math.random() * 200;
-            sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
-            sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
-            sparkle.style.width = (15 + Math.random() * 20) + 'px';
-            sparkle.style.height = sparkle.style.width;
-            sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
-            document.body.appendChild(sparkle);
-            setTimeout(() => sparkle.remove(), 1500);
-          }, i * 30);
-        }
-        }
-
-        // Ripple effects from board center
-        for (let r = 0; r < 5; r++) {
-          setTimeout(() => {
-            const ripple = document.createElement('div');
-            ripple.className = 'ripple';
-            ripple.style.left = centerX + 'px';
-            ripple.style.top = centerY + 'px';
-            ripple.style.width = '20px';
-            ripple.style.height = '20px';
-            ripple.style.marginLeft = '-10px';
-            ripple.style.marginTop = '-10px';
-            ripple.style.animation = `ripple ${1.5}s ease-out`;
-            document.body.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 1500);
-          }, r * 200);
-        }
-
-        // ULTRA dramatic victory pulse with rotation and enhanced glow
-        if (board) {
-          board.style.animation = 'victoryPulse 0.8s ease-in-out 6';
-          board.style.transition = 'all 0.3s ease';
-          setTimeout(() => {
-            board.style.animation = '';
-            board.style.filter = '';
-            board.style.boxShadow = '';
-          }, 5000);
-        }
-        setTimeout(() => overlay.remove(), 6000);
       } else {
-        // === DEFEAT ANIMATION - ULTRA ENHANCED ===
-        
-        // Screen flash effect (red)
-        const screenFlash = document.createElement('div');
-        screenFlash.style.position = 'fixed';
-        screenFlash.style.top = '0';
-        screenFlash.style.left = '0';
-        screenFlash.style.width = '100%';
-        screenFlash.style.height = '100%';
-        screenFlash.style.background = 'radial-gradient(circle, rgba(231, 76, 60, 0.5) 0%, rgba(139, 0, 0, 0.3) 50%, transparent 100%)';
-        screenFlash.style.pointerEvents = 'none';
-        screenFlash.style.zIndex = '9997';
-        screenFlash.style.animation = 'screenFlash 1.2s ease-out';
-        document.body.appendChild(screenFlash);
-        setTimeout(() => screenFlash.remove(), 1200);
-
-        // Defeat text animation with icon
-        const defeatText = document.createElement('div');
-        defeatText.className = 'defeat-text';
-        defeatText.style.display = 'flex';
-        defeatText.style.flexDirection = 'column';
-        defeatText.style.alignItems = 'center';
-        defeatText.style.gap = '12px';
-        const defeatIcon = document.createElement('div');
-        defeatIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        defeatIcon.style.color = '#e74c3c';
-        defeatText.appendChild(defeatIcon);
-        const defeatLabel = document.createElement('span');
-        defeatLabel.textContent = 'Defeat!';
-        defeatText.appendChild(defeatLabel);
-        defeatText.style.animation = 'textPop 0.8s ease-out';
-        document.body.appendChild(defeatText);
-        setTimeout(() => {
-          defeatText.style.transition = 'opacity 0.5s ease-out';
-          defeatText.style.opacity = '0';
-          setTimeout(() => defeatText.remove(), 500);
-        }, 2000);
-
-        const overlay = document.createElement('div');
-        overlay.className = 'defeat-overlay';
-        document.body.appendChild(overlay);
-
-        // Shake the entire game container with more intensity
-        const gameContainer = document.getElementById('game-container');
-        if (gameContainer) {
-          gameContainer.style.animation = 'defeatPulse 2s ease-out';
-          gameContainer.style.filter = 'brightness(0.8)';
+        // Defeat: base shake always, add-ons optional
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl.style.animation = 'defeatShake 2s ease-in-out';
+          boardEl.style.boxShadow = '0 0 100px 30px rgba(220, 53, 69, 1), inset 0 0 60px rgba(220, 53, 69, 0.5), 0 0 150px rgba(139, 0, 0, 0.8)';
+          boardEl.style.filter = 'brightness(0.6) saturate(1.8) contrast(1.2)';
+          boardEl.style.border = '4px solid rgba(220, 53, 69, 0.8)';
           setTimeout(() => {
-            gameContainer.style.animation = '';
-            gameContainer.style.filter = '';
+            boardEl.style.animation = '';
+            boardEl.style.boxShadow = '';
+            boardEl.style.filter = '';
+            boardEl.style.border = '';
           }, 2000);
         }
 
-        // Shake the entire page
-        document.body.style.animation = 'defeatShake 2s ease-in-out';
-        setTimeout(() => {
-          document.body.style.animation = '';
-        }, 2000);
-
-        const board = document.getElementById('board');
-        
-        // ULTRA intense shake with massive red glow and distortion
-        board.style.animation = 'defeatShake 2s ease-in-out';
-        board.style.boxShadow = '0 0 100px 30px rgba(220, 53, 69, 1), inset 0 0 60px rgba(220, 53, 69, 0.5), 0 0 150px rgba(139, 0, 0, 0.8)';
-        board.style.filter = 'brightness(0.6) saturate(1.8) contrast(1.2)';
-        board.style.border = '4px solid rgba(220, 53, 69, 0.8)';
-        
-        // Red particles falling from board
-        const boardRect = board.getBoundingClientRect();
-        for (let i = 0; i < 50; i++) {
-          setTimeout(() => {
-            const particle = document.createElement('div');
-            particle.style.position = 'fixed';
-            particle.style.width = '6px';
-            particle.style.height = '6px';
-            particle.style.background = 'rgba(220, 53, 69, 0.9)';
-            particle.style.borderRadius = '50%';
-            particle.style.left = (boardRect.left + Math.random() * boardRect.width) + 'px';
-            particle.style.top = boardRect.top + 'px';
-            particle.style.zIndex = '10000';
-            particle.style.pointerEvents = 'none';
-            particle.style.animation = `confetti-fall ${1 + Math.random()}s linear forwards`;
-            particle.style.setProperty('--drift', (Math.random() - 0.5) * 50 + 'px');
-            document.body.appendChild(particle);
-            setTimeout(() => particle.remove(), 2000);
-          }, i * 30);
+        // Add-on: confetti (red particles for defeat)
+        if (addons.includes('confetti')) {
+          const boardRect = boardEl ? boardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+          for (let i = 0; i < 50; i++) {
+            setTimeout(() => {
+              const p = document.createElement('div');
+              p.style.cssText = 'position:fixed;width:6px;height:6px;background:rgba(220,53,69,0.9);border-radius:50%;left:' + (boardRect.left + Math.random() * boardRect.width) + 'px;top:' + boardRect.top + 'px;z-index:10000;pointer-events:none;';
+              p.style.animation = `confetti-fall ${1 + Math.random()}s linear forwards`;
+              p.style.setProperty('--drift', (Math.random() - 0.5) * 50 + 'px');
+              document.body.appendChild(p);
+              setTimeout(() => p.remove(), 2000);
+            }, i * 30);
+          }
         }
-        
-        setTimeout(() => {
-          board.style.animation = '';
-          board.style.boxShadow = '';
-          board.style.filter = '';
-          board.style.border = '';
-        }, 2000);
 
-        // Remove overlay after animation
-        setTimeout(() => overlay.remove(), 2500);
+        // Add-on: pulse
+        if (addons.includes('pulse')) {
+          const gameContainer = document.getElementById('game-container');
+          if (gameContainer) {
+            gameContainer.style.animation = 'defeatPulse 2s ease-out';
+            gameContainer.style.filter = 'brightness(0.8)';
+            setTimeout(() => {
+              gameContainer.style.animation = '';
+              gameContainer.style.filter = '';
+            }, 2000);
+          }
+        }
       }
     }
 
@@ -10461,6 +11888,7 @@ function navigateToPreviousMove() {
       // Reset shop: clear spent points, reset unlocks to defaults
       localStorage.setItem('shopPointsSpent', '0');
       localStorage.setItem('cheatPoints', '0');
+      setCheckmateAddonsEnabled([]);
       saveUnlockedItems({
         boards: ['classic'],
         pieces: ['classic'],
