@@ -1,0 +1,17 @@
+name = "chess-accounts"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[durable_objects]
+bindings = [
+  { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },
+  { name = "SESSION", class_name = "Session", script_name = "chess-accounts" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserAccount", "Session"]
+
+[vars]
+# Environment variables can go here
+# JWT_SECRET will be set via wrangler secret put

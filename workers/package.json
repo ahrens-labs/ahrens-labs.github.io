@@ -1,0 +1,16 @@
+{
+  "name": "chess-accounts",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers backend for chess engine accounts",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

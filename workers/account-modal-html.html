@@ -1,0 +1,136 @@
+<!-- Add this HTML to chess_engine.html, after the settings modal -->
+<!-- Account Modal -->
+<div id="account-modal" class="modal">
+  <div class="modal-dialog" style="max-width: 400px;">
+    <div class="modal-header">
+      <h2>Account</h2>
+      <button class="close-btn" onclick="closeAccountModal()">×</button>
+    </div>
+    <div class="modal-content">
+      <!-- Login/Signup Tabs -->
+      <div id="account-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef;">
+        <button id="tab-login" class="account-tab active" onclick="switchAccountTab('login')">Login</button>
+        <button id="tab-signup" class="account-tab" onclick="switchAccountTab('signup')">Sign Up</button>
+      </div>
+      
+      <!-- Login Form -->
+      <div id="login-form" class="account-form">
+        <div style="margin-bottom: 15px;">
+          <label for="login-email">Email:</label>
+          <input type="email" id="login-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label for="login-password">Password:</label>
+          <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <button onclick="handleLoginSubmit()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Login</button>
+      </div>
+      
+      <!-- Signup Form -->
+      <div id="signup-form" class="account-form" style="display: none;">
+        <div style="margin-bottom: 15px;">
+          <label for="signup-username">Username:</label>
+          <input type="text" id="signup-username" placeholder="Choose a username" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label for="signup-email">Email:</label>
+          <input type="email" id="signup-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label for="signup-password">Password:</label>
+          <input type="password" id="signup-password" placeholder="Choose a password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <button onclick="handleSignupSubmit()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Sign Up</button>
+      </div>
+      
+      <!-- Logged In View -->
+      <div id="account-info" style="display: none;">
+        <p id="account-username" style="font-size: 1.2em; font-weight: 600; margin-bottom: 20px;"></p>
+        <button onclick="handleLogout()" style="width: 100%; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Logout</button>
+        <button onclick="loadUserDataFromAccount()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Load from Account</button>
+        <button onclick="syncLocalDataToAccount()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Save to Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.account-tab {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.3s;
+}
+.account-tab.active {
+  color: #3498db;
+  border-bottom-color: #3498db;
+}
+.account-form {
+  margin-top: 20px;
+}
+.account-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #333;
+}
+</style>
+
+<script>
+// Account tab switching
+function switchAccountTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+}
+
+// Handle login submit
+async function handleLoginSubmit() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) {
+    showNotification('Please enter email and password', 'error');
+    return;
+  }
+  await login(email, password);
+  updateAccountModalView();
+}
+
+// Handle signup submit
+async function handleSignupSubmit() {
+  const username = document.getElementById('signup-username').value;
+  const email = document.getElementById('signup-email').value;
+  const password = document.getElementById('signup-password').value;
+  if (!username || !email || !password) {
+    showNotification('Please fill in all fields', 'error');
+    return;
+  }
+  await signup(email, password, username);
+  updateAccountModalView();
+}
+
+// Handle logout
+async function handleLogout() {
+  await logout();
+  updateAccountModalView();
+}
+
+// Update account modal view based on login state
+function updateAccountModalView() {
+  const isLoggedIn = currentSessionId !== null;
+  document.getElementById('account-tabs').style.display = isLoggedIn ? 'none' : 'flex';
+  document.getElementById('login-form').style.display = isLoggedIn ? 'none' : 'block';
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('account-info').style.display = isLoggedIn ? 'block' : 'none';
+  if (isLoggedIn) {
+    // Get username from account data
+    const username = localStorage.getItem('accountUsername') || 'User';
+    document.getElementById('account-username').textContent = `Logged in as: ${username}`;
+  }
+}
+</script>
