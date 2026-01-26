@@ -1935,14 +1935,85 @@
 
     .shop-item-preview {
       width: 100%;
+      min-height: 100px;
       height: 120px;
-      background: #f8f9fa;
+      background: #f0f2f5;
       border-radius: 8px;
       margin: 10px 0;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 2em;
+      overflow: hidden;
+    }
+
+    .shop-item-preview-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      width: 100%;
+      height: 100%;
+      padding: 6px;
+    }
+
+    .shop-preview-board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      width: 72px;
+      height: 72px;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+    }
+
+    .shop-preview-cell {
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .shop-preview-piece {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    .shop-preview-swatch {
+      width: 36px;
+      height: 24px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .shop-preview-arrow {
+      width: 28px;
+      height: 20px;
+    }
+    .shop-preview-arrow svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .shop-preview-theme {
+      width: 80px;
+      height: 48px;
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+    }
+
+    .shop-preview-emoji {
+      font-size: 2rem;
+    }
+
+    .shop-preview-hint {
+      display: block;
+      width: 100%;
+      font-size: 0.65rem;
+      color: #7f8c8d;
+      margin-top: 2px;
     }
 
     .shop-item-button {
@@ -2837,14 +2908,23 @@
       }
     }
 
-    /* Page theme packs (on html) */
+    /* Page theme packs (on html) – richer, more distinctive */
     .page-theme-light {
       color: inherit;
     }
+    .page-theme-light body::before {
+      background-image: radial-gradient(circle at 20% 80%, rgba(52, 152, 219, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 80% 20%, rgba(46, 204, 113, 0.05) 0%, transparent 45%);
+    }
+
     .page-theme-dark body,
     html.page-theme-dark body {
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%) !important;
-      color: #e0e0e0 !important;
+      background: linear-gradient(145deg, #0f0f0f 0%, #1c1c1e 25%, #252528 50%, #1c1c1e 75%, #0f0f0f 100%) !important;
+      color: #e8e8e8 !important;
+    }
+    .page-theme-dark body::before {
+      background-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(138, 43, 226, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 150, 199, 0.06) 0%, transparent 50%);
     }
     .page-theme-dark main,
     .page-theme-dark .wrapper,
@@ -2859,23 +2939,28 @@
     .page-theme-dark .all-achievements-dialog,
     .page-theme-dark .reset-confirm-dialog,
     .page-theme-dark .shop-confirm-dialog {
-      background: linear-gradient(145deg, #2a2a2a 0%, #1e1e1e 100%) !important;
-      color: #e0e0e0 !important;
-      border-color: #444 !important;
+      background: linear-gradient(160deg, #232326 0%, #1a1a1d 50%, #141416 100%) !important;
+      color: #e8e8e8 !important;
+      border-color: #3d3d42 !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .page-theme-dark h1, .page-theme-dark h2, .page-theme-dark h3,
     .page-theme-dark .stats-label, .page-theme-dark .stats-value,
-    .page-theme-dark label { color: #e0e0e0 !important; }
+    .page-theme-dark label { color: #e8e8e8 !important; }
     .page-theme-dark select, .page-theme-dark input {
-      background: #333 !important;
-      color: #e0e0e0 !important;
-      border-color: #555 !important;
+      background: #2a2a2e !important;
+      color: #e8e8e8 !important;
+      border-color: #404044 !important;
     }
 
     .page-theme-midnight body,
     html.page-theme-midnight body {
-      background: linear-gradient(135deg, #0a0e17 0%, #1a2332 50%, #0a0e17 100%) !important;
-      color: #c5d4e8 !important;
+      background: linear-gradient(160deg, #050810 0%, #0e1628 20%, #151f3a 40%, #0e1628 70%, #050810 100%) !important;
+      color: #b8cde8 !important;
+    }
+    .page-theme-midnight body::before {
+      background-image: radial-gradient(ellipse 100% 60% at 50% 0%, rgba(59, 130, 246, 0.12) 0%, transparent 55%),
+        radial-gradient(circle at 10% 90%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
     }
     .page-theme-midnight main,
     .page-theme-midnight .wrapper,
@@ -2890,23 +2975,28 @@
     .page-theme-midnight .all-achievements-dialog,
     .page-theme-midnight .reset-confirm-dialog,
     .page-theme-midnight .shop-confirm-dialog {
-      background: linear-gradient(145deg, #15202e 0%, #0d1621 100%) !important;
-      color: #c5d4e8 !important;
-      border-color: #2a3f5f !important;
+      background: linear-gradient(165deg, #0f1a2e 0%, #0a1222 40%, #060d18 100%) !important;
+      color: #b8cde8 !important;
+      border-color: #1e3a5f !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(96, 165, 250, 0.08);
     }
     .page-theme-midnight h1, .page-theme-midnight h2, .page-theme-midnight h3,
     .page-theme-midnight .stats-label, .page-theme-midnight .stats-value,
-    .page-theme-midnight label { color: #c5d4e8 !important; }
+    .page-theme-midnight label { color: #b8cde8 !important; }
     .page-theme-midnight select, .page-theme-midnight input {
-      background: #1a2332 !important;
-      color: #c5d4e8 !important;
-      border-color: #2a3f5f !important;
+      background: #0e1628 !important;
+      color: #b8cde8 !important;
+      border-color: #1e3a5f !important;
     }
 
     .page-theme-ocean body,
     html.page-theme-ocean body {
-      background: linear-gradient(135deg, #0d2137 0%, #1a3a52 50%, #0d2137 100%) !important;
-      color: #c8e4f0 !important;
+      background: linear-gradient(160deg, #021c2e 0%, #0a3452 25%, #0d4a6e 50%, #0a3452 75%, #021c2e 100%) !important;
+      color: #b8e0f0 !important;
+    }
+    .page-theme-ocean body::before {
+      background-image: radial-gradient(ellipse 90% 50% at 30% 10%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 50% at 80% 90%, rgba(20, 184, 166, 0.1) 0%, transparent 50%);
     }
     .page-theme-ocean main,
     .page-theme-ocean .wrapper,
@@ -2921,17 +3011,18 @@
     .page-theme-ocean .all-achievements-dialog,
     .page-theme-ocean .reset-confirm-dialog,
     .page-theme-ocean .shop-confirm-dialog {
-      background: linear-gradient(145deg, #153d5c 0%, #0d2d47 100%) !important;
-      color: #c8e4f0 !important;
-      border-color: #2a6b8a !important;
+      background: linear-gradient(165deg, #0a3d5c 0%, #063550 40%, #042a40 100%) !important;
+      color: #b8e0f0 !important;
+      border-color: #0e6b8a !important;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(34, 211, 238, 0.1);
     }
     .page-theme-ocean h1, .page-theme-ocean h2, .page-theme-ocean h3,
     .page-theme-ocean .stats-label, .page-theme-ocean .stats-value,
-    .page-theme-ocean label { color: #c8e4f0 !important; }
+    .page-theme-ocean label { color: #b8e0f0 !important; }
     .page-theme-ocean select, .page-theme-ocean input {
-      background: #1a3a52 !important;
-      color: #c8e4f0 !important;
-      border-color: #2a6b8a !important;
+      background: #0a3452 !important;
+      color: #b8e0f0 !important;
+      border-color: #0e6b8a !important;
     }
 
     /* Move effects (on #board) */
@@ -3318,9 +3409,9 @@
           <label for="settings-move-effect">Move effect</label>
           <select id="settings-move-effect" onchange="applySettingsMoveEffect()"></select>
         </div>
-        <div class="settings-row">
-          <label for="settings-checkmate-effect">Checkmate effect</label>
-          <select id="settings-checkmate-effect" onchange="applySettingsCheckmateEffect()"></select>
+        <div class="settings-row settings-checkmate-addons-row">
+          <label>Checkmate add-ons</label>
+          <div id="settings-checkmate-addons" class="settings-checkmate-addons"></div>
         </div>
         <div class="settings-row">
           <label for="settings-time-control">Time control</label>
@@ -3419,7 +3510,25 @@
     
     function isUnlocked(category, itemId) {
       const unlocked = getUnlockedItems();
-      return unlocked[category].includes(itemId);
+      return (unlocked[category] || []).includes(itemId);
+    }
+
+    function getCheckmateAddonsEnabled() {
+      try {
+        const v = localStorage.getItem('checkmateAddonsEnabled');
+        return v ? JSON.parse(v) : [];
+      } catch (_) { return []; }
+    }
+    function setCheckmateAddonsEnabled(ids) {
+      localStorage.setItem('checkmateAddonsEnabled', JSON.stringify(ids));
+    }
+    function toggleCheckmateAddon(id) {
+      if (!isUnlocked('checkmateEffects', id)) return;
+      const enabled = getCheckmateAddonsEnabled();
+      const idx = enabled.indexOf(id);
+      if (idx >= 0) enabled.splice(idx, 1);
+      else enabled.push(id);
+      setCheckmateAddonsEnabled(enabled);
     }
     
     // Points spent in shop (persisted); spendable = total - spent
@@ -3509,10 +3618,9 @@
         { id: 'glow', name: 'Glow', price: 700, preview: '✨', coolness: 4, description: 'Subtle glow' }
       ],
       checkmateEffects: [
-        { id: 'default', name: 'Default', price: 0, preview: '🎭', coolness: 1, description: 'Standard celebration' },
-        { id: 'simple-pulse', name: 'Simple Pulse', price: 800, preview: '💓', coolness: 3, description: 'Minimal pulse' },
-        { id: 'confetti', name: 'Confetti', price: 1500, preview: '🎊', coolness: 5, description: 'Confetti burst' },
-        { id: 'fireworks', name: 'Fireworks', price: 2500, preview: '🎆', coolness: 8, description: 'Firework bursts' }
+        { id: 'confetti', name: 'Confetti', price: 1500, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
+        { id: 'fireworks', name: 'Fireworks', price: 2500, preview: '🎆', coolness: 8, description: 'Firework add-on' },
+        { id: 'pulse', name: 'Pulse', price: 800, preview: '💓', coolness: 3, description: 'Pulse add-on' }
       ],
       timeControls: [
         { id: 'none', name: 'None', price: 0, preview: '⏸️', coolness: 1, description: 'No time limit' },
@@ -3531,6 +3639,36 @@
     let currentPageTheme = 'light';
     let currentMoveEffect = 'default';
     let currentCheckmateEffect = 'default';
+
+    // Board preview colors for shop (white/black square styles)
+    const boardPreviewColors = {
+      classic: { w: 'linear-gradient(135deg,#f0d9b5,#e8d0a8)', b: 'linear-gradient(135deg,#b58863,#a67c52)' },
+      blue: { w: 'linear-gradient(135deg,#dee3e6,#d0d8dd)', b: 'linear-gradient(135deg,#8ca2ad,#7a95a3)' },
+      green: { w: 'linear-gradient(135deg,#ffffdd,#f5f5c8)', b: 'linear-gradient(135deg,#86a666,#75955a)' },
+      gray: { w: 'linear-gradient(135deg,#e8e8e8,#dcdcdc)', b: 'linear-gradient(135deg,#999,#888)' },
+      purple: { w: 'linear-gradient(135deg,#e8d4f2,#dfc5ed)', b: 'linear-gradient(135deg,#9b6db5,#8a5da0)' },
+      wood: { w: 'linear-gradient(135deg,#f4dec4,#ead4b0)', b: 'linear-gradient(135deg,#8b5a2b,#7a4a1f)' },
+      coral: { w: 'linear-gradient(135deg,#ffebcd,#ffe0b3)', b: 'linear-gradient(135deg,#cd853f,#b87333)' },
+      marble: { w: 'linear-gradient(135deg,#f5f5f0,#ecece5)', b: 'linear-gradient(135deg,#8b8680,#7d7872)' },
+      dark: { w: 'linear-gradient(135deg,#4a5568,#3d4758)', b: 'linear-gradient(135deg,#2d3748,#1a202c)' },
+      neon: { w: 'linear-gradient(135deg,#e0f7fa,#b2ebf2)', b: 'linear-gradient(135deg,#00acc1,#00838f)' },
+      emerald: { w: 'linear-gradient(135deg,#d5f5e3,#abebc6)', b: 'linear-gradient(135deg,#1e8449,#186a3b)' },
+      gold: { w: 'linear-gradient(135deg,#fef9e7,#fcf3cf)', b: 'linear-gradient(135deg,#d4ac0d,#b7950b)' },
+      ocean: { w: 'linear-gradient(135deg,#d6eaf8,#aed6f1)', b: 'linear-gradient(135deg,#1a5276,#154360)' },
+      sunset: { w: 'linear-gradient(135deg,#fdebd0,#f5cba7)', b: 'linear-gradient(135deg,#e74c3c,#c0392b)' },
+      midnight: { w: 'linear-gradient(135deg,#2c3e50,#1a252f)', b: 'linear-gradient(135deg,#0d1b2a,#0a1628)' },
+      forest: { w: 'linear-gradient(135deg,#e8f5e9,#c8e6c9)', b: 'linear-gradient(135deg,#2e7d32,#1b5e20)' },
+      royal: { w: 'linear-gradient(135deg,#f3e5f5,#e1bee7)', b: 'linear-gradient(135deg,#6a1b9a,#4a148c)' },
+      ice: { w: 'linear-gradient(135deg,#e0f7fa,#b2ebf2)', b: 'linear-gradient(135deg,#0097a7,#006064)' },
+      cherry: { w: 'linear-gradient(135deg,#ffebee,#ffcdd2)', b: 'linear-gradient(135deg,#c62828,#b71c1c)' },
+      '3d': { w: 'linear-gradient(145deg,#fff 0%,#e8e8e8 100%)', b: 'linear-gradient(145deg,#444,#2a2a2a)' },
+      glass: { w: 'linear-gradient(135deg,rgba(255,255,255,0.9),rgba(240,240,255,0.8))', b: 'linear-gradient(135deg,rgba(100,100,120,0.6),rgba(60,60,80,0.7))' },
+      carbon: { w: 'linear-gradient(135deg,#4a4a4a,#3a3a3a)', b: 'linear-gradient(135deg,#1a1a1a,#0d0d0d)' },
+      velvet: { w: 'linear-gradient(135deg,#ede7f6,#d1c4e9)', b: 'linear-gradient(135deg,#512da8,#311b92)' },
+      stone: { w: 'linear-gradient(135deg,#bdbdbd,#9e9e9e)', b: 'linear-gradient(135deg,#616161,#424242)' },
+      cyber: { w: 'linear-gradient(135deg,#00ff88,#00cc6a)', b: 'linear-gradient(135deg,#0d0d0d,#1a1a2e)' },
+      luxury: { w: 'linear-gradient(135deg,#fff8e1,#ffecb3)', b: 'linear-gradient(135deg,#ff8f00,#e65100)' }
+    };
     
     // Initialize arrow colors
     window.currentArrowColor = 'rgba(250, 180, 0, 0.7)';
@@ -4758,6 +4896,79 @@
       });
       renderShopItems();
     }
+
+    function renderShopPreview(category, item) {
+      const wrap = document.createElement('div');
+      wrap.className = 'shop-item-preview-inner';
+      const colorMap = {
+        red: { h: 'rgba(200,0,0,0.5)', a: 'rgba(250,180,0,0.9)' },
+        blue: { h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+        green: { h: 'rgba(46,204,113,0.5)', a: 'rgba(46,204,113,0.9)' },
+        purple: { h: 'rgba(155,89,182,0.5)', a: 'rgba(155,89,182,0.9)' },
+        gold: { h: 'rgba(241,196,15,0.5)', a: 'rgba(241,196,15,0.9)' },
+        orange: { h: 'rgba(243,156,18,0.5)', a: 'rgba(243,156,18,0.9)' },
+        pink: { h: 'rgba(236,112,99,0.5)', a: 'rgba(236,112,99,0.9)' },
+        cyan: { h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+        rainbow: { h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
+      };
+      const themePreviews = {
+        light: 'linear-gradient(135deg,#f0f4f8 0%,#e8f2f7 50%,#f0f4f8 100%)',
+        dark: 'linear-gradient(135deg,#1a1a1a 0%,#2d2d2d 50%,#1a1a1a 100%)',
+        midnight: 'linear-gradient(135deg,#0a0e17 0%,#1a2332 50%,#0a0e17 100%)',
+        ocean: 'linear-gradient(135deg,#0d2137 0%,#1a3a52 50%,#0d2137 100%)'
+      };
+      if (category === 'boards' && boardPreviewColors[item.id]) {
+        const g = document.createElement('div');
+        g.className = 'shop-preview-board';
+        g.setAttribute('aria-label', 'Board preview');
+        const c = boardPreviewColors[item.id];
+        for (let r = 0; r < 4; r++) {
+          for (let col = 0; col < 4; col++) {
+            const cell = document.createElement('div');
+            cell.className = 'shop-preview-cell';
+            cell.style.background = (r + col) % 2 === 0 ? c.w : c.b;
+            g.appendChild(cell);
+          }
+        }
+        wrap.appendChild(g);
+      } else if (category === 'pieces' && typeof pieceThemes !== 'undefined' && pieceThemes[item.id]) {
+        const tpl = pieceThemes[item.id];
+        const pieces = ['wK', 'bK', 'wQ', 'wp'];
+        pieces.forEach(p => {
+          const img = document.createElement('img');
+          img.src = tpl.replace('{piece}', p);
+          img.alt = p;
+          img.className = 'shop-preview-piece';
+          wrap.appendChild(img);
+        });
+      } else if (category === 'colors' && colorMap[item.id]) {
+        const swatch = document.createElement('div');
+        swatch.className = 'shop-preview-swatch';
+        swatch.style.background = colorMap[item.id].h;
+        wrap.appendChild(swatch);
+        const arr = document.createElement('div');
+        arr.className = 'shop-preview-arrow';
+        arr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + (colorMap[item.id].a || colorMap[item.id].h) + '" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+        wrap.appendChild(arr);
+      } else if (category === 'themes' && themePreviews[item.id]) {
+        const th = document.createElement('div');
+        th.className = 'shop-preview-theme';
+        th.style.background = themePreviews[item.id];
+        wrap.appendChild(th);
+      } else {
+        const emoji = document.createElement('span');
+        emoji.className = 'shop-preview-emoji';
+        emoji.textContent = item.preview || '?';
+        wrap.appendChild(emoji);
+        if (['moveEffects', 'checkmateEffects', 'timeControls'].includes(category)) {
+          const hint = document.createElement('span');
+          hint.className = 'shop-preview-hint';
+          hint.textContent = 'Preview in game';
+          wrap.appendChild(hint);
+        }
+      }
+      return wrap;
+    }
     
     function renderShopItems() {
       const container = document.getElementById('shop-items-container');
@@ -4771,7 +4982,7 @@
       const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
       const currentTheme = localStorage.getItem('pageTheme') || 'light';
       const currentMove = localStorage.getItem('moveEffect') || 'default';
-      const currentCheckmate = localStorage.getItem('checkmateEffect') || 'default';
+      const checkmateEnabled = getCheckmateAddonsEnabled();
       const currentTime = (document.getElementById('time-control') && document.getElementById('time-control').value) || 'none';
       const spendable = getSpendablePoints();
       
@@ -4782,9 +4993,10 @@
                           (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor)) ||
                           (currentShopTab === 'themes' && item.id === currentTheme) ||
                           (currentShopTab === 'moveEffects' && item.id === currentMove) ||
-                          (currentShopTab === 'checkmateEffects' && item.id === currentCheckmate) ||
+                          (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
                           (currentShopTab === 'timeControls' && item.id === currentTime);
         const canAfford = item.price <= spendable;
+        const isCheckmateAddon = currentShopTab === 'checkmateEffects';
         
         const itemDiv = document.createElement('div');
         itemDiv.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
@@ -4803,7 +5015,8 @@
         
         const previewDiv = document.createElement('div');
         previewDiv.className = 'shop-item-preview';
-        previewDiv.textContent = item.preview;
+        const previewContent = renderShopPreview(currentShopTab, item);
+        previewDiv.appendChild(previewContent);
         itemDiv.appendChild(previewDiv);
         
         if (item.description) {
@@ -4829,7 +5042,11 @@
         const button = document.createElement('button');
         button.className = 'shop-item-button';
         if (isUnlocked) {
-          if (isEquipped) {
+          if (isCheckmateAddon) {
+            button.textContent = (isEquipped ? 'Enabled' : 'Enable') + ' (Settings)';
+            button.classList.add(isEquipped ? 'equipped' : 'equip');
+            if (!isEquipped) button.onclick = () => { toggleCheckmateAddon(item.id); renderShopItems(); };
+          } else if (isEquipped) {
             button.textContent = 'Equipped';
             button.classList.add('equipped');
             button.disabled = true;
@@ -4893,8 +5110,7 @@
         applyMoveEffect(itemId);
         localStorage.setItem('moveEffect', itemId);
       } else if (category === 'checkmateEffects') {
-        currentCheckmateEffect = itemId;
-        localStorage.setItem('checkmateEffect', itemId);
+        toggleCheckmateAddon(itemId);
       } else if (category === 'timeControls') {
         const sel = document.getElementById('time-control');
         if (sel) {
@@ -5280,11 +5496,11 @@
 
       const themeSel = document.getElementById('settings-page-theme');
       const moveSel = document.getElementById('settings-move-effect');
-      const checkmateSel = document.getElementById('settings-checkmate-effect');
+      const checkmateAddonsEl = document.getElementById('settings-checkmate-addons');
       const timeSel = document.getElementById('settings-time-control');
       const currentTheme = localStorage.getItem('pageTheme') || 'light';
       const currentMove = localStorage.getItem('moveEffect') || 'default';
-      const currentCheckmate = localStorage.getItem('checkmateEffect') || 'default';
+      const checkmateEnabled = getCheckmateAddonsEnabled();
       const currentTime = (document.getElementById('time-control') && document.getElementById('time-control').value) || 'none';
 
       if (themeSel && shopItems.themes) {
@@ -5311,17 +5527,30 @@
         });
         moveSel.value = (unlocked.moveEffects || []).includes(currentMove) ? currentMove : ((unlocked.moveEffects && unlocked.moveEffects[0]) || 'default');
       }
-      if (checkmateSel && shopItems.checkmateEffects) {
-        checkmateSel.innerHTML = '';
+      if (checkmateAddonsEl && shopItems.checkmateEffects) {
+        checkmateAddonsEl.innerHTML = '';
         shopItems.checkmateEffects.forEach(c => {
-          if ((unlocked.checkmateEffects || []).includes(c.id)) {
-            const o = document.createElement('option');
-            o.value = c.id;
-            o.textContent = c.name;
-            checkmateSel.appendChild(o);
-          }
+          if (!(unlocked.checkmateEffects || []).includes(c.id)) return;
+          const label = document.createElement('label');
+          label.className = 'settings-checkmate-addon';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = checkmateEnabled.includes(c.id);
+          cb.dataset.addon = c.id;
+          cb.addEventListener('change', () => {
+            toggleCheckmateAddon(c.id);
+            updateSettingsDropdowns();
+          });
+          label.appendChild(cb);
+          label.appendChild(document.createTextNode(' ' + c.name));
+          checkmateAddonsEl.appendChild(label);
         });
-        checkmateSel.value = (unlocked.checkmateEffects || []).includes(currentCheckmate) ? currentCheckmate : ((unlocked.checkmateEffects && unlocked.checkmateEffects[0]) || 'default');
+        if (checkmateAddonsEl.children.length === 0) {
+          const span = document.createElement('span');
+          span.className = 'settings-checkmate-none';
+          span.textContent = 'None unlocked. Buy add-ons in the Shop.';
+          checkmateAddonsEl.appendChild(span);
+        }
       }
       if (timeSel && shopItems.timeControls) {
         timeSel.innerHTML = '';
@@ -5409,11 +5638,7 @@
     }
 
     function applySettingsCheckmateEffect() {
-      const sel = document.getElementById('settings-checkmate-effect');
-      if (!sel) return;
-      const v = sel.value;
-      currentCheckmateEffect = v;
-      localStorage.setItem('checkmateEffect', v);
+      /* Checkmate add-ons handled via checkboxes in settings-checkmate-addons */
     }
 
     function applySettingsTimeControl() {
@@ -7260,156 +7485,58 @@ function navigateToPreviousMove() {
     }
 
     function celebrateDraw(drawReason) {
-      const effect = localStorage.getItem('checkmateEffect') || currentCheckmateEffect || 'default';
-      if (effect === 'simple-pulse') {
-        const flash = document.createElement('div');
-        flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,rgba(243,156,18,0.3) 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
-        document.body.appendChild(flash);
-        setTimeout(() => flash.remove(), 600);
-        const txt = document.createElement('div');
-        txt.className = 'draw-text';
-        txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;color:#f39c12;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;';
-        txt.innerHTML = '<span>Draw!</span>';
-        document.body.appendChild(txt);
-        setTimeout(() => { txt.style.opacity = '0'; txt.style.transition = 'opacity 0.4s'; setTimeout(() => txt.remove(), 400); }, 1500);
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl.style.animation = 'drawPulse 0.8s ease-in-out 1';
-          setTimeout(() => { boardEl.style.animation = ''; }, 1000);
-        }
-        return;
-      }
+      const addons = typeof getCheckmateAddonsEnabled === 'function' ? getCheckmateAddonsEnabled() : [];
 
-      // === DRAW CELEBRATION - UNIQUE ANIMATION ===
-      
-      // Screen flash effect (orange/yellow gradient)
-      const screenFlash = document.createElement('div');
-      screenFlash.style.position = 'fixed';
-      screenFlash.style.top = '0';
-      screenFlash.style.left = '0';
-      screenFlash.style.width = '100%';
-      screenFlash.style.height = '100%';
-      screenFlash.style.background = 'radial-gradient(circle, rgba(243, 156, 18, 0.4) 0%, rgba(230, 126, 34, 0.3) 50%, transparent 100%)';
-      screenFlash.style.pointerEvents = 'none';
-      screenFlash.style.zIndex = '9997';
-      screenFlash.style.animation = 'screenFlash 1s ease-out';
-      document.body.appendChild(screenFlash);
-      setTimeout(() => screenFlash.remove(), 1000);
+      // Base: subtle flash + "Draw!" text (always)
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,rgba(243,156,18,0.25) 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
+      document.body.appendChild(flash);
+      setTimeout(() => flash.remove(), 600);
+      const txt = document.createElement('div');
+      txt.className = 'draw-text';
+      txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;color:#f39c12;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:8px;';
+      txt.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="15" x2="16" y2="15"/></svg><span>Draw!</span>';
+      document.body.appendChild(txt);
+      setTimeout(() => { txt.style.transition = 'opacity 0.4s'; txt.style.opacity = '0'; setTimeout(() => txt.remove(), 400); }, 1800);
 
-      // Draw text animation with icon
-      const drawText = document.createElement('div');
-      drawText.className = 'draw-text';
-      drawText.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 4em;
-        font-weight: 900;
-        color: #f39c12;
-        text-shadow: 0 0 30px rgba(243, 156, 18, 0.8), 0 0 60px rgba(230, 126, 34, 0.6);
-        z-index: 9998;
-        font-family: 'Inter', sans-serif;
-        pointer-events: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      `;
-      const drawIcon = document.createElement('div');
-      drawIcon.innerHTML = '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="15" x2="16" y2="15"/></svg>';
-      drawIcon.style.color = '#f39c12';
-      drawText.appendChild(drawIcon);
-      const drawLabel = document.createElement('span');
-      drawLabel.textContent = 'Draw!';
-      drawText.appendChild(drawLabel);
-      drawText.style.animation = 'textPop 1.2s ease-out';
-      document.body.appendChild(drawText);
-      setTimeout(() => {
-        drawText.style.transition = 'opacity 0.5s ease-out';
-        drawText.style.opacity = '0';
-        setTimeout(() => drawText.remove(), 500);
-      }, 2500);
-
-      // Overlay for draw effects
+      // Add-on: confetti
+      if (addons.includes('confetti')) {
         const overlay = document.createElement('div');
-      overlay.className = 'draw-overlay';
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        z-index: 9996;
-      `;
+        overlay.className = 'draw-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9996;';
         document.body.appendChild(overlay);
-
-      // Generate orange/yellow confetti
-      const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
-      const shapes = ['circle', 'rect', 'star'];
-      
+        const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
+        const shapes = ['circle', 'rect', 'star'];
         for (let i = 0; i < 200; i++) {
           setTimeout(() => {
-            const confetti = document.createElement('div');
-          const shape = shapes[Math.floor(Math.random() * shapes.length)];
-          confetti.className = 'confetti ' + shape;
-            confetti.style.left = Math.random() * 100 + '%';
-          confetti.style.top = -20 + 'px';
-            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-          const size = Math.random() * 15 + 5;
-          confetti.style.width = size + 'px';
-          confetti.style.height = size + 'px';
-            confetti.style.opacity = Math.random() * 0.5 + 0.5;
-          const drift = (Math.random() - 0.5) * 150;
-          confetti.style.setProperty('--drift', drift + 'px');
-            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
-          confetti.style.animationDelay = (Math.random() * 0.2) + 's';
-            overlay.appendChild(confetti);
-          setTimeout(() => confetti.remove(), 4000);
-        }, i * 10);
+            const c = document.createElement('div');
+            c.className = 'confetti ' + shapes[Math.floor(Math.random() * shapes.length)];
+            c.style.left = Math.random() * 100 + '%';
+            c.style.top = '-20px';
+            c.style.background = colors[Math.floor(Math.random() * colors.length)];
+            const s = Math.random() * 15 + 5;
+            c.style.width = s + 'px';
+            c.style.height = s + 'px';
+            c.style.opacity = Math.random() * 0.5 + 0.5;
+            c.style.setProperty('--drift', (Math.random() - 0.5) * 150 + 'px');
+            c.style.animation = `confetti-fall ${(Math.random() * 2 + 2)}s linear forwards`;
+            c.style.animationDelay = (Math.random() * 0.2) + 's';
+            overlay.appendChild(c);
+            setTimeout(() => c.remove(), 4000);
+          }, i * 10);
+        }
+        setTimeout(() => overlay.remove(), 5000);
       }
 
-      // Gentle pulse effect on board (orange glow)
-      const board = document.getElementById('board');
-      if (board) {
-        board.style.animation = 'drawPulse 1.5s ease-in-out 3';
-        board.style.transition = 'all 0.3s ease';
-        board.style.boxShadow = '0 0 80px rgba(243, 156, 18, 0.6), 0 0 120px rgba(230, 126, 34, 0.4)';
-        setTimeout(() => {
-          board.style.animation = '';
-          board.style.boxShadow = '';
-        }, 5000);
+      // Add-on: pulse
+      if (addons.includes('pulse')) {
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl.style.animation = 'drawPulse 1.5s ease-in-out 3';
+          boardEl.style.boxShadow = '0 0 80px rgba(243,156,18,0.6), 0 0 120px rgba(230,126,34,0.4)';
+          setTimeout(() => { boardEl.style.animation = ''; boardEl.style.boxShadow = ''; }, 5000);
+        }
       }
-
-      // Ripple effects from board center (orange)
-      const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
-      const centerX = boardRect.left + boardRect.width / 2;
-      const centerY = boardRect.top + boardRect.height / 2;
-
-      for (let r = 0; r < 4; r++) {
-        setTimeout(() => {
-          const ripple = document.createElement('div');
-          ripple.style.cssText = `
-            position: fixed;
-            left: ${centerX}px;
-            top: ${centerY}px;
-            width: 30px;
-            height: 30px;
-            margin-left: -15px;
-            margin-top: -15px;
-            border: 3px solid rgba(243, 156, 18, 0.6);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 9995;
-          `;
-          ripple.style.animation = `drawRipple ${2}s ease-out`;
-          document.body.appendChild(ripple);
-          setTimeout(() => ripple.remove(), 2000);
-        }, r * 300);
-      }
-
-      setTimeout(() => overlay.remove(), 5000);
     }
 
     function celebrateCheckmate(playerWon) {
@@ -10340,7 +10467,7 @@ function navigateToPreviousMove() {
         colors: ['red'],
         themes: ['light'],
         moveEffects: ['default'],
-        checkmateEffects: ['default'],
+        checkmateEffects: [],
         timeControls: ['none']
       });
       
