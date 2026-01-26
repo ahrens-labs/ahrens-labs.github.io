@@ -1858,6 +1858,7 @@
 
     .shop-tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
       border-bottom: 2px solid #e9ecef;
@@ -2835,6 +2836,125 @@
         min-width: 200px;
       }
     }
+
+    /* Page theme packs (on html) */
+    .page-theme-light {
+      color: inherit;
+    }
+    .page-theme-dark body,
+    html.page-theme-dark body {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%) !important;
+      color: #e0e0e0 !important;
+    }
+    .page-theme-dark main,
+    .page-theme-dark .wrapper,
+    .page-theme-dark #choose-side,
+    .page-theme-dark #game-stats-panel,
+    .page-theme-dark #notation-container,
+    .page-theme-dark #player-stats-panel,
+    .page-theme-dark #achievements-panel,
+    .page-theme-dark .rematch-dialog,
+    .page-theme-dark .shop-dialog,
+    .page-theme-dark .settings-dialog,
+    .page-theme-dark .all-achievements-dialog,
+    .page-theme-dark .reset-confirm-dialog,
+    .page-theme-dark .shop-confirm-dialog {
+      background: linear-gradient(145deg, #2a2a2a 0%, #1e1e1e 100%) !important;
+      color: #e0e0e0 !important;
+      border-color: #444 !important;
+    }
+    .page-theme-dark h1, .page-theme-dark h2, .page-theme-dark h3,
+    .page-theme-dark .stats-label, .page-theme-dark .stats-value,
+    .page-theme-dark label { color: #e0e0e0 !important; }
+    .page-theme-dark select, .page-theme-dark input {
+      background: #333 !important;
+      color: #e0e0e0 !important;
+      border-color: #555 !important;
+    }
+
+    .page-theme-midnight body,
+    html.page-theme-midnight body {
+      background: linear-gradient(135deg, #0a0e17 0%, #1a2332 50%, #0a0e17 100%) !important;
+      color: #c5d4e8 !important;
+    }
+    .page-theme-midnight main,
+    .page-theme-midnight .wrapper,
+    .page-theme-midnight #choose-side,
+    .page-theme-midnight #game-stats-panel,
+    .page-theme-midnight #notation-container,
+    .page-theme-midnight #player-stats-panel,
+    .page-theme-midnight #achievements-panel,
+    .page-theme-midnight .rematch-dialog,
+    .page-theme-midnight .shop-dialog,
+    .page-theme-midnight .settings-dialog,
+    .page-theme-midnight .all-achievements-dialog,
+    .page-theme-midnight .reset-confirm-dialog,
+    .page-theme-midnight .shop-confirm-dialog {
+      background: linear-gradient(145deg, #15202e 0%, #0d1621 100%) !important;
+      color: #c5d4e8 !important;
+      border-color: #2a3f5f !important;
+    }
+    .page-theme-midnight h1, .page-theme-midnight h2, .page-theme-midnight h3,
+    .page-theme-midnight .stats-label, .page-theme-midnight .stats-value,
+    .page-theme-midnight label { color: #c5d4e8 !important; }
+    .page-theme-midnight select, .page-theme-midnight input {
+      background: #1a2332 !important;
+      color: #c5d4e8 !important;
+      border-color: #2a3f5f !important;
+    }
+
+    .page-theme-ocean body,
+    html.page-theme-ocean body {
+      background: linear-gradient(135deg, #0d2137 0%, #1a3a52 50%, #0d2137 100%) !important;
+      color: #c8e4f0 !important;
+    }
+    .page-theme-ocean main,
+    .page-theme-ocean .wrapper,
+    .page-theme-ocean #choose-side,
+    .page-theme-ocean #game-stats-panel,
+    .page-theme-ocean #notation-container,
+    .page-theme-ocean #player-stats-panel,
+    .page-theme-ocean #achievements-panel,
+    .page-theme-ocean .rematch-dialog,
+    .page-theme-ocean .shop-dialog,
+    .page-theme-ocean .settings-dialog,
+    .page-theme-ocean .all-achievements-dialog,
+    .page-theme-ocean .reset-confirm-dialog,
+    .page-theme-ocean .shop-confirm-dialog {
+      background: linear-gradient(145deg, #153d5c 0%, #0d2d47 100%) !important;
+      color: #c8e4f0 !important;
+      border-color: #2a6b8a !important;
+    }
+    .page-theme-ocean h1, .page-theme-ocean h2, .page-theme-ocean h3,
+    .page-theme-ocean .stats-label, .page-theme-ocean .stats-value,
+    .page-theme-ocean label { color: #c8e4f0 !important; }
+    .page-theme-ocean select, .page-theme-ocean input {
+      background: #1a3a52 !important;
+      color: #c8e4f0 !important;
+      border-color: #2a6b8a !important;
+    }
+
+    /* Move effects (on #board) */
+    #board.move-effect-slide .piece-417db,
+    #board.move-effect-slide img[data-piece] {
+      transition: left 0.18s linear, top 0.18s linear !important;
+    }
+    #board.move-effect-bounce .piece-417db,
+    #board.move-effect-bounce img[data-piece] {
+      transition: left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    }
+    #board.move-effect-pop .piece-417db,
+    #board.move-effect-pop img[data-piece] {
+      transition: left 0.2s ease-out, top 0.2s ease-out, transform 0.2s ease-out !important;
+    }
+    #board.move-effect-glow .piece-417db,
+    #board.move-effect-glow img[data-piece] {
+      animation: piece-glow 2.5s ease-in-out infinite;
+    }
+    @keyframes piece-glow {
+      0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.3)); }
+      50% { filter: drop-shadow(0 0 8px rgba(255,255,255,0.6)); }
+    }
   </style>
 </head>
 <body>
@@ -2872,7 +2992,7 @@
       <select id="time-control">
         <option value="none">None</option>
         <option value="60">1 min</option>
-        <option value="180|2">3 | 2</option>egal 
+        <option value="180|2">3 | 2</option>
         <option value="300|0">5 min</option>
         <option value="600|0">10 min</option>
         <option value="900|5">15 | 5</option>
@@ -3157,9 +3277,13 @@
       </div>
       <div class="shop-content">
         <div class="shop-tabs">
-          <button class="shop-tab active" onclick="switchShopTab('boards')">🎨 Board Styles</button>
-          <button class="shop-tab" onclick="switchShopTab('pieces')">♟️ Piece Styles</button>
+          <button class="shop-tab active" onclick="switchShopTab('boards')">🎨 Boards</button>
+          <button class="shop-tab" onclick="switchShopTab('pieces')">♟️ Pieces</button>
           <button class="shop-tab" onclick="switchShopTab('colors')">🎨 Colors</button>
+          <button class="shop-tab" onclick="switchShopTab('themes')">🌓 Themes</button>
+          <button class="shop-tab" onclick="switchShopTab('moveEffects')">➡️ Move</button>
+          <button class="shop-tab" onclick="switchShopTab('checkmateEffects')">🎉 Checkmate</button>
+          <button class="shop-tab" onclick="switchShopTab('timeControls')">⏱️ Time</button>
         </div>
         <div id="shop-items-container" class="shop-items-container"></div>
       </div>
@@ -3186,6 +3310,25 @@
           <label for="settings-highlight-color">Highlight &amp; arrow color</label>
           <select id="settings-highlight-color" onchange="applySettingsColor()"></select>
         </div>
+        <div class="settings-row">
+          <label for="settings-page-theme">Page theme</label>
+          <select id="settings-page-theme" onchange="applySettingsTheme()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-move-effect">Move effect</label>
+          <select id="settings-move-effect" onchange="applySettingsMoveEffect()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-checkmate-effect">Checkmate effect</label>
+          <select id="settings-checkmate-effect" onchange="applySettingsCheckmateEffect()"></select>
+        </div>
+        <div class="settings-row">
+          <label for="settings-time-control">Time control</label>
+          <select id="settings-time-control" onchange="applySettingsTimeControl()"></select>
+        </div>
+        <div class="settings-row" style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e9ecef;">
+          <button id="reset-achievements-btn" style="width: 100%; padding: 12px 20px; background: linear-gradient(135deg, #e67e22, #d35400); color: white; border: none; border-radius: 10px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 1em; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(230, 126, 34, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">Reset All Achievements</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3196,7 +3339,6 @@
       <div class="achievements-header">
         <h2><span class="trophy-emoji">🏆</span> All Achievements</h2>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <button id="reset-achievements-btn" style="background: #e67e22; color: white; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease;" onmouseover="this.style.background='#d35400'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='#e67e22'; this.style.transform=''">Reset All</button>
           <button class="close-achievements-btn" onclick="closeAllAchievements()">×</button>
         </div>
       </div>
@@ -3237,16 +3379,27 @@
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
     
     // Shop system - unlock tracking
+    const defaultUnlocked = {
+      boards: ['classic'],
+      pieces: ['classic'],
+      colors: ['red'],
+      themes: ['light'],
+      moveEffects: ['default'],
+      checkmateEffects: ['default'],
+      timeControls: ['none']
+    };
+
     function getUnlockedItems() {
       const stored = localStorage.getItem('unlockedItems');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      // Initialize with Classic board, Classic pieces, and Red color unlocked
+      const parsed = stored ? JSON.parse(stored) : {};
       return {
-        boards: ['classic'],
-        pieces: ['classic'],
-        colors: ['red']
+        boards: parsed.boards || defaultUnlocked.boards,
+        pieces: parsed.pieces || defaultUnlocked.pieces,
+        colors: parsed.colors || defaultUnlocked.colors,
+        themes: parsed.themes || defaultUnlocked.themes,
+        moveEffects: parsed.moveEffects || defaultUnlocked.moveEffects,
+        checkmateEffects: parsed.checkmateEffects || defaultUnlocked.checkmateEffects,
+        timeControls: parsed.timeControls || defaultUnlocked.timeControls
       };
     }
     
@@ -3341,12 +3494,43 @@
         { id: 'pink', name: 'Pink Highlights/Arrows', price: 2800, preview: '🩷', coolness: 5, description: 'Pretty pink' },
         { id: 'cyan', name: 'Cyan Highlights/Arrows', price: 3400, preview: '🔷', coolness: 6, description: 'Electric cyan' },
         { id: 'rainbow', name: 'Rainbow Highlights/Arrows', price: 6500, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+      ],
+      themes: [
+        { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
+        { id: 'dark', name: 'Dark', price: 2500, preview: '🌑', coolness: 5, description: 'Dark page theme' },
+        { id: 'midnight', name: 'Midnight', price: 3500, preview: '🌙', coolness: 7, description: 'Deep blue-black' },
+        { id: 'ocean', name: 'Ocean', price: 3500, preview: '🌊', coolness: 7, description: 'Blue-teal page' }
+      ],
+      moveEffects: [
+        { id: 'default', name: 'Default', price: 0, preview: '➡️', coolness: 1, description: 'Standard move' },
+        { id: 'slide', name: 'Slide', price: 500, preview: '⏩', coolness: 3, description: 'Smooth slide' },
+        { id: 'bounce', name: 'Bounce', price: 1000, preview: '↩️', coolness: 5, description: 'Bouncy landing' },
+        { id: 'pop', name: 'Pop', price: 1200, preview: '💫', coolness: 6, description: 'Pop on land' },
+        { id: 'glow', name: 'Glow', price: 700, preview: '✨', coolness: 4, description: 'Subtle glow' }
+      ],
+      checkmateEffects: [
+        { id: 'default', name: 'Default', price: 0, preview: '🎭', coolness: 1, description: 'Standard celebration' },
+        { id: 'simple-pulse', name: 'Simple Pulse', price: 800, preview: '💓', coolness: 3, description: 'Minimal pulse' },
+        { id: 'confetti', name: 'Confetti', price: 1500, preview: '🎊', coolness: 5, description: 'Confetti burst' },
+        { id: 'fireworks', name: 'Fireworks', price: 2500, preview: '🎆', coolness: 8, description: 'Firework bursts' }
+      ],
+      timeControls: [
+        { id: 'none', name: 'None', price: 0, preview: '⏸️', coolness: 1, description: 'No time limit' },
+        { id: '60', name: '1 min', price: 3000, preview: '1️⃣', coolness: 5, description: '1 minute' },
+        { id: '180|2', name: '3 | 2', price: 4000, preview: '3️⃣', coolness: 6, description: '3 min + 2s' },
+        { id: '300|0', name: '5 min', price: 5000, preview: '5️⃣', coolness: 7, description: '5 minutes' },
+        { id: '600|0', name: '10 min', price: 6000, preview: '🔟', coolness: 8, description: '10 minutes' },
+        { id: '900|5', name: '15 | 5', price: 7000, preview: '1️⃣5️⃣', coolness: 9, description: '15 min + 5s' },
+        { id: '3600|0', name: '60 min', price: 8000, preview: '⏱️', coolness: 10, description: '60 minutes' }
       ]
     };
     
     let currentShopTab = 'boards';
     let currentHighlightColor = 'red';
     let currentArrowColor = 'red';
+    let currentPageTheme = 'light';
+    let currentMoveEffect = 'default';
+    let currentCheckmateEffect = 'default';
     
     // Initialize arrow colors
     window.currentArrowColor = 'rgba(250, 180, 0, 0.7)';
@@ -4458,7 +4642,8 @@
       
       // Ensure arrow overlay exists (it may have been removed by board.destroy())
       ensureArrowOverlay();
-      
+      applyMoveEffect(currentMoveEffect);
+
       // Initialize right-click handlers after board is created
       setTimeout(() => {
         const boardEl = document.getElementById('board');
@@ -4471,14 +4656,22 @@
     }
     
     // Shop Functions
+    function getCheatPoints() {
+      return parseInt(localStorage.getItem('cheatPoints') || '0', 10);
+    }
+    function addCheatPoints(amount) {
+      const n = getCheatPoints() + amount;
+      localStorage.setItem('cheatPoints', String(n));
+    }
     function getTotalPoints() {
       const allAchievements = getAllAchievementsList();
-      return allAchievements.reduce((sum, ach) => {
+      const fromAchievements = allAchievements.reduce((sum, ach) => {
         if (achievements.includes(ach.id) && ach.points) {
           return sum + ach.points;
         }
         return sum;
       }, 0);
+      return fromAchievements + getCheatPoints();
     }
     
     function showShop() {
@@ -4554,16 +4747,14 @@
       }
     }
     
+    const shopTabOrder = ['boards', 'pieces', 'colors', 'themes', 'moveEffects', 'checkmateEffects', 'timeControls'];
     function switchShopTab(tab) {
       currentShopTab = tab;
       const tabs = document.querySelectorAll('.shop-tab');
-      tabs.forEach((t, index) => {
+      const idx = shopTabOrder.indexOf(tab);
+      tabs.forEach((t, i) => {
         t.classList.remove('active');
-        if ((tab === 'boards' && index === 0) || 
-            (tab === 'pieces' && index === 1) || 
-            (tab === 'colors' && index === 2)) {
-          t.classList.add('active');
-        }
+        if (i === idx) t.classList.add('active');
       });
       renderShopItems();
     }
@@ -4574,16 +4765,25 @@
       
       container.innerHTML = '';
       const items = shopItems[currentShopTab];
+      if (!items) return;
       const unlocked = getUnlockedItems();
       const currentBoardStyle = localStorage.getItem('chessboardStyle') || 'classic';
       const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
+      const currentTheme = localStorage.getItem('pageTheme') || 'light';
+      const currentMove = localStorage.getItem('moveEffect') || 'default';
+      const currentCheckmate = localStorage.getItem('checkmateEffect') || 'default';
+      const currentTime = (document.getElementById('time-control') && document.getElementById('time-control').value) || 'none';
       const spendable = getSpendablePoints();
       
       items.forEach(item => {
-        const isUnlocked = unlocked[currentShopTab].includes(item.id);
+        const isUnlocked = (unlocked[currentShopTab] || []).includes(item.id);
         const isEquipped = (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
                           (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
-                          (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor));
+                          (currentShopTab === 'colors' && (item.id === currentHighlightColor || item.id === currentArrowColor)) ||
+                          (currentShopTab === 'themes' && item.id === currentTheme) ||
+                          (currentShopTab === 'moveEffects' && item.id === currentMove) ||
+                          (currentShopTab === 'checkmateEffects' && item.id === currentCheckmate) ||
+                          (currentShopTab === 'timeControls' && item.id === currentTime);
         const canAfford = item.price <= spendable;
         
         const itemDiv = document.createElement('div');
@@ -4684,6 +4884,23 @@
         applyColorTheme(itemId);
         localStorage.setItem('highlightColor', itemId);
         localStorage.setItem('arrowColor', itemId);
+      } else if (category === 'themes') {
+        currentPageTheme = itemId;
+        applyPageTheme(itemId);
+        localStorage.setItem('pageTheme', itemId);
+      } else if (category === 'moveEffects') {
+        currentMoveEffect = itemId;
+        applyMoveEffect(itemId);
+        localStorage.setItem('moveEffect', itemId);
+      } else if (category === 'checkmateEffects') {
+        currentCheckmateEffect = itemId;
+        localStorage.setItem('checkmateEffect', itemId);
+      } else if (category === 'timeControls') {
+        const sel = document.getElementById('time-control');
+        if (sel) {
+          sel.value = itemId;
+          localStorage.setItem('timeControl', itemId);
+        }
       }
       renderShopItems();
     }
@@ -4893,6 +5110,20 @@
         drawArrows();
       }
     }
+
+    function applyPageTheme(themeId) {
+      currentPageTheme = themeId;
+      document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean');
+      document.documentElement.classList.add('page-theme-' + themeId);
+    }
+
+    function applyMoveEffect(effectId) {
+      currentMoveEffect = effectId;
+      const boardEl = document.getElementById('board');
+      if (!boardEl) return;
+      boardEl.classList.remove('move-effect-default', 'move-effect-slide', 'move-effect-bounce', 'move-effect-pop', 'move-effect-glow');
+      boardEl.classList.add('move-effect-' + effectId);
+    }
     
     function updateStyleDropdowns() {
       const unlocked = getUnlockedItems();
@@ -4949,6 +5180,33 @@
         } else {
           pieceSelect.value = 'classic';
           changePieceStyle();
+        }
+      }
+
+      // Update time control dropdown (only unlocked)
+      const timeSelect = document.getElementById('time-control');
+      if (timeSelect && shopItems.timeControls) {
+        const currentValue = timeSelect.value || 'none';
+        timeSelect.innerHTML = '';
+        shopItems.timeControls.forEach(tc => {
+          if ((unlocked.timeControls || []).includes(tc.id)) {
+            const opt = document.createElement('option');
+            opt.value = tc.id;
+            opt.textContent = tc.name;
+            timeSelect.appendChild(opt);
+          }
+        });
+        if (timeSelect.options.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = 'none';
+          opt.textContent = 'None';
+          timeSelect.appendChild(opt);
+          unlockItem('timeControls', 'none');
+        }
+        if ((unlocked.timeControls || []).includes(currentValue)) {
+          timeSelect.value = currentValue;
+        } else {
+          timeSelect.value = (unlocked.timeControls && unlocked.timeControls[0]) || 'none';
         }
       }
     }
@@ -5019,6 +5277,64 @@
         }
         colorSel.value = unlocked.colors.includes(currentColor) ? currentColor : (unlocked.colors[0] || 'red');
       }
+
+      const themeSel = document.getElementById('settings-page-theme');
+      const moveSel = document.getElementById('settings-move-effect');
+      const checkmateSel = document.getElementById('settings-checkmate-effect');
+      const timeSel = document.getElementById('settings-time-control');
+      const currentTheme = localStorage.getItem('pageTheme') || 'light';
+      const currentMove = localStorage.getItem('moveEffect') || 'default';
+      const currentCheckmate = localStorage.getItem('checkmateEffect') || 'default';
+      const currentTime = (document.getElementById('time-control') && document.getElementById('time-control').value) || 'none';
+
+      if (themeSel && shopItems.themes) {
+        themeSel.innerHTML = '';
+        shopItems.themes.forEach(t => {
+          if ((unlocked.themes || []).includes(t.id)) {
+            const o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = t.name;
+            themeSel.appendChild(o);
+          }
+        });
+        themeSel.value = (unlocked.themes || []).includes(currentTheme) ? currentTheme : ((unlocked.themes && unlocked.themes[0]) || 'light');
+      }
+      if (moveSel && shopItems.moveEffects) {
+        moveSel.innerHTML = '';
+        shopItems.moveEffects.forEach(m => {
+          if ((unlocked.moveEffects || []).includes(m.id)) {
+            const o = document.createElement('option');
+            o.value = m.id;
+            o.textContent = m.name;
+            moveSel.appendChild(o);
+          }
+        });
+        moveSel.value = (unlocked.moveEffects || []).includes(currentMove) ? currentMove : ((unlocked.moveEffects && unlocked.moveEffects[0]) || 'default');
+      }
+      if (checkmateSel && shopItems.checkmateEffects) {
+        checkmateSel.innerHTML = '';
+        shopItems.checkmateEffects.forEach(c => {
+          if ((unlocked.checkmateEffects || []).includes(c.id)) {
+            const o = document.createElement('option');
+            o.value = c.id;
+            o.textContent = c.name;
+            checkmateSel.appendChild(o);
+          }
+        });
+        checkmateSel.value = (unlocked.checkmateEffects || []).includes(currentCheckmate) ? currentCheckmate : ((unlocked.checkmateEffects && unlocked.checkmateEffects[0]) || 'default');
+      }
+      if (timeSel && shopItems.timeControls) {
+        timeSel.innerHTML = '';
+        shopItems.timeControls.forEach(t => {
+          if ((unlocked.timeControls || []).includes(t.id)) {
+            const o = document.createElement('option');
+            o.value = t.id;
+            o.textContent = t.name;
+            timeSel.appendChild(o);
+          }
+        });
+        timeSel.value = (unlocked.timeControls || []).includes(currentTime) ? currentTime : ((unlocked.timeControls && unlocked.timeControls[0]) || 'none');
+      }
     }
 
     function applySettingsBoard() {
@@ -5074,6 +5390,41 @@
       localStorage.setItem('arrowColor', v);
     }
 
+    function applySettingsTheme() {
+      const sel = document.getElementById('settings-page-theme');
+      if (!sel) return;
+      const v = sel.value;
+      currentPageTheme = v;
+      applyPageTheme(v);
+      localStorage.setItem('pageTheme', v);
+    }
+
+    function applySettingsMoveEffect() {
+      const sel = document.getElementById('settings-move-effect');
+      if (!sel) return;
+      const v = sel.value;
+      currentMoveEffect = v;
+      applyMoveEffect(v);
+      localStorage.setItem('moveEffect', v);
+    }
+
+    function applySettingsCheckmateEffect() {
+      const sel = document.getElementById('settings-checkmate-effect');
+      if (!sel) return;
+      const v = sel.value;
+      currentCheckmateEffect = v;
+      localStorage.setItem('checkmateEffect', v);
+    }
+
+    function applySettingsTimeControl() {
+      const sel = document.getElementById('settings-time-control');
+      const mainSel = document.getElementById('time-control');
+      if (!sel || !mainSel) return;
+      const v = sel.value;
+      mainSel.value = v;
+      localStorage.setItem('timeControl', v);
+    }
+
     $(document).ready(function() {
 	 		
         console.log("The page has finished loading!");
@@ -5114,6 +5465,16 @@
           localStorage.setItem('arrowColor', 'red');
         }
         applyColorTheme(currentHighlightColor);
+
+        // Load saved page theme, move effect, checkmate effect
+        currentPageTheme = localStorage.getItem('pageTheme') || 'light';
+        currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
+        currentCheckmateEffect = localStorage.getItem('checkmateEffect') || 'default';
+        if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
+        if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
+        if (!(unlocked.checkmateEffects || []).includes(currentCheckmateEffect)) currentCheckmateEffect = 'default';
+        applyPageTheme(currentPageTheme);
+        applyMoveEffect(currentMoveEffect);
         
         // Initialize unlocked items if needed
         if (unlocked.boards.length === 0) {
@@ -5125,9 +5486,48 @@
         if (!unlocked.colors.includes('red')) {
           unlockItem('colors', 'red');
         }
+        if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
+        if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
+        if (!(unlocked.checkmateEffects || []).length) unlockItem('checkmateEffects', 'default');
+        if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
         
         // Update dropdowns to only show unlocked items
         updateStyleDropdowns();
+
+        // Restore saved time control if unlocked
+        const savedTime = localStorage.getItem('timeControl') || 'none';
+        const tcSelect = document.getElementById('time-control');
+        if (tcSelect && (unlocked.timeControls || []).includes(savedTime)) {
+          tcSelect.value = savedTime;
+        }
+        if (tcSelect) {
+          tcSelect.addEventListener('change', function() {
+            const v = this.value;
+            if (typeof isUnlocked === 'function' && isUnlocked('timeControls', v)) {
+              localStorage.setItem('timeControl', v);
+            }
+          });
+        }
+
+        // Reset All Achievements button (in Settings modal)
+        const resetBtn = document.getElementById('reset-achievements-btn');
+        if (resetBtn && typeof resetAllAchievements === 'function') {
+          resetBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            resetAllAchievements();
+          });
+        }
+
+        // Cheat code: press "p" to add 10,000 points (for testing)
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'p' && e.key !== 'P') return;
+          const active = document.activeElement;
+          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+          addCheatPoints(10000);
+          if (typeof updateShopPoints === 'function') updateShopPoints();
+          if (typeof showNotification === 'function') showNotification('+10,000 points (cheat)', 'success');
+        });
 
         // Engine personality loading removed
 
@@ -5143,7 +5543,8 @@
           orientation: 'white',
           pieceTheme: pieceThemes[currentPieceStyle]
         });
-        
+        applyMoveEffect(currentMoveEffect);
+
         // Reset right-click handler flag
         const boardEl = document.getElementById('board');
         if (boardEl) {
@@ -6859,8 +7260,26 @@ function navigateToPreviousMove() {
     }
 
     function celebrateDraw(drawReason) {
-      console.log('celebrateDraw called, reason:', drawReason);
-      
+      const effect = localStorage.getItem('checkmateEffect') || currentCheckmateEffect || 'default';
+      if (effect === 'simple-pulse') {
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,rgba(243,156,18,0.3) 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 600);
+        const txt = document.createElement('div');
+        txt.className = 'draw-text';
+        txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;color:#f39c12;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;';
+        txt.innerHTML = '<span>Draw!</span>';
+        document.body.appendChild(txt);
+        setTimeout(() => { txt.style.opacity = '0'; txt.style.transition = 'opacity 0.4s'; setTimeout(() => txt.remove(), 400); }, 1500);
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl.style.animation = 'drawPulse 0.8s ease-in-out 1';
+          setTimeout(() => { boardEl.style.animation = ''; }, 1000);
+        }
+        return;
+      }
+
       // === DRAW CELEBRATION - UNIQUE ANIMATION ===
       
       // Screen flash effect (orange/yellow gradient)
@@ -6994,9 +7413,30 @@ function navigateToPreviousMove() {
     }
 
     function celebrateCheckmate(playerWon) {
-      console.log('celebrateCheckmate called, playerWon:', playerWon);
+      const effect = localStorage.getItem('checkmateEffect') || currentCheckmateEffect || 'default';
+      if (effect === 'simple-pulse') {
+        const isVictory = !!playerWon;
+        const flash = document.createElement('div');
+        flash.style.cssText = 'position:fixed;inset:0;background:radial-gradient(circle,' + (isVictory ? 'rgba(46,204,113,0.3)' : 'rgba(231,76,60,0.3)') + ' 0%,transparent 70%);pointer-events:none;z-index:9997;animation:screenFlash 0.6s ease-out;';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 600);
+        const txt = document.createElement('div');
+        txt.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:3em;font-weight:900;z-index:9998;font-family:Inter,sans-serif;pointer-events:none;';
+        txt.style.color = isVictory ? '#2ecc71' : '#e74c3c';
+        txt.innerHTML = '<span>' + (isVictory ? 'Victory!' : 'Defeat!') + '</span>';
+        document.body.appendChild(txt);
+        setTimeout(() => { txt.style.opacity = '0'; txt.style.transition = 'opacity 0.4s'; setTimeout(() => txt.remove(), 400); }, 1500);
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl.style.animation = (isVictory ? 'victoryPulse' : 'defeatPulse') + ' 0.8s ease-in-out 1';
+          setTimeout(() => { boardEl.style.animation = ''; }, 1000);
+        }
+        return;
+      }
+
       if (playerWon) {
         // === VICTORY CELEBRATION - ULTRA ENHANCED ===
+        const effectVictory = effect === 'confetti' ? 'confetti' : effect === 'fireworks' ? 'fireworks' : 'default';
         
         // Screen flash effect
         const screenFlash = document.createElement('div');
@@ -7039,37 +7479,38 @@ function navigateToPreviousMove() {
         overlay.className = 'checkmate-overlay';
         document.body.appendChild(overlay);
 
-        // Generate MASSIVE confetti with different shapes and trajectories
         const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
         const shapes = ['circle', 'rect', 'star'];
-        
-        for (let i = 0; i < 400; i++) {
-          setTimeout(() => {
-            const confetti = document.createElement('div');
-            const shape = shapes[Math.floor(Math.random() * shapes.length)];
-            confetti.className = 'confetti ' + shape;
-            confetti.style.left = Math.random() * 100 + '%';
-            confetti.style.top = -20 + 'px';
-            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-            const size = Math.random() * 20 + 6;
-            confetti.style.width = size + 'px';
-            confetti.style.height = size + 'px';
-            confetti.style.opacity = Math.random() * 0.6 + 0.4;
-            const drift = (Math.random() - 0.5) * 200;
-            confetti.style.setProperty('--drift', drift + 'px');
-            confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2.5)}s linear forwards`;
-            confetti.style.animationDelay = (Math.random() * 0.3) + 's';
-            overlay.appendChild(confetti);
-            setTimeout(() => confetti.remove(), 5000);
-          }, i * 8);
+
+        if (effectVictory !== 'fireworks') {
+          for (let i = 0; i < 400; i++) {
+            setTimeout(() => {
+              const confetti = document.createElement('div');
+              const shape = shapes[Math.floor(Math.random() * shapes.length)];
+              confetti.className = 'confetti ' + shape;
+              confetti.style.left = Math.random() * 100 + '%';
+              confetti.style.top = -20 + 'px';
+              confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+              const size = Math.random() * 20 + 6;
+              confetti.style.width = size + 'px';
+              confetti.style.height = size + 'px';
+              confetti.style.opacity = Math.random() * 0.6 + 0.4;
+              const drift = (Math.random() - 0.5) * 200;
+              confetti.style.setProperty('--drift', drift + 'px');
+              confetti.style.animation = `confetti-fall ${(Math.random() * 2 + 2.5)}s linear forwards`;
+              confetti.style.animationDelay = (Math.random() * 0.3) + 's';
+              overlay.appendChild(confetti);
+              setTimeout(() => confetti.remove(), 5000);
+            }, i * 8);
+          }
         }
 
-        // Fireworks explosions from board center
         const board = document.getElementById('board');
-        const boardRect = board.getBoundingClientRect();
+        const boardRect = board ? board.getBoundingClientRect() : { left: 0, top: 0, width: 0, height: 0 };
         const centerX = boardRect.left + boardRect.width / 2;
         const centerY = boardRect.top + boardRect.height / 2;
 
+        if (effectVictory !== 'confetti') {
         // Multiple firework bursts
         for (let burst = 0; burst < 8; burst++) {
           setTimeout(() => {
@@ -7092,7 +7533,9 @@ function navigateToPreviousMove() {
             }
           }, burst * 300);
         }
+        }
 
+        if (effectVictory !== 'confetti') {
         // Enhanced sparkles around the board
         for (let i = 0; i < 60; i++) {
           setTimeout(() => {
@@ -7108,6 +7551,7 @@ function navigateToPreviousMove() {
             document.body.appendChild(sparkle);
             setTimeout(() => sparkle.remove(), 1500);
           }, i * 30);
+        }
         }
 
         // Ripple effects from board center
@@ -7128,14 +7572,15 @@ function navigateToPreviousMove() {
         }
 
         // ULTRA dramatic victory pulse with rotation and enhanced glow
-        board.style.animation = 'victoryPulse 0.8s ease-in-out 6';
-        board.style.transition = 'all 0.3s ease';
-        setTimeout(() => {
-          board.style.animation = '';
-          board.style.filter = '';
-          board.style.boxShadow = '';
-        }, 5000);
-
+        if (board) {
+          board.style.animation = 'victoryPulse 0.8s ease-in-out 6';
+          board.style.transition = 'all 0.3s ease';
+          setTimeout(() => {
+            board.style.animation = '';
+            board.style.filter = '';
+            board.style.boxShadow = '';
+          }, 5000);
+        }
         setTimeout(() => overlay.remove(), 6000);
       } else {
         // === DEFEAT ANIMATION - ULTRA ENHANCED ===
@@ -9620,20 +10065,6 @@ function navigateToPreviousMove() {
       // Append the master grid to container
       container.appendChild(masterGrid);
       
-      // Add event listener for reset button
-      const resetBtn = document.getElementById('reset-achievements-btn');
-      if (resetBtn) {
-        // Remove any existing listeners
-        resetBtn.replaceWith(resetBtn.cloneNode(true));
-        const newResetBtn = document.getElementById('reset-achievements-btn');
-        newResetBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('Reset button clicked');
-          resetAllAchievements();
-        });
-      }
-      
       modal.classList.add('show');
       } catch (e) {
         console.error('Error in showAllAchievements:', e);
@@ -9902,7 +10333,16 @@ function navigateToPreviousMove() {
       
       // Reset shop: clear spent points, reset unlocks to defaults
       localStorage.setItem('shopPointsSpent', '0');
-      saveUnlockedItems({ boards: ['classic'], pieces: ['classic'], colors: ['red'] });
+      localStorage.setItem('cheatPoints', '0');
+      saveUnlockedItems({
+        boards: ['classic'],
+        pieces: ['classic'],
+        colors: ['red'],
+        themes: ['light'],
+        moveEffects: ['default'],
+        checkmateEffects: ['default'],
+        timeControls: ['none']
+      });
       
       // Save everything
       saveAchievements();
@@ -10665,7 +11105,8 @@ function navigateToPreviousMove() {
 
       // Ensure arrow overlay exists
       ensureArrowOverlay();
-      
+      applyMoveEffect(currentMoveEffect);
+
       // Initialize right-click handlers after board is created
       setTimeout(() => {
         const boardEl = document.getElementById('board');
