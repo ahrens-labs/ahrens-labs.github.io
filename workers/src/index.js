@@ -29,6 +29,23 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
+      } else if (path === '/api/debug' && request.method === 'GET') {
+        const testEmail = url.searchParams.get('email') || 'debug@test.com';
+        const userId = generateUserId(testEmail);
+        const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+        const userAccount = env.USER_ACCOUNT.get(userAccountId);
+        
+        const debugReq = new Request('http://do/debug', { method: 'GET' });
+        const debugRes = await userAccount.fetch(debugReq);
+        const debugData = await debugRes.json();
+        
+        return new Response(JSON.stringify({
+          email: testEmail,
+          userId,
+          ...debugData
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       } else {
         return new Response('Not Found', { 
           status: 404, 
@@ -58,6 +75,7 @@ async function handleSignup(request, env, corsHeaders) {
 
   // Get user account DO
   const userId = generateUserId(email);
+  console.log('Signup - email:', email, 'userId:', userId);
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
@@ -129,6 +147,13 @@ async function handleLogin(request, env, corsHeaders) {
     });
   }
 
+  // Get user data to return username
+  const getDataReq = new Request('http://do/getData', {
+    method: 'GET'
+  });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const userData = await dataRes.json();
+
   // Create session
   const sessionId = generateSessionId();
   const sessionObjId = env.SESSION.idFromName(sessionId);
@@ -143,7 +168,9 @@ async function handleLogin(request, env, corsHeaders) {
   return new Response(JSON.stringify({ 
     success: true, 
     sessionId,
-    userId 
+    userId,
+    username: userData?.username || email,
+    email: userData?.email || email
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -311,6 +338,19 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/debug' && request.method === 'GET') {
+        const allKeys = await this.storage.list();
+        const userData = await this.storage.get('userData');
+        return new Response(JSON.stringify({
+          storageKeys: Array.from(allKeys.keys()),
+          userDataValue: userData,
+          userDataType: typeof userData,
+          hasUserData: userData !== null,
+          hasUserDataUndefined: userData !== undefined,
+          checkExistsResult: await this.checkExists()
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
       
       return new Response('UserAccount DO', { status: 200 });
@@ -324,12 +364,14 @@ export class UserAccount {
 
   async checkExists() {
     const data = await this.storage.get('userData');
-    return data !== null;
+    console.log('checkExists - data:', data ? 'EXISTS' : 'NULL', 'DO ID:', this.state.id.toString());
+    return data !== null && data !== undefined;
   }
 
   async create(email, password, username) {
     // Check if already exists
     const exists = await this.checkExists();
+    console.log('Create user - exists:', exists, 'email:', email);
     if (exists) {
       return { success: false, error: 'User already exists' };
     }

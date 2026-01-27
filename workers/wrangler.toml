@@ -12,6 +12,11 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["UserAccount", "Session"]
 
+[[migrations]]
+tag = "v2"
+renamed_classes = []
+deleted_classes = []
+
 [vars]
 # Environment variables can go here
 # JWT_SECRET will be set via wrangler secret put

@@ -4809,60 +4809,7 @@
     </div>
   </div>
 
-  <!-- Account Modal -->
-  <div id="account-modal" class="modal">
-    <div class="modal-dialog" style="max-width: 400px;">
-      <div class="modal-header">
-        <h2>Account</h2>
-        <button class="close-btn" onclick="closeAccountModal()">×</button>
-      </div>
-      <div class="modal-content">
-        <!-- Login/Signup Tabs -->
-        <div id="account-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e9ecef;">
-          <button id="tab-login" class="account-tab active" onclick="switchAccountTab('login')">Login</button>
-          <button id="tab-signup" class="account-tab" onclick="switchAccountTab('signup')">Sign Up</button>
-        </div>
-        
-        <!-- Login Form -->
-        <div id="login-form" class="account-form">
-          <div style="margin-bottom: 15px;">
-            <label for="login-email">Email:</label>
-            <input type="email" id="login-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <label for="login-password">Password:</label>
-            <input type="password" id="login-password" placeholder="Password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <button onclick="handleLoginSubmit()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Login</button>
-        </div>
-        
-        <!-- Signup Form -->
-        <div id="signup-form" class="account-form" style="display: none;">
-          <div style="margin-bottom: 15px;">
-            <label for="signup-username">Username:</label>
-            <input type="text" id="signup-username" placeholder="Choose a username" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <label for="signup-email">Email:</label>
-            <input type="email" id="signup-email" placeholder="your@email.com" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <label for="signup-password">Password:</label>
-            <input type="password" id="signup-password" placeholder="Choose a password" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <button onclick="handleSignupSubmit()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Sign Up</button>
-        </div>
-        
-        <!-- Logged In View -->
-        <div id="account-info" style="display: none;">
-          <p id="account-username" style="font-size: 1.2em; font-weight: 600; margin-bottom: 20px;"></p>
-          <button onclick="handleLogout()" style="width: 100%; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Logout</button>
-          <button onclick="loadUserDataFromAccount()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-bottom: 10px;">Load from Account</button>
-          <button onclick="syncLocalDataToAccount()" style="width: 100%; padding: 10px; background: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Save to Account</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Account Modal removed - login/signup now in header and full-page -->
 
   <style>
   .account-tab {
@@ -6172,6 +6119,9 @@
       
       // Save preference to localStorage
       localStorage.setItem('chessboardStyle', style);
+      
+      // Auto-sync to account
+      if (typeof autoSync === 'function') autoSync();
     }
 
     // Engine personality functions removed for performance
@@ -6197,6 +6147,9 @@
       
       // Save preference to localStorage
       localStorage.setItem('chessPieceStyle', style);
+      
+      // Auto-sync to account
+      if (typeof autoSync === 'function') autoSync();
       
       // If board exists, update the piece theme
       if (board) {
@@ -6696,6 +6649,9 @@
         updateStyleDropdowns();
         if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
         showNotification(`Unlocked ${displayName}! (-${price} points)`, 'success');
+        
+        // Auto-sync to account
+        if (typeof autoSync === 'function') autoSync();
       }
     }
     
@@ -6735,6 +6691,9 @@
         }
       }
       renderShopItems();
+      
+      // Auto-sync to account
+      if (typeof autoSync === 'function') autoSync();
     }
     
     // Color map for highlights and arrows
@@ -10211,6 +10170,9 @@ function navigateToPreviousMove() {
 
     function saveAchievements() {
       localStorage.setItem('achievements', JSON.stringify(achievements));
+      
+      // Auto-sync to account
+      if (typeof autoSync === 'function') autoSync();
     }
 
     function getAllAchievementsList() {
@@ -13770,7 +13732,6 @@ function navigateToPreviousMove() {
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
           showNotification('Account created successfully!', 'success');
-          closeAccountModal();
           // Sync current localStorage data to account
           await syncLocalDataToAccount();
           updateHeaderAuthButtons();
@@ -13807,11 +13768,14 @@ function navigateToPreviousMove() {
           currentUserId = data.userId;
           isLoggedIn = true;
           localStorage.setItem('chessSessionId', currentSessionId);
-          updateAccountUI(true, email);
-          showNotification('Logged in successfully!', 'success');
-          closeAccountModal();
+          // Save username from login response
+          if (data.username) {
+            localStorage.setItem('accountUsername', data.username);
+            updateAccountUI(true, data.username);
+          }
           // Load user data from account
           await loadUserDataFromAccount();
+          showNotification('Logged in successfully!', 'success');
           updateHeaderAuthButtons();
           // Apply theme after login
           const savedTheme = localStorage.getItem('pageTheme') || 'light';
@@ -13926,6 +13890,11 @@ function navigateToPreviousMove() {
 
     // Sync user data from account to localStorage
     function syncUserDataToLocal(userData) {
+      // Save username
+      if (userData.username) {
+        localStorage.setItem('accountUsername', userData.username);
+        updateAccountUI(true, userData.username);
+      }
       if (userData.achievements) {
         localStorage.setItem('achievements', JSON.stringify(userData.achievements));
       }
@@ -13953,6 +13922,47 @@ function navigateToPreviousMove() {
         });
       }
       
+      // Apply loaded settings
+      if (userData.settings) {
+        // Apply board style
+        if (userData.settings.boardStyle) {
+          const boardStyleSelect = document.getElementById('board-style');
+          if (boardStyleSelect) {
+            boardStyleSelect.value = userData.settings.boardStyle;
+            changeBoardStyle();
+          }
+        }
+        
+        // Apply piece style
+        if (userData.settings.pieceStyle) {
+          const pieceStyleSelect = document.getElementById('piece-style');
+          if (pieceStyleSelect) {
+            pieceStyleSelect.value = userData.settings.pieceStyle;
+            changePieceStyle();
+          }
+        }
+        
+        // Apply highlight color
+        if (userData.settings.highlightColor) {
+          applyHighlightColor(userData.settings.highlightColor);
+        }
+        
+        // Apply arrow color
+        if (userData.settings.arrowColor) {
+          applyArrowColor(userData.settings.arrowColor);
+        }
+        
+        // Apply legal move dot style
+        if (userData.settings.legalMoveDotStyle) {
+          applyLegalMoveDotStyle(userData.settings.legalMoveDotStyle);
+        }
+        
+        // Apply page theme
+        if (userData.settings.pageTheme) {
+          applyPageTheme(userData.settings.pageTheme);
+        }
+      }
+      
       // Refresh UI
       if (typeof updateShopPoints === 'function') updateShopPoints();
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
@@ -13978,17 +13988,8 @@ function navigateToPreviousMove() {
 
     // Update account UI based on login state
     function updateAccountUI(loggedIn, username) {
-      const accountBtn = document.getElementById('account-btn');
-      if (accountBtn) {
-        if (loggedIn) {
-          accountBtn.textContent = `Account: ${username || 'User'}`;
-          accountBtn.style.background = 'linear-gradient(135deg, #2ecc71, #27ae60)';
-        } else {
-          accountBtn.textContent = 'Account';
-          accountBtn.style.background = 'linear-gradient(135deg, #3498db, #2980b9)';
-        }
-      }
-      updateAccountModalView();
+      // Account UI now in header only
+      updateHeaderAuthButtons();
     }
 
     // Show account modal
