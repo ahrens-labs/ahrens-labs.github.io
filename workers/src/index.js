@@ -29,10 +29,6 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
-      } else if (path === '/api/test' && request.method === 'GET') {
-        return new Response(JSON.stringify({ message: 'Test endpoint working' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
       } else {
         return new Response('Not Found', { 
           status: 404, 
@@ -65,38 +61,42 @@ async function handleSignup(request, env, corsHeaders) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
-  // Check if user exists
-  const exists = await userAccount.checkExists();
-  if (exists) {
-    return new Response(JSON.stringify({ error: 'User already exists' }), {
-      status: 409,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Create user
-  const result = await userAccount.create(email, password, username);
+  // Create user via DO fetch
+  const createReq = new Request('http://do/create', {
+    method: 'POST',
+    body: JSON.stringify({ email, password, username })
+  });
   
-  if (result.success) {
-    // Create session
-    const sessionId = generateSessionId();
-    const sessionObjId = env.SESSION.idFromName(sessionId);
-    const session = env.SESSION.get(sessionObjId);
-    await session.create(userId);
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      sessionId,
-      userId 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } else {
-    return new Response(JSON.stringify({ error: result.error }), {
+  const createRes = await userAccount.fetch(createReq);
+  const result = await createRes.json();
+  
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Signup failed' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // Create session
+  const sessionId = generateSessionId();
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const sessionReq = new Request('http://do/create', {
+    method: 'POST',
+    body: JSON.stringify({ userId })
+  });
+  await session.fetch(sessionReq);
+
+  return new Response(JSON.stringify({ 
+    success: true, 
+    sessionId,
+    userId,
+    username,
+    email
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 // Login handler
@@ -114,35 +114,39 @@ async function handleLogin(request, env, corsHeaders) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
-  const authRequest = new Request('http://dummy/authenticate', {
+  const authReq = new Request('http://do/authenticate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password })
   });
   
-  const authResponse = await userAccount.fetch(authRequest);
-  const result = await authResponse.json();
+  const authRes = await userAccount.fetch(authReq);
+  const result = await authRes.json();
   
-  if (result.success) {
-    // Create session
-    const sessionId = generateSessionId();
-    const sessionObjId = env.SESSION.idFromName(sessionId);
-    const session = env.SESSION.get(sessionObjId);
-    await session.create(userId);
-
-    return new Response(JSON.stringify({ 
-      success: true, 
-      sessionId,
-      userId 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } else {
+  if (!result.success) {
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  // Create session
+  const sessionId = generateSessionId();
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const sessionReq = new Request('http://do/create', {
+    method: 'POST',
+    body: JSON.stringify({ userId })
+  });
+  await session.fetch(sessionReq);
+
+  return new Response(JSON.stringify({ 
+    success: true, 
+    sessionId,
+    userId 
+  }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 // Logout handler
@@ -159,14 +163,17 @@ async function handleLogout(request, env, corsHeaders) {
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
-  await session.delete();
+  const destroyReq = new Request('http://do/destroy', {
+    method: 'POST'
+  });
+  await session.fetch(destroyReq);
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
-// Sync handler - upload user data
+// Sync handler
 async function handleSync(request, env, corsHeaders) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader) {
@@ -180,11 +187,11 @@ async function handleSync(request, env, corsHeaders) {
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
-  const getUserRequest = new Request('http://dummy/getUserId', {
+  const getUserReq = new Request('http://do/getUserId', {
     method: 'GET'
   });
-  const userResponse = await session.fetch(getUserRequest);
-  const userResult = await userResponse.json();
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
   
   if (!userResult.userId) {
     return new Response(JSON.stringify({ error: 'Invalid session' }), {
@@ -198,12 +205,11 @@ async function handleSync(request, env, corsHeaders) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
   
-  const updateRequest = new Request('http://dummy/updateData', {
+  const updateReq = new Request('http://do/updateData', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData)
   });
-  await userAccount.fetch(updateRequest);
+  await userAccount.fetch(updateReq);
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -224,23 +230,28 @@ async function handleGetUser(request, env, corsHeaders) {
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
-  const userId = await session.getUserId();
-  if (!userId) {
+  const getUserReq = new Request('http://do/getUserId', {
+    method: 'GET'
+  });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
     return new Response(JSON.stringify({ error: 'Invalid session' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
   
-  const getDataRequest = new Request('http://dummy/getData', {
+  const getDataReq = new Request('http://do/getData', {
     method: 'GET'
   });
   
-  const dataResponse = await userAccount.fetch(getDataRequest);
-  const userData = await dataResponse.json();
+  const dataRes = await userAccount.fetch(getDataReq);
+  const userData = await dataRes.json();
 
   return new Response(JSON.stringify(userData), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -276,38 +287,39 @@ export class UserAccount {
     const url = new URL(request.url);
     const path = url.pathname;
     
-    if (path === '/create' && request.method === 'POST') {
-      const { email, password, username } = await request.json();
-      const result = await this.create(email, password, username);
-      return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path === '/validate' && request.method === 'POST') {
-      const { password } = await request.json();
-      const result = await this.validatePassword(password);
-      return new Response(JSON.stringify({ valid: result }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path === '/authenticate' && request.method === 'POST') {
-      const { password } = await request.json();
-      const result = await this.authenticate(password);
-      return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path === '/getData' && request.method === 'GET') {
-      const data = await this.getData();
-      return new Response(JSON.stringify(data), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } else if (path === '/updateData' && request.method === 'POST') {
-      const userData = await request.json();
-      await this.updateData(userData);
-      return new Response(JSON.stringify({ success: true }), {
+    try {
+      if (path === '/create' && request.method === 'POST') {
+        const { email, password, username } = await request.json();
+        const result = await this.create(email, password, username);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/authenticate' && request.method === 'POST') {
+        const { password } = await request.json();
+        const result = await this.authenticate(password);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getData' && request.method === 'GET') {
+        const data = await this.getData();
+        return new Response(JSON.stringify(data), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/updateData' && request.method === 'POST') {
+        const userData = await request.json();
+        await this.updateData(userData);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      return new Response('UserAccount DO', { status: 200 });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    return new Response('UserAccount DO', { status: 200 });
   }
 
   async checkExists() {
@@ -353,10 +365,10 @@ export class UserAccount {
         moveEffect: 'default'
       },
       stats: {
-        gamesPlayed: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        gamesDrawn: 0
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        gamesPlayed: 0
       }
     };
 
@@ -383,35 +395,32 @@ export class UserAccount {
       return null;
     }
 
-    // Don't return password hash
+    // Return user data without password hash
     const { passwordHash, ...safeData } = userData;
-    return safeData;
+    return {
+      userId: this.state.id.toString(),
+      ...safeData
+    };
   }
 
   async updateData(newData) {
-    const currentData = await this.storage.get('userData');
-    if (!currentData) {
-      return { success: false, error: 'User not found' };
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return;
     }
 
-    // Merge new data with existing data
-    const updatedData = {
-      ...currentData,
-      ...newData,
-      // Preserve sensitive fields
-      email: currentData.email,
-      username: currentData.username,
-      passwordHash: currentData.passwordHash,
-      createdAt: currentData.createdAt
-    };
+    // Update specific fields
+    if (newData.achievements) userData.achievements = newData.achievements;
+    if (newData.points !== undefined) userData.points = newData.points;
+    if (newData.shopUnlocks) userData.shopUnlocks = newData.shopUnlocks;
+    if (newData.settings) userData.settings = newData.settings;
+    if (newData.stats) userData.stats = newData.stats;
 
-    await this.storage.put('userData', updatedData);
-    return { success: true };
+    await this.storage.put('userData', userData);
   }
 
   async hashPassword(password) {
-    // Simple hash - in production, use proper bcrypt or similar
-    // For now, using a simple approach (Cloudflare Workers don't have bcrypt)
+    // Simple hash for demo - use proper hashing in production
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -469,7 +478,7 @@ export class Session {
     return await this.storage.get('userId');
   }
 
-  async delete() {
+  async destroy() {
     await this.storage.deleteAll();
   }
 }
