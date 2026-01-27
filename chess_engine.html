@@ -4393,60 +4393,15 @@
                 </nav>
             </div>
             <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
-                <button id="header-login-btn" onclick="showLoginPage()" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
-                <button id="header-signup-btn" onclick="showLoginPage('signup')" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
-                <button id="header-logout-btn" onclick="logout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                <button id="header-login-btn" onclick="window.location.href='account.html?return=chess_engine.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                <button id="header-signup-btn" onclick="window.location.href='account.html?return=chess_engine.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
                 <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
             </div>
         </header>
             </div>
         </header>
 	    
-  <!-- Login/Signup Page -->
-  <div id="login-page" style="display: none; min-height: calc(100vh - 200px); display: flex; justify-content: center; align-items: center; padding: 40px 20px; position: relative; z-index: 1000;">
-    <div id="login-page-container" style="background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); padding: 40px; max-width: 450px; width: 100%; position: relative; z-index: 1001;">
-      <h2 style="text-align: center; margin-bottom: 30px; font-family: 'Inter', sans-serif;">Chess Engine Account</h2>
-      
-      <!-- Login/Signup Tabs -->
-      <div id="login-page-tabs" style="display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e9ecef;">
-        <button id="login-page-tab-login" class="account-tab active" onclick="switchLoginPageTab('login')" style="flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; color: #666; transition: all 0.3s;">Login</button>
-        <button id="login-page-tab-signup" class="account-tab" onclick="switchLoginPageTab('signup')" style="flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; color: #666; transition: all 0.3s;">Sign Up</button>
-      </div>
-      
-      <!-- Login Form -->
-      <div id="login-page-login-form">
-        <div style="margin-bottom: 20px;">
-          <label for="login-page-email" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Email:</label>
-          <input type="email" id="login-page-email" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
-        </div>
-        <div style="margin-bottom: 25px;">
-          <label for="login-page-password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Password:</label>
-          <input type="password" id="login-page-password" placeholder="Password" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
-        </div>
-        <button onclick="handleLoginPageLogin()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.3s;">Login</button>
-      </div>
-      
-      <!-- Signup Form -->
-      <div id="login-page-signup-form" style="display: none;">
-        <div style="margin-bottom: 20px;">
-          <label for="login-page-signup-username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Username:</label>
-          <input type="text" id="login-page-signup-username" placeholder="Choose a username" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
-        </div>
-        <div style="margin-bottom: 20px;">
-          <label for="login-page-signup-email" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Email:</label>
-          <input type="email" id="login-page-signup-email" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
-        </div>
-        <div style="margin-bottom: 25px;">
-          <label for="login-page-signup-password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">Password:</label>
-          <input type="password" id="login-page-signup-password" placeholder="Choose a password" style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s;">
-        </div>
-        <button onclick="handleLoginPageSignup()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em; transition: all 0.3s;">Sign Up</button>
-      </div>
-      
-      <p style="text-align: center; margin-top: 25px; color: #666; font-size: 0.9em;">You need an account to play chess</p>
-    </div>
-  </div>
-
 	<h2 id="game-title" style="display: none;">
     Play Chess against Trifang<span class="sharp">X</span>
     </h2>
@@ -7179,24 +7134,17 @@
       localStorage.setItem('timeControl', v);
     }
 
-    $(document).ready(function() {
-        // Check for URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
+ $(document).ready(async function() {
+        console.log("The page has finished loading!");
         
-        // Check for logout parameter
-        const shouldLogout = urlParams.get('logout');
-        if (shouldLogout === 'true') {
-          logout();
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          return; // Exit early to prevent other initialization
-        }
+        // Check for URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
         
         // Check for email verification token in URL
         const verifyToken = urlParams.get('verify');
         if (verifyToken) {
-          // Extract email from URL or use stored email
-          const email = urlParams.get('email') || localStorage.getItem('pendingVerificationEmail');
+          // Extract email from URL
+          const email = urlParams.get('email');
           if (email) {
             verifyEmail(verifyToken, email);
           }
@@ -7204,11 +7152,24 @@
           window.history.replaceState({}, document.title, window.location.pathname);
         }
         
-	 		
-        console.log("The page has finished loading!");
+        // CRITICAL: Load data from cloud (required before anything else)
+        console.log("Loading chess data from cloud...");
+        const loaded = await loadChessDataFromCloud();
+        if (!loaded) {
+          console.log("Not logged in, will redirect...");
+          return; // Will redirect to account page
+        }
         
-        // Initialize account system
-        initAccountSystem();
+        console.log("Chess data loaded successfully:", cloudChessData);
+        
+        // Make sure game UI is visible
+        const gameTitle = document.getElementById('game-title');
+        const chooseSide = document.getElementById('choose-side');
+        const gameContainer = document.getElementById('game-container');
+        
+        if (gameTitle) gameTitle.style.display = 'block';
+        if (chooseSide) chooseSide.style.display = 'block';
+        if (gameContainer) gameContainer.style.display = 'block';
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
@@ -7218,7 +7179,7 @@
           localStorage.setItem('chessboardStyle', 'classic');
           document.getElementById('board-style').value = 'classic';
         } else {
-          document.getElementById('board-style').value = savedStyle;
+        document.getElementById('board-style').value = savedStyle;
         }
         changeBoardStyle();
 
@@ -7230,8 +7191,8 @@
           currentPieceStyle = 'classic';
           document.getElementById('piece-style').value = 'classic';
         } else {
-          currentPieceStyle = savedPieceStyle;
-          document.getElementById('piece-style').value = savedPieceStyle;
+        currentPieceStyle = savedPieceStyle;
+        document.getElementById('piece-style').value = savedPieceStyle;
         }
         
         // Load saved colors and apply theme
@@ -7506,7 +7467,7 @@
                 // Replaced alert() with UI message
                 const moveContainer = document.getElementById("move-timer-container");
                 if (moveContainer) {
-                  moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
+                moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
                 }
                 gameOver = true;
                 
@@ -8427,18 +8388,18 @@ function navigateToPreviousMove() {
           };
           
           // Apply highlights immediately, then set up interval to keep them applied
-          applyHighlights();
-          
-          // Set up interval to continuously reapply highlights (they may be cleared by board updates)
+            applyHighlights();
+            
+            // Set up interval to continuously reapply highlights (they may be cleared by board updates)
           // Use longer interval to reduce interference with timer
-          premoveHighlightInterval = setInterval(() => {
-            if (premoves.length === 0) {
-              clearInterval(premoveHighlightInterval);
-              premoveHighlightInterval = null;
-              board.position(game.fen());
-              $("#board .square-55d63").removeClass("premove-highlight premove-source");
-              return;
-            }
+            premoveHighlightInterval = setInterval(() => {
+              if (premoves.length === 0) {
+                clearInterval(premoveHighlightInterval);
+                premoveHighlightInterval = null;
+                board.position(game.fen());
+                $("#board .square-55d63").removeClass("premove-highlight premove-source");
+                return;
+              }
             // Use requestAnimationFrame to avoid blocking timer updates
             requestAnimationFrame(() => {
               applyHighlights();
@@ -8524,7 +8485,7 @@ function navigateToPreviousMove() {
             if (isPromotionMove(moveFrom, moveTo)) {
               showPromotionModal(moveFrom, moveTo);
             } else {
-              handleMove(moveFrom, moveTo);
+            handleMove(moveFrom, moveTo);
             }
             return;
           } else if (piece) {
@@ -9178,11 +9139,11 @@ function navigateToPreviousMove() {
       // Add-on: confetti
       if (addons.includes('confetti')) {
         const overlay = document.createElement('div');
-        overlay.className = 'draw-overlay';
+      overlay.className = 'draw-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9996;';
         document.body.appendChild(overlay);
-        const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
-        const shapes = ['circle', 'rect', 'star'];
+      const colors = ['#F39C12', '#E67E22', '#D35400', '#F1C40F', '#F7DC6F', '#F8C471', '#F4D03F', '#F9E79F'];
+      const shapes = ['circle', 'rect', 'star'];
         for (let i = 0; i < 200; i++) {
           setTimeout(() => {
             const c = document.createElement('div');
@@ -9199,8 +9160,8 @@ function navigateToPreviousMove() {
             c.style.animationDelay = (Math.random() * 0.2) + 's';
             overlay.appendChild(c);
             setTimeout(() => c.remove(), 4000);
-          }, i * 10);
-        }
+        }, i * 10);
+      }
         setTimeout(() => overlay.remove(), 5000);
       }
 
@@ -9235,14 +9196,14 @@ function navigateToPreviousMove() {
       if (isVictory) {
         // Add-on: confetti
         if (addons.includes('confetti')) {
-          const overlay = document.createElement('div');
-          overlay.className = 'checkmate-overlay';
+        const overlay = document.createElement('div');
+        overlay.className = 'checkmate-overlay';
           overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9996;';
-          document.body.appendChild(overlay);
-          const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
-          const shapes = ['circle', 'rect', 'star'];
-          for (let i = 0; i < 400; i++) {
-            setTimeout(() => {
+        document.body.appendChild(overlay);
+        const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
+        const shapes = ['circle', 'rect', 'star'];
+        for (let i = 0; i < 400; i++) {
+          setTimeout(() => {
               const c = document.createElement('div');
               c.className = 'confetti ' + shapes[Math.floor(Math.random() * shapes.length)];
               c.style.left = Math.random() * 100 + '%';
@@ -9257,28 +9218,28 @@ function navigateToPreviousMove() {
               c.style.animationDelay = (Math.random() * 0.3) + 's';
               overlay.appendChild(c);
               setTimeout(() => c.remove(), 5000);
-            }, i * 8);
+          }, i * 8);
           }
           setTimeout(() => overlay.remove(), 6000);
         }
 
         // Add-on: fireworks
         if (addons.includes('fireworks')) {
-          const board = document.getElementById('board');
+        const board = document.getElementById('board');
           const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
-          const centerX = boardRect.left + boardRect.width / 2;
-          const centerY = boardRect.top + boardRect.height / 2;
+        const centerX = boardRect.left + boardRect.width / 2;
+        const centerY = boardRect.top + boardRect.height / 2;
           const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
-          for (let burst = 0; burst < 8; burst++) {
-            setTimeout(() => {
-              const numParticles = 30;
-              for (let i = 0; i < numParticles; i++) {
-                const angle = (Math.PI * 2 * i) / numParticles;
-                const distance = 100 + Math.random() * 150;
+        for (let burst = 0; burst < 8; burst++) {
+          setTimeout(() => {
+            const numParticles = 30;
+            for (let i = 0; i < numParticles; i++) {
+              const angle = (Math.PI * 2 * i) / numParticles;
+              const distance = 100 + Math.random() * 150;
                 const p = document.createElement('div');
                 p.className = 'particle';
-                const tx = Math.cos(angle) * distance;
-                const ty = Math.sin(angle) * distance;
+              const tx = Math.cos(angle) * distance;
+              const ty = Math.sin(angle) * distance;
                 p.style.setProperty('--tx', tx + 'px');
                 p.style.setProperty('--ty', ty + 'px');
                 p.style.left = centerX + 'px';
@@ -9287,24 +9248,24 @@ function navigateToPreviousMove() {
                 p.style.animation = `particleTrail ${0.8 + Math.random() * 0.4}s ease-out forwards`;
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 1200);
-              }
-            }, burst * 300);
-          }
-          for (let i = 0; i < 60; i++) {
-            setTimeout(() => {
-              const sparkle = document.createElement('div');
-              sparkle.className = 'sparkle';
-              const angle = (Math.PI * 2 * i) / 60;
-              const distance = 250 + Math.random() * 200;
-              sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
-              sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
-              sparkle.style.width = (15 + Math.random() * 20) + 'px';
-              sparkle.style.height = sparkle.style.width;
-              sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
-              document.body.appendChild(sparkle);
-              setTimeout(() => sparkle.remove(), 1500);
-            }, i * 30);
-          }
+            }
+          }, burst * 300);
+        }
+        for (let i = 0; i < 60; i++) {
+          setTimeout(() => {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            const angle = (Math.PI * 2 * i) / 60;
+            const distance = 250 + Math.random() * 200;
+            sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
+            sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
+            sparkle.style.width = (15 + Math.random() * 20) + 'px';
+            sparkle.style.height = sparkle.style.width;
+            sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
+            document.body.appendChild(sparkle);
+            setTimeout(() => sparkle.remove(), 1500);
+          }, i * 30);
+        }
         }
 
         // Add-on: pulse
@@ -9324,12 +9285,12 @@ function navigateToPreviousMove() {
           boardEl.style.boxShadow = '0 0 100px 30px rgba(220, 53, 69, 1), inset 0 0 60px rgba(220, 53, 69, 0.5), 0 0 150px rgba(139, 0, 0, 0.8)';
           boardEl.style.filter = 'brightness(0.6) saturate(1.8) contrast(1.2)';
           boardEl.style.border = '4px solid rgba(220, 53, 69, 0.8)';
-          setTimeout(() => {
+        setTimeout(() => {
             boardEl.style.animation = '';
             boardEl.style.boxShadow = '';
             boardEl.style.filter = '';
             boardEl.style.border = '';
-          }, 2000);
+        }, 2000);
         }
 
         // Add-on: confetti (red particles for defeat)
@@ -9349,15 +9310,15 @@ function navigateToPreviousMove() {
 
         // Add-on: pulse
         if (addons.includes('pulse')) {
-          const gameContainer = document.getElementById('game-container');
-          if (gameContainer) {
-            gameContainer.style.animation = 'defeatPulse 2s ease-out';
-            gameContainer.style.filter = 'brightness(0.8)';
-            setTimeout(() => {
-              gameContainer.style.animation = '';
-              gameContainer.style.filter = '';
-            }, 2000);
-          }
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+          gameContainer.style.animation = 'defeatPulse 2s ease-out';
+          gameContainer.style.filter = 'brightness(0.8)';
+          setTimeout(() => {
+            gameContainer.style.animation = '';
+            gameContainer.style.filter = '';
+          }, 2000);
+        }
         }
       }
     }
@@ -10187,7 +10148,7 @@ function navigateToPreviousMove() {
 
     function loadAchievements() {
   try {
-    const saved = localStorage.getItem('achievements');
+      const saved = localStorage.getItem('achievements');
     const parsed = saved ? JSON.parse(saved) : [];
     
     // Safety check: if parsed data isn't an array, reset to empty array
@@ -11759,7 +11720,7 @@ function navigateToPreviousMove() {
       }
     }
 
-   function toggleAchievementGroup(groupKey) {
+    function toggleAchievementGroup(groupKey) {
       const groupDiv = document.getElementById(`group-${groupKey}`);
       const icon = document.getElementById(`expand-icon-${groupKey}`);
       
@@ -12674,7 +12635,7 @@ function navigateToPreviousMove() {
             // Update visual to show all premoves in the chain immediately
             // Use setTimeout to ensure board has finished updating after drop
             setTimeout(() => {
-              updatePremoveVisual();
+            updatePremoveVisual();
             }, 10);
             
             // Don't snapback - keep the piece moved
@@ -12702,7 +12663,7 @@ function navigateToPreviousMove() {
           if (isPromotionMove(source, target)) {
             showPromotionModal(source, target);
           } else {
-            handleMove(source, target);
+          handleMove(source, target);
           }
         },
         onSnapEnd: () => {
@@ -12901,17 +12862,17 @@ function navigateToPreviousMove() {
       // Cancel premoves and clear highlights on mousedown/touchstart outside of pieces/board
       let premoveJustSet = false;
       $(document).on('mousedown touchstart', function(e) {
-        // Check if the click is on the board or a piece
-        const $target = $(e.target);
-        const isOnBoard = $target.closest('#board').length > 0;
-        const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
-        
-        // Only cancel if clicking outside the board/pieces
-        if (!isOnBoard && !isOnPiece) {
+          // Check if the click is on the board or a piece
+          const $target = $(e.target);
+          const isOnBoard = $target.closest('#board').length > 0;
+          const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
+          
+          // Only cancel if clicking outside the board/pieces
+          if (!isOnBoard && !isOnPiece) {
           // Don't cancel premoves if we just set one in the same event cycle
           if (premoves.length > 0 && !premoveJustSet) {
             console.log('Click detected outside board/pieces, canceling all premoves');
-            clearPremove();
+          clearPremove();
           }
           
           // Clear right-click highlights
@@ -13603,14 +13564,226 @@ function navigateToPreviousMove() {
       engineMove();
     }
 
-    // Account Management Code
-    // Configuration
+    // ================================
+    // CLOUD STORAGE SYSTEM
+    // ================================
     const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
 
-    // Account state
+    // Cloud data object - replaces ALL localStorage
+    let cloudChessData = null;
+
+    // Account state  
     let currentSessionId = null;
     let currentUserId = null;
     let isLoggedIn = false;
+    let saveTimeout = null;
+    let dataLoaded = false;
+    
+    // Load chess data from cloud
+    async function loadChessDataFromCloud() {
+      currentSessionId = localStorage.getItem('ahrenslabs_sessionId');
+      if (!currentSessionId) {
+        console.log('No session ID found, redirecting to login...');
+        window.location.href = 'account.html?return=chess_engine.html';
+        return false;
+      }
+      
+      try {
+        console.log('Fetching chess data from cloud...');
+        const response = await fetch(`${API_BASE_URL}/api/chess/load`, {
+          headers: {
+            'Authorization': `Bearer ${currentSessionId}`
+          }
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to load chess data, status:', response.status);
+          window.location.href = 'account.html?return=chess_engine.html';
+          return false;
+        }
+        
+        const data = await response.json();
+        console.log('Raw data from cloud:', data);
+        
+        // Ensure data has all required fields with defaults
+        cloudChessData = {
+          achievements: data.achievements || {},
+          points: data.points || 0,
+          shopUnlocks: data.shopUnlocks || {
+            boards: ['classic'],
+            pieces: ['classic'],
+            highlightColors: ['red'],
+            arrowColors: ['red'],
+            legalMoveDots: ['blue-circle'],
+            themes: ['light'],
+            checkmateEffects: [],
+            timeControls: ['none']
+          },
+          settings: data.settings || {
+            boardStyle: 'classic',
+            pieceStyle: 'classic',
+            highlightColor: 'red',
+            arrowColor: 'red',
+            legalMoveDotStyle: 'blue-circle',
+            pageTheme: 'light',
+            checkmateAddons: [],
+            timeControl: 'none'
+          },
+          stats: data.stats || {
+            playerStats: { wins: 0, losses: 0, draws: 0 },
+            lifetimeStats: {}
+          },
+          pointsSpent: data.pointsSpent || 0,
+          cheatPoints: data.cheatPoints || 0
+        };
+        
+        isLoggedIn = true;
+        dataLoaded = true;
+        currentUserId = localStorage.getItem('ahrenslabs_userId');
+        
+        // Update username display
+        const username = localStorage.getItem('ahrenslabs_username') || 'Player';
+        const usernameSpan = document.getElementById('header-username');
+        if (usernameSpan) {
+          usernameSpan.textContent = username;
+          usernameSpan.style.display = 'block';
+        }
+        
+        console.log('Chess data loaded and initialized:', cloudChessData);
+        return true;
+      } catch (error) {
+        console.error('Failed to load chess data:', error);
+        window.location.href = 'account.html?return=chess_engine.html';
+        return false;
+      }
+    }
+    
+    // Override localStorage for chess game data - redirect to cloud
+    const originalLocalStorage = window.localStorage;
+    const cloudStorage = {
+      getItem: function(key) {
+        // Allow unified auth keys to use real localStorage
+        if (key.startsWith('ahrenslabs_')) {
+          return originalLocalStorage.getItem(key);
+        }
+        
+        if (!dataLoaded || !cloudChessData) {
+          console.warn('Cloud data not loaded yet, returning null for:', key);
+          return null;
+        }
+        
+        // Map localStorage keys to cloud data
+        const keyMap = {
+          'achievements': () => JSON.stringify(cloudChessData.achievements || {}),
+          'totalPoints': () => (cloudChessData.points || 0).toString(),
+          'unlockedItems': () => JSON.stringify(cloudChessData.shopUnlocks || {}),
+          'chessBoardStyle': () => cloudChessData.settings?.boardStyle || 'classic',
+          'chessboardStyle': () => cloudChessData.settings?.boardStyle || 'classic',
+          'chessPieceStyle': () => cloudChessData.settings?.pieceStyle || 'classic',
+          'highlightColor': () => cloudChessData.settings?.highlightColor || 'red',
+          'arrowColor': () => cloudChessData.settings?.arrowColor || 'red',
+          'legalMoveDotStyle': () => cloudChessData.settings?.legalMoveDotStyle || 'blue-circle',
+          'pageTheme': () => cloudChessData.settings?.pageTheme || 'light',
+          'playerStats': () => JSON.stringify(cloudChessData.stats?.playerStats || {wins:0,losses:0,draws:0}),
+          'lifetimeStats': () => JSON.stringify(cloudChessData.stats?.lifetimeStats || {}),
+          'checkmateAddonsEnabled': () => JSON.stringify(cloudChessData.settings?.checkmateAddons || []),
+          'selectedTimeControl': () => cloudChessData.settings?.timeControl || 'none',
+          'shopPointsSpent': () => (cloudChessData.pointsSpent || 0).toString(),
+          'cheatPoints': () => (cloudChessData.cheatPoints || 0).toString(),
+          'gamesPlayed': () => (cloudChessData.stats?.playerStats?.wins || 0) + (cloudChessData.stats?.playerStats?.losses || 0) + (cloudChessData.stats?.playerStats?.draws || 0),
+          'gamesWon': () => cloudChessData.stats?.playerStats?.wins || 0,
+          'gamesLost': () => cloudChessData.stats?.playerStats?.losses || 0,
+          'gamesDrawn': () => cloudChessData.stats?.playerStats?.draws || 0
+        };
+        
+        if (keyMap[key]) {
+          const result = keyMap[key]();
+          return result !== undefined ? result : null;
+        }
+        
+        return null;
+      },
+      
+      setItem: function(key, value) {
+        // Allow unified auth keys to use real localStorage
+        if (key.startsWith('ahrenslabs_') || key === 'pendingVerificationEmail') {
+          originalLocalStorage.setItem(key, value);
+          return;
+        }
+        
+        if (!dataLoaded || !cloudChessData) return;
+        
+        // Map localStorage keys to cloud data
+        const keyMap = {
+          'achievements': (v) => { cloudChessData.achievements = JSON.parse(v); },
+          'totalPoints': (v) => { cloudChessData.points = parseInt(v) || 0; },
+          'unlockedItems': (v) => { cloudChessData.shopUnlocks = JSON.parse(v); },
+          'chessBoardStyle': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.boardStyle = v; },
+          'chessboardStyle': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.boardStyle = v; },
+          'chessPieceStyle': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.pieceStyle = v; },
+          'highlightColor': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.highlightColor = v; },
+          'arrowColor': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.arrowColor = v; },
+          'legalMoveDotStyle': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.legalMoveDotStyle = v; },
+          'pageTheme': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.pageTheme = v; },
+          'playerStats': (v) => { if (!cloudChessData.stats) cloudChessData.stats = {}; cloudChessData.stats.playerStats = JSON.parse(v); },
+          'lifetimeStats': (v) => { if (!cloudChessData.stats) cloudChessData.stats = {}; cloudChessData.stats.lifetimeStats = JSON.parse(v); },
+          'checkmateAddonsEnabled': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.checkmateAddons = JSON.parse(v); },
+          'selectedTimeControl': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.timeControl = v; },
+          'shopPointsSpent': (v) => { cloudChessData.pointsSpent = parseInt(v) || 0; },
+          'cheatPoints': (v) => { cloudChessData.cheatPoints = parseInt(v) || 0; },
+          'gamesPlayed': (v) => { /* handled in playerStats */ },
+          'gamesWon': (v) => { /* handled in playerStats */ },
+          'gamesLost': (v) => { /* handled in playerStats */ },
+          'gamesDrawn': (v) => { /* handled in playerStats */ }
+        };
+        
+        if (keyMap[key]) {
+          keyMap[key](value);
+          saveChessDataToCloud();
+        }
+      },
+      
+      removeItem: function(key) {
+        if (key.startsWith('ahrenslabs_')) {
+          originalLocalStorage.removeItem(key);
+        }
+        // For cloud items, just ignore removes or set to null
+      }
+    };
+    
+    // Override localStorage for this page
+    Object.defineProperty(window, 'localStorage', {
+      get: function() {
+        return cloudStorage;
+      }
+    });
+    
+    // Save chess data to cloud (debounced)
+    async function saveChessDataToCloud() {
+      if (!isLoggedIn || !currentSessionId) return;
+      
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/chess/sync`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentSessionId}`
+            },
+            body: JSON.stringify(cloudChessData)
+          });
+          
+          if (response.ok) {
+            console.log('Chess data saved to cloud');
+          } else {
+            console.error('Failed to save chess data');
+          }
+        } catch (error) {
+          console.error('Save to cloud error:', error);
+        }
+      }, 2000); // Debounce 2 seconds
+    }
 
     // Initialize account system
     function initAccountSystem() {
@@ -14034,31 +14207,11 @@ function navigateToPreviousMove() {
       if (typeof renderShopItems === 'function') renderShopItems();
     }
 
-    // Add account UI to page
-    function addAccountUI() {
-      // Account button removed - authentication is now in header only
-    }
-
-    // Update account UI based on login state
-    function updateAccountUI(loggedIn, username) {
-      // Account UI now in header only
-      updateHeaderAuthButtons();
-    }
+    // REMOVED: Old account UI functions - now using unified system
 
     // Account modal removed - authentication now handled via full-page login
 
-    // Old account modal functions removed - now using full-page login/signup
-
-    // Auto-sync on data changes (call this after important actions)
-    function autoSync() {
-      if (isLoggedIn) {
-        // Debounce sync calls
-        if (window.syncTimeout) clearTimeout(window.syncTimeout);
-        window.syncTimeout = setTimeout(() => {
-          syncLocalDataToAccount();
-        }, 2000); // Sync 2 seconds after last change
-      }
-    }
+    // REMOVED: Old account functions - now using cloud storage wrapper that auto-saves
 
     // Verify email
     async function verifyEmail(token, email) {

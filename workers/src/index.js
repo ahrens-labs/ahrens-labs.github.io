@@ -31,6 +31,18 @@ export default {
         return handleGetUser(request, env, corsHeaders);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders);
+      } else if (path === '/api/chess/sync' && request.method === 'POST') {
+        return handleChessSync(request, env, corsHeaders);
+      } else if (path === '/api/chess/load' && request.method === 'GET') {
+        return handleChessLoad(request, env, corsHeaders);
+      } else if (path === '/api/dungeon/slots' && request.method === 'GET') {
+        return handleDungeonSlots(request, env, corsHeaders);
+      } else if (path === '/api/dungeon/save' && request.method === 'POST') {
+        return handleDungeonSave(request, env, corsHeaders);
+      } else if (path === '/api/dungeon/load' && request.method === 'POST') {
+        return handleDungeonLoad(request, env, corsHeaders);
+      } else if (path === '/api/dungeon/delete' && request.method === 'POST') {
+        return handleDungeonDelete(request, env, corsHeaders);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -273,6 +285,271 @@ async function handleSync(request, env, corsHeaders) {
   });
 }
 
+// Chess sync handler - saves all chess data to cloud
+async function handleChessSync(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const chessData = await request.json();
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const updateReq = new Request('http://do/updateChessData', {
+    method: 'POST',
+    body: JSON.stringify(chessData)
+  });
+  await userAccount.fetch(updateReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Chess load handler - loads all chess data from cloud
+async function handleChessLoad(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const getDataReq = new Request('http://do/getChessData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const chessData = await dataRes.json();
+
+  return new Response(JSON.stringify(chessData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Dungeon slots handler - get all save slots
+async function handleDungeonSlots(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const getSlotsReq = new Request('http://do/getDungeonSlots', { method: 'GET' });
+  const slotsRes = await userAccount.fetch(getSlotsReq);
+  const slotsData = await slotsRes.json();
+
+  return new Response(JSON.stringify(slotsData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Dungeon save handler - save to specific slot
+async function handleDungeonSave(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const { slot, data, name } = await request.json();
+  
+  if (!slot || !['slot1', 'slot2', 'slot3'].includes(slot)) {
+    return new Response(JSON.stringify({ error: 'Invalid slot' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const saveReq = new Request('http://do/saveDungeonSlot', {
+    method: 'POST',
+    body: JSON.stringify({ slot, data, name })
+  });
+  await userAccount.fetch(saveReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Dungeon load handler - load from specific slot
+async function handleDungeonLoad(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const { slot } = await request.json();
+  
+  if (!slot || !['slot1', 'slot2', 'slot3'].includes(slot)) {
+    return new Response(JSON.stringify({ error: 'Invalid slot' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const loadReq = new Request('http://do/loadDungeonSlot', {
+    method: 'POST',
+    body: JSON.stringify({ slot })
+  });
+  const loadRes = await userAccount.fetch(loadReq);
+  const slotData = await loadRes.json();
+
+  return new Response(JSON.stringify(slotData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Dungeon delete handler - delete specific slot
+async function handleDungeonDelete(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userId = userResult.userId;
+  const { slot } = await request.json();
+  
+  if (!slot || !['slot1', 'slot2', 'slot3'].includes(slot)) {
+    return new Response(JSON.stringify({ error: 'Invalid slot' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  
+  const deleteReq = new Request('http://do/deleteDungeonSlot', {
+    method: 'POST',
+    body: JSON.stringify({ slot })
+  });
+  await userAccount.fetch(deleteReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Get user data handler
 async function handleGetUser(request, env, corsHeaders) {
   const authHeader = request.headers.get('Authorization');
@@ -478,6 +755,40 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/updateChessData' && request.method === 'POST') {
+        const chessData = await request.json();
+        await this.updateChessData(chessData);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getChessData' && request.method === 'GET') {
+        const chessData = await this.getChessData();
+        return new Response(JSON.stringify(chessData), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getDungeonSlots' && request.method === 'GET') {
+        const slotsData = await this.getDungeonSlots();
+        return new Response(JSON.stringify(slotsData), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveDungeonSlot' && request.method === 'POST') {
+        const { slot, data, name } = await request.json();
+        await this.saveDungeonSlot(slot, data, name);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/loadDungeonSlot' && request.method === 'POST') {
+        const { slot } = await request.json();
+        const slotData = await this.loadDungeonSlot(slot);
+        return new Response(JSON.stringify(slotData), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/deleteDungeonSlot' && request.method === 'POST') {
+        const { slot } = await request.json();
+        await this.deleteDungeonSlot(slot);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -526,33 +837,41 @@ export class UserAccount {
       createdAt: Date.now(),
       emailVerified: false,
       verificationToken: null,
-      achievements: {},
-      points: 0,
-      shopUnlocks: {
-        boards: ['classic'],
-        pieces: ['classic'],
-        highlightColors: ['red'],
-        arrowColors: ['red'],
-        legalMoveDots: ['blue-circle'],
-        themes: ['light'],
-        moveEffects: ['default'],
-        checkmateEffects: [],
-        timeControls: ['none']
-      },
-      settings: {
-        boardStyle: 'classic',
-        pieceStyle: 'classic',
-        highlightColor: 'red',
-        arrowColor: 'red',
-        legalMoveDotStyle: 'blue-circle',
-        pageTheme: 'light',
-        moveEffect: 'default'
-      },
-      stats: {
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        gamesPlayed: 0
+      games: {
+        chess: {
+          achievements: {},
+          points: 0,
+          shopUnlocks: {
+            boards: ['classic'],
+            pieces: ['classic'],
+            highlightColors: ['red'],
+            arrowColors: ['red'],
+            legalMoveDots: ['gray-circle'],
+            themes: ['light'],
+            checkmateEffects: [],
+            timeControls: ['none']
+          },
+          settings: {
+            boardStyle: 'classic',
+            pieceStyle: 'classic',
+            highlightColor: 'red',
+            arrowColor: 'red',
+            legalMoveDotStyle: 'gray-circle',
+            pageTheme: 'light'
+          },
+          stats: {
+            playerStats: { wins: 0, losses: 0, draws: 0 },
+            lifetimeStats: {}
+          }
+        },
+        dungeon: {
+          saveSlots: {
+            slot1: null,
+            slot2: null,
+            slot3: null
+          },
+          lastPlayedSlot: null
+        }
       }
     };
 
@@ -639,6 +958,111 @@ export class UserAccount {
     return { success: true };
   }
 
+  async updateChessData(chessData) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    
+    // Update chess game data
+    if (!userData.games) userData.games = {};
+    if (!userData.games.chess) userData.games.chess = {};
+    
+    userData.games.chess = {
+      ...userData.games.chess,
+      ...chessData,
+      lastUpdated: Date.now()
+    };
+    
+    await this.storage.put('userData', userData);
+  }
+
+  async getChessData() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.chess) {
+      // Return default chess data
+      return {
+        achievements: {},
+        points: 0,
+        shopUnlocks: {
+          boards: ['classic'],
+          pieces: ['classic'],
+          highlightColors: ['red'],
+          arrowColors: ['red'],
+          legalMoveDots: ['gray-circle'],
+          themes: ['light'],
+          checkmateEffects: [],
+          timeControls: ['none']
+        },
+        settings: {
+          boardStyle: 'classic',
+          pieceStyle: 'classic',
+          highlightColor: 'red',
+          arrowColor: 'red',
+          legalMoveDotStyle: 'gray-circle',
+          pageTheme: 'light'
+        },
+        stats: {
+          playerStats: { wins: 0, losses: 0, draws: 0 },
+          lifetimeStats: {}
+        }
+      };
+    }
+    
+    return userData.games.chess;
+  }
+
+  async getDungeonSlots() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.dungeon) {
+      return {
+        slot1: null,
+        slot2: null,
+        slot3: null,
+        lastPlayedSlot: null
+      };
+    }
+    
+    return userData.games.dungeon.saveSlots;
+  }
+
+  async saveDungeonSlot(slot, data, name) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    
+    if (!userData.games) userData.games = {};
+    if (!userData.games.dungeon) {
+      userData.games.dungeon = {
+        saveSlots: { slot1: null, slot2: null, slot3: null },
+        lastPlayedSlot: null
+      };
+    }
+    
+    userData.games.dungeon.saveSlots[slot] = {
+      name: name || `Save ${slot.replace('slot', '')}`,
+      data: data,
+      savedAt: Date.now()
+    };
+    userData.games.dungeon.lastPlayedSlot = slot;
+    
+    await this.storage.put('userData', userData);
+  }
+
+  async loadDungeonSlot(slot) {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.dungeon) {
+      return null;
+    }
+    
+    return userData.games.dungeon.saveSlots[slot];
+  }
+
+  async deleteDungeonSlot(slot) {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.dungeon) return;
+    
+    userData.games.dungeon.saveSlots[slot] = null;
+    await this.storage.put('userData', userData);
+  }
+
   async hashPassword(password) {
     // Simple hash for demo - use proper hashing in production
     const encoder = new TextEncoder();
@@ -695,6 +1119,10 @@ export class Session {
       await this.storage.deleteAll();
       return null;
     }
+    
+    // Extend session on every use (rolling 30-day expiration)
+    await this.storage.put('expiresAt', Date.now() + (30 * 24 * 60 * 60 * 1000));
+    
     return await this.storage.get('userId');
   }
 
