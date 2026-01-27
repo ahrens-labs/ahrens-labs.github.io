@@ -7137,7 +7137,7 @@
  $(document).ready(async function() {
         console.log("The page has finished loading!");
         
-        // Check for URL parameters first
+        // Check for URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         
         // Check for email verification token in URL
@@ -7152,12 +7152,12 @@
           window.history.replaceState({}, document.title, window.location.pathname);
         }
         
-        // CRITICAL: Load data from cloud (required before anything else)
+        // Load data from cloud (script.js already checked auth and will redirect if needed)
         console.log("Loading chess data from cloud...");
         const loaded = await loadChessDataFromCloud();
         if (!loaded) {
-          console.log("Not logged in, will redirect...");
-          return; // Will redirect to account page
+          console.log("Failed to load data, redirect should happen...");
+          return; // loadChessDataFromCloud will handle redirect
         }
         
         console.log("Chess data loaded successfully:", cloudChessData);
@@ -13584,21 +13584,29 @@ function navigateToPreviousMove() {
       currentSessionId = localStorage.getItem('ahrenslabs_sessionId');
       if (!currentSessionId) {
         console.log('No session ID found, redirecting to login...');
-        window.location.href = 'account.html?return=chess_engine.html';
+        setTimeout(() => {
+          window.location.href = 'account.html?return=chess_engine.html';
+        }, 100);
         return false;
       }
       
       try {
-        console.log('Fetching chess data from cloud...');
+        console.log('Fetching chess data from cloud with session:', currentSessionId.substring(0, 10) + '...');
         const response = await fetch(`${API_BASE_URL}/api/chess/load`, {
           headers: {
             'Authorization': `Bearer ${currentSessionId}`
           }
         });
         
+        console.log('Response status:', response.status);
+        
         if (!response.ok) {
           console.error('Failed to load chess data, status:', response.status);
-          window.location.href = 'account.html?return=chess_engine.html';
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          setTimeout(() => {
+            window.location.href = 'account.html?return=chess_engine.html';
+          }, 100);
           return false;
         }
         

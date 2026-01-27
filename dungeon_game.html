@@ -510,28 +510,17 @@
         }
 
         function showView(viewId) {
-            // Store the previous view BEFORE hiding everything
+            // Store the current view BEFORE hiding everything
             const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
             
             console.log('showView called:', {viewId, currentView, previousViewBefore: previousView});
             
-            // Only update previousView if we're NOT switching to/from inventory
-            if (viewId === "view-inventory") {
-                // When opening inventory, save the current view to return to
-                if (currentView && currentView !== "view-inventory") {
-                    previousView = currentView;
-                    console.log('Opening inventory, saved previousView:', previousView);
-                }
-                // Don't update previousView - we want to keep it for when we close inventory
-            } else if (currentView === "view-inventory") {
-                // Coming FROM inventory - don't update previousView, use the saved one
-                console.log('Closing inventory, using saved previousView:', previousView);
-            } else {
-                // Normal view transition (not involving inventory)
-                if (currentView && currentView !== "view-inventory") {
-                    previousView = currentView;
-                }
+            // Only update previousView when opening inventory (to remember where to return)
+            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory") {
+                previousView = currentView;
+                console.log('Opening inventory, saved previousView:', previousView);
             }
+            // When closing inventory or doing any other transition, DON'T update previousView
             
             ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory'].forEach(v => 
                 document.getElementById(v).classList.add('hidden')
