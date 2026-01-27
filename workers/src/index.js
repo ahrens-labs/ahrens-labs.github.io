@@ -29,6 +29,8 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
+      } else if (path === '/api/verify' && request.method === 'GET') {
+        return handleVerifyEmail(request, env, corsHeaders);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -73,6 +75,15 @@ async function handleSignup(request, env, corsHeaders) {
     });
   }
 
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return new Response(JSON.stringify({ error: 'Invalid email format' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   // Get user account DO
   const userId = generateUserId(email);
   console.log('Signup - email:', email, 'userId:', userId);
@@ -95,6 +106,24 @@ async function handleSignup(request, env, corsHeaders) {
     });
   }
 
+  // Generate verification token
+  const verificationToken = generateVerificationToken();
+  
+  // Store verification token in user account
+  const setTokenReq = new Request('http://do/setVerificationToken', {
+    method: 'POST',
+    body: JSON.stringify({ token: verificationToken })
+  });
+  await userAccount.fetch(setTokenReq);
+
+  // Send verification email
+  try {
+    await sendVerificationEmail(email, username, verificationToken);
+  } catch (error) {
+    console.error('Failed to send verification email:', error);
+    // Continue with signup even if email fails
+  }
+
   // Create session
   const sessionId = generateSessionId();
   const sessionObjId = env.SESSION.idFromName(sessionId);
@@ -111,7 +140,8 @@ async function handleSignup(request, env, corsHeaders) {
     sessionId,
     userId,
     username,
-    email
+    email,
+    message: 'Account created! Please check your email to verify your account.'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -302,6 +332,104 @@ function generateSessionId() {
   return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+function generateVerificationToken() {
+  // Generate a random verification token
+  return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
+}
+
+// Send verification email using MailChannels
+async function sendVerificationEmail(email, username, token) {
+  const verificationUrl = `https://ahrens-labs.github.io/chess_engine.html?verify=${token}&email=${encodeURIComponent(email)}`;
+  
+  const emailData = {
+    personalizations: [{
+      to: [{ email: email, name: username }]
+    }],
+    from: {
+      email: "noreply@chess.ahrens-labs.workers.dev",
+      name: "Ahrens Labs Chess"
+    },
+    subject: "Verify your Chess Engine account",
+    content: [{
+      type: "text/html",
+      value: `
+        <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2c3e50;">Welcome to Ahrens Labs Chess Engine!</h2>
+            <p>Hi ${username},</p>
+            <p>Thank you for signing up! Please verify your email address by clicking the button below:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verificationUrl}" 
+                 style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Verify Email Address
+              </a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="color: #7f8c8d; word-break: break-all;">${verificationUrl}</p>
+            <p style="margin-top: 30px; color: #7f8c8d; font-size: 0.9em;">
+              If you didn't create this account, you can safely ignore this email.
+            </p>
+          </body>
+        </html>
+      `
+    }]
+  };
+
+  const response = await fetch('https://api.mailchannels.net/tx/v1/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(emailData)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to send email: ${response.statusText}`);
+  }
+}
+
+// Handle email verification
+async function handleVerifyEmail(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token');
+  const email = url.searchParams.get('email');
+
+  if (!token || !email) {
+    return new Response(JSON.stringify({ error: 'Missing verification token or email' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = generateUserId(email);
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const verifyReq = new Request('http://do/verifyEmail', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+
+  const verifyRes = await userAccount.fetch(verifyReq);
+  const result = await verifyRes.json();
+
+  if (result.success) {
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Email verified successfully!'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } else {
+    return new Response(JSON.stringify({ 
+      error: result.error || 'Invalid or expired verification token'
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 // Durable Object: UserAccount
 export class UserAccount {
   constructor(state, env) {
@@ -336,6 +464,18 @@ export class UserAccount {
         const userData = await request.json();
         await this.updateData(userData);
         return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/setVerificationToken' && request.method === 'POST') {
+        const { token } = await request.json();
+        await this.setVerificationToken(token);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/verifyEmail' && request.method === 'POST') {
+        const { token } = await request.json();
+        const result = await this.verifyEmail(token);
+        return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
       } else if (path === '/debug' && request.method === 'GET') {
@@ -384,6 +524,8 @@ export class UserAccount {
       username,
       passwordHash,
       createdAt: Date.now(),
+      emailVerified: false,
+      verificationToken: null,
       achievements: {},
       points: 0,
       shopUnlocks: {
@@ -459,6 +601,42 @@ export class UserAccount {
     if (newData.stats) userData.stats = newData.stats;
 
     await this.storage.put('userData', userData);
+  }
+
+  async setVerificationToken(token) {
+    const userData = await this.storage.get('userData');
+    if (userData) {
+      userData.verificationToken = token;
+      userData.verificationTokenExpiry = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      await this.storage.put('userData', userData);
+    }
+  }
+
+  async verifyEmail(token) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+
+    if (userData.emailVerified) {
+      return { success: true, message: 'Email already verified' };
+    }
+
+    if (userData.verificationToken !== token) {
+      return { success: false, error: 'Invalid verification token' };
+    }
+
+    if (Date.now() > userData.verificationTokenExpiry) {
+      return { success: false, error: 'Verification token expired' };
+    }
+
+    // Mark email as verified
+    userData.emailVerified = true;
+    userData.verificationToken = null;
+    userData.verificationTokenExpiry = null;
+    await this.storage.put('userData', userData);
+
+    return { success: true };
   }
 
   async hashPassword(password) {
