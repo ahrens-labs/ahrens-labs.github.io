@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account - Ahrens Labs</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="js/script.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            min-height: 100vh;
+        }
+        
+        .account-container {
+            max-width: 500px;
+            margin: 80px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .account-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .account-header h1 {
+            font-size: 2em;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .account-header p {
+            color: #7f8c8d;
+            font-size: 1em;
+        }
+        
+        .account-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+        
+        .account-tab {
+            flex: 1;
+            padding: 15px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1em;
+            color: #7f8c8d;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .account-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .account-tab:hover {
+            color: #3b82f6;
+        }
+        
+        .account-form {
+            display: none;
+        }
+        
+        .account-form.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 10px;
+            font-size: 1em;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .form-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .form-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .form-button:active {
+            transform: translateY(0);
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+        
+        .notification.success {
+            border-left: 4px solid #2ecc71;
+        }
+        
+        .notification.error {
+            border-left: 4px solid #e74c3c;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .email-notice {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="account-container">
+        <div class="account-header">
+            <h1>Ahrens Labs Account</h1>
+            <p>One account for all projects</p>
+        </div>
+        
+        <div class="account-tabs">
+            <button class="account-tab active" onclick="switchTab('login')">Login</button>
+            <button class="account-tab" onclick="switchTab('signup')">Sign Up</button>
+        </div>
+        
+        <!-- Login Form -->
+        <form id="login-form" class="account-form active" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="login-email">Email</label>
+                <input type="email" id="login-email" required>
+            </div>
+            <div class="form-group">
+                <label for="login-password">Password</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button type="submit" class="form-button">Login</button>
+        </form>
+        
+        <!-- Signup Form -->
+        <form id="signup-form" class="account-form" onsubmit="handleSignup(event)">
+            <div class="form-group">
+                <label for="signup-username">Username</label>
+                <input type="text" id="signup-username" required minlength="3">
+            </div>
+            <div class="form-group">
+                <label for="signup-email">Email</label>
+                <input type="email" id="signup-email" required>
+            </div>
+            <div class="form-group">
+                <label for="signup-password">Password</label>
+                <input type="password" id="signup-password" required minlength="6">
+            </div>
+            <button type="submit" class="form-button">Create Account</button>
+            <div class="email-notice">
+                📧 A verification email will be sent to confirm your account.
+            </div>
+        </form>
+        
+        <div class="back-link">
+            <a href="index.html">← Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+        
+        // Check if already logged in
+        window.addEventListener('DOMContentLoaded', async () => {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (sessionId) {
+                // Check if session is still valid
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/user`, {
+                        headers: {
+                            'Authorization': `Bearer ${sessionId}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Already logged in, redirect to referring page or home
+                        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+                        showNotification('Already logged in!', 'success');
+                        setTimeout(() => {
+                            window.location.href = returnUrl;
+                        }, 1000);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Session check error:', error);
+                }
+            }
+
+            // Check for email verification
+            const urlParams = new URLSearchParams(window.location.search);
+            const verifyToken = urlParams.get('verify');
+            const email = urlParams.get('email');
+            
+            if (verifyToken && email) {
+                await verifyEmail(verifyToken, email);
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
+        
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.account-tab');
+            const forms = document.querySelectorAll('.account-form');
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            forms.forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                tabs[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('signup-form').classList.add('active');
+            }
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
+                    localStorage.setItem('ahrenslabs_username', data.username);
+                    localStorage.setItem('ahrenslabs_userId', data.userId);
+                    
+                    showNotification('Login successful! 🎉', 'success');
+                    
+                    // Redirect to return URL or home
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+                    setTimeout(() => {
+                        window.location.href = returnUrl;
+                    }, 1000);
+                } else {
+                    showNotification(data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showNotification('Login failed. Please try again.', 'error');
+            }
+        }
+        
+        async function handleSignup(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('signup-username').value;
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password, username })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
+                    localStorage.setItem('ahrenslabs_username', data.username);
+                    localStorage.setItem('ahrenslabs_userId', data.userId);
+                    
+                    showNotification(data.message || 'Account created! Check your email for verification.', 'success', 5000);
+                    
+                    // Redirect to return URL or home
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+                    setTimeout(() => {
+                        window.location.href = returnUrl;
+                    }, 2000);
+                } else {
+                    showNotification(data.error || 'Signup failed', 'error');
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                showNotification('Signup failed. Please try again.', 'error');
+            }
+        }
+        
+        async function verifyEmail(token, email) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/verify?token=${token}&email=${email}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Email verified successfully! 🎉', 'success', 5000);
+                } else {
+                    showNotification(data.error || 'Email verification failed', 'error');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showNotification('Email verification failed. Please try again.', 'error');
+            }
+        }
+        
+        function showNotification(message, type, duration = 3000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, duration);
+        }
+    </script>
+</body>
+</html>
