@@ -10185,13 +10185,18 @@ function navigateToPreviousMove() {
       }
     }
 
-    function loadAchievements() {
-      const saved = localStorage.getItem('achievements');
-      if (saved) {
-        achievements = JSON.parse(saved);
-      }
-    }
-
+function loadAchievements() {
+  try {
+    const saved = localStorage.getItem('achievements');
+    const parsed = saved ? JSON.parse(saved) : [];
+    
+    // Safety check: if parsed data isn't an array, reset to empty array
+    achievements = Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error("Failed to parse achievements:", e);
+    achievements = []; // Fallback on error
+  }
+}
     function saveAchievements() {
       localStorage.setItem('achievements', JSON.stringify(achievements));
       
