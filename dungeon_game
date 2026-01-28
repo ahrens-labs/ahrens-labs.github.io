@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Game - Ahrens Labs</title>
+    
+    <!-- Google Fonts Links -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'JetBrains+Mono', monospace; overflow-x: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .combat-active { animation: pulse-red 2s infinite; }
+        @keyframes pulse-red { 0%, 100% { background-color: rgba(220, 38, 38, 0.05); } 50% { background-color: rgba(220, 38, 38, 0.15); } }
+        .equipped { border-color: #fbbf24 !important; background-color: rgba(251, 191, 36, 0.1) !important; }
+        
+        /* Game wrapper styles */
+        .game-wrapper {
+            background-color: #020617;
+            color: #e2e8f0;
+            min-height: calc(100vh - 200px);
+            padding: 2rem 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-wrapper flex flex-col items-center">
+
+    <!-- Header Stats -->
+    <div id="stats-header" class="w-full max-w-4xl grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
+            <i class="fas fa-heart text-red-500 text-xs"></i>
+            <div>
+                <div class="text-[9px] text-slate-500 font-bold uppercase">Health</div>
+                <div id="stat-hp" class="text-white text-xs font-bold">--/--</div>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
+            <i class="fas fa-coins text-yellow-500 text-xs"></i>
+            <div>
+                <div class="text-[9px] text-slate-500 font-bold uppercase">Gold</div>
+                <div id="stat-gold" class="text-white text-xs font-bold">0</div>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
+            <i class="fas fa-key text-blue-400 text-xs"></i>
+            <div>
+                <div class="text-[9px] text-slate-500 font-bold uppercase">Keys</div>
+                <div id="stat-keys" class="text-white text-xs font-bold">0</div>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
+            <i class="fas fa-shield-alt text-slate-400 text-xs"></i>
+            <div>
+                <div class="text-[9px] text-slate-500 font-bold uppercase">Armor</div>
+                <div id="stat-armor" class="text-white text-xs font-bold">--</div>
+            </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-2">
+            <div id="stat-floor" class="text-[10px] text-blue-400 font-black">FLOOR 1</div>
+            <div id="stat-attributes" class="text-[8px] text-slate-500 leading-tight">S:0 D:0 I:0 W:0</div>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
+        <!-- Log Panel -->
+        <div class="lg:col-span-1 bg-black border border-slate-800 rounded flex flex-col h-[300px] lg:h-[600px] overflow-hidden">
+            <div class="bg-slate-900 p-2 text-[10px] font-bold border-b border-slate-800 text-slate-500">ADVENTURE LOG</div>
+            <div id="game-log" class="flex-1 overflow-y-auto p-4 text-[13px] space-y-2 custom-scrollbar bg-slate-950/50"></div>
+            <div id="global-actions" class="p-2 border-t border-slate-800 bg-slate-900 hidden">
+                <button onclick="toggleInventory()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded uppercase flex items-center justify-center gap-2">
+                    <i class="fas fa-backpack"></i> Inventory
+                </button>
+            </div>
+        </div>
+
+        <!-- Viewport -->
+        <div id="viewport" class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded p-6 relative flex flex-col items-center justify-center min-h-[500px] shadow-2xl transition-all duration-500">
+            
+            <div id="view-menu" class="text-center space-y-8">
+                <h1 class="text-6xl font-black text-white italic tracking-tighter">DUNGEON<br>GAME</h1>
+                <div class="flex flex-col gap-3">
+                    <button onclick="initCharacterCreation()" class="bg-white text-black px-12 py-3 rounded font-bold hover:bg-yellow-400 transition-all shadow-xl">NEW GAME</button>
+                    <button onclick="loadGame()" class="bg-slate-800 text-white px-12 py-3 rounded font-bold hover:bg-slate-700 transition-all shadow-xl border border-slate-700">LOAD GAME</button>
+                </div>
+            </div>
+
+            <div id="view-creation" class="hidden w-full max-w-sm space-y-4">
+                <div id="char-name-input" class="space-y-4">
+                    <h2 class="text-sm font-bold text-center text-slate-400 uppercase tracking-widest">Create Your Character</h2>
+                    <div class="space-y-2">
+                        <label class="text-xs font-bold text-slate-400 uppercase">Character Name</label>
+                        <input id="character-name" type="text" maxlength="20" placeholder="Enter name..." class="w-full p-3 bg-slate-800 border border-slate-700 rounded text-white text-sm focus:border-blue-500 focus:outline-none">
+                    </div>
+                    <button onclick="confirmCharacterName()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded font-bold uppercase text-sm">Continue</button>
+                </div>
+                <div id="attr-assignment" class="hidden space-y-4">
+                    <h2 class="text-sm font-bold text-center text-slate-400 uppercase tracking-widest">Assign Attributes</h2>
+                    <div id="rolls-container" class="flex justify-center gap-2"></div>
+                    <div id="attr-selection" class="space-y-1"></div>
+                </div>
+            </div>
+
+            <div id="view-town" class="hidden text-center space-y-6 w-full max-w-lg">
+                <h2 class="text-3xl font-black text-white italic">OAKHAVEN</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="showShop()" class="p-8 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-2">
+                        <i class="fas fa-store text-2xl text-yellow-500"></i>
+                        <span class="font-bold text-sm">SHOP</span>
+                    </button>
+                    <button onclick="enterDungeon()" class="p-8 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-2">
+                        <i class="fas fa-dungeon text-2xl text-red-500"></i>
+                        <span class="font-bold text-sm">DUNGEON</span>
+                    </button>
+                </div>
+                <button onclick="saveGame()" class="mt-4 text-xs text-slate-500 hover:text-white underline">SAVE GAME</button>
+            </div>
+
+            <div id="view-dungeon" class="hidden w-full flex flex-col items-center gap-6">
+                <div id="mini-map" class="grid grid-cols-10 gap-1 bg-slate-950 p-2 rounded border border-slate-800"></div>
+                <div id="room-actions" class="flex flex-wrap justify-center gap-3 min-h-[40px]"></div>
+                <div class="grid grid-cols-3 gap-1 w-32">
+                    <div></div><button onclick="movePlayer(-1, 0)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9650;</button><div></div>
+                    <button onclick="movePlayer(0, -1)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9664;</button>
+                    <button onclick="movePlayer(1, 0)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9660;</button>
+                    <button onclick="movePlayer(0, 1)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9654;</button>
+                </div>
+                <div class="flex gap-4">
+                    <button id="btn-return-town" onclick="showView('view-town')" class="hidden text-[10px] text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
+                        <i class="fas fa-door-open"></i> Return to Town
+                    </button>
+                    <button onclick="saveGame()" class="text-[10px] text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                </div>
+            </div>
+
+            <!-- COMBAT VIEW -->
+            <div id="view-combat" class="hidden w-full flex flex-col items-center gap-6">
+                <div class="text-center w-full">
+                    <div id="monster-name" class="text-red-500 font-black text-2xl uppercase italic tracking-widest">MONSTER</div>
+                    <div class="w-full max-w-sm mx-auto h-2 bg-slate-950 rounded mt-2 overflow-hidden border border-slate-800">
+                        <div id="monster-hp-bar" class="h-full bg-red-600 transition-all duration-500" style="width: 100%"></div>
+                    </div>
+                    <div id="monster-stats-display" class="text-[10px] text-slate-500 mt-1"></div>
+                </div>
+
+                <div id="combat-main-menu" class="hidden grid grid-cols-1 gap-2 w-full max-w-xs">
+                    <button onclick="showCombatSubMenu('attack')" class="p-3 bg-slate-800 hover:bg-slate-700 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
+                        <span>ATTACK</span><i class="fas fa-sword text-slate-600"></i>
+                    </button>
+                    <button onclick="showCombatSubMenu('items')" class="p-3 bg-slate-800 hover:bg-slate-700 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
+                        <span>ITEMS</span><i class="fas fa-flask text-slate-600"></i>
+                    </button>
+                    <button onclick="retreat()" class="p-3 bg-slate-900 border border-blue-900/40 text-blue-400 hover:bg-blue-950/20 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
+                        <span>RETREAT (Roll)</span><i class="fas fa-person-running"></i>
+                    </button>
+                </div>
+
+                <div id="combat-direction-menu" class="hidden grid grid-cols-3 gap-2 w-full max-w-xs">
+                    <div class="col-span-3 text-center text-[10px] font-bold text-yellow-500 mb-2 uppercase italic">Target Strike Area</div>
+                    <button onclick="combatAction(1)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">HIGH</button>
+                    <button onclick="combatAction(3)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">MID</button>
+                    <button onclick="combatAction(2)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">LOW</button>
+                    <button onclick="showCombatSubMenu('main')" class="col-span-3 text-[10px] text-slate-500 font-bold text-center mt-2">BACK</button>
+                </div>
+
+                <div id="combat-defense-menu" class="hidden grid grid-cols-3 gap-2 w-full max-w-xs">
+                    <div class="col-span-3 text-center text-[10px] font-bold text-blue-400 mb-2 uppercase italic">Guard Position!</div>
+                    <button onclick="resolveMonsterTurn(1)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">HIGH</button>
+                    <button onclick="resolveMonsterTurn(3)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">MID</button>
+                    <button onclick="resolveMonsterTurn(2)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">LOW</button>
+                </div>
+
+                <div id="combat-items-menu" class="hidden w-full max-w-xs space-y-1">
+                    <div id="combat-inventory-list" class="space-y-1 max-h-40 overflow-y-auto custom-scrollbar"></div>
+                    <button onclick="showCombatSubMenu('main')" class="w-full p-2 bg-slate-800 text-[10px] text-slate-500 rounded font-bold">BACK</button>
+                </div>
+
+                <div id="turn-indicator" class="text-[10px] font-black tracking-widest text-yellow-600 bg-black/40 px-4 py-1 rounded italic uppercase">...</div>
+            </div>
+
+            <!-- SHOP VIEW -->
+            <div id="view-shop" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-2">
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-2 border-b border-slate-800">
+                    <h2 class="font-black text-xl italic">TOWN MERCHANT</h2>
+                    <div class="flex gap-2">
+                        <button id="shop-mode-buy" onclick="setShopMode('buy')" class="text-[9px] bg-yellow-600 px-3 py-1 rounded font-bold">BUY</button>
+                        <button id="shop-mode-sell" onclick="setShopMode('sell')" class="text-[9px] bg-slate-800 px-3 py-1 rounded font-bold">SELL</button>
+                        <button onclick="showView('view-town')" class="text-[10px] bg-slate-800 px-3 py-1 rounded">EXIT</button>
+                    </div>
+                </div>
+                <div id="shop-categories" class="space-y-6"></div>
+            </div>
+
+            <!-- INVENTORY VIEW -->
+            <div id="view-inventory" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-2">
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-2 border-b border-slate-800 z-10">
+                    <h2 class="font-black text-xl italic">INVENTORY</h2>
+                    <button onclick="closeInventory()" class="text-[10px] bg-slate-800 px-3 py-1 rounded">CLOSE</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-4">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Weapons</h3>
+                        <div id="inv-weapons" class="space-y-2"></div>
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Armor</h3>
+                        <div id="inv-armors" class="space-y-2"></div>
+                    </div>
+                    <div class="space-y-4">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Consumables</h3>
+                        <div id="inv-consumables" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+    <script>
+        // ===============================================
+        // CLOUD SAVE SYSTEM
+        // ===============================================
+        const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+        let currentSaveSlot = null;
+        let isLoggedIn = false;
+        let sessionId = null;
+
+        // Check authentication on page load
+        async function checkAuth() {
+            sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) {
+                // Redirect to account page with return URL
+                window.location.href = 'account.html?return=dungeon_game.html';
+                return false;
+            }
+
+            // Verify session is valid
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/user`, {
+                    headers: {
+                        'Authorization': `Bearer ${sessionId}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    window.location.href = 'account.html?return=dungeon_game.html';
+                    return false;
+                }
+                
+                isLoggedIn = true;
+                return true;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = 'account.html?return=dungeon_game.html';
+                return false;
+            }
+        }
+
+        // Save game to cloud slot
+        async function saveToCloud(slotNumber, saveName) {
+            if (!isLoggedIn || !sessionId) return false;
+
+            const slot = `slot${slotNumber}`;
+            const saveData = {
+                stats: stats,
+                map: mapData,
+                room: currentRoom,
+                openedChests: Array.from(stats.openedChests)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/dungeon/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`
+                    },
+                    body: JSON.stringify({
+                        slot: slot,
+                        data: saveData,
+                        name: saveName || stats.characterName || `Save ${slotNumber}`
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    currentSaveSlot = slotNumber;
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Save to cloud failed:', error);
+                return false;
+            }
+        }
+
+        // Load game from cloud slot
+        async function loadFromCloud(slotNumber) {
+            if (!isLoggedIn || !sessionId) return null;
+
+            const slot = `slot${slotNumber}`;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/dungeon/load`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`
+                    },
+                    body: JSON.stringify({ slot })
+                });
+
+                const result = await response.json();
+                if (result && result.data) {
+                    currentSaveSlot = slotNumber;
+                    return result.data;
+                }
+                return null;
+            } catch (error) {
+                console.error('Load from cloud failed:', error);
+                return null;
+            }
+        }
+
+        // Get all save slots
+        async function getAllSaveSlots() {
+            if (!isLoggedIn || !sessionId) return {};
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/dungeon/slots`, {
+                    headers: {
+                        'Authorization': `Bearer ${sessionId}`
+                    }
+                });
+
+                const slots = await response.json();
+                return slots;
+            } catch (error) {
+                console.error('Get save slots failed:', error);
+                return {};
+            }
+        }
+
+        // Delete save slot
+        async function deleteSaveSlot(slotNumber) {
+            if (!isLoggedIn || !sessionId) return false;
+
+            const slot = `slot${slotNumber}`;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/dungeon/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`
+                    },
+                    body: JSON.stringify({ slot })
+                });
+
+                const result = await response.json();
+                return result.success;
+            } catch (error) {
+                console.error('Delete save slot failed:', error);
+                return false;
+            }
+        }
+
+        // Auto-save (debounced)
+        let autoSaveTimeout;
+        function triggerAutoSave() {
+            if (!currentSaveSlot) return;
+            
+            clearTimeout(autoSaveTimeout);
+            autoSaveTimeout = setTimeout(async () => {
+                await saveToCloud(currentSaveSlot, `Auto-save ${currentSaveSlot}`);
+                addLog('Game auto-saved', 'text-green-400');
+            }, 3000); // Auto-save 3 seconds after last action
+        }
+
+        // ===============================================
+        // ORIGINAL GAME DATA
+        // ===============================================
+        // --- DATA MATCHING PYTHON EXACTLY ---
+        // [Cost, Value, Type(1=Wep,2=Arm,3=Pot,4=Spl), Effect/Uses]
+        const SHOP_DATA = {
+            "dagger": [30, 2, 1],
+            "short sword": [50, 3, 1],
+            "long sword": [100, 4, 1],
+            "axe": [200, 5, 1],
+            "great sword": [500, 6, 1],
+            "paded armor": [125, 10, 2],
+            "leather armor": [200, 11, 2],
+            "studded leather": [400, 12, 2],
+            "scale mail": [700, 13, 2],
+            "chainmail": [1000, 14, 2],
+            "platemail": [1500, 15, 2],
+            "healing potion": [50, 3, 3, 1],
+            "intelligence potion": [70, 2, 3, 2],
+            "speed potion": [100, 2, 3, 3],
+            "strength potion": [130, 2, 3, 4],
+            "protection potion": [150, 2, 3, 5],
+            "magic missile spell": [50, 3, 4, 1],
+            "weakness spell": [70, 2, 4, 2],
+            "lightning spell": [100, 2, 4, 3],
+            "freeze spell": [130, 2, 4, 4],
+            "fireball spell": [150, 2, 4, 5],
+            "town spell": [200, 2, 4, 6]
+        };
+
+        // --- GAME STATE ---
+        let stats = {
+            characterName: "",
+            HP: 15, maxHP: 15, coins: 0, armor: 9, keys: 0, floor: 1,
+            strength: 0, dexterity: 0, intelligence: 0, wisdom: 0,
+            temporary_strength: 0, temporary_dexterity: 0, temporary_intelligence: 0, temporary_armor: 0,
+            weapons: { "stick": 1 }, 
+            armors: { "none": 9 }, 
+            potions: {}, 
+            spells: {},
+            equippedWeapon: "stick",
+            equippedArmor: "none",
+            openedChests: new Set()
+        };
+        let mapData = null;
+        let currentRoom = [9, 9];
+        let pendingRolls = [];
+        let combatData = null;
+        let isProcessing = false;
+        let previousView = "view-town";
+        let shopMode = "buy";
+
+        // --- CORE UTILS ---
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        async function logLoading(text, dots = 3, speed = 250) {
+            const log = document.getElementById('game-log');
+            const entry = document.createElement('div');
+            entry.className = "text-slate-500 italic";
+            log.appendChild(entry);
+            for(let i=0; i<3; i++) {
+                for(let d=1; d<=dots; d++) {
+                    entry.innerText = `${text}${'.'.repeat(d)}`;
+                    log.scrollTop = log.scrollHeight;
+                    await sleep(speed);
+                }
+            }
+            entry.remove();
+        }
+
+        function addLog(msg, color="text-slate-400") {
+            const log = document.getElementById('game-log');
+            const d = document.createElement('div');
+            d.className = `${color} leading-snug`;
+            d.innerText = msg;
+            log.appendChild(d);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateUI() {
+            document.getElementById('stat-hp').innerText = `${stats.HP}/${stats.maxHP}`;
+            document.getElementById('stat-gold').innerText = stats.coins;
+            document.getElementById('stat-keys').innerText = stats.keys;
+            document.getElementById('stat-armor').innerText = stats.armor + stats.temporary_armor;
+            document.getElementById('stat-floor').innerText = `FLOOR ${stats.floor}`;
+            document.getElementById('stat-attributes').innerText = `S:${stats.strength} D:${stats.dexterity} I:${stats.intelligence} W:${stats.wisdom}`;
+            
+            const btn = document.getElementById('btn-return-town');
+            if (currentRoom[0] === 9 && currentRoom[1] === 9) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function showView(viewId) {
+            // Store the current view BEFORE hiding everything
+            const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
+            
+            console.log('showView called:', {viewId, currentView, previousViewBefore: previousView});
+            
+            // Only update previousView when opening inventory (to remember where to return)
+            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory") {
+                previousView = currentView;
+                console.log('Opening inventory, saved previousView:', previousView);
+            }
+            // When closing inventory or doing any other transition, DON'T update previousView
+            
+            ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory'].forEach(v => 
+                document.getElementById(v).classList.add('hidden')
+            );
+            
+            document.getElementById('viewport').classList.toggle('combat-active', viewId === 'view-combat');
+            document.getElementById(viewId).classList.remove('hidden');
+            
+            if(viewId !== 'view-menu') {
+                document.getElementById('stats-header').classList.remove('hidden');
+                document.getElementById('global-actions').classList.remove('hidden');
+            }
+            if(viewId === 'view-dungeon') updateUI();
+        }
+
+        function toggleInventory() {
+            if (!document.getElementById('view-inventory').classList.contains('hidden')) {
+                closeInventory();
+            } else {
+                renderInventory();
+                showView('view-inventory');
+            }
+        }
+
+        function closeInventory() {
+            console.log('closeInventory called', {previousView, combatData: combatData ? {HP: combatData.HP, turn: combatData.turn} : null});
+            
+            // If we're returning to combat, make sure combat state is still valid
+            if (previousView === 'view-combat') {
+                if (combatData && combatData.HP > 0) {
+                    // Combat is still active, restore it
+                    console.log('Restoring combat view');
+                    showView('view-combat');
+                    updateCombatUI();
+                    // Restore the appropriate menu based on whose turn it is
+                    if (combatData.turn === 'player') {
+                        showCombatSubMenu('main');
+                    } else if (combatData.turn === 'monster') {
+                        showCombatSubMenu('defense');
+                    }
+                } else {
+                    // Combat ended while in inventory, go back to dungeon
+                    console.log('Combat ended, returning to dungeon');
+                    showView('view-dungeon');
+                    renderDungeon();
+                    checkRoom(true);
+                }
+            } else {
+                console.log('Returning to previous view:', previousView);
+                showView(previousView);
+            }
+        }
+
+        async function saveGame() {
+            // Show save slot selection modal
+            showSaveSlotModal();
+        }
+
+        async function loadGame() {
+            // Show load slot selection modal
+            showLoadSlotModal();
+        }
+
+        // Show save slot selection modal
+        async function showSaveSlotModal() {
+            const slots = await getAllSaveSlots();
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1.5rem;text-align:center;color:white;">SAVE TO SLOT</h2>';
+            html += '<div style="display:flex;flex-direction:column;gap:1rem;">';
+            
+            for (let i = 1; i <= 3; i++) {
+                const slot = slots[`slot${i}`];
+                const slotName = slot ? slot.name : `Empty Slot ${i}`;
+                const slotDate = slot ? new Date(slot.savedAt).toLocaleString() : '';
+                const currentCharName = stats.characterName || 'Unnamed Hero';
+                
+                html += `<button onclick="saveToSlotAndClose(${i})" style="padding:1rem;background:#334155;border-radius:8px;text-align:left;cursor:pointer;border:2px solid #475569;transition:all 0.2s;color:white;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#334155'">`;
+                html += `<div style="font-weight:bold;font-size:1.1rem;">Slot ${i}</div>`;
+                if (slot) {
+                    html += `<div style="font-size:0.9rem;color:#fbbf24;">${slotName}</div>`;
+                    html += `<div style="font-size:0.8rem;color:#94a3b8;">${slotDate}</div>`;
+                } else {
+                    html += `<div style="font-size:0.9rem;color:#64748b;">Empty</div>`;
+                }
+                html += `<div style="font-size:0.75rem;color:#3b82f6;margin-top:0.25rem;">Will save: ${currentCharName}</div>`;
+                html += '</button>';
+            }
+            
+            html += '</div>';
+            html += '<button onclick="closeSaveModal()" style="margin-top:1.5rem;width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;">CANCEL</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'save-modal';
+            document.body.appendChild(modal);
+        }
+
+        // Show load slot selection modal
+        async function showLoadSlotModal() {
+            const slots = await getAllSaveSlots();
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1.5rem;text-align:center;color:white;">LOAD FROM SLOT</h2>';
+            html += '<div style="display:flex;flex-direction:column;gap:1rem;">';
+            
+            for (let i = 1; i <= 3; i++) {
+                const slot = slots[`slot${i}`];
+                const slotDate = slot ? new Date(slot.savedAt).toLocaleString() : '';
+                
+                if (slot) {
+                    const characterName = slot.name || `Save ${i}`;
+                    html += `<div style="padding:1rem;background:#334155;border-radius:8px;border:2px solid #475569;display:flex;justify-content:space-between;align-items:center;">`;
+                    html += `<div style="flex:1;cursor:pointer;color:white;" onclick="loadFromSlotAndClose(${i})">`;
+                    html += `<div style="font-weight:bold;font-size:1.1rem;">Slot ${i}</div>`;
+                    html += `<div style="font-size:1rem;color:#fbbf24;">${characterName}</div>`;
+                    html += `<div style="font-size:0.8rem;color:#94a3b8;">${slotDate}</div>`;
+                    html += `</div>`;
+                    html += `<button onclick="deleteSlotAndRefresh(${i})" style="padding:0.5rem 1rem;background:#ef4444;border-radius:6px;font-size:0.8rem;font-weight:bold;color:white;cursor:pointer;">DELETE</button>`;
+                    html += '</div>';
+                } else {
+                    html += `<div style="padding:1rem;background:#1e293b;border-radius:8px;border:2px solid #334155;color:#64748b;">`;
+                    html += `<div style="font-weight:bold;">Slot ${i}: Empty</div>`;
+                    html += '</div>';
+                }
+            }
+            
+            html += '</div>';
+            html += '<button onclick="closeLoadModal()" style="margin-top:1.5rem;width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;">CANCEL</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'load-modal';
+            document.body.appendChild(modal);
+        }
+
+        async function saveToSlotAndClose(slotNumber) {
+            const saveName = stats.characterName || `Save ${slotNumber}`;
+            const success = await saveToCloud(slotNumber, saveName);
+            if (success) {
+                addLog(`Game saved to Slot ${slotNumber}!`, 'text-green-400');
+                closeSaveModal();
+            } else {
+                addLog('Failed to save game', 'text-red-400');
+            }
+        }
+
+        async function loadFromSlotAndClose(slotNumber) {
+            const saveData = await loadFromCloud(slotNumber);
+            if (saveData) {
+                stats = saveData.stats;
+                mapData = saveData.map;
+                currentRoom = saveData.room;
+                stats.openedChests = new Set(saveData.openedChests);
+                showView('view-dungeon');
+                renderDungeon();
+                updateUI();
+                checkRoom(true);
+                addLog(`Game loaded from Slot ${slotNumber}!`, 'text-yellow-400');
+                closeLoadModal();
+            } else {
+                addLog('Failed to load game', 'text-red-400');
+            }
+        }
+
+        async function deleteSlotAndRefresh(slotNumber) {
+            if (confirm(`Delete save slot ${slotNumber}? This cannot be undone!`)) {
+                const success = await deleteSaveSlot(slotNumber);
+                if (success) {
+                    closeLoadModal();
+                    setTimeout(() => showLoadSlotModal(), 100);
+                }
+            }
+        }
+
+        function closeSaveModal() {
+            const modal = document.getElementById('save-modal');
+            if (modal) modal.remove();
+        }
+
+        function closeLoadModal() {
+            const modal = document.getElementById('load-modal');
+            if (modal) modal.remove();
+        }
+
+        // --- CHARACTER CREATION ---
+        function create_value() {
+            const rolls = Array.from({length:4}, () => Math.floor(Math.random()*6)+1);
+            return rolls.reduce((a,b)=>a+b,0) - Math.min(...rolls);
+        }
+
+        function initCharacterCreation() {
+            // Show character name input first
+            document.getElementById('char-name-input').classList.remove('hidden');
+            document.getElementById('attr-assignment').classList.add('hidden');
+            document.getElementById('character-name').value = '';
+            showView('view-creation');
+        }
+        
+        function confirmCharacterName() {
+            const nameInput = document.getElementById('character-name').value.trim();
+            if (nameInput === '') {
+                addLog('Please enter a character name!', 'text-red-400');
+                return;
+            }
+            stats.characterName = nameInput;
+            
+            // Now proceed to attribute assignment
+            pendingRolls = [create_value(), create_value(), create_value(), create_value()];
+            stats.coins = 0;
+            for(let i=0; i<20; i++) stats.coins += Math.floor(Math.random()*6)+1;
+            
+            document.getElementById('char-name-input').classList.add('hidden');
+            document.getElementById('attr-assignment').classList.remove('hidden');
+            renderCreation();
+        }
+
+        function renderCreation() {
+            const rc = document.getElementById('rolls-container');
+            rc.innerHTML = '';
+            pendingRolls.forEach(r => {
+                const b = document.createElement('div');
+                b.className = "w-10 h-10 bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-yellow-500 rounded";
+                b.innerText = r;
+                rc.appendChild(b);
+            });
+
+            const ac = document.getElementById('attr-selection');
+            ac.innerHTML = '';
+            ['strength', 'wisdom', 'dexterity', 'intelligence'].forEach(attr => {
+                const row = document.createElement('div');
+                row.className = "flex justify-between items-center p-2 bg-slate-800/30 rounded";
+                row.innerHTML = `<span class="capitalize text-[10px] font-bold text-slate-400">${attr}</span>`;
+                const group = document.createElement('div');
+                group.className = "flex gap-1";
+                if(stats[attr] === 0 || stats[attr] === null) {
+                    pendingRolls.forEach((r, i) => {
+                        const btn = document.createElement('button');
+                        btn.className = "w-6 h-6 bg-blue-600 rounded text-[10px] font-bold";
+                        btn.innerText = r;
+                        btn.onclick = () => {
+                            stats[attr] = r;
+                            pendingRolls.splice(i, 1);
+                            if(pendingRolls.length === 0) {
+                                showView('view-town');
+                                updateUI();
+                            } else renderCreation();
+                        };
+                        group.appendChild(btn);
+                    });
+                } else {
+                    group.innerHTML = `<span class="text-green-500 font-bold text-sm">${stats[attr]}</span>`;
+                }
+                row.appendChild(group);
+                ac.appendChild(row);
+            });
+        }
+
+        // --- DUNGEON ---
+        function generateRoom() {
+            let val = 10000000;
+            const r1 = Math.floor(Math.random()*4)+1;
+            if (r1 === 1) { // Chest
+                if(Math.floor(Math.random()*3)+1 === 1) val += 10;
+                else val += 1;
+            }
+            const r2 = Math.floor(Math.random()*4)+1;
+            if (r2 === 1) { // Monster
+                if(Math.floor(Math.random()*3)+1 === 1) val += 1000;
+                else val += 100;
+            }
+            if (Math.floor(Math.random()*12)+1 === 1) val += 10000;
+            if (Math.floor(Math.random()*20)+1 === 1) { // Boss
+                if(Math.floor(Math.random()*3)+1 === 1) val += 1000000;
+                else val += 100000;
+            }
+            return val;
+        }
+
+        function enterDungeon() {
+            if(!mapData) mapData = Array.from({length:10}, () => Array.from({length:10}, () => generateRoom()));
+            currentRoom = [9, 9];
+            showView('view-dungeon');
+            renderDungeon();
+            checkRoom();
+        }
+
+        function renderDungeon() {
+            const mapEl = document.getElementById('mini-map');
+            mapEl.innerHTML = '';
+            for(let r=0; r<10; r++) {
+                for(let c=0; c<10; c++) {
+                    const isPlayer = r===currentRoom[0] && c===currentRoom[1];
+                    const cell = document.createElement('div');
+                    cell.className = `w-2 h-2 rounded-full ${isPlayer ? 'bg-blue-400 shadow-[0_0_5px_white]' : 'bg-slate-800'}`;
+                    mapEl.appendChild(cell);
+                }
+            }
+        }
+
+        function movePlayer(dr, dc) {
+            if (isProcessing) return;
+            const nr = currentRoom[0] + dr, nc = currentRoom[1] + dc;
+            if(nr >= 0 && nr < 10 && nc >= 0 && nc < 10) {
+                currentRoom = [nr, nc];
+                renderDungeon();
+                updateUI();
+                checkRoom();
+            }
+        }
+
+        function checkRoom(suppressEvents = false) {
+            if(suppressEvents) return;
+            const val = String(mapData[currentRoom[0]][currentRoom[1]]).padStart(8, '0');
+            const act = document.getElementById('room-actions');
+            act.innerHTML = '';
+
+            if (val[1] === '1') return startCombat("BOSS", "boss");
+            if (val[2] === '1') return startCombat("MINI-BOSS", "mini");
+            if (val[4] === '1') return startCombat("WANDERING MONSTER", "wandering");
+            if (val[5] === '1') return startCombat("MONSTER", "normal");
+            
+            if (val[6] === '1') createChestBtn(act, true);
+            if (val[7] === '1') createChestBtn(act, false);
+            
+            if (val[3] === '1') {
+                const b = document.createElement('button');
+                b.className = "px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-[10px] font-bold uppercase";
+                b.innerText = "Stairs Down";
+                b.onclick = () => {
+                    stats.floor++;
+                    addLog(`Descending to Floor ${stats.floor}...`, "text-blue-400 font-bold");
+                    mapData = null; 
+                    enterDungeon();
+                };
+                act.appendChild(b);
+            }
+        }
+
+        function createChestBtn(p, isBig) {
+            const chestId = `chest_${currentRoom[0]}_${currentRoom[1]}_${stats.floor}`;
+            const b = document.createElement('button');
+            b.className = "px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-[10px] font-bold uppercase";
+            b.innerText = isBig ? "Open Big Chest" : "Open Small Chest";
+            
+            if(stats.openedChests.has(chestId)) return;
+
+            b.onclick = async () => {
+                if (isProcessing) return;
+                isProcessing = true;
+                
+                if (isBig) {
+                    addLog("Big Chest! Choose stat to force open:", "text-yellow-400");
+                    const choiceDiv = document.createElement('div');
+                    choiceDiv.className = "flex gap-2 mt-1";
+                    const btnStr = document.createElement('button');
+                    btnStr.className = "px-2 py-1 bg-red-800 text-[10px] rounded hover:bg-red-700";
+                    btnStr.innerText = "STRENGTH";
+                    const btnInt = document.createElement('button');
+                    btnInt.className = "px-2 py-1 bg-blue-800 text-[10px] rounded hover:bg-blue-700";
+                    btnInt.innerText = "INTELLIGENCE";
+                    
+                    const handleChoice = async (type) => {
+                        choiceDiv.remove();
+                        const statVal = type === 'str' ? stats.strength + stats.temporary_strength : stats.intelligence + stats.temporary_intelligence;
+                        const statName = type === 'str' ? "Strength" : "Intelligence";
+                        await logLoading(`Rolling ${statName}`, 3, 200);
+                        const baseRoll = Math.floor(Math.random()*20)+1;
+                        const mod = Math.floor(statVal / 2) - 5;
+                        const roll = baseRoll + mod;
+                        const need = Math.floor(Math.random()*5)+10;
+                        addLog(`Rolled ${baseRoll} + ${mod} = ${roll}. Need ${need}.`);
+                        if (roll >= need) {
+                            addLog("Success!", "text-green-500 font-bold");
+                            let loot = 0;
+                            for(let i=0; i<30; i++) loot += Math.floor(Math.random()*6)+1;
+                            if(type === 'int') loot = Math.floor(Math.random()*71)+30;
+                            stats.coins += loot;
+                            addLog(`Found ${loot} coins!`, "text-yellow-500");
+                            mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                            stats.openedChests.add(chestId);
+                        } else {
+                            addLog("Failed! The chest remains locked.", "text-red-500");
+                            mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                        }
+                        if(type === 'str') stats.temporary_strength = 0;
+                        else stats.temporary_intelligence = 0;
+                        isProcessing = false;
+                        checkRoom();
+                        updateUI();
+                    };
+                    btnStr.onclick = () => handleChoice('str');
+                    btnInt.onclick = () => handleChoice('int');
+                    choiceDiv.appendChild(btnStr);
+                    choiceDiv.appendChild(btnInt);
+                    document.getElementById('game-log').appendChild(choiceDiv);
+                } else {
+                    if (Math.floor(Math.random()*3)+1 !== 1) {
+                        const loot = Math.floor(Math.random()*36)+5;
+                        stats.coins += loot;
+                        addLog(`Found ${loot} coins.`, "text-yellow-500");
+                        mapData[currentRoom[0]][currentRoom[1]] -= 1;
+                    } else {
+                        addLog("The chest was empty.", "text-slate-500");
+                    }
+                    isProcessing = false;
+                    checkRoom();
+                    updateUI();
+                }
+            };
+            p.appendChild(b);
+        }
+
+        // --- COMBAT ---
+        async function startCombat(name, type) {
+            let mStats = {};
+            if (type === 'normal') {
+                mStats = {
+                    HP: Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+3,
+                    armor: Math.floor(Math.random()*4)+11,
+                    attack: Math.floor(Math.random()*3)+2,
+                    strength: Math.floor(Math.random()*4),
+                    dexterity: Math.floor(Math.random()*5)+10,
+                    change_strength: false, freeze: 0, fire: false
+                };
+            } else if (type === 'wandering') {
+                mStats = {
+                    HP: 0, armor: Math.floor(Math.random()*4)+9,
+                    attack: Math.floor(Math.random()*3)+1,
+                    strength: Math.floor(Math.random()*4)-1,
+                    dexterity: Math.floor(Math.random()*5)+9,
+                    change_strength: false, freeze: 0, fire: false
+                };
+                for(let i=0; i<4; i++) mStats.HP += Math.floor(Math.random()*6)+1;
+            } else if (type === 'boss') {
+                mStats = {
+                    HP: 0, armor: Math.floor(Math.random()*5)+13,
+                    attack: Math.floor(Math.random()*3)+4,
+                    strength: Math.floor(Math.random()*4)+2,
+                    dexterity: Math.floor(Math.random()*5)+13,
+                    change_strength: false, freeze: 0, fire: false
+                };
+                for(let i=0; i<20; i++) mStats.HP += Math.floor(Math.random()*6)+1;
+            } else if (type === 'mini') {
+                mStats = { HP: 50, armor: 13, attack: 4, strength: 3, dexterity: 12, change_strength: false, freeze: 0, fire: false };
+            }
+
+            combatData = { ...mStats, name, type, maxHp: mStats.HP, turn: 'init' };
+            showView('view-combat');
+            document.getElementById('monster-name').innerText = name;
+            document.getElementById('monster-stats-display').innerText = `Dexterity: ${mStats.dexterity}`;
+            updateCombatUI();
+            addLog(`Encountered ${name}!`, "text-red-500 font-bold uppercase");
+            
+            isProcessing = true;
+            await logLoading("Rolling Initiative", 3, 100);
+            if (Math.random() < 0.5) {
+                addLog("You act first!", "text-blue-400");
+                combatData.turn = 'player';
+                showCombatSubMenu('main');
+                isProcessing = false;
+            } else {
+                addLog(`${name} acts first!`, "text-red-400");
+                combatData.turn = 'monster';
+                isProcessing = false;
+                monsterTurnStart();
+            }
+            updateCombatUI();
+        }
+
+        async function retreat() {
+            if(isProcessing) return;
+            isProcessing = true;
+            await logLoading("Attempting Retreat", 3, 200);
+            const baseRoll = Math.floor(Math.random()*20)+1;
+            const mod = Math.floor((stats.dexterity + stats.temporary_dexterity)/2)-5;
+            const roll = baseRoll + mod;
+            stats.temporary_dexterity = 0;
+            addLog(`Dex Roll: ${baseRoll} + ${mod} = ${roll} vs ${combatData.dexterity}`, "text-yellow-400");
+            if (roll >= combatData.dexterity) {
+                addLog("Retreat Successful!", "text-green-500 font-bold");
+                showView('view-dungeon');
+                renderDungeon();
+                checkRoom(true);
+            } else {
+                addLog("Retreat Failed!", "text-red-500 font-bold");
+                await sleep(500);
+                combatData.turn = 'monster';
+                monsterTurnStart();
+            }
+            isProcessing = false;
+        }
+
+        function showCombatSubMenu(menu) {
+            document.getElementById('combat-main-menu').classList.toggle('hidden', menu !== 'main');
+            document.getElementById('combat-direction-menu').classList.toggle('hidden', menu !== 'attack');
+            document.getElementById('combat-items-menu').classList.toggle('hidden', menu !== 'items');
+            document.getElementById('combat-defense-menu').classList.toggle('hidden', menu !== 'defense');
+            if (menu === 'items') renderCombatInventory();
+        }
+
+        function updateCombatUI() {
+            const p = Math.max(0, (combatData.HP / combatData.maxHp) * 100);
+            document.getElementById('monster-hp-bar').style.width = `${p}%`;
+            document.getElementById('turn-indicator').innerText = combatData.turn.toUpperCase() + ' TURN';
+        }
+
+        async function combatAction(dir) {
+            if (isProcessing) return;
+            isProcessing = true;
+            showCombatSubMenu('none');
+            await logLoading("Rolling Hit", 3, 100);
+            const baseRoll = Math.floor(Math.random()*20)+1;
+            const mod = Math.floor((stats.strength + stats.temporary_strength)/2)-5;
+            const roll = baseRoll + mod;
+            stats.temporary_strength = 0;
+            addLog(`Str Roll: ${baseRoll} + ${mod} = ${roll} vs AC ${combatData.armor}`);
+            if (roll >= combatData.armor) {
+                addLog("HIT!", "text-green-400 font-bold");
+                await logLoading("Damage", 3, 100);
+                const tier = stats.weapons[stats.equippedWeapon] || 1;
+                let dmg = 0;
+                if(tier===1) dmg = Math.floor(Math.random()*3)+1;
+                else if(tier===2) dmg = Math.floor(Math.random()*6)+1;
+                else if(tier===3) dmg = Math.floor(Math.random()*10)+1;
+                else if(tier===4) dmg = Math.floor(Math.random()*6)+Math.floor(Math.random()*6)+2;
+                else if(tier===5) dmg = Math.floor(Math.random()*6)+Math.floor(Math.random()*6)+Math.floor(Math.random()*6)+3;
+                else dmg = Math.floor(Math.random()*6)*4 + 4;
+                const mDir = Math.floor(Math.random()*3)+1;
+                if(mDir === dir) {
+                    dmg = Math.floor(dmg/2);
+                    addLog(`Monster Blocked! Half damage (${dmg})`, "text-slate-400");
+                } else addLog(`Dealt ${dmg} damage!`, "text-green-400");
+                combatData.HP -= dmg;
+                if(combatData.HP <= 0) { await victory(); return; }
+            } else addLog("MISS!", "text-red-400");
+            updateCombatUI();
+            await sleep(500);
+            if(combatData.HP > 0) {
+                combatData.turn = 'monster';
+                isProcessing = false;
+                monsterTurnStart();
+            }
+        }
+
+        async function monsterTurnStart() {
+            if(combatData.freeze > 0) {
+                combatData.freeze--;
+                addLog("Monster is Frozen!", "text-cyan-400");
+                await sleep(800);
+                combatData.turn = 'player';
+                updateCombatUI();
+                showCombatSubMenu('main');
+                return;
+            }
+            if(combatData.fire) {
+                combatData.HP -= 2;
+                addLog("Monster took 2 fire damage.", "text-orange-400");
+                if(combatData.HP <= 0) { await victory(); return; }
+            }
+            showCombatSubMenu('defense');
+        }
+
+        async function resolveMonsterTurn(defDir) {
+            if (isProcessing) return;
+            isProcessing = true;
+            showCombatSubMenu('none');
+            await logLoading("Monster Attacking", 3, 100);
+            if(combatData.change_strength) {
+                combatData.strength += 2;
+                combatData.change_strength = false;
+                addLog("Monster strength increased!", "text-red-500");
+            }
+            const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
+            const ac = stats.armor + stats.temporary_armor;
+            addLog(`Monster Roll: ${roll} vs AC ${ac}`);
+            if (roll >= ac) {
+                addLog("YOU WERE HIT!", "text-red-600 font-bold");
+                let dmg = 0;
+                const tier = combatData.attack;
+                if(tier<=1) dmg = Math.floor(Math.random()*3)+1;
+                else if(tier===2) dmg = Math.floor(Math.random()*6)+1;
+                else if(tier===3) dmg = Math.floor(Math.random()*10)+1;
+                else if(tier===4) dmg = Math.floor(Math.random()*6)*2+2;
+                else if(tier===5) dmg = Math.floor(Math.random()*6)*3+3;
+                else dmg = Math.floor(Math.random()*6)*4+4;
+                const atkDir = Math.floor(Math.random()*3)+1;
+                if(atkDir === defDir) {
+                    dmg = Math.floor(dmg/2);
+                    addLog(`Blocked! Half damage (${dmg})`, "text-blue-400");
+                } else addLog(`Took ${dmg} damage!`, "text-red-500");
+                stats.HP -= dmg;
+                updateUI();
+                if(stats.HP <= 0) {
+                    addLog("YOU DIED.", "text-red-900 font-black text-2xl");
+                    setTimeout(()=>location.reload(), 3000);
+                    return;
+                }
+            } else addLog("Monster Missed!", "text-green-400");
+            stats.temporary_armor = 0;
+            await sleep(500);
+            combatData.turn = 'player';
+            isProcessing = false;
+            updateCombatUI();
+            showCombatSubMenu('main');
+        }
+
+        async function victory() {
+            addLog("VICTORY!", "text-yellow-400 font-black text-xl");
+            const coins = Math.floor(Math.random()*(combatData.type==='boss'?400:40))+10;
+            stats.coins += coins;
+            addLog(`Looted ${coins} coins.`, "text-yellow-500");
+            let removeVal = 0;
+            if(combatData.type.includes('boss')) removeVal = 1000000;
+            else if(combatData.type.includes('mini')) removeVal = 100000;
+            else if(combatData.type.includes('wandering')) removeVal = 1000;
+            else removeVal = 100;
+            mapData[currentRoom[0]][currentRoom[1]] -= removeVal;
+            if(combatData.type.includes('BOSS')) {
+                stats.keys++;
+                addLog("Found a Key!", "text-blue-400 font-bold");
+            }
+            await sleep(1000);
+            isProcessing = false;
+            updateUI();
+            showView('view-dungeon');
+            renderDungeon();
+            checkRoom(true);
+        }
+
+        // --- SHOP & SELLING ---
+        function setShopMode(mode) {
+            shopMode = mode;
+            document.getElementById('shop-mode-buy').className = `text-[9px] ${mode==='buy'?'bg-yellow-600':'bg-slate-800'} px-3 py-1 rounded font-bold`;
+            document.getElementById('shop-mode-sell').className = `text-[9px] ${mode==='sell'?'bg-yellow-600':'bg-slate-800'} px-3 py-1 rounded font-bold`;
+            renderShop();
+        }
+
+        function showShop() {
+            shopMode = "buy";
+            setShopMode('buy');
+            showView('view-shop');
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-categories');
+            container.innerHTML = '';
+            
+            if (shopMode === 'buy') {
+                const types = {1:"Weapons", 2:"Armor", 3:"Potions", 4:"Spells"};
+                for(let t=1; t<=4; t++) {
+                    const sect = document.createElement('div');
+                    sect.innerHTML = `<h3 class="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest border-b border-slate-800">${types[t]}</h3>`;
+                    const list = document.createElement('div');
+                    list.className = "grid grid-cols-2 gap-2 mb-4";
+                    for(const [name, data] of Object.entries(SHOP_DATA)) {
+                        if(data[2] !== t) continue;
+                        const row = document.createElement('div');
+                        row.className = "flex flex-col p-2 bg-slate-800/40 rounded border border-slate-800";
+                        row.innerHTML = `<span class="uppercase font-bold text-[10px] text-slate-300">${name}</span><span class="text-yellow-600 text-[10px]">${data[0]}G</span>`;
+                        const b = document.createElement('button');
+                        b.className = "mt-1 px-2 py-1 bg-slate-700 hover:bg-yellow-700 rounded text-[9px] font-bold text-white transition-colors";
+                        b.innerText = "BUY";
+                        b.onclick = () => showPurchaseConfirmation(name, data);
+                        row.appendChild(b);
+                        list.appendChild(row);
+                    }
+                    sect.appendChild(list);
+                    container.appendChild(sect);
+                }
+            } else {
+                // Sell Mode
+                const sellList = document.createElement('div');
+                sellList.className = "grid grid-cols-1 gap-2";
+                
+                const processCollection = (collection, label) => {
+                    for(let name in collection) {
+                        if(name === 'stick' || name === 'none') continue;
+                        const itemInfo = SHOP_DATA[name];
+                        if(!itemInfo) continue;
+                        const sellPrice = Math.floor(itemInfo[0] / 2);
+                        const count = Array.isArray(collection[name]) ? collection[name][0] : 1;
+                        if (count <= 0) continue;
+
+                        const row = document.createElement('div');
+                        row.className = "flex justify-between items-center p-3 bg-slate-800/40 rounded border border-slate-700";
+                        row.innerHTML = `
+                            <div>
+                                <span class="text-[8px] text-slate-500 uppercase font-bold">${label}</span>
+                                <div class="text-[11px] font-bold uppercase text-white">${name} ${count>1?'(x'+count+')':''}</div>
+                            </div>
+                            <button onclick="sellItem('${name}', '${label}')" class="bg-red-900/40 hover:bg-red-800 border border-red-500/30 px-4 py-2 rounded text-[10px] font-bold text-red-200">
+                                SELL FOR ${sellPrice}G
+                            </button>
+                        `;
+                        sellList.appendChild(row);
+                    }
+                }
+                processCollection(stats.weapons, "Weapon");
+                processCollection(stats.armors, "Armor");
+                processCollection(stats.potions, "Potion");
+                processCollection(stats.spells, "Spell");
+
+                if (sellList.children.length === 0) {
+                    sellList.innerHTML = `<div class="text-center text-slate-500 py-10 text-[10px] uppercase font-bold">Nothing to sell</div>`;
+                }
+                container.appendChild(sellList);
+            }
+        }
+
+        function showPurchaseConfirmation(name, data) {
+            if(stats.coins < data[0]) {
+                addLog("Not enough gold!", "text-red-500 font-bold");
+                return;
+            }
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            const itemType = data[2] === 1 ? 'Weapon' : data[2] === 2 ? 'Armor' : data[2] === 3 ? 'Potion' : 'Spell';
+            const itemDetails = data[2] === 1 ? `Tier ${data[1]}` : data[2] === 2 ? `AC ${data[1]}` : '';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;">';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">CONFIRM PURCHASE</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1.5rem;border:2px solid #334155;">';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;">${name}</div>`;
+            html += `<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">${itemType} ${itemDetails}</div>`;
+            html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;">Cost: ${data[0]} Gold</div>`;
+            html += `<div style="font-size:0.9rem;color:#64748b;margin-top:0.5rem;">You have: ${stats.coins} Gold</div>`;
+            html += '</div>';
+            html += '<div style="display:flex;gap:0.75rem;">';
+            html += `<button onclick="confirmPurchase('${name}', ${JSON.stringify(data).replace(/"/g, '&quot;')})" style="flex:1;padding:0.75rem;background:#10b981;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">BUY</button>`;
+            html += '<button onclick="closePurchaseModal()" style="flex:1;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CANCEL</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'purchase-modal';
+            document.body.appendChild(modal);
+        }
+
+        function confirmPurchase(name, data) {
+            closePurchaseModal();
+            
+            if(stats.coins >= data[0]) {
+                stats.coins -= data[0];
+                let itemType = '';
+                
+                if(data[2] === 1) {
+                    stats.weapons[name] = data[1];
+                    itemType = 'weapon';
+                } else if(data[2] === 2) {
+                    stats.armors[name] = data[1];
+                    itemType = 'armor';
+                } else if(data[2] === 3) {
+                    if(!stats.potions[name]) stats.potions[name] = [0, data[3]];
+                    stats.potions[name][0]++;
+                    itemType = 'consumable';
+                } else if(data[2] === 4) {
+                    if(!stats.spells[name]) stats.spells[name] = [0, data[3]];
+                    stats.spells[name][0]++;
+                    itemType = 'consumable';
+                }
+                
+                updateUI();
+                addLog(`Purchased ${name}!`, "text-green-400");
+                renderShop();
+                
+                // Ask if they want to equip it (only for weapons and armor)
+                if(itemType === 'weapon' || itemType === 'armor') {
+                    setTimeout(() => showEquipPrompt(name, itemType), 300);
+                }
+            } else {
+                addLog("Not enough gold!", "text-red-500 font-bold");
+            }
+        }
+
+        function showEquipPrompt(name, itemType) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;">';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">EQUIP ITEM?</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;text-align:center;">';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;">${name}</div>`;
+            html += `<div style="font-size:0.9rem;color:#94a3b8;">Would you like to equip this ${itemType} now?</div>`;
+            html += '</div>';
+            html += `<div style="font-size:0.8rem;color:#64748b;text-align:center;margin-bottom:1.5rem;font-style:italic;">You can always change equipment in your inventory</div>`;
+            html += '<div style="display:flex;gap:0.75rem;">';
+            html += `<button onclick="equipNewItem('${name}', '${itemType}')" style="flex:1;padding:0.75rem;background:#3b82f6;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">EQUIP NOW</button>`;
+            html += '<button onclick="closeEquipModal()" style="flex:1;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">LATER</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'equip-modal';
+            document.body.appendChild(modal);
+        }
+
+        function equipNewItem(name, itemType) {
+            closeEquipModal();
+            
+            if(itemType === 'weapon') {
+                stats.equippedWeapon = name;
+                addLog(`Equipped ${name}!`, "text-blue-400");
+            } else if(itemType === 'armor') {
+                stats.equippedArmor = name;
+                stats.armor = stats.armors[name];
+                addLog(`Equipped ${name}!`, "text-blue-400");
+            }
+            
+            updateUI();
+        }
+
+        function closePurchaseModal() {
+            const modal = document.getElementById('purchase-modal');
+            if (modal) modal.remove();
+        }
+
+        function closeEquipModal() {
+            const modal = document.getElementById('equip-modal');
+            if (modal) modal.remove();
+        }
+
+        function buyItem(name, data) {
+            // Legacy function kept for compatibility
+            showPurchaseConfirmation(name, data);
+        }
+
+        function sellItem(name, type) {
+            const data = SHOP_DATA[name];
+            const price = Math.floor(data[0] / 2);
+            stats.coins += price;
+            
+            if (type === "Weapon") {
+                if(stats.equippedWeapon === name) stats.equippedWeapon = "stick";
+                delete stats.weapons[name];
+            } else if (type === "Armor") {
+                if(stats.equippedArmor === name) stats.equippedArmor = "none";
+                delete stats.armors[name];
+                stats.armor = Math.max(...Object.values(stats.armors));
+            } else if (type === "Potion") {
+                stats.potions[name][0]--;
+                if(stats.potions[name][0] <= 0) delete stats.potions[name];
+            } else if (type === "Spell") {
+                stats.spells[name][0]--;
+                if(stats.spells[name][0] <= 0) delete stats.spells[name];
+            }
+            
+            updateUI();
+            addLog(`Sold ${name} for ${price}G`, "text-yellow-500");
+            renderShop();
+        }
+
+        // --- INVENTORY MANAGEMENT ---
+        function renderInventory() {
+            const wList = document.getElementById('inv-weapons');
+            const aList = document.getElementById('inv-armors');
+            const cList = document.getElementById('inv-consumables');
+            wList.innerHTML = ''; aList.innerHTML = ''; cList.innerHTML = '';
+
+            for(let name in stats.weapons) {
+                const b = document.createElement('button');
+                const isEquipped = stats.equippedWeapon === name;
+                b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
+                b.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-bold uppercase">${name}</span>
+                        <span class="text-[9px] text-slate-500 font-bold">TIER ${stats.weapons[name]}</span>
+                    </div>
+                    ${isEquipped ? '<div class="text-[8px] text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
+                `;
+                b.onclick = () => { stats.equippedWeapon = name; renderInventory(); addLog(`Equipped ${name}`); };
+                wList.appendChild(b);
+            }
+
+            for(let name in stats.armors) {
+                const b = document.createElement('button');
+                const isEquipped = stats.equippedArmor === name;
+                b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
+                b.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-bold uppercase">${name}</span>
+                        <span class="text-[9px] text-slate-500 font-bold">AC ${stats.armors[name]}</span>
+                    </div>
+                    ${isEquipped ? '<div class="text-[8px] text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
+                `;
+                b.onclick = () => { 
+                    stats.equippedArmor = name; 
+                    stats.armor = stats.armors[name];
+                    renderInventory(); 
+                    updateUI();
+                    addLog(`Equipped ${name}`); 
+                };
+                aList.appendChild(b);
+            }
+
+            const consumables = {...stats.potions, ...stats.spells};
+            for(let name in consumables) {
+                const count = consumables[name][0];
+                if(count <= 0) continue;
+                const div = document.createElement('div');
+                div.className = "p-3 bg-slate-900 border border-slate-800 rounded flex justify-between items-center";
+                div.innerHTML = `<span class="text-[11px] font-bold uppercase text-slate-300">${name}</span><span class="bg-blue-900/40 px-2 py-0.5 rounded text-blue-400 font-bold text-[9px]">x${count}</span>`;
+                cList.appendChild(div);
+            }
+            if(cList.innerHTML === '') cList.innerHTML = '<div class="text-[9px] text-slate-600 uppercase font-bold text-center py-4">No Consumables</div>';
+        }
+
+        // --- ITEMS IN COMBAT ---
+        function renderCombatInventory() {
+            const list = document.getElementById('combat-inventory-list');
+            list.innerHTML = '';
+            const items = {...stats.potions, ...stats.spells};
+            for (const [name, data] of Object.entries(items)) {
+                if (data[0] > 0) {
+                    const b = document.createElement('button');
+                    b.className = "w-full p-2 bg-slate-800 text-[10px] text-left flex justify-between rounded px-3 border border-slate-700 hover:bg-slate-700";
+                    b.innerHTML = `<span class="uppercase font-bold text-white">${name}</span><span class="text-yellow-500">x${data[0]}</span>`;
+                    b.onclick = () => useItem(name);
+                    list.appendChild(b);
+                }
+            }
+        }
+
+        async function useItem(name) {
+            if (isProcessing) return;
+            isProcessing = true;
+            const isPotion = stats.potions[name];
+            const itemData = isPotion || stats.spells[name];
+            if(isPotion) {
+                stats.potions[name][0]--;
+                const typeId = itemData[1];
+                addLog(`Drank ${name}`, "text-blue-300");
+                if(typeId === 1) {
+                    const heal = Math.floor(Math.random()*4)+Math.floor(Math.random()*4) + (Math.random()<0.33?Math.floor(Math.random()*6):0);
+                    stats.HP = Math.min(stats.maxHP, stats.HP + heal);
+                    addLog(`Healed ${heal} HP`, "text-green-400");
+                } else if(typeId === 2) stats.temporary_intelligence = 6;
+                else if(typeId === 3) stats.temporary_dexterity = 6;
+                else if(typeId === 4) stats.temporary_strength = 6;
+                else if(typeId === 5) stats.temporary_armor = 3;
+                if(stats.potions[name][0] <= 0) delete stats.potions[name];
+                isProcessing = false;
+                monsterTurnStart();
+            } else {
+                stats.spells[name][0]--;
+                const typeId = itemData[1];
+                const need = typeId===1?10 : typeId===2?11 : typeId===3?12 : typeId===4?10 : 11;
+                await logLoading("Casting...", 3, 100);
+                const roll = Math.floor(Math.random()*20)+1 + Math.floor(stats.wisdom/2)-5;
+                addLog(`Wis Roll: ${roll} vs ${need}`);
+                if(roll >= need) {
+                    addLog("Spell Success!", "text-purple-400 font-bold");
+                    if(typeId===2) { combatData.strength -= 2; combatData.change_strength = true; }
+                    if(typeId===4) combatData.freeze = 2;
+                    if(typeId===5) combatData.fire = true;
+                    let dmg = 0;
+                    if(typeId===1 || typeId===2) dmg = Math.floor(Math.random()*8)+1;
+                    else if(typeId===3) dmg = Math.floor(Math.random()*6)+Math.floor(Math.random()*6)+Math.floor(Math.random()*10)+3;
+                    else if(typeId===4) dmg = Math.floor(Math.random()*6)+1;
+                    else if(typeId===5) dmg = Math.floor(Math.random()*15)+5;
+                    addLog(`Spell dealt ${dmg} damage`, "text-purple-300");
+                    combatData.HP -= dmg;
+                    if(combatData.HP <= 0) { await victory(); return; }
+                } else addLog("Spell Fizzled!", "text-slate-500");
+                if(stats.spells[name][0] <= 0) delete stats.spells[name];
+                monsterTurnStart();
+            }
+            updateUI();
+        }
+
+        addLog("Welcome to Oakhaven.", "text-slate-500 italic");
+        
+        // Check authentication on page load
+        checkAuth().then(authenticated => {
+            if (authenticated) {
+                console.log('User authenticated for Dungeon Game');
+            }
+        });
+    </script>
+
+        </main>
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+</body>
+</html>
