@@ -63,37 +63,41 @@
 
     <!-- Header Stats -->
     <div id="stats-header" class="w-full max-w-4xl grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 hidden">
-        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
-            <i class="fas fa-heart text-red-500 text-xs"></i>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded flex items-center gap-3">
+            <i class="fas fa-heart text-red-500 text-lg"></i>
             <div>
-                <div class="text-[9px] text-slate-500 font-bold uppercase">Health</div>
-                <div id="stat-hp" class="text-white text-xs font-bold">--/--</div>
+                <div class="text-xs text-slate-500 font-bold uppercase">Health</div>
+                <div id="stat-hp" class="text-white text-base font-bold">--/--</div>
             </div>
         </div>
-        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
-            <i class="fas fa-coins text-yellow-500 text-xs"></i>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded flex items-center gap-3">
+            <i class="fas fa-coins text-yellow-500 text-lg"></i>
             <div>
-                <div class="text-[9px] text-slate-500 font-bold uppercase">Gold</div>
-                <div id="stat-gold" class="text-white text-xs font-bold">0</div>
+                <div class="text-xs text-slate-500 font-bold uppercase">Gold</div>
+                <div id="stat-gold" class="text-white text-base font-bold">0</div>
             </div>
         </div>
-        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
-            <i class="fas fa-key text-blue-400 text-xs"></i>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded flex items-center gap-3">
+            <i class="fas fa-key text-blue-400 text-lg"></i>
             <div>
-                <div class="text-[9px] text-slate-500 font-bold uppercase">Keys</div>
-                <div id="stat-keys" class="text-white text-xs font-bold">0</div>
+                <div class="text-xs text-slate-500 font-bold uppercase">Keys</div>
+                <div id="stat-keys" class="text-white text-base font-bold">0</div>
             </div>
         </div>
-        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-3">
-            <i class="fas fa-shield-alt text-slate-400 text-xs"></i>
+        <div class="bg-slate-900 border border-slate-800 p-3 rounded flex items-center gap-3">
+            <i class="fas fa-shield-alt text-slate-400 text-lg"></i>
             <div>
-                <div class="text-[9px] text-slate-500 font-bold uppercase">Armor</div>
-                <div id="stat-armor" class="text-white text-xs font-bold">--</div>
+                <div class="text-xs text-slate-500 font-bold uppercase">Armor</div>
+                <div id="stat-armor" class="text-white text-base font-bold">--</div>
             </div>
         </div>
-        <div class="bg-slate-900 border border-slate-800 p-2 rounded flex items-center gap-2">
-            <div id="stat-floor" class="text-[10px] text-blue-400 font-black">FLOOR 1</div>
-            <div id="stat-attributes" class="text-[8px] text-slate-500 leading-tight">S:0 D:0 I:0 W:0</div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded">
+            <div class="flex items-center justify-between gap-4 mb-3 pb-3 border-b border-slate-800">
+                <div id="stat-floor" class="text-base text-blue-400 font-black">FLOOR 1</div>
+                <div id="stat-level" class="text-base text-purple-400 font-black">LVL 1</div>
+            </div>
+            <div id="stat-exp" class="text-sm text-cyan-400 font-bold mb-2">EXP: 0/100</div>
+            <div id="stat-attributes" class="text-sm text-slate-400 font-semibold">S:0 D:0 I:0 W:0</div>
         </div>
     </div>
 
@@ -101,11 +105,11 @@
     <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
         <!-- Log Panel -->
         <div class="lg:col-span-1 bg-black border border-slate-800 rounded flex flex-col h-[300px] lg:h-[600px] overflow-hidden">
-            <div class="bg-slate-900 p-2 text-[10px] font-bold border-b border-slate-800 text-slate-500">ADVENTURE LOG</div>
+            <div class="bg-slate-900 p-3 text-sm font-bold border-b border-slate-800 text-slate-500">ADVENTURE LOG</div>
             <div id="game-log" class="flex-1 overflow-y-auto p-4 text-[13px] space-y-2 custom-scrollbar bg-slate-950/50"></div>
-            <div id="global-actions" class="p-2 border-t border-slate-800 bg-slate-900 hidden">
-                <button onclick="toggleInventory()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold rounded uppercase flex items-center justify-center gap-2">
-                    <i class="fas fa-backpack"></i> Inventory
+            <div id="global-actions" class="p-3 border-t border-slate-800 bg-slate-900 hidden">
+                <button onclick="toggleInventory()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-sm font-bold rounded uppercase flex items-center justify-center gap-2">
+                    <i class="fas fa-backpack text-base"></i> Inventory
                 </button>
             </div>
         </div>
@@ -116,56 +120,59 @@
             <div id="view-menu" class="text-center space-y-8">
                 <h1 class="text-6xl font-black text-white italic tracking-tighter">DUNGEON<br>CRAWLER</h1>
                 <div class="flex flex-col gap-3">
-                    <button onclick="initCharacterCreation()" class="bg-white text-black px-12 py-3 rounded font-bold hover:bg-yellow-400 transition-all shadow-xl">NEW GAME</button>
-                    <button onclick="loadGame()" class="bg-slate-800 text-white px-12 py-3 rounded font-bold hover:bg-slate-700 transition-all shadow-xl border border-slate-700">LOAD GAME</button>
+                    <button onclick="initCharacterCreation()" class="bg-white text-black px-12 py-4 rounded font-bold text-lg hover:bg-yellow-400 transition-all shadow-xl">NEW GAME</button>
+                    <button onclick="loadGame()" class="bg-slate-800 text-white px-12 py-4 rounded font-bold text-lg hover:bg-slate-700 transition-all shadow-xl border border-slate-700">LOAD GAME</button>
                 </div>
             </div>
 
             <div id="view-creation" class="hidden w-full max-w-sm space-y-4">
                 <div id="char-name-input" class="space-y-4">
-                    <h2 class="text-sm font-bold text-center text-slate-400 uppercase tracking-widest">Create Your Character</h2>
+                    <h2 class="text-lg font-bold text-center text-slate-400 uppercase tracking-widest">Create Your Character</h2>
                     <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-400 uppercase">Character Name</label>
-                        <input id="character-name" type="text" maxlength="20" placeholder="Enter name..." class="w-full p-3 bg-slate-800 border border-slate-700 rounded text-white text-sm focus:border-blue-500 focus:outline-none">
+                        <label class="text-sm font-bold text-slate-400 uppercase">Character Name</label>
+                        <input id="character-name" type="text" maxlength="20" placeholder="Enter name..." class="w-full p-4 bg-slate-800 border border-slate-700 rounded text-white text-base focus:border-blue-500 focus:outline-none">
                     </div>
-                    <button onclick="confirmCharacterName()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded font-bold uppercase text-sm">Continue</button>
+                    <button onclick="confirmCharacterName()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded font-bold uppercase text-base">Continue</button>
                 </div>
                 <div id="attr-assignment" class="hidden space-y-4">
-                    <h2 class="text-sm font-bold text-center text-slate-400 uppercase tracking-widest">Assign Attributes</h2>
+                    <h2 class="text-lg font-bold text-center text-slate-400 uppercase tracking-widest">Assign Attributes</h2>
                     <div id="rolls-container" class="flex justify-center gap-2"></div>
                     <div id="attr-selection" class="space-y-1"></div>
                 </div>
             </div>
 
             <div id="view-town" class="hidden text-center space-y-6 w-full max-w-lg">
-                <h2 class="text-3xl font-black text-white italic">OAKHAVEN</h2>
+                <h2 class="text-4xl font-black text-white italic">OAKHAVEN</h2>
                 <div class="grid grid-cols-2 gap-4">
-                    <button onclick="showShop()" class="p-8 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-2">
-                        <i class="fas fa-store text-2xl text-yellow-500"></i>
-                        <span class="font-bold text-sm">SHOP</span>
+                    <button onclick="showShop()" class="p-10 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-3">
+                        <i class="fas fa-store text-4xl text-yellow-500"></i>
+                        <span class="font-bold text-lg">SHOP</span>
                     </button>
-                    <button onclick="enterDungeon()" class="p-8 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-2">
-                        <i class="fas fa-dungeon text-2xl text-red-500"></i>
-                        <span class="font-bold text-sm">DUNGEON</span>
+                    <button onclick="enterDungeon()" class="p-10 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-3">
+                        <i class="fas fa-dungeon text-4xl text-red-500"></i>
+                        <span class="font-bold text-lg">DUNGEON</span>
                     </button>
                 </div>
-                <button onclick="saveGame()" class="mt-4 text-xs text-slate-500 hover:text-white underline">SAVE GAME</button>
+                <div class="flex gap-4 justify-center">
+                    <button onclick="saveGame()" class="text-sm text-slate-500 hover:text-white underline font-bold">SAVE GAME</button>
+                    <button onclick="showChangeNameModal()" class="text-sm text-slate-500 hover:text-white underline font-bold">CHANGE NAME</button>
+                </div>
             </div>
 
             <div id="view-dungeon" class="hidden w-full flex flex-col items-center gap-6">
-                <div id="mini-map" class="grid grid-cols-10 gap-1 bg-slate-950 p-2 rounded border border-slate-800"></div>
+                <div id="mini-map" class="grid grid-cols-10 gap-2 bg-slate-950 p-6 rounded border-2 border-slate-800"></div>
                 <div id="room-actions" class="flex flex-wrap justify-center gap-3 min-h-[40px]"></div>
-                <div class="grid grid-cols-3 gap-1 w-32">
-                    <div></div><button onclick="movePlayer(-1, 0)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9650;</button><div></div>
-                    <button onclick="movePlayer(0, -1)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9664;</button>
-                    <button onclick="movePlayer(1, 0)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9660;</button>
-                    <button onclick="movePlayer(0, 1)" class="h-10 w-10 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center">&#9654;</button>
+                <div class="grid grid-cols-3 gap-2 w-48">
+                    <div></div><button onclick="movePlayer(-1, 0)" class="h-14 w-14 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center text-xl">&#9650;</button><div></div>
+                    <button onclick="movePlayer(0, -1)" class="h-14 w-14 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center text-xl">&#9664;</button>
+                    <button onclick="movePlayer(1, 0)" class="h-14 w-14 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center text-xl">&#9660;</button>
+                    <button onclick="movePlayer(0, 1)" class="h-14 w-14 bg-slate-800 rounded hover:bg-slate-700 flex items-center justify-center text-xl">&#9654;</button>
                 </div>
                 <div class="flex gap-4">
-                    <button id="btn-return-town" onclick="showView('view-town')" class="hidden text-[10px] text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
+                    <button id="btn-return-town" onclick="showView('view-town')" class="hidden text-sm text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
                         <i class="fas fa-door-open"></i> Return to Town
                     </button>
-                    <button onclick="saveGame()" class="text-[10px] text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
+                    <button onclick="saveGame()" class="text-sm text-slate-500 hover:text-white uppercase font-bold mt-4 flex items-center gap-2">
                         <i class="fas fa-save"></i> Save
                     </button>
                 </div>
@@ -174,56 +181,56 @@
             <!-- COMBAT VIEW -->
             <div id="view-combat" class="hidden w-full flex flex-col items-center gap-6">
                 <div class="text-center w-full">
-                    <div id="monster-name" class="text-red-500 font-black text-2xl uppercase italic tracking-widest">MONSTER</div>
-                    <div class="w-full max-w-sm mx-auto h-2 bg-slate-950 rounded mt-2 overflow-hidden border border-slate-800">
+                    <div id="monster-name" class="text-red-500 font-black text-3xl uppercase italic tracking-widest">MONSTER</div>
+                    <div class="w-full max-w-sm mx-auto h-3 bg-slate-950 rounded mt-3 overflow-hidden border border-slate-800">
                         <div id="monster-hp-bar" class="h-full bg-red-600 transition-all duration-500" style="width: 100%"></div>
                     </div>
-                    <div id="monster-stats-display" class="text-[10px] text-slate-500 mt-1"></div>
+                    <div id="monster-stats-display" class="text-sm text-slate-500 mt-2"></div>
                 </div>
 
-                <div id="combat-main-menu" class="hidden grid grid-cols-1 gap-2 w-full max-w-xs">
-                    <button onclick="showCombatSubMenu('attack')" class="p-3 bg-slate-800 hover:bg-slate-700 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
-                        <span>ATTACK</span><i class="fas fa-sword text-slate-600"></i>
+                <div id="combat-main-menu" class="hidden grid grid-cols-1 gap-3 w-full max-w-xs">
+                    <button onclick="showCombatSubMenu('attack')" class="p-4 bg-slate-800 hover:bg-slate-700 rounded font-bold text-base text-left px-6 flex justify-between items-center">
+                        <span>ATTACK</span><i class="fas fa-sword text-slate-600 text-lg"></i>
                     </button>
-                    <button onclick="showCombatSubMenu('items')" class="p-3 bg-slate-800 hover:bg-slate-700 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
-                        <span>ITEMS</span><i class="fas fa-flask text-slate-600"></i>
+                    <button onclick="showCombatSubMenu('items')" class="p-4 bg-slate-800 hover:bg-slate-700 rounded font-bold text-base text-left px-6 flex justify-between items-center">
+                        <span>ITEMS</span><i class="fas fa-flask text-slate-600 text-lg"></i>
                     </button>
-                    <button onclick="retreat()" class="p-3 bg-slate-900 border border-blue-900/40 text-blue-400 hover:bg-blue-950/20 rounded font-bold text-sm text-left px-5 flex justify-between items-center">
-                        <span>RETREAT (Roll)</span><i class="fas fa-person-running"></i>
+                    <button onclick="retreat()" class="p-4 bg-slate-900 border border-blue-900/40 text-blue-400 hover:bg-blue-950/20 rounded font-bold text-base text-left px-6 flex justify-between items-center">
+                        <span>RETREAT (Roll)</span><i class="fas fa-person-running text-lg"></i>
                     </button>
                 </div>
 
-                <div id="combat-direction-menu" class="hidden grid grid-cols-3 gap-2 w-full max-w-xs">
-                    <div class="col-span-3 text-center text-[10px] font-bold text-yellow-500 mb-2 uppercase italic">Target Strike Area</div>
-                    <button onclick="combatAction(1)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">HIGH</button>
-                    <button onclick="combatAction(3)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">MID</button>
-                    <button onclick="combatAction(2)" class="p-4 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-[10px] font-bold">LOW</button>
-                    <button onclick="showCombatSubMenu('main')" class="col-span-3 text-[10px] text-slate-500 font-bold text-center mt-2">BACK</button>
+                <div id="combat-direction-menu" class="hidden grid grid-cols-3 gap-3 w-full max-w-md">
+                    <div class="col-span-3 text-center text-sm font-bold text-yellow-500 mb-2 uppercase italic">Target Strike Area</div>
+                    <button onclick="combatAction(1)" class="p-5 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-sm font-bold">HIGH</button>
+                    <button onclick="combatAction(3)" class="p-5 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-sm font-bold">MID</button>
+                    <button onclick="combatAction(2)" class="p-5 bg-slate-800 hover:bg-red-900/50 rounded flex flex-col items-center text-sm font-bold">LOW</button>
+                    <button onclick="showCombatSubMenu('main')" class="col-span-3 text-sm text-slate-500 font-bold text-center mt-2">BACK</button>
                 </div>
 
-                <div id="combat-defense-menu" class="hidden grid grid-cols-3 gap-2 w-full max-w-xs">
-                    <div class="col-span-3 text-center text-[10px] font-bold text-blue-400 mb-2 uppercase italic">Guard Position!</div>
-                    <button onclick="resolveMonsterTurn(1)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">HIGH</button>
-                    <button onclick="resolveMonsterTurn(3)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">MID</button>
-                    <button onclick="resolveMonsterTurn(2)" class="p-4 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-[10px] font-bold">LOW</button>
+                <div id="combat-defense-menu" class="hidden grid grid-cols-3 gap-3 w-full max-w-md">
+                    <div class="col-span-3 text-center text-sm font-bold text-blue-400 mb-2 uppercase italic">Guard Position!</div>
+                    <button onclick="resolveMonsterTurn(1)" class="p-5 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-sm font-bold">HIGH</button>
+                    <button onclick="resolveMonsterTurn(3)" class="p-5 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-sm font-bold">MID</button>
+                    <button onclick="resolveMonsterTurn(2)" class="p-5 bg-blue-900/20 hover:bg-blue-800/40 rounded border border-blue-500/30 flex flex-col items-center text-sm font-bold">LOW</button>
                 </div>
 
-                <div id="combat-items-menu" class="hidden w-full max-w-xs space-y-1">
-                    <div id="combat-inventory-list" class="space-y-1 max-h-40 overflow-y-auto custom-scrollbar"></div>
-                    <button onclick="showCombatSubMenu('main')" class="w-full p-2 bg-slate-800 text-[10px] text-slate-500 rounded font-bold">BACK</button>
+                <div id="combat-items-menu" class="hidden w-full max-w-xs space-y-2">
+                    <div id="combat-inventory-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                    <button onclick="showCombatSubMenu('main')" class="w-full p-3 bg-slate-800 text-sm text-slate-500 rounded font-bold">BACK</button>
                 </div>
 
-                <div id="turn-indicator" class="text-[10px] font-black tracking-widest text-yellow-600 bg-black/40 px-4 py-1 rounded italic uppercase">...</div>
+                <div id="turn-indicator" class="text-sm font-black tracking-widest text-yellow-600 bg-black/40 px-6 py-2 rounded italic uppercase">...</div>
             </div>
 
             <!-- SHOP VIEW -->
             <div id="view-shop" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-2">
-                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-2 border-b border-slate-800">
-                    <h2 class="font-black text-xl italic">TOWN MERCHANT</h2>
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800">
+                    <h2 class="font-black text-2xl italic">TOWN MERCHANT</h2>
                     <div class="flex gap-2">
-                        <button id="shop-mode-buy" onclick="setShopMode('buy')" class="text-[9px] bg-yellow-600 px-3 py-1 rounded font-bold">BUY</button>
-                        <button id="shop-mode-sell" onclick="setShopMode('sell')" class="text-[9px] bg-slate-800 px-3 py-1 rounded font-bold">SELL</button>
-                        <button onclick="showView('view-town')" class="text-[10px] bg-slate-800 px-3 py-1 rounded">EXIT</button>
+                        <button id="shop-mode-buy" onclick="setShopMode('buy')" class="text-sm bg-yellow-600 px-4 py-2 rounded font-bold">BUY</button>
+                        <button id="shop-mode-sell" onclick="setShopMode('sell')" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">SELL</button>
+                        <button onclick="showView('view-town')" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">EXIT</button>
                     </div>
                 </div>
                 <div id="shop-categories" class="space-y-6"></div>
@@ -231,19 +238,19 @@
 
             <!-- INVENTORY VIEW -->
             <div id="view-inventory" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-2">
-                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-2 border-b border-slate-800 z-10">
-                    <h2 class="font-black text-xl italic">INVENTORY</h2>
-                    <button onclick="closeInventory()" class="text-[10px] bg-slate-800 px-3 py-1 rounded">CLOSE</button>
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800 z-10">
+                    <h2 class="font-black text-2xl italic">INVENTORY</h2>
+                    <button onclick="closeInventory()" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">CLOSE</button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="space-y-4">
-                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Weapons</h3>
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Weapons</h3>
                         <div id="inv-weapons" class="space-y-2"></div>
-                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Armor</h3>
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Armor</h3>
                         <div id="inv-armors" class="space-y-2"></div>
                     </div>
                     <div class="space-y-4">
-                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800">Consumables</h3>
+                        <h3 class="text-sm font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 pb-2">Consumables</h3>
                         <div id="inv-consumables" class="space-y-2"></div>
                     </div>
                 </div>
@@ -298,11 +305,18 @@
             if (!isLoggedIn || !sessionId) return false;
 
             const slot = `slot${slotNumber}`;
+            
+            // Determine current location (in town or in dungeon)
+            const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
+            const inTown = currentView === 'view-town';
+            
             const saveData = {
                 stats: stats,
                 map: mapData,
+                monsters: monsterData,
                 room: currentRoom,
-                openedChests: Array.from(stats.openedChests)
+                openedChests: Array.from(stats.openedChests),
+                inTown: inTown
             };
 
             try {
@@ -417,6 +431,20 @@
         // ===============================================
         // ORIGINAL GAME DATA
         // ===============================================
+        
+        // Helper function to get weapon damage description
+        function getWeaponDamageDesc(tier) {
+            const damages = {
+                1: "1d3 (1-3 damage)",
+                2: "1d6 (1-6 damage)",
+                3: "1d10 (1-10 damage)",
+                4: "2d6+2 (4-14 damage)",
+                5: "3d6+3 (6-21 damage)",
+                6: "4d6+4 (8-28 damage)"
+            };
+            return damages[tier] || "Unknown";
+        }
+        
         // --- DATA MATCHING PYTHON EXACTLY ---
         // [Cost, Value, Type(1=Wep,2=Arm,3=Pot,4=Spl), Effect/Uses]
         const SHOP_DATA = {
@@ -431,7 +459,7 @@
             "scale mail": [700, 13, 2],
             "chainmail": [1000, 14, 2],
             "platemail": [1500, 15, 2],
-            "healing potion": [50, 3, 3, 1],
+            "healing potion": [25, 3, 3, 1],
             "intelligence potion": [70, 2, 3, 2],
             "speed potion": [100, 2, 3, 3],
             "strength potion": [130, 2, 3, 4],
@@ -448,6 +476,7 @@
         let stats = {
             characterName: "",
             HP: 15, maxHP: 15, coins: 0, armor: 9, keys: 0, floor: 1,
+            exp: 0, level: 1, totalExp: 0, expToNextLevel: 100,
             strength: 0, dexterity: 0, intelligence: 0, wisdom: 0,
             temporary_strength: 0, temporary_dexterity: 0, temporary_intelligence: 0, temporary_armor: 0,
             weapons: { "stick": 1 }, 
@@ -456,9 +485,11 @@
             spells: {},
             equippedWeapon: "stick",
             equippedArmor: "none",
-            openedChests: new Set()
+            openedChests: new Set(),
+            deathCount: 0  // Track number of deaths for difficulty scaling
         };
         let mapData = null;
+        let monsterData = {}; // Store pre-generated monster stats by room
         let currentRoom = [9, 9];
         let pendingRolls = [];
         let combatData = null;
@@ -499,6 +530,8 @@
             document.getElementById('stat-keys').innerText = stats.keys;
             document.getElementById('stat-armor').innerText = stats.armor + stats.temporary_armor;
             document.getElementById('stat-floor').innerText = `FLOOR ${stats.floor}`;
+            document.getElementById('stat-level').innerText = `LVL ${stats.level}`;
+            document.getElementById('stat-exp').innerText = `EXP: ${stats.totalExp}/${stats.expToNextLevel}`;
             document.getElementById('stat-attributes').innerText = `S:${stats.strength} D:${stats.dexterity} I:${stats.intelligence} W:${stats.wisdom}`;
             
             const btn = document.getElementById('btn-return-town');
@@ -513,12 +546,9 @@
             // Store the current view BEFORE hiding everything
             const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
             
-            console.log('showView called:', {viewId, currentView, previousViewBefore: previousView});
-            
             // Only update previousView when opening inventory (to remember where to return)
             if (viewId === "view-inventory" && currentView && currentView !== "view-inventory") {
                 previousView = currentView;
-                console.log('Opening inventory, saved previousView:', previousView);
             }
             // When closing inventory or doing any other transition, DON'T update previousView
             
@@ -546,13 +576,10 @@
         }
 
         function closeInventory() {
-            console.log('closeInventory called', {previousView, combatData: combatData ? {HP: combatData.HP, turn: combatData.turn} : null});
-            
             // If we're returning to combat, make sure combat state is still valid
             if (previousView === 'view-combat') {
                 if (combatData && combatData.HP > 0) {
                     // Combat is still active, restore it
-                    console.log('Restoring combat view');
                     showView('view-combat');
                     updateCombatUI();
                     // Restore the appropriate menu based on whose turn it is
@@ -563,13 +590,11 @@
                     }
                 } else {
                     // Combat ended while in inventory, go back to dungeon
-                    console.log('Combat ended, returning to dungeon');
                     showView('view-dungeon');
                     renderDungeon();
                     checkRoom(true);
                 }
             } else {
-                console.log('Returning to previous view:', previousView);
                 showView(previousView);
             }
         }
@@ -677,27 +702,75 @@
             if (saveData) {
                 stats = saveData.stats;
                 mapData = saveData.map;
+                monsterData = saveData.monsters || {};
                 currentRoom = saveData.room;
                 stats.openedChests = new Set(saveData.openedChests);
-                showView('view-dungeon');
-                renderDungeon();
+                
+                // Check if player was in town when they saved
+                const wasInTown = saveData.inTown === true;
+                
+                if (wasInTown) {
+                    // Load into town
+                    showView('view-town');
+                    addLog(`Game loaded from Slot ${slotNumber}!`, 'text-yellow-400');
+                    addLog(`Welcome back to Oakhaven, ${stats.characterName || 'adventurer'}!`, 'text-slate-400');
+                } else {
+                    // Load into dungeon
+                    showView('view-dungeon');
+                    renderDungeon();
+                    addLog(`Game loaded from Slot ${slotNumber}!`, 'text-yellow-400');
+                    // Check room for events (including battles) - don't suppress
+                    checkRoom(false);
+                }
+                
                 updateUI();
-                checkRoom(true);
-                addLog(`Game loaded from Slot ${slotNumber}!`, 'text-yellow-400');
                 closeLoadModal();
             } else {
                 addLog('Failed to load game', 'text-red-400');
             }
         }
 
-        async function deleteSlotAndRefresh(slotNumber) {
-            if (confirm(`Delete save slot ${slotNumber}? This cannot be undone!`)) {
-                const success = await deleteSaveSlot(slotNumber);
-                if (success) {
-                    closeLoadModal();
-                    setTimeout(() => showLoadSlotModal(), 100);
-                }
+        function deleteSlotAndRefresh(slotNumber) {
+            showDeleteConfirmation(slotNumber);
+        }
+
+        function showDeleteConfirmation(slotNumber) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:11000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;border:3px solid #ef4444;">';
+            html += '<div style="text-align:center;font-size:3rem;margin-bottom:1rem;">⚠️</div>';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:#ef4444;">DELETE SAVE?</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1.5rem;border:2px solid #7f1d1d;text-align:center;">';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;margin-bottom:0.5rem;">Save Slot ${slotNumber}</div>`;
+            html += '<div style="font-size:0.9rem;color:#ef4444;font-weight:bold;margin-top:1rem;">This action cannot be undone!</div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:0.75rem;flex-direction:column;">';
+            html += `<button onclick="confirmDelete(${slotNumber})" style="width:100%;padding:0.75rem;background:#ef4444;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">DELETE SAVE</button>`;
+            html += '<button onclick="closeDeleteModal()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CANCEL</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'delete-modal';
+            document.body.appendChild(modal);
+        }
+
+        async function confirmDelete(slotNumber) {
+            closeDeleteModal();
+            const success = await deleteSaveSlot(slotNumber);
+            if (success) {
+                addLog(`Deleted save slot ${slotNumber}`, 'text-red-400');
+                closeLoadModal();
+                setTimeout(() => showLoadSlotModal(), 100);
+            } else {
+                addLog('Failed to delete save', 'text-red-400');
             }
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('delete-modal');
+            if (modal) modal.remove();
         }
 
         function closeSaveModal() {
@@ -707,6 +780,56 @@
 
         function closeLoadModal() {
             const modal = document.getElementById('load-modal');
+            if (modal) modal.remove();
+        }
+
+        // --- CHANGE CHARACTER NAME ---
+        function showChangeNameModal() {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:450px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1.5rem;text-align:center;color:white;">CHANGE CHARACTER NAME</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:0.5rem;">Current Name:</div>`;
+            html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;margin-bottom:1rem;">${stats.characterName || 'Unnamed'}</div>`;
+            html += '<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:0.5rem;">New Name:</div>';
+            html += '<input id="new-character-name" type="text" maxlength="20" placeholder="Enter new name..." style="width:100%;padding:0.75rem;background:#1e293b;border:2px solid #475569;border-radius:6px;color:white;font-size:1rem;outline:none;" />';
+            html += '</div>';
+            html += '<div style="display:flex;gap:0.75rem;">';
+            html += '<button onclick="confirmNameChange()" style="flex:1;padding:0.75rem;background:#3b82f6;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CHANGE NAME</button>';
+            html += '<button onclick="closeChangeNameModal()" style="flex:1;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CANCEL</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'change-name-modal';
+            document.body.appendChild(modal);
+            
+            // Focus the input field
+            setTimeout(() => {
+                document.getElementById('new-character-name').focus();
+            }, 100);
+        }
+
+        function confirmNameChange() {
+            const newName = document.getElementById('new-character-name').value.trim();
+            
+            if (newName === '') {
+                addLog('Please enter a valid name!', 'text-red-400');
+                return;
+            }
+            
+            const oldName = stats.characterName || 'Unnamed';
+            stats.characterName = newName;
+            
+            closeChangeNameModal();
+            addLog(`Character name changed from "${oldName}" to "${newName}"`, 'text-blue-400');
+            addLog('Remember to save your game to keep the new name!', 'text-yellow-400');
+        }
+
+        function closeChangeNameModal() {
+            const modal = document.getElementById('change-name-modal');
             if (modal) modal.remove();
         }
 
@@ -757,13 +880,13 @@
             ['strength', 'wisdom', 'dexterity', 'intelligence'].forEach(attr => {
                 const row = document.createElement('div');
                 row.className = "flex justify-between items-center p-2 bg-slate-800/30 rounded";
-                row.innerHTML = `<span class="capitalize text-[10px] font-bold text-slate-400">${attr}</span>`;
+                row.innerHTML = `<span class="capitalize text-sm font-bold text-slate-400">${attr}</span>`;
                 const group = document.createElement('div');
                 group.className = "flex gap-1";
                 if(stats[attr] === 0 || stats[attr] === null) {
                     pendingRolls.forEach((r, i) => {
                         const btn = document.createElement('button');
-                        btn.className = "w-6 h-6 bg-blue-600 rounded text-[10px] font-bold";
+                        btn.className = "w-10 h-10 bg-blue-600 rounded text-sm font-bold";
                         btn.innerText = r;
                         btn.onclick = () => {
                             stats[attr] = r;
@@ -784,7 +907,51 @@
         }
 
         // --- DUNGEON ---
-        function generateRoom() {
+        function generateMonsterStats(type) {
+            let mStats = {};
+            if (type === 'wandering') {
+                mStats = {
+                    HP: 0, 
+                    armor: Math.floor(Math.random()*3)+8,
+                    attack: Math.floor(Math.random()*2)+1,
+                    strength: Math.floor(Math.random()*3)-1,
+                    dexterity: Math.floor(Math.random()*4)+8,
+                    change_strength: false, freeze: 0, fire: false
+                };
+                for(let i=0; i<3; i++) mStats.HP += Math.floor(Math.random()*4)+1;
+            } else if (type === 'normal') {
+                mStats = {
+                    HP: Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+5,
+                    armor: Math.floor(Math.random()*3)+11,
+                    attack: Math.floor(Math.random()*2)+2,
+                    strength: Math.floor(Math.random()*3)+1,
+                    dexterity: Math.floor(Math.random()*4)+10,
+                    change_strength: false, freeze: 0, fire: false
+                };
+            } else if (type === 'mini') {
+                mStats = {
+                    HP: Math.floor(Math.random()*20)+50,
+                    armor: Math.floor(Math.random()*3)+14,
+                    attack: Math.floor(Math.random()*2)+4,
+                    strength: Math.floor(Math.random()*3)+3,
+                    dexterity: Math.floor(Math.random()*4)+12,
+                    change_strength: false, freeze: 0, fire: false
+                };
+            } else if (type === 'boss') {
+                mStats = {
+                    HP: 0, 
+                    armor: Math.floor(Math.random()*4)+16,
+                    attack: Math.floor(Math.random()*2)+5,
+                    strength: Math.floor(Math.random()*4)+4,
+                    dexterity: Math.floor(Math.random()*5)+14,
+                    change_strength: false, freeze: 0, fire: false
+                };
+                for(let i=0; i<20; i++) mStats.HP += Math.floor(Math.random()*6)+1;
+            }
+            return mStats;
+        }
+
+        function generateRoom(row, col) {
             let val = 10000000;
             const r1 = Math.floor(Math.random()*4)+1;
             if (r1 === 1) { // Chest
@@ -793,19 +960,33 @@
             }
             const r2 = Math.floor(Math.random()*4)+1;
             if (r2 === 1) { // Monster
-                if(Math.floor(Math.random()*3)+1 === 1) val += 1000;
-                else val += 100;
+                if(Math.floor(Math.random()*3)+1 === 1) {
+                    val += 1000;
+                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('wandering');
+                } else {
+                    val += 100;
+                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('normal');
+                }
             }
             if (Math.floor(Math.random()*12)+1 === 1) val += 10000;
             if (Math.floor(Math.random()*20)+1 === 1) { // Boss
-                if(Math.floor(Math.random()*3)+1 === 1) val += 1000000;
-                else val += 100000;
+                if(Math.floor(Math.random()*3)+1 === 1) {
+                    val += 1000000;
+                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('boss');
+                } else {
+                    val += 100000;
+                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('mini');
+                }
             }
             return val;
         }
 
         function enterDungeon() {
-            if(!mapData) mapData = Array.from({length:10}, () => Array.from({length:10}, () => generateRoom()));
+            if(!mapData) {
+                mapData = Array.from({length:10}, (_, row) => 
+                    Array.from({length:10}, (_, col) => generateRoom(row, col))
+                );
+            }
             currentRoom = [9, 9];
             showView('view-dungeon');
             renderDungeon();
@@ -819,7 +1000,7 @@
                 for(let c=0; c<10; c++) {
                     const isPlayer = r===currentRoom[0] && c===currentRoom[1];
                     const cell = document.createElement('div');
-                    cell.className = `w-2 h-2 rounded-full ${isPlayer ? 'bg-blue-400 shadow-[0_0_5px_white]' : 'bg-slate-800'}`;
+                    cell.className = `w-6 h-6 rounded ${isPlayer ? 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.8)]' : 'bg-slate-800'}`;
                     mapEl.appendChild(cell);
                 }
             }
@@ -842,17 +1023,24 @@
             const act = document.getElementById('room-actions');
             act.innerHTML = '';
 
-            if (val[1] === '1') return startCombat("BOSS", "boss");
-            if (val[2] === '1') return startCombat("MINI-BOSS", "mini");
-            if (val[4] === '1') return startCombat("WANDERING MONSTER", "wandering");
-            if (val[5] === '1') return startCombat("MONSTER", "normal");
+            // Check for permanent room encounters first
+            if (val[1] === '1') return showPreCombatSavePrompt("BOSS", "boss");
+            if (val[2] === '1') return showPreCombatSavePrompt("MINI-BOSS", "mini");
+            if (val[4] === '1') return showPreCombatSavePrompt("WANDERING MONSTER", "wandering");
+            if (val[5] === '1') return showPreCombatSavePrompt("MONSTER", "normal");
+            
+            // Random wandering monster spawn (25% chance in any room)
+            // This gives the same likelihood in visited and unvisited rooms
+            if (Math.random() < 0.25) {
+                return showPreCombatSavePrompt("WANDERING MONSTER", "wandering");
+            }
             
             if (val[6] === '1') createChestBtn(act, true);
             if (val[7] === '1') createChestBtn(act, false);
             
             if (val[3] === '1') {
                 const b = document.createElement('button');
-                b.className = "px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-[10px] font-bold uppercase";
+                b.className = "px-6 py-3 bg-blue-700 hover:bg-blue-600 rounded text-sm font-bold uppercase";
                 b.innerText = "Stairs Down";
                 b.onclick = () => {
                     stats.floor++;
@@ -867,7 +1055,7 @@
         function createChestBtn(p, isBig) {
             const chestId = `chest_${currentRoom[0]}_${currentRoom[1]}_${stats.floor}`;
             const b = document.createElement('button');
-            b.className = "px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded text-[10px] font-bold uppercase";
+            b.className = "px-6 py-3 bg-yellow-700 hover:bg-yellow-600 rounded text-sm font-bold uppercase";
             b.innerText = isBig ? "Open Big Chest" : "Open Small Chest";
             
             if(stats.openedChests.has(chestId)) return;
@@ -877,50 +1065,54 @@
                 isProcessing = true;
                 
                 if (isBig) {
-                    addLog("Big Chest! Choose stat to force open:", "text-yellow-400");
-                    const choiceDiv = document.createElement('div');
-                    choiceDiv.className = "flex gap-2 mt-1";
-                    const btnStr = document.createElement('button');
-                    btnStr.className = "px-2 py-1 bg-red-800 text-[10px] rounded hover:bg-red-700";
-                    btnStr.innerText = "STRENGTH";
-                    const btnInt = document.createElement('button');
-                    btnInt.className = "px-2 py-1 bg-blue-800 text-[10px] rounded hover:bg-blue-700";
-                    btnInt.innerText = "INTELLIGENCE";
+                    addLog("Big Chest! Attempting to unlock with Intelligence...", "text-yellow-400");
                     
-                    const handleChoice = async (type) => {
-                        choiceDiv.remove();
-                        const statVal = type === 'str' ? stats.strength + stats.temporary_strength : stats.intelligence + stats.temporary_intelligence;
-                        const statName = type === 'str' ? "Strength" : "Intelligence";
-                        await logLoading(`Rolling ${statName}`, 3, 200);
-                        const baseRoll = Math.floor(Math.random()*20)+1;
-                        const mod = Math.floor(statVal / 2) - 5;
-                        const roll = baseRoll + mod;
-                        const need = Math.floor(Math.random()*5)+10;
-                        addLog(`Rolled ${baseRoll} + ${mod} = ${roll}. Need ${need}.`);
-                        if (roll >= need) {
-                            addLog("Success!", "text-green-500 font-bold");
-                            let loot = 0;
-                            for(let i=0; i<30; i++) loot += Math.floor(Math.random()*6)+1;
-                            if(type === 'int') loot = Math.floor(Math.random()*71)+30;
-                            stats.coins += loot;
-                            addLog(`Found ${loot} coins!`, "text-yellow-500");
-                            mapData[currentRoom[0]][currentRoom[1]] -= 10;
-                            stats.openedChests.add(chestId);
-                        } else {
-                            addLog("Failed! The chest remains locked.", "text-red-500");
-                            mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                    const statVal = stats.intelligence + stats.temporary_intelligence;
+                    await logLoading("Rolling Intelligence", 3, 200);
+                    const baseRoll = Math.floor(Math.random()*20)+1;
+                    const mod = Math.floor(statVal / 2) - 5;
+                    const roll = baseRoll + mod;
+                    const need = Math.floor(Math.random()*5)+10;
+                    addLog(`Rolled ${baseRoll} + ${mod} = ${roll}. Need ${need}.`);
+                    
+                    if (roll >= need) {
+                        addLog("Success! You cleverly unlock the chest!", "text-green-500 font-bold");
+                        const loot = Math.floor(Math.random()*71)+30;  // 30-100 gold
+                        stats.coins += loot;
+                        addLog(`Found ${loot} coins!`, "text-yellow-500");
+                        
+                        // 1/3 chance to find a random potion or spell
+                        if (Math.floor(Math.random()*3) === 0) {
+                            const isPotionNotSpell = Math.random() < 0.5;
+                            const potionNames = ["healing potion", "intelligence potion", "speed potion", "strength potion", "protection potion"];
+                            const spellNames = ["magic missile spell", "weakness spell", "lightning spell", "freeze spell", "fireball spell"];
+                            
+                            const itemList = isPotionNotSpell ? potionNames : spellNames;
+                            const itemName = itemList[Math.floor(Math.random() * itemList.length)];
+                            const itemData = SHOP_DATA[itemName];
+                            
+                            if (isPotionNotSpell) {
+                                if(!stats.potions[itemName]) stats.potions[itemName] = [0, itemData[3]];
+                                stats.potions[itemName][0]++;
+                                addLog(`Found a ${itemName}!`, "text-purple-400 font-bold");
+                            } else {
+                                if(!stats.spells[itemName]) stats.spells[itemName] = [0, itemData[3]];
+                                stats.spells[itemName][0]++;
+                                addLog(`Found a ${itemName}!`, "text-purple-400 font-bold");
+                            }
                         }
-                        if(type === 'str') stats.temporary_strength = 0;
-                        else stats.temporary_intelligence = 0;
-                        isProcessing = false;
-                        checkRoom();
-                        updateUI();
-                    };
-                    btnStr.onclick = () => handleChoice('str');
-                    btnInt.onclick = () => handleChoice('int');
-                    choiceDiv.appendChild(btnStr);
-                    choiceDiv.appendChild(btnInt);
-                    document.getElementById('game-log').appendChild(choiceDiv);
+                        
+                        mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                        stats.openedChests.add(chestId);
+                    } else {
+                        addLog("Failed! The chest remains locked.", "text-red-500");
+                        mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                    }
+                    
+                    stats.temporary_intelligence = 0;
+                    isProcessing = false;
+                    checkRoom();
+                    updateUI();
                 } else {
                     if (Math.floor(Math.random()*3)+1 !== 1) {
                         const loot = Math.floor(Math.random()*36)+5;
@@ -939,37 +1131,109 @@
         }
 
         // --- COMBAT ---
+        function showPreCombatSavePrompt(name, type) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            const monsterIcon = type === 'boss' ? '👹' : type === 'mini' ? '😈' : '👾';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;border:3px solid #dc2626;">';
+            html += `<div style="text-align:center;font-size:3rem;margin-bottom:1rem;">${monsterIcon}</div>`;
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:#ef4444;">BATTLE AHEAD!</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #7f1d1d;text-align:center;">';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;">${name}</div>`;
+            html += `<div style="font-size:0.9rem;color:#94a3b8;">You are about to enter combat!</div>`;
+            html += '</div>';
+            html += '<div style="font-size:0.85rem;color:#94a3b8;text-align:center;margin-bottom:1.5rem;">Would you like to save your game first?</div>';
+            html += '<div style="display:flex;gap:0.75rem;flex-direction:column;">';
+            html += `<button onclick="saveBeforeCombat('${name}', '${type}')" style="width:100%;padding:0.75rem;background:#10b981;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">SAVE & FIGHT</button>`;
+            html += `<button onclick="proceedToCombat('${name}', '${type}')" style="width:100%;padding:0.75rem;background:#dc2626;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">FIGHT NOW</button>`;
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'pre-combat-modal';
+            document.body.appendChild(modal);
+        }
+
+        async function saveBeforeCombat(name, type) {
+            closePreCombatModal();
+            // Show save slot modal
+            const slots = await getAllSaveSlots();
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1.5rem;text-align:center;color:white;">QUICK SAVE</h2>';
+            html += '<div style="display:flex;flex-direction:column;gap:1rem;">';
+            
+            for (let i = 1; i <= 3; i++) {
+                const slot = slots[`slot${i}`];
+                const slotDate = slot ? new Date(slot.savedAt).toLocaleString() : '';
+                const currentCharName = stats.characterName || 'Unnamed Hero';
+                
+                html += `<button onclick="quickSaveAndFight(${i}, '${name}', '${type}')" style="padding:1rem;background:#334155;border-radius:8px;text-align:left;cursor:pointer;border:2px solid #475569;transition:all 0.2s;color:white;" onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#334155'">`;
+                html += `<div style="font-weight:bold;font-size:1.1rem;">Slot ${i}</div>`;
+                if (slot) {
+                    html += `<div style="font-size:0.9rem;color:#fbbf24;">${slot.name}</div>`;
+                    html += `<div style="font-size:0.8rem;color:#94a3b8;">${slotDate}</div>`;
+                } else {
+                    html += `<div style="font-size:0.9rem;color:#64748b;">Empty</div>`;
+                }
+                html += `<div style="font-size:0.75rem;color:#3b82f6;margin-top:0.25rem;">Will save: ${currentCharName}</div>`;
+                html += '</button>';
+            }
+            
+            html += '</div>';
+            html += `<button onclick="cancelQuickSave('${name}', '${type}')" style="margin-top:1.5rem;width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;">SKIP & FIGHT</button>`;
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'quick-save-modal';
+            document.body.appendChild(modal);
+        }
+
+        async function quickSaveAndFight(slotNumber, name, type) {
+            const saveName = stats.characterName || `Save ${slotNumber}`;
+            const success = await saveToCloud(slotNumber, saveName);
+            if (success) {
+                addLog(`Game saved to Slot ${slotNumber}!`, 'text-green-400');
+            }
+            closeQuickSaveModal();
+            startCombat(name, type);
+        }
+
+        function cancelQuickSave(name, type) {
+            closeQuickSaveModal();
+            startCombat(name, type);
+        }
+
+        function proceedToCombat(name, type) {
+            closePreCombatModal();
+            startCombat(name, type);
+        }
+
+        function closePreCombatModal() {
+            const modal = document.getElementById('pre-combat-modal');
+            if (modal) modal.remove();
+        }
+
+        function closeQuickSaveModal() {
+            const modal = document.getElementById('quick-save-modal');
+            if (modal) modal.remove();
+        }
+
         async function startCombat(name, type) {
             let mStats = {};
-            if (type === 'normal') {
-                mStats = {
-                    HP: Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+3,
-                    armor: Math.floor(Math.random()*4)+11,
-                    attack: Math.floor(Math.random()*3)+2,
-                    strength: Math.floor(Math.random()*4),
-                    dexterity: Math.floor(Math.random()*5)+10,
-                    change_strength: false, freeze: 0, fire: false
-                };
-            } else if (type === 'wandering') {
-                mStats = {
-                    HP: 0, armor: Math.floor(Math.random()*4)+9,
-                    attack: Math.floor(Math.random()*3)+1,
-                    strength: Math.floor(Math.random()*4)-1,
-                    dexterity: Math.floor(Math.random()*5)+9,
-                    change_strength: false, freeze: 0, fire: false
-                };
-                for(let i=0; i<4; i++) mStats.HP += Math.floor(Math.random()*6)+1;
-            } else if (type === 'boss') {
-                mStats = {
-                    HP: 0, armor: Math.floor(Math.random()*5)+13,
-                    attack: Math.floor(Math.random()*3)+4,
-                    strength: Math.floor(Math.random()*4)+2,
-                    dexterity: Math.floor(Math.random()*5)+13,
-                    change_strength: false, freeze: 0, fire: false
-                };
-                for(let i=0; i<20; i++) mStats.HP += Math.floor(Math.random()*6)+1;
-            } else if (type === 'mini') {
-                mStats = { HP: 50, armor: 13, attack: 4, strength: 3, dexterity: 12, change_strength: false, freeze: 0, fire: false };
+            
+            // Check if this is a pre-generated monster from the map
+            const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+            if (monsterData[monsterKey]) {
+                // Use pre-generated stats
+                mStats = {...monsterData[monsterKey]};
+            } else {
+                // Generate new stats for random wandering monsters
+                mStats = generateMonsterStats(type);
             }
 
             combatData = { ...mStats, name, type, maxHp: mStats.HP, turn: 'init' };
@@ -1119,8 +1383,7 @@
                 stats.HP -= dmg;
                 updateUI();
                 if(stats.HP <= 0) {
-                    addLog("YOU DIED.", "text-red-900 font-black text-2xl");
-                    setTimeout(()=>location.reload(), 3000);
+                    handleDeath();
                     return;
                 }
             } else addLog("Monster Missed!", "text-green-400");
@@ -1132,21 +1395,126 @@
             showCombatSubMenu('main');
         }
 
+        async function handleDeath() {
+            addLog("YOU DIED.", "text-red-900 font-black text-2xl");
+            isProcessing = true;
+            
+            await sleep(1500);
+            
+            // Wisdom test difficulty increases with each death
+            // Base DC is 10, +2 for each previous death
+            const baseDC = 10;
+            const deathPenalty = stats.deathCount * 2;
+            const targetDC = baseDC + deathPenalty;
+            
+            addLog("Your spirit lingers between life and death...", "text-purple-400 italic");
+            await sleep(1000);
+            addLog("Make a Wisdom saving throw to return to the living!", "text-yellow-400 font-bold");
+            await logLoading("Rolling", 3, 300);
+            
+            const roll = Math.floor(Math.random()*20)+1;
+            const wisdomMod = Math.floor(stats.wisdom / 2) - 5;
+            const total = roll + wisdomMod;
+            
+            addLog(`Rolled ${roll} + ${wisdomMod} (Wisdom) = ${total}`, "text-slate-300");
+            addLog(`Need ${targetDC} or higher to revive`, "text-slate-400");
+            
+            await sleep(1500);
+            
+            if (total >= targetDC) {
+                // SUCCESS - Revive with 2/3 health in town
+                addLog("SUCCESS! Your spirit returns!", "text-green-400 font-black text-xl");
+                stats.deathCount++;
+                stats.HP = Math.floor(stats.maxHP * 2 / 3);
+                
+                await sleep(1000);
+                addLog(`You awaken in Oakhaven with ${stats.HP} HP...`, "text-blue-400");
+                addLog(`Death has left its mark. (Deaths: ${stats.deathCount})`, "text-red-400");
+                
+                // Return to town
+                showView('view-town');
+                updateUI();
+                isProcessing = false;
+            } else {
+                // FAILURE - Permanent death
+                addLog("FAILED... Your spirit fades into darkness.", "text-red-900 font-black text-xl");
+                await sleep(2000);
+                addLog("Game Over. Reloading...", "text-slate-500");
+                await sleep(2000);
+                location.reload();
+            }
+        }
+
+        function calculateMonsterExp(monster) {
+            // Base EXP by type
+            let baseExp = 0;
+            if (monster.type === 'wandering') baseExp = 20;
+            else if (monster.type === 'normal') baseExp = 50;
+            else if (monster.type === 'mini') baseExp = 150;
+            else if (monster.type === 'boss') baseExp = 400;
+            
+            // Add bonus EXP based on monster stats (difficulty modifiers)
+            const hpBonus = Math.floor(monster.maxHp / 10);  // 1 EXP per 10 HP
+            const armorBonus = Math.max(0, (monster.armor - 10) * 3);  // 3 EXP per AC above 10
+            const attackBonus = monster.attack * 5;  // 5 EXP per attack tier
+            const strBonus = Math.max(0, monster.strength) * 4;  // 4 EXP per positive strength
+            const dexBonus = Math.max(0, (monster.dexterity - 10) * 2);  // 2 EXP per dex above 10
+            
+            const totalExp = baseExp + hpBonus + armorBonus + attackBonus + strBonus + dexBonus;
+            return Math.floor(totalExp);
+        }
+
         async function victory() {
             addLog("VICTORY!", "text-yellow-400 font-black text-xl");
-            const coins = Math.floor(Math.random()*(combatData.type==='boss'?400:40))+10;
+            
+            // Better rewards based on monster type
+            let coins = 0;
+            if (combatData.type === 'wandering') {
+                coins = Math.floor(Math.random()*21)+5;  // 5-25 gold
+            } else if (combatData.type === 'normal') {
+                coins = Math.floor(Math.random()*51)+25;  // 25-75 gold
+            } else if (combatData.type === 'mini') {
+                coins = Math.floor(Math.random()*101)+100;  // 100-200 gold
+            } else if (combatData.type === 'boss') {
+                coins = Math.floor(Math.random()*301)+200;  // 200-500 gold
+            }
+            
             stats.coins += coins;
             addLog(`Looted ${coins} coins.`, "text-yellow-500");
+            
+            // Award EXP
+            const expGained = calculateMonsterExp(combatData);
+            stats.exp += expGained;
+            stats.totalExp += expGained;
+            addLog(`Gained ${expGained} EXP! (${stats.totalExp}/${stats.expToNextLevel})`, "text-cyan-400");
+            
+            // Check for level up
+            if (stats.exp >= stats.expToNextLevel) {
+                await sleep(500);
+                await levelUp();
+            }
+            
+            // Remove monster from room
             let removeVal = 0;
             if(combatData.type.includes('boss')) removeVal = 1000000;
             else if(combatData.type.includes('mini')) removeVal = 100000;
             else if(combatData.type.includes('wandering')) removeVal = 1000;
             else removeVal = 100;
             mapData[currentRoom[0]][currentRoom[1]] -= removeVal;
-            if(combatData.type.includes('BOSS')) {
+            
+            // Boss rewards
+            if(combatData.type.includes('boss')) {
                 stats.keys++;
                 addLog("Found a Key!", "text-blue-400 font-bold");
             }
+            
+            // Mini-boss has chance to drop extra gold
+            if(combatData.type === 'mini' && Math.random() < 0.5) {
+                const bonus = Math.floor(Math.random()*51)+50;  // 50-100 extra
+                stats.coins += bonus;
+                addLog(`Found a hidden stash! +${bonus} gold!`, "text-yellow-400 font-bold");
+            }
+            
             await sleep(1000);
             isProcessing = false;
             updateUI();
@@ -1155,11 +1523,193 @@
             checkRoom(true);
         }
 
+        async function levelUp() {
+            stats.level++;
+            stats.exp = stats.exp - stats.expToNextLevel;
+            stats.expToNextLevel = Math.floor(stats.expToNextLevel * 1.5);  // 50% increase per level
+            
+            addLog(`LEVEL UP! You are now level ${stats.level}!`, "text-purple-400 font-black text-xl");
+            await sleep(1000);
+            
+            // Increase max HP with scaling dice rolls
+            let hpGain = 0;
+            let diceType = '';
+            if (stats.level <= 3) {
+                // Levels 1-3: 1d4 (1-4 HP)
+                hpGain = Math.floor(Math.random()*4)+1;
+                diceType = '1d4';
+            } else if (stats.level <= 6) {
+                // Levels 4-6: 1d6 (1-6 HP)
+                hpGain = Math.floor(Math.random()*6)+1;
+                diceType = '1d6';
+            } else if (stats.level <= 9) {
+                // Levels 7-9: 1d8 (1-8 HP)
+                hpGain = Math.floor(Math.random()*8)+1;
+                diceType = '1d8';
+            } else if (stats.level <= 12) {
+                // Levels 10-12: 1d10 (1-10 HP)
+                hpGain = Math.floor(Math.random()*10)+1;
+                diceType = '1d10';
+            } else {
+                // Levels 13+: 1d12 (1-12 HP)
+                hpGain = Math.floor(Math.random()*12)+1;
+                diceType = '1d12';
+            }
+            
+            // Store HP gain data for later display
+            const levelUpData = { hpGain, diceType, oldMaxHP: stats.maxHP };
+            stats.maxHP += hpGain;
+            stats.HP = stats.maxHP;  // Full heal on level up
+            updateUI();
+            
+            // Calculate number of stat increases based on level
+            // Level 1-3: 1 increase, Level 4-6: 2 increases, Level 7-9: 3 increases, etc.
+            const numIncreases = Math.floor((stats.level - 1) / 3) + 1;
+            
+            await sleep(500);
+            showStatIncreaseModal(1, numIncreases, levelUpData);  // Start with first increase
+        }
+
+        function showStatIncreaseModal(increaseNumber, totalIncreases, levelUpData) {
+            const modal = document.createElement('div');
+            modal.id = 'stat-increase-modal';
+            modal.setAttribute('data-levelup', JSON.stringify(levelUpData));
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.85); z-index: 9999;
+                display: flex; align-items: center; justify-content: center;
+                backdrop-filter: blur(4px);
+            `;
+            
+            const statNames = [
+                { key: 'strength', label: 'STRENGTH', desc: 'Melee damage' },
+                { key: 'dexterity', label: 'DEXTERITY', desc: 'Hit chance & defense' },
+                { key: 'intelligence', label: 'INTELLIGENCE', desc: 'Spell power & chests' },
+                { key: 'wisdom', label: 'WISDOM', desc: 'Spell defense & death saves' }
+            ];
+            
+            let buttonsHtml = '';
+            statNames.forEach(stat => {
+                const currentValue = stats[stat.key];
+                buttonsHtml += `
+                    <button onclick="increaseStat('${stat.key}', ${increaseNumber}, ${totalIncreases})" 
+                        class="w-full bg-purple-800 hover:bg-purple-700 text-white px-6 py-4 rounded text-lg font-bold transition-colors border-2 border-purple-600">
+                        <div class="flex justify-between items-center">
+                            <div class="text-left">
+                                <div>${stat.label}</div>
+                                <div class="text-sm text-purple-300 font-normal">${stat.desc}</div>
+                            </div>
+                            <div class="text-2xl">${currentValue} → ${currentValue + 1}</div>
+                        </div>
+                    </button>
+                `;
+            });
+            
+            modal.innerHTML = `
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                    border: 3px solid #a855f7; border-radius: 12px; padding: 32px; 
+                    max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(168, 85, 247, 0.4);">
+                    <h2 style="font-size: 28px; font-weight: bold; color: #a855f7; 
+                        text-align: center; margin-bottom: 8px; text-transform: uppercase;">
+                        🎉 Level Up! 🎉
+                    </h2>
+                    <p style="text-align: center; color: #cbd5e1; margin-bottom: 24px; font-size: 16px;">
+                        Choose a stat to increase by 1 (${increaseNumber}/${totalIncreases}):
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        ${buttonsHtml}
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        async function increaseStat(statName, increaseNumber, totalIncreases) {
+            stats[statName]++;
+            addLog(`${statName.toUpperCase()} increased to ${stats[statName]}!`, "text-purple-400 font-bold");
+            
+            const modal = document.getElementById('stat-increase-modal');
+            const levelUpData = JSON.parse(modal.getAttribute('data-levelup'));
+            
+            closeStatIncreaseModal();
+            updateUI();
+            
+            // If there are more increases remaining, show modal for next increase
+            if (increaseNumber < totalIncreases) {
+                await sleep(500);
+                showStatIncreaseModal(increaseNumber + 1, totalIncreases, levelUpData);
+            } else {
+                // All stat increases complete - show HP completion modal
+                await sleep(500);
+                showHPCompletionModal(levelUpData);
+            }
+        }
+
+        function showHPCompletionModal(levelUpData) {
+            const modal = document.createElement('div');
+            modal.id = 'hp-completion-modal';
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.85); z-index: 9999;
+                display: flex; align-items: center; justify-content: center;
+                backdrop-filter: blur(4px);
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
+                    border: 3px solid #10b981; border-radius: 12px; padding: 32px; 
+                    max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(16, 185, 129, 0.4);">
+                    <h2 style="font-size: 28px; font-weight: bold; color: #10b981; 
+                        text-align: center; margin-bottom: 16px; text-transform: uppercase;">
+                        ❤️ Health Boost! ❤️
+                    </h2>
+                    <div style="background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 2px solid #334155;">
+                        <div style="text-align: center; color: #cbd5e1; font-size: 16px; margin-bottom: 12px;">
+                            Max HP Increased!
+                        </div>
+                        <div style="text-align: center; font-size: 32px; font-weight: bold; color: #10b981; margin-bottom: 12px;">
+                            ${levelUpData.oldMaxHP} → ${stats.maxHP}
+                        </div>
+                        <div style="text-align: center; color: #94a3b8; font-size: 14px;">
+                            Rolled ${levelUpData.diceType}: +${levelUpData.hpGain} HP
+                        </div>
+                    </div>
+                    <div style="background: #059669; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                        <div style="text-align: center; color: white; font-size: 18px; font-weight: bold;">
+                            ✨ Restored to Full Health! ✨
+                        </div>
+                        <div style="text-align: center; color: #d1fae5; font-size: 16px; margin-top: 8px;">
+                            HP: ${stats.HP}/${stats.maxHP}
+                        </div>
+                    </div>
+                    <button onclick="closeHPCompletionModal()" 
+                        style="width: 100%; padding: 16px; background: #10b981; border-radius: 8px; 
+                        font-weight: bold; color: white; font-size: 18px; cursor: pointer; border: none;
+                        transition: background 0.2s;">
+                        CONTINUE
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        function closeHPCompletionModal() {
+            const modal = document.getElementById('hp-completion-modal');
+            if (modal) modal.remove();
+        }
+
+        function closeStatIncreaseModal() {
+            const modal = document.getElementById('stat-increase-modal');
+            if (modal) modal.remove();
+        }
+
         // --- SHOP & SELLING ---
         function setShopMode(mode) {
             shopMode = mode;
-            document.getElementById('shop-mode-buy').className = `text-[9px] ${mode==='buy'?'bg-yellow-600':'bg-slate-800'} px-3 py-1 rounded font-bold`;
-            document.getElementById('shop-mode-sell').className = `text-[9px] ${mode==='sell'?'bg-yellow-600':'bg-slate-800'} px-3 py-1 rounded font-bold`;
+            document.getElementById('shop-mode-buy').className = `text-sm ${mode==='buy'?'bg-yellow-600':'bg-slate-800'} px-4 py-2 rounded font-bold`;
+            document.getElementById('shop-mode-sell').className = `text-sm ${mode==='sell'?'bg-yellow-600':'bg-slate-800'} px-4 py-2 rounded font-bold`;
             renderShop();
         }
 
@@ -1177,19 +1727,38 @@
                 const types = {1:"Weapons", 2:"Armor", 3:"Potions", 4:"Spells"};
                 for(let t=1; t<=4; t++) {
                     const sect = document.createElement('div');
-                    sect.innerHTML = `<h3 class="text-[9px] font-bold text-slate-500 mb-2 uppercase tracking-widest border-b border-slate-800">${types[t]}</h3>`;
+                    sect.innerHTML = `<h3 class="text-sm font-bold text-slate-500 mb-3 uppercase tracking-widest border-b border-slate-800 pb-2">${types[t]}</h3>`;
                     const list = document.createElement('div');
                     list.className = "grid grid-cols-2 gap-2 mb-4";
                     for(const [name, data] of Object.entries(SHOP_DATA)) {
                         if(data[2] !== t) continue;
                         const row = document.createElement('div');
                         row.className = "flex flex-col p-2 bg-slate-800/40 rounded border border-slate-800";
-                        row.innerHTML = `<span class="uppercase font-bold text-[10px] text-slate-300">${name}</span><span class="text-yellow-600 text-[10px]">${data[0]}G</span>`;
-                        const b = document.createElement('button');
-                        b.className = "mt-1 px-2 py-1 bg-slate-700 hover:bg-yellow-700 rounded text-[9px] font-bold text-white transition-colors";
-                        b.innerText = "BUY";
-                        b.onclick = () => showPurchaseConfirmation(name, data);
-                        row.appendChild(b);
+                        
+                        let itemInfo = `<span class="uppercase font-bold text-sm text-slate-300">${name}</span>`;
+                        itemInfo += `<span class="text-yellow-600 text-sm font-bold block mt-1">${data[0]}G</span>`;
+                        
+                        row.innerHTML = itemInfo;
+                        
+                        // Add buttons container
+                        const btnContainer = document.createElement('div');
+                        btnContainer.className = "flex gap-2 mt-2";
+                        
+                        // View Stats button
+                        const statsBtn = document.createElement('button');
+                        statsBtn.className = "flex-1 px-2 py-2 bg-blue-700 hover:bg-blue-600 rounded text-xs font-bold text-white transition-colors";
+                        statsBtn.innerText = "VIEW STATS";
+                        statsBtn.onclick = () => showItemStats(name, data);
+                        
+                        // Buy button
+                        const buyBtn = document.createElement('button');
+                        buyBtn.className = "flex-1 px-2 py-2 bg-slate-700 hover:bg-yellow-700 rounded text-xs font-bold text-white transition-colors";
+                        buyBtn.innerText = "BUY";
+                        buyBtn.onclick = () => showPurchaseConfirmation(name, data);
+                        
+                        btnContainer.appendChild(statsBtn);
+                        btnContainer.appendChild(buyBtn);
+                        row.appendChild(btnContainer);
                         list.appendChild(row);
                     }
                     sect.appendChild(list);
@@ -1213,10 +1782,10 @@
                         row.className = "flex justify-between items-center p-3 bg-slate-800/40 rounded border border-slate-700";
                         row.innerHTML = `
                             <div>
-                                <span class="text-[8px] text-slate-500 uppercase font-bold">${label}</span>
-                                <div class="text-[11px] font-bold uppercase text-white">${name} ${count>1?'(x'+count+')':''}</div>
+                                <span class="text-xs text-slate-500 uppercase font-bold">${label}</span>
+                                <div class="text-base font-bold uppercase text-white">${name} ${count>1?'(x'+count+')':''}</div>
                             </div>
-                            <button onclick="sellItem('${name}', '${label}')" class="bg-red-900/40 hover:bg-red-800 border border-red-500/30 px-4 py-2 rounded text-[10px] font-bold text-red-200">
+                            <button onclick="sellItem('${name}', '${label}')" class="bg-red-900/40 hover:bg-red-800 border border-red-500/30 px-5 py-2 rounded text-sm font-bold text-red-200">
                                 SELL FOR ${sellPrice}G
                             </button>
                         `;
@@ -1229,10 +1798,80 @@
                 processCollection(stats.spells, "Spell");
 
                 if (sellList.children.length === 0) {
-                    sellList.innerHTML = `<div class="text-center text-slate-500 py-10 text-[10px] uppercase font-bold">Nothing to sell</div>`;
+                    sellList.innerHTML = `<div class="text-center text-slate-500 py-10 text-sm uppercase font-bold">Nothing to sell</div>`;
                 }
                 container.appendChild(sellList);
             }
+        }
+
+        function showItemStats(name, data) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            const itemType = data[2] === 1 ? 'Weapon' : data[2] === 2 ? 'Armor' : data[2] === 3 ? 'Potion' : 'Spell';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">ITEM DETAILS</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;text-align:center;">${name}</div>`;
+            html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">${itemType}</div>`;
+            html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+            
+            // Weapon stats
+            if (data[2] === 1) {
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Tier: <span style="color:#fbbf24;font-weight:bold;">${data[1]}</span></div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Damage: <span style="color:#10b981;font-weight:bold;">${getWeaponDamageDesc(data[1])}</span></div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Used for attacking enemies in combat. Higher tier weapons deal more damage.</div>';
+            }
+            // Armor stats
+            else if (data[2] === 2) {
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Armor Class: <span style="color:#3b82f6;font-weight:bold;">${data[1]}</span></div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Increases your AC (Armor Class). Higher AC makes you harder to hit in combat.</div>';
+            }
+            // Potion stats
+            else if (data[2] === 3) {
+                const potionEffects = {
+                    1: {name: "Healing", effect: "Restores 1d4+1d4 HP (2-8 HP)", color: "#10b981"},
+                    2: {name: "Intelligence", effect: "Grants +6 temporary Intelligence for one chest opening", color: "#3b82f6"},
+                    3: {name: "Speed (Dexterity)", effect: "Grants +6 temporary Dexterity for one retreat attempt", color: "#8b5cf6"},
+                    4: {name: "Strength", effect: "Grants +6 temporary Strength for one attack", color: "#ef4444"},
+                    5: {name: "Protection", effect: "Grants +3 temporary Armor for one enemy attack", color: "#06b6d4"}
+                };
+                const effect = potionEffects[data[3]];
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Type: <span style="color:${effect.color};font-weight:bold;">${effect.name}</span></div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">${effect.effect}</span></div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Can be used in combat or from inventory (healing only).</div>';
+            }
+            // Spell stats
+            else if (data[2] === 4) {
+                const spellEffects = {
+                    1: {name: "Magic Missile", effect: "1d8 damage, DC 10 Wisdom", color: "#8b5cf6"},
+                    2: {name: "Weakness", effect: "1d8 damage + reduce enemy Str by 2, DC 11 Wisdom", color: "#6366f1"},
+                    3: {name: "Lightning", effect: "2d6+1d10+3 damage, DC 12 Wisdom", color: "#eab308"},
+                    4: {name: "Freeze", effect: "1d6 damage + freeze enemy for 2 turns, DC 10 Wisdom", color: "#06b6d4"},
+                    5: {name: "Fireball", effect: "1d15+5 damage + 2 burn damage per turn, DC 11 Wisdom", color: "#f97316"},
+                    6: {name: "Town Portal", effect: "Teleport back to town from dungeon", color: "#10b981"}
+                };
+                const effect = spellEffects[data[3]];
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Spell: <span style="color:${effect.color};font-weight:bold;">${effect.name}</span></div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">${effect.effect}</span></div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable spell. Requires Wisdom check to cast successfully.</div>';
+            }
+            
+            html += '</div>';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">Price: ${data[0]} Gold</div>`;
+            html += '</div>';
+            html += '<button onclick="closeItemStatsModal()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CLOSE</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'item-stats-modal';
+            document.body.appendChild(modal);
+        }
+
+        function closeItemStatsModal() {
+            const modal = document.getElementById('item-stats-modal');
+            if (modal) modal.remove();
         }
 
         function showPurchaseConfirmation(name, data) {
@@ -1245,13 +1884,23 @@
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
             
             const itemType = data[2] === 1 ? 'Weapon' : data[2] === 2 ? 'Armor' : data[2] === 3 ? 'Potion' : 'Spell';
-            const itemDetails = data[2] === 1 ? `Tier ${data[1]}` : data[2] === 2 ? `AC ${data[1]}` : '';
+            let itemDetails = '';
+            if (data[2] === 1) {
+                // Weapon - show tier and damage
+                itemDetails = `Tier ${data[1]} - ${getWeaponDamageDesc(data[1])}`;
+            } else if (data[2] === 2) {
+                // Armor - show AC
+                itemDetails = `AC ${data[1]}`;
+            }
             
-            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;">';
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:450px;width:90%;">';
             html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">CONFIRM PURCHASE</h2>';
             html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1.5rem;border:2px solid #334155;">';
             html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;">${name}</div>`;
-            html += `<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">${itemType} ${itemDetails}</div>`;
+            html += `<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.75rem;">${itemType}</div>`;
+            if (itemDetails) {
+                html += `<div style="font-size:0.9rem;color:#10b981;margin-bottom:0.75rem;font-weight:bold;">${itemDetails}</div>`;
+            }
             html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;">Cost: ${data[0]} Gold</div>`;
             html += `<div style="font-size:0.9rem;color:#64748b;margin-top:0.5rem;">You have: ${stats.coins} Gold</div>`;
             html += '</div>';
@@ -1389,13 +2038,15 @@
             for(let name in stats.weapons) {
                 const b = document.createElement('button');
                 const isEquipped = stats.equippedWeapon === name;
+                const tier = stats.weapons[name];
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <span class="text-[11px] font-bold uppercase">${name}</span>
-                        <span class="text-[9px] text-slate-500 font-bold">TIER ${stats.weapons[name]}</span>
+                        <span class="text-base font-bold uppercase">${name}</span>
+                        <span class="text-sm text-slate-500 font-bold">TIER ${tier}</span>
                     </div>
-                    ${isEquipped ? '<div class="text-[8px] text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
+                    <div class="text-sm text-green-400 font-bold mt-1">${getWeaponDamageDesc(tier)}</div>
+                    ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
                 b.onclick = () => { stats.equippedWeapon = name; renderInventory(); addLog(`Equipped ${name}`); };
                 wList.appendChild(b);
@@ -1407,10 +2058,10 @@
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <span class="text-[11px] font-bold uppercase">${name}</span>
-                        <span class="text-[9px] text-slate-500 font-bold">AC ${stats.armors[name]}</span>
+                        <span class="text-base font-bold uppercase">${name}</span>
+                        <span class="text-sm text-slate-500 font-bold">AC ${stats.armors[name]}</span>
                     </div>
-                    ${isEquipped ? '<div class="text-[8px] text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
+                    ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
                 b.onclick = () => { 
                     stats.equippedArmor = name; 
@@ -1426,12 +2077,60 @@
             for(let name in consumables) {
                 const count = consumables[name][0];
                 if(count <= 0) continue;
+                
+                // Check if this is a healing potion - only healing potions can be used outside combat
+                const isHealingPotion = name === 'healing potion';
+                const canUse = isHealingPotion && stats.HP < stats.maxHP;
+                
                 const div = document.createElement('div');
-                div.className = "p-3 bg-slate-900 border border-slate-800 rounded flex justify-between items-center";
-                div.innerHTML = `<span class="text-[11px] font-bold uppercase text-slate-300">${name}</span><span class="bg-blue-900/40 px-2 py-0.5 rounded text-blue-400 font-bold text-[9px]">x${count}</span>`;
+                div.className = `p-3 bg-slate-900 border border-slate-800 rounded ${canUse ? 'cursor-pointer hover:bg-slate-800 transition-colors' : ''}`;
+                
+                const content = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-base font-bold uppercase text-slate-300">${name}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-blue-900/40 px-3 py-1 rounded text-blue-400 font-bold text-sm">x${count}</span>
+                            ${canUse ? '<button class="bg-green-700 hover:bg-green-600 px-4 py-2 rounded text-sm font-bold text-white">USE</button>' : ''}
+                        </div>
+                    </div>
+                `;
+                
+                div.innerHTML = content;
+                
+                if(canUse) {
+                    div.onclick = () => useItemFromInventory(name);
+                }
+                
                 cList.appendChild(div);
             }
-            if(cList.innerHTML === '') cList.innerHTML = '<div class="text-[9px] text-slate-600 uppercase font-bold text-center py-4">No Consumables</div>';
+            if(cList.innerHTML === '') cList.innerHTML = '<div class="text-sm text-slate-600 uppercase font-bold text-center py-4">No Consumables</div>';
+        }
+
+        // --- USE ITEMS FROM INVENTORY (OUTSIDE COMBAT) ---
+        function useItemFromInventory(name) {
+            if (name === 'healing potion') {
+                if (stats.HP >= stats.maxHP) {
+                    addLog("Already at full health!", "text-slate-400");
+                    return;
+                }
+                
+                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
+                    addLog("No healing potions left!", "text-red-400");
+                    return;
+                }
+                
+                stats.potions[name][0]--;
+                const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
+                stats.HP = Math.min(stats.maxHP, stats.HP + heal);
+                addLog(`Drank healing potion - Healed ${heal} HP`, "text-green-400");
+                
+                if(stats.potions[name][0] <= 0) {
+                    delete stats.potions[name];
+                }
+                
+                updateUI();
+                renderInventory();
+            }
         }
 
         // --- ITEMS IN COMBAT ---
@@ -1442,8 +2141,8 @@
             for (const [name, data] of Object.entries(items)) {
                 if (data[0] > 0) {
                     const b = document.createElement('button');
-                    b.className = "w-full p-2 bg-slate-800 text-[10px] text-left flex justify-between rounded px-3 border border-slate-700 hover:bg-slate-700";
-                    b.innerHTML = `<span class="uppercase font-bold text-white">${name}</span><span class="text-yellow-500">x${data[0]}</span>`;
+                    b.className = "w-full p-3 bg-slate-800 text-sm text-left flex justify-between rounded px-4 border border-slate-700 hover:bg-slate-700";
+                    b.innerHTML = `<span class="uppercase font-bold text-white">${name}</span><span class="text-yellow-500 font-bold">x${data[0]}</span>`;
                     b.onclick = () => useItem(name);
                     list.appendChild(b);
                 }
@@ -1460,7 +2159,7 @@
                 const typeId = itemData[1];
                 addLog(`Drank ${name}`, "text-blue-300");
                 if(typeId === 1) {
-                    const heal = Math.floor(Math.random()*4)+Math.floor(Math.random()*4) + (Math.random()<0.33?Math.floor(Math.random()*6):0);
+                    const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
                     stats.HP = Math.min(stats.maxHP, stats.HP + heal);
                     addLog(`Healed ${heal} HP`, "text-green-400");
                 } else if(typeId === 2) stats.temporary_intelligence = 6;
