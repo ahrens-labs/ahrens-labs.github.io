@@ -17,24 +17,131 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        body { font-family: 'JetBrains+Mono', monospace; overflow-x: hidden; }
+        :root {
+            --bg-primary: #020617;
+            --bg-secondary: #0f172a;
+            --bg-tertiary: #1e293b;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --border-light: #475569;
+            --bg-log: #0f172a;
+            --text-log: #e2e8f0;
+        }
+
+        body.light-theme {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border-color: #cbd5e1;
+            --border-light: #e2e8f0;
+            --bg-log: #f1f5f9;
+            --text-log: #1e293b;
+        }
+
+        body { 
+            font-family: 'JetBrains+Mono', monospace; 
+            overflow-x: hidden;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
         .combat-active { animation: pulse-red 2s infinite; }
         @keyframes pulse-red { 0%, 100% { background-color: rgba(220, 38, 38, 0.05); } 50% { background-color: rgba(220, 38, 38, 0.15); } }
         .equipped { border-color: #fbbf24 !important; background-color: rgba(251, 191, 36, 0.1) !important; }
         
         /* Game wrapper styles */
         .game-wrapper {
-            background-color: #020617;
-            color: #e2e8f0;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             min-height: calc(100vh - 200px);
             padding: 2rem 1rem;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Theme toggle button */
+        #theme-toggle-btn {
+            padding: 8px 16px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #theme-toggle-btn:hover {
+            background: #4f46e5;
+        }
+
+        /* Game UI Elements - Log Panel */
+        #game-log {
+            background-color: var(--bg-log) !important;
+            color: var(--text-log) !important;
+        }
+
+        /* Board/Viewport */
+        #viewport {
+            background-color: var(--bg-secondary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        /* Stats header boxes */
+        .bg-slate-900 { 
+            background-color: var(--bg-tertiary) !important;
+            color: var(--text-primary) !important;
+        }
+        .bg-slate-800 { 
+            background-color: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+        }
+        .border-slate-800 { border-color: var(--border-color) !important; }
+        .text-slate-400, .text-slate-500 { color: var(--text-secondary) !important; }
+        .text-slate-600 { color: var(--text-muted) !important; }
+        .text-white { color: var(--text-primary) !important; }
+
+        /* Buttons and interactive elements */
+        .hover\:bg-slate-700:hover {
+            background-color: var(--bg-secondary) !important;
+        }
+
+        /* Log entries */
+        #game-log > div {
+            color: var(--text-log) !important;
+        }
+
+        /* Footer styling for light theme */
+        footer {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
         }
     </style>
 </head>
 <body>
+    <script>
+        // Initialize theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('dungeon-game-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+            }
+        })();
+    </script>
     <div class="wrapper">
         <header>
             <div class="header-content">
@@ -105,7 +212,13 @@
     <div class="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
         <!-- Log Panel -->
         <div class="lg:col-span-1 bg-black border border-slate-800 rounded flex flex-col h-[300px] lg:h-[600px] overflow-hidden">
-            <div class="bg-slate-900 p-3 text-sm font-bold border-b border-slate-800 text-slate-500">ADVENTURE LOG</div>
+            <div class="bg-slate-900 p-3 text-sm font-bold border-b border-slate-800 text-slate-500 flex justify-between items-center">
+                <span>ADVENTURE LOG</span>
+                <button id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light/Dark Theme" style="padding: 4px 8px; background: #6366f1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.75em; transition: all 0.3s; display: flex; align-items: center; gap: 4px;">
+                    <i class="fas fa-moon"></i>
+                    <span id="theme-text" style="font-size: 0.9em;">Dark</span>
+                </button>
+            </div>
             <div id="game-log" class="flex-1 overflow-y-auto p-4 text-[13px] space-y-2 custom-scrollbar bg-slate-950/50"></div>
             <div id="global-actions" class="p-3 border-t border-slate-800 bg-slate-900 hidden">
                 <button onclick="toggleInventory()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-sm font-bold rounded uppercase flex items-center justify-center gap-2">
@@ -262,6 +375,40 @@
     <script src="js/script.js"></script>
     <script>
         // ===============================================
+        // THEME TOGGLE SYSTEM
+        // ===============================================
+        function initTheme() {
+            const savedTheme = localStorage.getItem('dungeon-game-theme') || 'dark';
+            applyTheme(savedTheme);
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+            const themeBtn = document.getElementById('theme-toggle-btn');
+            const themeText = document.getElementById('theme-text');
+            const themeIcon = themeBtn.querySelector('i');
+
+            if (theme === 'light') {
+                body.classList.add('light-theme');
+                themeText.textContent = 'Light';
+                themeIcon.className = 'fas fa-sun';
+            } else {
+                body.classList.remove('light-theme');
+                themeText.textContent = 'Dark';
+                themeIcon.className = 'fas fa-moon';
+            }
+            
+            localStorage.setItem('dungeon-game-theme', theme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        }
+
+        // Initialize theme on page load
+        initTheme();
         // CLOUD SAVE SYSTEM
         // ===============================================
         const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
@@ -312,7 +459,7 @@
             
             const saveData = {
                 stats: stats,
-                map: mapData,
+                map: floorMaps,
                 monsters: monsterData,
                 room: currentRoom,
                 openedChests: Array.from(stats.openedChests),
@@ -488,7 +635,7 @@
             openedChests: new Set(),
             deathCount: 0  // Track number of deaths for difficulty scaling
         };
-        let mapData = null;
+        let floorMaps = {}; // Store maps per floor
         let monsterData = {}; // Store pre-generated monster stats by room
         let currentRoom = [9, 9];
         let pendingRolls = [];
@@ -605,6 +752,12 @@
         }
 
         async function loadGame() {
+            // Check authentication before loading
+            if (!isLoggedIn) {
+                addLog('Please log in to load your game!', 'text-red-400');
+                window.location.href = 'account.html?return=dungeon_game.html';
+                return;
+            }
             // Show load slot selection modal
             showLoadSlotModal();
         }
@@ -701,7 +854,7 @@
             const saveData = await loadFromCloud(slotNumber);
             if (saveData) {
                 stats = saveData.stats;
-                mapData = saveData.map;
+                floorMaps = saveData.map || {};
                 monsterData = saveData.monsters || {};
                 currentRoom = saveData.room;
                 stats.openedChests = new Set(saveData.openedChests);
@@ -982,8 +1135,9 @@
         }
 
         function enterDungeon() {
-            if(!mapData) {
-                mapData = Array.from({length:10}, (_, row) => 
+            const floorKey = `floor_${stats.floor}`;
+            if(!floorMaps[floorKey]) {
+                floorMaps[floorKey] = Array.from({length:10}, (_, row) => 
                     Array.from({length:10}, (_, col) => generateRoom(row, col))
                 );
             }
@@ -1019,7 +1173,8 @@
 
         function checkRoom(suppressEvents = false) {
             if(suppressEvents) return;
-            const val = String(mapData[currentRoom[0]][currentRoom[1]]).padStart(8, '0');
+            const floorKey = `floor_${stats.floor}`;
+            const val = String(floorMaps[floorKey][currentRoom[0]][currentRoom[1]]).padStart(8, '0');
             const act = document.getElementById('room-actions');
             act.innerHTML = '';
 
@@ -1045,7 +1200,6 @@
                 b.onclick = () => {
                     stats.floor++;
                     addLog(`Descending to Floor ${stats.floor}...`, "text-blue-400 font-bold");
-                    mapData = null; 
                     enterDungeon();
                 };
                 act.appendChild(b);
@@ -1102,11 +1256,13 @@
                             }
                         }
                         
-                        mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                        const floorKey = `floor_${stats.floor}`;
+                        floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 10;
                         stats.openedChests.add(chestId);
                     } else {
                         addLog("Failed! The chest remains locked.", "text-red-500");
-                        mapData[currentRoom[0]][currentRoom[1]] -= 10;
+                        const floorKey = `floor_${stats.floor}`;
+                        floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 10;
                     }
                     
                     stats.temporary_intelligence = 0;
@@ -1118,7 +1274,8 @@
                         const loot = Math.floor(Math.random()*36)+5;
                         stats.coins += loot;
                         addLog(`Found ${loot} coins.`, "text-yellow-500");
-                        mapData[currentRoom[0]][currentRoom[1]] -= 1;
+                        const floorKey = `floor_${stats.floor}`;
+                        floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 1;
                     } else {
                         addLog("The chest was empty.", "text-slate-500");
                     }
@@ -1500,7 +1657,8 @@
             else if(combatData.type.includes('mini')) removeVal = 100000;
             else if(combatData.type.includes('wandering')) removeVal = 1000;
             else removeVal = 100;
-            mapData[currentRoom[0]][currentRoom[1]] -= removeVal;
+            const floorKey = `floor_${stats.floor}`;
+            floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= removeVal;
             
             // Boss rewards
             if(combatData.type.includes('boss')) {
