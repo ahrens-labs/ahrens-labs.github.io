@@ -1981,6 +1981,7 @@ z`<!DOCTYPE html>
                 stats.coins += achievement.reward;
                 addLog(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}!`, "text-yellow-400 font-bold");
                 addLog(`+${achievement.reward} gold reward`, "text-yellow-500");
+                updateUI();
             }
         }
 
