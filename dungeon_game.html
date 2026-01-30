@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+z`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -124,11 +124,20 @@
             color: var(--text-log) !important;
         }
 
-        /* Footer styling for light theme */
+        /* Footer styling - match rest of site */
         footer {
-            background-color: var(--bg-tertiary);
-            color: var(--text-primary);
+            background-color: #2c3e50;
+            color: #bbb;
             transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Header - match rest of site */
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%) !important;
+        }
+
+        header h1, header nav a, header nav ul li a {
+            color: white !important;
         }
     </style>
 </head>
@@ -220,6 +229,9 @@
                 </button>
             </div>
             <div id="game-log" class="flex-1 overflow-y-auto p-4 text-[13px] space-y-2 custom-scrollbar bg-slate-950/50"></div>
+            <div id="combat-streak-indicator" class="hidden p-2 text-center bg-orange-900/30 border-t border-orange-700 text-orange-400 font-bold text-sm">
+                🔥 <span id="streak-count">0</span> Win Streak!
+            </div>
             <div id="global-actions" class="p-3 border-t border-slate-800 bg-slate-900 hidden">
                 <button onclick="toggleInventory()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-sm font-bold rounded uppercase flex items-center justify-center gap-2">
                     <i class="fas fa-backpack text-base"></i> Inventory
@@ -353,7 +365,10 @@
             <div id="view-inventory" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-2">
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800 z-10">
                     <h2 class="font-black text-2xl italic">INVENTORY</h2>
-                    <button onclick="closeInventory()" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">CLOSE</button>
+                    <div class="flex gap-2">
+                        <button onclick="showView('view-achievements')" class="text-sm bg-blue-800 hover:bg-blue-700 px-4 py-2 rounded font-bold">ACHIEVEMENTS</button>
+                        <button onclick="inventoryClose()" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">CLOSE</button>
+                    </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="space-y-4">
@@ -367,6 +382,15 @@
                         <div id="inv-consumables" class="space-y-2"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- ACHIEVEMENTS VIEW -->
+            <div id="view-achievements" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-4">
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800 z-10">
+                    <h2 class="font-black text-2xl italic">🏆 ACHIEVEMENTS</h2>
+                    <button onclick="showView('view-inventory')" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">BACK</button>
+                </div>
+                <div id="achievements-list" class="space-y-3 max-w-2xl"></div>
             </div>
 
         </div>
@@ -619,6 +643,61 @@
             "town spell": [200, 2, 4, 6]
         };
 
+        // --- ACHIEVEMENTS SYSTEM ---
+        const ACHIEVEMENTS = {
+            // Easy Achievements (50-100 coins)
+            first_kill: { name: "First Blood", desc: "Defeat your first monster", reward: 50, difficulty: "easy" },
+            open_chest: { name: "Treasure Seeker", desc: "Open your first chest", reward: 60, difficulty: "easy" },
+            kill_10: { name: "Monster Slayer", desc: "Defeat 10 monsters", reward: 75, difficulty: "easy" },
+            loot_100: { name: "Coin Collector", desc: "Collect 100 gold", reward: 80, difficulty: "easy" },
+            equip_item: { name: "Geared Up", desc: "Equip a weapon or armor", reward: 50, difficulty: "easy" },
+            cast_spell: { name: "Apprentice Mage", desc: "Cast your first spell", reward: 70, difficulty: "easy" },
+            
+            // Medium Achievements (150-250 coins)
+            level_5: { name: "Rising Power", desc: "Reach Level 5", reward: 150, difficulty: "medium" },
+            kill_50: { name: "Monster Hunter", desc: "Defeat 50 monsters", reward: 180, difficulty: "medium" },
+            loot_1000: { name: "Gold Digger", desc: "Collect 1,000 gold", reward: 160, difficulty: "medium" },
+            floor_5: { name: "Deep Explorer", desc: "Reach Floor 5", reward: 200, difficulty: "medium" },
+            defeat_mini: { name: "Mini Boss Bane", desc: "Defeat a Mini Boss", reward: 220, difficulty: "medium" },
+            collect_3_spells: { name: "Spellcaster", desc: "Collect 3 different spells", reward: 175, difficulty: "medium" },
+            combat_streak: { name: "On A Roll", desc: "Win 5 combats in a row", reward: 190, difficulty: "medium" },
+            level_10: { name: "Veteran Adventurer", desc: "Reach Level 10", reward: 200, difficulty: "medium" },
+            librarian: { name: "Spell Master", desc: "Collect all 5 spell types", reward: 250, difficulty: "medium" },
+            
+            // Hard Achievements (300-700+ coins)
+            boss_killer: { name: "Boss Slayer", desc: "Defeat a Boss", reward: 500, difficulty: "hard" },
+            hoarder: { name: "Treasure Hoarder", desc: "Collect 5,000 gold", reward: 300, difficulty: "hard" },
+            floor_10: { name: "Dungeon Delver", desc: "Reach Floor 10", reward: 350, difficulty: "hard" },
+            level_15: { name: "Master Fighter", desc: "Reach Level 15", reward: 400, difficulty: "hard" },
+            kill_200: { name: "Exterminator", desc: "Defeat 200 monsters", reward: 380, difficulty: "hard" },
+            wealthy: { name: "Wealthy Noble", desc: "Collect 10,000 gold", reward: 450, difficulty: "hard" },
+            defeat_3_bosses: { name: "Boss Hunter", desc: "Defeat 3 Bosses", reward: 600, difficulty: "hard" },
+            combat_streak_8: { name: "Unstoppable Force", desc: "Win 8 combats in a row", reward: 380, difficulty: "hard" },
+            floor_15: { name: "Abyss Walker", desc: "Reach Floor 15", reward: 520, difficulty: "hard" },
+            golden_touch: { name: "Golden Touch", desc: "Collect 50,000 gold", reward: 700, difficulty: "hard" },
+            level_20: { name: "Legendary Warrior", desc: "Reach Level 20", reward: 550, difficulty: "hard" },
+            floor_master: { name: "Floor Master", desc: "Reach Floor 25", reward: 800, difficulty: "hard" },
+            defeat_50_monsters: { name: "Monster Apocalypse", desc: "Defeat 500 monsters", reward: 600, difficulty: "hard" }
+        };
+
+        // --- ITEM RARITY SYSTEM ---
+        const RARITY = {
+            common: { color: "#a0a0a0", name: "Common" },
+            uncommon: { color: "#00ff00", name: "Uncommon" },
+            rare: { color: "#3b82f6", name: "Rare" },
+            epic: { color: "#a855f7", name: "Epic" },
+            legendary: { color: "#fbbf24", name: "Legendary" }
+        };
+
+        function getItemRarity() {
+            const roll = Math.random();
+            if (roll < 0.6) return 'common';
+            if (roll < 0.85) return 'uncommon';
+            if (roll < 0.95) return 'rare';
+            if (roll < 0.99) return 'epic';
+            return 'legendary';
+        }
+
         // --- GAME STATE ---
         let stats = {
             characterName: "",
@@ -633,7 +712,16 @@
             equippedWeapon: "stick",
             equippedArmor: "none",
             openedChests: new Set(),
-            deathCount: 0  // Track number of deaths for difficulty scaling
+            deathCount: 0,  // Track number of deaths for difficulty scaling
+            achievements: {},  // Track earned achievements
+            combatWinStreak: 0,  // Track consecutive combat wins
+            lastCombatWon: false,  // Track if last combat was won
+            activeBuff: null,  // Track active buff from potions
+            activeBuffTurns: 0,  // Turns remaining for active buff
+            kills: 0,  // Total monsters defeated
+            miniBossesDefeated: 0,  // Mini bosses killed
+            bossesDefeated: 0,  // Bosses killed
+            spellsCast: 0  // Total spells cast in combat
         };
         let floorMaps = {}; // Store maps per floor
         let monsterData = {}; // Store pre-generated monster stats by room
@@ -681,6 +769,15 @@
             document.getElementById('stat-exp').innerText = `EXP: ${stats.totalExp}/${stats.expToNextLevel}`;
             document.getElementById('stat-attributes').innerText = `S:${stats.strength} D:${stats.dexterity} I:${stats.intelligence} W:${stats.wisdom}`;
             
+            // Update combat streak indicator
+            const streakEl = document.getElementById('combat-streak-indicator');
+            if (stats.combatWinStreak >= 2) {
+                streakEl.classList.remove('hidden');
+                document.getElementById('streak-count').innerText = stats.combatWinStreak;
+            } else {
+                streakEl.classList.add('hidden');
+            }
+            
             const btn = document.getElementById('btn-return-town');
             if (currentRoom[0] === 9 && currentRoom[1] === 9) {
                 btn.classList.remove('hidden');
@@ -694,12 +791,13 @@
             const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
             
             // Only update previousView when opening inventory (to remember where to return)
-            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory") {
+            // Do NOT overwrite previousView when returning to inventory from the achievements view
+            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory" && currentView !== 'view-achievements') {
                 previousView = currentView;
             }
             // When closing inventory or doing any other transition, DON'T update previousView
             
-            ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory'].forEach(v => 
+            ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory','view-achievements'].forEach(v => 
                 document.getElementById(v).classList.add('hidden')
             );
             
@@ -711,6 +809,7 @@
                 document.getElementById('global-actions').classList.remove('hidden');
             }
             if(viewId === 'view-dungeon') updateUI();
+            if(viewId === 'view-achievements') renderAchievements();
         }
 
         function toggleInventory() {
@@ -744,6 +843,31 @@
             } else {
                 showView(previousView);
             }
+        }
+
+        // Robust UI handler for the inventory close button (fallbacks and safety)
+        function inventoryClose() {
+            try {
+                // Prefer the existing closeInventory logic (handles combat)
+                if (typeof closeInventory === 'function') closeInventory();
+            } catch (e) {
+                console.error('closeInventory failed:', e);
+            }
+
+            // Ensure inventory is hidden and we show a sensible view
+            const inv = document.getElementById('view-inventory');
+            if (inv && !inv.classList.contains('hidden')) inv.classList.add('hidden');
+
+            const target = previousView || 'view-town';
+            if (document.getElementById(target)) {
+                // Use showView to properly render headers/UI
+                showView(target);
+            } else {
+                showView('view-town');
+            }
+
+            // Reset previousView to avoid unexpected back-navigation
+            previousView = 'view-town';
         }
 
         async function saveGame() {
@@ -854,6 +978,14 @@
             const saveData = await loadFromCloud(slotNumber);
             if (saveData) {
                 stats = saveData.stats;
+                
+                // Ensure new properties exist (backward compatibility with old saves)
+                if (!stats.kills) stats.kills = 0;
+                if (!stats.miniBossesDefeated) stats.miniBossesDefeated = 0;
+                if (!stats.bossesDefeated) stats.bossesDefeated = 0;
+                if (!stats.spellsCast) stats.spellsCast = 0;
+                if (!stats.achievements) stats.achievements = {};
+                
                 floorMaps = saveData.map || {};
                 monsterData = saveData.monsters || {};
                 currentRoom = saveData.room;
@@ -1060,6 +1192,44 @@
         }
 
         // --- DUNGEON ---
+        function generateMonsterName(type) {
+            const wanderingNames = [
+                'Wandering Goblin', 'Wandering Orc', 'Wandering Bandit', 'Wandering Skeleton',
+                'Wandering Troll', 'Wandering Zombie', 'Wandering Wraith', 'Wandering Ghoul',
+                'Wandering Brigand', 'Wandering Specter', 'Wandering Shadow', 'Wandering Beast'
+            ];
+            
+            const normalNames = [
+                'Forest Goblin', 'Stone Golem', 'Giant Rat', 'Dark Knight',
+                'Cursed Warrior', 'Shadow Mage', 'Plague Zombie', 'Ice Elemental',
+                'Fire Imp', 'Void Creature', 'Twisted Beast', 'Corrupt Cultist',
+                'Frostbite Spider', 'Acid Slime', 'Blood Knight', 'Chaos Thrall'
+            ];
+            
+            const miniNames = [
+                'Warlord Kex', 'Sorcerer Malach', 'Guardian Vex', 'Dread Knight Thorne',
+                'Plague Master', 'Void Caller', 'Storm Tyrant', 'Shadow Lord',
+                'Infernal Protector', 'Cursed Champion', 'Abomination King', 'Lich Keeper'
+            ];
+            
+            const bossNames = [
+                'ANCIENT DRAGON', 'DARK LORD', 'VOID EMPRESS', 'CHAOS TYRANT',
+                'SHADOW SOVEREIGN', 'ABYSSAL OVERLORD', 'CORRUPTED TITAN', 'NIGHTMARE KING',
+                'ETERNAL WRAITH', 'INFERNAL DEITY', 'COSMIC HORROR', 'DREAD LEVIATHAN'
+            ];
+            
+            if (type === 'wandering') {
+                return wanderingNames[Math.floor(Math.random() * wanderingNames.length)];
+            } else if (type === 'normal') {
+                return normalNames[Math.floor(Math.random() * normalNames.length)];
+            } else if (type === 'mini') {
+                return miniNames[Math.floor(Math.random() * miniNames.length)];
+            } else if (type === 'boss') {
+                return bossNames[Math.floor(Math.random() * bossNames.length)];
+            }
+            return "Unknown Monster";
+        }
+
         function generateMonsterStats(type) {
             let mStats = {};
             if (type === 'wandering') {
@@ -1118,17 +1288,24 @@
                     monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('wandering');
                 } else {
                     val += 100;
-                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('normal');
+                    const m = generateMonsterStats('normal');
+                    // Save a persistent name for this specific monster
+                    m.name = generateMonsterName('normal');
+                    monsterData[`${row},${col},${stats.floor}`] = m;
                 }
             }
             if (Math.floor(Math.random()*12)+1 === 1) val += 10000;
             if (Math.floor(Math.random()*20)+1 === 1) { // Boss
                 if(Math.floor(Math.random()*3)+1 === 1) {
                     val += 1000000;
-                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('boss');
+                    const m = generateMonsterStats('boss');
+                    m.name = generateMonsterName('boss');
+                    monsterData[`${row},${col},${stats.floor}`] = m;
                 } else {
                     val += 100000;
-                    monsterData[`${row},${col},${stats.floor}`] = generateMonsterStats('mini');
+                    const mm = generateMonsterStats('mini');
+                    mm.name = generateMonsterName('mini');
+                    monsterData[`${row},${col},${stats.floor}`] = mm;
                 }
             }
             return val;
@@ -1178,18 +1355,18 @@
             const act = document.getElementById('room-actions');
             act.innerHTML = '';
 
-            // Check for permanent room encounters first
-            if (val[1] === '1') return showPreCombatSavePrompt("BOSS", "boss");
-            if (val[2] === '1') return showPreCombatSavePrompt("MINI-BOSS", "mini");
-            if (val[4] === '1') return showPreCombatSavePrompt("WANDERING MONSTER", "wandering");
-            if (val[5] === '1') return showPreCombatSavePrompt("MONSTER", "normal");
             
-            // Random wandering monster spawn (25% chance in any room)
-            // This gives the same likelihood in visited and unvisited rooms
-            if (Math.random() < 0.25) {
-                return showPreCombatSavePrompt("WANDERING MONSTER", "wandering");
-            }
+                // Check for permanent room encounters first
+                if (val[1] === '1') return showPreCombatSavePrompt(generateMonsterName("boss"), "boss");
+                if (val[2] === '1') return showPreCombatSavePrompt(generateMonsterName("mini"), "mini");
+                if (val[4] === '1') return showPreCombatSavePrompt(generateMonsterName("wandering"), "wandering");
+                if (val[5] === '1') return showPreCombatSavePrompt(generateMonsterName("normal"), "normal");
             
+                // Random wandering monster spawn (25% chance in any room)
+                // This gives the same likelihood in visited and unvisited rooms
+                if (Math.random() < 0.25) {
+                    return showPreCombatSavePrompt(generateMonsterName("wandering"), "wandering");
+                }
             if (val[6] === '1') createChestBtn(act, true);
             if (val[7] === '1') createChestBtn(act, false);
             
@@ -1244,15 +1421,17 @@
                             const itemList = isPotionNotSpell ? potionNames : spellNames;
                             const itemName = itemList[Math.floor(Math.random() * itemList.length)];
                             const itemData = SHOP_DATA[itemName];
+                            const rarity = getItemRarity();
+                            const rarityInfo = RARITY[rarity];
                             
                             if (isPotionNotSpell) {
                                 if(!stats.potions[itemName]) stats.potions[itemName] = [0, itemData[3]];
                                 stats.potions[itemName][0]++;
-                                addLog(`Found a ${itemName}!`, "text-purple-400 font-bold");
+                                addLog(`Found a [${rarityInfo.name}] ${itemName}!`, "text-purple-400 font-bold");
                             } else {
                                 if(!stats.spells[itemName]) stats.spells[itemName] = [0, itemData[3]];
                                 stats.spells[itemName][0]++;
-                                addLog(`Found a ${itemName}!`, "text-purple-400 font-bold");
+                                addLog(`Found a [${rarityInfo.name}] ${itemName}!`, "text-purple-400 font-bold");
                             }
                         }
                         
@@ -1393,12 +1572,18 @@
                 mStats = generateMonsterStats(type);
             }
 
-            combatData = { ...mStats, name, type, maxHp: mStats.HP, turn: 'init' };
+            // Prefer the stored name (for pre-generated monsters). If missing, use the passed name or generate one.
+            const combatName = mStats.name || name || (type ? generateMonsterName(type) : 'Monster');
+
+            combatData = { ...mStats, name: combatName, type, maxHp: mStats.HP, turn: 'init' };
             showView('view-combat');
-            document.getElementById('monster-name').innerText = name;
+
+            // Show type indicator for bosses/mini-bosses
+            const typeLabel = type === 'boss' ? ' (BOSS)' : type === 'mini' ? ' (MINI-BOSS)' : '';
+            document.getElementById('monster-name').innerText = `${combatName}${typeLabel}`;
             document.getElementById('monster-stats-display').innerText = `Dexterity: ${mStats.dexterity}`;
             updateCombatUI();
-            addLog(`Encountered ${name}!`, "text-red-500 font-bold uppercase");
+            addLog(`Encountered ${combatName}${typeLabel}!`, "text-red-500 font-bold uppercase");
             
             isProcessing = true;
             await logLoading("Rolling Initiative", 3, 100);
@@ -1555,6 +1740,7 @@
         async function handleDeath() {
             addLog("YOU DIED.", "text-red-900 font-black text-2xl");
             isProcessing = true;
+            stats.combatWinStreak = 0; // Reset combat streak on death
             
             await sleep(1500);
             
@@ -1660,8 +1846,11 @@
             const floorKey = `floor_${stats.floor}`;
             floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= removeVal;
             
-            // Boss rewards
-            if(combatData.type.includes('boss')) {
+            // Track kills and special defeats
+            stats.kills++;
+            if(combatData.type === 'mini') stats.miniBossesDefeated++;
+            if(combatData.type === 'boss') {
+                stats.bossesDefeated++;
                 stats.keys++;
                 addLog("Found a Key!", "text-blue-400 font-bold");
             }
@@ -1679,6 +1868,57 @@
             showView('view-dungeon');
             renderDungeon();
             checkRoom(true);
+            
+            // Update combat streak and check achievements
+            stats.lastCombatWon = true;
+            stats.combatWinStreak++;
+            checkAchievements();
+        }
+
+        function checkAchievements() {
+            // Easy Achievements
+            if (stats.totalExp >= 10 && !stats.achievements.first_kill) unlockAchievement('first_kill');
+            if (stats.openedChests.size > 0 && !stats.achievements.open_chest) unlockAchievement('open_chest');
+            if (stats.kills >= 10 && !stats.achievements.kill_10) unlockAchievement('kill_10');
+            if (stats.coins >= 100 && !stats.achievements.loot_100) unlockAchievement('loot_100');
+            if ((stats.equippedWeapon !== 'stick' || stats.equippedArmor !== 'none') && !stats.achievements.equip_item) unlockAchievement('equip_item');
+            if (stats.spellsCast >= 1 && !stats.achievements.cast_spell) unlockAchievement('cast_spell');
+            
+            // Medium Achievements
+            if (stats.level >= 5 && !stats.achievements.level_5) unlockAchievement('level_5');
+            if (stats.kills >= 50 && !stats.achievements.kill_50) unlockAchievement('kill_50');
+            if (stats.coins >= 1000 && !stats.achievements.loot_1000) unlockAchievement('loot_1000');
+            if (stats.floor >= 5 && !stats.achievements.floor_5) unlockAchievement('floor_5');
+            if (stats.miniBossesDefeated >= 1 && !stats.achievements.defeat_mini) unlockAchievement('defeat_mini');
+            if (Object.keys(stats.spells).length >= 3 && !stats.achievements.collect_3_spells) unlockAchievement('collect_3_spells');
+            if (stats.combatWinStreak >= 5 && !stats.achievements.combat_streak) unlockAchievement('combat_streak');
+            if (stats.level >= 10 && !stats.achievements.level_10) unlockAchievement('level_10');
+            if (Object.keys(stats.spells).length >= 5 && !stats.achievements.librarian) unlockAchievement('librarian');
+            
+            // Hard Achievements
+            if (stats.bossesDefeated >= 1 && !stats.achievements.boss_killer) unlockAchievement('boss_killer');
+            if (stats.coins >= 5000 && !stats.achievements.hoarder) unlockAchievement('hoarder');
+            if (stats.floor >= 10 && !stats.achievements.floor_10) unlockAchievement('floor_10');
+            if (stats.level >= 15 && !stats.achievements.level_15) unlockAchievement('level_15');
+            if (stats.kills >= 200 && !stats.achievements.kill_200) unlockAchievement('kill_200');
+            if (stats.coins >= 10000 && !stats.achievements.wealthy) unlockAchievement('wealthy');
+            if (stats.bossesDefeated >= 3 && !stats.achievements.defeat_3_bosses) unlockAchievement('defeat_3_bosses');
+            if (stats.combatWinStreak >= 8 && !stats.achievements.combat_streak_8) unlockAchievement('combat_streak_8');
+            if (stats.floor >= 15 && !stats.achievements.floor_15) unlockAchievement('floor_15');
+            if (stats.coins >= 50000 && !stats.achievements.golden_touch) unlockAchievement('golden_touch');
+            if (stats.level >= 20 && !stats.achievements.level_20) unlockAchievement('level_20');
+            if (stats.floor >= 25 && !stats.achievements.floor_master) unlockAchievement('floor_master');
+            if (stats.kills >= 500 && !stats.achievements.defeat_50_monsters) unlockAchievement('defeat_50_monsters');
+        }
+
+        function unlockAchievement(achievementKey) {
+            if (!stats.achievements[achievementKey]) {
+                const achievement = ACHIEVEMENTS[achievementKey];
+                stats.achievements[achievementKey] = true;
+                stats.coins += achievement.reward;
+                addLog(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}!`, "text-yellow-400 font-bold");
+                addLog(`+${achievement.reward} gold reward`, "text-yellow-500");
+            }
         }
 
         async function levelUp() {
@@ -2307,6 +2547,70 @@
             }
         }
 
+        function renderAchievements() {
+            const list = document.getElementById('achievements-list');
+            list.innerHTML = '';
+            
+            let totalEarned = Object.keys(stats.achievements).length;
+            const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+            
+            // Progress bar
+            const progressDiv = document.createElement('div');
+            progressDiv.className = 'mb-6 p-4 bg-slate-900 rounded border border-slate-800';
+            const progress = Math.round((totalEarned / totalAchievements) * 100);
+            progressDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-lg font-bold">Progress: ${totalEarned}/${totalAchievements}</span>
+                    <span class="text-yellow-500 font-bold">${progress}%</span>
+                </div>
+                <div class="w-full h-3 bg-slate-800 rounded overflow-hidden">
+                    <div class="h-full bg-yellow-500 transition-all" style="width: ${progress}%"></div>
+                </div>
+            `;
+            list.appendChild(progressDiv);
+            
+            // Difficulty color mapping
+            const difficultyColors = {
+                easy: 'text-green-400',
+                medium: 'text-blue-400',
+                hard: 'text-red-400'
+            };
+            
+            const difficultyEmoji = {
+                easy: '⭐',
+                medium: '⭐⭐',
+                hard: '⭐⭐⭐'
+            };
+            
+            // Achievement items
+            for (const [key, achievement] of Object.entries(ACHIEVEMENTS)) {
+                const isEarned = stats.achievements[key];
+                const div = document.createElement('div');
+                div.className = `p-4 rounded border-2 transition-all ${isEarned ? 'bg-slate-900 border-yellow-500' : 'bg-slate-950 border-slate-800 opacity-60'}`;
+                
+                const diffColor = difficultyColors[achievement.difficulty] || 'text-slate-400';
+                const diffEmoji = difficultyEmoji[achievement.difficulty] || '';
+                
+                div.innerHTML = `
+                    <div class="flex items-start gap-4">
+                        <div class="text-3xl">${isEarned ? '🏆' : '🔒'}</div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <h3 class="text-lg font-bold ${isEarned ? 'text-yellow-400' : 'text-slate-400'}">${achievement.name}</h3>
+                                <span class="${diffColor} font-bold text-sm">${diffEmoji}</span>
+                            </div>
+                            <p class="text-sm text-slate-500 mt-1">${achievement.desc}</p>
+                            <div class="flex justify-between items-center mt-2">
+                                <div class="text-xs ${diffColor} font-bold">Reward: +${achievement.reward} Gold</div>
+                                ${isEarned ? '<div class="text-green-400 font-bold text-xs">UNLOCKED ✓</div>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            }
+        }
+
         async function useItem(name) {
             if (isProcessing) return;
             isProcessing = true;
@@ -2335,6 +2639,7 @@
                 const roll = Math.floor(Math.random()*20)+1 + Math.floor(stats.wisdom/2)-5;
                 addLog(`Wis Roll: ${roll} vs ${need}`);
                 if(roll >= need) {
+                    stats.spellsCast++;
                     addLog("Spell Success!", "text-purple-400 font-bold");
                     if(typeId===2) { combatData.strength -= 2; combatData.change_strength = true; }
                     if(typeId===4) combatData.freeze = 2;
