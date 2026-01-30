@@ -1352,15 +1352,30 @@ z`<!DOCTYPE html>
 
             
                 // Check for permanent room encounters first
-                if (val[1] === '1') return showPreCombatSavePrompt(generateMonsterName("boss"), "boss");
-                if (val[2] === '1') return showPreCombatSavePrompt(generateMonsterName("mini"), "mini");
-                if (val[4] === '1') return showPreCombatSavePrompt(generateMonsterName("wandering"), "wandering");
-                if (val[5] === '1') return showPreCombatSavePrompt(generateMonsterName("normal"), "normal");
-            
+                const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+                if (val[1] === '1') {
+                    const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('boss');
+                    return showPreCombatSavePrompt(name, 'boss');
+                }
+                if (val[2] === '1') {
+                    const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('mini');
+                    return showPreCombatSavePrompt(name, 'mini');
+                }
+                if (val[4] === '1') {
+                    // wandering monsters are typically not pre-generated; generate a wandering name
+                    const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('wandering');
+                    return showPreCombatSavePrompt(name, 'wandering');
+                }
+                if (val[5] === '1') {
+                    const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('normal');
+                    return showPreCombatSavePrompt(name, 'normal');
+                }
+
                 // Random wandering monster spawn (25% chance in any room)
                 // This gives the same likelihood in visited and unvisited rooms
                 if (Math.random() < 0.25) {
-                    return showPreCombatSavePrompt(generateMonsterName("wandering"), "wandering");
+                    const name = generateMonsterName('wandering');
+                    return showPreCombatSavePrompt(name, 'wandering');
                 }
             if (val[6] === '1') createChestBtn(act, true);
             if (val[7] === '1') createChestBtn(act, false);
