@@ -119,11 +119,6 @@ z`<!DOCTYPE html>
             background-color: var(--bg-secondary) !important;
         }
 
-        /* Log entries */
-        #game-log > div {
-            color: var(--text-log) !important;
-        }
-
         /* Footer styling - match rest of site */
         footer {
             background-color: #2c3e50;
@@ -1534,6 +1529,8 @@ z`<!DOCTYPE html>
             const success = await saveToCloud(slotNumber, saveName);
             if (success) {
                 addLog(`Game saved to Slot ${slotNumber}!`, 'text-green-400');
+            } else {
+                addLog(`Failed to save to Slot ${slotNumber}.`, 'text-red-400');
             }
             closeQuickSaveModal();
             startCombat(name, type);
