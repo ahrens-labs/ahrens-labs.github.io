@@ -771,7 +771,11 @@ z`<!DOCTYPE html>
             document.getElementById('stat-armor').innerText = stats.armor + stats.temporary_armor;
             document.getElementById('stat-floor').innerText = `FLOOR ${stats.floor}`;
             document.getElementById('stat-level').innerText = `LVL ${stats.level}`;
-            document.getElementById('stat-exp').innerText = `EXP: ${stats.totalExp}/${stats.expToNextLevel}`;
+            
+            // Calculate total EXP needed for next level: 50 * level * (level + 1)
+            const totalExpForNextLevel = 50 * stats.level * (stats.level + 1);
+            
+            document.getElementById('stat-exp').innerText = `EXP: ${stats.totalExp}/${totalExpForNextLevel}`;
             document.getElementById('stat-attributes').innerText = `S:${stats.strength} D:${stats.dexterity} I:${stats.intelligence} W:${stats.wisdom}`;
             
             // Update combat streak indicator
@@ -1982,8 +1986,10 @@ z`<!DOCTYPE html>
 
         async function levelUp() {
             stats.level++;
-            stats.exp = stats.exp - stats.expToNextLevel;
-            stats.expToNextLevel = Math.floor(stats.expToNextLevel * 1.5);  // 50% increase per level
+            // Calculate EXP needed for next level based on formula: 50 * level * (level + 1)
+            const nextLevelExp = 50 * stats.level * (stats.level + 1);
+            stats.exp = 0;  // Reset progress for current level
+            stats.expToNextLevel = nextLevelExp;
             
             addLog(`LEVEL UP! You are now level ${stats.level}!`, "text-purple-400 font-black text-xl");
             await sleep(1000);
