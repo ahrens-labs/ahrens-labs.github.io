@@ -263,6 +263,10 @@ z`<!DOCTYPE html>
 
             <div id="view-town" class="hidden text-center space-y-6 w-full max-w-lg">
                 <h2 class="text-4xl font-black text-white italic">OAKHAVEN</h2>
+                <div class="bg-slate-800/50 border border-slate-700 p-4 rounded text-sm text-slate-300 font-mono">
+                    <p class="mb-2">⚔️ An ancient evil awakens...</p>
+                    <p>The Lich King sleeps deep within the cursed dungeons beneath Oakhaven. Only a true hero can venture through the 10 treacherous floors and defeat the darkness that threatens our world.</p>
+                </div>
                 <div class="grid grid-cols-2 gap-4">
                     <button onclick="showShop()" class="p-10 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-3">
                         <i class="fas fa-store text-4xl text-yellow-500"></i>
@@ -1262,57 +1266,62 @@ z`<!DOCTYPE html>
         }
 
         function generateMonsterStats(type) {
+            // Scale difficulty with both floor and player level
+            let floorMultiplier = 1 + (stats.floor - 1) * 0.35; // Each floor +35%
+            let levelMultiplier = 1 + (stats.level - 1) * 0.15; // Each player level +15%
+            let diffMultiplier = floorMultiplier * levelMultiplier;
+            
             let mStats = {};
             if (type === 'wandering') {
                 mStats = {
                     HP: 0, 
-                    armor: Math.floor(Math.random()*3)+8,
-                    attack: Math.floor(Math.random()*2)+1,
-                    strength: Math.floor(Math.random()*3)-1,
-                    dexterity: Math.floor(Math.random()*4)+8,
+                    armor: Math.floor((Math.floor(Math.random()*3)+10) * diffMultiplier),
+                    attack: Math.floor((Math.floor(Math.random()*3)+2) * diffMultiplier),
+                    strength: Math.floor((Math.floor(Math.random()*3)+1) * diffMultiplier),
+                    dexterity: Math.floor((Math.floor(Math.random()*4)+9) * diffMultiplier),
                     change_strength: false, freeze: 0, fire: false
                 };
-                for(let i=0; i<3; i++) mStats.HP += Math.floor(Math.random()*4)+1;
+                for(let i=0; i<4; i++) mStats.HP += Math.floor((Math.floor(Math.random()*4)+2) * diffMultiplier);
             } else if (type === 'normal') {
                 mStats = {
-                    HP: Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+Math.floor(Math.random()*10)+5,
-                    armor: Math.floor(Math.random()*3)+11,
-                    attack: Math.floor(Math.random()*2)+2,
-                    strength: Math.floor(Math.random()*3)+1,
-                    dexterity: Math.floor(Math.random()*4)+10,
+                    HP: Math.floor((Math.floor(Math.random()*12)+Math.floor(Math.random()*12)+Math.floor(Math.random()*12)+15) * diffMultiplier),
+                    armor: Math.floor((Math.floor(Math.random()*3)+13) * diffMultiplier),
+                    attack: Math.floor((Math.floor(Math.random()*3)+3) * diffMultiplier),
+                    strength: Math.floor((Math.floor(Math.random()*3)+2) * diffMultiplier),
+                    dexterity: Math.floor((Math.floor(Math.random()*4)+11) * diffMultiplier),
                     change_strength: false, freeze: 0, fire: false
                 };
             } else if (type === 'mini') {
                 mStats = {
-                    HP: Math.floor(Math.random()*20)+50,
-                    armor: Math.floor(Math.random()*3)+14,
-                    attack: Math.floor(Math.random()*2)+4,
-                    strength: Math.floor(Math.random()*3)+3,
-                    dexterity: Math.floor(Math.random()*4)+12,
+                    HP: Math.floor((Math.floor(Math.random()*25)+70) * diffMultiplier),
+                    armor: Math.floor((Math.floor(Math.random()*3)+16) * diffMultiplier),
+                    attack: Math.floor((Math.floor(Math.random()*3)+5) * diffMultiplier),
+                    strength: Math.floor((Math.floor(Math.random()*3)+4) * diffMultiplier),
+                    dexterity: Math.floor((Math.floor(Math.random()*4)+13) * diffMultiplier),
                     change_strength: false, freeze: 0, fire: false
                 };
             } else if (type === 'boss') {
                 mStats = {
                     HP: 0, 
-                    armor: Math.floor(Math.random()*4)+16,
-                    attack: Math.floor(Math.random()*2)+5,
-                    strength: Math.floor(Math.random()*4)+4,
-                    dexterity: Math.floor(Math.random()*5)+14,
+                    armor: Math.floor((Math.floor(Math.random()*4)+18) * diffMultiplier),
+                    attack: Math.floor((Math.floor(Math.random()*3)+6) * diffMultiplier),
+                    strength: Math.floor((Math.floor(Math.random()*4)+5) * diffMultiplier),
+                    dexterity: Math.floor((Math.floor(Math.random()*5)+15) * diffMultiplier),
                     change_strength: false, freeze: 0, fire: false
                 };
-                for(let i=0; i<20; i++) mStats.HP += Math.floor(Math.random()*6)+1;
+                for(let i=0; i<25; i++) mStats.HP += Math.floor((Math.floor(Math.random()*6)+2) * diffMultiplier);
             }
             return mStats;
         }
 
         function generateRoom(row, col) {
             let val = 10000000;
-            const r1 = Math.floor(Math.random()*4)+1;
+            const r1 = Math.floor(Math.random()*5)+1; // Reduced chest chance (20%)
             if (r1 === 1) { // Chest
-                if(Math.floor(Math.random()*3)+1 === 1) val += 10;
+                if(Math.floor(Math.random()*4)+1 === 1) val += 10;
                 else val += 1;
             }
-            const r2 = Math.floor(Math.random()*4)+1;
+            const r2 = Math.floor(Math.random()*5)+1; // Reduced monster chance (20%)
             if (r2 === 1) { // Monster
                 if(Math.floor(Math.random()*3)+1 === 1) {
                     val += 1000;
@@ -1320,13 +1329,12 @@ z`<!DOCTYPE html>
                 } else {
                     val += 100;
                     const m = generateMonsterStats('normal');
-                    // Save a persistent name for this specific monster
                     m.name = generateMonsterName('normal');
                     monsterData[`${row},${col},${stats.floor}`] = m;
                 }
             }
-            if (Math.floor(Math.random()*12)+1 === 1) val += 10000;
-            if (Math.floor(Math.random()*20)+1 === 1) { // Boss
+            if (Math.floor(Math.random()*16)+1 === 1) val += 10000; // Reduced from 1/12
+            if (Math.floor(Math.random()*25)+1 === 1) { // Boss (reduced from 1/20)
                 if(Math.floor(Math.random()*3)+1 === 1) {
                     val += 1000000;
                     const m = generateMonsterStats('boss');
@@ -1342,7 +1350,32 @@ z`<!DOCTYPE html>
             return val;
         }
 
+        function generateLichKing() {
+            // The final boss scales with player level significantly
+            let levelMultiplier = 1 + (stats.level - 1) * 0.2;
+            return {
+                HP: Math.floor(150 * levelMultiplier),
+                armor: Math.floor(20 * levelMultiplier),
+                attack: Math.floor(8 * levelMultiplier),
+                strength: Math.floor(8 * levelMultiplier),
+                dexterity: Math.floor(16 * levelMultiplier),
+                name: 'THE LICH KING',
+                type: 'lichking',
+                change_strength: false, freeze: 0, fire: false
+            };
+        }
+
         function enterDungeon() {
+            // Special handling for floor 10 - The Lich King's chamber
+            if (stats.floor === 10) {
+                addLog('You have reached the deepest depths of the dungeon...', 'text-red-500 font-bold');
+                addLog('Before you stands THE LICH KING, an ancient evil incarnate!', 'text-red-600 font-black text-lg');
+                const lichKing = generateLichKing();
+                monsterData['lichking'] = lichKing;
+                setTimeout(() => showPreCombatSavePrompt('THE LICH KING', 'lichking'), 500);
+                return;
+            }
+            
             const floorKey = `floor_${stats.floor}`;
             if(!floorMaps[floorKey]) {
                 floorMaps[floorKey] = Array.from({length:10}, (_, row) => 
@@ -1625,14 +1658,19 @@ z`<!DOCTYPE html>
         async function startCombat(name, type) {
             let mStats = {};
             
-            // Check if this is a pre-generated monster from the map
-            const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
-            if (monsterData[monsterKey]) {
-                // Use pre-generated stats
-                mStats = {...monsterData[monsterKey]};
+            // Special handling for Lich King
+            if (type === 'lichking') {
+                mStats = monsterData['lichking'];
             } else {
-                // Generate new stats for random wandering monsters
-                mStats = generateMonsterStats(type);
+                // Check if this is a pre-generated monster from the map
+                const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+                if (monsterData[monsterKey]) {
+                    // Use pre-generated stats
+                    mStats = {...monsterData[monsterKey]};
+                } else {
+                    // Generate new stats for random wandering monsters
+                    mStats = generateMonsterStats(type);
+                }
             }
 
             // Prefer the stored name (for pre-generated monsters). If missing, use the passed name or generate one.
@@ -1641,12 +1679,16 @@ z`<!DOCTYPE html>
             combatData = { ...mStats, name: combatName, type, maxHp: mStats.HP, turn: 'init' };
             showView('view-combat');
 
-            // Show type indicator for bosses/mini-bosses
-            const typeLabel = type === 'boss' ? ' (BOSS)' : type === 'mini' ? ' (MINI-BOSS)' : '';
+            // Show type indicator for bosses/mini-bosses/lich king
+            let typeLabel = '';
+            if (type === 'lichking') typeLabel = ' 👑 FINAL BOSS 👑';
+            else if (type === 'boss') typeLabel = ' (BOSS)';
+            else if (type === 'mini') typeLabel = ' (MINI-BOSS)';
+            
             document.getElementById('monster-name').innerText = `${combatName}${typeLabel}`;
             document.getElementById('monster-stats-display').innerText = `Dexterity: ${mStats.dexterity}`;
             updateCombatUI();
-            addLog(`Encountered ${combatName}${typeLabel}!`, "text-red-500 font-bold uppercase");
+            addLog(`Encountered ${combatName}${typeLabel}!`, type === 'lichking' ? "text-red-600 font-black text-lg" : "text-red-500 font-bold uppercase");
             
             isProcessing = true;
             await logLoading("Rolling Initiative", 3, 100);
@@ -1871,6 +1913,55 @@ z`<!DOCTYPE html>
         }
 
         async function victory() {
+            // CHECK FOR GAME WIN CONDITION
+            if (combatData.type === 'lichking') {
+                addLog("═══════════════════════════════", "text-yellow-400 font-bold");
+                addLog("VICTORY! THE LICH KING IS DEFEATED!", "text-yellow-400 font-black text-2xl");
+                addLog("═══════════════════════════════", "text-yellow-400 font-bold");
+                await sleep(1000);
+                addLog("The darkness that plagued Oakhaven has been vanquished.", "text-green-400 font-bold");
+                addLog("You are a true hero! The realm is saved!", "text-green-400 font-bold");
+                await sleep(2000);
+                
+                // Award massive rewards for winning
+                const winCoins = 1000;
+                const winExp = 5000;
+                stats.coins += winCoins;
+                stats.exp += winExp;
+                stats.totalExp += winExp;
+                stats.bossesDefeated++;
+                stats.keys++;
+                addLog(`Looted ${winCoins} legendary gold!`, "text-yellow-400 font-bold");
+                addLog(`Gained ${winExp} EXP!`, "text-cyan-400 font-bold");
+                
+                // Save and show win screen
+                updateUI();
+                await saveGame();
+                
+                // Show game won modal
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:10000;';
+                modal.innerHTML = `
+                    <div style="background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);padding:3rem;border-radius:15px;max-width:500px;width:90%;border:3px solid #fbbf24;text-align:center;">
+                        <div style="font-size:3rem;margin-bottom:1rem;">👑</div>
+                        <h2 style="font-size:2rem;font-weight:bold;color:#fbbf24;margin-bottom:1rem;">GAME WON!</h2>
+                        <p style="color:#e2e8f0;font-size:1.1rem;margin-bottom:2rem;line-height:1.6;">
+                            You have defeated the Lich King and saved Oakhaven from darkness.
+                            <br><br>
+                            Final Stats:
+                            <br>Level: ${stats.level}
+                            <br>Gold: ${stats.coins}
+                            <br>Total EXP: ${stats.totalExp}
+                        </p>
+                        <button onclick="location.reload()" style="padding:0.75rem 2rem;background:#fbbf24;color:#1e293b;border:none;border-radius:8px;font-weight:bold;font-size:1rem;cursor:pointer;">
+                            NEW GAME
+                        </button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                return;
+            }
+            
             addLog("VICTORY!", "text-yellow-400 font-black text-xl");
             
             // Better rewards based on monster type
