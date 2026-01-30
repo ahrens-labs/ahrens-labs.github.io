@@ -539,9 +539,17 @@ z`<!DOCTYPE html>
             }
         }
 
-        // Get all save slots
+        // Get all save slots (with caching to avoid repeated requests)
+        let cachedSlots = null;
+        let slotsCacheTime = 0;
         async function getAllSaveSlots() {
             if (!isLoggedIn || !sessionId) return {};
+            
+            // Return cached slots if fresher than 2 seconds
+            const now = Date.now();
+            if (cachedSlots && (now - slotsCacheTime) < 2000) {
+                return cachedSlots;
+            }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/dungeon/slots`, {
@@ -551,10 +559,12 @@ z`<!DOCTYPE html>
                 });
 
                 const slots = await response.json();
+                cachedSlots = slots;
+                slotsCacheTime = now;
                 return slots;
             } catch (error) {
                 console.error('Get save slots failed:', error);
-                return {};
+                return cachedSlots || {};
             }
         }
 
@@ -877,13 +887,35 @@ z`<!DOCTYPE html>
                 window.location.href = 'account.html?return=dungeon_game.html';
                 return;
             }
+            // Show loading indicator while fetching slots
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            modal.innerHTML = '<div style="text-align:center;color:white;"><div style="font-size:2rem;margin-bottom:1rem;">⏳</div><div>Loading save slots...</div></div>';
+            modal.id = 'loading-modal';
+            document.body.appendChild(modal);
+            
             // Show load slot selection modal
-            showLoadSlotModal();
+            await showLoadSlotModal();
+            
+            const loadingModal = document.getElementById('loading-modal');
+            if (loadingModal) loadingModal.remove();
         }
 
         // Show save slot selection modal
         async function showSaveSlotModal() {
+            // Show loading indicator while fetching slots
+            const loadingModal = document.createElement('div');
+            loadingModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            loadingModal.innerHTML = '<div style="text-align:center;color:white;"><div style="font-size:2rem;margin-bottom:1rem;">⏳</div><div>Loading save slots...</div></div>';
+            loadingModal.id = 'loading-modal';
+            document.body.appendChild(loadingModal);
+            
             const slots = await getAllSaveSlots();
+            
+            // Remove loading modal
+            const existingLoading = document.getElementById('loading-modal');
+            if (existingLoading) existingLoading.remove();
+            
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
             
@@ -1334,6 +1366,10 @@ z`<!DOCTYPE html>
 
         function movePlayer(dr, dc) {
             if (isProcessing) return;
+            // Block movement if any modal is open
+            if (document.getElementById('pre-combat-modal') || document.getElementById('quick-save-modal') || document.getElementById('load-modal') || document.getElementById('save-modal')) {
+                return;
+            }
             const nr = currentRoom[0] + dr, nc = currentRoom[1] + dc;
             if(nr >= 0 && nr < 10 && nc >= 0 && nc < 10) {
                 currentRoom = [nr, nc];
@@ -1504,8 +1540,19 @@ z`<!DOCTYPE html>
 
         async function saveBeforeCombat(name, type) {
             closePreCombatModal();
-            // Show save slot modal
+            // Show loading indicator while fetching slots
+            const loadingModal = document.createElement('div');
+            loadingModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            loadingModal.innerHTML = '<div style="text-align:center;color:white;"><div style="font-size:2rem;margin-bottom:1rem;">⏳</div><div>Loading save slots...</div></div>';
+            loadingModal.id = 'loading-modal';
+            document.body.appendChild(loadingModal);
+            
             const slots = await getAllSaveSlots();
+            
+            // Remove loading modal
+            const existingLoading = document.getElementById('loading-modal');
+            if (existingLoading) existingLoading.remove();
+            
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
             
@@ -2663,10 +2710,17 @@ z`<!DOCTYPE html>
                     else if(typeId===5) dmg = Math.floor(Math.random()*15)+5;
                     addLog(`Spell dealt ${dmg} damage`, "text-purple-300");
                     combatData.HP -= dmg;
-                    if(combatData.HP <= 0) { await victory(); return; }
+                    if(combatData.HP <= 0) { 
+                        isProcessing = false;
+                        await victory(); 
+                        return; 
+                    }
                 } else addLog("Spell Fizzled!", "text-slate-500");
                 if(stats.spells[name][0] <= 0) delete stats.spells[name];
+                isProcessing = false;
+                updateUI();
                 monsterTurnStart();
+                return;
             }
             updateUI();
         }
