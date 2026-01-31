@@ -778,7 +778,7 @@ z`<!DOCTYPE html>
         // --- CORE UTILS ---
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-        async function logLoading(text, dots = 3, speed = 250) {
+        async function logLoading(text, dots = 3, speed = 400) {
             const log = document.getElementById('game-log');
             const entry = document.createElement('div');
             entry.className = "text-slate-500 italic";
@@ -2221,7 +2221,7 @@ z`<!DOCTYPE html>
                     addLog("Big Chest! Attempting to unlock with Intelligence...", "text-yellow-400");
                     
                     const statVal = stats.intelligence + stats.temporary_intelligence;
-                    await logLoading("Rolling Intelligence", 3, 200);
+                    await logLoading("Rolling Intelligence", 3, 350);
                     const baseRoll = Math.floor(Math.random()*20)+1;
                     const mod = Math.floor(statVal / 2) - 5;
                     const roll = baseRoll + mod;
@@ -2430,7 +2430,7 @@ z`<!DOCTYPE html>
             addLog(`Encountered ${combatName}${typeLabel}!`, type === 'lichking' ? "text-red-600 font-black text-lg" : "text-red-500 font-bold uppercase");
             
             isProcessing = true;
-            await logLoading("Rolling Initiative", 3, 100);
+            await logLoading("Rolling Initiative", 3, 250);
             if (Math.random() < 0.5) {
                 addLog("You act first!", "text-blue-400");
                 combatData.turn = 'player';
@@ -2529,7 +2529,7 @@ z`<!DOCTYPE html>
             if(isProcessing) return;
             isProcessing = true;
             
-            await logLoading("Attempting Retreat", 3, 200);
+            await logLoading("Attempting Retreat", 3, 350);
             const baseRoll = Math.floor(Math.random()*20)+1;
             const mod = Math.floor((stats.dexterity + stats.temporary_dexterity)/2)-5;
             const roll = baseRoll + mod;
@@ -2593,7 +2593,7 @@ z`<!DOCTYPE html>
             }
             
             showCombatSubMenu('none');
-            await logLoading("Rolling Hit", 3, 100);
+            await logLoading("Rolling Hit", 3, 250);
             const baseRoll = Math.floor(Math.random()*20)+1;
             const mod = Math.floor((stats.strength + stats.temporary_strength)/2)-5;
             const roll = baseRoll + mod;
@@ -2601,7 +2601,7 @@ z`<!DOCTYPE html>
             addLog(`Str Roll: ${baseRoll} + ${mod} = ${roll} vs AC ${combatData.armor}`);
             if (roll >= combatData.armor) {
                 addLog("HIT!", "text-green-400 font-bold");
-                await logLoading("Damage", 3, 100);
+                await logLoading("Damage", 3, 250);
                 const tier = stats.weapons[stats.equippedWeapon] || 1;
                 let dmg = 0;
                 if(tier===1) dmg = Math.floor(Math.random()*3)+1;  // 1d3: 1-3
@@ -2677,7 +2677,7 @@ z`<!DOCTYPE html>
             if (isProcessing) return;
             isProcessing = true;
             showCombatSubMenu('none');
-            await logLoading("Monster Attacking", 3, 100);
+            await logLoading("Monster Attacking", 3, 250);
             if(combatData.change_strength) {
                 combatData.strength += 2;
                 combatData.change_strength = false;
@@ -2743,7 +2743,7 @@ z`<!DOCTYPE html>
             addLog("Your spirit lingers between life and death...", "text-purple-400 italic");
             await sleep(1000);
             addLog("Make a Wisdom saving throw to return to the living!", "text-yellow-400 font-bold");
-            await logLoading("Rolling", 3, 300);
+            await logLoading("Rolling", 3, 400);
             
             const roll = Math.floor(Math.random()*20)+1;
             const wisdomMod = Math.floor(stats.wisdom / 2) - 5;
@@ -3803,7 +3803,7 @@ z`<!DOCTYPE html>
                 stats.spells[name][0]--;
                 const typeId = itemData[1];
                 const need = typeId===1?10 : typeId===2?11 : typeId===3?12 : typeId===4?10 : 11;
-                await logLoading("Casting...", 3, 100);
+                await logLoading("Casting...", 3, 250);
                 const roll = Math.floor(Math.random()*20)+1 + Math.floor(stats.wisdom/2)-5;
                 addLog(`Wis Roll: ${roll} vs ${need}`);
                 if(roll >= need) {
