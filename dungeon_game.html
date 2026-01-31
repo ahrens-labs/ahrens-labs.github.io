@@ -88,6 +88,33 @@ z`<!DOCTYPE html>
             background: #4f46e5;
         }
 
+        /* Combat menu boxes styling */
+        #combat-main-menu button,
+        #combat-direction-menu button,
+        #combat-defense-menu button,
+        #combat-items-menu button {
+            border: 2px solid #334155 !important;
+            transition: all 0.2s !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important;
+        }
+        
+        #combat-main-menu button:hover,
+        #combat-direction-menu button:hover,
+        #combat-defense-menu button:hover,
+        #combat-items-menu button:hover {
+            border-color: #475569 !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,255,255,0.1) !important;
+            transform: translateY(-1px) !important;
+        }
+        
+        #combat-main-menu button:active,
+        #combat-direction-menu button:active,
+        #combat-defense-menu button:active,
+        #combat-items-menu button:active {
+            transform: translateY(0) !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8) !important;
+        }
+
         /* Game UI Elements - Log Panel */
         #game-log {
             background-color: var(--bg-log) !important;
@@ -655,39 +682,39 @@ z`<!DOCTYPE html>
 
         // --- ACHIEVEMENTS SYSTEM ---
         const ACHIEVEMENTS = {
-            // Easy Achievements (50-100 coins)
-            first_kill: { name: "First Blood", desc: "Defeat your first monster", reward: 50, difficulty: "easy" },
-            open_chest: { name: "Treasure Seeker", desc: "Open your first chest", reward: 60, difficulty: "easy" },
-            kill_10: { name: "Monster Slayer", desc: "Defeat 10 monsters", reward: 75, difficulty: "easy" },
-            loot_100: { name: "Coin Collector", desc: "Collect 100 gold", reward: 80, difficulty: "easy" },
-            equip_item: { name: "Geared Up", desc: "Equip a weapon or armor", reward: 50, difficulty: "easy" },
-            cast_spell: { name: "Apprentice Mage", desc: "Cast your first spell", reward: 70, difficulty: "easy" },
+            // Easy Achievements (10-20 coins)
+            first_kill: { name: "First Blood", desc: "Defeat your first monster", reward: 10, difficulty: "easy" },
+            open_chest: { name: "Treasure Seeker", desc: "Open your first chest", reward: 15, difficulty: "easy" },
+            kill_10: { name: "Monster Slayer", desc: "Defeat 10 monsters", reward: 15, difficulty: "easy" },
+            loot_100: { name: "Coin Collector", desc: "Collect 100 gold", reward: 20, difficulty: "easy" },
+            equip_item: { name: "Geared Up", desc: "Equip a weapon or armor", reward: 10, difficulty: "easy" },
+            cast_spell: { name: "Apprentice Mage", desc: "Cast your first spell", reward: 12, difficulty: "easy" },
             
-            // Medium Achievements (150-250 coins)
-            level_5: { name: "Rising Power", desc: "Reach Level 5", reward: 150, difficulty: "medium" },
-            kill_50: { name: "Monster Hunter", desc: "Defeat 50 monsters", reward: 180, difficulty: "medium" },
-            loot_1000: { name: "Gold Digger", desc: "Collect 1,000 gold", reward: 160, difficulty: "medium" },
-            floor_5: { name: "Deep Explorer", desc: "Reach Floor 5", reward: 200, difficulty: "medium" },
-            defeat_mini: { name: "Mini Boss Bane", desc: "Defeat a Mini Boss", reward: 220, difficulty: "medium" },
-            collect_3_spells: { name: "Spellcaster", desc: "Collect 3 different spells", reward: 175, difficulty: "medium" },
-            combat_streak: { name: "On A Roll", desc: "Win 5 combats in a row", reward: 190, difficulty: "medium" },
-            level_10: { name: "Veteran Adventurer", desc: "Reach Level 10", reward: 200, difficulty: "medium" },
-            librarian: { name: "Spell Master", desc: "Collect all 5 spell types", reward: 250, difficulty: "medium" },
+            // Medium Achievements (25-50 coins)
+            level_5: { name: "Rising Power", desc: "Reach Level 5", reward: 25, difficulty: "medium" },
+            kill_50: { name: "Monster Hunter", desc: "Defeat 50 monsters", reward: 30, difficulty: "medium" },
+            loot_1000: { name: "Gold Digger", desc: "Collect 1,000 gold", reward: 35, difficulty: "medium" },
+            floor_5: { name: "Deep Explorer", desc: "Reach Floor 5", reward: 40, difficulty: "medium" },
+            defeat_mini: { name: "Mini Boss Bane", desc: "Defeat a Mini Boss", reward: 45, difficulty: "medium" },
+            collect_3_spells: { name: "Spellcaster", desc: "Collect 3 different spells", reward: 30, difficulty: "medium" },
+            combat_streak: { name: "On A Roll", desc: "Win 5 combats in a row", reward: 35, difficulty: "medium" },
+            level_10: { name: "Veteran Adventurer", desc: "Reach Level 10", reward: 40, difficulty: "medium" },
+            librarian: { name: "Spell Master", desc: "Collect all 5 spell types", reward: 50, difficulty: "medium" },
             
-            // Hard Achievements (300-700+ coins)
-            boss_killer: { name: "Boss Slayer", desc: "Defeat a Boss", reward: 500, difficulty: "hard" },
-            hoarder: { name: "Treasure Hoarder", desc: "Collect 5,000 gold", reward: 300, difficulty: "hard" },
-            floor_10: { name: "Dungeon Delver", desc: "Reach Floor 10", reward: 350, difficulty: "hard" },
-            level_15: { name: "Master Fighter", desc: "Reach Level 15", reward: 400, difficulty: "hard" },
-            kill_200: { name: "Exterminator", desc: "Defeat 200 monsters", reward: 380, difficulty: "hard" },
-            wealthy: { name: "Wealthy Noble", desc: "Collect 10,000 gold", reward: 450, difficulty: "hard" },
-            defeat_3_bosses: { name: "Boss Hunter", desc: "Defeat 3 Bosses", reward: 600, difficulty: "hard" },
-            combat_streak_8: { name: "Unstoppable Force", desc: "Win 8 combats in a row", reward: 380, difficulty: "hard" },
-            floor_15: { name: "Abyss Walker", desc: "Reach Floor 15", reward: 520, difficulty: "hard" },
-            golden_touch: { name: "Golden Touch", desc: "Collect 50,000 gold", reward: 700, difficulty: "hard" },
-            level_20: { name: "Legendary Warrior", desc: "Reach Level 20", reward: 550, difficulty: "hard" },
-            floor_master: { name: "Floor Master", desc: "Reach Floor 25", reward: 800, difficulty: "hard" },
-            defeat_50_monsters: { name: "Monster Apocalypse", desc: "Defeat 500 monsters", reward: 600, difficulty: "hard" }
+            // Hard Achievements (75-150 coins)
+            boss_killer: { name: "Boss Slayer", desc: "Defeat a Boss", reward: 75, difficulty: "hard" },
+            hoarder: { name: "Treasure Hoarder", desc: "Collect 5,000 gold", reward: 80, difficulty: "hard" },
+            floor_10: { name: "Dungeon Delver", desc: "Reach Floor 10", reward: 100, difficulty: "hard" },
+            level_15: { name: "Master Fighter", desc: "Reach Level 15", reward: 90, difficulty: "hard" },
+            kill_200: { name: "Exterminator", desc: "Defeat 200 monsters", reward: 85, difficulty: "hard" },
+            wealthy: { name: "Wealthy Noble", desc: "Collect 10,000 gold", reward: 110, difficulty: "hard" },
+            defeat_3_bosses: { name: "Boss Hunter", desc: "Defeat 3 Bosses", reward: 120, difficulty: "hard" },
+            combat_streak_8: { name: "Unstoppable Force", desc: "Win 8 combats in a row", reward: 95, difficulty: "hard" },
+            floor_15: { name: "Abyss Walker", desc: "Reach Floor 15", reward: 125, difficulty: "hard" },
+            golden_touch: { name: "Golden Touch", desc: "Collect 50,000 gold", reward: 150, difficulty: "hard" },
+            level_20: { name: "Legendary Warrior", desc: "Reach Level 20", reward: 130, difficulty: "hard" },
+            floor_master: { name: "Floor Master", desc: "Reach Floor 25", reward: 140, difficulty: "hard" },
+            defeat_50_monsters: { name: "Monster Apocalypse", desc: "Defeat 500 monsters", reward: 115, difficulty: "hard" }
         };
 
         // --- ITEM RARITY SYSTEM ---
@@ -732,7 +759,8 @@ z`<!DOCTYPE html>
             miniBossesDefeated: 0,
             bossesDefeated: 0,
             spellsCast: 0,
-            checkpoint: null  // Track checkpoint location: {floor, row, col} or null
+            checkpointsPurchased: 0,  // Total checkpoints bought
+            checkpoints: {}  // Named checkpoints: {name: {floor, row, col}, ...}
         };
         let floorMaps = {}; // Store maps per floor
         let monsterData = {}; // Store pre-generated monster stats by room
@@ -1472,46 +1500,140 @@ z`<!DOCTYPE html>
             const checkpointBtn = document.createElement('button');
             checkpointBtn.className = "px-6 py-3 bg-cyan-700 hover:bg-cyan-600 rounded text-sm font-bold uppercase";
             
-            if (stats.checkpoint && stats.checkpoint.floor === stats.floor && stats.checkpoint.row === currentRoom[0] && stats.checkpoint.col === currentRoom[1]) {
-                checkpointBtn.innerText = "✓ Checkpoint Here";
+            // Check if there's a checkpoint at current location
+            let checkpointAtLocation = null;
+            for (let cpName in stats.checkpoints) {
+                const cp = stats.checkpoints[cpName];
+                if (cp.floor === stats.floor && cp.row === currentRoom[0] && cp.col === currentRoom[1]) {
+                    checkpointAtLocation = cpName;
+                    break;
+                }
+            }
+            
+            if (checkpointAtLocation) {
+                checkpointBtn.innerText = `✓ ${checkpointAtLocation}`;
                 checkpointBtn.disabled = true;
                 checkpointBtn.className = "px-6 py-3 bg-green-700 rounded text-sm font-bold uppercase opacity-75";
-            } else if (stats.checkpoint) {
-                checkpointBtn.innerText = "Set Checkpoint";
-                checkpointBtn.onclick = () => {
-                    stats.checkpoint = { floor: stats.floor, row: currentRoom[0], col: currentRoom[1] };
-                    addLog(`Checkpoint set at Floor ${stats.floor} [${currentRoom[0]},${currentRoom[1]}]`, "text-cyan-400 font-bold");
-                    checkRoom();
-                };
             } else {
-                checkpointBtn.innerText = "Set Checkpoint";
-                checkpointBtn.onclick = () => {
-                    stats.checkpoint = { floor: stats.floor, row: currentRoom[0], col: currentRoom[1] };
-                    addLog(`Checkpoint set at Floor ${stats.floor} [${currentRoom[0]},${currentRoom[1]}]`, "text-cyan-400 font-bold");
-                    checkRoom();
-                };
+                checkpointBtn.innerText = `Set Checkpoint (${Object.keys(stats.checkpoints).length}/${stats.checkpointsPurchased})`;
+                if (stats.checkpointsPurchased > Object.keys(stats.checkpoints).length) {
+                    checkpointBtn.onclick = () => showCheckpointNamingDialog();
+                } else {
+                    checkpointBtn.disabled = true;
+                    checkpointBtn.className = "px-6 py-3 bg-slate-700 rounded text-sm font-bold uppercase opacity-50 cursor-not-allowed";
+                    checkpointBtn.innerText = "No Checkpoints Available (Buy One!)";
+                }
             }
             act.appendChild(checkpointBtn);
             
-            // Teleport to checkpoint button (if checkpoint exists)
-            if (stats.checkpoint) {
+            // Teleport to checkpoint button (if any checkpoints exist)
+            if (Object.keys(stats.checkpoints).length > 0) {
                 const teleportBtn = document.createElement('button');
                 teleportBtn.className = "px-6 py-3 bg-purple-700 hover:bg-purple-600 rounded text-sm font-bold uppercase";
-                teleportBtn.innerText = `Teleport to Checkpoint (F${stats.checkpoint.floor})`;
-                teleportBtn.onclick = () => {
-                    if (stats.checkpoint.floor !== stats.floor) {
-                        stats.floor = stats.checkpoint.floor;
-                        addLog(`Teleporting to Floor ${stats.floor}...`, "text-purple-400 font-bold");
-                        enterDungeon();
-                    } else {
-                        currentRoom = [stats.checkpoint.row, stats.checkpoint.col];
-                        addLog("Teleported to checkpoint!", "text-purple-400 font-bold");
-                        renderDungeon();
-                        checkRoom();
-                    }
-                };
+                teleportBtn.innerText = `Teleport to Checkpoint`;
+                teleportBtn.onclick = () => showCheckpointTeleportDialog();
                 act.appendChild(teleportBtn);
             }
+        }
+
+        function showCheckpointNamingDialog() {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;">';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">NAME YOUR CHECKPOINT</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += '<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:0.5rem;">Enter a name for this checkpoint:</div>';
+            html += '<input id="checkpoint-name-input" type="text" placeholder="e.g., Safe Room, Boss Arena..." style="width:100%;padding:0.75rem;background:#1e293b;border:2px solid #475569;border-radius:6px;color:white;font-size:0.95rem;outline:none;box-sizing:border-box;" />';
+            html += '<div style="font-size:0.8rem;color:#64748b;margin-top:0.5rem;">Location: Floor ' + stats.floor + ' [' + currentRoom[0] + ',' + currentRoom[1] + ']</div>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:0.75rem;">';
+            html += '<button onclick="confirmCheckpointName()" style="flex:1;padding:0.75rem;background:#06b6d4;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">SET CHECKPOINT</button>';
+            html += '<button onclick="closeCheckpointDialog()" style="flex:1;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CANCEL</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'checkpoint-naming-modal';
+            document.body.appendChild(modal);
+            
+            setTimeout(() => {
+                document.getElementById('checkpoint-name-input').focus();
+            }, 100);
+        }
+        
+        function confirmCheckpointName() {
+            const name = document.getElementById('checkpoint-name-input').value.trim();
+            if (name === '') {
+                addLog('Please enter a checkpoint name!', 'text-red-400');
+                return;
+            }
+            
+            if (stats.checkpoints[name]) {
+                addLog('A checkpoint with that name already exists!', 'text-red-400');
+                return;
+            }
+            
+            stats.checkpoints[name] = { floor: stats.floor, row: currentRoom[0], col: currentRoom[1] };
+            addLog(`Checkpoint "${name}" set at Floor ${stats.floor} [${currentRoom[0]},${currentRoom[1]}]`, "text-cyan-400 font-bold");
+            closeCheckpointDialog();
+            checkRoom();
+        }
+        
+        function closeCheckpointDialog() {
+            const modal = document.getElementById('checkpoint-naming-modal');
+            if (modal) modal.remove();
+        }
+        
+        function showCheckpointTeleportDialog() {
+            const checkpoints = Object.keys(stats.checkpoints);
+            if (checkpoints.length === 0) {
+                addLog('No checkpoints set!', 'text-red-400');
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;max-height:70vh;overflow-y:auto;">';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">SELECT CHECKPOINT</h2>';
+            
+            checkpoints.forEach(cpName => {
+                const cp = stats.checkpoints[cpName];
+                html += `<button onclick="teleportToCheckpoint('${cpName}')" style="width:100%;padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;color:white;text-align:left;cursor:pointer;transition:all 0.2s;font-weight:bold;font-size:0.95rem;">`;
+                html += `<div style="color:#06b6d4;">${cpName}</div>`;
+                html += `<div style="color:#94a3b8;font-size:0.85rem;margin-top:0.25rem;">Floor ${cp.floor} [${cp.row},${cp.col}]</div>`;
+                html += `</button>`;
+            });
+            
+            html += '<button onclick="closeTeleportDialog()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;margin-top:1rem;">CANCEL</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'checkpoint-teleport-modal';
+            document.body.appendChild(modal);
+        }
+        
+        function teleportToCheckpoint(cpName) {
+            const cp = stats.checkpoints[cpName];
+            
+            if (cp.floor !== stats.floor) {
+                stats.floor = cp.floor;
+                addLog(`Teleporting to Floor ${stats.floor}...`, "text-purple-400 font-bold");
+                closeTeleportDialog();
+                enterDungeon();
+            } else {
+                currentRoom = [cp.row, cp.col];
+                addLog(`Teleported to "${cpName}"!`, "text-purple-400 font-bold");
+                closeTeleportDialog();
+                renderDungeon();
+                checkRoom();
+            }
+        }
+        
+        function closeTeleportDialog() {
+            const modal = document.getElementById('checkpoint-teleport-modal');
+            if (modal) modal.remove();
         }
 
         function createChestBtn(p, isBig) {
@@ -2548,7 +2670,8 @@ z`<!DOCTYPE html>
                 } else if(data[2] === 5) {
                     // Special items (checkpoint)
                     if(name === 'checkpoint') {
-                        addLog("Checkpoint purchased! Use it to set a location to teleport to.", "text-cyan-400 font-bold");
+                        stats.checkpointsPurchased++;
+                        addLog(`Checkpoint purchased! You now have ${stats.checkpointsPurchased} checkpoint(s) available.`, "text-cyan-400 font-bold");
                         itemType = 'special';
                     }
                 }
