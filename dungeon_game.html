@@ -576,9 +576,9 @@ z`<!DOCTYPE html>
         async function getAllSaveSlots() {
             if (!isLoggedIn || !sessionId) return {};
             
-            // Return cached slots if fresher than 2 seconds
+            // Return cached slots if fresher than 500ms
             const now = Date.now();
-            if (cachedSlots && (now - slotsCacheTime) < 2000) {
+            if (cachedSlots && (now - slotsCacheTime) < 500) {
                 return cachedSlots;
             }
 
@@ -950,7 +950,7 @@ z`<!DOCTYPE html>
             
             const slots = await getAllSaveSlots();
             
-            // Remove loading modal
+            // Remove loading modal immediately
             const existingLoading = document.getElementById('loading-modal');
             if (existingLoading) existingLoading.remove();
             
@@ -1756,7 +1756,7 @@ z`<!DOCTYPE html>
             
             const slots = await getAllSaveSlots();
             
-            // Remove loading modal
+            // Remove loading modal immediately
             const existingLoading = document.getElementById('loading-modal');
             if (existingLoading) existingLoading.remove();
             
