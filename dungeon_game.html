@@ -292,7 +292,7 @@ z`<!DOCTYPE html>
                 <h2 class="text-4xl font-black text-white italic">OAKHAVEN</h2>
                 <div class="bg-slate-800/50 border border-slate-700 p-4 rounded text-sm text-slate-300 font-mono">
                     <p class="mb-2">⚔️ An ancient evil awakens...</p>
-                    <p>The Lich King sleeps deep within the cursed dungeons beneath Oakhaven. Only a true hero can venture through the 10 treacherous floors and defeat the darkness that threatens our world.</p>
+                    <p>The Goblin King sleeps deep within the cursed dungeons beneath Oakhaven. Only a true hero can venture through the 10 treacherous floors and defeat the darkness that threatens our world.</p>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <button onclick="showShop()" class="p-10 bg-slate-800 rounded hover:bg-slate-700 border border-slate-700 flex flex-col items-center gap-3">
@@ -1256,6 +1256,313 @@ z`<!DOCTYPE html>
             });
         }
 
+        // --- DUNGEON SHOPKEEPER SYSTEM ---
+        const DUNGEON_SHOPS = {
+            // Floor-specific shopkeepers with unique items and prices
+            1: {
+                name: "Goblin Merchant Gruk",
+                greeting: "Welcome to my humble stall, adventurer! I have goods fresh from the surface.",
+                inventory: {
+                    "healing potion": [15, 3, 3, 1],
+                    "rusty dagger": [20, 1, 1],
+                    "wooden shield": [25, 10, 2],
+                    "torch": [5, 0, 3]
+                }
+            },
+            2: {
+                name: "Rat King's Quartermaster",
+                greeting: "Ssssss... you wish to buy from my master's stores? Prices are fair!",
+                inventory: {
+                    "healing potion": [20, 3, 3, 1],
+                    "strength potion": [80, 2, 3, 4],
+                    "leather armor": [150, 11, 2],
+                    "antidote": [30, 0, 3]
+                }
+            },
+            3: {
+                name: "Stone Golem Keeper",
+                greeting: "GOODS... FOR SALE... DURABLE... QUALITY...",
+                inventory: {
+                    "studded leather": [300, 12, 2],
+                    "short sword": [40, 3, 1],
+                    "intelligence potion": [50, 2, 3, 2],
+                    "stone charm": [60, 0, 3]
+                }
+            },
+            4: {
+                name: "Ember Trader",
+                greeting: "Feel the heat of my wares, traveler! Hottest deals around!",
+                inventory: {
+                    "fireball spell": [100, 2, 4, 5],
+                    "protection potion": [120, 2, 3, 5],
+                    "long sword": [80, 4, 1],
+                    "flame ring": [150, 0, 3]
+                }
+            },
+            5: {
+                name: "Frost Merchant Elara",
+                greeting: "Welcome to my frozen emporium. Warm goods for a cold world.",
+                inventory: {
+                    "freeze spell": [90, 2, 4, 4],
+                    "speed potion": [70, 2, 3, 3],
+                    "scale mail": [500, 13, 2],
+                    "ice shard": [140, 0, 3]
+                }
+            },
+            6: {
+                name: "Corrupted Sage",
+                greeting: "Ah, another seeker of forbidden knowledge... I have just the thing.",
+                inventory: {
+                    "weakness spell": [60, 2, 4, 2],
+                    "magic missile spell": [40, 3, 4, 1],
+                    "chainmail": [750, 14, 2],
+                    "cursed tome": [200, 0, 3]
+                }
+            },
+            7: {
+                name: "Void Merchant",
+                greeting: "Reality bends around my wares... interested?",
+                inventory: {
+                    "great sword": [400, 6, 1],
+                    "town spell": [150, 2, 4, 6],
+                    "platemail": [1200, 15, 2],
+                    "void essence": [300, 0, 3]
+                }
+            },
+            8: {
+                name: "Abyssal Trader",
+                greeting: "The abyss offers many wonders... at suitable prices.",
+                inventory: {
+                    "legendary healing potion": [200, 3, 3, 1],
+                    "great sword": [350, 6, 1],
+                    "ancient armor": [1500, 16, 2],
+                    "abyssal pearl": [500, 0, 3]
+                }
+            },
+            9: {
+                name: "Shadow Lord's Merchant",
+                greeting: "Few reach this level... you have excellent taste in shopping!",
+                inventory: {
+                    "artifact sword": [800, 7, 1],
+                    "legendary armor": [2000, 17, 2],
+                    "master's potion": [300, 2, 3, 5],
+                    "shadow crown": [1000, 0, 3]
+                }
+            }
+        };
+
+        // --- FLOOR THEMES SYSTEM ---
+        const FLOOR_THEMES = {
+            1: {
+                name: "The Goblin Warrens",
+                description: "Small green creatures scurry through damp tunnels.",
+                color: "#10b981",
+                enemies: ["goblin", "goblin", "goblin", "bandit", "cultist"],
+                specialty: "weak but numerous"
+            },
+            2: {
+                name: "The Rat King's Domain",
+                description: "Oversized rodents and vermin infest this level.",
+                color: "#8b5a00",
+                enemies: ["rat", "rat", "zombie", "beast", "troll"],
+                specialty: "disease and poison"
+            },
+            3: {
+                name: "Petrified Stone Halls",
+                description: "Ancient golems guard chambers of carved stone.",
+                color: "#6b7280",
+                enemies: ["golem", "skeleton", "guardian", "golem", "knight"],
+                specialty: "high armor"
+            },
+            4: {
+                name: "The Infernal Furnace",
+                description: "Scorching heat radiates from walls of lava and ash.",
+                color: "#ef4444",
+                enemies: ["imp", "elemental", "imp", "mage", "wraith"],
+                specialty: "fire damage"
+            },
+            5: {
+                name: "Frozen Catacombs",
+                description: "Shards of ice pierce through arctic winds.",
+                color: "#06b6d4",
+                enemies: ["spirit", "elemental", "wraith", "creature", "guardian"],
+                specialty: "slowing attacks"
+            },
+            6: {
+                name: "The Corrupted Grove",
+                description: "Twisted flora and foul magic permeate the air.",
+                color: "#8b5cf6",
+                enemies: ["creature", "cultist", "mage", "beast", "knight"],
+                specialty: "curse abilities"
+            },
+            7: {
+                name: "Void Rift Chambers",
+                description: "Reality warps and bends around swirling darkness.",
+                color: "#3b0764",
+                enemies: ["wraith", "creature", "specter", "entity", "horror"],
+                specialty: "evasion and chaos"
+            },
+            8: {
+                name: "The Abyssal Depths",
+                description: "An endless abyss stretches below. Ancient horrors lurk here.",
+                color: "#1e1b4b",
+                enemies: ["horror", "entity", "leviathan", "titan", "overlord"],
+                specialty: "massive damage"
+            },
+            9: {
+                name: "The Obsidian Throne",
+                description: "Dark energy crackles around a massive throne of shadow.",
+                color: "#0f172a",
+                enemies: ["overlord", "tyrant", "lord", "sovereign", "deity"],
+                specialty: "multiple abilities"
+            },
+            10: {
+                name: "The Goblin King's Throne",
+                description: "The source of all darkness. The Goblin King awaits.",
+                color: "#dc2626",
+                enemies: ["GOBLIN KING"],
+                specialty: "ultimate power"
+            }
+        };
+
+        // --- BOSS ABILITIES SYSTEM ---
+        const BOSS_ABILITIES = {
+            // Ability structure: { name, description, trigger_hp_percent, effect_function }
+            phase_shift: {
+                name: "Phase Shift",
+                description: "Boss phases out and recovers health!",
+                effect: function() {
+                    const heal = Math.floor(combatData.maxHP * 0.2);
+                    combatData.HP = Math.min(combatData.HP + heal, combatData.maxHP);
+                    addLog(`The boss phases out and recovers ${heal} HP!`, "text-purple-400 font-bold");
+                }
+            },
+            multi_attack: {
+                name: "Multi-Strike",
+                description: "Boss attacks multiple times in succession!",
+                effect: async function() {
+                    addLog("The boss winds up for a devastating combo!", "text-red-500 font-bold");
+                    await sleep(400);
+                    const numAttacks = 3;
+                    for (let i = 0; i < numAttacks; i++) {
+                        const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
+                        const ac = stats.armor + stats.temporary_armor;
+                        if (roll >= ac) {
+                            let dmg = Math.floor(Math.random()*8)+2;
+                            stats.HP -= dmg;
+                            addLog(`[Hit ${i+1}/3] Took ${dmg} damage!`, "text-red-600");
+                        } else {
+                            addLog(`[Miss ${i+1}/3] Dodged!`, "text-green-400");
+                        }
+                        await sleep(300);
+                    }
+                    if (stats.HP <= 0) {
+                        updateUI();
+                        return false; // Handled by caller
+                    }
+                    updateUI();
+                }
+            },
+            stun_attack: {
+                name: "Stunning Strike",
+                description: "Boss stunning attack! You lose a turn!",
+                effect: async function() {
+                    const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
+                    const ac = stats.armor + stats.temporary_armor;
+                    addLog("The boss attempts a devastating strike!", "text-orange-500 font-bold");
+                    await sleep(300);
+                    if (roll >= ac) {
+                        let dmg = Math.floor(Math.random()*12)+4;
+                        stats.HP -= dmg;
+                        addLog(`YOU WERE STUNNED! Took ${dmg} damage!`, "text-red-600 font-black");
+                        addLog("Your next attack will be skipped!", "text-yellow-500 font-bold");
+                        stats.stunned = true;
+                        await sleep(800);
+                    } else {
+                        addLog("You narrowly avoid the stun!", "text-green-400");
+                    }
+                    updateUI();
+                }
+            },
+            power_surge: {
+                name: "Power Surge",
+                description: "Boss gains increased strength!",
+                effect: function() {
+                    combatData.attack += 2;
+                    combatData.strength += 3;
+                    addLog("The boss surges with dark energy!", "text-red-500 font-bold");
+                    addLog(`Attack increased! (now ${combatData.attack})`, "text-red-400");
+                }
+            },
+            dark_blessing: {
+                name: "Dark Blessing",
+                description: "Boss gains increased defense!",
+                effect: function() {
+                    combatData.armor += 3;
+                    addLog("The boss gains a protective aura!", "text-purple-400 font-bold");
+                    addLog(`Armor increased! (now ${combatData.armor})`, "text-purple-400");
+                }
+            },
+            freeze_field: {
+                name: "Freeze Field",
+                description: "Boss encases area in ice, reducing your damage!",
+                effect: function() {
+                    stats.frozen_field = 3; // Lasts 3 of player's turns
+                    addLog("The boss creates a freeze field around you!", "text-cyan-400 font-bold");
+                    addLog("Your damage will be reduced for the next 3 turns!", "text-cyan-400");
+                }
+            },
+            drain_life: {
+                name: "Drain Life",
+                description: "Boss steals your health!",
+                effect: function() {
+                    const damage = Math.floor(Math.random()*10)+5;
+                    stats.HP -= damage;
+                    combatData.HP = Math.min(combatData.HP + damage, combatData.maxHP);
+                    addLog(`The boss drains ${damage} HP from you!`, "text-purple-500 font-bold");
+                    addLog(`The boss recovers ${damage} HP!`, "text-red-400");
+                    updateUI();
+                }
+            },
+            summon_minion: {
+                name: "Summon Minion",
+                description: "Boss summons an ally to aid in battle!",
+                effect: function() {
+                    combatData.minion_hp = Math.floor(Math.random()*20)+10;
+                    addLog("The boss summons a dark minion to aid it!", "text-red-500 font-bold");
+                    addLog(`Minion HP: ${combatData.minion_hp}`, "text-red-400");
+                }
+            }
+        };
+
+        // Function to determine if boss uses ability
+        function bossShouldUseAbility(type, hpPercent) {
+            // Boss-type specific abilities
+            if (type === 'boss') {
+                if (hpPercent < 0.3) return Math.random() < 0.6; // 60% at low health
+                if (hpPercent < 0.6) return Math.random() < 0.4; // 40% at mid health
+                return Math.random() < 0.2; // 20% at high health
+            } else if (type === 'mini') {
+                if (hpPercent < 0.4) return Math.random() < 0.4;
+                return Math.random() < 0.15;
+            } else if (type === 'lichking') {
+                if (hpPercent < 0.2) return Math.random() < 0.8; // Very aggressive at low health
+                if (hpPercent < 0.5) return Math.random() < 0.6;
+                return Math.random() < 0.3;
+            }
+            return false;
+        }
+
+        // Function to get available abilities for a specific boss type
+        function getAvailableAbilities(type) {
+            const abilityMap = {
+                'boss': ['phase_shift', 'multi_attack', 'power_surge', 'dark_blessing'],
+                'mini': ['power_surge', 'stun_attack', 'dark_blessing'],
+                'lichking': ['phase_shift', 'multi_attack', 'drain_life', 'power_surge', 'dark_blessing', 'freeze_field', 'summon_minion']
+            };
+            return abilityMap[type] || [];
+        }
+
         // --- DUNGEON ---
         function generateMonsterName(type) {
             const wanderingNames = [
@@ -1329,8 +1636,12 @@ z`<!DOCTYPE html>
                     attack: Math.floor((Math.floor(Math.random()*3)+5) * diffMultiplier),
                     strength: Math.floor((Math.floor(Math.random()*3)+4) * diffMultiplier),
                     dexterity: Math.floor((Math.floor(Math.random()*4)+13) * diffMultiplier),
-                    change_strength: false, freeze: 0, fire: false
+                    change_strength: false, freeze: 0, fire: false,
+                    type: 'mini',
+                    maxHP: 0  // Will be set after all stats
                 };
+                for(let i=0; i<5; i++) mStats.HP += Math.floor((Math.floor(Math.random()*8)+4) * diffMultiplier);
+                mStats.maxHP = mStats.HP;
             } else if (type === 'boss') {
                 mStats = {
                     HP: 0, 
@@ -1338,9 +1649,12 @@ z`<!DOCTYPE html>
                     attack: Math.floor((Math.floor(Math.random()*3)+6) * diffMultiplier),
                     strength: Math.floor((Math.floor(Math.random()*4)+5) * diffMultiplier),
                     dexterity: Math.floor((Math.floor(Math.random()*5)+15) * diffMultiplier),
-                    change_strength: false, freeze: 0, fire: false
+                    change_strength: false, freeze: 0, fire: false,
+                    type: 'boss',
+                    maxHP: 0  // Will be set after all stats
                 };
                 for(let i=0; i<25; i++) mStats.HP += Math.floor((Math.floor(Math.random()*6)+2) * diffMultiplier);
+                mStats.maxHP = mStats.HP;
             }
             return mStats;
         }
@@ -1378,34 +1692,53 @@ z`<!DOCTYPE html>
                     monsterData[`${row},${col},${stats.floor}`] = mm;
                 }
             }
+            // Shopkeeper chance (10% per room, but only on floors 1-9)
+            if (stats.floor <= 9 && Math.floor(Math.random()*10)+1 === 1) {
+                val += 100000000; // Shopkeeper marker (highest value to prioritize)
+                const shopData = {
+                    floor: stats.floor,
+                    row: row,
+                    col: col
+                };
+                monsterData[`shop_${row},${col},${stats.floor}`] = shopData;
+            }
             return val;
         }
 
         function generateLichKing() {
             // The final boss scales with player level significantly
             let levelMultiplier = 1 + (stats.level - 1) * 0.2;
+            const hp = Math.floor(150 * levelMultiplier);
             return {
-                HP: Math.floor(150 * levelMultiplier),
+                HP: hp,
+                maxHP: hp,
                 armor: Math.floor(20 * levelMultiplier),
                 attack: Math.floor(8 * levelMultiplier),
                 strength: Math.floor(8 * levelMultiplier),
                 dexterity: Math.floor(16 * levelMultiplier),
-                name: 'THE LICH KING',
+                name: 'THE GOBLIN KING',
                 type: 'lichking',
                 change_strength: false, freeze: 0, fire: false
             };
         }
 
         function enterDungeon() {
-            // Special handling for floor 10 - The Lich King's chamber
+            // Special handling for floor 10 - The Goblin King's throne
             if (stats.floor === 10) {
+                const theme = FLOOR_THEMES[10];
+                addLog(`===== ${theme.name} =====`, 'text-red-600 font-black text-lg');
+                addLog(theme.description, 'text-red-500 italic');
                 addLog('You have reached the deepest depths of the dungeon...', 'text-red-500 font-bold');
-                addLog('Before you stands THE LICH KING, an ancient evil incarnate!', 'text-red-600 font-black text-lg');
+                addLog('Before you stands THE GOBLIN KING, an ancient evil incarnate!', 'text-red-600 font-black text-lg');
                 const lichKing = generateLichKing();
                 monsterData['lichking'] = lichKing;
-                setTimeout(() => showPreCombatSavePrompt('THE LICH KING', 'lichking'), 500);
+                setTimeout(() => showPreCombatSavePrompt('THE GOBLIN KING', 'lichking'), 500);
                 return;
             }
+            
+            const theme = FLOOR_THEMES[stats.floor] || FLOOR_THEMES[1];
+            addLog(`===== FLOOR ${stats.floor}: ${theme.name} =====`, 'text-cyan-400 font-bold text-lg');
+            addLog(theme.description, 'text-cyan-300 italic');
             
             const floorKey = `floor_${stats.floor}`;
             if(!floorMaps[floorKey]) {
@@ -1454,8 +1787,24 @@ z`<!DOCTYPE html>
             const act = document.getElementById('room-actions');
             act.innerHTML = '';
 
-            
-                // Check for permanent room encounters first
+            // Check for shopkeeper first
+            const shopKey = `shop_${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+            if (monsterData[shopKey]) {
+                const shopFloor = stats.floor;
+                if (DUNGEON_SHOPS[shopFloor]) {
+                    const shop = DUNGEON_SHOPS[shopFloor];
+                    const b = document.createElement('button');
+                    b.className = "px-6 py-3 bg-amber-700 hover:bg-amber-600 rounded text-sm font-bold uppercase";
+                    b.innerText = `📦 Talk to ${shop.name}`;
+                    b.onclick = () => showDungeonShop(shop);
+                    act.appendChild(b);
+                    
+                    const br = document.createElement('br');
+                    act.appendChild(br);
+                }
+            }
+
+            // Check for permanent room encounters
                 const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
                 if (val[1] === '1') {
                     const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('boss');
@@ -1633,6 +1982,116 @@ z`<!DOCTYPE html>
         
         function closeTeleportDialog() {
             const modal = document.getElementById('checkpoint-teleport-modal');
+            if (modal) modal.remove();
+        }
+
+        function showDungeonShop(shop) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:95%;max-height:70vh;overflow-y:auto;">';
+            html += `<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:0.5rem;text-align:center;color:#fbbf24;">🏪 ${shop.name}</h2>`;
+            html += `<p style="text-align:center;color:#94a3b8;margin-bottom:1.5rem;font-size:0.9rem;font-style:italic;">"${shop.greeting}"</p>`;
+            html += '<div style="background:#0f172a;padding:1rem;border-radius:8px;border:2px solid #334155;margin-bottom:1rem;">';
+            html += `<div style="color:#94a3b8;font-size:0.85rem;">Your Gold: <span style="color:#fbbf24;font-weight:bold;">${stats.coins}</span></div>`;
+            html += '</div>';
+            
+            html += '<div style="max-height:350px;overflow-y:auto;">';
+            for (let itemName in shop.inventory) {
+                const itemData = shop.inventory[itemName];
+                const cost = itemData[0];
+                const itemValue = itemData[1];
+                const itemType = itemData[2]; // 1=weapon, 2=armor, 3=potion, 4=spell
+                const effect = itemData[3];
+                
+                let typeLabel = '';
+                let typeColor = '';
+                if (itemType === 1) { typeLabel = '⚔️ Weapon'; typeColor = '#ef4444'; }
+                else if (itemType === 2) { typeLabel = '🛡️ Armor'; typeColor = '#3b82f6'; }
+                else if (itemType === 3) { typeLabel = '🧪 Potion'; typeColor = '#10b981'; }
+                else if (itemType === 4) { typeLabel = '✨ Spell'; typeColor = '#a855f7'; }
+                
+                const canAfford = stats.coins >= cost;
+                const buttonStyle = canAfford 
+                    ? 'background:#06b6d4;cursor:pointer;opacity:1;' 
+                    : 'background:#64748b;cursor:not-allowed;opacity:0.5;';
+                
+                html += `<button onclick="buyDungeonItem('${itemName}', ${cost}, ${itemType}, ${effect})" style="width:100%;padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;color:white;text-align:left;transition:all 0.2s;" onmouseover="this.style.borderColor='#475569'" onmouseout="this.style.borderColor='#334155'">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
+                html += `<div>`;
+                html += `<div style="font-weight:bold;margin-bottom:0.25rem;">${itemName}</div>`;
+                html += `<div style="color:#94a3b8;font-size:0.85rem;"><span style="color:${typeColor};">${typeLabel}</span></div>`;
+                html += `</div>`;
+                html += `<div style="text-align:right;">`;
+                html += `<div style="color:#fbbf24;font-weight:bold;font-size:1.1rem;">${cost}g</div>`;
+                html += `</div>`;
+                html += `</div>`;
+                html += `<div style="margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid #334155;font-size:0.8rem;color:#64748b;">Click to buy</div>`;
+                html += `</button>`;
+            }
+            html += '</div>';
+            
+            html += '<button onclick="closeDungeonShop()" style="width:100%;padding:0.75rem;margin-top:1rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">LEAVE SHOP</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'dungeon-shop-modal';
+            document.body.appendChild(modal);
+        }
+
+        function buyDungeonItem(itemName, cost, itemType, effect) {
+            if (stats.coins < cost) {
+                addLog('You cannot afford that!', 'text-red-400');
+                return;
+            }
+            
+            stats.coins -= cost;
+            
+            if (itemType === 1) {
+                // Weapon
+                if (!stats.weapons[itemName]) {
+                    stats.weapons[itemName] = effect;
+                    addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+                } else {
+                    stats.coins += cost; // Refund if already have
+                    addLog('You already have this weapon!', 'text-yellow-400');
+                    return;
+                }
+            } else if (itemType === 2) {
+                // Armor
+                if (!stats.armors[itemName]) {
+                    stats.armors[itemName] = effect;
+                    addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+                } else {
+                    stats.coins += cost; // Refund if already have
+                    addLog('You already have this armor!', 'text-yellow-400');
+                    return;
+                }
+            } else if (itemType === 3) {
+                // Potion
+                if (!stats.potions[itemName]) {
+                    stats.potions[itemName] = [1, effect];
+                } else {
+                    stats.potions[itemName][0]++;
+                }
+                addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+            } else if (itemType === 4) {
+                // Spell
+                if (!stats.spells[itemName]) {
+                    stats.spells[itemName] = [1, effect];
+                } else {
+                    stats.spells[itemName][0]++;
+                }
+                addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+            }
+            
+            updateUI();
+            closeDungeonShop();
+            showDungeonShop(DUNGEON_SHOPS[stats.floor]); // Reopen to show updated inventory
+        }
+
+        function closeDungeonShop() {
+            const modal = document.getElementById('dungeon-shop-modal');
             if (modal) modal.remove();
         }
 
@@ -1846,7 +2305,7 @@ z`<!DOCTYPE html>
             // Prefer the stored name (for pre-generated monsters). If missing, use the passed name or generate one.
             const combatName = mStats.name || name || (type ? generateMonsterName(type) : 'Monster');
 
-            combatData = { ...mStats, name: combatName, type, maxHp: mStats.HP, turn: 'init' };
+            combatData = { ...mStats, name: combatName, type, maxHP: mStats.maxHP || mStats.HP, turn: 'init' };
             showView('view-combat');
 
             // Show type indicator for bosses/mini-bosses/lich king
@@ -1908,7 +2367,7 @@ z`<!DOCTYPE html>
         }
 
         function updateCombatUI() {
-            const p = Math.max(0, (combatData.HP / combatData.maxHp) * 100);
+            const p = Math.max(0, (combatData.HP / combatData.maxHP) * 100);
             document.getElementById('monster-hp-bar').style.width = `${p}%`;
             document.getElementById('turn-indicator').innerText = combatData.turn.toUpperCase() + ' TURN';
         }
@@ -1916,6 +2375,21 @@ z`<!DOCTYPE html>
         async function combatAction(dir) {
             if (isProcessing) return;
             isProcessing = true;
+            
+            // Check if player is stunned
+            if (stats.stunned) {
+                addLog("You are stunned and cannot act!", "text-red-500 font-bold");
+                stats.stunned = false;
+                await sleep(800);
+                if(combatData.HP > 0) {
+                    combatData.turn = 'player';
+                    isProcessing = false;
+                    updateCombatUI();
+                    showCombatSubMenu('main');
+                }
+                return;
+            }
+            
             showCombatSubMenu('none');
             await logLoading("Rolling Hit", 3, 100);
             const baseRoll = Math.floor(Math.random()*20)+1;
@@ -1966,6 +2440,33 @@ z`<!DOCTYPE html>
                 addLog("Monster took 2 fire damage.", "text-orange-400");
                 if(combatData.HP <= 0) { await victory(); return; }
             }
+            
+            // Check if boss should use an ability
+            const hpPercent = combatData.HP / combatData.maxHP;
+            const isBoss = combatData.type === 'boss' || combatData.type === 'mini' || combatData.type === 'lichking';
+            const useAbility = isBoss && bossShouldUseAbility(combatData.type, hpPercent);
+            
+            if (useAbility) {
+                const availableAbilities = getAvailableAbilities(combatData.type);
+                if (availableAbilities.length > 0) {
+                    const abilityKey = availableAbilities[Math.floor(Math.random() * availableAbilities.length)];
+                    const ability = BOSS_ABILITIES[abilityKey];
+                    
+                    if (ability) {
+                        addLog(`${combatData.name} uses ${ability.name}!`, "text-red-500 font-bold text-lg");
+                        const result = await ability.effect();
+                        
+                        if (result === false) return; // Effect caused death
+                        
+                        await sleep(600);
+                        combatData.turn = 'player';
+                        updateCombatUI();
+                        showCombatSubMenu('main');
+                        return;
+                    }
+                }
+            }
+            
             showCombatSubMenu('defense');
         }
 
@@ -1992,6 +2493,17 @@ z`<!DOCTYPE html>
                 else if(tier===4) dmg = Math.floor(Math.random()*6)*2+2;
                 else if(tier===5) dmg = Math.floor(Math.random()*6)*3+3;
                 else dmg = Math.floor(Math.random()*6)*4+4;
+                
+                // Apply freeze field damage reduction
+                if (stats.frozen_field && stats.frozen_field > 0) {
+                    dmg = Math.floor(dmg * 0.7); // 30% damage reduction
+                    addLog("Freeze field reduces damage!", "text-cyan-400");
+                    stats.frozen_field--;
+                    if (stats.frozen_field === 0) {
+                        addLog("Freeze field dissipates.", "text-cyan-300");
+                    }
+                }
+                
                 const atkDir = Math.floor(Math.random()*3)+1;
                 if(atkDir === defDir) {
                     dmg = Math.floor(dmg/2);
@@ -2086,7 +2598,7 @@ z`<!DOCTYPE html>
             // CHECK FOR GAME WIN CONDITION
             if (combatData.type === 'lichking') {
                 addLog("═══════════════════════════════", "text-yellow-400 font-bold");
-                addLog("VICTORY! THE LICH KING IS DEFEATED!", "text-yellow-400 font-black text-2xl");
+                addLog("VICTORY! THE GOBLIN KING IS DEFEATED!", "text-yellow-400 font-black text-2xl");
                 addLog("═══════════════════════════════", "text-yellow-400 font-bold");
                 await sleep(1000);
                 addLog("The darkness that plagued Oakhaven has been vanquished.", "text-green-400 font-bold");
@@ -2116,7 +2628,7 @@ z`<!DOCTYPE html>
                         <div style="font-size:3rem;margin-bottom:1rem;">👑</div>
                         <h2 style="font-size:2rem;font-weight:bold;color:#fbbf24;margin-bottom:1rem;">GAME WON!</h2>
                         <p style="color:#e2e8f0;font-size:1.1rem;margin-bottom:2rem;line-height:1.6;">
-                            You have defeated the Lich King and saved Oakhaven from darkness.
+                            You have defeated the Goblin King and saved Oakhaven from darkness.
                             <br><br>
                             Final Stats:
                             <br>Level: ${stats.level}
