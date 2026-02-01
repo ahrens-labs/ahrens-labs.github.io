@@ -745,6 +745,11 @@ z`<!DOCTYPE html>
             exp: 0, level: 1, totalExp: 0, expToNextLevel: 100,
             strength: 0, dexterity: 0, intelligence: 0, wisdom: 0,
             temporary_strength: 0, temporary_dexterity: 0, temporary_intelligence: 0, temporary_armor: 0,
+            attackBonus: 0,  // Permanent attack roll bonus from merchant weapons
+            acBonus: 0,  // Permanent AC bonus from merchant armor
+            temporary_attackBonus: 0,  // Temporary attack bonus from potions
+            temporary_acBonus: 0,  // Temporary AC bonus from potions
+            temporary_allRollsBonus: 0,  // Temporary bonus to all rolls
             weapons: { "stick": 1 }, 
             armors: { "none": 9 }, 
             potions: {}, 
@@ -778,7 +783,7 @@ z`<!DOCTYPE html>
         // --- CORE UTILS ---
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-        async function logLoading(text, dots = 3, speed = 400) {
+        async function logLoading(text, dots = 3, speed = 200) {
             const log = document.getElementById('game-log');
             const entry = document.createElement('div');
             entry.className = "text-slate-500 italic";
@@ -806,7 +811,7 @@ z`<!DOCTYPE html>
             document.getElementById('stat-hp').innerText = `${stats.HP}/${stats.maxHP}`;
             document.getElementById('stat-gold').innerText = stats.coins;
             document.getElementById('stat-keys').innerText = stats.keys;
-            document.getElementById('stat-armor').innerText = stats.armor + stats.temporary_armor;
+            document.getElementById('stat-armor').innerText = stats.armor + stats.acBonus + stats.temporary_armor + stats.temporary_acBonus;
             document.getElementById('stat-floor').innerText = `FLOOR ${stats.floor}`;
             document.getElementById('stat-level').innerText = `LVL ${stats.level}`;
             
@@ -1260,100 +1265,183 @@ z`<!DOCTYPE html>
             });
         }
 
-        // --- DUNGEON SHOPKEEPER SYSTEM ---
-        const DUNGEON_SHOPS = {
-            // Floor-specific shopkeepers with unique items and prices
+        // --- FLOOR ITEMS SYSTEM ---
+        // Each floor has 10 unique themed items, merchants sell random 3
+        // Format: [Cost, Type(1=Weapon,2=Armor,3=Potion), BaseTier/BaseAC/EffectType, BonusValue]
+        // All items are UNIQUE and BETTER than starting gear (AC >= 10, Tier >= 2)
+        const FLOOR_ITEMS = {
             1: {
-                name: "Goblin Merchant Gruk",
-                greeting: "Welcome to my humble stall, adventurer! I have goods fresh from the surface.",
-                inventory: {
-                    "healing potion": [15, 3, 3, 1],
-                    "rusty dagger": [20, 1, 1],
-                    "wooden shield": [25, 10, 2],
-                    "torch": [5, 0, 3]
-                }
+                items: {
+                    "Goblin's Lucky Dagger": [80, 1, 2, 1],  // Tier 2 base, +1 attack rolls (better than stick)
+                    "Goblin Hide Armor": [150, 2, 10, 1],  // AC 10 base, +1 AC bonus (AC 11 total, better than starting AC 9)
+                    "Goblin Brew": [60, 3, 1, 2],  // +2 to all rolls for 1 turn
+                    "Warren Blade": [120, 1, 3, 2],  // Tier 3 base, +2 attack rolls (unique, better than town short sword)
+                    "Tunnel Cloak": [200, 2, 11, 2],  // AC 11 base, +2 AC bonus (AC 13 total, unique)
+                    "Goblin Luck Potion": [70, 3, 1, 2],  // +2 to all rolls for 1 turn (unique)
+                    "Goblin Charm": [100, 3, 3, 2],  // +2 AC for 1 turn (unique)
+                    "Lucky Coin": [70, 3, 4, 2],  // +2 attack rolls for 1 turn (unique)
+                    "Warren Potion": [90, 3, 5, 3],  // +3 AC for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Goblin Merchant Gruk", "Goblin Trader", "Surface Merchant"],
+                greetings: ["Welcome to my humble stall, adventurer!", "Fresh goods from the surface!", "Best prices in the warrens!"]
             },
             2: {
-                name: "Rat King's Quartermaster",
-                greeting: "Ssssss... you wish to buy from my master's stores? Prices are fair!",
-                inventory: {
-                    "healing potion": [20, 3, 3, 1],
-                    "strength potion": [80, 2, 3, 4],
-                    "leather armor": [150, 11, 2],
-                    "antidote": [30, 0, 3]
-                }
+                items: {
+                    "Plague Blade": [150, 1, 3, 2],  // Tier 3 base, +2 attack rolls (unique, better than town short sword)
+                    "Rat Fur Cloak": [220, 2, 11, 2],  // AC 11 base, +2 AC bonus (AC 13 total, unique)
+                    "Antidote Potion": [100, 3, 1, 3],  // +3 to all rolls for 1 turn (unique, removes poison)
+                    "Disease Ward": [180, 2, 12, 2],  // AC 12 base, +2 AC bonus (AC 14 total, unique)
+                    "Vermin Bane": [200, 1, 4, 2],  // Tier 4 base, +2 attack rolls (unique, better than town long sword)
+                    "Plague Remedy": [120, 3, 2, 2],  // +2 to all rolls for 1 turn (unique)
+                    "Rat King's Blessing": [140, 3, 3, 3],  // +3 AC for 1 turn (unique)
+                    "Pestilence Blade": [250, 1, 4, 3],  // Tier 4 base, +3 attack rolls (unique)
+                    "Infected Armor": [300, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Rat King's Quartermaster", "Plague Merchant", "Vermin Trader"],
+                greetings: ["Ssssss... you wish to buy from my master's stores?", "Disease-resistant goods available!", "Fair prices for brave adventurers!"]
             },
             3: {
-                name: "Stone Golem Keeper",
-                greeting: "GOODS... FOR SALE... DURABLE... QUALITY...",
-                inventory: {
-                    "studded leather": [300, 12, 2],
-                    "short sword": [40, 3, 1],
-                    "intelligence potion": [50, 2, 3, 2],
-                    "stone charm": [60, 0, 3]
-                }
+                items: {
+                    "Stone Crusher": [300, 1, 4, 2],  // Tier 4 base, +2 attack rolls (unique, better than town long sword)
+                    "Granite Plate": [450, 2, 12, 3],  // AC 12 base, +3 AC bonus (AC 15 total, unique)
+                    "Stone Skin Potion": [200, 3, 3, 4],  // +4 AC for 1 turn (unique)
+                    "Petrified Blade": [400, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
+                    "Golem's Guard": [550, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Rock Hard Potion": [250, 3, 5, 4],  // +4 AC for 1 turn (unique)
+                    "Stoneforge Weapon": [500, 1, 5, 4],  // Tier 5 base, +4 attack rolls (unique)
+                    "Ancient Armor": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Granite Elixir": [300, 3, 1, 3],  // +3 to all rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Stone Golem Keeper", "Granite Merchant", "Petrified Trader"],
+                greetings: ["GOODS... FOR SALE... DURABLE... QUALITY...", "Stone-crafted wares of the highest quality!", "Ancient goods for modern adventurers!"]
             },
             4: {
-                name: "Ember Trader",
-                greeting: "Feel the heat of my wares, traveler! Hottest deals around!",
-                inventory: {
-                    "fireball spell": [100, 2, 4, 5],
-                    "protection potion": [120, 2, 3, 5],
-                    "long sword": [80, 4, 1],
-                    "flame ring": [150, 0, 3]
-                }
+                items: {
+                    "Ember Blade": [350, 1, 4, 3],  // Tier 4 base, +3 attack rolls (unique, better than town long sword)
+                    "Flame Guard": [500, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Inferno Potion": [250, 3, 4, 4],  // +4 attack rolls for 1 turn (unique)
+                    "Lava Forged Sword": [450, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
+                    "Fireproof Plate": [600, 2, 14, 3],  // AC 14 base, +3 AC bonus (AC 17 total, unique)
+                    "Ember Elixir": [300, 3, 4, 5],  // +5 attack rolls for 1 turn (unique)
+                    "Magma Blade": [550, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
+                    "Infernal Armor": [700, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Flame Potion": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Ember Trader", "Flame Merchant", "Infernal Vendor"],
+                greetings: ["Feel the heat of my wares, traveler!", "Hottest deals around!", "Fire-forged weapons and armor!"]
             },
             5: {
-                name: "Frost Merchant Elara",
-                greeting: "Welcome to my frozen emporium. Warm goods for a cold world.",
-                inventory: {
-                    "freeze spell": [90, 2, 4, 4],
-                    "speed potion": [70, 2, 3, 3],
-                    "scale mail": [500, 13, 2],
-                    "ice shard": [140, 0, 3]
-                }
+                items: {
+                    "Frostbite Blade": [400, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
+                    "Ice Shard Armor": [550, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Glacial Potion": [280, 3, 1, 3],  // +3 to all rolls for 1 turn (unique)
+                    "Frozen Edge": [500, 1, 5, 4],  // Tier 5 base, +4 attack rolls (unique)
+                    "Permafrost Plate": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Ice Elixir": [320, 3, 3, 4],  // +4 AC for 1 turn (unique)
+                    "Blizzard Blade": [600, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
+                    "Arctic Armor": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Frost Potion": [380, 3, 5, 5],  // +5 AC for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Frost Merchant Elara", "Ice Trader", "Glacial Vendor"],
+                greetings: ["Welcome to my frozen emporium.", "Warm goods for a cold world!", "Frost-resistant equipment available!"]
             },
             6: {
-                name: "Corrupted Sage",
-                greeting: "Ah, another seeker of forbidden knowledge... I have just the thing.",
-                inventory: {
-                    "weakness spell": [60, 2, 4, 2],
-                    "magic missile spell": [40, 3, 4, 1],
-                    "chainmail": [750, 14, 2],
-                    "cursed tome": [200, 0, 3]
-                }
+                items: {
+                    "Cursed Blade": [450, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
+                    "Blight Ward": [600, 2, 14, 3],  // AC 14 base, +3 AC bonus (AC 17 total, unique)
+                    "Corruption Potion": [300, 3, 4, 5],  // +5 attack rolls for 1 turn (unique)
+                    "Twisted Weapon": [550, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
+                    "Cursed Armor": [700, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Blight Elixir": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
+                    "Dark Blade": [650, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
+                    "Corrupted Plate": [800, 2, 16, 4],  // AC 16 base, +4 AC bonus (AC 20 total, unique)
+                    "Forbidden Potion": [400, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Corrupted Sage", "Twisted Merchant", "Blight Trader"],
+                greetings: ["Ah, another seeker of forbidden knowledge...", "Cursed items for cursed times!", "Dark magic at reasonable prices!"]
             },
             7: {
-                name: "Void Merchant",
-                greeting: "Reality bends around my wares... interested?",
-                inventory: {
-                    "great sword": [400, 6, 1],
-                    "town spell": [150, 2, 4, 6],
-                    "platemail": [1200, 15, 2],
-                    "void essence": [300, 0, 3]
-                }
+                items: {
+                    "Void Edge": [500, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
+                    "Rift Cloak": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Chaos Potion": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
+                    "Reality Breaker": [600, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
+                    "Void Armor": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Chaos Elixir": [400, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
+                    "Dimensional Blade": [700, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
+                    "Rift Plate": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Void Potion": [450, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Void Merchant", "Rift Trader", "Chaos Vendor"],
+                greetings: ["Reality bends around my wares... interested?", "Items from beyond the void!", "Chaos-touched equipment available!"]
             },
             8: {
-                name: "Abyssal Trader",
-                greeting: "The abyss offers many wonders... at suitable prices.",
-                inventory: {
-                    "legendary healing potion": [200, 3, 3, 1],
-                    "great sword": [350, 6, 1],
-                    "ancient armor": [1500, 16, 2],
-                    "abyssal pearl": [500, 0, 3]
-                }
+                items: {
+                    "Abyssal Blade": [600, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
+                    "Depth Plate": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Abyss Potion": [400, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
+                    "Leviathan's Edge": [700, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
+                    "Abyssal Armor": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Depth Elixir": [450, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
+                    "Titan's Blade": [800, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
+                    "Ancient Plate": [950, 2, 17, 5],  // AC 17 base, +5 AC bonus (AC 22 total, unique)
+                    "Abyssal Essence": [500, 3, 1, 6],  // +6 to all rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Abyssal Trader", "Depth Merchant", "Leviathan Vendor"],
+                greetings: ["The abyss offers many wonders...", "Ancient treasures from the depths!", "Powerful items for the worthy!"]
             },
             9: {
-                name: "Shadow Lord's Merchant",
-                greeting: "Few reach this level... you have excellent taste in shopping!",
-                inventory: {
-                    "artifact sword": [800, 7, 1],
-                    "legendary armor": [2000, 17, 2],
-                    "master's potion": [300, 2, 3, 5],
-                    "shadow crown": [1000, 0, 3]
-                }
+                items: {
+                    "Shadow Blade": [700, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique, better than town great sword)
+                    "Obsidian Armor": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Shadow Potion": [450, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
+                    "Dark Lord's Edge": [800, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
+                    "Shadow Plate": [950, 2, 17, 6],  // AC 17 base, +6 AC bonus (AC 23 total, unique)
+                    "Dark Elixir": [500, 3, 4, 7],  // +7 attack rolls for 1 turn (unique)
+                    "Sovereign's Blade": [900, 1, 6, 7],  // Tier 6 base, +7 attack rolls (unique)
+                    "Legendary Plate": [1050, 2, 18, 6],  // AC 18 base, +6 AC bonus (AC 24 total, unique)
+                    "Shadow Essence": [550, 3, 1, 6],  // +6 to all rolls for 1 turn (unique)
+                    "checkpoint": [500, 0, 5, 0]
+                },
+                names: ["Shadow Lord's Merchant", "Obsidian Trader", "Dark Vendor"],
+                greetings: ["Few reach this level... excellent taste!", "The finest dark goods available!", "Legendary items for legendary heroes!"]
             }
         };
+
+        // Generate merchant inventory (random 3 items from floor's 10 items)
+        function generateMerchantInventory(floor) {
+            const floorData = FLOOR_ITEMS[floor] || FLOOR_ITEMS[1];
+            const itemKeys = Object.keys(floorData.items);
+            const selectedItems = {};
+            
+            // Randomly select 3 items
+            const shuffled = itemKeys.sort(() => 0.5 - Math.random());
+            for (let i = 0; i < Math.min(3, shuffled.length); i++) {
+                const itemName = shuffled[i];
+                selectedItems[itemName] = floorData.items[itemName];
+            }
+            
+            return selectedItems;
+        }
+
+        // Get merchant name and greeting for a floor
+        function getMerchantInfo(floor) {
+            const floorData = FLOOR_ITEMS[floor] || FLOOR_ITEMS[1];
+            const nameIndex = Math.floor(Math.random() * floorData.names.length);
+            const greetingIndex = Math.floor(Math.random() * floorData.greetings.length);
+            return {
+                name: floorData.names[nameIndex],
+                greeting: floorData.greetings[greetingIndex]
+            };
+        }
 
         // --- FLOOR THEMES SYSTEM ---
         const FLOOR_THEMES = {
@@ -1446,7 +1534,7 @@ z`<!DOCTYPE html>
                 description: "Boss attacks multiple times in succession!",
                 effect: async function() {
                     addLog("The boss winds up for a devastating combo!", "text-red-500 font-bold");
-                    await sleep(400);
+                    await sleep(200);
                     const numAttacks = 3;
                     for (let i = 0; i < numAttacks; i++) {
                         const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
@@ -1458,7 +1546,7 @@ z`<!DOCTYPE html>
                         } else {
                             addLog(`[Miss ${i+1}/3] Dodged!`, "text-green-400");
                         }
-                        await sleep(300);
+                        await sleep(200);
                     }
                     if (stats.HP <= 0) {
                         updateUI();
@@ -1474,14 +1562,14 @@ z`<!DOCTYPE html>
                     const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
                     const ac = stats.armor + stats.temporary_armor;
                     addLog("The boss attempts a devastating strike!", "text-orange-500 font-bold");
-                    await sleep(300);
+                    await sleep(200);
                     if (roll >= ac) {
                         let dmg = Math.floor(Math.random()*12)+4;
                         stats.HP -= dmg;
                         addLog(`YOU WERE STUNNED! Took ${dmg} damage!`, "text-red-600 font-black");
                         addLog("Your next attack will be skipped!", "text-yellow-500 font-bold");
                         stats.stunned = true;
-                        await sleep(800);
+                        await sleep(400);
                     } else {
                         addLog("You narrowly avoid the stun!", "text-green-400");
                     }
@@ -1557,8 +1645,29 @@ z`<!DOCTYPE html>
             return false;
         }
 
+        // Function to get themed abilities based on floor specialty
+        function getThemedBossAbilities(specialty) {
+            const specialtyAbilities = {
+                'weak but numerous': ['multi_attack', 'power_surge'],
+                'disease and poison': ['stun_attack', 'drain_life'],
+                'high armor': ['dark_blessing', 'power_surge'],
+                'fire damage': ['multi_attack', 'power_surge'],
+                'slowing attacks': ['freeze_field', 'stun_attack'],
+                'curse abilities': ['drain_life', 'dark_blessing'],
+                'evasion and chaos': ['phase_shift', 'multi_attack'],
+                'massive damage': ['multi_attack', 'power_surge', 'stun_attack'],
+                'multiple abilities': ['phase_shift', 'multi_attack', 'power_surge', 'dark_blessing']
+            };
+            return specialtyAbilities[specialty] || ['phase_shift', 'multi_attack', 'power_surge', 'dark_blessing'];
+        }
+
         // Function to get available abilities for a specific boss type
         function getAvailableAbilities(type) {
+            // Check if this boss has themed abilities
+            if (combatData && combatData.themedAbilities) {
+                return combatData.themedAbilities;
+            }
+            
             const abilityMap = {
                 'boss': ['phase_shift', 'multi_attack', 'power_surge', 'dark_blessing'],
                 'mini': ['power_surge', 'stun_attack', 'dark_blessing'],
@@ -1604,6 +1713,24 @@ z`<!DOCTYPE html>
                 return bossNames[Math.floor(Math.random() * bossNames.length)];
             }
             return "Unknown Monster";
+        }
+
+        function generateThemedBossName(floor) {
+            const theme = FLOOR_THEMES[floor] || FLOOR_THEMES[1];
+            const bossNames = {
+                1: ['Goblin Chieftain', 'Goblin Warlord', 'Goblin King', 'Goblin Overlord'],
+                2: ['Rat King', 'Plague Lord', 'Vermin Tyrant', 'Disease Master'],
+                3: ['Stone Guardian', 'Petrified Colossus', 'Granite Warden', 'Rock Titan'],
+                4: ['Infernal Lord', 'Flame Tyrant', 'Lava Overlord', 'Fire Demon King'],
+                5: ['Frost King', 'Ice Sovereign', 'Glacial Warden', 'Arctic Tyrant'],
+                6: ['Corruption Master', 'Twisted Lord', 'Blight Sovereign', 'Cursed Overlord'],
+                7: ['Void Master', 'Rift Warden', 'Chaos Sovereign', 'Reality Breaker'],
+                8: ['Abyssal Horror', 'Depth Tyrant', 'Leviathan King', 'Abyss Overlord'],
+                9: ['Shadow Sovereign', 'Obsidian Lord', 'Dark Tyrant', 'Void Emperor']
+            };
+            
+            const names = bossNames[floor] || ['Ancient Guardian', 'Floor Master', 'Dungeon Lord'];
+            return names[Math.floor(Math.random() * names.length)];
         }
 
         function generateMonsterStats(type) {
@@ -1702,27 +1829,27 @@ z`<!DOCTYPE html>
                     monsterData[`${row},${col},${stats.floor}`] = m;
                 }
             }
-            if (Math.floor(Math.random()*16)+1 === 1) val += 10000; // Reduced from 1/12
-            if (Math.floor(Math.random()*25)+1 === 1) { // Boss (reduced from 1/20)
-                if(Math.floor(Math.random()*3)+1 === 1) {
-                    val += 1000000;
-                    const m = generateMonsterStats('boss');
-                    m.name = generateMonsterName('boss');
-                    monsterData[`${row},${col},${stats.floor}`] = m;
-                } else {
-                    val += 100000;
-                    const mm = generateMonsterStats('mini');
-                    mm.name = generateMonsterName('mini');
-                    monsterData[`${row},${col},${stats.floor}`] = mm;
-                }
+            // Bosses and stairs are now placed by enterDungeon, not randomly here
+            // Mini-bosses can still spawn randomly
+            if (Math.floor(Math.random()*25)+1 === 1) {
+                val += 100000;
+                const mm = generateMonsterStats('mini');
+                mm.name = generateMonsterName('mini');
+                mm.type = 'mini';
+                monsterData[`${row},${col},${stats.floor}`] = mm;
             }
             // Shopkeeper chance (10% per room, but only on floors 1-9)
             if (stats.floor <= 9 && Math.floor(Math.random()*10)+1 === 1) {
                 val += 100000000; // Shopkeeper marker (highest value to prioritize)
+                const merchantInfo = getMerchantInfo(stats.floor);
+                const merchantInventory = generateMerchantInventory(stats.floor);
                 const shopData = {
                     floor: stats.floor,
                     row: row,
-                    col: col
+                    col: col,
+                    name: merchantInfo.name,
+                    greeting: merchantInfo.greeting,
+                    inventory: merchantInventory
                 };
                 monsterData[`shop_${row},${col},${stats.floor}`] = shopData;
             }
@@ -1766,9 +1893,46 @@ z`<!DOCTYPE html>
             
             const floorKey = `floor_${stats.floor}`;
             if(!floorMaps[floorKey]) {
+                // Generate all rooms first
                 floorMaps[floorKey] = Array.from({length:10}, (_, row) => 
                     Array.from({length:10}, (_, col) => generateRoom(row, col))
                 );
+                
+                // Place exactly one boss per floor (not in starting room on floor 1)
+                let bossPlaced = false;
+                while (!bossPlaced) {
+                    const bossRow = Math.floor(Math.random() * 10);
+                    const bossCol = Math.floor(Math.random() * 10);
+                    if (stats.floor === 1 && bossRow === 9 && bossCol === 9) continue; // Skip starting room
+                    
+                    const bossKey = `${bossRow},${bossCol},${stats.floor}`;
+                    if (!monsterData[bossKey] || monsterData[bossKey].type !== 'boss') {
+                        floorMaps[floorKey][bossRow][bossCol] += 1000000; // Add boss marker
+                        const boss = generateMonsterStats('boss');
+                        boss.name = generateThemedBossName(stats.floor);
+                        boss.type = 'boss';
+                        // Assign themed abilities based on floor specialty
+                        const theme = FLOOR_THEMES[stats.floor] || FLOOR_THEMES[1];
+                        boss.themedAbilities = getThemedBossAbilities(theme.specialty);
+                        monsterData[bossKey] = boss;
+                        bossPlaced = true;
+                    }
+                }
+                
+                // Place exactly one staircase per floor (not in starting room on floor 1, not in boss room)
+                let stairsPlaced = false;
+                while (!stairsPlaced) {
+                    const stairsRow = Math.floor(Math.random() * 10);
+                    const stairsCol = Math.floor(Math.random() * 10);
+                    if (stats.floor === 1 && stairsRow === 9 && stairsCol === 9) continue; // Skip starting room
+                    
+                    const stairsKey = `${stairsRow},${stairsCol},${stats.floor}`;
+                    const val = String(floorMaps[floorKey][stairsRow][stairsCol]).padStart(9, '0');
+                    if (val[2] !== '1') { // Not in boss room
+                        floorMaps[floorKey][stairsRow][stairsCol] += 10000; // Add stairs marker
+                        stairsPlaced = true;
+                    }
+                }
             }
             // Only reset to [9,9] if entering from town (floor 1 and no current position set)
             if (stats.floor === 1 && (currentRoom[0] !== 9 || currentRoom[1] !== 9)) {
@@ -1862,18 +2026,35 @@ z`<!DOCTYPE html>
             // Check for shopkeeper first
             const shopKey = `shop_${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
             if (monsterData[shopKey]) {
-                const shopFloor = stats.floor;
-                if (DUNGEON_SHOPS[shopFloor]) {
-                    const shop = DUNGEON_SHOPS[shopFloor];
-                    const b = document.createElement('button');
-                    b.className = "px-6 py-3 bg-amber-700 hover:bg-amber-600 rounded text-sm font-bold uppercase";
-                    b.innerText = `📦 Talk to ${shop.name}`;
-                    b.onclick = () => showDungeonShop(shop);
-                    act.appendChild(b);
-                    
-                    const br = document.createElement('br');
-                    act.appendChild(br);
+                const shopData = monsterData[shopKey];
+                // Use stored shop data if available, otherwise generate new
+                let shop;
+                if (shopData.inventory) {
+                    shop = {
+                        name: shopData.name,
+                        greeting: shopData.greeting,
+                        inventory: shopData.inventory
+                    };
+                } else {
+                    const merchantInfo = getMerchantInfo(stats.floor);
+                    shop = {
+                        name: merchantInfo.name,
+                        greeting: merchantInfo.greeting,
+                        inventory: generateMerchantInventory(stats.floor)
+                    };
+                    // Store it for future visits
+                    shopData.name = shop.name;
+                    shopData.greeting = shop.greeting;
+                    shopData.inventory = shop.inventory;
                 }
+                const b = document.createElement('button');
+                b.className = "px-6 py-3 bg-amber-700 hover:bg-amber-600 rounded text-sm font-bold uppercase";
+                b.innerText = `📦 Talk to ${shop.name}`;
+                b.onclick = () => showDungeonShop(shop);
+                act.appendChild(b);
+                
+                const br = document.createElement('br');
+                act.appendChild(br);
             }
 
             // Check for permanent room encounters
@@ -1899,11 +2080,17 @@ z`<!DOCTYPE html>
                 hasMonster = true;
             } else if (Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
                 // Random wandering monster spawn (25% chance in any room)
-                // This gives the same likelihood in visited and unvisited rooms
-                // But NOT in the starting room (9,9) on floor 1
-                const name = generateMonsterName('wandering');
-                showPreCombatSavePrompt(name, 'wandering');
-                hasMonster = true;
+                // But NOT if there's already a monster/boss/chest in this room
+                const hasExistingMonster = val[2] === '1' || val[3] === '1' || val[5] === '1' || val[6] === '1';
+                const hasChest = val[7] === '1' || val[8] === '1';
+                const shopKey = `shop_${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+                const hasShop = monsterData[shopKey];
+                
+                if (!hasExistingMonster && !hasChest && !hasShop) {
+                    const name = generateMonsterName('wandering');
+                    showPreCombatSavePrompt(name, 'wandering');
+                    hasMonster = true;
+                }
             }
             
             // If there's a monster, don't show other room features yet
@@ -1913,28 +2100,71 @@ z`<!DOCTYPE html>
             if (val[7] === '1') createChestBtn(act, true);
             if (val[8] === '1') createChestBtn(act, false);
             
-            // Stairs Down
+            // Stairs Down (requires key)
             if (val[4] === '1') {
                 const b = document.createElement('button');
-                b.className = "px-6 py-3 bg-blue-700 hover:bg-blue-600 rounded text-sm font-bold uppercase";
-                b.innerText = "Stairs Down";
-                b.onclick = () => {
-                    stats.floor++;
-                    addLog(`Descending to Floor ${stats.floor}...`, "text-blue-400 font-bold");
-                    
-                    // Generate floor if needed
-                    const floorKey = `floor_${stats.floor}`;
-                    if(!floorMaps[floorKey]) {
-                        floorMaps[floorKey] = Array.from({length:10}, (_, row) => 
-                            Array.from({length:10}, (_, col) => generateRoom(row, col))
-                        );
-                    }
-                    
-                    // Stay in same room position
-                    showView('view-dungeon');
-                    renderDungeon();
-                    checkRoom();
-                };
+                if (stats.keys > 0) {
+                    b.className = "px-6 py-3 bg-blue-700 hover:bg-blue-600 rounded text-sm font-bold uppercase";
+                    b.innerText = `Stairs Down (Use Key)`;
+                    b.onclick = () => {
+                        stats.keys--;
+                        stats.floor++;
+                        addLog(`Used a key to unlock the stairs!`, "text-yellow-400 font-bold");
+                        addLog(`Descending to Floor ${stats.floor}...`, "text-blue-400 font-bold");
+                        updateUI();
+                        
+                        // Generate floor if needed
+                        const floorKey = `floor_${stats.floor}`;
+                        if(!floorMaps[floorKey]) {
+                            // Generate all rooms first
+                            floorMaps[floorKey] = Array.from({length:10}, (_, row) => 
+                                Array.from({length:10}, (_, col) => generateRoom(row, col))
+                            );
+                            
+                            // Place exactly one boss per floor (not in starting room on floor 1)
+                            let bossPlaced = false;
+                            while (!bossPlaced) {
+                                const bossRow = Math.floor(Math.random() * 10);
+                                const bossCol = Math.floor(Math.random() * 10);
+                                if (stats.floor === 1 && bossRow === 9 && bossCol === 9) continue; // Skip starting room
+                                
+                                const bossKey = `${bossRow},${bossCol},${stats.floor}`;
+                                if (!monsterData[bossKey] || monsterData[bossKey].type !== 'boss') {
+                                    floorMaps[floorKey][bossRow][bossCol] += 1000000; // Add boss marker
+                                    const boss = generateMonsterStats('boss');
+                                    boss.name = generateThemedBossName(stats.floor);
+                                    boss.type = 'boss';
+                                    monsterData[bossKey] = boss;
+                                    bossPlaced = true;
+                                }
+                            }
+                            
+                            // Place exactly one staircase per floor (not in starting room on floor 1, not in boss room)
+                            let stairsPlaced = false;
+                            while (!stairsPlaced) {
+                                const stairsRow = Math.floor(Math.random() * 10);
+                                const stairsCol = Math.floor(Math.random() * 10);
+                                if (stats.floor === 1 && stairsRow === 9 && stairsCol === 9) continue; // Skip starting room
+                                
+                                const stairsKey = `${stairsRow},${stairsCol},${stats.floor}`;
+                                const val = String(floorMaps[floorKey][stairsRow][stairsCol]).padStart(9, '0');
+                                if (val[2] !== '1') { // Not in boss room
+                                    floorMaps[floorKey][stairsRow][stairsCol] += 10000; // Add stairs marker
+                                    stairsPlaced = true;
+                                }
+                            }
+                        }
+                        
+                        // Stay in same room position
+                        showView('view-dungeon');
+                        renderDungeon();
+                        checkRoom();
+                    };
+                } else {
+                    b.className = "px-6 py-3 bg-slate-600 rounded text-sm font-bold uppercase opacity-50 cursor-not-allowed";
+                    b.innerText = "Stairs Down (🔒 Requires Key)";
+                    b.disabled = true;
+                }
                 act.appendChild(b);
             }
             
@@ -2110,34 +2340,77 @@ z`<!DOCTYPE html>
             for (let itemName in shop.inventory) {
                 const itemData = shop.inventory[itemName];
                 const cost = itemData[0];
-                const itemValue = itemData[1];
-                const itemType = itemData[2]; // 1=weapon, 2=armor, 3=potion, 4=spell
-                const effect = itemData[3];
+                const itemType = itemData[1]; // 1=weapon, 2=armor, 3=potion, 0=special
+                const bonusType = itemData[2]; // Base tier/AC or effect type
+                const bonusValue = itemData[3]; // Bonus amount
                 
                 let typeLabel = '';
                 let typeColor = '';
-                if (itemType === 1) { typeLabel = '⚔️ Weapon'; typeColor = '#ef4444'; }
-                else if (itemType === 2) { typeLabel = '🛡️ Armor'; typeColor = '#3b82f6'; }
-                else if (itemType === 3) { typeLabel = '🧪 Potion'; typeColor = '#10b981'; }
-                else if (itemType === 4) { typeLabel = '✨ Spell'; typeColor = '#a855f7'; }
+                let effectDesc = '';
+                
+                if (itemType === 1) {
+                    typeLabel = '⚔️ Weapon';
+                    typeColor = '#ef4444';
+                    const baseTier = bonusType || 2;
+                    const val = bonusValue || 0;
+                    if (val > 0) {
+                        effectDesc = `Tier ${baseTier} base, +${val} attack rolls`;
+                    } else {
+                        effectDesc = `Tier ${baseTier} weapon`;
+                    }
+                } else if (itemType === 2) {
+                    typeLabel = '🛡️ Armor';
+                    typeColor = '#3b82f6';
+                    const baseAC = bonusType || 10;
+                    const val = bonusValue || 0;
+                    if (val > 0) {
+                        effectDesc = `AC ${baseAC} base, +${val} AC bonus`;
+                    } else {
+                        effectDesc = `AC ${baseAC} armor`;
+                    }
+                } else if (itemType === 3) {
+                    typeLabel = '🧪 Potion';
+                    typeColor = '#10b981';
+                    const val = bonusValue || 0;
+                    if (bonusType === 1 || bonusType === 2) effectDesc = `+${val} to all rolls for 1 turn`;
+                    else if (bonusType === 3 || bonusType === 5) effectDesc = `+${val} AC for 1 turn`;
+                    else if (bonusType === 4 || bonusType === 6) effectDesc = `+${val} attack rolls for 1 turn`;
+                    else if (bonusType === 7) effectDesc = `+${val} to all rolls for 1 turn`;
+                    else effectDesc = 'Unique potion effect';
+                } else if (itemType === 0 && bonusType === 5) {
+                    typeLabel = '📍 Special';
+                    typeColor = '#06b6d4';
+                    effectDesc = 'Set a checkpoint and teleport to it';
+                } else {
+                    // Fallback for unknown items
+                    typeLabel = '❓ Item';
+                    typeColor = '#94a3b8';
+                    effectDesc = 'Unique dungeon item';
+                }
+                
+                // Ensure effectDesc is always set
+                if (!effectDesc) {
+                    effectDesc = 'Unique item effect';
+                }
                 
                 const canAfford = stats.coins >= cost;
-                const buttonStyle = canAfford 
-                    ? 'background:#06b6d4;cursor:pointer;opacity:1;' 
-                    : 'background:#64748b;cursor:not-allowed;opacity:0.5;';
                 
-                html += `<button onclick="buyDungeonItem('${itemName}', ${cost}, ${itemType}, ${effect})" style="width:100%;padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;color:white;text-align:left;transition:all 0.2s;" onmouseover="this.style.borderColor='#475569'" onmouseout="this.style.borderColor='#334155'">`;
-                html += `<div style="display:flex;justify-content:space-between;align-items:center;">`;
-                html += `<div>`;
-                html += `<div style="font-weight:bold;margin-bottom:0.25rem;">${itemName}</div>`;
-                html += `<div style="color:#94a3b8;font-size:0.85rem;"><span style="color:${typeColor};">${typeLabel}</span></div>`;
+                html += `<div style="padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;">`;
+                html += `<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem;">`;
+                html += `<div style="flex:1;">`;
+                html += `<div style="font-weight:bold;margin-bottom:0.25rem;color:white;">${itemName}</div>`;
+                html += `<div style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.25rem;"><span style="color:${typeColor};">${typeLabel}</span></div>`;
+                html += `<div style="color:#10b981;font-size:0.8rem;font-weight:bold;">${effectDesc}</div>`;
                 html += `</div>`;
-                html += `<div style="text-align:right;">`;
-                html += `<div style="color:#fbbf24;font-weight:bold;font-size:1.1rem;">${cost}g</div>`;
+                html += `<div style="text-align:right;margin-left:1rem;">`;
+                html += `<div style="color:#fbbf24;font-weight:bold;font-size:1.1rem;margin-bottom:0.5rem;">${cost}g</div>`;
                 html += `</div>`;
                 html += `</div>`;
-                html += `<div style="margin-top:0.5rem;padding-top:0.75rem;border-top:1px solid #334155;font-size:0.8rem;color:#64748b;">Click to buy</div>`;
-                html += `</button>`;
+                html += `<div style="display:flex;gap:0.5rem;">`;
+                html += `<button onclick="showDungeonItemStats('${itemName}', ${JSON.stringify(itemData).replace(/"/g, '&quot;')})" style="flex:1;padding:0.5rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>`;
+                html += `<button onclick="buyDungeonItem('${itemName}', ${cost}, ${itemType}, ${bonusType}, ${bonusValue})" style="flex:1;padding:0.5rem;background:${canAfford ? '#10b981' : '#64748b'};border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:${canAfford ? 'pointer' : 'not-allowed'};border:none;" ${!canAfford ? 'disabled' : ''}>BUY</button>`;
+                html += `</div>`;
+                html += `</div>`;
             }
             html += '</div>';
             
@@ -2149,7 +2422,7 @@ z`<!DOCTYPE html>
             document.body.appendChild(modal);
         }
 
-        function buyDungeonItem(itemName, cost, itemType, effect) {
+        function buyDungeonItem(itemName, cost, itemType, bonusType, bonusValue) {
             if (stats.coins < cost) {
                 addLog('You cannot afford that!', 'text-red-400');
                 return;
@@ -2158,46 +2431,156 @@ z`<!DOCTYPE html>
             stats.coins -= cost;
             
             if (itemType === 1) {
-                // Weapon
+                // Unique Weapon - store with base tier and bonus
                 if (!stats.weapons[itemName]) {
-                    stats.weapons[itemName] = effect;
-                    addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+                    // Base tier is bonusType (1-6), attack bonus is bonusValue
+                    const baseTier = bonusType || 2;
+                    stats.weapons[itemName] = { tier: baseTier, attackBonus: bonusValue || 0, unique: true };
+                    // Update attack bonus if equipping
+                    if (stats.equippedWeapon === itemName || Object.keys(stats.weapons).length === 1) {
+                        stats.equippedWeapon = itemName;
+                        stats.attackBonus = bonusValue || 0;
+                    }
+                    addLog(`Purchased ${itemName}! (+${bonusValue || 0} attack rolls)`, 'text-green-400 font-bold');
                 } else {
                     stats.coins += cost; // Refund if already have
                     addLog('You already have this weapon!', 'text-yellow-400');
                     return;
                 }
             } else if (itemType === 2) {
-                // Armor
+                // Unique Armor - store with base AC and bonus
                 if (!stats.armors[itemName]) {
-                    stats.armors[itemName] = effect;
-                    addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+                    // Base AC is bonusType (10-17), AC bonus is bonusValue
+                    const baseAC = bonusType || 10;
+                    stats.armors[itemName] = { ac: baseAC, acBonus: bonusValue || 0, unique: true };
+                    // Update AC bonus if equipping
+                    if (stats.equippedArmor === itemName || Object.keys(stats.armors).length === 1) {
+                        stats.equippedArmor = itemName;
+                        stats.armor = baseAC;
+                        stats.acBonus = bonusValue || 0;
+                    }
+                    addLog(`Purchased ${itemName}! (+${bonusValue || 0} AC)`, 'text-green-400 font-bold');
                 } else {
                     stats.coins += cost; // Refund if already have
                     addLog('You already have this armor!', 'text-yellow-400');
                     return;
                 }
             } else if (itemType === 3) {
-                // Potion
+                // Unique Potion - store effect type and value
                 if (!stats.potions[itemName]) {
-                    stats.potions[itemName] = [1, effect];
+                    stats.potions[itemName] = [1, bonusType, bonusValue]; // [count, effectType, effectValue]
                 } else {
                     stats.potions[itemName][0]++;
                 }
                 addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
-            } else if (itemType === 4) {
-                // Spell
-                if (!stats.spells[itemName]) {
-                    stats.spells[itemName] = [1, effect];
-                } else {
-                    stats.spells[itemName][0]++;
-                }
-                addLog(`Purchased ${itemName}!`, 'text-green-400 font-bold');
+            } else if (itemType === 0 && bonusType === 5) {
+                // Checkpoint
+                stats.checkpointsPurchased++;
+                addLog(`Checkpoint purchased! You now have ${stats.checkpointsPurchased} checkpoint(s) available.`, "text-cyan-400 font-bold");
             }
             
             updateUI();
             closeDungeonShop();
-            showDungeonShop(DUNGEON_SHOPS[stats.floor]); // Reopen to show updated inventory
+            // Reopen shop with current merchant data
+            const shopKey = `shop_${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
+            if (monsterData[shopKey]) {
+                const shopData = monsterData[shopKey];
+                const shop = {
+                    name: shopData.name,
+                    greeting: shopData.greeting,
+                    inventory: shopData.inventory
+                };
+                showDungeonShop(shop);
+            }
+        }
+
+        function showDungeonItemStats(name, data) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10001;';
+            
+            const cost = data[0];
+            const itemType = data[1];
+            const bonusType = data[2];
+            const bonusValue = data[3] || 0;
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">ITEM DETAILS</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;text-align:center;">${name}</div>`;
+            
+            if (itemType === 1) {
+                // Unique Weapon
+                const baseTier = bonusType || 2;
+                html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Weapon</div>`;
+                html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base Tier: <span style="color:#fbbf24;font-weight:bold;">${baseTier}</span></div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Damage: <span style="color:#10b981;font-weight:bold;">${getWeaponDamageDesc(baseTier)}</span></div>`;
+                if (bonusValue > 0) {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusValue} to attack rolls</span></div>`;
+                }
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your attack roll chance. Stacks with weapon tier damage.</div>';
+            } else if (itemType === 2) {
+                // Unique Armor
+                const baseAC = bonusType || 10;
+                html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Armor</div>`;
+                html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base AC: <span style="color:#3b82f6;font-weight:bold;">${baseAC}</span></div>`;
+                if (bonusValue > 0) {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">AC Bonus: <span style="color:#10b981;font-weight:bold;">+${bonusValue} AC</span></div>`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC + bonusValue}</span></div>`;
+                } else {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC}</span></div>`;
+                }
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
+            } else if (itemType === 3) {
+                // Unique Potion
+                html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Potion</div>`;
+                html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+                let effectText = '';
+                if (bonusType === 1 || bonusType === 2) {
+                    effectText = `+${bonusValue} to all rolls for 1 turn`;
+                } else if (bonusType === 3 || bonusType === 5) {
+                    effectText = `+${bonusValue} AC for 1 turn`;
+                } else if (bonusType === 4 || bonusType === 6) {
+                    effectText = `+${bonusValue} attack rolls for 1 turn`;
+                } else if (bonusType === 7) {
+                    effectText = `+${bonusValue} to all rolls for 1 turn`;
+                } else {
+                    effectText = 'Special effect potion';
+                }
+                if (effectText) {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">${effectText}</span></div>`;
+                }
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Use in combat for temporary bonuses.</div>';
+            } else if (itemType === 0 && bonusType === 5) {
+                // Checkpoint
+                html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Special Item</div>`;
+                html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+                html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Type: <span style="color:#06b6d4;font-weight:bold;">Teleportation Device</span></div>';
+                html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">Set a checkpoint and teleport to it anytime</span></div>';
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Once purchased, you can place a checkpoint in any dungeon room and teleport back to it whenever you want.</div>';
+            } else {
+                // Fallback for unknown items
+                html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Item</div>`;
+                html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+                html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">A unique item found only in dungeon merchants.</div>';
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">This item cannot be purchased in town.</div>';
+            }
+            
+            html += '</div>';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">Price: ${cost} Gold</div>`;
+            html += '</div>';
+            html += '<button onclick="closeDungeonItemStatsModal()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CLOSE</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'dungeon-item-stats-modal';
+            document.body.appendChild(modal);
+        }
+
+        function closeDungeonItemStatsModal() {
+            const modal = document.getElementById('dungeon-item-stats-modal');
+            if (modal) modal.remove();
         }
 
         function closeDungeonShop() {
@@ -2221,7 +2604,7 @@ z`<!DOCTYPE html>
                     addLog("Big Chest! Attempting to unlock with Intelligence...", "text-yellow-400");
                     
                     const statVal = stats.intelligence + stats.temporary_intelligence;
-                    await logLoading("Rolling Intelligence", 3, 350);
+                    await logLoading("Rolling Intelligence", 3, 150);
                     const baseRoll = Math.floor(Math.random()*20)+1;
                     const mod = Math.floor(statVal / 2) - 5;
                     const roll = baseRoll + mod;
@@ -2430,7 +2813,7 @@ z`<!DOCTYPE html>
             addLog(`Encountered ${combatName}${typeLabel}!`, type === 'lichking' ? "text-red-600 font-black text-lg" : "text-red-500 font-bold uppercase");
             
             isProcessing = true;
-            await logLoading("Rolling Initiative", 3, 250);
+            await logLoading("Rolling Initiative", 3, 120);
             if (Math.random() < 0.5) {
                 addLog("You act first!", "text-blue-400");
                 combatData.turn = 'player';
@@ -2529,11 +2912,13 @@ z`<!DOCTYPE html>
             if(isProcessing) return;
             isProcessing = true;
             
-            await logLoading("Attempting Retreat", 3, 350);
+            await logLoading("Attempting Retreat", 3, 150);
             const baseRoll = Math.floor(Math.random()*20)+1;
             const mod = Math.floor((stats.dexterity + stats.temporary_dexterity)/2)-5;
-            const roll = baseRoll + mod;
+            const allRollsBonus = stats.temporary_allRollsBonus;
+            const roll = baseRoll + mod + allRollsBonus;
             stats.temporary_dexterity = 0;
+            stats.temporary_allRollsBonus = 0;
             addLog(`Dex Roll: ${baseRoll} + ${mod} = ${roll} vs ${combatData.dexterity}`, "text-yellow-400");
             
             if (roll >= combatData.dexterity) {
@@ -2543,9 +2928,12 @@ z`<!DOCTYPE html>
                 currentRoom[0] += dr;
                 currentRoom[1] += dc;
                 
+                // Clear combat data since we've left combat
+                combatData = null;
+                
                 showView('view-dungeon');
                 renderDungeon();
-                checkRoom(true);
+                checkRoom(false);  // Show room actions
             } else {
                 addLog("Retreat Failed!", "text-red-500 font-bold");
                 await sleep(500);
@@ -2582,7 +2970,7 @@ z`<!DOCTYPE html>
             if (stats.stunned) {
                 addLog("You are stunned and cannot act!", "text-red-500 font-bold");
                 stats.stunned = false;
-                await sleep(800);
+                await sleep(400);
                 if(combatData.HP > 0) {
                     combatData.turn = 'player';
                     isProcessing = false;
@@ -2593,16 +2981,28 @@ z`<!DOCTYPE html>
             }
             
             showCombatSubMenu('none');
-            await logLoading("Rolling Hit", 3, 250);
+            await logLoading("Rolling Hit", 3, 120);
             const baseRoll = Math.floor(Math.random()*20)+1;
             const mod = Math.floor((stats.strength + stats.temporary_strength)/2)-5;
-            const roll = baseRoll + mod;
+            const attackBonus = stats.attackBonus + stats.temporary_attackBonus + stats.temporary_allRollsBonus;
+            const roll = baseRoll + mod + attackBonus;
             stats.temporary_strength = 0;
-            addLog(`Str Roll: ${baseRoll} + ${mod} = ${roll} vs AC ${combatData.armor}`);
+            // Clear temporary bonuses after use
+            stats.temporary_attackBonus = 0;
+            stats.temporary_acBonus = 0;
+            stats.temporary_allRollsBonus = 0;
+            let bonusText = attackBonus > 0 ? ` + ${attackBonus} (bonus)` : '';
+            addLog(`Str Roll: ${baseRoll} + ${mod}${bonusText} = ${roll} vs AC ${combatData.armor}`);
             if (roll >= combatData.armor) {
                 addLog("HIT!", "text-green-400 font-bold");
-                await logLoading("Damage", 3, 250);
-                const tier = stats.weapons[stats.equippedWeapon] || 1;
+                await logLoading("Damage", 3, 120);
+                const weaponData = stats.weapons[stats.equippedWeapon];
+                let tier = 1;
+                if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
+                    tier = weaponData.tier;
+                } else if (weaponData) {
+                    tier = typeof weaponData === 'number' ? weaponData : 1;
+                }
                 let dmg = 0;
                 if(tier===1) dmg = Math.floor(Math.random()*3)+1;  // 1d3: 1-3
                 else if(tier===2) dmg = Math.floor(Math.random()*6)+1;  // 1d6: 1-6
@@ -2619,8 +3019,12 @@ z`<!DOCTYPE html>
                 combatData.HP -= dmg;
                 if(combatData.HP <= 0) { await victory(); return; }
             } else addLog("MISS!", "text-red-400");
+            // Clear temporary bonuses after turn
+            stats.temporary_attackBonus = 0;
+            stats.temporary_acBonus = 0;
+            stats.temporary_allRollsBonus = 0;
             updateCombatUI();
-            await sleep(500);
+            await sleep(300);
             if(combatData.HP > 0) {
                 combatData.turn = 'monster';
                 isProcessing = false;
@@ -2632,7 +3036,7 @@ z`<!DOCTYPE html>
             if(combatData.freeze > 0) {
                 combatData.freeze--;
                 addLog("Monster is Frozen!", "text-cyan-400");
-                await sleep(800);
+                await sleep(400);
                 combatData.turn = 'player';
                 updateCombatUI();
                 showCombatSubMenu('main');
@@ -2661,7 +3065,7 @@ z`<!DOCTYPE html>
                         
                         if (result === false) return; // Effect caused death
                         
-                        await sleep(600);
+                        await sleep(300);
                         combatData.turn = 'player';
                         updateCombatUI();
                         showCombatSubMenu('main');
@@ -2677,14 +3081,14 @@ z`<!DOCTYPE html>
             if (isProcessing) return;
             isProcessing = true;
             showCombatSubMenu('none');
-            await logLoading("Monster Attacking", 3, 250);
+            await logLoading("Monster Attacking", 3, 120);
             if(combatData.change_strength) {
                 combatData.strength += 2;
                 combatData.change_strength = false;
                 addLog("Monster strength increased!", "text-red-500");
             }
             const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
-            const ac = stats.armor + stats.temporary_armor;
+            const ac = stats.armor + stats.acBonus + stats.temporary_armor + stats.temporary_acBonus;
             addLog(`Monster Roll: ${roll} vs AC ${ac}`);
             if (roll >= ac) {
                 addLog("YOU WERE HIT!", "text-red-600 font-bold");
@@ -2720,7 +3124,7 @@ z`<!DOCTYPE html>
                 }
             } else addLog("Monster Missed!", "text-green-400");
             stats.temporary_armor = 0;
-            await sleep(500);
+            await sleep(300);
             combatData.turn = 'player';
             isProcessing = false;
             updateCombatUI();
@@ -3145,6 +3549,57 @@ z`<!DOCTYPE html>
             if (modal) modal.remove();
         }
 
+        // --- DUNGEON SHOP ---
+        function showDungeonShop(shop) {
+            const modal = document.createElement('div');
+            modal.id = 'dungeon-shop-modal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:10000;overflow-y:auto;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:600px;width:90%;margin:2rem auto;">';
+            html += `<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:0.5rem;text-align:center;color:#fbbf24;">${shop.name}</h2>`;
+            html += `<p style="text-align:center;color:#94a3b8;margin-bottom:2rem;font-style:italic;">${shop.greeting}</p>`;
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;">';
+            
+            for(const [name, data] of Object.entries(shop.inventory)) {
+                const itemType = data[2] === 1 ? 'Weapon' : data[2] === 2 ? 'Armor' : data[2] === 3 ? 'Potion' : data[2] === 4 ? 'Spell' : data[2] === 5 ? 'Special' : 'Tool';
+                html += `<div style="background:#0f172a;padding:1rem;border-radius:8px;border:2px solid #334155;">`;
+                html += `<div style="font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;">${name}</div>`;
+                html += `<div style="font-size:0.85rem;color:#94a3b8;margin-bottom:0.5rem;">${itemType}</div>`;
+                if (data[2] === 1) {
+                    html += `<div style="font-size:0.85rem;color:#10b981;margin-bottom:0.5rem;">${getWeaponDamageDesc(data[1])}</div>`;
+                } else if (data[2] === 2) {
+                    html += `<div style="font-size:0.85rem;color:#3b82f6;margin-bottom:0.5rem;">AC ${data[1]}</div>`;
+                }
+                html += `<div style="font-size:1rem;font-weight:bold;color:#fbbf24;margin-bottom:0.75rem;">${data[0]} Gold</div>`;
+                html += `<div style="display:flex;gap:0.5rem;">`;
+                html += `<button onclick="showItemStats('${name}', ${JSON.stringify(data).replace(/"/g, '&quot;')})" style="flex:1;padding:0.5rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>`;
+                html += `<button onclick="buyFromDungeonShop('${name}', ${JSON.stringify(data).replace(/"/g, '&quot;')})" style="flex:1;padding:0.5rem;background:#10b981;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">BUY</button>`;
+                html += `</div>`;
+                html += `</div>`;
+            }
+            
+            html += '</div>';
+            html += '<button onclick="closeDungeonShop()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CLOSE</button>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+        }
+
+        function buyFromDungeonShop(name, data) {
+            if(stats.coins < data[0]) {
+                addLog("Not enough gold!", "text-red-500 font-bold");
+                return;
+            }
+            closeDungeonShop();
+            confirmPurchase(name, data);
+        }
+
+        function closeDungeonShop() {
+            const modal = document.getElementById('dungeon-shop-modal');
+            if (modal) modal.remove();
+        }
+
         // --- SHOP & SELLING ---
         function setShopMode(mode) {
             shopMode = mode;
@@ -3445,11 +3900,26 @@ z`<!DOCTYPE html>
             
             if(itemType === 'weapon') {
                 stats.equippedWeapon = name;
-                addLog(`Equipped ${name}!`, "text-blue-400");
+                const weaponData = stats.weapons[name];
+                if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
+                    stats.attackBonus = weaponData.attackBonus || 0;
+                    addLog(`Equipped ${name}! (+${weaponData.attackBonus || 0} attack rolls)`, "text-blue-400");
+                } else {
+                    stats.attackBonus = 0;
+                    addLog(`Equipped ${name}!`, "text-blue-400");
+                }
             } else if(itemType === 'armor') {
                 stats.equippedArmor = name;
-                stats.armor = stats.armors[name];
-                addLog(`Equipped ${name}!`, "text-blue-400");
+                const armorData = stats.armors[name];
+                if (armorData && typeof armorData === 'object' && armorData.unique) {
+                    stats.armor = armorData.ac || 9;
+                    stats.acBonus = armorData.acBonus || 0;
+                    addLog(`Equipped ${name}! (AC ${armorData.ac || 9} + ${armorData.acBonus || 0})`, "text-blue-400");
+                } else {
+                    stats.armor = typeof armorData === 'number' ? armorData : 9;
+                    stats.acBonus = 0;
+                    addLog(`Equipped ${name}!`, "text-blue-400");
+                }
             }
             
             updateUI();
@@ -3506,37 +3976,74 @@ z`<!DOCTYPE html>
             for(let name in stats.weapons) {
                 const b = document.createElement('button');
                 const isEquipped = stats.equippedWeapon === name;
-                const tier = stats.weapons[name];
+                const weaponData = stats.weapons[name];
+                let tier = 1;
+                let attackBonus = 0;
+                if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
+                    tier = weaponData.tier;
+                    attackBonus = weaponData.attackBonus || 0;
+                } else if (weaponData) {
+                    tier = typeof weaponData === 'number' ? weaponData : 1;
+                }
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="text-base font-bold uppercase">${name}</span>
-                        <span class="text-sm text-slate-500 font-bold">TIER ${tier}</span>
+                        <span class="text-sm text-slate-500 font-bold">TIER ${tier}${attackBonus > 0 ? ` (+${attackBonus})` : ''}</span>
                     </div>
                     <div class="text-sm text-green-400 font-bold mt-1">${getWeaponDamageDesc(tier)}</div>
+                    ${attackBonus > 0 ? `<div class="text-xs text-blue-400 font-bold mt-1">+${attackBonus} attack rolls</div>` : ''}
                     ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
-                b.onclick = () => { stats.equippedWeapon = name; renderInventory(); addLog(`Equipped ${name}`); };
+                b.onclick = () => { 
+                    stats.equippedWeapon = name;
+                    if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
+                        stats.attackBonus = weaponData.attackBonus || 0;
+                        addLog(`Equipped ${name}! (+${weaponData.attackBonus || 0} attack rolls)`);
+                    } else {
+                        stats.attackBonus = 0;
+                        addLog(`Equipped ${name}!`);
+                    }
+                    renderInventory(); 
+                    updateUI();
+                };
                 wList.appendChild(b);
             }
 
             for(let name in stats.armors) {
                 const b = document.createElement('button');
                 const isEquipped = stats.equippedArmor === name;
+                const armorData = stats.armors[name];
+                let ac = 9;
+                let acBonus = 0;
+                if (armorData && typeof armorData === 'object' && armorData.unique) {
+                    ac = armorData.ac || 9;
+                    acBonus = armorData.acBonus || 0;
+                } else if (armorData) {
+                    ac = typeof armorData === 'number' ? armorData : 9;
+                }
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="text-base font-bold uppercase">${name}</span>
-                        <span class="text-sm text-slate-500 font-bold">AC ${stats.armors[name]}</span>
+                        <span class="text-sm text-slate-500 font-bold">AC ${ac}${acBonus > 0 ? ` (+${acBonus})` : ''}</span>
                     </div>
+                    ${acBonus > 0 ? `<div class="text-xs text-blue-400 font-bold mt-1">+${acBonus} AC bonus</div>` : ''}
                     ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
                 b.onclick = () => { 
-                    stats.equippedArmor = name; 
-                    stats.armor = stats.armors[name];
+                    stats.equippedArmor = name;
+                    if (armorData && typeof armorData === 'object' && armorData.unique) {
+                        stats.armor = armorData.ac || 9;
+                        stats.acBonus = armorData.acBonus || 0;
+                        addLog(`Equipped ${name}! (AC ${armorData.ac || 9} + ${armorData.acBonus || 0})`);
+                    } else {
+                        stats.armor = typeof armorData === 'number' ? armorData : 9;
+                        stats.acBonus = 0;
+                        addLog(`Equipped ${name}!`);
+                    }
                     renderInventory(); 
                     updateUI();
-                    addLog(`Equipped ${name}`); 
                 };
                 aList.appendChild(b);
             }
@@ -3787,15 +4294,36 @@ z`<!DOCTYPE html>
             if(isPotion) {
                 stats.potions[name][0]--;
                 const typeId = itemData[1];
+                const effectValue = itemData[2] || 0;
                 addLog(`Drank ${name}`, "text-blue-300");
-                if(typeId === 1) {
-                    const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
-                    stats.HP = Math.min(stats.maxHP, stats.HP + heal);
-                    addLog(`Healed ${heal} HP`, "text-green-400");
-                } else if(typeId === 2) stats.temporary_intelligence = 6;
-                else if(typeId === 3) stats.temporary_dexterity = 6;
-                else if(typeId === 4) stats.temporary_strength = 6;
-                else if(typeId === 5) stats.temporary_armor = 3;
+                
+                // Check if it's a unique merchant potion (has effectValue)
+                if (effectValue > 0) {
+                    if(typeId === 1 || typeId === 2) {
+                        stats.temporary_allRollsBonus = effectValue;
+                        addLog(`+${effectValue} to all rolls for this turn!`, "text-cyan-400 font-bold");
+                    } else if(typeId === 3 || typeId === 5) {
+                        stats.temporary_acBonus = effectValue;
+                        addLog(`+${effectValue} AC for this turn!`, "text-blue-400 font-bold");
+                    } else if(typeId === 4 || typeId === 6) {
+                        stats.temporary_attackBonus = effectValue;
+                        addLog(`+${effectValue} attack rolls for this turn!`, "text-purple-400 font-bold");
+                    } else if(typeId === 7) {
+                        stats.temporary_allRollsBonus = effectValue;
+                        addLog(`+${effectValue} to all rolls for this turn!`, "text-cyan-400 font-bold");
+                    }
+                } else {
+                    // Regular potions
+                    if(typeId === 1) {
+                        const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
+                        stats.HP = Math.min(stats.maxHP, stats.HP + heal);
+                        addLog(`Healed ${heal} HP`, "text-green-400");
+                    } else if(typeId === 2) stats.temporary_intelligence = 6;
+                    else if(typeId === 3) stats.temporary_dexterity = 6;
+                    else if(typeId === 4) stats.temporary_strength = 6;
+                    else if(typeId === 5) stats.temporary_armor = 3;
+                }
+                
                 if(stats.potions[name][0] <= 0) delete stats.potions[name];
                 isProcessing = false;
                 monsterTurnStart();
@@ -3803,7 +4331,7 @@ z`<!DOCTYPE html>
                 stats.spells[name][0]--;
                 const typeId = itemData[1];
                 const need = typeId===1?10 : typeId===2?11 : typeId===3?12 : typeId===4?10 : 11;
-                await logLoading("Casting...", 3, 250);
+                await logLoading("Casting...", 3, 120);
                 const roll = Math.floor(Math.random()*20)+1 + Math.floor(stats.wisdom/2)-5;
                 addLog(`Wis Roll: ${roll} vs ${need}`);
                 if(roll >= need) {
