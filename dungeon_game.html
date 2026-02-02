@@ -811,7 +811,7 @@ z`<!DOCTYPE html>
             document.getElementById('stat-hp').innerText = `${stats.HP}/${stats.maxHP}`;
             document.getElementById('stat-gold').innerText = stats.coins;
             document.getElementById('stat-keys').innerText = stats.keys;
-            document.getElementById('stat-armor').innerText = stats.armor + stats.acBonus + stats.temporary_armor + stats.temporary_acBonus;
+            document.getElementById('stat-armor').innerText = getTotalAC();
             document.getElementById('stat-floor').innerText = `FLOOR ${stats.floor}`;
             document.getElementById('stat-level').innerText = `LVL ${stats.level}`;
             
@@ -1078,8 +1078,8 @@ z`<!DOCTYPE html>
                     showView('view-dungeon');
                     renderDungeon();
                     addLog(`Game loaded from Slot ${slotNumber}!`, 'text-yellow-400');
-                    // Check room for events (including battles) - don't suppress
-                    checkRoom(false);
+                    // Check room for events (including battles) - don't suppress, but don't spawn new wandering monsters
+                    checkRoom(false, false);
                 }
                 
                 updateUI();
@@ -1272,11 +1272,11 @@ z`<!DOCTYPE html>
         const FLOOR_ITEMS = {
             1: {
                 items: {
-                    "Goblin's Lucky Dagger": [80, 1, 2, 1],  // Tier 2 base, +1 attack rolls (better than stick)
-                    "Goblin Hide Armor": [150, 2, 10, 1],  // AC 10 base, +1 AC bonus (AC 11 total, better than starting AC 9)
+                    "Goblin's Lucky Dagger": [80, 1, 1, "1d6+1d4"],  // Custom: 1d6+1d4 damage (2-10), +1 attack rolls
+                    "Goblin Hide Armor": [150, 2, 10, {type: 'lowHP', threshold: 5, bonus: 2}],  // AC 10 base, +2 AC when HP <= 5
                     "Goblin Brew": [60, 3, 1, 2],  // +2 to all rolls for 1 turn
-                    "Warren Blade": [120, 1, 3, 2],  // Tier 3 base, +2 attack rolls (unique, better than town short sword)
-                    "Tunnel Cloak": [200, 2, 11, 2],  // AC 11 base, +2 AC bonus (AC 13 total, unique)
+                    "Warren Blade": [120, 1, 2, "2d6"],  // Custom: 2d6 damage (2-12), +2 attack rolls
+                    "Tunnel Cloak": [200, 2, 11, {type: 'percentHP', threshold: 0.33, bonus: 3}],  // AC 11 base, +3 AC when HP <= 33%
                     "Goblin Luck Potion": [70, 3, 1, 2],  // +2 to all rolls for 1 turn (unique)
                     "Goblin Charm": [100, 3, 3, 2],  // +2 AC for 1 turn (unique)
                     "Lucky Coin": [70, 3, 4, 2],  // +2 attack rolls for 1 turn (unique)
@@ -1288,11 +1288,11 @@ z`<!DOCTYPE html>
             },
             2: {
                 items: {
-                    "Plague Blade": [150, 1, 3, 2],  // Tier 3 base, +2 attack rolls (unique, better than town short sword)
-                    "Rat Fur Cloak": [220, 2, 11, 2],  // AC 11 base, +2 AC bonus (AC 13 total, unique)
+                    "Plague Blade": [150, 1, 2, "1d6+1d10"],  // Custom: 1d6+1d10 damage (2-16), +2 attack rolls
+                    "Rat Fur Cloak": [220, 2, 11, {type: 'lowHP', threshold: 8, bonus: 3}],  // AC 11 base, +3 AC when HP <= 8
                     "Antidote Potion": [100, 3, 1, 3],  // +3 to all rolls for 1 turn (unique, removes poison)
-                    "Disease Ward": [180, 2, 12, 2],  // AC 12 base, +2 AC bonus (AC 14 total, unique)
-                    "Vermin Bane": [200, 1, 4, 2],  // Tier 4 base, +2 attack rolls (unique, better than town long sword)
+                    "Disease Ward": [180, 2, 12, {type: 'percentHP', threshold: 0.5, bonus: 2}],  // AC 12 base, +2 AC when HP <= 50%
+                    "Vermin Bane": [200, 1, 2, "3d4"],  // Custom: 3d4 damage (3-12), +2 attack rolls
                     "Plague Remedy": [120, 3, 2, 2],  // +2 to all rolls for 1 turn (unique)
                     "Rat King's Blessing": [140, 3, 3, 3],  // +3 AC for 1 turn (unique)
                     "Pestilence Blade": [250, 1, 4, 3],  // Tier 4 base, +3 attack rolls (unique)
@@ -1304,14 +1304,14 @@ z`<!DOCTYPE html>
             },
             3: {
                 items: {
-                    "Stone Crusher": [300, 1, 4, 2],  // Tier 4 base, +2 attack rolls (unique, better than town long sword)
-                    "Granite Plate": [450, 2, 12, 3],  // AC 12 base, +3 AC bonus (AC 15 total, unique)
+                    "Stone Crusher": [300, 1, 2, "2d8+2"],  // Custom: 2d8+2 damage (4-18), +2 attack rolls
+                    "Granite Plate": [450, 2, 12, {type: 'lowHP', threshold: 10, bonus: 4}],  // AC 12 base, +4 AC when HP <= 10
                     "Stone Skin Potion": [200, 3, 3, 4],  // +4 AC for 1 turn (unique)
-                    "Petrified Blade": [400, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
-                    "Golem's Guard": [550, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Petrified Blade": [400, 1, 3, "1d10+2d6"],  // Custom: 1d10+2d6 damage (3-22), +3 attack rolls
+                    "Golem's Guard": [550, 2, 13, {type: 'percentHP', threshold: 0.4, bonus: 5}],  // AC 13 base, +5 AC when HP <= 40%
                     "Rock Hard Potion": [250, 3, 5, 4],  // +4 AC for 1 turn (unique)
-                    "Stoneforge Weapon": [500, 1, 5, 4],  // Tier 5 base, +4 attack rolls (unique)
-                    "Ancient Armor": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Stoneforge Weapon": [500, 1, 4, "5d4+2"],  // Custom: 5d4+2 damage (7-22), +4 attack rolls
+                    "Ancient Armor": [650, 2, 14, {type: 'lowHP', threshold: 15, bonus: 5}],  // AC 14 base, +5 AC when HP <= 15
                     "Granite Elixir": [300, 3, 1, 3],  // +3 to all rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1320,14 +1320,14 @@ z`<!DOCTYPE html>
             },
             4: {
                 items: {
-                    "Ember Blade": [350, 1, 4, 3],  // Tier 4 base, +3 attack rolls (unique, better than town long sword)
-                    "Flame Guard": [500, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Ember Blade": [350, 1, 3, "5d4"],  // Custom: 5d4 damage (5-20), +3 attack rolls
+                    "Flame Guard": [500, 2, 13, {type: 'lowHP', threshold: 12, bonus: 4}],  // AC 13 base, +4 AC when HP <= 12
                     "Inferno Potion": [250, 3, 4, 4],  // +4 attack rolls for 1 turn (unique)
-                    "Lava Forged Sword": [450, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
-                    "Fireproof Plate": [600, 2, 14, 3],  // AC 14 base, +3 AC bonus (AC 17 total, unique)
+                    "Lava Forged Sword": [450, 1, 3, "3d6+1d8"],  // Custom: 3d6+1d8 damage (4-26), +3 attack rolls
+                    "Fireproof Plate": [600, 2, 14, {type: 'percentHP', threshold: 0.3, bonus: 5}],  // AC 14 base, +5 AC when HP <= 30%
                     "Ember Elixir": [300, 3, 4, 5],  // +5 attack rolls for 1 turn (unique)
-                    "Magma Blade": [550, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
-                    "Infernal Armor": [700, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Magma Blade": [550, 1, 4, "6d4+1"],  // Custom: 6d4+1 damage (7-25), +4 attack rolls
+                    "Infernal Armor": [700, 2, 15, {type: 'percentHP', threshold: 0.2, bonus: 6}],  // AC 15 base, +6 AC when HP <= 20%
                     "Flame Potion": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1336,14 +1336,14 @@ z`<!DOCTYPE html>
             },
             5: {
                 items: {
-                    "Frostbite Blade": [400, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
-                    "Ice Shard Armor": [550, 2, 13, 3],  // AC 13 base, +3 AC bonus (AC 16 total, unique)
+                    "Frostbite Blade": [400, 1, 3, "4d6"],  // Custom: 4d6 damage (4-24), +3 attack rolls
+                    "Ice Shard Armor": [550, 2, 13, {type: 'lowHP', threshold: 15, bonus: 5}],  // AC 13 base, +5 AC when HP <= 15
                     "Glacial Potion": [280, 3, 1, 3],  // +3 to all rolls for 1 turn (unique)
-                    "Frozen Edge": [500, 1, 5, 4],  // Tier 5 base, +4 attack rolls (unique)
-                    "Permafrost Plate": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Frozen Edge": [500, 1, 4, "2d10+2d6"],  // Custom: 2d10+2d6 damage (4-32), +4 attack rolls
+                    "Permafrost Plate": [650, 2, 14, {type: 'percentHP', threshold: 0.25, bonus: 6}],  // AC 14 base, +6 AC when HP <= 25%
                     "Ice Elixir": [320, 3, 3, 4],  // +4 AC for 1 turn (unique)
-                    "Blizzard Blade": [600, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
-                    "Arctic Armor": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Blizzard Blade": [600, 1, 4, "3d8+2d6"],  // Custom: 3d8+2d6 damage (5-36), +4 attack rolls
+                    "Arctic Armor": [750, 2, 15, {type: 'lowHP', threshold: 20, bonus: 6}],  // AC 15 base, +6 AC when HP <= 20
                     "Frost Potion": [380, 3, 5, 5],  // +5 AC for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1352,14 +1352,14 @@ z`<!DOCTYPE html>
             },
             6: {
                 items: {
-                    "Cursed Blade": [450, 1, 5, 3],  // Tier 5 base, +3 attack rolls (unique, better than town axe)
-                    "Blight Ward": [600, 2, 14, 3],  // AC 14 base, +3 AC bonus (AC 17 total, unique)
+                    "Cursed Blade": [450, 1, 3, "6d4"],  // Custom: 6d4 damage (6-24), +3 attack rolls
+                    "Blight Ward": [600, 2, 14, {type: 'lowHP', threshold: 20, bonus: 6}],  // AC 14 base, +6 AC when HP <= 20
                     "Corruption Potion": [300, 3, 4, 5],  // +5 attack rolls for 1 turn (unique)
-                    "Twisted Weapon": [550, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
-                    "Cursed Armor": [700, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Twisted Weapon": [550, 1, 4, "3d8+1d10"],  // Custom: 3d8+1d10 damage (4-34), +4 attack rolls
+                    "Cursed Armor": [700, 2, 15, {type: 'percentHP', threshold: 0.2, bonus: 7}],  // AC 15 base, +7 AC when HP <= 20%
                     "Blight Elixir": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
-                    "Dark Blade": [650, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
-                    "Corrupted Plate": [800, 2, 16, 4],  // AC 16 base, +4 AC bonus (AC 20 total, unique)
+                    "Dark Blade": [650, 1, 5, "4d10+1d6"],  // Custom: 4d10+1d6 damage (5-46), +5 attack rolls
+                    "Corrupted Plate": [800, 2, 16, {type: 'lowHP', threshold: 25, bonus: 7}],  // AC 16 base, +7 AC when HP <= 25
                     "Forbidden Potion": [400, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1368,14 +1368,14 @@ z`<!DOCTYPE html>
             },
             7: {
                 items: {
-                    "Void Edge": [500, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
-                    "Rift Cloak": [650, 2, 14, 4],  // AC 14 base, +4 AC bonus (AC 18 total, unique)
+                    "Void Edge": [500, 1, 4, "4d8"],  // Custom: 4d8 damage (4-32), +4 attack rolls
+                    "Rift Cloak": [650, 2, 14, {type: 'lowHP', threshold: 25, bonus: 7}],  // AC 14 base, +7 AC when HP <= 25
                     "Chaos Potion": [350, 3, 1, 4],  // +4 to all rolls for 1 turn (unique)
-                    "Reality Breaker": [600, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
-                    "Void Armor": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Reality Breaker": [600, 1, 5, "5d6+1d4"],  // Custom: 5d6+1d4 damage (6-34), +5 attack rolls
+                    "Void Armor": [750, 2, 15, {type: 'percentHP', threshold: 0.15, bonus: 8}],  // AC 15 base, +8 AC when HP <= 15%
                     "Chaos Elixir": [400, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
-                    "Dimensional Blade": [700, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
-                    "Rift Plate": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Dimensional Blade": [700, 1, 6, "6d6+2"],  // Custom: 6d6+2 damage (8-38), +6 attack rolls
+                    "Rift Plate": [850, 2, 16, {type: 'percentHP', threshold: 0.1, bonus: 9}],  // AC 16 base, +9 AC when HP <= 10%
                     "Void Potion": [450, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1384,14 +1384,14 @@ z`<!DOCTYPE html>
             },
             8: {
                 items: {
-                    "Abyssal Blade": [600, 1, 6, 4],  // Tier 6 base, +4 attack rolls (unique, better than town great sword)
-                    "Depth Plate": [750, 2, 15, 4],  // AC 15 base, +4 AC bonus (AC 19 total, unique)
+                    "Abyssal Blade": [600, 1, 4, "7d4"],  // Custom: 7d4 damage (7-28), +4 attack rolls
+                    "Depth Plate": [750, 2, 15, {type: 'lowHP', threshold: 30, bonus: 8}],  // AC 15 base, +8 AC when HP <= 30
                     "Abyss Potion": [400, 3, 4, 6],  // +6 attack rolls for 1 turn (unique)
-                    "Leviathan's Edge": [700, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique)
-                    "Abyssal Armor": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Leviathan's Edge": [700, 1, 5, "4d10+2d6"],  // Custom: 4d10+2d6 damage (6-52), +5 attack rolls
+                    "Abyssal Armor": [850, 2, 16, {type: 'percentHP', threshold: 0.1, bonus: 9}],  // AC 16 base, +9 AC when HP <= 10%
                     "Depth Elixir": [450, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
-                    "Titan's Blade": [800, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
-                    "Ancient Plate": [950, 2, 17, 5],  // AC 17 base, +5 AC bonus (AC 22 total, unique)
+                    "Titan's Blade": [800, 1, 6, "5d8+3d4"],  // Custom: 5d8+3d4 damage (8-52), +6 attack rolls
+                    "Ancient Plate": [950, 2, 17, {type: 'lowHP', threshold: 35, bonus: 9}],  // AC 17 base, +9 AC when HP <= 35
                     "Abyssal Essence": [500, 3, 1, 6],  // +6 to all rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1400,14 +1400,14 @@ z`<!DOCTYPE html>
             },
             9: {
                 items: {
-                    "Shadow Blade": [700, 1, 6, 5],  // Tier 6 base, +5 attack rolls (unique, better than town great sword)
-                    "Obsidian Armor": [850, 2, 16, 5],  // AC 16 base, +5 AC bonus (AC 21 total, unique)
+                    "Shadow Blade": [700, 1, 5, "8d4"],  // Custom: 8d4 damage (8-32), +5 attack rolls
+                    "Obsidian Armor": [850, 2, 16, {type: 'lowHP', threshold: 35, bonus: 9}],  // AC 16 base, +9 AC when HP <= 35
                     "Shadow Potion": [450, 3, 1, 5],  // +5 to all rolls for 1 turn (unique)
-                    "Dark Lord's Edge": [800, 1, 6, 6],  // Tier 6 base, +6 attack rolls (unique)
-                    "Shadow Plate": [950, 2, 17, 6],  // AC 17 base, +6 AC bonus (AC 23 total, unique)
+                    "Dark Lord's Edge": [800, 1, 6, "5d10+3d6"],  // Custom: 5d10+3d6 damage (8-68), +6 attack rolls
+                    "Shadow Plate": [950, 2, 17, {type: 'percentHP', threshold: 0.05, bonus: 10}],  // AC 17 base, +10 AC when HP <= 5%
                     "Dark Elixir": [500, 3, 4, 7],  // +7 attack rolls for 1 turn (unique)
-                    "Sovereign's Blade": [900, 1, 6, 7],  // Tier 6 base, +7 attack rolls (unique)
-                    "Legendary Plate": [1050, 2, 18, 6],  // AC 18 base, +6 AC bonus (AC 24 total, unique)
+                    "Sovereign's Blade": [900, 1, 7, "6d10+4d4"],  // Custom: 6d10+4d4 damage (10-76), +7 attack rolls
+                    "Legendary Plate": [1050, 2, 18, {type: 'lowHP', threshold: 40, bonus: 10}],  // AC 18 base, +10 AC when HP <= 40
                     "Shadow Essence": [550, 3, 1, 6],  // +6 to all rolls for 1 turn (unique)
                     "checkpoint": [500, 0, 5, 0]
                 },
@@ -1940,7 +1940,7 @@ z`<!DOCTYPE html>
             }
             showView('view-dungeon');
             renderDungeon();
-            checkRoom();
+            checkRoom(false, true);  // Entering dungeon - can spawn wandering monsters
         }
 
         function renderDungeon() {
@@ -2012,11 +2012,11 @@ z`<!DOCTYPE html>
                 currentRoom = [nr, nc];
                 renderDungeon();
                 updateUI();
-                checkRoom();
+                checkRoom(false, true);  // Entering new room - can spawn wandering monsters
             }
         }
 
-        function checkRoom(suppressEvents = false) {
+        function checkRoom(suppressEvents = false, isEnteringRoom = false) {
             if(suppressEvents) return;
             const floorKey = `floor_${stats.floor}`;
             const val = String(floorMaps[floorKey][currentRoom[0]][currentRoom[1]]).padStart(9, '0');
@@ -2061,6 +2061,9 @@ z`<!DOCTYPE html>
             const monsterKey = `${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
             let hasMonster = false;
             
+            // Check if there's already a permanent monster in this room
+            const hasPermanentMonster = val[2] === '1' || val[3] === '1' || val[5] === '1' || val[6] === '1';
+            
             if (val[2] === '1') {
                 const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('boss');
                 showPreCombatSavePrompt(name, 'boss');
@@ -2070,7 +2073,7 @@ z`<!DOCTYPE html>
                 showPreCombatSavePrompt(name, 'mini');
                 hasMonster = true;
             } else if (val[5] === '1') {
-                // wandering monsters are typically not pre-generated; generate a wandering name
+                // Pre-placed wandering monster
                 const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('wandering');
                 showPreCombatSavePrompt(name, 'wandering');
                 hasMonster = true;
@@ -2078,15 +2081,14 @@ z`<!DOCTYPE html>
                 const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('normal');
                 showPreCombatSavePrompt(name, 'normal');
                 hasMonster = true;
-            } else if (Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
-                // Random wandering monster spawn (25% chance in any room)
-                // But NOT if there's already a monster/boss/chest in this room
-                const hasExistingMonster = val[2] === '1' || val[3] === '1' || val[5] === '1' || val[6] === '1';
+            } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
+                // Random wandering monster spawn ONLY when entering room (25% chance)
+                // Maximum 1 enemy per room - check if there's already a monster
                 const hasChest = val[7] === '1' || val[8] === '1';
-                const shopKey = `shop_${currentRoom[0]},${currentRoom[1]},${stats.floor}`;
                 const hasShop = monsterData[shopKey];
                 
-                if (!hasExistingMonster && !hasChest && !hasShop) {
+                // Only spawn if no existing monster, no chest, and no shop
+                if (!hasPermanentMonster && !hasChest && !hasShop) {
                     const name = generateMonsterName('wandering');
                     showPreCombatSavePrompt(name, 'wandering');
                     hasMonster = true;
@@ -2158,7 +2160,7 @@ z`<!DOCTYPE html>
                         // Stay in same room position
                         showView('view-dungeon');
                         renderDungeon();
-                        checkRoom();
+                        checkRoom(false, true);  // Entering new floor - can spawn wandering monsters
                     };
                 } else {
                     b.className = "px-6 py-3 bg-slate-600 rounded text-sm font-bold uppercase opacity-50 cursor-not-allowed";
@@ -2180,7 +2182,7 @@ z`<!DOCTYPE html>
                     // Stay in same room position
                     showView('view-dungeon');
                     renderDungeon();
-                    checkRoom();
+                    checkRoom(false, true);  // Entering new floor - can spawn wandering monsters
                 };
                 act.appendChild(upBtn);
             }
@@ -2266,7 +2268,7 @@ z`<!DOCTYPE html>
             stats.checkpoints[name] = { floor: stats.floor, row: currentRoom[0], col: currentRoom[1] };
             addLog(`Checkpoint "${name}" set at Floor ${stats.floor} [${currentRoom[0]},${currentRoom[1]}]`, "text-cyan-400 font-bold");
             closeCheckpointDialog();
-            checkRoom();
+            checkRoom(false, false);  // After setting checkpoint - do NOT spawn wandering monsters
         }
         
         function closeCheckpointDialog() {
@@ -2316,7 +2318,7 @@ z`<!DOCTYPE html>
                 addLog(`Teleported to "${cpName}"!`, "text-purple-400 font-bold");
                 closeTeleportDialog();
                 renderDungeon();
-                checkRoom();
+                checkRoom(false, true);  // Teleporting to room - can spawn wandering monsters
             }
         }
         
@@ -2336,7 +2338,9 @@ z`<!DOCTYPE html>
             html += `<div style="color:#94a3b8;font-size:0.85rem;">Your Gold: <span style="color:#fbbf24;font-weight:bold;">${stats.coins}</span></div>`;
             html += '</div>';
             
-            html += '<div style="max-height:350px;overflow-y:auto;">';
+            html += '<div style="max-height:350px;overflow-y:auto;" id="dungeon-shop-items">';
+            const buttonData = []; // Store button data for event listeners
+            
             for (let itemName in shop.inventory) {
                 const itemData = shop.inventory[itemName];
                 const cost = itemData[0];
@@ -2351,22 +2355,46 @@ z`<!DOCTYPE html>
                 if (itemType === 1) {
                     typeLabel = '⚔️ Weapon';
                     typeColor = '#ef4444';
-                    const baseTier = bonusType || 2;
-                    const val = bonusValue || 0;
-                    if (val > 0) {
-                        effectDesc = `Tier ${baseTier} base, +${val} attack rolls`;
+                    // Check if bonusValue is a damage formula string
+                    if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                        const attackBonus = bonusType || 0;
+                        if (attackBonus > 0) {
+                            effectDesc = `${bonusValue} damage, +${attackBonus} attack rolls`;
+                        } else {
+                            effectDesc = `${bonusValue} damage`;
+                        }
                     } else {
-                        effectDesc = `Tier ${baseTier} weapon`;
+                        const baseTier = bonusType || 2;
+                        const val = bonusValue || 0;
+                        if (val > 0) {
+                            effectDesc = `Tier ${baseTier} base, +${val} attack rolls`;
+                        } else {
+                            effectDesc = `Tier ${baseTier} weapon`;
+                        }
                     }
                 } else if (itemType === 2) {
                     typeLabel = '🛡️ Armor';
                     typeColor = '#3b82f6';
                     const baseAC = bonusType || 10;
-                    const val = bonusValue || 0;
-                    if (val > 0) {
-                        effectDesc = `AC ${baseAC} base, +${val} AC bonus`;
+                    // Check if bonusValue is a conditional bonus object
+                    if (typeof bonusValue === 'object' && bonusValue !== null && bonusValue.type) {
+                        let conditionText = '';
+                        if (bonusValue.type === 'lowHP') {
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} when HP ≤ ${bonusValue.threshold}`;
+                        } else if (bonusValue.type === 'percentHP') {
+                            const percent = Math.round(bonusValue.threshold * 100);
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} when HP ≤ ${percent}%`;
+                        } else if (bonusValue.type === 'highHP') {
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} when HP ≥ ${bonusValue.threshold}`;
+                        }
+                        effectDesc = conditionText;
                     } else {
-                        effectDesc = `AC ${baseAC} armor`;
+                        const val = bonusValue || 0;
+                        if (val > 0) {
+                            effectDesc = `AC ${baseAC} base, +${val} AC bonus`;
+                        } else {
+                            effectDesc = `AC ${baseAC} armor`;
+                        }
                     }
                 } else if (itemType === 3) {
                     typeLabel = '🧪 Potion';
@@ -2394,6 +2422,7 @@ z`<!DOCTYPE html>
                 }
                 
                 const canAfford = stats.coins >= cost;
+                const itemIndex = buttonData.length;
                 
                 html += `<div style="padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;">`;
                 html += `<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem;">`;
@@ -2407,10 +2436,18 @@ z`<!DOCTYPE html>
                 html += `</div>`;
                 html += `</div>`;
                 html += `<div style="display:flex;gap:0.5rem;">`;
-                html += `<button onclick="showDungeonItemStats('${itemName}', ${JSON.stringify(itemData).replace(/"/g, '&quot;')})" style="flex:1;padding:0.5rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>`;
-                html += `<button onclick="buyDungeonItem('${itemName}', ${cost}, ${itemType}, ${bonusType}, ${bonusValue})" style="flex:1;padding:0.5rem;background:${canAfford ? '#10b981' : '#64748b'};border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:${canAfford ? 'pointer' : 'not-allowed'};border:none;" ${!canAfford ? 'disabled' : ''}>BUY</button>`;
+                html += `<button class="dungeon-shop-view-btn" data-item-index="${itemIndex}" style="flex:1;padding:0.5rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>`;
+                html += `<button class="dungeon-shop-buy-btn" data-item-index="${itemIndex}" style="flex:1;padding:0.5rem;background:${canAfford ? '#10b981' : '#64748b'};border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:${canAfford ? 'pointer' : 'not-allowed'};border:none;" ${!canAfford ? 'disabled' : ''}>BUY</button>`;
                 html += `</div>`;
                 html += `</div>`;
+                
+                // Store button data for later - create a deep copy to prevent corruption
+                const dataCopy = Array.isArray(itemData) ? [...itemData] : JSON.parse(JSON.stringify(itemData));
+                // Ensure nested objects are properly copied
+                if (Array.isArray(dataCopy) && typeof dataCopy[3] === 'object' && dataCopy[3] !== null) {
+                    dataCopy[3] = JSON.parse(JSON.stringify(dataCopy[3]));
+                }
+                buttonData.push({ name: itemName, data: dataCopy, canAfford });
             }
             html += '</div>';
             
@@ -2420,6 +2457,93 @@ z`<!DOCTYPE html>
             modal.innerHTML = html;
             modal.id = 'dungeon-shop-modal';
             document.body.appendChild(modal);
+            
+            // Set up event listeners for all buttons
+            const viewButtons = modal.querySelectorAll('.dungeon-shop-view-btn');
+            const buyButtons = modal.querySelectorAll('.dungeon-shop-buy-btn');
+            
+            viewButtons.forEach((btn, index) => {
+                if (buttonData[index]) {
+                    btn.onclick = () => {
+                        // Ensure we're passing the correct data and calling the RIGHT function
+                        const itemData = buttonData[index].data;
+                        // Make sure we're calling showDungeonItemStats, not showItemStats
+                        showDungeonItemStats(buttonData[index].name, itemData);
+                    };
+                }
+            });
+            
+            buyButtons.forEach((btn, index) => {
+                if (buttonData[index] && buttonData[index].canAfford) {
+                    btn.onclick = () => confirmDungeonPurchase(buttonData[index].name, buttonData[index].data);
+                }
+            });
+        }
+        
+        function confirmDungeonPurchase(itemName, itemData) {
+            // Close shop modal first
+            closeDungeonShop();
+            
+            const cost = Array.isArray(itemData) ? itemData[0] : (itemData.cost || itemData[0] || 0);
+            const itemType = Array.isArray(itemData) ? itemData[1] : (itemData.itemType || itemData[1] || 0);
+            
+            let itemTypeName = 'item';
+            if (itemType === 1) itemTypeName = 'weapon';
+            else if (itemType === 2) itemTypeName = 'armor';
+            else if (itemType === 3) itemTypeName = 'potion';
+            else if (itemType === 0) itemTypeName = 'special item';
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10002;';
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:400px;width:90%;">';
+            html += '<h2 style="font-size:1.3rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">CONFIRM PURCHASE</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-align:center;margin-bottom:0.5rem;">${itemName}</div>`;
+            html += `<div style="font-size:0.9rem;color:#94a3b8;text-align:center;margin-bottom:1rem;">${itemTypeName}</div>`;
+            html += `<div style="font-size:1rem;color:#64748b;text-align:center;">Price: <span style="color:#fbbf24;font-weight:bold;">${cost} Gold</span></div>`;
+            html += `<div style="font-size:0.9rem;color:#64748b;text-align:center;margin-top:0.5rem;">Your Gold: <span style="color:#fbbf24;font-weight:bold;">${stats.coins}</span></div>`;
+            html += '</div>';
+            html += '<div style="display:flex;gap:0.75rem;">';
+            html += '<button id="confirm-dungeon-purchase-cancel" style="flex:1;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CANCEL</button>';
+            html += '<button id="confirm-dungeon-purchase-buy" style="flex:1;padding:0.75rem;background:#10b981;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">BUY</button>';
+            html += '</div>';
+            html += '</div>';
+            
+            modal.innerHTML = html;
+            modal.id = 'confirm-dungeon-purchase-modal';
+            document.body.appendChild(modal);
+            
+            document.getElementById('confirm-dungeon-purchase-cancel').onclick = () => {
+                modal.remove();
+                showDungeonShop({ name: 'Merchant', greeting: 'Welcome!', inventory: getCurrentMerchantInventory() });
+            };
+            
+            document.getElementById('confirm-dungeon-purchase-buy').onclick = () => {
+                modal.remove();
+                buyDungeonItemFromData(itemName, itemData);
+            };
+        }
+        
+        function getCurrentMerchantInventory() {
+            // Find the current merchant shop data
+            const currentRoom = mapData[stats.floor][stats.dungeonY][stats.dungeonX];
+            if (currentRoom && currentRoom.shop) {
+                return currentRoom.shop.inventory;
+            }
+            return {};
+        }
+
+        // Wrapper function to handle purchase with full item data
+        function buyDungeonItemFromData(itemName, itemData) {
+            // Parse JSON if it's a string
+            let data;
+            try {
+                data = typeof itemData === 'string' ? JSON.parse(itemData.replace(/&quot;/g, '"')) : itemData;
+            } catch (e) {
+                data = itemData;
+            }
+            buyDungeonItem(itemName, data[0], data[1], data[2], data[3]);
         }
 
         function buyDungeonItem(itemName, cost, itemType, bonusType, bonusValue) {
@@ -2431,35 +2555,69 @@ z`<!DOCTYPE html>
             stats.coins -= cost;
             
             if (itemType === 1) {
-                // Unique Weapon - store with base tier and bonus
+                // Unique Weapon - check if bonusValue is a damage formula string
                 if (!stats.weapons[itemName]) {
-                    // Base tier is bonusType (1-6), attack bonus is bonusValue
-                    const baseTier = bonusType || 2;
-                    stats.weapons[itemName] = { tier: baseTier, attackBonus: bonusValue || 0, unique: true };
+                    const weaponData = { unique: true };
+                    
+                    // Check if bonusValue is a string (damage formula) or number (attack bonus)
+                    if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                        // Custom damage formula
+                        weaponData.damageFormula = bonusValue;
+                        weaponData.attackBonus = bonusType || 0; // bonusType becomes attackBonus
+                    } else {
+                        // Standard tier-based weapon
+                        weaponData.tier = bonusType || 2;
+                        weaponData.attackBonus = bonusValue || 0;
+                    }
+                    
+                    stats.weapons[itemName] = weaponData;
                     // Update attack bonus if equipping
                     if (stats.equippedWeapon === itemName || Object.keys(stats.weapons).length === 1) {
                         stats.equippedWeapon = itemName;
-                        stats.attackBonus = bonusValue || 0;
+                        stats.attackBonus = weaponData.attackBonus || 0;
                     }
-                    addLog(`Purchased ${itemName}! (+${bonusValue || 0} attack rolls)`, 'text-green-400 font-bold');
+                    const bonusText = weaponData.attackBonus > 0 ? ` (+${weaponData.attackBonus} attack rolls)` : '';
+                    addLog(`Purchased ${itemName}!${bonusText}`, 'text-green-400 font-bold');
                 } else {
                     stats.coins += cost; // Refund if already have
                     addLog('You already have this weapon!', 'text-yellow-400');
                     return;
                 }
             } else if (itemType === 2) {
-                // Unique Armor - store with base AC and bonus
+                // Unique Armor - check if bonusValue is a conditional bonus object
                 if (!stats.armors[itemName]) {
-                    // Base AC is bonusType (10-17), AC bonus is bonusValue
                     const baseAC = bonusType || 10;
-                    stats.armors[itemName] = { ac: baseAC, acBonus: bonusValue || 0, unique: true };
-                    // Update AC bonus if equipping
+                    const armorData = { ac: baseAC, unique: true };
+                    
+                    // Check if bonusValue is an object (conditional bonus) or number (flat bonus)
+                    if (typeof bonusValue === 'object' && bonusValue !== null) {
+                        armorData.conditionalBonus = bonusValue;
+                    } else {
+                        armorData.acBonus = bonusValue || 0;
+                    }
+                    
+                    stats.armors[itemName] = armorData;
+                    // Update AC if equipping
                     if (stats.equippedArmor === itemName || Object.keys(stats.armors).length === 1) {
                         stats.equippedArmor = itemName;
                         stats.armor = baseAC;
-                        stats.acBonus = bonusValue || 0;
+                        stats.acBonus = armorData.acBonus || 0;
                     }
-                    addLog(`Purchased ${itemName}! (+${bonusValue || 0} AC)`, 'text-green-400 font-bold');
+                    let bonusText = '';
+                    if (armorData.conditionalBonus) {
+                        const cond = armorData.conditionalBonus;
+                        if (cond.type === 'lowHP') {
+                            bonusText = ` (AC ${baseAC}, +${cond.bonus} when HP ≤ ${cond.threshold})`;
+                        } else if (cond.type === 'percentHP') {
+                            const percent = Math.round(cond.threshold * 100);
+                            bonusText = ` (AC ${baseAC}, +${cond.bonus} when HP ≤ ${percent}%)`;
+                        } else if (cond.type === 'highHP') {
+                            bonusText = ` (AC ${baseAC}, +${cond.bonus} when HP ≥ ${cond.threshold})`;
+                        }
+                    } else if (armorData.acBonus > 0) {
+                        bonusText = ` (+${armorData.acBonus} AC)`;
+                    }
+                    addLog(`Purchased ${itemName}!${bonusText}`, 'text-green-400 font-bold');
                 } else {
                     stats.coins += cost; // Refund if already have
                     addLog('You already have this armor!', 'text-yellow-400');
@@ -2494,64 +2652,206 @@ z`<!DOCTYPE html>
             }
         }
 
+        // Wrapper function to handle JSON parsing from onclick
+        function showDungeonItemStatsWrapper(name, dataStr) {
+            let data;
+            try {
+                // Try parsing as JSON string first
+                if (typeof dataStr === 'string') {
+                    // Replace &quot; back to " for proper JSON parsing
+                    const jsonStr = dataStr.replace(/&quot;/g, '"');
+                    data = JSON.parse(jsonStr);
+                } else {
+                    data = dataStr;
+                }
+            } catch (e) {
+                console.error('Error parsing item data:', e, dataStr);
+                // If parsing fails, try to extract as array
+                if (typeof dataStr === 'string') {
+                    // Try to manually parse if JSON.parse fails
+                    try {
+                        data = eval('(' + dataStr.replace(/&quot;/g, '"') + ')');
+                    } catch (e2) {
+                        data = dataStr;
+                    }
+                } else {
+                    data = dataStr;
+                }
+            }
+            showDungeonItemStats(name, data);
+        }
+
         function showDungeonItemStats(name, data) {
             const modal = document.createElement('div');
             modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:10001;';
             
-            const cost = data[0];
-            const itemType = data[1];
-            const bonusType = data[2];
-            const bonusValue = data[3] || 0;
+            // Handle both array and object formats - ensure we get the correct values
+            let cost, itemType, bonusType, bonusValue;
+            
+            // First, ensure data is an array
+            if (!Array.isArray(data)) {
+                if (data && typeof data === 'object') {
+                    // Try to reconstruct array from object
+                    cost = data.cost !== undefined ? data.cost : (data[0] !== undefined ? data[0] : 0);
+                    itemType = data.itemType !== undefined ? data.itemType : (data[1] !== undefined ? data[1] : 0);
+                    bonusType = data.bonusType !== undefined ? data.bonusType : (data[2] !== undefined ? data[2] : 0);
+                    bonusValue = data.bonusValue !== undefined ? data.bonusValue : (data[3] !== undefined ? data[3] : 0);
+                } else {
+                    console.error('Invalid item data for', name, data);
+                    cost = 0;
+                    itemType = 0;
+                    bonusType = 0;
+                    bonusValue = 0;
+                }
+            } else {
+                // Data is an array - extract values directly
+                // IMPORTANT: Array format is [cost, itemType, bonusType, bonusValue]
+                cost = data[0] !== undefined ? data[0] : 0;
+                itemType = data[1] !== undefined ? data[1] : 0;  // 1=weapon, 2=armor, 3=potion, 0=special
+                bonusType = data[2] !== undefined ? data[2] : 0;  // Base tier/AC or effect type
+                bonusValue = data[3] !== undefined ? data[3] : 0;  // Bonus amount or damage formula
+            }
+            
+            // Validate itemType is a number
+            if (typeof itemType !== 'number') {
+                itemType = parseInt(itemType) || 0;
+            }
+            // Ensure itemType is an integer
+            itemType = Math.floor(itemType);
+            
+            // Validate bonusType is a number (unless it's an object for conditional bonuses)
+            if (typeof bonusType !== 'number' && typeof bonusType !== 'object') {
+                bonusType = parseInt(bonusType) || 0;
+            }
+            
+            // Handle null/undefined for bonusValue - set to 0 only if truly null/undefined
+            // Preserve objects, strings, and numbers (including 0)
+            if (bonusValue === null || bonusValue === undefined) {
+                bonusValue = 0;
+            }
+            // Note: bonusValue can be: number, string (damage formula), or object (conditional bonus)
+            
+            // Ensure itemType is correct - merchant items use: 1=weapon, 2=armor, 3=potion, 0=special
+            // NEVER treat merchant potions (itemType 3) as spells (itemType 4)
+            if (itemType === 4) {
+                // This shouldn't happen for merchant items, but if it does, treat as potion
+                console.warn('Item type 4 detected for merchant item - treating as potion:', name);
+                itemType = 3;
+            }
             
             let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:500px;width:90%;">';
             html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:white;">ITEM DETAILS</h2>';
             html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
             html += `<div style="font-size:1.2rem;font-weight:bold;color:#fbbf24;text-transform:uppercase;margin-bottom:0.5rem;text-align:center;">${name}</div>`;
             
+            // Ensure we're displaying the correct item type
+            // itemType: 1=weapon, 2=armor, 3=potion, 0=special
+            
             if (itemType === 1) {
-                // Unique Weapon
-                const baseTier = bonusType || 2;
+                // Unique Weapon - ALWAYS show weapon information
                 html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Weapon</div>`;
                 html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
-                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base Tier: <span style="color:#fbbf24;font-weight:bold;">${baseTier}</span></div>`;
-                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Damage: <span style="color:#10b981;font-weight:bold;">${getWeaponDamageDesc(baseTier)}</span></div>`;
-                if (bonusValue > 0) {
-                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusValue} to attack rolls</span></div>`;
+                
+                // Check if bonusValue is a damage formula string
+                if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Damage Formula: <span style="color:#10b981;font-weight:bold;">${bonusValue}</span></div>`;
+                    // Calculate damage range for display
+                    try {
+                        const testRolls = [];
+                        for (let i = 0; i < 100; i++) {
+                            testRolls.push(calculateCustomDamage(bonusValue));
+                        }
+                        const minDmg = Math.min(...testRolls);
+                        const maxDmg = Math.max(...testRolls);
+                        html += `<div style="font-size:0.9rem;color:#64748b;margin-bottom:0.5rem;">Damage Range: <span style="color:#10b981;font-weight:bold;">${minDmg}-${maxDmg}</span></div>`;
+                    } catch (e) {
+                        // Ignore calculation errors
+                    }
+                    if (bonusType && typeof bonusType === 'number' && bonusType > 0) {
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusType} to attack rolls</span></div>`;
+                    }
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Unique damage formula! This weapon deals damage differently than standard weapons. Each attack uses this formula to calculate damage.</div>';
+                } else if (typeof bonusValue === 'number' || bonusValue === 0 || bonusValue === null || bonusValue === undefined) {
+                    // Standard tier-based weapon
+                    const baseTier = (typeof bonusType === 'number' && bonusType > 0) ? bonusType : 2;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base Tier: <span style="color:#fbbf24;font-weight:bold;">${baseTier}</span></div>`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Damage: <span style="color:#10b981;font-weight:bold;">${getWeaponDamageDesc(baseTier)}</span></div>`;
+                    if (bonusValue && typeof bonusValue === 'number' && bonusValue > 0) {
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusValue} to attack rolls</span></div>`;
+                    }
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your attack roll chance. Stacks with weapon tier damage.</div>';
+                } else {
+                    // Fallback - always show something
+                    html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Unique weapon with special properties.</div>';
+                    html += `<div style="font-size:0.9rem;color:#64748b;margin-bottom:0.5rem;">Bonus Type: ${typeof bonusType === 'object' ? JSON.stringify(bonusType) : bonusType}, Value: ${typeof bonusValue === 'object' ? JSON.stringify(bonusValue) : bonusValue}</div>`;
                 }
-                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your attack roll chance. Stacks with weapon tier damage.</div>';
+                html += '</div>'; // Close border-top div
             } else if (itemType === 2) {
-                // Unique Armor
-                const baseAC = bonusType || 10;
+                // Unique Armor - ALWAYS show armor information
+                const baseAC = (typeof bonusType === 'number' && bonusType > 0) ? bonusType : 10;
                 html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Armor</div>`;
                 html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
                 html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base AC: <span style="color:#3b82f6;font-weight:bold;">${baseAC}</span></div>`;
-                if (bonusValue > 0) {
+                
+                // Check if bonusValue is a conditional bonus object (not array, not null)
+                if (bonusValue && typeof bonusValue === 'object' && !Array.isArray(bonusValue) && bonusValue !== null && bonusValue.type) {
+                    let conditionText = '';
+                    if (bonusValue.type === 'lowHP') {
+                        conditionText = `+${bonusValue.bonus} AC when HP ≤ ${bonusValue.threshold}`;
+                    } else if (bonusValue.type === 'percentHP') {
+                        const percent = Math.round(bonusValue.threshold * 100);
+                        conditionText = `+${bonusValue.bonus} AC when HP ≤ ${percent}%`;
+                    } else if (bonusValue.type === 'highHP') {
+                        conditionText = `+${bonusValue.bonus} AC when HP ≥ ${bonusValue.threshold}`;
+                    }
+                    if (conditionText) {
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Special Effect: <span style="color:#10b981;font-weight:bold;">${conditionText}</span></div>`;
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Max AC (when condition met): <span style="color:#fbbf24;font-weight:bold;">${baseAC + bonusValue.bonus}</span></div>`;
+                        html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Conditional bonus! This armor provides extra protection when you\'re in danger. The bonus activates automatically when the condition is met during combat.</div>';
+                    } else {
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC}</span></div>`;
+                        html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
+                    }
+                } else if (typeof bonusValue === 'number' && bonusValue > 0) {
                     html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">AC Bonus: <span style="color:#10b981;font-weight:bold;">+${bonusValue} AC</span></div>`;
                     html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC + bonusValue}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
                 } else {
+                    // Always show at least base AC
                     html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
                 }
-                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
+                html += '</div>'; // Close border-top div
             } else if (itemType === 3) {
-                // Unique Potion
+                // Unique Potion - ALWAYS show potion information
                 html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Potion</div>`;
                 html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
                 let effectText = '';
-                if (bonusType === 1 || bonusType === 2) {
-                    effectText = `+${bonusValue} to all rolls for 1 turn`;
-                } else if (bonusType === 3 || bonusType === 5) {
-                    effectText = `+${bonusValue} AC for 1 turn`;
-                } else if (bonusType === 4 || bonusType === 6) {
-                    effectText = `+${bonusValue} attack rolls for 1 turn`;
-                } else if (bonusType === 7) {
-                    effectText = `+${bonusValue} to all rolls for 1 turn`;
-                } else {
-                    effectText = 'Special effect potion';
-                }
-                if (effectText) {
+                const val = typeof bonusValue === 'number' ? bonusValue : 0;
+                const bonusTypeNum = typeof bonusType === 'number' ? bonusType : parseInt(bonusType) || 0;
+                
+                if (bonusTypeNum === 1 || bonusTypeNum === 2) {
+                    effectText = `+${val} to all rolls for 1 turn`;
                     html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">${effectText}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Use in combat to gain a temporary bonus to all your rolls (attack, defense, skill checks) for one turn.</div>';
+                } else if (bonusTypeNum === 3 || bonusTypeNum === 5) {
+                    effectText = `+${val} AC for 1 turn`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">${effectText}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Use in combat to temporarily increase your Armor Class, making you harder to hit for one turn.</div>';
+                } else if (bonusTypeNum === 4 || bonusTypeNum === 6) {
+                    effectText = `+${val} attack rolls for 1 turn`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">${effectText}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Use in combat to temporarily increase your attack roll chance, making you more likely to hit for one turn.</div>';
+                } else if (bonusTypeNum === 7) {
+                    effectText = `+${val} to all rolls for 1 turn`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">${effectText}</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Use in combat to gain a temporary bonus to all your rolls for one turn.</div>';
+                } else {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#10b981;font-weight:bold;">Special effect potion</span></div>`;
+                    html += `<div style="font-size:0.9rem;color:#64748b;margin-bottom:0.5rem;">Bonus Type: ${bonusTypeNum}, Value: ${val}</div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Use in combat for temporary bonuses.</div>';
                 }
-                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Use in combat for temporary bonuses.</div>';
+                html += '</div>'; // Close border-top div
             } else if (itemType === 0 && bonusType === 5) {
                 // Checkpoint
                 html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Special Item</div>`;
@@ -2560,11 +2860,13 @@ z`<!DOCTYPE html>
                 html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">Set a checkpoint and teleport to it anytime</span></div>';
                 html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Once purchased, you can place a checkpoint in any dungeon room and teleport back to it whenever you want.</div>';
             } else {
-                // Fallback for unknown items
+                // Fallback for unknown items - show what we know
                 html += `<div style="font-size:0.9rem;color:#94a3b8;margin-bottom:1rem;text-align:center;">Unique Item</div>`;
                 html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
-                html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">A unique item found only in dungeon merchants.</div>';
-                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">This item cannot be purchased in town.</div>';
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Item Type: ${itemType}</div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Bonus Type: ${bonusType}</div>`;
+                html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Bonus Value: ${typeof bonusValue === 'object' ? JSON.stringify(bonusValue) : bonusValue}</div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">A unique item found only in dungeon merchants.</div>';
             }
             
             html += '</div>';
@@ -2651,7 +2953,7 @@ z`<!DOCTYPE html>
                     
                     stats.temporary_intelligence = 0;
                     isProcessing = false;
-                    checkRoom();
+                    checkRoom(false, false);  // After opening chest - do NOT spawn wandering monsters
                     updateUI();
                 } else {
                     if (Math.floor(Math.random()*3)+1 !== 1) {
@@ -2664,7 +2966,7 @@ z`<!DOCTYPE html>
                         addLog("The chest was empty.", "text-slate-500");
                     }
                     isProcessing = false;
-                    checkRoom();
+                    checkRoom(false, false);  // After opening chest - do NOT spawn wandering monsters
                     updateUI();
                 }
             };
@@ -2933,7 +3235,7 @@ z`<!DOCTYPE html>
                 
                 showView('view-dungeon');
                 renderDungeon();
-                checkRoom(false);  // Show room actions
+                checkRoom(false, true);  // Entering new room via retreat - can spawn wandering monsters
             } else {
                 addLog("Retreat Failed!", "text-red-500 font-bold");
                 await sleep(500);
@@ -2960,6 +3262,57 @@ z`<!DOCTYPE html>
             const p = Math.max(0, (combatData.HP / combatData.maxHP) * 100);
             document.getElementById('monster-hp-bar').style.width = `${p}%`;
             document.getElementById('turn-indicator').innerText = combatData.turn.toUpperCase() + ' TURN';
+        }
+
+        // Calculate total AC including conditional bonuses
+        function getTotalAC() {
+            let ac = stats.armor + stats.acBonus + stats.temporary_armor + stats.temporary_acBonus;
+            const armorData = stats.armors[stats.equippedArmor];
+            if (armorData && typeof armorData === 'object' && armorData.unique && armorData.conditionalBonus) {
+                const condition = armorData.conditionalBonus;
+                if (condition.type === 'lowHP' && stats.HP <= condition.threshold) {
+                    ac += condition.bonus;
+                } else if (condition.type === 'highHP' && stats.HP >= condition.threshold) {
+                    ac += condition.bonus;
+                } else if (condition.type === 'percentHP' && (stats.HP / stats.maxHP) <= condition.threshold) {
+                    ac += condition.bonus;
+                }
+            }
+            return ac;
+        }
+
+        // Calculate custom damage formula (e.g., "1d6+1d10", "5d4", "2d8+3")
+        function calculateCustomDamage(formula) {
+            if (!formula || typeof formula !== 'string') return 0;
+            
+            let total = 0;
+            // Split by + and - to handle multiple dice expressions
+            const parts = formula.split(/([+-])/);
+            let sign = 1;
+            
+            for (let part of parts) {
+                part = part.trim();
+                if (part === '+') { sign = 1; continue; }
+                if (part === '-') { sign = -1; continue; }
+                
+                // Check if it's a dice expression (e.g., "2d6", "1d10")
+                const diceMatch = part.match(/(\d+)d(\d+)/);
+                if (diceMatch) {
+                    const numDice = parseInt(diceMatch[1]);
+                    const diceSize = parseInt(diceMatch[2]);
+                    for (let i = 0; i < numDice; i++) {
+                        total += sign * (Math.floor(Math.random() * diceSize) + 1);
+                    }
+                } else {
+                    // It's a flat number
+                    const num = parseInt(part);
+                    if (!isNaN(num)) {
+                        total += sign * num;
+                    }
+                }
+            }
+            
+            return Math.max(0, total);
         }
 
         async function combatAction(dir) {
@@ -2997,20 +3350,36 @@ z`<!DOCTYPE html>
                 addLog("HIT!", "text-green-400 font-bold");
                 await logLoading("Damage", 3, 120);
                 const weaponData = stats.weapons[stats.equippedWeapon];
-                let tier = 1;
-                if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
-                    tier = weaponData.tier;
-                } else if (weaponData) {
-                    tier = typeof weaponData === 'number' ? weaponData : 1;
-                }
                 let dmg = 0;
-                if(tier===1) dmg = Math.floor(Math.random()*3)+1;  // 1d3: 1-3
-                else if(tier===2) dmg = Math.floor(Math.random()*6)+1;  // 1d6: 1-6
-                else if(tier===3) dmg = Math.floor(Math.random()*10)+1;  // 1d10: 1-10
-                else if(tier===4) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+2;  // 2d6+2: 4-14
-                else if(tier===5) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+3;  // 3d6+3: 6-21
-                else if(tier===6) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+4;  // 4d6+4: 8-28
-                else dmg = Math.floor(Math.random()*6)+1;  // Fallback to 1d6
+                
+                if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
+                    // Check if it has a custom damage formula
+                    if (weaponData.damageFormula) {
+                        dmg = calculateCustomDamage(weaponData.damageFormula);
+                    } else {
+                        // Fall back to tier-based damage
+                        const tier = weaponData.tier || 1;
+                        if(tier===1) dmg = Math.floor(Math.random()*3)+1;
+                        else if(tier===2) dmg = Math.floor(Math.random()*6)+1;
+                        else if(tier===3) dmg = Math.floor(Math.random()*10)+1;
+                        else if(tier===4) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+2;
+                        else if(tier===5) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+3;
+                        else if(tier===6) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+4;
+                        else dmg = Math.floor(Math.random()*6)+1;
+                    }
+                } else if (weaponData) {
+                    const tier = typeof weaponData === 'number' ? weaponData : 1;
+                    if(tier===1) dmg = Math.floor(Math.random()*3)+1;
+                    else if(tier===2) dmg = Math.floor(Math.random()*6)+1;
+                    else if(tier===3) dmg = Math.floor(Math.random()*10)+1;
+                    else if(tier===4) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+2;
+                    else if(tier===5) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+3;
+                    else if(tier===6) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+4;
+                    else dmg = Math.floor(Math.random()*6)+1;
+                } else {
+                    dmg = Math.floor(Math.random()*6)+1;  // Fallback
+                }
+                
                 const mDir = Math.floor(Math.random()*3)+1;
                 if(mDir === dir) {
                     dmg = Math.floor(dmg/2);
@@ -3088,7 +3457,7 @@ z`<!DOCTYPE html>
                 addLog("Monster strength increased!", "text-red-500");
             }
             const roll = Math.floor(Math.random()*20)+1 + combatData.strength;
-            const ac = stats.armor + stats.acBonus + stats.temporary_armor + stats.temporary_acBonus;
+            const ac = getTotalAC();
             addLog(`Monster Roll: ${roll} vs AC ${ac}`);
             if (roll >= ac) {
                 addLog("YOU WERE HIT!", "text-red-600 font-bold");
@@ -3310,7 +3679,7 @@ z`<!DOCTYPE html>
             updateUI();
             showView('view-dungeon');
             renderDungeon();
-            checkRoom(false);
+            checkRoom(false, false);  // After victory - do NOT spawn wandering monsters
             
             // Update combat streak and check achievements
             stats.lastCombatWon = true;
@@ -3903,7 +4272,17 @@ z`<!DOCTYPE html>
                 const weaponData = stats.weapons[name];
                 if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
                     stats.attackBonus = weaponData.attackBonus || 0;
-                    addLog(`Equipped ${name}! (+${weaponData.attackBonus || 0} attack rolls)`, "text-blue-400");
+                    let equipText = `Equipped ${name}!`;
+                    if (weaponData.damageFormula) {
+                        equipText += ` (${weaponData.damageFormula} damage`;
+                        if (weaponData.attackBonus > 0) {
+                            equipText += `, +${weaponData.attackBonus} attack rolls`;
+                        }
+                        equipText += ')';
+                    } else if (weaponData.attackBonus > 0) {
+                        equipText += ` (+${weaponData.attackBonus} attack rolls)`;
+                    }
+                    addLog(equipText, "text-blue-400");
                 } else {
                     stats.attackBonus = 0;
                     addLog(`Equipped ${name}!`, "text-blue-400");
@@ -3914,7 +4293,23 @@ z`<!DOCTYPE html>
                 if (armorData && typeof armorData === 'object' && armorData.unique) {
                     stats.armor = armorData.ac || 9;
                     stats.acBonus = armorData.acBonus || 0;
-                    addLog(`Equipped ${name}! (AC ${armorData.ac || 9} + ${armorData.acBonus || 0})`, "text-blue-400");
+                    let equipText = `Equipped ${name}! (AC ${armorData.ac || 9}`;
+                    if (armorData.acBonus > 0) {
+                        equipText += ` + ${armorData.acBonus}`;
+                    }
+                    if (armorData.conditionalBonus) {
+                        const cond = armorData.conditionalBonus;
+                        if (cond.type === 'lowHP') {
+                            equipText += `, +${cond.bonus} when HP ≤ ${cond.threshold}`;
+                        } else if (cond.type === 'percentHP') {
+                            const percent = Math.round(cond.threshold * 100);
+                            equipText += `, +${cond.bonus} when HP ≤ ${percent}%`;
+                        } else if (cond.type === 'highHP') {
+                            equipText += `, +${cond.bonus} when HP ≥ ${cond.threshold}`;
+                        }
+                    }
+                    equipText += ')';
+                    addLog(equipText, "text-blue-400");
                 } else {
                     stats.armor = typeof armorData === 'number' ? armorData : 9;
                     stats.acBonus = 0;
@@ -3979,19 +4374,32 @@ z`<!DOCTYPE html>
                 const weaponData = stats.weapons[name];
                 let tier = 1;
                 let attackBonus = 0;
+                let damageDesc = '';
                 if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
-                    tier = weaponData.tier;
-                    attackBonus = weaponData.attackBonus || 0;
+                    if (weaponData.damageFormula) {
+                        // Custom damage formula
+                        damageDesc = weaponData.damageFormula;
+                        attackBonus = weaponData.attackBonus || 0;
+                    } else {
+                        // Standard tier-based
+                        tier = weaponData.tier || 1;
+                        damageDesc = getWeaponDamageDesc(tier);
+                        attackBonus = weaponData.attackBonus || 0;
+                    }
                 } else if (weaponData) {
                     tier = typeof weaponData === 'number' ? weaponData : 1;
+                    damageDesc = getWeaponDamageDesc(tier);
+                } else {
+                    damageDesc = getWeaponDamageDesc(1);
                 }
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
+                const tierText = weaponData && typeof weaponData === 'object' && weaponData.unique && weaponData.damageFormula ? 'CUSTOM' : `TIER ${tier}`;
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="text-base font-bold uppercase">${name}</span>
-                        <span class="text-sm text-slate-500 font-bold">TIER ${tier}${attackBonus > 0 ? ` (+${attackBonus})` : ''}</span>
+                        <span class="text-sm text-slate-500 font-bold">${tierText}${attackBonus > 0 ? ` (+${attackBonus})` : ''}</span>
                     </div>
-                    <div class="text-sm text-green-400 font-bold mt-1">${getWeaponDamageDesc(tier)}</div>
+                    <div class="text-sm text-green-400 font-bold mt-1">${damageDesc}</div>
                     ${attackBonus > 0 ? `<div class="text-xs text-blue-400 font-bold mt-1">+${attackBonus} attack rolls</div>` : ''}
                     ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
@@ -4016,19 +4424,34 @@ z`<!DOCTYPE html>
                 const armorData = stats.armors[name];
                 let ac = 9;
                 let acBonus = 0;
+                let conditionalText = '';
                 if (armorData && typeof armorData === 'object' && armorData.unique) {
                     ac = armorData.ac || 9;
                     acBonus = armorData.acBonus || 0;
+                    // Check for conditional bonus
+                    if (armorData.conditionalBonus) {
+                        const cond = armorData.conditionalBonus;
+                        if (cond.type === 'lowHP') {
+                            conditionalText = `+${cond.bonus} AC when HP ≤ ${cond.threshold}`;
+                        } else if (cond.type === 'percentHP') {
+                            const percent = Math.round(cond.threshold * 100);
+                            conditionalText = `+${cond.bonus} AC when HP ≤ ${percent}%`;
+                        } else if (cond.type === 'highHP') {
+                            conditionalText = `+${cond.bonus} AC when HP ≥ ${cond.threshold}`;
+                        }
+                    }
                 } else if (armorData) {
                     ac = typeof armorData === 'number' ? armorData : 9;
                 }
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
+                const maxAC = ac + acBonus + (armorData && typeof armorData === 'object' && armorData.unique && armorData.conditionalBonus ? armorData.conditionalBonus.bonus : 0);
                 b.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="text-base font-bold uppercase">${name}</span>
-                        <span class="text-sm text-slate-500 font-bold">AC ${ac}${acBonus > 0 ? ` (+${acBonus})` : ''}</span>
+                        <span class="text-sm text-slate-500 font-bold">AC ${ac}${acBonus > 0 ? ` (+${acBonus})` : ''}${conditionalText ? ` (max ${maxAC})` : ''}</span>
                     </div>
                     ${acBonus > 0 ? `<div class="text-xs text-blue-400 font-bold mt-1">+${acBonus} AC bonus</div>` : ''}
+                    ${conditionalText ? `<div class="text-xs text-cyan-400 font-bold mt-1">${conditionalText}</div>` : ''}
                     ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
                 b.onclick = () => { 
@@ -4036,7 +4459,8 @@ z`<!DOCTYPE html>
                     if (armorData && typeof armorData === 'object' && armorData.unique) {
                         stats.armor = armorData.ac || 9;
                         stats.acBonus = armorData.acBonus || 0;
-                        addLog(`Equipped ${name}! (AC ${armorData.ac || 9} + ${armorData.acBonus || 0})`);
+                        const condBonus = armorData.conditionalBonus ? ` (conditional: ${conditionalText})` : '';
+                        addLog(`Equipped ${name}! (AC ${armorData.ac || 9}${armorData.acBonus ? ` + ${armorData.acBonus}` : ''}${condBonus})`);
                     } else {
                         stats.armor = typeof armorData === 'number' ? armorData : 9;
                         stats.acBonus = 0;
@@ -4371,22 +4795,62 @@ z`<!DOCTYPE html>
             }
         });
         
-        // Cheat code: Type "coins" to get 200 gold
+        // Cheat codes: Type "coins" to get 5000 gold, "best" for best gear
         let cheatBuffer = '';
         document.addEventListener('keydown', function(event) {
+            // Skip if typing in an input field
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
             // Add the key to the buffer
             cheatBuffer += event.key.toLowerCase();
             
-            // Keep only the last 5 characters
-            if (cheatBuffer.length > 5) {
-                cheatBuffer = cheatBuffer.slice(-5);
+            // Keep only the last 10 characters (to catch "best" and "coins")
+            if (cheatBuffer.length > 10) {
+                cheatBuffer = cheatBuffer.slice(-10);
             }
             
-            // Check if buffer matches "coins"
-            if (cheatBuffer === 'coins') {
-                stats.coins += 200;
-                addLog('CHEAT: +200 Gold!', 'text-yellow-400 font-bold');
+            // Check if buffer ends with "coins"
+            if (cheatBuffer.endsWith('coins')) {
+                stats.coins += 5000;
+                addLog('CHEAT: +5000 Gold!', 'text-yellow-400 font-bold');
                 updateUI();
+                cheatBuffer = ''; // Reset buffer
+            }
+            // Check if buffer ends with "best"
+            else if (cheatBuffer.endsWith('best')) {
+                // Set all stats to 20
+                stats.strength = 20;
+                stats.dexterity = 20;
+                stats.intelligence = 20;
+                stats.wisdom = 20;
+                
+                // Give great sword (tier 6) and equip it
+                stats.weapons['great sword'] = 6;
+                stats.equippedWeapon = 'great sword';
+                stats.attackBonus = 0;
+                
+                // Give platemail (AC 15) and equip it
+                stats.armors['platemail'] = 15;
+                stats.equippedArmor = 'platemail';
+                stats.armor = 15;
+                stats.acBonus = 0;
+                
+                // Give 10 checkpoints
+                stats.checkpointsPurchased += 10;
+                
+                // Give the map
+                stats.hasMap = true;
+                
+                addLog('CHEAT: Best gear activated! All stats set to 20!', 'text-yellow-400 font-bold');
+                addLog('Equipped Great Sword (Tier 6) and Platemail (AC 15)!', 'text-blue-400');
+                addLog(`Gained 10 checkpoints (Total: ${stats.checkpointsPurchased}) and unlocked the map!`, 'text-cyan-400');
+                
+                updateUI();
+                if (stats.location === 'dungeon') {
+                    renderDungeon(); // Refresh dungeon view to show map markers
+                }
                 cheatBuffer = ''; // Reset buffer
             }
         });
