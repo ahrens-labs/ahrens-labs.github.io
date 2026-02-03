@@ -2512,20 +2512,23 @@ z`<!DOCTYPE html>
                     durabilityText = `<div style="margin-top:0.5rem;position:relative;"><div style="width:100%;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;border:1px solid #334155;" title="${maxDur}/${maxDur}"><div style="height:100%;width:100%;background:${barColor};transition:width 0.3s ease;"></div></div><div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fbbf24;padding:2px 6px;border-radius:3px;font-size:0.7rem;font-weight:bold;white-space:nowrap;border:1px solid #334155;opacity:0;pointer-events:none;transition:opacity 0.2s ease;" class="durability-tooltip">${maxDur}/${maxDur}</div></div>`;
                 }
                 
-                html += `<div style="padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;">`;
-                html += `<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem;">`;
-                html += `<div style="flex:1;">`;
+                html += '<div class="dungeon-shop-item-card" style="display:block;position:relative;padding:1rem;margin-bottom:1rem;background:#0f172a;border:2px solid #334155;border-radius:8px;min-height:1px;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem;">';
+                html += '<div style="flex:1;min-width:0;">';
                 html += `<div style="font-weight:bold;margin-bottom:0.25rem;color:white;">${itemName}</div>`;
                 html += `<div style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.25rem;"><span style="color:${typeColor};">${typeLabel}</span></div>`;
                 html += `<div style="color:#10b981;font-size:0.8rem;font-weight:bold;">${effectDesc}</div>`;
                 html += durabilityText;
-                html += `</div>`;
-                html += `<div style="text-align:right;margin-left:1rem;">`;
+                html += '</div>';
+                html += '<div style="text-align:right;margin-left:1rem;flex-shrink:0;">';
                 html += `<div style="color:#fbbf24;font-weight:bold;font-size:1.1rem;margin-bottom:0.5rem;">${cost}g</div>`;
-                html += `</div>`;
-                html += `</div>`;
-                html += `<div style="display:flex;gap:0.5rem;">`;
-                html += `</div>`;
+                html += '</div>';
+                html += '</div>';
+                html += '<div style="display:flex;gap:0.5rem;margin-top:0.75rem;">';
+                html += '<button type="button" class="dungeon-shop-view-btn" style="flex:1;padding:0.5rem 0.75rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>';
+                html += '<button type="button" class="dungeon-shop-buy-btn" style="flex:1;padding:0.5rem 0.75rem;background:' + (canAfford ? '#10b981' : '#475569') + ';border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:' + (canAfford ? 'pointer' : 'not-allowed') + ';border:none;opacity:' + (canAfford ? '1' : '0.7') + ';">BUY</button>';
+                html += '</div>';
+                html += '</div>';
                 
                 // Store button data for later - create a deep copy to prevent corruption
                 const dataCopy = Array.isArray(itemData) ? [...itemData] : JSON.parse(JSON.stringify(itemData));
@@ -3060,15 +3063,13 @@ z`<!DOCTYPE html>
                     checkRoom(false, false);  // After opening chest - do NOT spawn wandering monsters
                     updateUI();
                 } else {
-                    if (Math.floor(Math.random()*3)+1 !== 1) {
-                        const loot = Math.floor(Math.random()*36)+5;
-                        stats.coins += loot;
-                        addLog(`Found ${loot} coins.`, "text-yellow-500");
-                        const floorKey = `floor_${stats.floor}`;
-                        floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 1;
-                    } else {
-                        addLog("The chest was empty.", "text-slate-500");
-                    }
+                    // Small chest: always give at least some gold (no empty small chests)
+                    const loot = Math.floor(Math.random()*36)+5;
+                    stats.coins += loot;
+                    addLog(`Found ${loot} coins.`, "text-yellow-500");
+                    const floorKey = `floor_${stats.floor}`;
+                    floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 1;
+                    stats.openedChests.add(chestId);
                     isProcessing = false;
                     checkRoom(false, false);  // After opening chest - do NOT spawn wandering monsters
                     updateUI();
