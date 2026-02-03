@@ -750,7 +750,7 @@ z`<!DOCTYPE html>
             temporary_attackBonus: 0,  // Temporary attack bonus from potions
             temporary_acBonus: 0,  // Temporary AC bonus from potions
             temporary_allRollsBonus: 0,  // Temporary bonus to all rolls
-            weapons: { "stick": 1 }, 
+            weapons: { "stick": { tier: 1, durability: 100, maxDurability: 100 } }, 
             armors: { "none": 9 }, 
             potions: {}, 
             spells: {},
@@ -779,6 +779,74 @@ z`<!DOCTYPE html>
         let isProcessing = false;
         let previousView = "view-town";
         let shopMode = "buy";
+
+        // --- WEAPON DURABILITY ---
+        // Defines durability tiers for different weapon damage tiers
+        // Higher damage = lower durability (and vice versa)
+        const WEAPON_DURABILITY = {
+            1: 100,  // Stick: very durable
+            2: 80,   // Tier 2: good durability
+            3: 70,   // Tier 3: moderate durability
+            4: 60,   // Tier 4: lower durability
+            5: 50,   // Tier 5: fragile
+            6: 40,   // Tier 6: very fragile
+            // Merchant weapons (custom): durability/damage trade-off
+            "custom_low": 120,     // Custom formula weapons with lower damage: high durability
+            "custom_mid": 90,      // Medium damage custom: medium durability
+            "custom_high": 50      // Custom formula weapons with high damage: low durability
+        };
+        
+        function initializeWeaponDurability(weaponName, weaponData) {
+            if (weaponData && typeof weaponData === 'object') {
+                if (weaponData.durability === undefined) {
+                    if (weaponData.damageFormula) {
+                        // Custom damage formula - determine durability based on formula complexity
+                        if (weaponData.damageFormula.includes('6d') || weaponData.damageFormula.includes('5d')) {
+                            weaponData.maxDurability = WEAPON_DURABILITY.custom_high;
+                        } else if (weaponData.damageFormula.includes('3d') || weaponData.damageFormula.includes('4d')) {
+                            weaponData.maxDurability = WEAPON_DURABILITY.custom_mid;
+                        } else {
+                            weaponData.maxDurability = WEAPON_DURABILITY.custom_low;
+                        }
+                    } else {
+                        // Tier-based weapon
+                        const tier = weaponData.tier || 1;
+                        weaponData.maxDurability = WEAPON_DURABILITY[tier] || WEAPON_DURABILITY[1];
+                    }
+                    weaponData.durability = weaponData.maxDurability;
+                }
+            }
+        }
+        
+        function ensureAllWeaponsInitialized() {
+            // Make sure all weapons have durability initialized
+            for (let weaponName in stats.weapons) {
+                initializeWeaponDurability(weaponName, stats.weapons[weaponName]);
+            }
+        }
+        
+        function damageWeaponDurability(weaponName) {
+            const weaponData = stats.weapons[weaponName];
+            if (weaponData && typeof weaponData === 'object' && weaponData.durability !== undefined) {
+                weaponData.durability = Math.max(0, weaponData.durability - 1);
+                
+                if (weaponData.durability === 0) {
+                    // Weapon broke!
+                    if (stats.equippedWeapon === weaponName) {
+                        stats.equippedWeapon = "stick";
+                        stats.attackBonus = 0;
+                        addLog(`⚠️ Your ${weaponName} shattered! You're back to your stick.`, "text-red-600 font-bold");
+                    } else {
+                        addLog(`⚠️ Your ${weaponName} has broken and shattered!`, "text-red-500");
+                    }
+                    delete stats.weapons[weaponName];
+                    renderInventory();
+                } else if (weaponData.durability <= Math.ceil(weaponData.maxDurability * 0.2)) {
+                    // Low durability warning
+                    addLog(`⚠️ Your ${weaponName} is badly worn! (${weaponData.durability}/${weaponData.maxDurability})`, "text-yellow-600 font-bold");
+                }
+            }
+        }
 
         // --- CORE UTILS ---
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -2570,6 +2638,9 @@ z`<!DOCTYPE html>
                         weaponData.attackBonus = bonusValue || 0;
                     }
                     
+                    // Initialize durability
+                    initializeWeaponDurability(itemName, weaponData);
+                    
                     stats.weapons[itemName] = weaponData;
                     // Update attack bonus if equipping
                     if (stats.equippedWeapon === itemName || Object.keys(stats.weapons).length === 1) {
@@ -2577,7 +2648,8 @@ z`<!DOCTYPE html>
                         stats.attackBonus = weaponData.attackBonus || 0;
                     }
                     const bonusText = weaponData.attackBonus > 0 ? ` (+${weaponData.attackBonus} attack rolls)` : '';
-                    addLog(`Purchased ${itemName}!${bonusText}`, 'text-green-400 font-bold');
+                    const durabilityText = weaponData.maxDurability ? ` [Durability: ${weaponData.durability}/${weaponData.maxDurability}]` : '';
+                    addLog(`Purchased ${itemName}!${bonusText}${durabilityText}`, 'text-green-400 font-bold');
                 } else {
                     stats.coins += cost; // Refund if already have
                     addLog('You already have this weapon!', 'text-yellow-400');
@@ -3367,6 +3439,16 @@ z`<!DOCTYPE html>
                         else if(tier===6) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+4;
                         else dmg = Math.floor(Math.random()*6)+1;
                     }
+                } else if (weaponData && typeof weaponData === 'object' && weaponData.tier) {
+                    // Tier-based weapon stored as object (new durability format)
+                    const tier = weaponData.tier || 1;
+                    if(tier===1) dmg = Math.floor(Math.random()*3)+1;
+                    else if(tier===2) dmg = Math.floor(Math.random()*6)+1;
+                    else if(tier===3) dmg = Math.floor(Math.random()*10)+1;
+                    else if(tier===4) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+2;
+                    else if(tier===5) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+3;
+                    else if(tier===6) dmg = Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+Math.floor(Math.random()*6)+1+4;
+                    else dmg = Math.floor(Math.random()*6)+1;
                 } else if (weaponData) {
                     const tier = typeof weaponData === 'number' ? weaponData : 1;
                     if(tier===1) dmg = Math.floor(Math.random()*3)+1;
@@ -3386,6 +3468,10 @@ z`<!DOCTYPE html>
                     addLog(`Monster Blocked! Half damage (${dmg})`, "text-slate-400");
                 } else addLog(`Dealt ${dmg} damage!`, "text-green-400");
                 combatData.HP -= dmg;
+                
+                // Reduce weapon durability on successful hit
+                damageWeaponDurability(stats.equippedWeapon);
+                
                 if(combatData.HP <= 0) { await victory(); return; }
             } else addLog("MISS!", "text-red-400");
             // Clear temporary bonuses after turn
@@ -4153,7 +4239,10 @@ z`<!DOCTYPE html>
                 let itemType = '';
                 
                 if(data[2] === 1) {
-                    stats.weapons[name] = data[1];
+                    // Legacy weapon format - convert to object with durability
+                    const weaponData = { tier: data[1] };
+                    initializeWeaponDurability(name, weaponData);
+                    stats.weapons[name] = weaponData;
                     itemType = 'weapon';
                 } else if(data[2] === 2) {
                     stats.armors[name] = data[1];
@@ -4316,6 +4405,9 @@ z`<!DOCTYPE html>
 
         // --- INVENTORY MANAGEMENT ---
         function renderInventory() {
+            // Ensure all weapons have durability initialized
+            ensureAllWeaponsInitialized();
+            
             const wList = document.getElementById('inv-weapons');
             const aList = document.getElementById('inv-armors');
             const cList = document.getElementById('inv-consumables');
@@ -4329,6 +4421,9 @@ z`<!DOCTYPE html>
                 let tier = 1;
                 let attackBonus = 0;
                 let damageDesc = '';
+                let durabilityText = '';
+                let durabilityColor = '';
+                
                 if (weaponData && typeof weaponData === 'object' && weaponData.unique) {
                     if (weaponData.damageFormula) {
                         // Custom damage formula
@@ -4340,12 +4435,33 @@ z`<!DOCTYPE html>
                         damageDesc = getWeaponDamageDesc(tier);
                         attackBonus = weaponData.attackBonus || 0;
                     }
+                } else if (weaponData && typeof weaponData === 'object') {
+                    // New format with durability
+                    tier = weaponData.tier || 1;
+                    damageDesc = getWeaponDamageDesc(tier);
+                    attackBonus = weaponData.attackBonus || 0;
                 } else if (weaponData) {
                     tier = typeof weaponData === 'number' ? weaponData : 1;
                     damageDesc = getWeaponDamageDesc(tier);
                 } else {
                     damageDesc = getWeaponDamageDesc(1);
                 }
+                
+                // Handle durability display
+                if (weaponData && typeof weaponData === 'object' && weaponData.durability !== undefined) {
+                    const durPercent = (weaponData.durability / weaponData.maxDurability) * 100;
+                    if (durPercent <= 20) {
+                        durabilityColor = '#dc2626'; // Red - critical
+                        durabilityText = `<div class="text-xs font-bold mt-1" style="color: ${durabilityColor};">⚠️ CRITICAL: ${weaponData.durability}/${weaponData.maxDurability}</div>`;
+                    } else if (durPercent <= 50) {
+                        durabilityColor = '#ea580c'; // Orange - damaged
+                        durabilityText = `<div class="text-xs font-bold mt-1" style="color: ${durabilityColor};">⚠️ DAMAGED: ${weaponData.durability}/${weaponData.maxDurability}</div>`;
+                    } else {
+                        durabilityColor = '#10b981'; // Green - good
+                        durabilityText = `<div class="text-xs mt-1" style="color: ${durabilityColor};"><strong>Durability:</strong> ${weaponData.durability}/${weaponData.maxDurability}</div>`;
+                    }
+                }
+                
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
                 const tierText = weaponData && typeof weaponData === 'object' && weaponData.unique && weaponData.damageFormula ? 'CUSTOM' : `TIER ${tier}`;
                 b.innerHTML = `
@@ -4355,6 +4471,7 @@ z`<!DOCTYPE html>
                     </div>
                     <div class="text-sm text-green-400 font-bold mt-1">${damageDesc}</div>
                     ${attackBonus > 0 ? `<div class="text-xs text-blue-400 font-bold mt-1">+${attackBonus} attack rolls</div>` : ''}
+                    ${durabilityText}
                     ${isEquipped ? '<div class="text-xs text-yellow-500 font-black mt-1 uppercase italic tracking-widest">EQUIPPED</div>' : ''}
                 `;
                 b.onclick = () => { 
@@ -4781,7 +4898,9 @@ z`<!DOCTYPE html>
                 stats.wisdom = 20;
                 
                 // Give great sword (tier 6) and equip it
-                stats.weapons['great sword'] = 6;
+                const greatSwordData = { tier: 6 };
+                initializeWeaponDurability('great sword', greatSwordData);
+                stats.weapons['great sword'] = greatSwordData;
                 stats.equippedWeapon = 'great sword';
                 stats.attackBonus = 0;
                 
