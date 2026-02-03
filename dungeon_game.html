@@ -784,16 +784,16 @@ z`<!DOCTYPE html>
         // Defines durability tiers for different weapon damage tiers
         // Higher damage = lower durability (and vice versa)
         const WEAPON_DURABILITY = {
-            1: 100,  // Stick: very durable
-            2: 80,   // Tier 2: good durability
-            3: 70,   // Tier 3: moderate durability
-            4: 60,   // Tier 4: lower durability
-            5: 50,   // Tier 5: fragile
-            6: 40,   // Tier 6: very fragile
+            1: 70,   // Stick: very durable
+            2: 55,   // Tier 2: good durability
+            3: 45,   // Tier 3: moderate durability
+            4: 35,   // Tier 4: lower durability
+            5: 28,   // Tier 5: fragile
+            6: 20,   // Tier 6: very fragile
             // Merchant weapons (custom): durability/damage trade-off
-            "custom_low": 120,     // Custom formula weapons with lower damage: high durability
-            "custom_mid": 90,      // Medium damage custom: medium durability
-            "custom_high": 50      // Custom formula weapons with high damage: low durability
+            "custom_low": 80,      // Custom formula weapons with lower damage: high durability
+            "custom_mid": 60,      // Medium damage custom: medium durability
+            "custom_high": 35      // Custom formula weapons with high damage: low durability
         };
         
         function initializeWeaponDurability(weaponName, weaponData) {
@@ -2492,21 +2492,39 @@ z`<!DOCTYPE html>
                 const canAfford = stats.coins >= cost;
                 const itemIndex = buttonData.length;
                 
+                // Calculate durability for weapons
+                let durabilityText = '';
+                if (itemType === 1) {
+                    let maxDur = WEAPON_DURABILITY[1];
+                    if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                        if (bonusValue.includes('6d') || bonusValue.includes('5d')) {
+                            maxDur = WEAPON_DURABILITY.custom_high;
+                        } else if (bonusValue.includes('3d') || bonusValue.includes('4d')) {
+                            maxDur = WEAPON_DURABILITY.custom_mid;
+                        } else {
+                            maxDur = WEAPON_DURABILITY.custom_low;
+                        }
+                    } else {
+                        const tier = bonusType || 1;
+                        maxDur = WEAPON_DURABILITY[tier] || WEAPON_DURABILITY[1];
+                    }
+                    const barColor = '#10b981';
+                    durabilityText = `<div style="margin-top:0.5rem;position:relative;"><div style="width:100%;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;border:1px solid #334155;" title="${maxDur}/${maxDur}"><div style="height:100%;width:100%;background:${barColor};transition:width 0.3s ease;"></div></div><div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fbbf24;padding:2px 6px;border-radius:3px;font-size:0.7rem;font-weight:bold;white-space:nowrap;border:1px solid #334155;opacity:0;pointer-events:none;transition:opacity 0.2s ease;" class="durability-tooltip">${maxDur}/${maxDur}</div></div>`;
+                }
+                
                 html += `<div style="padding:1rem;margin-bottom:0.75rem;background:#0f172a;border:2px solid #334155;border-radius:8px;">`;
                 html += `<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem;">`;
                 html += `<div style="flex:1;">`;
                 html += `<div style="font-weight:bold;margin-bottom:0.25rem;color:white;">${itemName}</div>`;
                 html += `<div style="color:#94a3b8;font-size:0.85rem;margin-bottom:0.25rem;"><span style="color:${typeColor};">${typeLabel}</span></div>`;
                 html += `<div style="color:#10b981;font-size:0.8rem;font-weight:bold;">${effectDesc}</div>`;
+                html += durabilityText;
                 html += `</div>`;
                 html += `<div style="text-align:right;margin-left:1rem;">`;
                 html += `<div style="color:#fbbf24;font-weight:bold;font-size:1.1rem;margin-bottom:0.5rem;">${cost}g</div>`;
                 html += `</div>`;
                 html += `</div>`;
                 html += `<div style="display:flex;gap:0.5rem;">`;
-                html += `<button class="dungeon-shop-view-btn" data-item-index="${itemIndex}" style="flex:1;padding:0.5rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>`;
-                html += `<button class="dungeon-shop-buy-btn" data-item-index="${itemIndex}" style="flex:1;padding:0.5rem;background:${canAfford ? '#10b981' : '#64748b'};border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:${canAfford ? 'pointer' : 'not-allowed'};border:none;" ${!canAfford ? 'disabled' : ''}>BUY</button>`;
-                html += `</div>`;
                 html += `</div>`;
                 
                 // Store button data for later - create a deep copy to prevent corruption
@@ -2525,6 +2543,20 @@ z`<!DOCTYPE html>
             modal.innerHTML = html;
             modal.id = 'dungeon-shop-modal';
             document.body.appendChild(modal);
+            
+            // Add hover listeners for durability tooltips
+            const durabilityBars = modal.querySelectorAll('[title]');
+            durabilityBars.forEach(bar => {
+                const tooltip = bar.nextElementSibling;
+                if (tooltip && tooltip.classList.contains('durability-tooltip')) {
+                    bar.addEventListener('mouseenter', () => {
+                        tooltip.style.opacity = '1';
+                    });
+                    bar.addEventListener('mouseleave', () => {
+                        tooltip.style.opacity = '0';
+                    });
+                }
+            });
             
             // Set up event listeners for all buttons
             const viewButtons = modal.querySelectorAll('.dungeon-shop-view-btn');
@@ -4042,6 +4074,12 @@ z`<!DOCTYPE html>
                         let itemInfo = `<span class="uppercase font-bold text-sm text-slate-300">${name}</span>`;
                         itemInfo += `<span class="text-yellow-600 text-sm font-bold block mt-1">${data[0]}G</span>`;
                         
+                        // Add durability bar for weapons
+                        if (data[2] === 1) {
+                            const maxDur = WEAPON_DURABILITY[data[1]] || WEAPON_DURABILITY[1];
+                            itemInfo += `<div style="margin-top:0.5rem;position:relative;"><div style="width:100%;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;border:1px solid #334155;cursor:pointer;" title="${maxDur}/${maxDur}"><div style="height:100%;width:100%;background:#10b981;"></div></div><div style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fbbf24;padding:2px 6px;border-radius:3px;font-size:0.65rem;font-weight:bold;white-space:nowrap;border:1px solid #334155;opacity:0;pointer-events:none;transition:opacity 0.2s ease;" class="durability-tooltip">${maxDur}/${maxDur}</div></div>`;
+                        }
+                        
                         row.innerHTML = itemInfo;
                         
                         // Add buttons container
@@ -4063,6 +4101,21 @@ z`<!DOCTYPE html>
                         btnContainer.appendChild(statsBtn);
                         btnContainer.appendChild(buyBtn);
                         row.appendChild(btnContainer);
+                        
+                        // Add hover listeners for durability tooltip
+                        const durabilityBar = row.querySelector('[title]');
+                        if (durabilityBar) {
+                            const tooltip = durabilityBar.nextElementSibling;
+                            if (tooltip && tooltip.classList.contains('durability-tooltip')) {
+                                durabilityBar.addEventListener('mouseenter', () => {
+                                    tooltip.style.opacity = '1';
+                                });
+                                durabilityBar.addEventListener('mouseleave', () => {
+                                    tooltip.style.opacity = '0';
+                                });
+                            }
+                        }
+                        
                         list.appendChild(row);
                     }
                     sect.appendChild(list);
