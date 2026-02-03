@@ -4450,16 +4450,22 @@ z`<!DOCTYPE html>
                 // Handle durability display
                 if (weaponData && typeof weaponData === 'object' && weaponData.durability !== undefined) {
                     const durPercent = (weaponData.durability / weaponData.maxDurability) * 100;
+                    let barColor = '#10b981'; // Green by default
                     if (durPercent <= 20) {
-                        durabilityColor = '#dc2626'; // Red - critical
-                        durabilityText = `<div class="text-xs font-bold mt-1" style="color: ${durabilityColor};">⚠️ CRITICAL: ${weaponData.durability}/${weaponData.maxDurability}</div>`;
+                        barColor = '#dc2626'; // Red - critical
                     } else if (durPercent <= 50) {
-                        durabilityColor = '#ea580c'; // Orange - damaged
-                        durabilityText = `<div class="text-xs font-bold mt-1" style="color: ${durabilityColor};">⚠️ DAMAGED: ${weaponData.durability}/${weaponData.maxDurability}</div>`;
-                    } else {
-                        durabilityColor = '#10b981'; // Green - good
-                        durabilityText = `<div class="text-xs mt-1" style="color: ${durabilityColor};"><strong>Durability:</strong> ${weaponData.durability}/${weaponData.maxDurability}</div>`;
+                        barColor = '#ea580c'; // Orange - damaged
                     }
+                    durabilityText = `
+                        <div style="margin-top:0.5rem;position:relative;">
+                            <div style="width:100%;height:8px;background:#1e293b;border-radius:4px;overflow:hidden;border:1px solid #334155;cursor:pointer;" title="${weaponData.durability}/${weaponData.maxDurability}">
+                                <div style="height:100%;width:${durPercent}%;background:${barColor};transition:width 0.3s ease;"></div>
+                            </div>
+                            <div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fbbf24;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:bold;white-space:nowrap;border:1px solid #334155;opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:100;" class="durability-tooltip">
+                                ${weaponData.durability}/${weaponData.maxDurability}
+                            </div>
+                        </div>
+                    `;
                 }
                 
                 b.className = `w-full p-3 text-left border border-slate-700 rounded transition-all ${isEquipped?'equipped':'bg-slate-800/40 hover:bg-slate-700'}`;
@@ -4487,6 +4493,20 @@ z`<!DOCTYPE html>
                     updateUI();
                 };
                 wList.appendChild(b);
+                
+                // Add hover listeners for durability tooltip
+                const durabilityBar = b.querySelector('[style*="background:#1e293b"]');
+                if (durabilityBar) {
+                    const tooltip = b.querySelector('.durability-tooltip');
+                    if (tooltip) {
+                        durabilityBar.addEventListener('mouseenter', () => {
+                            tooltip.style.opacity = '1';
+                        });
+                        durabilityBar.addEventListener('mouseleave', () => {
+                            tooltip.style.opacity = '0';
+                        });
+                    }
+                }
             }
 
             for(let name in stats.armors) {
