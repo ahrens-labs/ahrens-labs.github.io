@@ -5255,12 +5255,14 @@ z`<!DOCTYPE html>
             for(let name in consumables) {
                 const count = consumables[name][0];
                 if(count <= 0) continue;
-                
-                // All potions can be used outside combat
-                const isHealingPotion = name === 'healing potion';
-                const isUltraHealingPotion = name === 'ultra healing potion';
-                const canUse = true; // All potions can be used in inventory outside of combat
-                
+                const isPotion = stats.potions[name] !== undefined;
+                // All potions but no spells can be used outside combat
+                if (isPotion) {
+                    // Spells - can only be used outside combat if not a combat spell
+                    var canUse = true
+                } else {
+                    var canUse = false
+                }
                 const div = document.createElement('div');
                 div.className = `p-3 bg-slate-900 border border-slate-800 rounded ${canUse ? 'cursor-pointer hover:bg-slate-800 transition-colors' : ''}`;
                 
@@ -5447,12 +5449,6 @@ z`<!DOCTYPE html>
                 stats.HP = Math.min(stats.maxHP, stats.HP + heal);
                 addLog(`Drank healing potion - Healed ${heal} HP`, "text-green-400");
                 
-                if(stats.potions[name][0] <= 0) {
-                    delete stats.potions[name];
-                }
-                
-                updateUI();
-                renderInventory();
             }
             else if (name === 'ultra healing potion') {
                 if (stats.HP >= stats.maxHP) {
@@ -5470,24 +5466,25 @@ z`<!DOCTYPE html>
                 stats.HP = stats.maxHP
                 addLog(`Drank ultra healing potion - Healed to full HP`, "text-green-400");
                 
-                if(stats.potions[name][0] <= 0) {
-                    delete stats.potions[name];
-                }
-                
-                updateUI();
-                renderInventory();
             }  else if(name === 'intelligence potion') {
                 stats.temporary_intelligence = 6;
+                stats.potions[name][0]--;
                 addLog(`Drank intelligence potion - +6 Intelligence for next chest`, "text-purple-400");
             }  else if(name === 'speed potion') {
                 stats.temporary_dexterity = 6;
+                stats.potions[name][0]--;
                 addLog(`Drank speed potion - +6 Dexterity for next chest`, "text-blue-400");
             }  else if(name === 'strength potion') {
                 stats.temporary_strength = 6;
+                stats.potions[name][0]--;
                 addLog(`Drank strength potion - +6 Strength for next chest`, "text-red-400");           
             }  else if(name === 'protection potion') {
                 stats.temporary_armor = 3;
+                stats.potions[name][0]--;
                 addLog(`Drank protection potion - +3 Armor for next chest`, "text-yellow-400");
+            }
+            if(stats.potions[name][0] <= 0) {
+                delete stats.potions[name];
             }
             updateUI();
             renderInventory();
