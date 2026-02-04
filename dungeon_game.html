@@ -806,6 +806,15 @@ z`<!DOCTYPE html>
                 stairs: false,
                 bosses: false
             },
+            // Track which map layers are owned (purchased)
+            ownedMapLayers: {
+                chests: false,
+                monsters: false,
+                miniBosses: false,
+                merchants: false,
+                stairs: false,
+                bosses: false
+            },
             stairEntryPoints: {},  // Track where player entered each floor from stairs: {floor: {row, col}}
             unlockedStairs: new Set()  // Track unlocked stairs by "floor,row,col"
         };
@@ -2088,12 +2097,12 @@ z`<!DOCTYPE html>
                         }
                         
                         // Check for chests (if layer enabled)
-                        if (stats.mapLayers.chests && val[0] === '1') {
+                        if (stats.mapLayers.chests && (val[7] === '1' || val[8] === '1')) {
                             features.push({icon: '💰', color: 'bg-yellow-600'});
                         }
                         
                         // Check for regular monsters (if layer enabled)
-                        if (stats.mapLayers.monsters && val[6] === '1') {
+                        if (stats.mapLayers.monsters && (val[6] === '1' || val[5] === '1')) {
                             features.push({icon: '👹', color: 'bg-purple-700'});
                         }
                         
@@ -2323,12 +2332,17 @@ z`<!DOCTYPE html>
                 const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('normal');
                 showPreCombatSavePrompt(name, 'normal');
                 hasMonster = true;
-            } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9)) {
+            } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
                 // Random wandering monster spawn ONLY when entering room (25% chance)
                 // Can spawn in rooms with chests or merchants, as long as there's no predetermined monster
                 
                 // Only spawn if no existing predetermined monster
                 if (!hasPermanentMonster) {
+                    const name = generateMonsterName('wandering');
+                    showPreCombatSavePrompt(name, 'wandering');
+                    hasMonster = true;
+                }
+            }
             
             // If there's a monster, don't show other room features yet
             if (hasMonster) return;
@@ -4195,7 +4209,7 @@ z`<!DOCTYPE html>
                 stats.coins = Math.floor(stats.coins / 2); // Lose half your gold on death
                 
                 await sleep(1000);
-                addLog(`You awaken in Oakhaven with ${stats.HP} HP...`, "text-blue-400");
+                addLog(`You awaken in Oakhaven with ${stats.HP} HP and ${stats.coins} gold...`, "text-blue-400");
                 addLog(`Death has left its mark. (Deaths: ${stats.deathCount})`, "text-red-400");
                 
                 // Return to town
@@ -4305,8 +4319,7 @@ z`<!DOCTYPE html>
             addLog(`Gained ${expGained} EXP! (${stats.totalExp}/${stats.expToNextLevel})`, "text-cyan-400");
             
             // Check for level up
-            if (stats.totalExp >= stats.expToNextLevel) {
-                addLog("Leveling Up!", "text-green-400 font-bold");
+            if (stats.exp >= stats.expToNextLevel) {
                 await sleep(500);
                 await levelUp();
             }
@@ -4894,6 +4907,7 @@ z`<!DOCTYPE html>
                         const layerName = layerNames[data[3]];
                         
                         stats.hasMap = true; // Enable map if not already enabled
+                        stats.ownedMapLayers[layerKey] = true; // Mark layer as owned
                         stats.mapLayers[layerKey] = true; // Enable this specific layer
                         addLog(`${layerName} Map Layer purchased! ${layerName} are now visible on your dungeon map!`, "text-cyan-400 font-bold");
                         itemType = 'special';
@@ -5291,7 +5305,11 @@ z`<!DOCTYPE html>
                     {key: 'bosses', name: 'Bosses', icon: '👑', color: 'red'}
                 ];
                 
+                // Only show layers that have been purchased
                 for (const layer of layers) {
+                    // Skip if not owned
+                    if (!stats.ownedMapLayers[layer.key]) continue;
+                    
                     const isEnabled = stats.mapLayers[layer.key];
                     const bgColor = isEnabled ? `bg-${layer.color}-900/50` : 'bg-slate-800';
                     const borderColor = isEnabled ? `border-${layer.color}-600` : 'border-slate-700';
@@ -5403,9 +5421,8 @@ z`<!DOCTYPE html>
         function toggleMapLayer(layerKey) {
             stats.mapLayers[layerKey] = !stats.mapLayers[layerKey];
             renderInventory(); // Refresh inventory to show updated toggle states
-            if (stats.location === 'dungeon') {
-                renderDungeon(); // Refresh dungeon map to show changes
-            }
+            // Always refresh dungeon map if it exists (even if currently hidden by inventory)
+            renderDungeon(); // This will update the map for when inventory closes
         }
 
         // --- USE ITEMS FROM INVENTORY (OUTSIDE COMBAT) ---
@@ -5662,6 +5679,12 @@ z`<!DOCTYPE html>
                 
                 // Give all map layers
                 stats.hasMap = true;
+                stats.ownedMapLayers.chests = true;
+                stats.ownedMapLayers.monsters = true;
+                stats.ownedMapLayers.miniBosses = true;
+                stats.ownedMapLayers.merchants = true;
+                stats.ownedMapLayers.stairs = true;
+                stats.ownedMapLayers.bosses = true;
                 stats.mapLayers.chests = true;
                 stats.mapLayers.monsters = true;
                 stats.mapLayers.miniBosses = true;
