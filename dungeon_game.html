@@ -4033,7 +4033,8 @@ z`<!DOCTYPE html>
             addLog(`Gained ${expGained} EXP! (${stats.totalExp}/${stats.expToNextLevel})`, "text-cyan-400");
             
             // Check for level up
-            if (stats.exp >= stats.expToNextLevel) {
+            if (stats.totalExp >= stats.expToNextLevel) {
+                addLog("Leveling Up!", "text-green-400 font-bold");
                 await sleep(500);
                 await levelUp();
             }
