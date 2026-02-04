@@ -3920,6 +3920,7 @@ z`<!DOCTYPE html>
                 addLog("SUCCESS! Your spirit returns!", "text-green-400 font-black text-xl");
                 stats.deathCount++;
                 stats.HP = Math.floor(stats.maxHP * 2 / 3);
+                stats.coins = Math.floor(stats.coins / 2); // Lose half your gold on death
                 
                 await sleep(1000);
                 addLog(`You awaken in Oakhaven with ${stats.HP} HP...`, "text-blue-400");
