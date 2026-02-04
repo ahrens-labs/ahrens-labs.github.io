@@ -689,10 +689,11 @@ z`<!DOCTYPE html>
             "chainmail": [1000, 14, 2],
             "platemail": [1500, 15, 2],
             "healing potion": [25, 3, 3, 1],
-            "intelligence potion": [70, 2, 3, 2],
-            "speed potion": [100, 2, 3, 3],
-            "strength potion": [130, 2, 3, 4],
-            "protection potion": [150, 2, 3, 5],
+            "ultra healing potion": [100, 3, 3, 2],
+            "intelligence potion": [70, 2, 3, 3],
+            "speed potion": [100, 2, 3, 4],
+            "strength potion": [130, 2, 3, 5],
+            "protection potion": [150, 2, 3, 6],
             "magic missile spell": [50, 3, 4, 1],
             "weakness spell": [70, 2, 4, 2],
             "lightning spell": [100, 2, 4, 3],
@@ -3488,7 +3489,7 @@ z`<!DOCTYPE html>
                         // 1/3 chance to find a random potion or spell
                         if (Math.floor(Math.random()*3) === 0) {
                             const isPotionNotSpell = Math.random() < 0.5;
-                            const potionNames = ["healing potion", "intelligence potion", "speed potion", "strength potion", "protection potion"];
+                            const potionNames = ["healing potion", "ultra healing potion", "intelligence potion", "speed potion", "strength potion", "protection potion"];
                             const spellNames = ["magic missile spell", "weakness spell", "lightning spell", "freeze spell", "fireball spell"];
                             
                             const itemList = isPotionNotSpell ? potionNames : spellNames;
@@ -4746,15 +4747,16 @@ z`<!DOCTYPE html>
             else if (data[2] === 3) {
                 const potionEffects = {
                     1: {name: "Healing", effect: "Restores 1d4+1d4 HP (2-8 HP)", color: "#10b981"},
-                    2: {name: "Intelligence", effect: "Grants +6 temporary Intelligence for one chest opening", color: "#3b82f6"},
-                    3: {name: "Speed (Dexterity)", effect: "Grants +6 temporary Dexterity for one retreat attempt", color: "#8b5cf6"},
-                    4: {name: "Strength", effect: "Grants +6 temporary Strength for one attack", color: "#ef4444"},
-                    5: {name: "Protection", effect: "Grants +3 temporary Armor for one enemy attack", color: "#06b6d4"}
+                    2: {name: "Ultra Healing", effect: "Restores to full HP", color: "#fbbf24"},
+                    3: {name: "Intelligence", effect: "Grants +6 temporary Intelligence for one chest opening", color: "#3b82f6"},
+                    4: {name: "Speed (Dexterity)", effect: "Grants +6 temporary Dexterity for one retreat attempt", color: "#8b5cf6"},
+                    5: {name: "Strength", effect: "Grants +6 temporary Strength for one attack", color: "#ef4444"},
+                    6: {name: "Protection", effect: "Grants +3 temporary Armor for one enemy attack", color: "#06b6d4"}
                 };
                 const effect = potionEffects[data[3]];
                 html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Type: <span style="color:${effect.color};font-weight:bold;">${effect.name}</span></div>`;
                 html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">${effect.effect}</span></div>`;
-                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Can be used in combat or from inventory (healing only).</div>';
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Consumable item. Can be used in combat or from inventory.</div>';
             }
             // Spell stats
             else if (data[2] === 4) {
@@ -5253,9 +5255,10 @@ z`<!DOCTYPE html>
                 const count = consumables[name][0];
                 if(count <= 0) continue;
                 
-                // Check if this is a healing potion - only healing potions can be used outside combat
+                // All potions can be used outside combat
                 const isHealingPotion = name === 'healing potion';
-                const canUse = isHealingPotion && stats.HP < stats.maxHP;
+                const isUltraHealingPotion = name === 'ultra healing potion';
+                const canUse = true; // All potions can be used in inventory outside of combat
                 
                 const div = document.createElement('div');
                 div.className = `p-3 bg-slate-900 border border-slate-800 rounded ${canUse ? 'cursor-pointer hover:bg-slate-800 transition-colors' : ''}`;
@@ -5450,6 +5453,31 @@ z`<!DOCTYPE html>
                 updateUI();
                 renderInventory();
             }
+            else if (name === 'ultra healing potion') {
+                if (stats.HP >= stats.maxHP) {
+                    addLog("Already at full health!", "text-slate-400");
+                    return;
+                }
+                
+                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
+                    addLog("No ultra healing potions left!", "text-red-400");
+                    return;
+                }
+                
+                // heal to full HP
+                stats.potions[name][0]--;
+                stats.HP = stats.maxHP
+                addLog(`Drank ultra healing potion - Healed to full HP`, "text-green-400");
+                
+                if(stats.potions[name][0] <= 0) {
+                    delete stats.potions[name];
+                }
+                
+                updateUI();
+                renderInventory();
+            } else {
+                addLog(`Cannot use ${name} outside of combat!`, "text-red-400");
+            }
         }
 
         // --- ITEMS IN COMBAT ---
@@ -5564,10 +5592,13 @@ z`<!DOCTYPE html>
                         const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
                         stats.HP = Math.min(stats.maxHP, stats.HP + heal);
                         addLog(`Healed ${heal} HP`, "text-green-400");
-                    } else if(typeId === 2) stats.temporary_intelligence = 6;
-                    else if(typeId === 3) stats.temporary_dexterity = 6;
-                    else if(typeId === 4) stats.temporary_strength = 6;
-                    else if(typeId === 5) stats.temporary_armor = 3;
+                    } else if(typeId === 2) {
+                        stats.HP = stats.maxHP;
+                        addLog(`Fully Healed`, "text-green-400");
+                    } else if(typeId === 3) stats.temporary_intelligence = 6;
+                    else if(typeId === 4) stats.temporary_dexterity = 6;
+                    else if(typeId === 5) stats.temporary_strength = 6;
+                    else if(typeId === 6) stats.temporary_armor = 3;
                 }
                 
                 if(stats.potions[name][0] <= 0) delete stats.potions[name];
