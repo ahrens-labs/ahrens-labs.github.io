@@ -2290,14 +2290,14 @@ z`<!DOCTYPE html>
                 const name = monsterData[monsterKey] && monsterData[monsterKey].name ? monsterData[monsterKey].name : generateMonsterName('normal');
                 showPreCombatSavePrompt(name, 'normal');
                 hasMonster = true;
-            } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
+            } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9)) {
                 // Random wandering monster spawn ONLY when entering room (25% chance)
                 // Maximum 1 enemy per room - check if there's already a monster
                 const hasChest = val[7] === '1' || val[8] === '1';
                 const hasShop = monsterData[shopKey];
                 
-                // Only spawn if no existing monster, no chest, and no shop
-                if (!hasPermanentMonster && !hasChest && !hasShop) {
+                // Only spawn if no existing monster
+                if (!hasMonster) {
                     const name = generateMonsterName('wandering');
                     showPreCombatSavePrompt(name, 'wandering');
                     hasMonster = true;
