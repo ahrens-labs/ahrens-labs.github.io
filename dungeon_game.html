@@ -200,55 +200,55 @@ z`<!DOCTYPE html>
         <main class="game-wrapper flex flex-col items-center">
 
     <!-- Header Stats -->
-    <div id="stats-header" class="w-full max-w-6xl bg-slate-900 border border-slate-800 p-4 rounded mb-4 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Left Section: Character Info and Resources -->
-            <div>
-                <div class="flex items-center justify-center gap-6 mb-3 pb-3 border-b border-slate-800">
-                    <div id="stat-level" class="text-lg text-purple-400 font-black">LVL 1</div>
-                    <div id="stat-exp" class="text-base text-cyan-400 font-bold">EXP: 0/100</div>
-                </div>
-                <div class="flex items-center justify-center gap-6">
-                    <div class="flex flex-col items-center gap-1">
-                        <i class="fas fa-heart text-red-500 text-base"></i>
-                        <div class="text-xs text-slate-500 font-bold uppercase">HP</div>
-                        <div id="stat-hp" class="text-white text-sm font-bold">--/--</div>
-                    </div>
-                    <div class="flex flex-col items-center gap-1">
-                        <i class="fas fa-coins text-yellow-500 text-base"></i>
-                        <div class="text-xs text-slate-500 font-bold uppercase">Gold</div>
-                        <div id="stat-gold" class="text-white text-sm font-bold">0</div>
-                    </div>
-                    <div class="flex flex-col items-center gap-1">
-                        <i class="fas fa-shield-alt text-slate-400 text-base"></i>
-                        <div class="text-xs text-slate-500 font-bold uppercase">AC</div>
-                        <div id="stat-armor" class="text-white text-sm font-bold">--</div>
-                    </div>
-                </div>
+    <div id="stats-header" class="w-full max-w-6xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-2 border-purple-600 shadow-xl shadow-purple-500/20 p-6 rounded-lg mb-6 hidden">
+        <div class="flex flex-col gap-4">
+            <!-- Top Row: Level, EXP, Floor -->
+            <div class="flex items-center justify-center gap-8 pb-4 border-b-2 border-purple-500/20">
+                <div id="stat-level" class="text-2xl text-purple-400 font-black tracking-wide drop-shadow-lg">LVL 1</div>
+                <div class="h-8 w-px bg-purple-500/30"></div>
+                <div id="stat-exp" class="text-lg text-cyan-400 font-bold tracking-wide">EXP: 0/100</div>
+                <div class="h-8 w-px bg-purple-500/30"></div>
+                <div id="stat-floor" class="text-2xl text-blue-400 font-black tracking-wide drop-shadow-lg">FLOOR 1</div>
             </div>
             
-            <!-- Right Section: Floor and Attributes -->
-            <div>
-                <div class="flex items-center justify-center mb-3 pb-3 border-b border-slate-800">
-                    <div id="stat-floor" class="text-lg text-blue-400 font-black">FLOOR 1</div>
+            <!-- Bottom Row: All Stats in One Line -->
+            <div class="flex items-center justify-center gap-6 flex-wrap">
+                <!-- Primary Stats -->
+                <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-lg border border-red-500/30 w-[110px]">
+                    <i class="fas fa-heart text-red-500 text-3xl drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"></i>
+                    <div class="text-xs text-red-400 font-bold uppercase tracking-wider">HP</div>
+                    <div id="stat-hp" class="text-white text-3xl font-black drop-shadow-lg">--/--</div>
                 </div>
-                <div class="flex items-center justify-center gap-6">
-                    <div class="flex flex-col items-center">
-                        <div class="text-xs text-slate-500 font-bold uppercase mb-1">STR</div>
-                        <div id="stat-str" class="text-white text-xl font-black">0</div>
-                    </div>
-                    <div class="flex flex-col items-center">
-                        <div class="text-xs text-slate-500 font-bold uppercase mb-1">DEX</div>
-                        <div id="stat-dex" class="text-white text-xl font-black">0</div>
-                    </div>
-                    <div class="flex flex-col items-center">
-                        <div class="text-xs text-slate-500 font-bold uppercase mb-1">INT</div>
-                        <div id="stat-int" class="text-white text-xl font-black">0</div>
-                    </div>
-                    <div class="flex flex-col items-center">
-                        <div class="text-xs text-slate-500 font-bold uppercase mb-1">WIS</div>
-                        <div id="stat-wis" class="text-white text-xl font-black">0</div>
-                    </div>
+                <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-lg border border-yellow-500/30 w-[110px]">
+                    <i class="fas fa-coins text-yellow-500 text-3xl drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]"></i>
+                    <div class="text-xs text-yellow-400 font-bold uppercase tracking-wider">Gold</div>
+                    <div id="stat-gold" class="text-white text-3xl font-black drop-shadow-lg">0</div>
+                </div>
+                <div class="flex flex-col items-center gap-2 p-3 bg-slate-950/50 rounded-lg border border-slate-400/30 w-[110px]">
+                    <i class="fas fa-shield-alt text-slate-300 text-3xl drop-shadow-[0_0_8px_rgba(148,163,184,0.6)]"></i>
+                    <div class="text-xs text-slate-300 font-bold uppercase tracking-wider">AC</div>
+                    <div id="stat-armor" class="text-white text-3xl font-black drop-shadow-lg">--</div>
+                </div>
+                
+                <!-- Divider -->
+                <div class="h-20 w-px bg-purple-500/30"></div>
+                
+                <!-- Attributes -->
+                <div class="flex flex-col items-center p-3 bg-slate-950/50 rounded-lg border border-slate-600/30 w-[110px]">
+                    <div class="text-sm text-red-400 font-bold uppercase mb-2 tracking-wider">STR</div>
+                    <div id="stat-str" class="text-white text-2xl font-black drop-shadow-lg">0</div>
+                </div>
+                <div class="flex flex-col items-center p-3 bg-slate-950/50 rounded-lg border border-slate-600/30 w-[110px]">
+                    <div class="text-sm text-green-400 font-bold uppercase mb-2 tracking-wider">DEX</div>
+                    <div id="stat-dex" class="text-white text-2xl font-black drop-shadow-lg">0</div>
+                </div>
+                <div class="flex flex-col items-center p-3 bg-slate-950/50 rounded-lg border border-slate-600/30 w-[110px]">
+                    <div class="text-sm text-blue-400 font-bold uppercase mb-2 tracking-wider">INT</div>
+                    <div id="stat-int" class="text-white text-2xl font-black drop-shadow-lg">0</div>
+                </div>
+                <div class="flex flex-col items-center p-3 bg-slate-950/50 rounded-lg border border-slate-600/30 w-[110px]">
+                    <div class="text-sm text-purple-400 font-bold uppercase mb-2 tracking-wider">WIS</div>
+                    <div id="stat-wis" class="text-white text-2xl font-black drop-shadow-lg">0</div>
                 </div>
             </div>
         </div>
@@ -700,8 +700,13 @@ z`<!DOCTYPE html>
             "fireball spell": [150, 2, 4, 5],
             "town spell": [200, 2, 4, 6],
             "checkpoint": [500, 0, 5],
-            "map": [150, 0, 6],
-            "detailed map": [500, 0, 6]
+            "detailed map": [500, 0, 7, 6],
+            "chest map": [50, 0, 7, 0],
+            "monster map": [100, 0, 7, 1],
+            "mini-boss map": [115, 0, 7, 2],
+            "merchant map": [75, 0, 7, 3],
+            "stairs map": [115, 0, 7, 4],
+            "boss map": [150, 0, 7, 5]
         };
 
         // --- ACHIEVEMENTS SYSTEM ---
@@ -792,6 +797,15 @@ z`<!DOCTYPE html>
             checkpoints: {},  // Named checkpoints: {name: {floor, row, col}, ...}
             hasMap: false,  // Whether player owns the map item
             hasDetailedMap: false,  // Whether player owns the detailed map item
+            // Map layers - which types of rooms are visible
+            mapLayers: {
+                chests: false,
+                monsters: false,
+                miniBosses: false,
+                merchants: false,
+                stairs: false,
+                bosses: false
+            },
             stairEntryPoints: {},  // Track where player entered each floor from stairs: {floor: {row, col}}
             unlockedStairs: new Set()  // Track unlocked stairs by "floor,row,col"
         };
@@ -2042,27 +2056,46 @@ z`<!DOCTYPE html>
                     let bgColor = 'bg-slate-800';
                     let icon = '';
                     
-                    // If player has map, show special room markers
+                    // If player has map, show special room markers based on enabled layers
                     if (stats.hasMap && floorMaps[floorKey]) {
                         const val = String(floorMaps[floorKey][r][c]).padStart(9, '0');
                         const shopKey = `shop_${r},${c},${stats.floor}`;
                         const entryPoint = stats.stairEntryPoints[stats.floor];
                         const hasUpStairs = entryPoint && r === entryPoint.row && c === entryPoint.col;
                         
-                        // Collect all features in this room
-                        // Priority order for display: Stairs (up/down) > Boss > Mini-boss > Merchant
+                        // Collect all features in this room based on active map layers
                         let features = [];
                         
-                        // Check for stairs first (highest priority)
-                        if (val[4] === '1') features.push({icon: '⬇', color: 'bg-green-700'});
-                        if (hasUpStairs) features.push({icon: '⬆', color: 'bg-blue-600'});
+                        // Check for stairs (if layer enabled)
+                        if (stats.mapLayers.stairs) {
+                            if (val[4] === '1') features.push({icon: '⬇', color: 'bg-green-700'});
+                            if (hasUpStairs) features.push({icon: '⬆', color: 'bg-blue-600'});
+                        }
                         
-                        // Then bosses
-                        if (val[2] === '1') features.push({icon: '👑', color: 'bg-red-700'});
-                        if (val[3] === '1') features.push({icon: '⚔', color: 'bg-orange-700'});
+                        // Check for bosses (if layer enabled)
+                        if (stats.mapLayers.bosses && val[2] === '1') {
+                            features.push({icon: '👑', color: 'bg-red-700'});
+                        }
                         
-                        // Then merchants
-                        if (monsterData[shopKey]) features.push({icon: '📦', color: 'bg-amber-700'});
+                        // Check for mini-bosses (if layer enabled)
+                        if (stats.mapLayers.miniBosses && val[3] === '1') {
+                            features.push({icon: '⚔', color: 'bg-orange-700'});
+                        }
+                        
+                        // Check for merchants (if layer enabled)
+                        if (stats.mapLayers.merchants && monsterData[shopKey]) {
+                            features.push({icon: '📦', color: 'bg-amber-700'});
+                        }
+                        
+                        // Check for chests (if layer enabled)
+                        if (stats.mapLayers.chests && val[0] === '1') {
+                            features.push({icon: '💰', color: 'bg-yellow-600'});
+                        }
+                        
+                        // Check for regular monsters (if layer enabled)
+                        if (stats.mapLayers.monsters && val[6] === '1') {
+                            features.push({icon: '👹', color: 'bg-purple-700'});
+                        }
                         
                         // Show all features (up to 2 icons)
                         if (features.length > 0) {
@@ -2292,12 +2325,10 @@ z`<!DOCTYPE html>
                 hasMonster = true;
             } else if (isEnteringRoom && Math.random() < 0.25 && !(currentRoom[0] === 9 && currentRoom[1] === 9 && stats.floor === 1)) {
                 // Random wandering monster spawn ONLY when entering room (25% chance)
-                // Maximum 1 enemy per room - check if there's already a monster
-                const hasChest = val[7] === '1' || val[8] === '1';
-                const hasShop = monsterData[shopKey];
+                // Can spawn in rooms with chests or merchants, as long as there's no predetermined monster
                 
-                // Only spawn if no existing monster, no chest, and no shop
-                if (!hasPermanentMonster && !hasChest && !hasShop) {
+                // Only spawn if no existing predetermined monster
+                if (!hasPermanentMonster) {
                     const name = generateMonsterName('wandering');
                     showPreCombatSavePrompt(name, 'wandering');
                     hasMonster = true;
@@ -2604,6 +2635,28 @@ z`<!DOCTYPE html>
                         } else {
                             effectDesc = `${bonusValue} damage`;
                         }
+                    } else if (typeof bonusValue === 'object' && bonusValue !== null && bonusValue.baseDamage) {
+                        // Conditional damage bonus weapon
+                        const attackBonus = bonusType || 0;
+                        let condBonus = '';
+                        if (bonusValue.type === 'lowHP') {
+                            condBonus = `, +${bonusValue.bonus} dmg when HP ≤ ${bonusValue.threshold}`;
+                        } else if (bonusValue.type === 'boss') {
+                            condBonus = `, +${bonusValue.bonus} dmg vs bosses`;
+                        } else if (bonusValue.type === 'miniBoss') {
+                            condBonus = `, +${bonusValue.bonus} dmg vs mini-bosses/bosses`;
+                        } else if (bonusValue.type === 'floor') {
+                            condBonus = `, +${bonusValue.bonus} dmg per floor`;
+                        } else if (bonusValue.type === 'floorParity') {
+                            if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                                condBonus = `, +${bonusValue.evenBonus}/${bonusValue.oddBonus} dmg (even/odd)`;
+                            } else if (bonusValue.evenBonus > 0) {
+                                condBonus = `, +${bonusValue.evenBonus} dmg on even floors`;
+                            } else {
+                                condBonus = `, +${bonusValue.oddBonus} dmg on odd floors`;
+                            }
+                        }
+                        effectDesc = `${bonusValue.baseDamage} dmg, +${attackBonus} attack${condBonus}`;
                     } else {
                         const baseTier = bonusType || 2;
                         const val = bonusValue || 0;
@@ -2627,6 +2680,20 @@ z`<!DOCTYPE html>
                             conditionText = `AC ${baseAC}, +${bonusValue.bonus} when HP ≤ ${percent}%`;
                         } else if (bonusValue.type === 'highHP') {
                             conditionText = `AC ${baseAC}, +${bonusValue.bonus} when HP ≥ ${bonusValue.threshold}`;
+                        } else if (bonusValue.type === 'coins') {
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} when gold ≥ ${bonusValue.threshold}`;
+                        } else if (bonusValue.type === 'boss') {
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} vs bosses`;
+                        } else if (bonusValue.type === 'miniBoss') {
+                            conditionText = `AC ${baseAC}, +${bonusValue.bonus} vs mini-bosses/bosses`;
+                        } else if (bonusValue.type === 'floorParity') {
+                            if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                                conditionText = `AC ${baseAC}, +${bonusValue.evenBonus} on even floors, +${bonusValue.oddBonus} on odd`;
+                            } else if (bonusValue.evenBonus > 0) {
+                                conditionText = `AC ${baseAC}, +${bonusValue.evenBonus} on even floors`;
+                            } else {
+                                conditionText = `AC ${baseAC}, +${bonusValue.oddBonus} on odd floors`;
+                            }
                         }
                         effectDesc = conditionText;
                     } else {
@@ -2698,7 +2765,7 @@ z`<!DOCTYPE html>
                 html += '</div>';
                 html += '</div>';
                 html += '<div style="display:flex;gap:0.5rem;margin-top:0.75rem;">';
-                html += '<button type="button" class="dungeon-shop-view-btn" style="flex:1;padding:0.5rem 0.75rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW</button>';
+                html += '<button type="button" class="dungeon-shop-view-btn" style="flex:1;padding:0.5rem 0.75rem;background:#3b82f6;border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:pointer;border:none;">VIEW STATS</button>';
                 html += '<button type="button" class="dungeon-shop-buy-btn" style="flex:1;padding:0.5rem 0.75rem;background:' + (canAfford ? '#10b981' : '#475569') + ';border-radius:6px;font-weight:bold;color:white;font-size:0.85rem;cursor:' + (canAfford ? 'pointer' : 'not-allowed') + ';border:none;opacity:' + (canAfford ? '1' : '0.7') + ';">BUY</button>';
                 html += '</div>';
                 html += '</div>';
@@ -2808,6 +2875,172 @@ z`<!DOCTYPE html>
                 return currentRoom.shop.inventory;
             }
             return {};
+        }
+        
+        function showDungeonItemDetails(itemName, itemData, shop) {
+            const detailsModal = document.createElement('div');
+            detailsModal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:10001;';
+            
+            const cost = itemData[0];
+            const itemType = itemData[1];
+            const bonusType = itemData[2];
+            const bonusValue = itemData[3];
+            
+            let html = '<div style="background:#1e293b;padding:2rem;border-radius:10px;max-width:600px;width:95%;max-height:80vh;overflow-y:auto;">';
+            html += '<h2 style="font-size:1.5rem;font-weight:bold;margin-bottom:1rem;text-align:center;color:#fbbf24;">ITEM DETAILS</h2>';
+            html += '<div style="background:#0f172a;padding:1.5rem;border-radius:8px;margin-bottom:1rem;border:2px solid #334155;">';
+            html += `<div style="font-size:1.3rem;font-weight:bold;color:white;text-transform:uppercase;margin-bottom:0.5rem;text-align:center;">${itemName}</div>`;
+            html += `<div style="color:#fbbf24;font-size:1.2rem;font-weight:bold;text-align:center;margin-bottom:1rem;">${cost} Gold</div>`;
+            html += '<div style="border-top:1px solid #334155;padding-top:1rem;">';
+            
+            if (itemType === 1) {
+                // Weapon details
+                html += '<div style="color:#ef4444;font-weight:bold;margin-bottom:1rem;font-size:1.1rem;">⚔️ WEAPON</div>';
+                
+                if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                    html += `<div style="color:#10b981;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">Damage: ${bonusValue}</div>`;
+                    const attackBonus = bonusType || 0;
+                    if (attackBonus > 0) {
+                        html += `<div style="color:#3b82f6;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">+${attackBonus} to attack rolls</div>`;
+                    }
+                } else if (typeof bonusValue === 'object' && bonusValue !== null && bonusValue.baseDamage) {
+                    // Conditional damage bonus weapon
+                    html += `<div style="color:#10b981;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">Base Damage: ${bonusValue.baseDamage}</div>`;
+                    const attackBonus = bonusType || 0;
+                    if (attackBonus > 0) {
+                        html += `<div style="color:#3b82f6;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">+${attackBonus} to attack rolls</div>`;
+                    }
+                    
+                    // Show conditional damage bonus
+                    html += '<div style="background:#1e293b;padding:0.75rem;border-radius:6px;margin-top:0.75rem;border:1px solid #06b6d4;">';
+                    html += '<div style="color:#06b6d4;font-weight:bold;margin-bottom:0.5rem;">✨ CONDITIONAL BONUS</div>';
+                    if (bonusValue.type === 'lowHP') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when your HP ≤ ${bonusValue.threshold}</div>`;
+                    } else if (bonusValue.type === 'boss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when fighting bosses</div>`;
+                    } else if (bonusValue.type === 'miniBoss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when fighting mini-bosses or bosses</div>`;
+                    } else if (bonusValue.type === 'floor') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage per floor (currently +${bonusValue.bonus * stats.floor})</div>`;
+                    } else if (bonusValue.type === 'floorParity') {
+                        if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} damage on even floors, +${bonusValue.oddBonus} on odd floors</div>`;
+                        } else if (bonusValue.evenBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} damage on even floors</div>`;
+                        } else {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.oddBonus} damage on odd floors</div>`;
+                        }
+                    }
+                    html += '</div>';
+                } else {
+                    const tier = bonusType || 1;
+                    html += `<div style="color:#64748b;font-size:0.95rem;margin-bottom:0.5rem;">Tier: <span style="color:#fbbf24;font-weight:bold;">${tier}</span></div>`;
+                    html += `<div style="color:#10b981;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">Damage: ${getWeaponDamageDesc(tier)}</div>`;
+                    const attackBonus = bonusValue || 0;
+                    if (attackBonus > 0) {
+                        html += `<div style="color:#3b82f6;font-weight:bold;font-size:1rem;margin-bottom:0.5rem;">+${attackBonus} to attack rolls</div>`;
+                    }
+                }
+                
+                // Durability info
+                let maxDur = WEAPON_DURABILITY[1];
+                if (typeof bonusValue === 'string' && bonusValue.includes('d')) {
+                    if (bonusValue.includes('6d') || bonusValue.includes('5d')) {
+                        maxDur = WEAPON_DURABILITY.custom_high;
+                    } else if (bonusValue.includes('3d') || bonusValue.includes('4d')) {
+                        maxDur = WEAPON_DURABILITY.custom_mid;
+                    } else {
+                        maxDur = WEAPON_DURABILITY.custom_low;
+                    }
+                } else {
+                    const tier = bonusType || 1;
+                    maxDur = WEAPON_DURABILITY[tier] || WEAPON_DURABILITY[1];
+                }
+                html += `<div style="color:#94a3b8;font-size:0.9rem;margin-top:1rem;">Durability: ${maxDur}/${maxDur}</div>`;
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Used for attacking enemies in combat. Higher tier weapons deal more damage.</div>';
+                
+            } else if (itemType === 2) {
+                // Armor details
+                html += '<div style="color:#3b82f6;font-weight:bold;margin-bottom:1rem;font-size:1.1rem;">🛡️ ARMOR</div>';
+                const baseAC = bonusType || 10;
+                html += `<div style="color:#3b82f6;font-weight:bold;font-size:1.2rem;margin-bottom:0.5rem;">Base AC: ${baseAC}</div>`;
+                
+                if (typeof bonusValue === 'object' && bonusValue !== null && bonusValue.type) {
+                    // Conditional AC bonus
+                    html += '<div style="background:#1e293b;padding:0.75rem;border-radius:6px;margin-top:0.75rem;border:1px solid #06b6d4;">';
+                    html += '<div style="color:#06b6d4;font-weight:bold;margin-bottom:0.5rem;">✨ CONDITIONAL BONUS</div>';
+                    if (bonusValue.type === 'lowHP') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when your HP ≤ ${bonusValue.threshold}</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'percentHP') {
+                        const percent = Math.round(bonusValue.threshold * 100);
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when your HP ≤ ${percent}%</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'highHP') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when your HP ≥ ${bonusValue.threshold}</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'coins') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when you have ≥ ${bonusValue.threshold} gold</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'boss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when fighting bosses</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'miniBoss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} AC when fighting mini-bosses or bosses</div>`;
+                        html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.bonus}</div>`;
+                    } else if (bonusValue.type === 'floorParity') {
+                        if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} AC on even floors, +${bonusValue.oddBonus} AC on odd floors</div>`;
+                            html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + Math.max(bonusValue.evenBonus, bonusValue.oddBonus)}</div>`;
+                        } else if (bonusValue.evenBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} AC on even floors</div>`;
+                            html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.evenBonus}</div>`;
+                        } else {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.oddBonus} AC on odd floors</div>`;
+                            html += `<div style="color:#10b981;font-weight:bold;margin-top:0.5rem;">Max AC: ${baseAC + bonusValue.oddBonus}</div>`;
+                        }
+                    }
+                    html += '</div>';
+                } else {
+                    const flatBonus = bonusValue || 0;
+                    if (flatBonus > 0) {
+                        html += `<div style="color:#10b981;font-weight:bold;font-size:1rem;margin-top:0.5rem;">+${flatBonus} AC bonus (Total AC: ${baseAC + flatBonus})</div>`;
+                    }
+                }
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Protects you from enemy attacks. Higher AC makes you harder to hit.</div>';
+                
+            } else if (itemType === 3) {
+                // Potion details
+                html += '<div style="color:#10b981;font-weight:bold;margin-bottom:1rem;font-size:1.1rem;">🧪 POTION</div>';
+                const val = bonusValue || 0;
+                if (bonusType === 1 || bonusType === 2) {
+                    html += `<div style="color:#06b6d4;font-weight:bold;font-size:1rem;">Effect: +${val} to ALL rolls for 1 turn</div>`;
+                } else if (bonusType === 3 || bonusType === 5) {
+                    html += `<div style="color:#3b82f6;font-weight:bold;font-size:1rem;">Effect: +${val} AC for 1 turn</div>`;
+                } else if (bonusType === 4 || bonusType === 6) {
+                    html += `<div style="color:#ef4444;font-weight:bold;font-size:1rem;">Effect: +${val} to attack rolls for 1 turn</div>`;
+                } else if (bonusType === 7) {
+                    html += `<div style="color:#8b5cf6;font-weight:bold;font-size:1rem;">Effect: +${val} to all rolls for 1 turn</div>`;
+                }
+                html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Single-use consumable that provides temporary combat bonuses.</div>';
+                
+            } else if (itemType === 0 && bonusType === 5) {
+                // Checkpoint
+                html += '<div style="color:#06b6d4;font-weight:bold;margin-bottom:1rem;font-size:1.1rem;">📍 CHECKPOINT</div>';
+                html += '<div style="color:#94a3b8;font-size:1rem;">Set a checkpoint at your current location. You can teleport back to this checkpoint at any time from the dungeon menu.</div>';
+            }
+            
+            html += '</div>';
+            html += '</div>';
+            html += '<button id="close-item-details" style="width:100%;padding:1rem;background:#475569;color:white;border:none;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:1rem;">CLOSE</button>';
+            html += '</div>';
+            
+            detailsModal.innerHTML = html;
+            document.body.appendChild(detailsModal);
+            
+            document.getElementById('close-item-details').onclick = () => {
+                detailsModal.remove();
+            };
         }
 
         // Wrapper function to handle purchase with full item data
@@ -3051,6 +3284,35 @@ z`<!DOCTYPE html>
                         html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusType} to attack rolls</span></div>`;
                     }
                     html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Unique damage formula! This weapon deals damage differently than standard weapons. Each attack uses this formula to calculate damage.</div>';
+                } else if (typeof bonusValue === 'object' && bonusValue !== null && bonusValue.baseDamage) {
+                    // Conditional damage bonus weapon
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Base Damage: <span style="color:#10b981;font-weight:bold;">${bonusValue.baseDamage}</span></div>`;
+                    if (bonusType && typeof bonusType === 'number' && bonusType > 0) {
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Attack Bonus: <span style="color:#3b82f6;font-weight:bold;">+${bonusType} to attack rolls</span></div>`;
+                    }
+                    
+                    // Show conditional damage bonus
+                    html += '<div style="background:#1e293b;padding:0.75rem;border-radius:6px;margin-top:0.75rem;border:1px solid #06b6d4;">';
+                    html += '<div style="color:#06b6d4;font-weight:bold;margin-bottom:0.5rem;">✨ CONDITIONAL DAMAGE BONUS</div>';
+                    if (bonusValue.type === 'lowHP') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when your HP ≤ ${bonusValue.threshold}</div>`;
+                    } else if (bonusValue.type === 'boss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when fighting bosses</div>`;
+                    } else if (bonusValue.type === 'miniBoss') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage when fighting mini-bosses or bosses</div>`;
+                    } else if (bonusValue.type === 'floor') {
+                        html += `<div style="color:#94a3b8;">+${bonusValue.bonus} damage per floor (currently +${bonusValue.bonus * stats.floor})</div>`;
+                    } else if (bonusValue.type === 'floorParity') {
+                        if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} damage on even floors, +${bonusValue.oddBonus} on odd floors</div>`;
+                        } else if (bonusValue.evenBonus > 0) {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.evenBonus} damage on even floors</div>`;
+                        } else {
+                            html += `<div style="color:#94a3b8;">+${bonusValue.oddBonus} damage on odd floors</div>`;
+                        }
+                    }
+                    html += '</div>';
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Conditional bonus! This weapon deals extra damage when specific conditions are met.</div>';
                 } else if (typeof bonusValue === 'number' || bonusValue === 0 || bonusValue === null || bonusValue === undefined) {
                     // Standard tier-based weapon
                     const baseTier = (typeof bonusType === 'number' && bonusType > 0) ? bonusType : 2;
@@ -3083,11 +3345,26 @@ z`<!DOCTYPE html>
                         conditionText = `+${bonusValue.bonus} AC when HP ≤ ${percent}%`;
                     } else if (bonusValue.type === 'highHP') {
                         conditionText = `+${bonusValue.bonus} AC when HP ≥ ${bonusValue.threshold}`;
+                    } else if (bonusValue.type === 'coins') {
+                        conditionText = `+${bonusValue.bonus} AC when gold ≥ ${bonusValue.threshold}`;
+                    } else if (bonusValue.type === 'boss') {
+                        conditionText = `+${bonusValue.bonus} AC when fighting bosses`;
+                    } else if (bonusValue.type === 'miniBoss') {
+                        conditionText = `+${bonusValue.bonus} AC when fighting mini-bosses/bosses`;
+                    } else if (bonusValue.type === 'floorParity') {
+                        if (bonusValue.evenBonus > 0 && bonusValue.oddBonus > 0) {
+                            conditionText = `+${bonusValue.evenBonus} AC on even floors, +${bonusValue.oddBonus} on odd`;
+                        } else if (bonusValue.evenBonus > 0) {
+                            conditionText = `+${bonusValue.evenBonus} AC on even floors`;
+                        } else {
+                            conditionText = `+${bonusValue.oddBonus} AC on odd floors`;
+                        }
                     }
                     if (conditionText) {
                         html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Special Effect: <span style="color:#10b981;font-weight:bold;">${conditionText}</span></div>`;
-                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Max AC (when condition met): <span style="color:#fbbf24;font-weight:bold;">${baseAC + bonusValue.bonus}</span></div>`;
-                        html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Conditional bonus! This armor provides extra protection when you\'re in danger. The bonus activates automatically when the condition is met during combat.</div>';
+                        const maxBonus = bonusValue.type === 'floorParity' ? Math.max(bonusValue.evenBonus || 0, bonusValue.oddBonus || 0) : bonusValue.bonus;
+                        html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Max AC (when condition met): <span style="color:#fbbf24;font-weight:bold;">${baseAC + maxBonus}</span></div>`;
+                        html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Conditional bonus! This armor provides extra protection when specific conditions are met. The bonus activates automatically during combat.</div>';
                     } else {
                         html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Total AC: <span style="color:#fbbf24;font-weight:bold;">${baseAC}</span></div>`;
                         html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently increases your Armor Class. Makes you harder to hit.</div>';
@@ -3151,8 +3428,8 @@ z`<!DOCTYPE html>
             
             html += '</div>';
             html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">Price: ${cost} Gold</div>`;
+            html += '<button onclick="closeDungeonItemStatsModal()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:6px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;margin-top:1rem;">CLOSE</button>';
             html += '</div>';
-            html += '<button onclick="closeDungeonItemStatsModal()" style="width:100%;padding:0.75rem;background:#64748b;border-radius:8px;font-weight:bold;color:white;font-size:0.95rem;cursor:pointer;border:none;">CLOSE</button>';
             html += '</div>';
             
             modal.innerHTML = html;
@@ -4330,8 +4607,8 @@ z`<!DOCTYPE html>
             container.innerHTML = '';
             
             if (shopMode === 'buy') {
-                const types = {1:"Weapons", 2:"Armor", 3:"Potions", 4:"Spells", 5:"Special Items", 6:"Tools"};
-                for(let t=1; t<=6; t++) {
+                const types = {1:"Weapons", 2:"Armor", 3:"Potions", 4:"Spells", 5:"Special Items", 6:"Tools", 7:"Map Layers"};
+                for(let t=1; t<=7; t++) {
                     const sect = document.createElement('div');
                     sect.innerHTML = `<h3 class="text-sm font-bold text-slate-500 mb-3 uppercase tracking-widest border-b border-slate-800 pb-2">${types[t]}</h3>`;
                     const list = document.createElement('div');
@@ -4496,6 +4773,26 @@ z`<!DOCTYPE html>
                 html += '<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">Reveals bosses, mini-bosses, and stairs on the map</span></div>';
                 html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Permanently reveals the locations of important rooms on your dungeon map. Bosses (👑), mini-bosses (⚔), and stairs (⬇) will be clearly marked!</div>';
             }
+            // Map layer items (including detailed map)
+            else if (data[2] === 7) {
+                const layerNames = ['Chests', 'Monsters', 'Mini-Bosses', 'Merchants', 'Stairs', 'Bosses', 'Detailed Map'];
+                const layerIcons = ['💰', '👹', '⚔', '📦', '⬇', '👑', '🔍'];
+                const layerColors = ['#eab308', '#a855f7', '#ea580c', '#f59e0b', '#16a34a', '#dc2626', '#06b6d4'];
+                const layerName = layerNames[data[3]];
+                const layerIcon = layerIcons[data[3]];
+                const layerColor = layerColors[data[3]];
+                
+                if (data[3] === 6) {
+                    // Detailed map special description
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Type: <span style="color:${layerColor};font-weight:bold;">${layerIcon} ${layerName}</span></div>`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">Click any room to inspect its contents</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Allows you to inspect any room on the map to see what it contains before entering. Perfect for strategic planning!</div>';
+                } else {
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Type: <span style="color:${layerColor};font-weight:bold;">${layerIcon} ${layerName} Map Layer</span></div>`;
+                    html += `<div style="font-size:0.95rem;color:#64748b;margin-bottom:0.5rem;">Effect: <span style="color:#fbbf24;font-weight:bold;">Reveals all ${layerName.toLowerCase()} on your dungeon map</span></div>`;
+                    html += '<div style="font-size:0.85rem;color:#94a3b8;margin-top:1rem;font-style:italic;">Unlocks this map layer permanently. Toggle it on/off from your inventory to customize your map view!</div>';
+                }
+            }
             
             html += '</div>';
             html += `<div style="font-size:1.1rem;font-weight:bold;color:#fbbf24;text-align:center;margin-top:1rem;padding-top:1rem;border-top:1px solid #334155;">Price: ${data[0]} Gold</div>`;
@@ -4585,16 +4882,23 @@ z`<!DOCTYPE html>
                         addLog(`Checkpoint purchased! You now have ${stats.checkpointsPurchased} checkpoint(s) available.`, "text-cyan-400 font-bold");
                         itemType = 'special';
                     }
-                } else if(data[2] === 6) {
-                    // Map item
-                    if(name === 'map') {
-                        stats.hasMap = true;
-                        addLog(`Map purchased! Bosses, mini-bosses, and stairs are now visible on the dungeon map!`, "text-cyan-400 font-bold");
-                        itemType = 'special';
-                        renderDungeon(); // Refresh the dungeon view to show new markers
-                    } else if(name === 'detailed map') {
+                } else if(data[2] === 7) {
+                    // Map layer items including detailed map
+                    if(name === 'detailed map') {
                         stats.hasDetailedMap = true;
+                        stats.hasMap = true; // Enable map if not already enabled
                         addLog(`Detailed Map purchased! You can now inspect any room on the map to see its contents!`, "text-cyan-400 font-bold");
+                        itemType = 'special';
+                        renderDungeon(); // Refresh the dungeon view
+                    } else {
+                        const layerKeys = ['chests', 'monsters', 'miniBosses', 'merchants', 'stairs', 'bosses'];
+                        const layerNames = ['Chests', 'Monsters', 'Mini-Bosses', 'Merchants', 'Stairs', 'Bosses'];
+                        const layerKey = layerKeys[data[3]];
+                        const layerName = layerNames[data[3]];
+                        
+                        stats.hasMap = true; // Enable map if not already enabled
+                        stats.mapLayers[layerKey] = true; // Enable this specific layer
+                        addLog(`${layerName} Map Layer purchased! ${layerName} are now visible on your dungeon map!`, "text-cyan-400 font-bold");
                         itemType = 'special';
                         renderDungeon(); // Refresh the dungeon view to show new markers
                     }
@@ -4968,14 +5272,49 @@ z`<!DOCTYPE html>
             // Tools section - show map if owned
             if (stats.hasMap) {
                 const mapDiv = document.createElement('div');
-                mapDiv.className = 'p-3 bg-slate-900 border border-slate-800 rounded cursor-pointer hover:bg-slate-800 transition-colors';
-                mapDiv.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="text-base font-bold uppercase text-slate-300">🗺️ Dungeon Map</span>
-                        <button class="bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded text-sm font-bold text-white">VIEW</button>
-                    </div>
-                `;
-                mapDiv.onclick = () => showMapLegend();
+                mapDiv.className = 'p-4 bg-slate-900 border-2 border-emerald-700 rounded';
+                
+                // Map layers header
+                let mapHTML = '<div class="mb-3">';
+                mapHTML += '<div class="text-lg font-bold uppercase text-emerald-400 mb-2 flex items-center gap-2">';
+                mapHTML += '<span>🗺️ Dungeon Map Layers</span>';
+                mapHTML += '</div>';
+                mapHTML += '<div class="text-xs text-slate-400 mb-3">Toggle which room types are visible on your map</div>';
+                mapHTML += '</div>';
+                
+                // Map layer toggles
+                mapHTML += '<div class="grid grid-cols-2 gap-2 mb-3">';
+                
+                const layers = [
+                    {key: 'chests', name: 'Chests', icon: '💰', color: 'yellow'},
+                    {key: 'monsters', name: 'Monsters', icon: '👹', color: 'purple'},
+                    {key: 'miniBosses', name: 'Mini-Bosses', icon: '⚔', color: 'orange'},
+                    {key: 'merchants', name: 'Merchants', icon: '📦', color: 'amber'},
+                    {key: 'stairs', name: 'Stairs', icon: '⬇', color: 'green'},
+                    {key: 'bosses', name: 'Bosses', icon: '👑', color: 'red'}
+                ];
+                
+                for (const layer of layers) {
+                    const isEnabled = stats.mapLayers[layer.key];
+                    const bgColor = isEnabled ? `bg-${layer.color}-900/50` : 'bg-slate-800';
+                    const borderColor = isEnabled ? `border-${layer.color}-600` : 'border-slate-700';
+                    const textColor = isEnabled ? `text-${layer.color}-400` : 'text-slate-500';
+                    
+                    mapHTML += `<button 
+                        onclick="toggleMapLayer('${layer.key}')"
+                        class="p-2 ${bgColor} border ${borderColor} rounded hover:opacity-80 transition-all">
+                        <div class="text-lg mb-1">${layer.icon}</div>
+                        <div class="text-xs font-bold ${textColor}">${layer.name}</div>
+                        <div class="text-xs ${isEnabled ? 'text-emerald-400' : 'text-slate-600'} font-bold mt-1">
+                            ${isEnabled ? 'ON' : 'OFF'}
+                        </div>
+                    </button>`;
+                }
+                
+                mapHTML += '</div>';
+                mapHTML += '<button onclick="showMapLegend()" class="w-full bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded text-sm font-bold text-white">VIEW LEGEND</button>';
+                
+                mapDiv.innerHTML = mapHTML;
                 tList.appendChild(mapDiv);
             }
             
@@ -5062,6 +5401,14 @@ z`<!DOCTYPE html>
         function closeMapLegend() {
             const modal = document.getElementById('map-legend-modal');
             if (modal) modal.remove();
+        }
+        
+        function toggleMapLayer(layerKey) {
+            stats.mapLayers[layerKey] = !stats.mapLayers[layerKey];
+            renderInventory(); // Refresh inventory to show updated toggle states
+            if (stats.location === 'dungeon') {
+                renderDungeon(); // Refresh dungeon map to show changes
+            }
         }
 
         // --- USE ITEMS FROM INVENTORY (OUTSIDE COMBAT) ---
@@ -5316,12 +5663,18 @@ z`<!DOCTYPE html>
                 // Give 10 checkpoints
                 stats.checkpointsPurchased += 10;
                 
-                // Give the map
+                // Give all map layers
                 stats.hasMap = true;
+                stats.mapLayers.chests = true;
+                stats.mapLayers.monsters = true;
+                stats.mapLayers.miniBosses = true;
+                stats.mapLayers.merchants = true;
+                stats.mapLayers.stairs = true;
+                stats.mapLayers.bosses = true;
                 
                 addLog('CHEAT: Best gear activated! All stats set to 20!', 'text-yellow-400 font-bold');
                 addLog('Equipped Great Sword (Tier 6) and Platemail (AC 15)!', 'text-blue-400');
-                addLog(`Gained 10 checkpoints (Total: ${stats.checkpointsPurchased}) and unlocked the map!`, 'text-cyan-400');
+                addLog(`Gained 10 checkpoints (Total: ${stats.checkpointsPurchased}) and unlocked all map layers!`, 'text-cyan-400');
                 
                 updateUI();
                 if (stats.location === 'dungeon') {
