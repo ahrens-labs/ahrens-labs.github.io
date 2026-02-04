@@ -5058,6 +5058,7 @@ z`<!DOCTYPE html>
             const cList = document.getElementById('inv-consumables');
             const tList = document.getElementById('inv-tools');
             wList.innerHTML = ''; aList.innerHTML = ''; cList.innerHTML = ''; tList.innerHTML = '';
+            document.getElementById('inv-keys-count').innerText = stats.keys;
 
             for(let name in stats.weapons) {
                 const b = document.createElement('button');
@@ -5430,54 +5431,7 @@ z`<!DOCTYPE html>
 
         // --- USE ITEMS FROM INVENTORY (OUTSIDE COMBAT) ---
         function useItemFromInventory(name) {
-            if (name === 'healing potion') {
-                if (stats.HP >= stats.maxHP) {
-                    addLog("Already at full health!", "text-slate-400");
-                    return;
-                }
-                
-                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
-                    addLog("No healing potions left!", "text-red-400");
-                    return;
-                }
-                
-                stats.potions[name][0]--;
-                const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
-                stats.HP = Math.min(stats.maxHP, stats.HP + heal);
-                addLog(`Drank healing potion - Healed ${heal} HP`, "text-green-400");
-                
-                if(stats.potions[name][0] <= 0) {
-                    delete stats.potions[name];
-                }
-                
-                updateUI();
-                renderInventory();
-            }
-            else if (name === 'ultra healing potion') {
-                if (stats.HP >= stats.maxHP) {
-                    addLog("Already at full health!", "text-slate-400");
-                    return;
-                }
-                
-                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
-                    addLog("No ultra healing potions left!", "text-red-400");
-                    return;
-                }
-                
-                // heal to full HP
-                stats.potions[name][0]--;
-                stats.HP = stats.maxHP
-                addLog(`Drank ultra healing potion - Healed to full HP`, "text-green-400");
-                
-                if(stats.potions[name][0] <= 0) {
-                    delete stats.potions[name];
-                }
-                
-                updateUI();
-                renderInventory();
-            } else {
-                addLog(`Cannot use ${name} outside of combat!`, "text-red-400");
-            }
+            useItem(name)
         }
 
         // --- ITEMS IN COMBAT ---
