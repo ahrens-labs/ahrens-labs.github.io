@@ -1827,7 +1827,7 @@ z`<!DOCTYPE html>
         function generateThemedBossName(floor) {
             const theme = FLOOR_THEMES[floor] || FLOOR_THEMES[1];
             const bossNames = {
-                1: ['Goblin Chieftain', 'Goblin Warlord', 'Goblin King', 'Goblin Overlord'],
+                1: ['Goblin Chieftain', 'Goblin Warlord', 'Goblin Overlord'],
                 2: ['Rat King', 'Plague Lord', 'Vermin Tyrant', 'Disease Master'],
                 3: ['Stone Guardian', 'Petrified Colossus', 'Granite Warden', 'Rock Titan'],
                 4: ['Infernal Lord', 'Flame Tyrant', 'Lava Overlord', 'Fire Demon King'],
@@ -1921,12 +1921,12 @@ z`<!DOCTYPE html>
             
             const r1 = Math.floor(Math.random()*5)+1; // Reduced chest chance (20%)
             if (r1 === 1) { // Chest
-                if(Math.floor(Math.random()*4)+1 === 1) val += 10;
+                if(Math.floor(Math.random()*3)+1 === 1) val += 10;
                 else val += 1;
             }
             const r2 = Math.floor(Math.random()*5)+1; // Reduced monster chance (20%)
             if (r2 === 1) { // Monster
-                if(Math.floor(Math.random()*3)+1 === 1) {
+                if(Math.floor(Math.random()*5)+1 === 1) {
                     val += 1000;
                     const w = generateMonsterStats('wandering');
                     w.name = generateMonsterName('wandering');
@@ -5431,8 +5431,67 @@ z`<!DOCTYPE html>
 
         // --- USE ITEMS FROM INVENTORY (OUTSIDE COMBAT) ---
         function useItemFromInventory(name) {
-            useItem(name)
-        }
+            if (name === 'healing potion') {
+                if (stats.HP >= stats.maxHP) {
+                    addLog("Already at full health!", "text-slate-400");
+                    return;
+                }
+                
+                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
+                    addLog("No healing potions left!", "text-red-400");
+                    return;
+                }
+                
+                stats.potions[name][0]--;
+                const heal = (Math.floor(Math.random()*4)+1) + (Math.floor(Math.random()*4)+1);
+                stats.HP = Math.min(stats.maxHP, stats.HP + heal);
+                addLog(`Drank healing potion - Healed ${heal} HP`, "text-green-400");
+                
+                if(stats.potions[name][0] <= 0) {
+                    delete stats.potions[name];
+                }
+                
+                updateUI();
+                renderInventory();
+            }
+            else if (name === 'ultra healing potion') {
+                if (stats.HP >= stats.maxHP) {
+                    addLog("Already at full health!", "text-slate-400");
+                    return;
+                }
+                
+                if (!stats.potions[name] || stats.potions[name][0] <= 0) {
+                    addLog("No ultra healing potions left!", "text-red-400");
+                    return;
+                }
+                
+                // heal to full HP
+                stats.potions[name][0]--;
+                stats.HP = stats.maxHP
+                addLog(`Drank ultra healing potion - Healed to full HP`, "text-green-400");
+                
+                if(stats.potions[name][0] <= 0) {
+                    delete stats.potions[name];
+                }
+                
+                updateUI();
+                renderInventory();
+            }  else if(name === 'intelligence potion') {
+                stats.temporary_intelligence = 6;
+                addLog(`Drank intelligence potion - +6 Intelligence for next chest`, "text-purple-400");
+            }  else if(name === 'speed potion') {
+                stats.temporary_dexterity = 6;
+                addLog(`Drank speed potion - +6 Dexterity for next chest`, "text-blue-400");
+            }  else if(name === 'strength potion') {
+                stats.temporary_strength = 6;
+                addLog(`Drank strength potion - +6 Strength for next chest`, "text-red-400");           
+            }  else if(name === 'protection potion') {
+                stats.temporary_armor = 3;
+                addLog(`Drank protection potion - +3 Armor for next chest`, "text-yellow-400");
+            }
+            updateUI();
+            renderInventory();
+            }
 
         // --- ITEMS IN COMBAT ---
         function renderCombatInventory() {
