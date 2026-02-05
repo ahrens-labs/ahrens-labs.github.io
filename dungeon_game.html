@@ -407,11 +407,14 @@ z`<!DOCTYPE html>
                 <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800 z-10">
                     <h2 class="font-black text-2xl italic">INVENTORY</h2>
                     <div class="flex gap-2 items-center">
-                        <div class="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded border border-blue-500">
-                            <i class="fas fa-key text-blue-400 text-lg"></i>
-                            <span class="text-sm text-slate-400 font-bold">Keys:</span>
-                            <span id="inv-keys-count" class="text-white text-base font-bold">0</span>
+                        <div class="flex items-center gap-3 bg-gradient-to-r from-yellow-900/50 to-amber-900/50 px-5 py-3 rounded-lg border-2 border-yellow-600 shadow-lg">
+                            <i class="fas fa-key text-yellow-400 text-2xl drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"></i>
+                            <div class="flex flex-col">
+                                <span class="text-xs text-yellow-300 font-bold uppercase tracking-wider">Keys</span>
+                                <span id="inv-keys-count" class="text-yellow-50 text-2xl font-black drop-shadow-lg">0</span>
+                            </div>
                         </div>
+                        <button onclick="showPlayerStats()" class="text-sm bg-purple-800 hover:bg-purple-700 px-4 py-2 rounded font-bold">STATS</button>
                         <button onclick="showView('view-achievements')" class="text-sm bg-blue-800 hover:bg-blue-700 px-4 py-2 rounded font-bold">ACHIEVEMENTS</button>
                         <button onclick="inventoryClose()" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">CLOSE</button>
                     </div>
@@ -439,6 +442,14 @@ z`<!DOCTYPE html>
                     <button onclick="showView('view-inventory')" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">BACK</button>
                 </div>
                 <div id="achievements-list" class="space-y-3 max-w-2xl"></div>
+            </div>
+            
+            <div id="view-stats" class="hidden w-full h-full overflow-y-auto custom-scrollbar p-4">
+                <div class="flex justify-between items-center mb-6 sticky top-0 bg-slate-900 py-3 border-b border-slate-800 z-10">
+                    <h2 class="font-black text-2xl italic">📊 PLAYER STATISTICS</h2>
+                    <button onclick="showView('view-inventory')" class="text-sm bg-slate-800 px-4 py-2 rounded font-bold">BACK</button>
+                </div>
+                <div id="stats-content" class="space-y-4 max-w-3xl"></div>
             </div>
 
         </div>
@@ -768,7 +779,7 @@ z`<!DOCTYPE html>
         // --- GAME STATE ---
         let stats = {
             characterName: "",
-            HP: 15, maxHP: 15, coins: 0, armor: 9, keys: 0, floor: 1,
+            HP: 15, maxHP: 15, coins: 0, totalCoinsEarned: 0, armor: 9, keys: 0, floor: 1,
             exp: 0, level: 1, totalExp: 0, expToNextLevel: 100,
             strength: 0, dexterity: 0, intelligence: 0, wisdom: 0,
             temporary_strength: 0, temporary_dexterity: 0, temporary_intelligence: 0, temporary_armor: 0,
@@ -794,6 +805,16 @@ z`<!DOCTYPE html>
             miniBossesDefeated: 0,
             bossesDefeated: 0,
             spellsCast: 0,
+            smallChestsOpened: 0,
+            largeChestsOpened: 0,
+            wanderingMonstersDefeated: 0,
+            normalMonstersDefeated: 0,
+            roomsEntered: 0,
+            stairsDescended: 0,
+            deathsInCombat: 0,
+            potionsUsed: 0,
+            damageDealt: 0,
+            damageTaken: 0,
             checkpointsPurchased: 0,  // Total checkpoints bought
             checkpoints: {},  // Named checkpoints: {name: {floor, row, col}, ...}
             hasMap: false,  // Whether player owns the map item
@@ -864,6 +885,12 @@ z`<!DOCTYPE html>
                     weaponData.durability = weaponData.maxDurability;
                 }
             }
+        }
+        
+        // Helper function to add coins and track total earned
+        function addCoins(amount) {
+            stats.coins += amount;
+            stats.totalCoinsEarned += amount;
         }
         
         function ensureAllWeaponsInitialized() {
@@ -963,13 +990,13 @@ z`<!DOCTYPE html>
             const currentView = document.querySelector('#viewport > div:not(.hidden)')?.id;
             
             // Only update previousView when opening inventory (to remember where to return)
-            // Do NOT overwrite previousView when returning to inventory from the achievements view
-            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory" && currentView !== 'view-achievements') {
+            // Do NOT overwrite previousView when returning to inventory from the achievements/stats view
+            if (viewId === "view-inventory" && currentView && currentView !== "view-inventory" && currentView !== 'view-achievements' && currentView !== 'view-stats') {
                 previousView = currentView;
             }
             // When closing inventory or doing any other transition, DON'T update previousView
             
-            ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory','view-achievements'].forEach(v => 
+            ['view-menu','view-creation','view-town','view-dungeon','view-combat','view-shop','view-inventory','view-achievements','view-stats'].forEach(v => 
                 document.getElementById(v).classList.add('hidden')
             );
             
@@ -982,6 +1009,11 @@ z`<!DOCTYPE html>
             }
             if(viewId === 'view-dungeon') updateUI();
             if(viewId === 'view-achievements') renderAchievements();
+            if(viewId === 'view-stats') renderStats();
+        }
+
+        function showPlayerStats() {
+            showView('view-stats');
         }
 
         function toggleInventory() {
@@ -1337,7 +1369,8 @@ z`<!DOCTYPE html>
             // Now proceed to attribute assignment
             pendingRolls = [create_value(), create_value(), create_value(), create_value()];
             stats.coins = 0;
-            for(let i=0; i<20; i++) stats.coins += Math.floor(Math.random()*6)+1;
+            stats.totalCoinsEarned = 0;
+            for(let i=0; i<20; i++) addCoins(Math.floor(Math.random()*6)+1);
             
             document.getElementById('char-name-input').classList.add('hidden');
             document.getElementById('attr-assignment').classList.remove('hidden');
@@ -1634,8 +1667,10 @@ z`<!DOCTYPE html>
                 description: "Boss phases out and recovers health!",
                 effect: function() {
                     const heal = Math.floor(combatData.maxHP * 0.2);
+                    const oldHP = combatData.HP;
                     combatData.HP = Math.min(combatData.HP + heal, combatData.maxHP);
-                    addLog(`The boss phases out and recovers ${heal} HP!`, "text-purple-400 font-bold");
+                    const actualHeal = combatData.HP - oldHP;
+                    addLog(`✨ PHASE SHIFT: Boss HP ${oldHP} → ${combatData.HP} (+${actualHeal} HP)`, "text-purple-400 font-bold");
                 }
             },
             multi_attack: {
@@ -1689,19 +1724,22 @@ z`<!DOCTYPE html>
                 name: "Power Surge",
                 description: "Boss gains increased strength!",
                 effect: function() {
+                    const oldAttack = combatData.attack;
+                    const oldStr = combatData.strength;
                     combatData.attack += 2;
                     combatData.strength += 3;
-                    addLog("The boss surges with dark energy!", "text-red-500 font-bold");
-                    addLog(`Attack increased! (now ${combatData.attack})`, "text-red-400");
+                    addLog("⚡ POWER SURGE: Boss gains dark energy!", "text-red-500 font-bold");
+                    addLog(`Attack: ${oldAttack} → ${combatData.attack} (+2) | Strength: ${oldStr} → ${combatData.strength} (+3)`, "text-red-400 font-bold");
                 }
             },
             dark_blessing: {
                 name: "Dark Blessing",
                 description: "Boss gains increased defense!",
                 effect: function() {
+                    const oldArmor = combatData.armor;
                     combatData.armor += 3;
-                    addLog("The boss gains a protective aura!", "text-purple-400 font-bold");
-                    addLog(`Armor increased! (now ${combatData.armor})`, "text-purple-400");
+                    addLog("🛡️ DARK BLESSING: Boss gains protective aura!", "text-purple-400 font-bold");
+                    addLog(`Armor Class: ${oldArmor} → ${combatData.armor} (+3 AC)`, "text-purple-400 font-bold");
                 }
             },
             freeze_field: {
@@ -1709,8 +1747,8 @@ z`<!DOCTYPE html>
                 description: "Boss encases area in ice, reducing your damage!",
                 effect: function() {
                     stats.frozen_field = 3; // Lasts 3 of player's turns
-                    addLog("The boss creates a freeze field around you!", "text-cyan-400 font-bold");
-                    addLog("Your damage will be reduced for the next 3 turns!", "text-cyan-400");
+                    addLog("❄️ FREEZE FIELD: Boss creates ice field!", "text-cyan-400 font-bold");
+                    addLog("⚠️ YOUR DAMAGE REDUCED by 50% for next 3 turns!", "text-cyan-400 font-bold");
                 }
             },
             drain_life: {
@@ -1718,10 +1756,12 @@ z`<!DOCTYPE html>
                 description: "Boss steals your health!",
                 effect: function() {
                     const damage = Math.floor(Math.random()*10)+5;
+                    const yourOldHP = stats.HP;
+                    const bossOldHP = combatData.HP;
                     stats.HP -= damage;
                     combatData.HP = Math.min(combatData.HP + damage, combatData.maxHP);
-                    addLog(`The boss drains ${damage} HP from you!`, "text-purple-500 font-bold");
-                    addLog(`The boss recovers ${damage} HP!`, "text-red-400");
+                    addLog(`🩸 DRAIN LIFE: Boss steals ${damage} HP!`, "text-purple-500 font-bold");
+                    addLog(`Your HP: ${yourOldHP} → ${stats.HP} (-${damage}) | Boss HP: ${bossOldHP} → ${combatData.HP} (+${damage})`, "text-purple-400 font-bold");
                     updateUI();
                 }
             },
@@ -2270,6 +2310,12 @@ z`<!DOCTYPE html>
 
         function checkRoom(suppressEvents = false, isEnteringRoom = false) {
             if(suppressEvents) return;
+            
+            // Track room entry
+            if (isEnteringRoom) {
+                stats.roomsEntered = (stats.roomsEntered || 0) + 1;
+            }
+            
             const floorKey = `floor_${stats.floor}`;
             const val = String(floorMaps[floorKey][currentRoom[0]][currentRoom[1]]).padStart(9, '0');
             const act = document.getElementById('room-actions');
@@ -2373,6 +2419,7 @@ z`<!DOCTYPE html>
                         const entryCol = currentRoom[1];
                         
                         stats.floor++;
+                        stats.stairsDescended = (stats.stairsDescended || 0) + 1;
                         
                         // Set the entry point for the new floor (this is where the up stairs will be)
                         stats.stairEntryPoints[stats.floor] = {row: entryRow, col: entryCol};
@@ -3461,7 +3508,7 @@ z`<!DOCTYPE html>
             const chestId = `chest_${currentRoom[0]}_${currentRoom[1]}_${stats.floor}`;
             const b = document.createElement('button');
             b.className = "px-6 py-3 bg-yellow-700 hover:bg-yellow-600 rounded text-sm font-bold uppercase";
-            b.innerText = isBig ? "Open Big Chest" : "Open Small Chest";
+            b.innerText = isBig ? "Open Large Chest" : "Open Small Chest";
             
             if(stats.openedChests.has(chestId)) return;
 
@@ -3470,7 +3517,7 @@ z`<!DOCTYPE html>
                 isProcessing = true;
                 
                 if (isBig) {
-                    addLog("Big Chest! Attempting to unlock with Intelligence...", "text-yellow-400");
+                    addLog("Large Chest! Attempting to unlock with Intelligence...", "text-yellow-400");
                     
                     const statVal = stats.intelligence + stats.temporary_intelligence;
                     await logLoading("Rolling Intelligence", 3, 150);
@@ -3483,7 +3530,7 @@ z`<!DOCTYPE html>
                     if (roll >= need) {
                         addLog("Success! You cleverly unlock the chest!", "text-green-500 font-bold");
                         const loot = Math.floor(Math.random()*71)+30;  // 30-100 gold
-                        stats.coins += loot;
+                        addCoins(loot);
                         addLog(`Found ${loot} coins!`, "text-yellow-500");
                         
                         // 1/3 chance to find a random potion or spell
@@ -3512,6 +3559,7 @@ z`<!DOCTYPE html>
                         const floorKey = `floor_${stats.floor}`;
                         floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 10;
                         stats.openedChests.add(chestId);
+                        stats.largeChestsOpened = (stats.largeChestsOpened || 0) + 1;
                     } else {
                         addLog("Failed! The chest remains locked.", "text-red-500");
                         const floorKey = `floor_${stats.floor}`;
@@ -3525,11 +3573,12 @@ z`<!DOCTYPE html>
                 } else {
                     // Small chest: always give at least some gold (no empty small chests)
                     const loot = Math.floor(Math.random()*36)+5;
-                    stats.coins += loot;
+                    addCoins(loot);
                     addLog(`Found ${loot} coins.`, "text-yellow-500");
                     const floorKey = `floor_${stats.floor}`;
                     floorMaps[floorKey][currentRoom[0]][currentRoom[1]] -= 1;
                     stats.openedChests.add(chestId);
+                    stats.smallChestsOpened = (stats.smallChestsOpened || 0) + 1;
                     isProcessing = false;
                     checkRoom(false, false);  // After opening chest - do NOT spawn wandering monsters
                     updateUI();
@@ -4057,6 +4106,7 @@ z`<!DOCTYPE html>
                     addLog(damageMsg, "text-green-400");
                 }
                 combatData.HP -= dmg;
+                stats.damageDealt = (stats.damageDealt || 0) + dmg;
                 
                 // Reduce weapon durability on successful hit
                 damageWeaponDurability(stats.equippedWeapon);
@@ -4161,6 +4211,7 @@ z`<!DOCTYPE html>
                     addLog(`Blocked! Half damage (${dmg})`, "text-blue-400");
                 } else addLog(`Took ${dmg} damage!`, "text-red-500");
                 stats.HP -= dmg;
+                stats.damageTaken = (stats.damageTaken || 0) + dmg;
                 updateUI();
                 if(stats.HP <= 0) {
                     handleDeath();
@@ -4179,6 +4230,7 @@ z`<!DOCTYPE html>
             addLog("YOU DIED.", "text-red-900 font-black text-2xl");
             isProcessing = true;
             stats.combatWinStreak = 0; // Reset combat streak on death
+            stats.deathsInCombat = (stats.deathsInCombat || 0) + 1;
             
             await sleep(1500);
             
@@ -4260,7 +4312,7 @@ z`<!DOCTYPE html>
                 // Award massive rewards for winning
                 const winCoins = 1000;
                 const winExp = 5000;
-                stats.coins += winCoins;
+                addCoins(winCoins);
                 stats.exp += winExp;
                 stats.totalExp += winExp;
                 stats.bossesDefeated++;
@@ -4310,7 +4362,7 @@ z`<!DOCTYPE html>
                 coins = Math.floor(Math.random()*301)+200;  // 200-500 gold
             }
             
-            stats.coins += coins;
+            addCoins(coins);
             addLog(`Looted ${coins} coins.`, "text-yellow-500");
             
             // Award EXP
@@ -4336,6 +4388,8 @@ z`<!DOCTYPE html>
             
             // Track kills and special defeats
             stats.kills++;
+            if(combatData.type === 'wandering') stats.wanderingMonstersDefeated++;
+            if(combatData.type === 'normal') stats.normalMonstersDefeated++;
             if(combatData.type === 'mini') stats.miniBossesDefeated++;
             if(combatData.type === 'boss') {
                 stats.bossesDefeated++;
@@ -4346,7 +4400,7 @@ z`<!DOCTYPE html>
             // Mini-boss has chance to drop extra gold
             if(combatData.type === 'mini' && Math.random() < 0.5) {
                 const bonus = Math.floor(Math.random()*51)+50;  // 50-100 extra
-                stats.coins += bonus;
+                addCoins(bonus);
                 addLog(`Found a hidden stash! +${bonus} gold!`, "text-yellow-400 font-bold");
             }
             
@@ -4403,7 +4457,7 @@ z`<!DOCTYPE html>
             if (!stats.achievements[achievementKey]) {
                 const achievement = ACHIEVEMENTS[achievementKey];
                 stats.achievements[achievementKey] = true;
-                stats.coins += achievement.reward;
+                addCoins(achievement.reward);
                 addLog(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}!`, "text-yellow-400 font-bold");
                 addLog(`+${achievement.reward} gold reward`, "text-yellow-500");
                 updateUI();
@@ -4689,7 +4743,23 @@ z`<!DOCTYPE html>
                         if(name === 'stick' || name === 'none') continue;
                         const itemInfo = SHOP_DATA[name];
                         if(!itemInfo) continue;
-                        const sellPrice = Math.floor(itemInfo[0] / 2);
+                        
+                        // Calculate sell price based on item type
+                        let sellPrice;
+                        if (label === "Weapon") {
+                            // Weapon price based on durability
+                            const weaponData = collection[name];
+                            if (weaponData && typeof weaponData === 'object' && weaponData.durability !== undefined) {
+                                const durabilityPercent = weaponData.durability / weaponData.maxDurability;
+                                sellPrice = Math.floor(itemInfo[0] * durabilityPercent);
+                            } else {
+                                sellPrice = itemInfo[0]; // Full price if no durability data
+                            }
+                        } else {
+                            // Non-weapon items sell for 2/3 price
+                            sellPrice = Math.floor(itemInfo[0] * 2 / 3);
+                        }
+                        
                         const count = Array.isArray(collection[name]) ? collection[name][0] : 1;
                         if (count <= 0) continue;
 
@@ -5025,24 +5095,37 @@ z`<!DOCTYPE html>
 
         function sellItem(name, type) {
             const data = SHOP_DATA[name];
-            const price = Math.floor(data[0] / 2);
-            stats.coins += price;
+            let price;
             
             if (type === "Weapon") {
+                // Weapon price based on durability
+                const weaponData = stats.weapons[name];
+                if (weaponData && typeof weaponData === 'object' && weaponData.durability !== undefined) {
+                    const durabilityPercent = weaponData.durability / weaponData.maxDurability;
+                    price = Math.floor(data[0] * durabilityPercent);
+                } else {
+                    price = data[0]; // Full price if no durability data
+                }
                 if(stats.equippedWeapon === name) stats.equippedWeapon = "stick";
                 delete stats.weapons[name];
-            } else if (type === "Armor") {
-                if(stats.equippedArmor === name) stats.equippedArmor = "none";
-                delete stats.armors[name];
-                stats.armor = Math.max(...Object.values(stats.armors));
-            } else if (type === "Potion") {
-                stats.potions[name][0]--;
-                if(stats.potions[name][0] <= 0) delete stats.potions[name];
-            } else if (type === "Spell") {
-                stats.spells[name][0]--;
-                if(stats.spells[name][0] <= 0) delete stats.spells[name];
+            } else {
+                // Non-weapon items sell for 2/3 price
+                price = Math.floor(data[0] * 2 / 3);
+                
+                if (type === "Armor") {
+                    if(stats.equippedArmor === name) stats.equippedArmor = "none";
+                    delete stats.armors[name];
+                    stats.armor = Math.max(...Object.values(stats.armors));
+                } else if (type === "Potion") {
+                    stats.potions[name][0]--;
+                    if(stats.potions[name][0] <= 0) delete stats.potions[name];
+                } else if (type === "Spell") {
+                    stats.spells[name][0]--;
+                    if(stats.spells[name][0] <= 0) delete stats.spells[name];
+                }
             }
             
+            stats.coins += price;  // Selling doesn't count as 'earned' - just stats.coins not addCoins()
             updateUI();
             addLog(`Sold ${name} for ${price}G`, "text-yellow-500");
             renderShop();
@@ -5311,6 +5394,10 @@ z`<!DOCTYPE html>
                     {key: 'bosses', name: 'Bosses', icon: '👑', color: 'red'}
                 ];
                 
+                // Initialize map tracking if it doesn't exist (for old saves)
+                if (!stats.ownedMapLayers) stats.ownedMapLayers = {chests: false, monsters: false, miniBosses: false, merchants: false, stairs: false, bosses: false};
+                if (!stats.mapLayers) stats.mapLayers = {chests: false, monsters: false, miniBosses: false, merchants: false, stairs: false, bosses: false};
+                
                 // Only show layers that have been purchased
                 for (const layer of layers) {
                     // Skip if not owned
@@ -5570,6 +5657,92 @@ z`<!DOCTYPE html>
             }
         }
 
+        function renderStats() {
+            const content = document.getElementById('stats-content');
+            content.innerHTML = '';
+            
+            // Helper function to create stat category sections
+            const createSection = (title, icon, stats) => {
+                const section = document.createElement('div');
+                section.className = 'bg-slate-900 rounded-lg border border-slate-800 p-4';
+                
+                let html = `<h3 class="text-lg font-bold text-purple-300 mb-3 flex items-center gap-2">
+                    <span class="text-2xl">${icon}</span> ${title}
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">`;
+                
+                stats.forEach(({label, value, color}) => {
+                    html += `<div class="flex justify-between items-center p-2 bg-slate-950 rounded">
+                        <span class="text-slate-400 text-sm">${label}</span>
+                        <span class="${color} font-bold">${value}</span>
+                    </div>`;
+                });
+                
+                html += '</div>';
+                section.innerHTML = html;
+                return section;
+            };
+            
+            // Combat Stats
+            content.appendChild(createSection('Combat', '⚔️', [
+                {label: 'Total Kills', value: stats.kills || 0, color: 'text-red-400'},
+                {label: 'Normal Monsters', value: stats.normalMonstersDefeated || 0, color: 'text-slate-300'},
+                {label: 'Wandering Monsters', value: stats.wanderingMonstersDefeated || 0, color: 'text-amber-300'},
+                {label: 'Mini-Bosses Defeated', value: stats.miniBossesDefeated || 0, color: 'text-orange-400'},
+                {label: 'Bosses Defeated', value: stats.bossesDefeated || 0, color: 'text-red-400'},
+                {label: 'Combat Deaths', value: stats.deathsInCombat || 0, color: 'text-red-500'},
+                {label: 'Damage Dealt', value: stats.damageDealt || 0, color: 'text-green-400'},
+                {label: 'Damage Taken', value: stats.damageTaken || 0, color: 'text-red-300'}
+            ]));
+            
+            // Exploration Stats
+            content.appendChild(createSection('Exploration', '🗺️', [
+                {label: 'Current Floor', value: stats.floor || 1, color: 'text-cyan-400'},
+                {label: 'Rooms Entered', value: stats.roomsEntered || 0, color: 'text-blue-300'},
+                {label: 'Stairs Descended', value: stats.stairsDescended || 0, color: 'text-green-300'},
+                {label: 'Total Chests Opened', value: stats.openedChests.size || 0, color: 'text-yellow-400'},
+                {label: 'Small Chests Opened', value: stats.smallChestsOpened || 0, color: 'text-yellow-300'},
+                {label: 'Large Chests Opened', value: stats.largeChestsOpened || 0, color: 'text-yellow-500'},
+                {label: 'Checkpoints Purchased', value: stats.checkpointsPurchased || 0, color: 'text-cyan-300'}
+            ]));
+            
+            // Character Stats
+            content.appendChild(createSection('Character', '👤', [
+                {label: 'Level', value: stats.level || 1, color: 'text-purple-400'},
+                {label: 'Total Experience', value: stats.totalExp || 0, color: 'text-cyan-400'},
+                {label: 'Current HP', value: `${stats.HP}/${stats.maxHP}`, color: 'text-green-400'},
+                {label: 'Strength', value: stats.strength || 0, color: 'text-red-300'},
+                {label: 'Dexterity', value: stats.dexterity || 0, color: 'text-green-300'},
+                {label: 'Intelligence', value: stats.intelligence || 0, color: 'text-blue-300'},
+                {label: 'Wisdom', value: stats.wisdom || 0, color: 'text-purple-300'},
+                {label: 'Armor Class', value: stats.armor || 9, color: 'text-slate-300'}
+            ]));
+            
+            // Items & Magic
+            content.appendChild(createSection('Items & Magic', '✨', [
+                {label: 'Spells Cast', value: stats.spellsCast || 0, color: 'text-blue-400'},
+                {label: 'Potions Used', value: stats.potionsUsed || 0, color: 'text-purple-400'},
+                {label: 'Equipped Weapon', value: stats.equippedWeapon || 'stick', color: 'text-yellow-300'},
+                {label: 'Equipped Armor', value: stats.equippedArmor || 'none', color: 'text-slate-300'},
+                {label: 'Keys Owned', value: stats.keys || 0, color: 'text-blue-400'}
+            ]));
+            
+            // Economy Stats
+            content.appendChild(createSection('Economy', '💰', [
+                {label: 'Current Gold', value: `${stats.coins}G`, color: 'text-yellow-400'},
+                {label: 'Total Gold Earned', value: `${stats.totalCoinsEarned || 0}G`, color: 'text-yellow-500'},
+                {label: 'Total Gold Spent', value: `${(stats.totalCoinsEarned || 0) - stats.coins}G`, color: 'text-red-400'}
+            ]));
+            
+            // Achievements
+            const achievementCount = Object.keys(stats.achievements).length;
+            const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+            content.appendChild(createSection('Achievements', '🏆', [
+                {label: 'Unlocked', value: `${achievementCount}/${totalAchievements}`, color: 'text-yellow-400'},
+                {label: 'Completion', value: `${Math.round((achievementCount/totalAchievements)*100)}%`, color: 'text-green-400'}
+            ]));
+        }
+
         async function useItem(name) {
             if (isProcessing) return;
             isProcessing = true;
@@ -5577,6 +5750,7 @@ z`<!DOCTYPE html>
             const itemData = isPotion || stats.spells[name];
             if(isPotion) {
                 stats.potions[name][0]--;
+                stats.potionsUsed = (stats.potionsUsed || 0) + 1;
                 const typeId = itemData[1];
                 const effectValue = itemData[2] || 0;
                 addLog(`Drank ${name}`, "text-blue-300");
@@ -5634,6 +5808,7 @@ z`<!DOCTYPE html>
                     else if(typeId===5) dmg = Math.floor(Math.random()*15)+5;
                     addLog(`Spell dealt ${dmg} damage`, "text-purple-300");
                     combatData.HP -= dmg;
+                    stats.damageDealt = (stats.damageDealt || 0) + dmg;
                     if(combatData.HP <= 0) { 
                         isProcessing = false;
                         await victory(); 
@@ -5677,7 +5852,7 @@ z`<!DOCTYPE html>
             
             // Check if buffer ends with "coins"
             if (cheatBuffer.endsWith('coins')) {
-                stats.coins += 5000;
+                addCoins(5000);
                 addLog('CHEAT: +5000 Gold!', 'text-yellow-400 font-bold');
                 updateUI();
                 cheatBuffer = ''; // Reset buffer
