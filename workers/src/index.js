@@ -153,7 +153,7 @@ async function handleSignup(request, env, corsHeaders) {
     userId,
     username,
     email,
-    message: 'Account created! Please check your email to verify your account.'
+    message: 'Account created successfully!'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });

@@ -9,6 +9,86 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        .kyrachyng-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4.5rem 2rem 3.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
+        }
+        .kyrachyng-hero .kyrachyng-hero-svg {
+            position: absolute;
+            left: 0; right: 0; top: 0; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .kyrachyng-hero .kyrachyng-hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        .kyrachyng-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+        .kyrachyng-hero .kyrachyng-hero-subtitle {
+            font-size: 1.15rem;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+        .kyrachyng-card {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(30,41,59,0.13);
+            padding: 2.5rem 2rem;
+            margin-top: 2rem;
+        }
+        .option-button {
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1em;
+            padding: 10px 24px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .option-button:hover {
+            box-shadow: 0 4px 16px rgba(59,130,246,0.13);
+            filter: brightness(1.08);
+        }
+        #output-container {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid #e9ecef;
+            margin-top: 20px;
+            text-align: center;
+        }
+        @media (max-width: 700px) {
+            .kyrachyng-card { padding: 1.2rem 0.5rem; }
+            .kyrachyng-hero h2 { font-size: 1.3rem; }
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
@@ -34,17 +114,31 @@
                 </div>
             </div>
         </header>
-        <main style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 200px); padding: 20px;">
-            <div class="quiz-container" style="margin: 0 auto; text-align: center;">
+        <main>
+            <section class="kyrachyng-hero">
+                <svg class="kyrachyng-hero-svg" width="100%" height="100%" viewBox="0 0 1440 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="kyrachyngHeroGrad" x1="0" y1="0" x2="1440" y2="320" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#3b82f6" stop-opacity="0.13" />
+                            <stop offset="0.5" stop-color="#10b981" stop-opacity="0.10" />
+                            <stop offset="1" stop-color="#8b5cf6" stop-opacity="0.08" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,160L80,138.7C160,117,320,75,480,90.7C640,107,800,181,960,197.3C1120,213,1280,171,1360,149.3L1440,128V320H0Z" fill="url(#kyrachyngHeroGrad)" />
+                </svg>
+                <div class="kyrachyng-hero-content">
+                    <h2>Kyrachyng Language Translator</h2>
+                    <div class="kyrachyng-hero-subtitle">Translate, learn, and quiz yourself on the unique Kyrachyng language.</div>
+                </div>
+            </section>
+            <div class="kyrachyng-card">
                 <h2 style="text-align: center; margin-bottom: 1rem;">Kyrachyng Language Translator</h2>
                 <p style="text-align: center; color: #666; margin-bottom: 2rem;">Type a sentence to translate or try the quiz!</p>
-
                 <!-- Main Translation Interface -->
                 <div id="translator-ui">
                     <textarea id="input-text" 
                               style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical;"
                               placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
-
                     <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;">
                         <button id="translate-button" class="option-button" style="background-color: #005791;">
                             Translate
@@ -53,15 +147,13 @@
                             Start Quiz
                         </button>
                     </div>
-
-                    <div id="output-container" style="background-color: #f8f9fa; padding: 25px; border-radius: 15px; border: 1px solid #e9ecef; margin-top: 20px; text-align: center;">
+                    <div id="output-container">
                         <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">Translated Text:</h3>
                         <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 30px; text-align: center;"></p>
                         <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">IPA Pronunciation:</h3>
                         <p id="ipa-output" style="color: #27ae60; font-size: 1.3em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
                     </div>
                 </div>
-
                 <!-- Quiz Interface -->
                 <div id="quiz-ui" style="display: none; text-align: center;">
                     <div id="quiz-prompt" style="text-align: center; font-size: 1.5em; margin-bottom: 20px; color: #2c3e50;"></div>
@@ -81,12 +173,10 @@
                         </button>
                     </div>
                 </div>
-
             </div>
-    </main>
-    <div class="push"></div>
+        </main>
+        <div class="push"></div>
     </div>
-    <!-- The footer from your site's template -->
     <footer>
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>

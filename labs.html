@@ -4,16 +4,143 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ahrens Labs - Labs & Projects</title>
-
-    <!-- Google Fonts Links (Crucial for consistent styling) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <!-- End Google Fonts Links -->
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <script src="js/script.js"></script>
+    <style>
+        .labs-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4.5rem 2rem 3.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
+        }
+        .labs-hero .labs-hero-svg {
+            position: absolute;
+            left: 0; right: 0; top: 0; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .labs-hero .labs-hero-content {
+            position: relative;
+            z-index: 1;
+        }
+        .labs-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.8rem;
+            font-weight: 900;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+        .labs-hero .labs-hero-subtitle {
+            font-size: 1.25rem;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+        .labs-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .lab-preview-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 2rem;
+            border-radius: 16px;
+            background: white;
+            border: 2.5px solid #e2e8f0;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 8px 32px rgba(30,41,59,0.13), 0 1.5px 6px rgba(0,0,0,0.07);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            z-index: 1;
+        }
+        .lab-preview-card.coding {
+            border-color: #3b82f6;
+        }
+        .lab-preview-card.robotics {
+            border-color: #10b981;
+        }
+        .lab-preview-card.music {
+            border-color: #f59e0b;
+        }
+        .lab-preview-card.language {
+            border-color: #ec4899;
+        }
+        .lab-preview-card.writing {
+            border-color: #06b6d4;
+        }
+        .lab-preview-card:hover {
+            transform: scale(1.045) translateY(-8px);
+            box-shadow: 0 24px 48px rgba(30,41,59,0.18), 0 2px 8px rgba(0,0,0,0.10);
+        }
+        .lab-preview-icon {
+            font-size: 2.7rem;
+            margin-bottom: 1rem;
+            width: 56px; height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+        }
+        .lab-preview-card.coding .lab-preview-icon   { background: rgba(59, 130, 246, 0.13); }
+        .lab-preview-card.robotics .lab-preview-icon  { background: rgba(16, 185, 129, 0.13); }
+        .lab-preview-card.music .lab-preview-icon     { background: rgba(245, 158, 11, 0.13); }
+        .lab-preview-card.language .lab-preview-icon  { background: rgba(236, 72, 153, 0.13); }
+        .lab-preview-card.writing .lab-preview-icon   { background: rgba(6, 182, 212, 0.13); }
+        .lab-preview-card h3 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.35rem;
+            font-weight: 900;
+            color: #1e293b;
+            margin: 0 0 0.5rem;
+            letter-spacing: 0.02em;
+        }
+        .lab-preview-card p {
+            font-size: 1.05rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin: 0 0 1.2rem;
+        }
+        .lab-preview-arrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-top: auto;
+            color: #2563eb;
+            transition: gap 0.3s ease;
+        }
+        .lab-preview-card:hover .lab-preview-arrow { gap: 0.65rem; }
+        @media (max-width: 768px) {
+            .labs-hero { padding: 2.5rem 1rem 1.5rem; }
+            .labs-hero h2 { font-size: 1.7rem; }
+            .labs-showcase { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
@@ -39,55 +166,61 @@
                 </div>
             </div>
         </header>
-
         <main>
-            <section class="labs-page">
-                <div class="labs-intro">
-                    <h2 class="labs-page-heading">Our Labs and Projects</h2>
+            <section class="labs-hero">
+                <svg class="labs-hero-svg" width="100%" height="100%" viewBox="0 0 1440 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="labsHeroGrad" x1="0" y1="0" x2="1440" y2="320" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#3b82f6" stop-opacity="0.13" />
+                            <stop offset="0.5" stop-color="#10b981" stop-opacity="0.10" />
+                            <stop offset="1" stop-color="#8b5cf6" stop-opacity="0.08" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M0,160L80,138.7C160,117,320,75,480,90.7C640,107,800,181,960,197.3C1120,213,1280,171,1360,149.3L1440,128V320H0Z" fill="url(#labsHeroGrad)" />
+                </svg>
+                <div class="labs-hero-content">
+                    <h2>Our Labs and Projects</h2>
+                    <div class="labs-hero-subtitle">Discover creative experiments, games, and tools from every corner of Ahrens Labs.</div>
                     <p class="labs-description">Explore our diverse collection of innovative labs. Each lab represents a unique area of creativity and technical exploration.</p>
                 </div>
-                
-                <div class="labs-grid-container">
-                    <a href="coding-lab.html" class="lab-card lab-button-coding">
-                        <div class="lab-icon">&lt;/&gt;</div>
-                        <h3 class="lab-title">Coding Lab</h3>
-                        <p class="lab-brief">Advanced programming projects and innovative solutions</p>
-                        <span class="lab-arrow">&rarr;</span>
+            </section>
+            <section>
+                <div class="labs-showcase">
+                    <a href="coding-lab.html" class="lab-preview-card coding">
+                        <div class="lab-preview-icon">&lt;/&gt;</div>
+                        <h3>Coding Lab</h3>
+                        <p>Advanced programming projects and innovative solutions</p>
+                        <span class="lab-preview-arrow">Explore →</span>
                     </a>
-                    
-                    <a href="robotics-lab.html" class="lab-card lab-button-robotics">
-                        <div class="lab-icon">&#9881;</div>
-                        <h3 class="lab-title">Robotics Lab</h3>
-                        <p class="lab-brief">Cutting-edge robotics and automation systems</p>
-                        <span class="lab-arrow">&rarr;</span>
+                    <a href="robotics-lab.html" class="lab-preview-card robotics">
+                        <div class="lab-preview-icon">⚙</div>
+                        <h3>Robotics Lab</h3>
+                        <p>Cutting-edge robotics and automation systems</p>
+                        <span class="lab-preview-arrow">Explore →</span>
                     </a>
-                    
-                    <a href="music-lab.html" class="lab-card lab-button-music">
-                        <div class="lab-icon">&#9835;</div>
-                        <h3 class="lab-title">Music Lab</h3>
-                        <p class="lab-brief">Original compositions and music technology</p>
-                        <span class="lab-arrow">&rarr;</span>
+                    <a href="music-lab.html" class="lab-preview-card music">
+                        <div class="lab-preview-icon">♫</div>
+                        <h3>Music Lab</h3>
+                        <p>Original compositions and music technology</p>
+                        <span class="lab-preview-arrow">Explore →</span>
                     </a>
-                    
-                    <a href="language-lab.html" class="lab-card lab-button-language">
-                        <div class="lab-icon">&#128172;</div>
-                        <h3 class="lab-title">Language Lab</h3>
-                        <p class="lab-brief">Constructed languages and linguistic experiments</p>
-                        <span class="lab-arrow">&rarr;</span>
+                    <a href="language-lab.html" class="lab-preview-card language">
+                        <div class="lab-preview-icon">💬</div>
+                        <h3>Language Lab</h3>
+                        <p>Constructed languages and linguistic experiments</p>
+                        <span class="lab-preview-arrow">Explore →</span>
                     </a>
-                    
-                    <a href="writing-lab.html" class="lab-card lab-button-writing">
-                        <div class="lab-icon">&#9997;</div>
-                        <h3 class="lab-title">Writing Lab</h3>
-                        <p class="lab-brief">Literary works, storytelling, and creative expression</p>
-                        <span class="lab-arrow">&rarr;</span>
+                    <a href="writing-lab.html" class="lab-preview-card writing">
+                        <div class="lab-preview-icon">✍</div>
+                        <h3>Writing Lab</h3>
+                        <p>Literary works, storytelling, and creative expression</p>
+                        <span class="lab-preview-arrow">Explore →</span>
                     </a>
                 </div>
             </section>
         </main>
         <div class="push"></div>
     </div>
-
     <footer>
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>

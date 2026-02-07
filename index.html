@@ -3,11 +3,333 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs</title> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>Ahrens Labs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        /* ===== INDEX PAGE SPECIFIC STYLES ===== */
+
+        /* --- Full-width hero with animated gradient background --- */
+        .hero-fullwidth {
+            position: relative;
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 6rem 2rem 5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
+            text-align: center;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
+        }
+        .hero-fullwidth::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 20% 30%, rgba(59, 130, 246, 0.07), transparent),
+                radial-gradient(ellipse 500px 350px at 80% 70%, rgba(16, 185, 129, 0.06), transparent);
+            animation: heroPulse 8s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+        @keyframes heroPulse {
+            0% { opacity: 0.7; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+        /* Decorative grid lines */
+        .hero-fullwidth::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(30,41,59,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(30,41,59,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            padding: 0.4rem 1.2rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        .hero-badge .dot {
+            width: 8px; height: 8px;
+            background: #3b82f6;
+            border-radius: 50%;
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+
+        .hero-inner h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            line-height: 1.15;
+            margin: 0 0 1.2rem;
+            animation: fadeInUp 0.8s ease-out 0.1s both;
+        }
+        .hero-inner h2 .gradient-text {
+            background: linear-gradient(135deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+
+        .hero-tagline {
+            font-size: 1.25rem;
+            color: #94a3b8;
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 4rem;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+        .btn-hero-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+        }
+        .btn-hero-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(59, 130, 246, 0.5);
+            color: white;
+            text-decoration: none;
+        }
+        .btn-hero-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            background: rgba(255,255,255,0.06);
+            color: #e2e8f0;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .btn-hero-secondary:hover {
+            background: rgba(255,255,255,0.12);
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Stats strip */
+        .hero-stats-strip {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+        .hero-stat {
+            text-align: center;
+        }
+        .hero-stat-number {
+            display: block;
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.2rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #3b82f6, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-stat-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* --- Mission Section --- */
+        .mission-section {
+            padding: 4rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .mission-section h3 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2rem;
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+        .mission-section > p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #64748b;
+            max-width: 750px;
+            margin: 0 auto 3rem;
+        }
+
+        /* --- Lab Cards Grid --- */
+        .labs-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .lab-preview-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 2rem;
+            border-radius: 16px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        .lab-preview-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            border-radius: 16px 16px 0 0;
+            transition: height 0.3s ease;
+        }
+        .lab-preview-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-color: transparent;
+            text-decoration: none;
+            color: inherit;
+        }
+        .lab-preview-card:hover::before {
+            height: 6px;
+        }
+
+        /* Color accents per lab */
+        .lab-preview-card.coding::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+        .lab-preview-card.robotics::before  { background: linear-gradient(90deg, #10b981, #059669); }
+        .lab-preview-card.music::before     { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .lab-preview-card.language::before  { background: linear-gradient(90deg, #ec4899, #db2777); }
+        .lab-preview-card.writing::before   { background: linear-gradient(90deg, #06b6d4, #0891b2); }
+
+        .lab-preview-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            width: 56px; height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+        }
+        .lab-preview-card.coding .lab-preview-icon   { background: rgba(59, 130, 246, 0.1); }
+        .lab-preview-card.robotics .lab-preview-icon  { background: rgba(16, 185, 129, 0.1); }
+        .lab-preview-card.music .lab-preview-icon     { background: rgba(245, 158, 11, 0.1); }
+        .lab-preview-card.language .lab-preview-icon  { background: rgba(236, 72, 153, 0.1); }
+        .lab-preview-card.writing .lab-preview-icon   { background: rgba(6, 182, 212, 0.1); }
+
+        .lab-preview-card h4 {
+            font-family: "Inter", sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 0.5rem;
+        }
+        .lab-preview-card p {
+            font-size: 0.95rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin: 0 0 1.2rem;
+        }
+        .lab-preview-arrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: auto;
+            transition: gap 0.3s ease;
+        }
+        .lab-preview-card.coding .lab-preview-arrow   { color: #3b82f6; }
+        .lab-preview-card.robotics .lab-preview-arrow  { color: #10b981; }
+        .lab-preview-card.music .lab-preview-arrow     { color: #f59e0b; }
+        .lab-preview-card.language .lab-preview-arrow  { color: #ec4899; }
+        .lab-preview-card.writing .lab-preview-arrow   { color: #06b6d4; }
+
+        .lab-preview-card:hover .lab-preview-arrow { gap: 0.65rem; }
+
+        /* --- Footer restyle for index --- */
+        .index-footer {
+            background: #0f172a;
+            color: #64748b;
+            text-align: center;
+            padding: 2rem;
+            font-size: 0.9rem;
+        }
+        .index-footer strong { color: #94a3b8; }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .hero-fullwidth { padding: 4rem 1.5rem 3rem; }
+            .hero-inner h2 { font-size: 2.4rem; }
+            .hero-tagline { font-size: 1.05rem; }
+            .hero-stats-strip { gap: 1.5rem; }
+            .hero-stat-number { font-size: 1.8rem; }
+            .hero-actions { flex-direction: column; align-items: center; }
+            .labs-showcase { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .hero-inner h2 { font-size: 1.9rem; }
+            .hero-stats-strip { flex-direction: column; gap: 1rem; }
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
@@ -34,64 +356,68 @@
             </div>
         </header>
         <main>
-            <section class="hero">
-                <div class="hero-content">
-                    <h2>Welcome to <span class="highlight">Ahrens Labs</span></h2>
-                    <p class="hero-subtitle">Where Innovation Meets Creativity</p>
-                    <p class="hero-description">Discover amazing projects in coding, robotics, music, languages, and more!</p>
-                    <div class="hero-buttons">
-                        <a href="labs.html" class="button primary">Explore Our Labs</a>
-                        <a href="contact.html" class="button secondary">Get In Touch</a>
+            <!-- ===== HERO ===== -->
+            <section class="hero-fullwidth">
+                <div class="hero-inner">
+                    <h2>Welcome to<br><span class="gradient-text">Ahrens Labs</span></h2>
+                    <p class="hero-tagline">A family workshop for coding, robotics, music, languages, and creative writing — where curiosity turns into projects you can actually play with.</p>
+                    <div class="hero-actions">
+                        <a href="labs.html" class="btn-hero-primary">Explore Our Labs →</a>
+                        <a href="contact.html" class="btn-hero-secondary">Get In Touch</a>
                     </div>
-                </div>
-                <div class="hero-stats">
-                    <div class="stat-item">
-                        <span class="stat-number">5+</span>
-                        <span class="stat-label">Active Labs</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">&infin;</span>
-                        <span class="stat-label">Ideas</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number">100%</span>
-                        <span class="stat-label">Passion</span>
+                    <div class="hero-stats-strip">
+                        <div class="hero-stat">
+                            <span class="hero-stat-number">5+</span>
+                            <span class="hero-stat-label">Active Labs</span>
+                        </div>
+                        <div class="hero-stat">
+                            <span class="hero-stat-number">∞</span>
+                            <span class="hero-stat-label">Ideas</span>
+                        </div>
+                        <div class="hero-stat">
+                            <span class="hero-stat-number">100%</span>
+                            <span class="hero-stat-label">Passion</span>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section class="about">
-                <div class="about-content">
-                    <h3>About Our Mission</h3>
-                    <p>We are a family that loves to create and share our innovations. Here at Ahrens Labs, you can explore the fascinating projects we've built and the ideas that excite us. From cutting-edge coding solutions to creative writing, from musical compositions to robotic engineering, and from constructed languages to interactive games—we're constantly pushing the boundaries of what's possible.</p>
-                    
-                    <div class="features-grid">
-                        <a href="coding-lab.html" class="feature-card">
-                            <div class="feature-icon">&lt;/&gt;</div>
-                            <h4>Coding Excellence</h4>
-                            <p>Advanced programming projects and innovative solutions</p>
-                        </a>
-                        <a href="robotics-lab.html" class="feature-card">
-                            <div class="feature-icon">&#9881;</div>
-                            <h4>Robotics Innovation</h4>
-                            <p>Cutting-edge robotics and automation systems</p>
-                        </a>
-                        <a href="music-lab.html" class="feature-card">
-                            <div class="feature-icon">&#9835;</div>
-                            <h4>Musical Creativity</h4>
-                            <p>Original compositions and music technology</p>
-                        </a>
-                        <a href="language-lab.html" class="feature-card">
-                            <div class="feature-icon">&#128172;</div>
-                            <h4>Language Arts</h4>
-                            <p>Constructed languages and linguistic experiments</p>
-                        </a>
-                        <a href="writing-lab.html" class="feature-card">
-                            <div class="feature-icon">&#9997;</div>
-                            <h4>Creative Writing</h4>
-                            <p>Literary works, storytelling, and creative expression</p>
-                        </a>
-                    </div>
+            <!-- ===== MISSION + LABS ===== -->
+            <section class="mission-section">
+                <h3>What We Do</h3>
+                <p>We're a family that loves to create and share. From interactive games and chess engines to conlangs and original music — we build things that excite us, then put them here for the world to explore.</p>
+
+                <div class="labs-showcase">
+                    <a href="coding-lab.html" class="lab-preview-card coding">
+                        <div class="lab-preview-icon">&lt;/&gt;</div>
+                        <h4>Coding Lab</h4>
+                        <p>Games, tools, and experiments built with code — including a full chess engine and dungeon crawler.</p>
+                        <span class="lab-preview-arrow">Explore →</span>
+                    </a>
+                    <a href="robotics-lab.html" class="lab-preview-card robotics">
+                        <div class="lab-preview-icon">⚙</div>
+                        <h4>Robotics Lab</h4>
+                        <p>Hardware meets software — automation systems and robotic creations.</p>
+                        <span class="lab-preview-arrow">Explore →</span>
+                    </a>
+                    <a href="music-lab.html" class="lab-preview-card music">
+                        <div class="lab-preview-icon">♫</div>
+                        <h4>Music Lab</h4>
+                        <p>Original compositions, sound design, and musical experiments.</p>
+                        <span class="lab-preview-arrow">Explore →</span>
+                    </a>
+                    <a href="language-lab.html" class="lab-preview-card language">
+                        <div class="lab-preview-icon">💬</div>
+                        <h4>Language Lab</h4>
+                        <p>Constructed languages, alphabets, and linguistic deep dives.</p>
+                        <span class="lab-preview-arrow">Explore →</span>
+                    </a>
+                    <a href="writing-lab.html" class="lab-preview-card writing">
+                        <div class="lab-preview-icon">✍</div>
+                        <h4>Writing Lab</h4>
+                        <p>Stories, world-building, and creative expression in all forms.</p>
+                        <span class="lab-preview-arrow">Explore →</span>
+                    </a>
                 </div>
             </section>
         </main>
@@ -99,8 +425,8 @@
         <div class="push"></div>
     </div>
 
-    <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    <footer class="index-footer">
+        <p>&copy; 2025 <strong>Ahrens Labs</strong>. All rights reserved.</p>
     </footer>
 
     <script src="js/script.js"></script>

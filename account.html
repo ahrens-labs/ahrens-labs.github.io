@@ -15,18 +15,14 @@
     <script src="js/script.js"></script>
     
     <style>
-        body {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-            min-height: 100vh;
-        }
-        
         .account-container {
             max-width: 500px;
-            margin: 80px auto;
+            margin: 40px auto;
             padding: 40px;
             background: white;
             border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
         }
         
         .account-header {
@@ -180,18 +176,33 @@
             text-decoration: underline;
         }
 
-        .email-notice {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 12px 15px;
-            margin-top: 15px;
-            border-radius: 5px;
-            font-size: 0.9em;
-            color: #1976d2;
-        }
     </style>
 </head>
 <body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+    <main>
     <div class="account-container">
         <div class="account-header">
             <h1>Ahrens Labs Account</h1>
@@ -229,17 +240,25 @@
             <div class="form-group">
                 <label for="signup-password">Password</label>
                 <input type="password" id="signup-password" required minlength="6">
+                <small style="color: #94a3b8; font-size: 0.8em; margin-top: 4px; display: block;">Must be at least 6 characters</small>
+            </div>
+            <div class="form-group">
+                <label for="signup-confirm-password">Confirm Password</label>
+                <input type="password" id="signup-confirm-password" required minlength="6">
             </div>
             <button type="submit" class="form-button">Create Account</button>
-            <div class="email-notice">
-                📧 A verification email will be sent to confirm your account.
-            </div>
         </form>
         
         <div class="back-link">
             <a href="index.html">← Back to Home</a>
         </div>
     </div>
+    </main>
+    <div class="push"></div>
+    </div>
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
 
     <script>
         const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
@@ -341,6 +360,12 @@
             const username = document.getElementById('signup-username').value;
             const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
+            const confirmPassword = document.getElementById('signup-confirm-password').value;
+            
+            if (password !== confirmPassword) {
+                showNotification('Passwords do not match', 'error');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/signup`, {
@@ -358,7 +383,7 @@
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);
                     
-                    showNotification(data.message || 'Account created! Check your email for verification.', 'success', 5000);
+                    showNotification('Account created successfully! 🎉', 'success', 3000);
                     
                     // Redirect to return URL or home
                     const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
