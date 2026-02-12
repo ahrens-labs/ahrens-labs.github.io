@@ -88,6 +88,21 @@
             .kyrachyng-card { padding: 1.2rem 0.5rem; }
             .kyrachyng-hero h2 { font-size: 1.3rem; }
         }
+    @font-face {
+  font-family: 'Kyrachyng';
+  src: url('./Kyrachyng-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Now, apply it to your text */
+.kyrachyng-font {
+  font-family: 'Kyrachyng', sans-serif;
+  font-size: 1.5rem;
+  /* Use this to fix the spacing issues we discussed earlier */
+  letter-spacing: -0.05em; 
+}
+
     </style>
 </head>
 <body>
@@ -128,7 +143,8 @@
                 </svg>
                 <div class="kyrachyng-hero-content">
                     <h2>Kyrachyng Language Translator</h2>
-                    <div class="kyrachyng-hero-subtitle">Translate, learn, and quiz yourself on the unique Kyrachyng language.</div>
+		    <h2 class="kyrachyng-font">Cirajin<h2>
+		    <div class="kyrachyng-hero-subtitle">Translate, learn, and quiz yourself on the unique Kyrachyng language.</div>
                 </div>
             </section>
             <div class="kyrachyng-card">

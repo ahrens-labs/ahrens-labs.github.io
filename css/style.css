@@ -227,6 +227,21 @@ header:hover::before {
             animation: slideIn 0.8s ease-out;
             display: none; /* Hidden by default */
         }
+ 	
+	@font-face {
+  		font-family: 'Kyrachyng';
+  		src: url('./Kyrachyng.ttf') format('truetype');
+  		font-weight: normal;
+  		font-style: normal;
+	}
+
+	/* Now, apply it to your text */
+	.my-language-text {
+  		font-family: 'Kyrachyng', sans-serif;
+  		font-size: 1.5rem;
+  		/* Use this to fix the spacing issues we discussed earlier */
+  		letter-spacing: -0.05em; 
+	}	
 
         #results-display h3 {
             color: #2c3e50;
