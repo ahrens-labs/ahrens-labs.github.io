@@ -76,33 +76,40 @@
             box-shadow: 0 4px 16px rgba(59,130,246,0.13);
             filter: brightness(1.08);
         }
-        #output-container {
-            background-color: #f8f9fa;
-            padding: 25px;
-            border-radius: 15px;
-            border: 1px solid #e9ecef;
-            margin-top: 20px;
-            text-align: center;
-        }
-        @media (max-width: 700px) {
-            .kyrachyng-card { padding: 1.2rem 0.5rem; }
-            .kyrachyng-hero h2 { font-size: 1.3rem; }
-        }
+    	<style>
+    /* ... all your other hero/card styles go here ... */
+    
+    #output-container {
+        background-color: #f8f9fa;
+        padding: 25px;
+        border-radius: 15px;
+        border: 1px solid #e9ecef;
+        margin-top: 20px;
+        text-align: center;
+    }
+
+    @media (max-width: 700px) {
+        .kyrachyng-card { padding: 1.2rem 0.5rem; }
+        .kyrachyng-hero h2 { font-size: 1.3rem; }
+    } /* <--- MAKE SURE THIS BRACE EXISTS */
+
+    /* CUSTOM FONT START */
     @font-face {
-  font-family: 'Kyrachyng';
-  src: url('./Kyrachyng.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
+        font-family: 'Kyrachyng';
+        src: url('./Kyrachyng.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
 
-/* Now, apply it to your text */
-.kyrachyng-font {
-  font-family: 'Kyrachyng', sans-serif;
-  font-size: 1.5rem;
-  /* Use this to fix the spacing issues we discussed earlier */
-  letter-spacing: -0.05em; 
-}
-
+    .kyrachyng-font {
+        font-family: 'Kyrachyng', sans-serif !important;
+        font-size: 2.5rem !important; /* Made larger to see clearly */
+        letter-spacing: -0.05em; 
+        color: #1e293b;
+        display: block;
+        margin-top: 10px;
+    }
+</style>
     </style>
 </head>
 <body>
