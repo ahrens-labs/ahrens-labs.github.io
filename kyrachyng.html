@@ -155,24 +155,26 @@
                 <!-- Main Translation Interface -->
                 <div id="translator-ui">
                     <textarea id="input-text" 
-                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical;"
+                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 15px; resize: vertical;"
                               placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
-                    <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; flex-wrap: wrap;">
-                        <button id="translate-button" class="option-button" style="background-color: #005791;">
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <button id="translate-button" class="option-button" style="background-color: #005791; padding: 8px 18px; font-size: 0.9em;">
                             Translate
                         </button>
-                        <button id="quiz-button" class="option-button" style="background-color: #003cff;">
-                            Start Quiz
+                        <button id="quiz-button" class="option-button" style="background-color: #003cff; padding: 8px 18px; font-size: 0.9em;">
+                            Quiz
                         </button>
-                        <a href="kyrachyng-alphabet.html" class="option-button" style="background-color: #10b981; text-decoration: none; display: flex; align-items: center;">
-                            Learn Alphabet
+                        <a href="kyrachyng-alphabet.html" class="option-button" style="background-color: #10b981; text-decoration: none; display: flex; align-items: center; padding: 8px 18px; font-size: 0.9em;">
+                            Alphabet
                         </a>
                     </div>
                     <div id="output-container">
-                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">Translated Text:</h3>
-                        <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 30px; text-align: center;"></p>
-                        <h3 style="color: #2c3e50; margin-bottom: 10px; font-size: 1.2em; text-align: center;">IPA Pronunciation:</h3>
-                        <p id="ipa-output" style="color: #27ae60; font-size: 1.3em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
+                        <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Kyrachyng Translation:</h3>
+                        <p id="translated-output" class="kyrachyng-font" style="color: #3498db; font-size: 2em; margin-bottom: 20px; min-height: 40px; text-align: center;"></p>
+                        <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Alphabet:</h3>
+                        <p id="kyrachyng-output" class="kyrachyng-font" style="color: #8b5cf6; font-size: 1.8em; margin-bottom: 20px; min-height: 35px; text-align: center;"></p>
+                        <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">IPA:</h3>
+                        <p id="ipa-output" style="color: #27ae60; font-size: 1.1em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
                     </div>
                 </div>
                 <!-- Quiz Interface -->
@@ -392,6 +394,7 @@
             const translateButton = document.getElementById('translate-button');
             const quizButton = document.getElementById('quiz-button');
             const translatedOutput = document.getElementById('translated-output');
+            const kyrachyngOutput = document.getElementById('kyrachyng-output');
             const ipaOutput = document.getElementById('ipa-output');
             const translatorUI = document.getElementById('translator-ui');
             const quizUI = document.getElementById('quiz-ui');
@@ -402,6 +405,68 @@
             const quizFeedback = document.getElementById('quiz-feedback');
             const backToTranslatorButton = document.getElementById('back-to-translator-button');
 
+            // IPA to Kyrachyng Alphabet Mapping
+            const ipaToKyrachyng = {
+                // From consonants
+                'b': 'B',
+                'k': 'C',
+                'd': 'D',
+                'g': 'G',
+                'm': 'M',
+                'n': 'N',
+                'ŋ': 'W',
+                'p': 'P',
+                'r': 'R',
+                'ʒ': 'S',
+                't': 'T',
+                'z': 'Z',
+                'tʃ': 'J',
+                'ð': 'H',
+                // From vowels
+                'æ': 'A',
+                'ai': 'I',
+                'aɪ': 'I',
+                'oʊ': 'Q',
+                'ɑː': 'O',
+                // Additional IPA combinations
+                'ɒ': 'O',
+                'ɔɪ': 'Q',
+                'ʃ': 'S',
+                'θ': 'H',
+            };
+
+            // Function to convert IPA string to Kyrachyng alphabet
+            function convertIPAToKyrachyng(ipaString) {
+                // Remove IPA brackets and clean up
+                ipaString = ipaString.replace(/[\/\[\]]/g, '').trim();
+                
+                let result = '';
+                let i = 0;
+                
+                while (i < ipaString.length) {
+                    // Try to match two-character combinations first
+                    const twoChar = ipaString.slice(i, i + 2);
+                    if (ipaToKyrachyng[twoChar]) {
+                        result += ipaToKyrachyng[twoChar];
+                        i += 2;
+                        continue;
+                    }
+                    
+                    // Try single character
+                    const oneChar = ipaString[i];
+                    if (ipaToKyrachyng[oneChar]) {
+                        result += ipaToKyrachyng[oneChar];
+                        i++;
+                        continue;
+                    }
+                    
+                    // If not found, skip the character
+                    i++;
+                }
+                
+                return result || '[unknown]';
+            }
+
             // Function to handle translation logic
             const performTranslation = () => {
                 const sentence = inputField.value;
@@ -409,10 +474,18 @@
                     try {
                         const result = translateSentence(sentence);
                         translatedOutput.textContent = result.translation;
+                        
+                        // Convert each IPA to Kyrachyng alphabet
+                        const kyrachyngLetters = result.ipa.map(ipaSound => 
+                            convertIPAToKyrachyng(ipaSound)
+                        );
+                        kyrachyngOutput.textContent = kyrachyngLetters.join(' ');
+                        
                         ipaOutput.textContent = `/ ${result.ipa.join(' ')} /`;
                     } catch (error) {
                         console.error("Translation failed:", error);
                         translatedOutput.textContent = "Error: Could not translate the sentence.";
+                        kyrachyngOutput.textContent = "";
                         ipaOutput.textContent = "";
                     }
                 }
