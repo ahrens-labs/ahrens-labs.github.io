@@ -498,10 +498,12 @@
                         translatedOutput.textContent = result.translation;
                         
                         // Convert each IPA to Kyrachyng alphabet, preserving capitalization from original words
-                        const translatedWords = result.translation.split(' ');
-                        const kyrachyngLetters = result.ipa.map((ipaSound, index) => 
-                            convertIPAToKyrachyng(ipaSound, translatedWords[index])
-                        );
+                        // result.ipa is already an array where each index corresponds to each translated_output item
+                        const kyrachyngLetters = result.ipa.map((ipaSound, index) => {
+                            // Get the original translated word from result.translatedWords
+                            const originalWord = result.translatedWords ? result.translatedWords[index] : null;
+                            return convertIPAToKyrachyng(ipaSound, originalWord);
+                        });
                         kyrachyngOutput.textContent = kyrachyngLetters.join(' ');
                         
                         ipaOutput.textContent = `/ ${result.ipa.join(' ')} /`;
@@ -708,14 +710,22 @@
                     }
                 }
 
-                const ipa_output = translated_output.map(word => {
-                    const parts = word.split(' ');
-                    return parts.map(part => ipa[part.toLowerCase()] || `[${part}]`).join(' ');
-                });
+                // Flatten the translated_output array so multi-word entries are split
+                const flattened_output = [];
+                const flat_ipa_output = [];
+                
+                for (const word of translated_output) {
+                    const words = word.split(' ');
+                    for (const w of words) {
+                        flattened_output.push(w);
+                        flat_ipa_output.push(ipa[w.toLowerCase()] || `[${w}]`);
+                    }
+                }
 
                 return {
-                    translation: translated_output.join(' '),
-                    ipa: ipa_output,
+                    translation: flattened_output.join(' '),
+                    translatedWords: flattened_output,
+                    ipa: flat_ipa_output,
                 };
             }
         });
