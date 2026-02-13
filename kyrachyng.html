@@ -100,7 +100,7 @@
 
     .kyrachyng-font {
         font-family: 'Kyrachyng', sans-serif !important;
-        font-size: 2.5rem !important; /* Made larger to see clearly */
+        font-size: 1.25rem !important; /* Made smaller */
         color: #1e293b;
         display: block;
         margin-top: 10px;
@@ -171,7 +171,7 @@
                     <div id="output-container">
                         <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Kyrachyng Translation:</h3>
                         <p id="translated-output" style="color: #3498db; font-size: 1.3em; font-family: 'Roboto Mono', monospace; margin-bottom: 20px; min-height: 40px; text-align: center;"></p>
-                        <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Kyrachyng Alphabet (from IPA):</h3>
+                        <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Kyrachyng Alphabet:</h3>
                         <p id="kyrachyng-output" class="kyrachyng-font" style="color: #8b5cf6; font-size: 0.4em; margin-bottom: 20px; min-height: 35px; text-align: center;"></p>
                         <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">IPA:</h3>
                         <p id="ipa-output" style="color: #27ae60; font-size: 1.1em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
@@ -428,26 +428,38 @@
                 'aɪ': 'I',
                 'oʊ': 'Q',
                 'ɑː': 'O',
+                'ɔi': 'Y',
+                'ɔɪ': 'Y',
                 // Additional IPA combinations
                 'ɒ': 'O',
-                'ɔɪ': 'Q',
                 'ʃ': 'S',
                 'θ': 'H',
             };
 
-            // Function to convert IPA string to Kyrachyng alphabet
-            function convertIPAToKyrachyng(ipaString) {
+            // Function to convert IPA string to Kyrachyng alphabet with capitalization
+            function convertIPAToKyrachyng(ipaString, originalWord) {
                 // Remove IPA brackets and clean up
                 ipaString = ipaString.replace(/[\/\[\]]/g, '').trim();
                 
                 let result = '';
                 let i = 0;
+                let charIndex = 0;
                 
                 while (i < ipaString.length) {
                     // Try to match two-character combinations first
                     const twoChar = ipaString.slice(i, i + 2);
                     if (ipaToKyrachyng[twoChar]) {
-                        result += ipaToKyrachyng[twoChar];
+                        let letter = ipaToKyrachyng[twoChar];
+                        // Apply capitalization from original word if available
+                        if (originalWord && charIndex < originalWord.length) {
+                            if (originalWord[charIndex] === originalWord[charIndex].toUpperCase()) {
+                                letter = letter.toUpperCase();
+                            } else {
+                                letter = letter.toLowerCase();
+                            }
+                        }
+                        result += letter;
+                        charIndex++;
                         i += 2;
                         continue;
                     }
@@ -455,7 +467,17 @@
                     // Try single character
                     const oneChar = ipaString[i];
                     if (ipaToKyrachyng[oneChar]) {
-                        result += ipaToKyrachyng[oneChar];
+                        let letter = ipaToKyrachyng[oneChar];
+                        // Apply capitalization from original word if available
+                        if (originalWord && charIndex < originalWord.length) {
+                            if (originalWord[charIndex] === originalWord[charIndex].toUpperCase()) {
+                                letter = letter.toUpperCase();
+                            } else {
+                                letter = letter.toLowerCase();
+                            }
+                        }
+                        result += letter;
+                        charIndex++;
                         i++;
                         continue;
                     }
@@ -475,9 +497,10 @@
                         const result = translateSentence(sentence);
                         translatedOutput.textContent = result.translation;
                         
-                        // Convert each IPA to Kyrachyng alphabet
-                        const kyrachyngLetters = result.ipa.map(ipaSound => 
-                            convertIPAToKyrachyng(ipaSound)
+                        // Convert each IPA to Kyrachyng alphabet, preserving capitalization from original words
+                        const translatedWords = result.translation.split(' ');
+                        const kyrachyngLetters = result.ipa.map((ipaSound, index) => 
+                            convertIPAToKyrachyng(ipaSound, translatedWords[index])
                         );
                         kyrachyngOutput.textContent = kyrachyngLetters.join(' ');
                         
