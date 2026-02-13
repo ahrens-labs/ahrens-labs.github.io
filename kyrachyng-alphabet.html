@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahrens Labs - Kyrachyng Alphabet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        .alphabet-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4.5rem 2rem 3.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
+        }
+        .alphabet-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 1.2rem;
+            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+        .alphabet-hero-subtitle {
+            font-size: 1.15rem;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 2rem;
+        }
+        .alphabet-container {
+            max-width: 1000px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+        .alphabet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .letter-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(30,41,59,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 4px solid #3b82f6;
+        }
+        .letter-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(30,41,59,0.15);
+        }
+        .letter-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+        .letter-card .ipa {
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.95rem;
+            color: #64748b;
+            margin-bottom: 0.8rem;
+            padding: 0.5rem;
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        .letter-card p {
+            margin: 0;
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-top: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.8rem;
+        }
+        .navigation-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        .nav-button {
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 0.95rem;
+        }
+        .nav-button-primary {
+            background: linear-gradient(90deg, #3b82f6, #2563eb);
+            color: white;
+        }
+        .nav-button-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+        }
+        .nav-button-secondary {
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        .nav-button-secondary:hover {
+            background: #e2e8f0;
+        }
+        .info-box {
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0e7ff 100%);
+            border-left: 4px solid #0ea5e9;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            color: #1e293b;
+        }
+        .info-box p {
+            margin: 0.5rem 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        @media (max-width: 700px) {
+            .alphabet-hero h2 { font-size: 1.8rem; }
+            .alphabet-hero-subtitle { font-size: 1rem; }
+            .section-title { font-size: 1.4rem; }
+            .alphabet-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <a href="index.html" class="navbar-brand">Ahrens Labs</a>
+        <nav>
+            <a href="labs.html">Labs</a>
+            <a href="kyrachyng.html">Kyrachyng</a>
+            <a href="contact.html">Contact</a>
+        </nav>
+    </header>
+
+    <section class="alphabet-hero">
+        <div class="alphabet-hero-content">
+            <h2>Kyrachyng Alphabet</h2>
+            <p class="alphabet-hero-subtitle">Learn the letters and sounds of the Kyrachyng language</p>
+        </div>
+    </section>
+
+    <section class="alphabet-container">
+        <div class="info-box">
+            <p><strong>About the Kyrachyng Alphabet:</strong> Kyrachyng is a constructed language with a rich phonetic system. This guide covers the basic consonants, vowels, and diphthongs used in the language, along with their IPA (International Phonetic Alphabet) representations.</p>
+        </div>
+
+        <h2 class="section-title">Consonants</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>Ch</h3>
+                <div class="ipa">[tʃ]</div>
+                <p>Like the "ch" in "church". Used frequently at the beginning of words and prefixes.</p>
+            </div>
+            <div class="letter-card">
+                <h3>D</h3>
+                <div class="ipa">[d]</div>
+                <p>Like the "d" in "day". A voiced alveolar stop.</p>
+            </div>
+            <div class="letter-card">
+                <h3>G</h3>
+                <div class="ipa">[g]</div>
+                <p>Like the "g" in "go". A voiced velar stop.</p>
+            </div>
+            <div class="letter-card">
+                <h3>K</h3>
+                <div class="ipa">[k]</div>
+                <p>Like the "k" in "king". An unvoiced velar stop.</p>
+            </div>
+            <div class="letter-card">
+                <h3>N</h3>
+                <div class="ipa">[n]</div>
+                <p>Like the "n" in "nose". A voiced alveolar nasal.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Ng</h3>
+                <div class="ipa">[ŋ]</div>
+                <p>Like the "ng" in "sing". A voiced velar nasal, often found at the end of words.</p>
+            </div>
+            <div class="letter-card">
+                <h3>P</h3>
+                <div class="ipa">[p]</div>
+                <p>Like the "p" in "pat". An unvoiced bilabial stop.</p>
+            </div>
+            <div class="letter-card">
+                <h3>R</h3>
+                <div class="ipa">[r]</div>
+                <p>Like the "r" in "run". Used in many Kyrachyng words.</p>
+            </div>
+            <div class="letter-card">
+                <h3>T</h3>
+                <div class="ipa">[t]</div>
+                <p>Like the "t" in "top". An unvoiced alveolar stop.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Zh</h3>
+                <div class="ipa">[ʒ]</div>
+                <p>Like the "s" in "measure". A voiced postalveolar fricative.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Z</h3>
+                <div class="ipa">[z]</div>
+                <p>Like the "z" in "zero". A voiced alveolar fricative.</p>
+            </div>
+            <div class="letter-card">
+                <h3>B</h3>
+                <div class="ipa">[b]</div>
+                <p>Like the "b" in "boy". A voiced bilabial stop.</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Vowels</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>A</h3>
+                <div class="ipa">[æ]</div>
+                <p>Like the "a" in "cat". An unrounded front vowel.</p>
+            </div>
+            <div class="letter-card">
+                <h3>E</h3>
+                <div class="ipa">[ɛ]</div>
+                <p>Like the "e" in "bed". An open-mid front unrounded vowel.</p>
+            </div>
+            <div class="letter-card">
+                <h3>I</h3>
+                <div class="ipa">[i]</div>
+                <p>Like the "i" in "fleece". A close front unrounded vowel.</p>
+            </div>
+            <div class="letter-card">
+                <h3>O</h3>
+                <div class="ipa">[oʊ]</div>
+                <p>Like the "o" in "go". A close-mid back rounded vowel.</p>
+            </div>
+            <div class="letter-card">
+                <h3>U</h3>
+                <div class="ipa">[u]</div>
+                <p>Like the "u" in "goose". A close back rounded vowel.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Oi</h3>
+                <div class="ipa">[ɔɪ]</div>
+                <p>Like the "oy" in "boy". A diphthong combining open back and close front vowels.</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Diphthongs</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>Ai</h3>
+                <div class="ipa">[aɪ]</div>
+                <p>Like the "i" in "five". Combines "a" and "i" sounds.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Ao</h3>
+                <div class="ipa">[aʊ]</div>
+                <p>Like the "ou" in "out". Combines "a" and "o" sounds.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Oa</h3>
+                <div class="ipa">[oʊə]</div>
+                <p>A gliding vowel, like "o" sound shifting toward "a".</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Consonant Clusters</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>Tch</h3>
+                <div class="ipa">[tʃ]</div>
+                <p>An affricate sound, used in some word variations.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Zh</h3>
+                <div class="ipa">[ʒ]</div>
+                <p>A voiced postalveolar fricative, appearing frequently in Kyrachyng words.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Gh</h3>
+                <div class="ipa">[x] or [ɣ]</div>
+                <p>A fricative sound, used in specific contexts within the language.</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Common Phonetic Patterns</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>Word Endings: -ch</h3>
+                <div class="ipa">[tʃ]</div>
+                <p>Many nouns and verbs in Kyrachyng end with the "ch" sound, particularly for pronouns and conjugated verbs. Examples: <em>daCH</em> (I), <em>zhroCH</em> (he/she)</p>
+            </div>
+            <div class="letter-card">
+                <h3>Word Endings: -ing</h3>
+                <div class="ipa">[ɪŋ]</div>
+                <p>Common ending for descriptive words and some noun formations. Examples: <em>zakyng</em> (sun), <em>calorming</em></p>
+            </div>
+            <div class="letter-card">
+                <h3>Word Endings: -an</h3>
+                <div class="ipa">[æn]</div>
+                <p>Frequently used in nouns and objects. Examples: <em>grizetan</em> (chair), <em>rapotang</em> (park)</p>
+            </div>
+            <div class="letter-card">
+                <h3>Prefix: Ch-</h3>
+                <div class="ipa">[tʃ]</div>
+                <p>Used as a prefix for first-person singular verb conjugations. Examples: <em>Chococanoy</em> (I am), <em>Chotiroy</em> (I run)</p>
+            </div>
+            <div class="letter-card">
+                <h3>Prefix: Bi-</h3>
+                <div class="ipa">[bi]</div>
+                <p>Used to indicate past tense in verbs. Examples: <em>Bicocanoy</em> (I was), <em>Bitiroy</em> (I ran)</p>
+            </div>
+            <div class="letter-card">
+                <h3>Prefix: Ov- or Ova-</h3>
+                <div class="ipa">[oʊv] or [oʊvə]</div>
+                <p>Indicates plurality or augmentation. Examples: <em>Ova-drach</em> (happy ones), <em>ovantryn</em> (best)</p>
+            </div>
+        </div>
+
+        <h2 class="section-title">Writing System Notes</h2>
+        <div class="alphabet-grid">
+            <div class="letter-card">
+                <h3>Capitalization</h3>
+                <p>Plural nouns are typically capitalized. The first letter of sentences and proper nouns are capitalized, following English conventions.</p>
+            </div>
+            <div class="letter-card">
+                <h3>Phonetic Precision</h3>
+                <p>Kyrachyng aims for phonetic consistency. The written form closely represents pronunciation, making it relatively easy to pronounce once the phonetic rules are learned.</p>
+            </div>
+            <div class="letter-card">
+                <h3>IPA Reference</h3>
+                <p>The IPA (International Phonetic Alphabet) representations provided help non-native speakers understand the exact articulation of each sound. Compare with familiar sounds in your native language.</p>
+            </div>
+        </div>
+
+        <div class="navigation-buttons">
+            <a href="kyrachyng.html" class="nav-button nav-button-primary">← Back to Kyrachyng Translator</a>
+            <a href="labs.html" class="nav-button nav-button-secondary">View All Labs</a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+</body>
+</html>
