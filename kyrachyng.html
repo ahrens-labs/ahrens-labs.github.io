@@ -54,13 +54,22 @@
             margin-bottom: 2rem;
         }
         .kyrachyng-card {
-            max-width: 600px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: 1100px;
+            margin: 1.5rem auto 0;
             background: white;
             border-radius: 18px;
             box-shadow: 0 8px 32px rgba(30,41,59,0.13);
-            padding: 2.5rem 2rem;
-            margin-top: 2rem;
+            padding: 2rem 1.75rem;
+        }
+        .kyrachyng-card-header {
+            text-align: center;
+            margin-bottom: 1.1rem;
+        }
+        .kyrachyng-card-subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 1.75rem;
         }
         .option-button {
             border-radius: 8px;
@@ -70,12 +79,44 @@
             border: none;
             color: white;
             cursor: pointer;
-            transition: background 0.2s, box-shadow 0.2s;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .option-button:hover {
             box-shadow: 0 4px 16px rgba(59,130,246,0.13);
             filter: brightness(1.08);
-        }    
+        }
+        .option-button:active {
+            transform: translateY(1px);
+        }
+        .kyrachyng-main-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1.25rem;
+        }
+        .kyrachyng-secondary-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .kyrachyng-secondary-row .option-button,
+        .kyrachyng-secondary-row a.option-button {
+            flex: 1 1 140px;
+            text-align: center;
+        }
+        .quiz-button-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin: 20px 0;
+        }
+        #back-to-translator-button {
+            margin-right: auto;
+        }
     #output-container {
         background-color: #f8f9fa;
         padding: 25px;
@@ -86,8 +127,28 @@
     }
 
     @media (max-width: 700px) {
-        .kyrachyng-card { padding: 1.2rem 0.5rem; }
-        .kyrachyng-hero h2 { font-size: 1.3rem; }
+        .kyrachyng-card { padding: 1.2rem 0.85rem; }
+        .kyrachyng-hero h2 { font-size: 1.6rem; }
+        .kyrachyng-main-actions {
+            justify-content: flex-start;
+        }
+        .kyrachyng-main-actions .option-button {
+            width: 100%;
+        }
+        .kyrachyng-secondary-row {
+            flex-direction: column;
+        }
+        .kyrachyng-secondary-row .option-button,
+        .kyrachyng-secondary-row a.option-button {
+            width: 100%;
+        }
+        .quiz-button-row {
+            flex-direction: column-reverse;
+            align-items: stretch;
+        }
+        #back-to-translator-button {
+            margin-right: 0;
+        }
     } /* <--- MAKE SURE THIS BRACE EXISTS */
 
     /* CUSTOM FONT START */
@@ -150,23 +211,17 @@
                 </div>
             </section>
             <div class="kyrachyng-card">
-                <h2 style="text-align: center; margin-bottom: 1rem;">Kyrachyng Language Translator</h2>
-                <p style="text-align: center; color: #666; margin-bottom: 2rem;">Type a sentence to translate or try the quiz!</p>
+                <h2 class="kyrachyng-card-header">Kyrachyng Language Translator</h2>
+                <p class="kyrachyng-card-subtitle">Type a sentence to translate or try the quiz!</p>
                 <!-- Main Translation Interface -->
                 <div id="translator-ui">
                     <textarea id="input-text" 
-                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 15px; resize: vertical;"
+                              style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #3498db; background-color: white; font-size: 1.1em; margin-bottom: 10px; resize: vertical;"
                               placeholder="Enter a sentence to translate (e.g., I want a chair)"></textarea>
-                    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div class="kyrachyng-main-actions">
                         <button id="translate-button" class="option-button" style="background-color: #005791; padding: 8px 18px; font-size: 0.9em;">
                             Translate
                         </button>
-                        <button id="quiz-button" class="option-button" style="background-color: #003cff; padding: 8px 18px; font-size: 0.9em;">
-                            Quiz
-                        </button>
-                        <a href="kyrachyng-alphabet.html" class="option-button" style="background-color: #10b981; text-decoration: none; display: flex; align-items: center; padding: 8px 18px; font-size: 0.9em;">
-                            Alphabet
-                        </a>
                     </div>
                     <div id="output-container">
                         <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">Kyrachyng Translation:</h3>
@@ -176,6 +231,14 @@
                         <h3 style="color: #2c3e50; margin-bottom: 8px; font-size: 1.1em; text-align: center;">IPA:</h3>
                         <p id="ipa-output" style="color: #27ae60; font-size: 1.1em; font-family: 'Roboto Mono', monospace; min-height: 30px; text-align: center;"></p>
                     </div>
+                    <div class="kyrachyng-secondary-row" style="margin-top: 1.5rem;">
+                        <button id="quiz-button" class="option-button" style="background-color: #003cff; padding: 8px 18px; font-size: 0.9em;">
+                            Quiz
+                        </button>
+                        <a href="kyrachyng-alphabet.html" class="option-button" style="background-color: #10b981; text-decoration: none; padding: 8px 18px; font-size: 0.9em;">
+                            Alphabet
+                        </a>
+                    </div>
                 </div>
                 <!-- Quiz Interface -->
                 <div id="quiz-ui" style="display: none; text-align: center;">
@@ -184,15 +247,15 @@
                               style="width: 100%; height: 120px; padding: 15px; border-radius: 20px; border: 2px solid #9b59b6; background-color: white; font-size: 1.1em; margin-bottom: 20px; resize: vertical; box-sizing: border-box;"
                               placeholder="Type your translation here..."></textarea>
                     <div id="quiz-feedback" style="text-align: center; font-size: 1.2em; font-weight: bold; margin: 20px 0; min-height: 30px;"></div>
-                    <div style="display: flex; justify-content: center; gap: 15px; margin: 20px 0;">
+                    <div class="quiz-button-row">
+                        <button id="back-to-translator-button" class="option-button" style="background-color: #003cff;">
+                            Back to Translator
+                        </button>
                         <button id="check-answer-button" class="option-button" style="background-color: #005791;">
                             Check Answer
                         </button>
                         <button id="next-question-button" class="option-button" style="background-color: #3498db; display: none;">
                             Next Question
-                        </button>
-                        <button id="back-to-translator-button" class="option-button" style="background-color: #003cff;">
-                            Back to Translator
                         </button>
                     </div>
                 </div>

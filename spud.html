@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahrens Labs - Spud Robot</title>
+
+    <!-- Google Fonts Links (for consistency) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="js/script.js"></script>
+
+    <style>
+        .spud-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4.5rem 2rem 3.5rem;
+            background: radial-gradient(circle at top left, #22c55e33 0, transparent 55%),
+                        radial-gradient(circle at top right, #0ea5e933 0, transparent 55%),
+                        linear-gradient(135deg, #0f172a 0%, #020617 55%, #0b1120 100%);
+            color: #e5f4ff;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(15,23,42,0.45);
+        }
+        .spud-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.6rem;
+            font-weight: 900;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.04em;
+        }
+        .spud-hero-subtitle {
+            font-size: 1.15rem;
+            color: #94a3b8;
+            max-width: 720px;
+            margin: 0 auto 1.75rem;
+        }
+        .spud-tagline {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.9rem;
+            border-radius: 999px;
+            background: rgba(15,23,42,0.7);
+            border: 1px solid rgba(148,163,184,0.45);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #e2e8f0;
+        }
+        .spud-page {
+            max-width: 1100px;
+            margin: 2.5rem auto 0;
+            padding: 0 1.75rem 3rem;
+        }
+        .spud-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+        }
+        .spud-panel {
+            background: white;
+            border-radius: 18px;
+            padding: 1.75rem 1.8rem;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.12);
+            border: 1px solid #e2e8f0;
+        }
+        .spud-panel h3 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: #0f172a;
+        }
+        .spud-panel p {
+            margin: 0.35rem 0;
+            color: #475569;
+            line-height: 1.6;
+            font-size: 0.98rem;
+        }
+        .spud-specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+        .spud-spec-card {
+            background: #0f172a;
+            color: #e5e7eb;
+            border-radius: 14px;
+            padding: 1.1rem 1.2rem;
+            box-shadow: 0 12px 30px rgba(15,23,42,0.35);
+            border: 1px solid #1e293b;
+        }
+        .spud-spec-card h4 {
+            margin: 0 0 0.35rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #a5b4fc;
+        }
+        .spud-spec-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #cbd5f5;
+        }
+        .spud-flow {
+            list-style: none;
+            padding: 0;
+            margin: 0.75rem 0 0;
+            display: grid;
+            gap: 0.6rem;
+        }
+        .spud-flow li {
+            display: flex;
+            gap: 0.4rem;
+            align-items: flex-start;
+            color: #0f172a;
+            font-size: 0.95rem;
+        }
+        .spud-flow-step {
+            width: 1.4rem;
+            height: 1.4rem;
+            border-radius: 999px;
+            background: #22c55e1a;
+            border: 1px solid #22c55e;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #15803d;
+            flex-shrink: 0;
+        }
+        .spud-footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.75rem;
+        }
+        .spud-footer-links a.button {
+            text-decoration: none;
+        }
+        @media (max-width: 880px) {
+            .spud-layout {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+        @media (max-width: 700px) {
+            .spud-hero {
+                padding: 2.9rem 1.2rem 2.2rem;
+            }
+            .spud-hero h2 {
+                font-size: 1.9rem;
+            }
+            .spud-page {
+                padding: 0 1.1rem 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="spud-hero">
+                <div class="spud-tagline">Robotics Lab • Computer Vision • Voice</div>
+                <h2>Spud the Friendly Robot Car</h2>
+                <p class="spud-hero-subtitle">
+                    Spud is a rolling robot car with a camera that can drive around, ask your name, and later recognize you by your face
+                    because you told it who you are.
+                </p>
+            </section>
+
+            <section class="spud-page">
+                <div class="spud-layout">
+                    <article class="spud-panel">
+                        <h3>What Spud Can Do</h3>
+                        <p>
+                            Spud is built to feel like a curious little robot friend. It can drive around on its wheels, look around with
+                            its onboard camera, and talk to you using simple voice prompts.
+                        </p>
+                        <p>
+                            When Spud first meets you, it can ask questions like “What’s your name?” and remember your answer.
+                            Later on, when it sees your face again, it can match what it sees with what it heard before and greet you by name.
+                        </p>
+                        <ul class="spud-flow">
+                            <li>
+                                <span class="spud-flow-step">1</span>
+                                <span>Spud drives around the room and uses its camera to look for people.</span>
+                            </li>
+                            <li>
+                                <span class="spud-flow-step">2</span>
+                                <span>When it spots a new face, it asks for your name and listens to your answer.</span>
+                            </li>
+                            <li>
+                                <span class="spud-flow-step">3</span>
+                                <span>Spud links your face to your name and saves that information.</span>
+                            </li>
+                            <li>
+                                <span class="spud-flow-step">4</span>
+                                <span>The next time it recognizes your face, it can say something like “Hi Alex, nice to see you again!”</span>
+                            </li>
+                        </ul>
+                    </article>
+
+                    <aside class="spud-panel">
+                        <h3>Brains, Camera, and Wheels</h3>
+                        <p>
+                            Spud is powered by a small computer (like a Raspberry Pi) that runs code to handle driving, camera input,
+                            and recognition.
+                        </p>
+                        <p>
+                            The camera lets Spud “see” the world. Computer vision software turns camera frames into information that
+                            Spud can use to find faces and track where people are in front of it.
+                        </p>
+                        <p>
+                            Motor controllers and sensors help Spud move safely, steer around obstacles, and position itself so it can
+                            see you clearly when it wants to talk.
+                        </p>
+                    </aside>
+                </div>
+
+                <div class="spud-specs">
+                    <div class="spud-spec-card">
+                        <h4>Camera & Vision</h4>
+                        <p>Live video from Spud’s camera feeds into face detection and recognition code so it can decide who it’s seeing.</p>
+                    </div>
+                    <div class="spud-spec-card">
+                        <h4>Remembering Names</h4>
+                        <p>When you tell Spud your name, it stores a link between your spoken name and what your face looks like.</p>
+                    </div>
+                    <div class="spud-spec-card">
+                        <h4>Rolling Around</h4>
+                        <p>Spud’s motors let it drive forward, turn toward the people it sees, and explore the space like a tiny rover.</p>
+                    </div>
+                    <div class="spud-spec-card">
+                        <h4>Future Ideas</h4>
+                        <p>Spud could later learn routes, play games, or respond differently depending on who it recognizes.</p>
+                    </div>
+                </div>
+
+                <div class="spud-footer-links">
+                    <a href="robotics-lab.html" class="button lab-button-robotics">← Back to Robotics Lab</a>
+                    <a href="labs.html" class="button button-secondary">View All Labs</a>
+                </div>
+            </section>
+        </main>
+
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+

@@ -54,6 +54,58 @@
             gap: 1.5rem;
             margin-bottom: 3rem;
         }
+        .alphabet-explorer {
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(30,41,59,0.14);
+            padding: 1.5rem 1.75rem;
+            margin-bottom: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .alphabet-explorer-main {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .alphabet-explorer-glyph {
+            font-size: 3rem;
+            min-width: 3.5rem;
+            text-align: center;
+        }
+        .alphabet-explorer-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .alphabet-explorer-ipa {
+            font-family: "Roboto Mono", monospace;
+            font-size: 1rem;
+            color: #0f172a;
+            background: #e0f2fe;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .alphabet-explorer-ipa-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #0369a1;
+        }
+        .alphabet-explorer-desc {
+            color: #475569;
+            font-size: 0.95rem;
+        }
+        .alphabet-explorer-hint {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #64748b;
+        }
         .letter-card {
             background: white;
             border-radius: 12px;
@@ -61,10 +113,15 @@
             box-shadow: 0 4px 12px rgba(30,41,59,0.1);
             transition: transform 0.2s, box-shadow 0.2s;
             border-left: 4px solid #3b82f6;
+            cursor: pointer;
         }
         .letter-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 20px rgba(30,41,59,0.15);
+        }
+        .letter-card--active {
+            border-color: #10b981;
+            box-shadow: 0 8px 22px rgba(16,185,129,0.26);
         }
         .letter-card h3 {
             font-size: 1.5rem;
@@ -151,6 +208,13 @@
                 grid-template-columns: 1fr;
                 gap: 1rem;
             }
+            .alphabet-explorer-main {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .alphabet-explorer-glyph {
+                font-size: 2.4rem;
+            }
         }
         @font-face {
             font-family: 'Kyrachyng';
@@ -202,6 +266,22 @@
     <section class="alphabet-container">
         <div class="info-box">
             <p><strong>About the Kyrachyng Alphabet:</strong> Kyrachyng is a constructed language with a rich phonetic system. This guide covers the full alphabet consisting of consonants and vowels used in the language, along with their IPA (International Phonetic Alphabet) representations.</p>
+        </div>
+
+        <div class="alphabet-explorer" id="alphabet-explorer">
+            <div class="alphabet-explorer-main">
+                <div class="alphabet-explorer-glyph kyrachyng-font" id="explorer-glyph">B</div>
+                <div class="alphabet-explorer-meta">
+                    <div class="alphabet-explorer-ipa" id="explorer-ipa">
+                        <span class="alphabet-explorer-ipa-label">IPA</span>
+                        <span>/b/</span>
+                    </div>
+                    <div class="alphabet-explorer-desc" id="explorer-desc">
+                        Click a letter card below to explore its sound and example.
+                    </div>
+                </div>
+            </div>
+            <p class="alphabet-explorer-hint">Click or press Enter/Space on any letter card to update this panel.</p>
         </div>
 
         <h2 class="section-title">Consonants</h2>
@@ -332,5 +412,90 @@
     <footer class="footer">
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cards = document.querySelectorAll('.alphabet-grid .letter-card');
+            const explorerGlyph = document.getElementById('explorer-glyph');
+            const explorerIpa = document.getElementById('explorer-ipa');
+            const explorerDesc = document.getElementById('explorer-desc');
+
+            if (!cards.length || !explorerGlyph || !explorerIpa || !explorerDesc) {
+                return;
+            }
+
+            let activeCard = null;
+
+            function getLetterFromCard(card) {
+                const glyphEl = card.querySelector('.kyrachyng-font');
+                if (glyphEl) {
+                    const text = glyphEl.textContent.trim();
+                    const parts = text.split(/\s+/);
+                    return parts[0] || text;
+                }
+
+                // Fallback for non-letter info cards: use first character of the title
+                const titleEl = card.querySelector('h3');
+                if (titleEl) {
+                    const titleText = titleEl.textContent.trim();
+                    return titleText.charAt(0) || '?';
+                }
+
+                return '?';
+            }
+
+            function activateCard(card) {
+                if (!card) return;
+
+                if (activeCard) {
+                    activeCard.classList.remove('letter-card--active');
+                }
+                activeCard = card;
+                activeCard.classList.add('letter-card--active');
+
+                const glyph = getLetterFromCard(card);
+                const ipaEl = card.querySelector('.ipa');
+                const descEl = card.querySelector('p');
+                const titleEl = card.querySelector('h3');
+
+                explorerGlyph.textContent = glyph || '?';
+
+                const ipaSpan = explorerIpa.querySelector('span:last-child');
+                if (ipaEl && ipaSpan) {
+                    const ipaText = ipaEl.textContent.trim();
+                    ipaSpan.textContent = ipaText;
+                } else if (titleEl && ipaSpan) {
+                    // For non-letter panels, show the title in place of IPA
+                    ipaSpan.textContent = titleEl.textContent.trim();
+                }
+
+                if (descEl) {
+                    explorerDesc.textContent = descEl.textContent.trim();
+                } else if (titleEl) {
+                    explorerDesc.textContent = titleEl.textContent.trim();
+                }
+            }
+
+            cards.forEach((card, index) => {
+                card.setAttribute('tabindex', '0');
+
+                card.addEventListener('click', () => {
+                    activateCard(card);
+                });
+
+                card.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        activateCard(card);
+                    }
+                });
+
+                // Initialize first card as active
+                if (index === 0) {
+                    activateCard(card);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
