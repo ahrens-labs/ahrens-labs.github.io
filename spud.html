@@ -19,14 +19,12 @@
             width: 100vw;
             margin-left: calc(-50vw + 50%);
             padding: 4.5rem 2rem 3.5rem;
-            background: radial-gradient(circle at top left, #22c55e33 0, transparent 55%),
-                        radial-gradient(circle at top right, #0ea5e933 0, transparent 55%),
-                        linear-gradient(135deg, #0f172a 0%, #020617 55%, #0b1120 100%);
-            color: #e5f4ff;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
             text-align: center;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 2px 16px rgba(15,23,42,0.45);
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
         }
         .spud-hero h2 {
             font-family: "Orbitron", sans-serif;
@@ -34,10 +32,20 @@
             font-weight: 900;
             margin-bottom: 0.75rem;
             letter-spacing: 0.04em;
+            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
         }
         .spud-hero-subtitle {
             font-size: 1.15rem;
-            color: #94a3b8;
+            color: #64748b;
             max-width: 720px;
             margin: 0 auto 1.75rem;
         }
@@ -47,12 +55,12 @@
             gap: 0.5rem;
             padding: 0.35rem 0.9rem;
             border-radius: 999px;
-            background: rgba(15,23,42,0.7);
-            border: 1px solid rgba(148,163,184,0.45);
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
             font-size: 0.78rem;
             text-transform: uppercase;
             letter-spacing: 0.12em;
-            color: #e2e8f0;
+            color: #0f172a;
         }
         .spud-page {
             max-width: 1100px;
@@ -90,24 +98,24 @@
             gap: 1rem;
         }
         .spud-spec-card {
-            background: #0f172a;
-            color: #e5e7eb;
-            border-radius: 14px;
+            background: white;
+            color: #0f172a;
+            border-radius: 12px;
             padding: 1.1rem 1.2rem;
-            box-shadow: 0 12px 30px rgba(15,23,42,0.35);
-            border: 1px solid #1e293b;
+            box-shadow: 0 4px 12px rgba(30,41,59,0.10);
+            border-left: 4px solid #10b981;
         }
         .spud-spec-card h4 {
             margin: 0 0 0.35rem;
             font-size: 0.95rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: #a5b4fc;
+            color: #047857;
         }
         .spud-spec-card p {
             margin: 0;
             font-size: 0.9rem;
-            color: #cbd5f5;
+            color: #475569;
         }
         .spud-flow {
             list-style: none;
@@ -209,7 +217,8 @@
                         </p>
                         <p>
                             When Spud first meets you, it can ask questions like “What’s your name?” and remember your answer.
-                            Later on, when it sees your face again, it can match what it sees with what it heard before and greet you by name.
+                            It can also ask about your favorite color, animal, food, and number, plus what kinds of things you’re interested in.
+                            All of that gets stored so Spud can get to know you better over time.
                         </p>
                         <ul class="spud-flow">
                             <li>
@@ -222,11 +231,15 @@
                             </li>
                             <li>
                                 <span class="spud-flow-step">3</span>
-                                <span>Spud links your face to your name and saves that information.</span>
+                                <span>Spud links your face to your name and favorite things and saves that information.</span>
                             </li>
                             <li>
                                 <span class="spud-flow-step">4</span>
-                                <span>The next time it recognizes your face, it can say something like “Hi Alex, nice to see you again!”</span>
+                                <span>
+                                    The next time it recognizes your face, it can say something like “Hi Alex, nice to see you again!”
+                                    and bring up a topic you said you’re interested in. It can even double-check your favorites later
+                                    to see if your color, animal, food, or number have changed.
+                                </span>
                             </li>
                         </ul>
                     </article>
@@ -254,8 +267,8 @@
                         <p>Live video from Spud’s camera feeds into face detection and recognition code so it can decide who it’s seeing.</p>
                     </div>
                     <div class="spud-spec-card">
-                        <h4>Remembering Names</h4>
-                        <p>When you tell Spud your name, it stores a link between your spoken name and what your face looks like.</p>
+                        <h4>Remembering You</h4>
+                        <p>Spud stores your name, favorite color, animal, food, number, and interests so it can greet you personally and bring up things you care about when it sees you again.</p>
                     </div>
                     <div class="spud-spec-card">
                         <h4>Rolling Around</h4>
