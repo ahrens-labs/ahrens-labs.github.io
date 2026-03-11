@@ -104,7 +104,11 @@
             color: #0f172a;
         }
         .lesson-example-value {
-            font-family: 'Kyrachyng', "Roboto Mono", monospace;
+            font-family: "Roboto Mono", monospace;
+            color: #2563eb;
+        }
+        .lesson-example-value-kyrachyng {
+            font-family: "Kyrachyng", sans-serif;
             color: #2563eb;
         }
         .lesson-input,
@@ -294,13 +298,17 @@
                             <span>I am happy.</span>
                         </div>
                         <div class="lesson-example-row">
-                            <span class="lesson-example-label">Kyrachyng:</span>
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
                             <span class="lesson-example-value">daCH Chococanoy ovadraCH</span>
                         </div>
                         <div class="lesson-example-row">
                             <span class="lesson-example-label">IPA (from translator):</span>
                             <span class="lesson-example-value">/ dætʃ tʃoʊkoʊkænɔɪ oʊvædrætʃ /</span>
                         </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">daJ Jqcqcany qvadraj</span>
+                        </div>  
                     </div>
                     <p class="lesson-text">
                         You can paste the English sentence into the Kyrachyng translator, then copy the Kyrachyng output and IPA into this section for any lesson you build.
@@ -318,7 +326,11 @@
                             <span>You are awesome.</span>
                         </div>
                         <div class="lesson-example-row">
-                            <span class="lesson-example-label">Kyrachyng:</span>
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">[fill in]</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
                             <span class="lesson-example-value">[fill in]</span>
                         </div>
                     </div>
@@ -500,6 +512,7 @@
             'z': 'Z',
             'tʃ': 'J',
             'ð': 'H',
+            'v': 'V',
             // vowels
             'æ': 'A',
             'ai': 'I',
@@ -698,10 +711,10 @@
                         ['daCH', 'Chococanoy', 'trinezhach']
                     );
                     q1Feedback.innerHTML = correct
-                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value">'
+                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value">'
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay +
                           '</span>.';
                 }
@@ -716,10 +729,10 @@
                         ['voryCH', 'Cocanoyoch', 'ovadrach']
                     );
                     q2Feedback.innerHTML = correct
-                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value">'
+                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay2 +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value">'
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay2 +
                           '</span>.';
                 }
