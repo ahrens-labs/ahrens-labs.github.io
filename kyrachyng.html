@@ -313,12 +313,11 @@
             // Verb metadata in terms of root + tense.
             // Person (1st/2nd/3rd) is determined from the subject pronoun or plurality.
             const verbMeta = {
-                'am':       { root: 'cocanoy', tense: 'present' },
-                'are':      { root: 'cocanoy', tense: 'present' },
-                'is':       { root: 'cocanoy', tense: 'present' },
-                'was':      { root: 'cocanoy', tense: 'past' },
-                'were':     { root: 'cocanoy', tense: 'past' },
-                'will be':  { root: 'cocanoy', tense: 'future' },
+                'am':       { root: 'conoy', tense: 'present' },
+                'are':      { root: 'conoy', tense: 'present' },
+                'is':       { root: 'conoy', tense: 'present' },
+                'was':      { root: 'conoy', tense: 'past' },
+                'were':     { root: 'conoy', tense: 'past' },
 
                 'have':     { root: 'mothoy',  tense: 'present' },
                 'has':      { root: 'mothoy',  tense: 'present' },
@@ -328,17 +327,49 @@
                 'likes':    { root: 'pokatoy', tense: 'present' },
                 'liked':    { root: 'pokatoy', tense: 'past' },
 
-                'run':      { root: 'tiroy',   tense: 'present' },
-                'runs':     { root: 'tiroy',   tense: 'present' },
-                'ran':      { root: 'tiroy',   tense: 'past' },
+                'run':      { root: 'tyroy',   tense: 'present' },
+                'runs':     { root: 'tyroy',   tense: 'present' },
+                'ran':      { root: 'tyroy',   tense: 'past' },
 
                 'eat':      { root: 'ngapzhoy', tense: 'present' },
                 'eats':     { root: 'ngapzhoy', tense: 'present' },
                 'ate':      { root: 'ngapzhoy', tense: 'past' },
 
-                'want':     { root: 'pitikoy', tense: 'present' },
-                'wants':    { root: 'pitikoy', tense: 'present' },
-                'wanted':   { root: 'pitikoy', tense: 'past' },
+                'want':     { root: 'pytykoy', tense: 'present' },
+                'wants':    { root: 'pytykoy', tense: 'present' },
+                'wanted':   { root: 'pytykoy', tense: 'past' },
+
+                'go':     { root: 'jynoy', tense: 'present' },
+                'goes':    { root: 'jynoy', tense: 'present' },
+                'went':   { root: 'jynoy', tense: 'past' },
+
+                'serve':     { root: 'brymoy', tense: 'present' },
+                'serves':    { root: 'brymoy', tense: 'present' },
+                'served':   { root: 'brymoy', tense: 'past' },
+
+                'remember':     { root: 'roynoy', tense: 'present' },
+                'remembers':    { root: 'roynoy', tense: 'present' },
+                'remembered':   { root: 'roynoy', tense: 'past' },
+
+                'see':     { root: 'gzhymoy', tense: 'present' },
+                'sees':    { root: 'gzhymoy', tense: 'present' },
+                'saw':   { root: 'gzhymoy', tense: 'past' },
+
+                'fill':     { root: 'kozhamoy', tense: 'present' },
+                'fills':    { root: 'kozhamoy', tense: 'present' },
+                'filled':   { root: 'kozhamoy', tense: 'past' },
+
+                'give':     { root: 'thotypoy', tense: 'present' },
+                'gives':    { root: 'thotypoy', tense: 'present' },
+                'gave':   { root: 'thotypoy', tense: 'past' },
+
+                'play':     { root: 'pyngakoy', tense: 'present' },
+                'plays':    { root: 'pyngakoy', tense: 'present' },
+                'played':   { root: 'pyngakoy', tense: 'past' },
+
+                'suffer':     { root: 'doycaumoy', tense: 'present' },
+                'suffers':    { root: 'doycaumoy', tense: 'present' },
+                'suffered':   { root: 'doycaumoy', tense: 'past' },
             };
 
             // Old verb table kept as a fallback for any entries not yet migrated.
@@ -366,9 +397,9 @@
             // 3rd + Future = +goyng (suffix)
             function buildVerbForm(root, tense, person) {
                 if (person === '1st') {
-                    if (tense === 'past')    return 'Bi'  + root;
+                    if (tense === 'past')    return 'By'  + root;
                     if (tense === 'present') return 'CHo' + root;
-                    if (tense === 'future')  return 'Gi'  + root;
+                    if (tense === 'future')  return 'Gy'  + root;
                 } else if (person === '2nd') {
                     if (tense === 'past')    return root + 'boy';
                     if (tense === 'present') return root + 'och';
@@ -392,25 +423,95 @@
             };
 
             const ipa = {
-                'dach': 'dætʃ', 'zhroch': 'ʒrɑːtʃ', 'vorych': 'voʊrˈaɪtʃ', 'da-oich': 'dæˈɔɪtʃ',
-                'zhiech': 'ʒaɪtʃ', 'varoich': 'værˈɔɪtʃ', 'dropach': 'drɑːpætʃ', 'viroch': 'vˈaɪrɑːtʃ',
+                'dach': 'dætʃ', 'zhroch': 'ʒrɑːtʃ', 'vorych': 'voʊraɪtʃ', 'da-oich': 'dæɔɪtʃ',
+                'zhiech': 'ʒaɪtʃ', 'varoich': 'værɔɪtʃ', 'dropach': 'drɑːpætʃ', 'viroch': 'vaɪrɑːtʃ',
                 'zhamoch': 'ʒæmoʊtʃ', 'chococanoy': 'tʃoʊkoʊkænɔɪ', 'cocanoyoch': 'koʊkænɔɪɑːtʃ', 'cocanoyach': 'koʊkænɔɪætʃ',
                 'trinezhach': 'traɪnʒætʃ', 'trinezhan': 'traɪnʒæn', 'trinezhang': 'traɪnʒæŋ', 'trinezhap': 'traɪnʒæp', 'grizetan': 'graɪztæn', 'pautyne': 'pɑːtaɪn', 'pokyne': 'poʊkaɪn',
                 'prautyne': 'prɑːtaɪn', 'prokyne': 'proʊkaɪn', 'pautych': 'pɑːtaɪtʃ', 'pokych': 'poʊkaɪtʃ', 'prautych': 'prɑːtaɪtʃ', 'prokych': 'proʊkaɪtʃ', 'binich': 'baɪnaɪtʃ', 'pautyng': 'pɑːtaɪŋ',
                 'pokyng': 'poʊkaɪŋ', 'prautyng': 'prɑːtaɪŋ', 'prokyng': 'proʊkaɪŋ', 'pautype': 'pɑːtaɪp', 'pokype': 'poʊkaɪp', 'prautype': 'prɑːtaɪp',
-                'prokype': 'proʊkaɪp', 'bicocanoy': 'baɪkoʊkænɔɪ', 'cocanoiboy': 'koʊkænɔɪbˈɔɪ', 'cocanoibo': 'koʊkænɔɪbˈoʊ', 'ovadrach': 'oʊvædrætʃ',
+                'prokype': 'proʊkaɪp', 'bicocanoy': 'baɪkoʊkænɔɪ', 'cocanoiboy': 'koʊkænɔɪbɔɪ', 'cocanoibo': 'koʊkænɔɪboʊ', 'ovadrach': 'oʊvædrætʃ',
                 'adrach': 'ædrætʃ', 'adran': 'ædræn', 'adrap': 'ædræp', 'adrang': 'ædræŋ', 'ovadran': 'oʊvædræn', 'ovadrang': 'oʊvædræŋ', 'ovadrap': 'oʊvædræp', 'thopanich': 'ðoʊpænaɪtʃ',
                 'gicocanoy': 'gaɪkoʊkænɔ', 'cocanoigoith': 'koʊkænɔɪgɔɪð', 'cocanoigath': 'koʊkænɔɪgæð', 'chomothoy': 'tʃoʊmɑːðɔɪ', 'mothoyach': 'mɑːðɔɪætʃ',
                 'mothoyoch': 'mɑːðɔɪɑːtʃ', 'chopokatoy': 'tʃoʊpoʊkætɔɪ', 'pokatoyach': 'poʊkætɔɪætʃ', 'pokatoyoch': 'poʊkætɔɪɑːtʃ', 'rine': 'raɪn', 'mothoy': 'mɑːðɔɪ', 'cocanoy': 'koʊkænɔɪ',
                 'pokatoy': 'poʊkætɔɪ', 'chotiroy': 'tʃoʊtaɪrɔɪ', 'tiroyach': 'taɪrɔɪætʃ', 'tiroyoch': 'taɪrɔɪɑːtʃ', 'tiroy': 'taɪrɔɪ', 'ite': 'aɪt', 'kipe': 'kaɪp',
-                'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɑːðɔɪbˈɔɪ', 'mothoybo': 'mɑːðɔɪbˈoʊ', 'bimothoy': 'baɪmɑːðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
-                'pokatoyboy': 'poʊkætɔɪbˈɔɪ', 'pokatoybo': 'poʊkætɔɪbˈoʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbˈɔɪ', 'tiroybo': 'taɪrɔɪbˈoʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
+                'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɑːðɔɪbɔɪ', 'mothoybo': 'mɑːðɔɪboʊ', 'bimothoy': 'baɪmɑːðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
+                'pokatoyboy': 'poʊkætɔɪbɔɪ', 'pokatoybo': 'poʊkætɔɪboʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbɔɪ', 'tiroybo': 'taɪrɔɪboʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
                 'ngapzhoyach': 'ŋæpʒɔɪætʃ', 'ngapzhoyoch': 'ŋæpʒɔɪɑːtʃ', 'byngapzhoy': 'baɪŋæpʒɔɪ', 'ngapzhoybo': 'ŋæpʒɔɪboʊ', 'ngapzhoyboy': 'ŋæpʒɔɪbɔɪ', 'ngapzhoy': 'ŋæpʒɔɪ', 'gawpoin': 'gɑːpɔɪn',
                 'kimerot': 'kaɪmrɑːt', 'vok': 'vɑːk', 'zakyng': 'zækaɪŋ', 'poigogap': 'pɔɪgoʊgæp', 'poigogan': 'pɔɪgoʊgæn', 'poigogang': 'pɔɪgoʊgæŋ', 'poigogach': 'pɔɪgoʊgætʃ', 'auto': 'ɑːtoʊ',
                 'bacrop': 'bækrɑːp', 'zhite': 'ʒaɪt', 'chopitikoy': 'tʃoʊpaɪtaɪkɔɪ', 'pitikoyach': 'paɪtaɪkɔɪætʃ', 'pitikoyoch': 'paɪtaɪkɔɪɑːtʃ', 'bipitikoy': 'baɪpaɪtaɪkɔɪ', 'pitikoyboy': 'paɪpaɪtaɪkɔɪbɔɪ',
                 'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪpaɪtaɪkɔɪ', 'bach': 'bɑːtʃ', 'narong': 'nærɑːŋ', 'catormyng': 'cætɑːrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
                 'antryp': 'æntraɪp', 'ovantryng': 'oʊvæntraɪŋ', 'antryng': 'æntraɪŋ', 'ovantrych': 'oʊvæntraɪtʃ', 'antrych': 'æntraɪtʃ', 'adyn': 'ædaɪn'
             };
+
+            // Rule-based IPA generator using spelling-sound rules:
+            // a = æ, b = b, c = k, d = d, g = g, y = aɪ, m = m, n = n, ng = ŋ,
+            // o = oʊ, au = ɑː, p = p, r = r, t = t, v = v, z = z,
+            // th = ð, ch = tʃ, oy = ɔɪ, zh = ʒ, j = dʒ.
+            function kyrachyngToIPAFromRules(word) {
+                const w = word.toLowerCase();
+                let result = '';
+                let i = 0;
+
+                while (i < w.length) {
+                    const two = w.slice(i, i + 2);
+
+                    if (two === 'ng') {
+                        result += 'ŋ';
+                        i += 2;
+                        continue;
+                    }
+                    if (two === 'au') {
+                        result += 'ɑː';
+                        i += 2;
+                        continue;
+                    }
+                    if (two === 'th') {
+                        result += 'ð';
+                        i += 2;
+                        continue;
+                    }
+                    if (two === 'ch') {
+                        result += 'tʃ';
+                        i += 2;
+                        continue;
+                    }
+                    if (two === 'oy') {
+                        result += 'ɔɪ';
+                        i += 2;
+                        continue;
+                    }
+                    if (two === 'zh') {
+                        result += 'ʒ';
+                        i += 2;
+                        continue;
+                    }
+
+                    const one = w[i];
+                    switch (one) {
+                        case 'a': result += 'æ'; break;
+                        case 'b': result += 'b'; break;
+                        case 'c': result += 'k'; break;
+                        case 'd': result += 'd'; break;
+                        case 'g': result += 'g'; break;
+                        case 'j': result += 'dʒ'; break;
+                        case 'y': result += 'aɪ'; break;
+                        case 'm': result += 'm'; break;
+                        case 'n': result += 'n'; break;
+                        case 'o': result += 'oʊ'; break;
+                        case 'p': result += 'p'; break;
+                        case 'r': result += 'r'; break;
+                        case 't': result += 't'; break;
+                        case 'v': result += 'v'; break;
+                        case 'z': result += 'z'; break;
+                        default:
+                            result += one;
+                            break;
+                    }
+                    i += 1;
+                }
+
+                return result || `[${word}]`;
+            }
 
             const adjectives = {
                 'awesome': 'trinezha', 'amazing': 'trinezha', 'really good': 'trinezha', 'happy': 'ovadra', 'sad': 'adra', 'darkened': 'poigoga', 'worst': 'antry',
@@ -428,6 +529,15 @@
 
             const articles = new Set(['the', 'a', 'an']);
 
+            // English negation words that should make the following verb negative.
+            const negations = new Set([
+                'not',
+                "don't", "doesn't", "didn't",
+                "won't", "cannot", "can't",
+                "isn't", "aren't", "wasn't", "weren't",
+                "shouldn't", "couldn't", "wouldn't"
+            ]);
+
             // Sample sentences for the quiz
             const quiz_sentences = [
                 'I am a beaver',
@@ -438,6 +548,14 @@
             ];
 
             let quiz_correct_answer = '';
+
+            // English negation helpers we treat specially for adding "bauchry":
+            // "do not VERB", "don't VERB", "did not VERB", "didn't VERB",
+            // "will not VERB", "won't VERB".
+            const negHelpers = new Set([
+                'do', 'did', 'will', 'not',
+                "don't", "didn't", "won't"
+            ]);
 
             const inputField = document.getElementById('input-text');
             const translateButton = document.getElementById('translate-button');
@@ -544,7 +662,54 @@
                 if (sentence) {
                     try {
                         const result = translateSentence(sentence);
-                        translatedOutput.textContent = result.translation;
+                        // Rebuild displayed Kyrachyng spelling from IPA using the deterministic rules,
+                        // so the visible words match the canonical orthography implied by their IPA.
+                        const displayedWords = result.ipa.map(ipaStr => {
+                            // Inverse of kyrachyngToIPAFromRules
+                            const s = ipaStr.replace(/[\/\[\]\s]/g, '');
+                            let out = '';
+                            let i = 0;
+                            const rules = [
+                                ['tʃ', 'ch'],
+                                ['dʒ', 'j'],
+                                ['ɔɪ', 'oy'],
+                                ['ɑː', 'au'],
+                                ['aɪ', 'y'],
+                                ['ŋ',  'ng'],
+                                ['ð',  'th'],
+                                ['ʒ',  'zh'],
+                                ['æ',  'a'],
+                                ['b',  'b'],
+                                ['k',  'c'],
+                                ['d',  'd'],
+                                ['g',  'g'],
+                                ['m',  'm'],
+                                ['n',  'n'],
+                                ['oʊ', 'o'],
+                                ['p',  'p'],
+                                ['r',  'r'],
+                                ['t',  't'],
+                                ['v',  'v'],
+                                ['z',  'z'],
+                            ];
+                            while (i < s.length) {
+                                let matched = false;
+                                for (const [ipaChunk, letters] of rules) {
+                                    if (s.startsWith(ipaChunk, i)) {
+                                        out += letters;
+                                        i += ipaChunk.length;
+                                        matched = true;
+                                        break;
+                                    }
+                                }
+                                if (!matched) {
+                                    out += s[i];
+                                    i += 1;
+                                }
+                            }
+                            return out || '[unknown]';
+                        });
+                        translatedOutput.textContent = displayedWords.join(' ');
                         
                         // Convert each IPA to Kyrachyng alphabet, preserving capitalization from original words
                         // result.ipa is already an array where each index corresponds to each translated_output item
@@ -631,6 +796,7 @@
                 let article = 'none';
                 let adjective = 'none';
                 let previous_word = 'none';
+                let previous_previous_word = 'none';
                 let translated_output = [];
                 let words = sentence.toLowerCase().split(/\s+/);
 
@@ -648,7 +814,46 @@
                     }
                 }
 
+                // Automatically form multi-word phrases:
+                // "will" + present-tense verb  → future verb phrase
+                // "to"   + present-tense verb  → neutral "to VERB" phrase
+                for (let i = 0; i < words.length - 1; i++) {
+                    const w = words[i];
+                    const next = words[i + 1];
+                    const baseMeta = verbMeta[next];
+
+                    if (baseMeta && baseMeta.tense === 'present') {
+                        if (w === 'will') {
+                            const combined = `will ${next}`;
+                            if (!verbMeta[combined]) {
+                                verbMeta[combined] = { root: baseMeta.root, tense: 'future' };
+                            }
+                            words.splice(i, 2, combined);
+                            i--;
+                            continue;
+                        }
+                        if (w === 'to') {
+                            const combinedTo = `to ${next}`;
+                            if (!neutral_verbs[combinedTo]) {
+                                neutral_verbs[combinedTo] = `rine ${baseMeta.root}`;
+                            }
+                            words.splice(i, 2, combinedTo);
+                            i--;
+                            continue;
+                        }
+                    }
+                }
+
                 for (const word of words) {
+                    // Skip translating negation helper words themselves, but
+                    // still record them in the history so the verb logic can
+                    // detect patterns like "do not VERB" and "won't VERB".
+                    if (negHelpers.has(word)) {
+                        previous_previous_word = previous_word;
+                        previous_word = word;
+                        continue;
+                    }
+
                     // Logic for pronouns
                     if (word in pronouns) {
                         const translation = pronouns[word];
@@ -705,7 +910,30 @@
                                 verb_form = verbs[word];
                             }
                         }
+                        // Determine if this verb should be negated based on the immediately
+                        // preceding English words:
+                        // "do not VERB", "did not VERB", "will not VERB",
+                        // "don't VERB", "didn't VERB", "won't VERB".
+                        const isDoNotNegation =
+                            previous_word === 'not' &&
+                            (previous_previous_word === 'do' || previous_previous_word === 'did');
+
+                        const isWillNotNegation =
+                            previous_word === 'not' &&
+                            previous_previous_word === 'will';
+
+                        const isContractedDoNegation =
+                            (previous_word === "don't" || previous_word === "didn't");
+
+                        const isContractedWillNegation =
+                            previous_word === "won't";
+
+                        const shouldNegate = isDoNotNegation || isWillNotNegation || isContractedDoNegation || isContractedWillNegation;
+
                         translated_output.push(verb_form);
+                        if (shouldNegate) {
+                            translated_output.push('bauchry');
+                        }
                         adjective = 'none';
                     }
                     // Logic for adjectives
@@ -771,6 +999,7 @@
                     }
 
                     if (!articles.has(word)) {
+                        previous_previous_word = previous_word;
                         previous_word = word;
                     }
                 }
@@ -783,7 +1012,9 @@
                     const words = word.split(' ');
                     for (const w of words) {
                         flattened_output.push(w);
-                        flat_ipa_output.push(ipa[w.toLowerCase()] || `[${w}]`);
+                        const key = w.toLowerCase();
+                        const ipaValue = ipa[key] || kyrachyngToIPAFromRules(key);
+                        flat_ipa_output.push(ipaValue);
                     }
                 }
 
