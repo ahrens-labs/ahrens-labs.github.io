@@ -310,94 +310,77 @@
                 'every': 'chacoach', 'a lot': 'kimerot'
             };
 
-            const verbs = {
-                'am': { 'i': 'Chococanoy' },
-                'are': {
-                    ...Object.fromEntries(['we', 'we all'].map(p => [p, 'Chococanoy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Cocanoyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoyoch'])),
-                },
-                'is': { 'he': 'Cocanoyach', 'she': 'Cocanoyach' },
-                'were': {
-                    ...Object.fromEntries(['we', 'we all'].map(p => [p, 'Bicocanoy'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoiboy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Cocanoibo'])),
-                },
-                'was': {
-                    'i': 'Bicocanoy',
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Cocanoibo'])),
-                },
-                'will be': {
-                    'i': 'Gicocanoy',
-                    ...Object.fromEntries(['he', 'she', 'they', 'they all'].map(p => [p, 'Cocanoigoith'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Cocanoigath'])),
-                },
-                'have': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chomothoy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Mothoyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Mothoyoch'])),
-                },
-                'has': {
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Mothoyach'])),
-                },
-                'had': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bimothoy'])),
-                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Mothoybo'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Mothoyboy'])),
-                },
-                'like': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chopokatoy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Pokatoyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pokatoyoch'])),
-                },
-                'likes': {
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Pokatoyach'])),
-                },
-                'liked': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bipokatoy'])),
-                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Pokatoybo'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pokatoyboy'])),
-                },
-                'run': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chotiroy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Tiroyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Tiroyoch'])),
-                },
-                'runs': {
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Tiroyach'])),
-                },
-                'ran': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bitiroy'])),
-                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Tiroybo'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Tiroyboy'])),
-                },
-                'eat': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chongapzhoy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Ngapzhoyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Ngapzhoyoch'])),
-                },
-                'eats': {
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Ngapzhoyach'])),
-                },
-                'ate': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Byngapzhoy'])),
-                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Ngapzhoybo'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Ngapzhoyboy'])),
-                },
-                'want': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Chopitikoy'])),
-                    ...Object.fromEntries(['they', 'they all'].map(p => [p, 'Pitikoyach'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pitikoyoch'])),
-                },
-                'wants': {
-                    ...Object.fromEntries(['he', 'she'].map(p => [p, 'Pitikoyach'])),
-                },
-                'wanted': {
-                    ...Object.fromEntries(['i', 'we', 'we all'].map(p => [p, 'Bipitikoy'])),
-                    ...Object.fromEntries(['they', 'they all', 'he', 'she'].map(p => [p, 'Pitikoybo'])),
-                    ...Object.fromEntries(['you', 'you guys', 'you all'].map(p => [p, 'Pitikoyboy'])),
-                },
+            // Verb metadata in terms of root + tense.
+            // Person (1st/2nd/3rd) is determined from the subject pronoun or plurality.
+            const verbMeta = {
+                'am':       { root: 'cocanoy', tense: 'present' },
+                'are':      { root: 'cocanoy', tense: 'present' },
+                'is':       { root: 'cocanoy', tense: 'present' },
+                'was':      { root: 'cocanoy', tense: 'past' },
+                'were':     { root: 'cocanoy', tense: 'past' },
+                'will be':  { root: 'cocanoy', tense: 'future' },
+
+                'have':     { root: 'mothoy',  tense: 'present' },
+                'has':      { root: 'mothoy',  tense: 'present' },
+                'had':      { root: 'mothoy',  tense: 'past' },
+
+                'like':     { root: 'pokatoy', tense: 'present' },
+                'likes':    { root: 'pokatoy', tense: 'present' },
+                'liked':    { root: 'pokatoy', tense: 'past' },
+
+                'run':      { root: 'tiroy',   tense: 'present' },
+                'runs':     { root: 'tiroy',   tense: 'present' },
+                'ran':      { root: 'tiroy',   tense: 'past' },
+
+                'eat':      { root: 'ngapzhoy', tense: 'present' },
+                'eats':     { root: 'ngapzhoy', tense: 'present' },
+                'ate':      { root: 'ngapzhoy', tense: 'past' },
+
+                'want':     { root: 'pitikoy', tense: 'present' },
+                'wants':    { root: 'pitikoy', tense: 'present' },
+                'wanted':   { root: 'pitikoy', tense: 'past' },
             };
+
+            // Old verb table kept as a fallback for any entries not yet migrated.
+            const verbs = {};
+
+            function getPersonFromPronoun(pronoun, plurality) {
+                if (['i', 'we', 'we all'].includes(pronoun)) return '1st';
+                if (['you', 'you guys', 'you all'].includes(pronoun)) return '2nd';
+                if (['he', 'she', 'they', 'they all'].includes(pronoun)) return '3rd';
+                // If there is no pronoun, default based on plurality or assume 3rd person.
+                if (plurality === 'single' || plurality === 'plural') return '3rd';
+                return '3rd';
+            }
+
+            // Build verb form from root, tense, and person.
+            // Prefixes and suffixes:
+            // 1st + Past = Bi+      (prefix)
+            // 1st + Present = CHo+  (prefix)
+            // 1st + Future = Gi+    (prefix)
+            // 2nd + Past = +boy     (suffix)
+            // 2nd + Present = +och  (suffix)
+            // 2nd + Future = +gath  (suffix)
+            // 3rd + Past = +bo      (suffix)
+            // 3rd + Present = +ach  (suffix)
+            // 3rd + Future = +goyng (suffix)
+            function buildVerbForm(root, tense, person) {
+                if (person === '1st') {
+                    if (tense === 'past')    return 'Bi'  + root;
+                    if (tense === 'present') return 'CHo' + root;
+                    if (tense === 'future')  return 'Gi'  + root;
+                } else if (person === '2nd') {
+                    if (tense === 'past')    return root + 'boy';
+                    if (tense === 'present') return root + 'och';
+                    if (tense === 'future')  return root + 'gath';
+                } else if (person === '3rd') {
+                    if (tense === 'past')    return root + 'bo';
+                    if (tense === 'present') return root + 'ach';
+                    if (tense === 'future')  return root + 'goyng';
+                }
+                // Fallback to just the root if something is missing.
+                return root;
+            }
 
             const neutral_verbs = {
                 'to be': 'rine cocanoy',
@@ -409,23 +392,23 @@
             };
 
             const ipa = {
-                'dach': 'dætʃ', 'zhroch': 'ʒrɒtʃ', 'vorych': 'voʊrˈaɪtʃ', 'da-oich': 'dæˈɔɪtʃ',
-                'zhiech': 'ʒaɪtʃ', 'varoich': 'værˈɔɪtʃ', 'dropach': 'drɒpætʃ', 'viroch': 'vˈaɪrɒtʃ',
-                'zhamoch': 'ʒæmoʊtʃ', 'chococanoy': 'tʃoʊkoʊkænɔɪ', 'cocanoyoch': 'koʊkænɔɪɒtʃ', 'cocanoyach': 'koʊkænɔɪætʃ',
-                'trinezhach': 'traɪnʒætʃ', 'trinezhan': 'traɪnʒæn', 'trinezhang': 'traɪnʒæŋ', 'trinezhap': 'traɪnʒæp', 'grizetan': 'graɪztæn', 'pautyne': 'pɒtaɪn', 'pokyne': 'poʊkaɪn',
-                'prautyne': 'prɒtaɪn', 'prokyne': 'proʊkaɪn', 'pautych': 'pɒtaɪtʃ', 'pokych': 'poʊkaɪtʃ', 'prautych': 'prɒtaɪtʃ', 'prokych': 'proʊkaɪtʃ', 'binich': 'baɪnaɪtʃ', 'pautyng': 'pɒtaɪŋ',
-                'pokyng': 'poʊkaɪŋ', 'prautyng': 'prɒtaɪŋ', 'prokyng': 'proʊkaɪŋ', 'pautype': 'pɒtaɪp', 'pokype': 'poʊkaɪp', 'prautype': 'prɒtaɪp',
+                'dach': 'dætʃ', 'zhroch': 'ʒrɑːtʃ', 'vorych': 'voʊrˈaɪtʃ', 'da-oich': 'dæˈɔɪtʃ',
+                'zhiech': 'ʒaɪtʃ', 'varoich': 'værˈɔɪtʃ', 'dropach': 'drɑːpætʃ', 'viroch': 'vˈaɪrɑːtʃ',
+                'zhamoch': 'ʒæmoʊtʃ', 'chococanoy': 'tʃoʊkoʊkænɔɪ', 'cocanoyoch': 'koʊkænɔɪɑːtʃ', 'cocanoyach': 'koʊkænɔɪætʃ',
+                'trinezhach': 'traɪnʒætʃ', 'trinezhan': 'traɪnʒæn', 'trinezhang': 'traɪnʒæŋ', 'trinezhap': 'traɪnʒæp', 'grizetan': 'graɪztæn', 'pautyne': 'pɑːtaɪn', 'pokyne': 'poʊkaɪn',
+                'prautyne': 'prɑːtaɪn', 'prokyne': 'proʊkaɪn', 'pautych': 'pɑːtaɪtʃ', 'pokych': 'poʊkaɪtʃ', 'prautych': 'prɑːtaɪtʃ', 'prokych': 'proʊkaɪtʃ', 'binich': 'baɪnaɪtʃ', 'pautyng': 'pɑːtaɪŋ',
+                'pokyng': 'poʊkaɪŋ', 'prautyng': 'prɑːtaɪŋ', 'prokyng': 'proʊkaɪŋ', 'pautype': 'pɑːtaɪp', 'pokype': 'poʊkaɪp', 'prautype': 'prɑːtaɪp',
                 'prokype': 'proʊkaɪp', 'bicocanoy': 'baɪkoʊkænɔɪ', 'cocanoiboy': 'koʊkænɔɪbˈɔɪ', 'cocanoibo': 'koʊkænɔɪbˈoʊ', 'ovadrach': 'oʊvædrætʃ',
                 'adrach': 'ædrætʃ', 'adran': 'ædræn', 'adrap': 'ædræp', 'adrang': 'ædræŋ', 'ovadran': 'oʊvædræn', 'ovadrang': 'oʊvædræŋ', 'ovadrap': 'oʊvædræp', 'thopanich': 'ðoʊpænaɪtʃ',
-                'gicocanoy': 'gaɪkoʊkænɔ', 'cocanoigoith': 'koʊkænɔɪgɔɪð', 'cocanoigath': 'koʊkænɔɪgæð', 'chomothoy': 'tʃoʊmɒðɔɪ', 'mothoyach': 'mɒðɔɪætʃ',
-                'mothoyoch': 'mɒðɔɪɒtʃ', 'chopokatoy': 'tʃoʊpoʊkætɔɪ', 'pokatoyach': 'poʊkætɔɪætʃ', 'pokatoyoch': 'poʊkætɔɪɒtʃ', 'rine': 'raɪn', 'mothoy': 'mɒðɔɪ', 'cocanoy': 'koʊkænɔɪ',
-                'pokatoy': 'poʊkætɔɪ', 'chotiroy': 'tʃoʊtaɪrɔɪ', 'tiroyach': 'taɪrɔɪætʃ', 'tiroyoch': 'taɪrɔɪɒtʃ', 'tiroy': 'taɪrɔɪ', 'ite': 'aɪt', 'kipe': 'kaɪp',
-                'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɒðɔɪbˈɔɪ', 'mothoybo': 'mɒðɔɪbˈoʊ', 'bimothoy': 'baɪmɒðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
+                'gicocanoy': 'gaɪkoʊkænɔ', 'cocanoigoith': 'koʊkænɔɪgɔɪð', 'cocanoigath': 'koʊkænɔɪgæð', 'chomothoy': 'tʃoʊmɑːðɔɪ', 'mothoyach': 'mɑːðɔɪætʃ',
+                'mothoyoch': 'mɑːðɔɪɑːtʃ', 'chopokatoy': 'tʃoʊpoʊkætɔɪ', 'pokatoyach': 'poʊkætɔɪætʃ', 'pokatoyoch': 'poʊkætɔɪɑːtʃ', 'rine': 'raɪn', 'mothoy': 'mɑːðɔɪ', 'cocanoy': 'koʊkænɔɪ',
+                'pokatoy': 'poʊkætɔɪ', 'chotiroy': 'tʃoʊtaɪrɔɪ', 'tiroyach': 'taɪrɔɪætʃ', 'tiroyoch': 'taɪrɔɪɑːtʃ', 'tiroy': 'taɪrɔɪ', 'ite': 'aɪt', 'kipe': 'kaɪp',
+                'chacoach': 'tʃækoʊætʃ', 'vobach': 'voʊbætʃ', 'mothoyboy': 'mɑːðɔɪbˈɔɪ', 'mothoybo': 'mɑːðɔɪbˈoʊ', 'bimothoy': 'baɪmɑːðɔɪ', 'rapotang': 'ræpoʊtæŋ', 'bipokatoy': 'baɪpoʊkætɔɪ',
                 'pokatoyboy': 'poʊkætɔɪbˈɔɪ', 'pokatoybo': 'poʊkætɔɪbˈoʊ', 'bitiroy': 'baɪtaɪrɔɪ', 'tiroyboy': 'taɪrɔɪbˈɔɪ', 'tiroybo': 'taɪrɔɪbˈoʊ', 'bone': 'boʊn', 'chongapzhoy': 'tʃoʊŋæpʒɔɪ',
-                'ngapzhoyach': 'ŋæpʒɔɪætʃ', 'ngapzhoyoch': 'ŋæpʒɔɪɒtʃ', 'byngapzhoy': 'baɪŋæpʒɔɪ', 'ngapzhoybo': 'ŋæpʒɔɪboʊ', 'ngapzhoyboy': 'ŋæpʒɔɪbɔɪ', 'ngapzhoy': 'ŋæpʒɔɪ', 'gawpoin': 'gɒpɔɪn',
-                'kimerot': 'kaɪmrɒt', 'vok': 'vɒk', 'zakyng': 'zækaɪŋ', 'poigogap': 'pɔɪgoʊgæp', 'poigogan': 'pɔɪgoʊgæn', 'poigogang': 'pɔɪgoʊgæŋ', 'poigogach': 'pɔɪgoʊgætʃ', 'auto': 'ɒtoʊ',
-                'bacrop': 'bækrɒp', 'zhite': 'ʒaɪt', 'chopitikoy': 'tʃoʊpaɪtaɪkɔɪ', 'pitikoyach': 'paɪtaɪkɔɪætʃ', 'pitikoyoch': 'paɪtaɪkɔɪɒtʃ', 'bipitikoy': 'baɪpaɪtaɪkɔɪ', 'pitikoyboy': 'paɪpaɪtaɪkɔɪbɔɪ',
-                'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪpaɪtaɪkɔɪ', 'bach': 'bɒtʃ', 'narong': 'nærɒŋ', 'catormyng': 'cætɒrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
+                'ngapzhoyach': 'ŋæpʒɔɪætʃ', 'ngapzhoyoch': 'ŋæpʒɔɪɑːtʃ', 'byngapzhoy': 'baɪŋæpʒɔɪ', 'ngapzhoybo': 'ŋæpʒɔɪboʊ', 'ngapzhoyboy': 'ŋæpʒɔɪbɔɪ', 'ngapzhoy': 'ŋæpʒɔɪ', 'gawpoin': 'gɑːpɔɪn',
+                'kimerot': 'kaɪmrɑːt', 'vok': 'vɑːk', 'zakyng': 'zækaɪŋ', 'poigogap': 'pɔɪgoʊgæp', 'poigogan': 'pɔɪgoʊgæn', 'poigogang': 'pɔɪgoʊgæŋ', 'poigogach': 'pɔɪgoʊgætʃ', 'auto': 'ɑːtoʊ',
+                'bacrop': 'bækrɑːp', 'zhite': 'ʒaɪt', 'chopitikoy': 'tʃoʊpaɪtaɪkɔɪ', 'pitikoyach': 'paɪtaɪkɔɪætʃ', 'pitikoyoch': 'paɪtaɪkɔɪɑːtʃ', 'bipitikoy': 'baɪpaɪtaɪkɔɪ', 'pitikoyboy': 'paɪpaɪtaɪkɔɪbɔɪ',
+                'pitikoybo': 'paɪpaɪtaɪkɔɪboʊ', 'pitikoy': 'paɪpaɪtaɪkɔɪ', 'bach': 'bɑːtʃ', 'narong': 'nærɑːŋ', 'catormyng': 'cætɑːrmaɪŋ', 'ovantryn': 'oʊvæntraɪn', 'antryn': 'æntraɪn', 'ovantryp': 'oʊvæntraɪp',
                 'antryp': 'æntraɪp', 'ovantryng': 'oʊvæntraɪŋ', 'antryng': 'æntraɪŋ', 'ovantrych': 'oʊvæntraɪtʃ', 'antrych': 'æntraɪtʃ', 'adyn': 'ædaɪn'
             };
 
@@ -497,7 +480,7 @@
                 'ɔi': 'Y',
                 'ɔɪ': 'Y',
                 // Additional IPA combinations
-                'ɒ': 'O',
+                'ɑː': 'O',
                 'ʃ': 'S',
                 'θ': 'H',
             };
@@ -691,20 +674,36 @@
                         adjective = 'none';
                     }
                     // Logic for verbs
-                    else if (word in verbs) {
+                    else if (word in verbs || word in verbMeta) {
                         let verb_form;
-                        if (typeof verbs[word] === 'object') {
+                        if (word in verbMeta) {
+                            const meta = verbMeta[word];
                             if (last_pronoun === 'none') {
-                                // Default to 'he' for single, 'they' for plural if no pronoun is found
+                                // Default to a 3rd person subject based on plurality if we don't have a pronoun.
                                 if (plurality === 'single') {
                                     last_pronoun = 'he';
                                 } else if (plurality === 'plural') {
                                     last_pronoun = 'they';
+                                } else {
+                                    last_pronoun = 'they';
                                 }
                             }
-                            verb_form = verbs[word][last_pronoun] || `[${word} unknown]`;
+                            const person = getPersonFromPronoun(last_pronoun, plurality);
+                            verb_form = buildVerbForm(meta.root, meta.tense, person);
                         } else {
-                            verb_form = verbs[word];
+                            // Fallback to old table if present.
+                            if (typeof verbs[word] === 'object') {
+                                if (last_pronoun === 'none') {
+                                    if (plurality === 'single') {
+                                        last_pronoun = 'he';
+                                    } else if (plurality === 'plural') {
+                                        last_pronoun = 'they';
+                                    }
+                                }
+                                verb_form = verbs[word][last_pronoun] || `[${word} unknown]`;
+                            } else {
+                                verb_form = verbs[word];
+                            }
                         }
                         translated_output.push(verb_form);
                         adjective = 'none';
