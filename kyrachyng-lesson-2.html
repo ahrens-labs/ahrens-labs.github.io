@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kyrachyng Lesson 2 - Ahrens Labs</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="js/script.js"></script>
+
+    <style>
+        .lesson-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4.5rem 2rem 3.5rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
+            color: #1e293b;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
+        }
+        .lesson-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.3rem;
+            font-weight: 900;
+            margin-bottom: 0.8rem;
+            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 4s ease-in-out infinite;
+        }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+        .lesson-hero-subtitle {
+            font-size: 1.05rem;
+            color: #64748b;
+            max-width: 720px;
+            margin: 0 auto 0.75rem;
+        }
+        .lesson-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.85rem;
+            border-radius: 999px;
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+        }
+        .lesson-container {
+            max-width: 960px;
+            margin: 2.2rem auto 0;
+            padding: 0 1.75rem 3rem;
+        }
+        .lesson-card {
+            background: white;
+            border-radius: 18px;
+            padding: 1.9rem 1.8rem;
+            box-shadow: 0 10px 32px rgba(15,23,42,0.12);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.8rem;
+        }
+        .lesson-section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+            color: #0f172a;
+        }
+        .lesson-text {
+            font-size: 0.98rem;
+            line-height: 1.7;
+            color: #475569;
+            margin-bottom: 0.75rem;
+        }
+        .lesson-example {
+            background: #f1f5f9;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            margin: 0.75rem 0;
+            font-size: 0.95rem;
+        }
+        .lesson-example-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.3rem;
+        }
+        .lesson-example-label {
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .lesson-example-value {
+            font-family: "Roboto Mono", monospace;
+            color: #2563eb;
+        }
+        .lesson-example-value-kyrachyng {
+            font-family: "Kyrachyng", sans-serif;
+            color: #2563eb;
+        }
+        .lesson-input,
+        .lesson-textarea {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            padding: 0.5rem 0.6rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            margin-top: 0.25rem;
+        }
+        .lesson-textarea {
+            min-height: 70px;
+            resize: vertical;
+        }
+        .lesson-input::placeholder {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #9ca3af;
+        }
+        .lesson-input:focus,
+        .lesson-textarea:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 1px;
+            border-color: #3b82f6;
+        }
+        .lesson-answer {
+            margin-top: 0.6rem;
+            padding-top: 0.5rem;
+            border-top: 1px dashed #cbd5e1;
+            font-size: 0.9rem;
+            color: #4b5563;
+            display: none;
+        }
+        .lesson-answer-title {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 0.15rem;
+        }
+        .lesson-answer-correct {
+            color: #15803d;
+            font-weight: 600;
+        }
+        .lesson-answer-incorrect {
+            color: #b91c1c;
+            font-weight: 600;
+        }
+        .ky-keyboard {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 0.75rem 1rem 1rem;
+            background: rgba(248, 250, 252, 0.97);
+            border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -6px 18px rgba(15,23,42,0.18);
+            z-index: 999;
+            display: none; /* shown when a Kyrachyng quiz input is focused */
+        }
+        .ky-keyboard-title {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+        .ky-keyboard-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .ky-key-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .ky-key {
+            min-width: 32px;
+            padding: 0.35rem 0.55rem;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            font-size: 0.95rem;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+            transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
+        }
+        .ky-key:hover {
+            background: #e0f2fe;
+        }
+        .ky-key:active {
+            transform: translateY(1px);
+            box-shadow: 0 0 0 rgba(0,0,0,0);
+        }
+        .ky-key-wide {
+            padding: 0.35rem 0.9rem;
+        }
+        .ky-key-toggle {
+            background: #e0f2fe;
+            border-color: #38bdf8;
+        }
+        /* Kyrachyng display font (same as translator) */
+        @font-face {
+            font-family: 'Kyrachyng';
+            src: url('./Kyrachyng.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        .kyrachyng-font {
+            font-family: 'Kyrachyng', sans-serif !important;
+        }
+        .lesson-checklist {
+            margin: 0.75rem 0 0;
+            padding-left: 1.1rem;
+            font-size: 0.95rem;
+            color: #475569;
+        }
+        .lesson-checklist li {
+            margin-bottom: 0.3rem;
+        }
+        .lesson-footer-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
+        .lesson-footer-nav a.button {
+            text-decoration: none;
+        }
+        @media (max-width: 700px) {
+            .lesson-hero {
+                padding: 2.8rem 1.1rem 2.1rem;
+            }
+            .lesson-hero h2 {
+                font-size: 1.8rem;
+            }
+            .lesson-container {
+                padding: 0 1.1rem 2.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html" class="active">Labs & Projects</a></li>
+                        <li><a href="contact.html">Contact</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="lesson-hero">
+                <div class="lesson-label">Kyrachyng • Lesson 2</div>
+                <h2>Greetings and Farewells</h2>
+                <p class="lesson-hero-subtitle">
+                    This lesson will give the knowledge of how to properly greet someone and say goodbye in Kyrachyng, along with some practice sentences and a quiz to test your understanding.
+                </p>
+            </section>
+
+            <section class="lesson-container">
+                <article class="lesson-card">
+                    <h3 class="lesson-section-title">1. English to Kyrachyng Mapping</h3>
+                    <p class="lesson-text">
+                        We will start by having a vocabulary list that you can look through and try to remember as much as possible.
+                    </p>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>Hello</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">paz</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">/ pæz /</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">paz</span>
+                        </div>  
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>Goodbye</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">pazoyt</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">/ pæzɔɪt /</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">pazyt</span>
+                        </div>  
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>Good Morning</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">atykach byprach</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">/ ætaɪkætʃ baɪprætʃ /</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">aticaj bipraj</span>
+                        </div>  
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>Good Night</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">atykach rozhach</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">/ ætaɪkætʃ roʊʒætʃ /</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">aticaj rosaj</span>
+                        </div>  
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>Good Day</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">atykach vobach</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">/ ætaɪkætʃ voʊbætʃ /</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (Kyrachyng Alphabet):</span>
+                            <span class="lesson-example-value-kyrachyng">aticaj vobaj</span>
+                        </div>  
+                    </div>
+                    <p class="lesson-text">
+                        You can paste the English sentence into the Kyrachyng translator, then copy the Kyrachyng output and IPA into this section for any lesson you build.
+                    </p>
+                </article>
+
+                <article class="lesson-card">
+                    <h3 class="lesson-section-title">2. Try These Sentences</h3>
+                    <p class="lesson-text">
+                        Use the main translator page to translate each sentence below into Kyrachyng, then write the Kyrachyng here when you build your own lessons.
+                    </p>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>You are awesome.</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
+                            <span class="lesson-example-value">[fill in]</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">IPA (from translator):</span>
+                            <span class="lesson-example-value">[fill in]</span>
+                        </div>
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">English:</span>
+                            <span>We are happy.</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Kyrachyng:</span>
+                            <span class="lesson-example-value">[fill in]</span>
+                        </div>
+                    </div>
+                    <ul class="lesson-checklist">
+                        <li>Type each English sentence into the translator.</li>
+                        <li>Copy the Kyrachyng into the lesson.</li>
+                        <li>Optionally add notes explaining why each word looks the way it does.</li>
+                    </ul>
+                </article>
+
+                <article class="lesson-card">
+                    <h3 class="lesson-section-title">3. Quick Quiz</h3>
+                    <p class="lesson-text">
+                        Before you move on, check your understanding of the ideas in this lesson. You can answer these in your head,
+                        on paper, or directly in a copy of this page.
+                    </p>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Q1.</span>
+                            <span>Translate “I am awesome” and type it using the Kyrachyng alphabet.</span>
+                        </div>
+                        <label class="lesson-example-row">
+                            <span class="lesson-example-label">Your Kyrachyng:</span>
+                            <input id="quiz-q1-ky" class="lesson-input kyrachyng-font" type="text" autocomplete="off" placeholder="Type answer in Kyrachyng here">
+                        </label>
+                        <div id="quiz-answer-q1" class="lesson-answer">
+                            <div class="lesson-answer-title">Result:</div>
+                            <div id="quiz-feedback-q1"></div>
+                        </div>
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Q2.</span>
+                            <span>Translate “You are happy” and type it using the Kyrachyng alphabet.</span>
+                        </div>
+                        <label class="lesson-example-row">
+                            <span class="lesson-example-label">Your Kyrachyng:</span>
+                            <input id="quiz-q2-ky" class="lesson-input kyrachyng-font" type="text" autocomplete="off" placeholder="Type answer in Kyrachyng here">
+                        </label>
+                        <div id="quiz-answer-q2" class="lesson-answer">
+                            <div class="lesson-answer-title">Result:</div>
+                            <div id="quiz-feedback-q2"></div>
+                        </div>
+                    </div>
+                    <div class="lesson-example">
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-label">Q3.</span>
+                            <span>Which statement about Kyrachyng “to be” is correct?</span>
+                        </div>
+                        <div class="lesson-example-row" style="flex-direction: column; gap: 0.35rem; margin-top: 0.4rem;">
+                            <label>
+                                <input type="radio" name="quiz-q3" value="a">
+                                <span>It always uses the same word, no matter which pronoun you use.</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="quiz-q3" value="b">
+                                <span>It changes form depending on the pronoun (for example, “I am” vs. “you are”).</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="quiz-q3" value="c">
+                                <span>It is never used with pronouns in Kyrachyng.</span>
+                            </label>
+                        </div>
+                        <div id="quiz-answer-q3" class="lesson-answer">
+                            <div class="lesson-answer-title">Result:</div>
+                            <div id="quiz-feedback-q3"></div>
+                        </div>
+                    </div>
+                    <div class="ky-keyboard">
+                        <div class="ky-keyboard-title">
+                            On-screen Kyrachyng keyboard (click to type into the active answer box):
+                        </div>
+                        <div class="ky-keyboard-rows">
+                            <div class="ky-key-row">
+                                <button type="button" class="ky-key kyrachyng-font" data-char="A">A</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="B">B</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="C">C</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="D">D</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="G">G</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="H">H</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="I">I</button>
+                            </div>
+                            <div class="ky-key-row">
+                                <button type="button" class="ky-key kyrachyng-font" data-char="J">J</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="M">M</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="N">N</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="O">O</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="P">P</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="Q">Q</button>
+                            </div>
+                            <div class="ky-key-row">
+                                <button type="button" class="ky-key kyrachyng-font" data-char="R">R</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="S">S</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="T">T</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="W">W</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="Y">Y</button>
+                                <button type="button" class="ky-key kyrachyng-font" data-char="Z">Z</button>
+                            </div>
+                            <div class="ky-key-row">
+                                <button type="button" class="ky-key ky-key-wide" data-action="toggle-caps">
+                                    Aa
+                                </button>
+                                <button type="button" class="ky-key ky-key-wide" data-char=" ">
+                                    Space
+                                </button>
+                                <button type="button" class="ky-key ky-key-wide" data-action="backspace">
+                                    ← Backspace
+                                </button>
+                                <button type="button" class="ky-key ky-key-wide" data-action="clear">
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <ul class="lesson-checklist">
+                        <li>First, try to answer from memory.</li>
+                        <li>Then use the Kyrachyng translator page to check your answers.</li>
+                        <li>Compare your Kyrachyng to the expected answers and note any differences.</li>
+                        <li>Update this quiz section when you copy this file for future lessons.</li>
+                    </ul>
+                    <div style="margin-top: 0.9rem;">
+                        <button type="button" id="lesson-quiz-check" class="button lab-button-language">Check Quiz Answers</button>
+                    </div>
+                </article>
+
+                <article class="lesson-card">
+                    <h3 class="lesson-section-title">4. How to Make New Lessons</h3>
+                    <p class="lesson-text">
+                        To create another lesson, copy this file as <code>kyrachyng-lesson-2.html</code> (or any name you like),
+                        change the title, and swap in new example sentences and exercises.
+                    </p>
+                    <ul class="lesson-checklist">
+                        <li>Update the lesson label (for example, “Lesson 2 – Past Tense”).</li>
+                        <li>Change the English example sentences and add the Kyrachyng and IPA from the translator.</li>
+                        <li>Add a short explanation of the grammar you are teaching.</li>
+                        <li>Link to the new lesson from wherever you list Kyrachyng lessons.</li>
+                    </ul>
+                    <div class="lesson-footer-nav">
+                        <a href="kyrachyng.html" class="button lab-button-language">← Back to Kyrachyng Translator</a>
+                        <a href="kyrachyng-alphabet.html" class="button button-secondary">View Kyrachyng Alphabet</a>
+                    </div>
+                </article>
+            </section>
+        </main>
+
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Minimal IPA → Kyrachyng alphabet mapping and converter,
+        // matching the logic used on the main Kyrachyng translator page.
+        const lessonIpaToKyrachyng = {
+            // consonants
+            'b': 'B',
+            'k': 'C',
+            'd': 'D',
+            'g': 'G',
+            'm': 'M',
+            'n': 'N',
+            'ŋ': 'W',
+            'p': 'P',
+            'r': 'R',
+            'ʒ': 'S',
+            't': 'T',
+            'z': 'Z',
+            'tʃ': 'J',
+            'ð': 'H',
+            'v': 'V',
+            // vowels
+            'æ': 'A',
+            'ai': 'I',
+            'aɪ': 'I',
+            'oʊ': 'Q',
+            'ɑː': 'O',
+            'ɔi': 'Y',
+            'ɔɪ': 'Y',
+            // additional IPA combinations
+            'ɒ': 'O',
+            'ʃ': 'S',
+            'θ': 'H',
+        };
+
+        const lessonWordIpa = {
+            // From main Kyrachyng translator's IPA table
+            'dach': 'dætʃ',
+            'chococanoy': 'tʃoʊkoʊkænɔɪ',
+            'trinezhach': 'traɪnʒætʃ',
+            'vorych': 'voʊrˈaɪtʃ',
+            'cocanoyoch': 'koʊkænɔɪɒtʃ',
+            'ovadrach': 'oʊvædrætʃ',
+        };
+
+        function lessonConvertIPAToKyrachyng(ipaString, originalWord) {
+            ipaString = ipaString.replace(/[\/\[\]]/g, '').trim();
+
+            let result = '';
+            let i = 0;
+            let charIndex = 0;
+
+            while (i < ipaString.length) {
+                const twoChar = ipaString.slice(i, i + 2);
+                if (lessonIpaToKyrachyng[twoChar]) {
+                    let letter = lessonIpaToKyrachyng[twoChar];
+                    if (originalWord && charIndex < originalWord.length) {
+                        if (originalWord[charIndex] === originalWord[charIndex].toUpperCase()) {
+                            letter = letter.toUpperCase();
+                        } else {
+                            letter = letter.toLowerCase();
+                        }
+                    }
+                    result += letter;
+                    charIndex++;
+                    i += 2;
+                    continue;
+                }
+
+                const oneChar = ipaString[i];
+                if (lessonIpaToKyrachyng[oneChar]) {
+                    let letter = lessonIpaToKyrachyng[oneChar];
+                    if (originalWord && charIndex < originalWord.length) {
+                        if (originalWord[charIndex] === originalWord[charIndex].toUpperCase()) {
+                            letter = letter.toUpperCase();
+                        } else {
+                            letter = letter.toLowerCase();
+                        }
+                    }
+                    result += letter;
+                    charIndex++;
+                    i++;
+                    continue;
+                }
+
+                i++;
+            }
+
+            return result;
+        }
+
+        function lessonExpectedKySentence(words, originals) {
+            return words.map((w, idx) => {
+                const ipa = lessonWordIpa[w];
+                const original = originals && originals[idx] ? originals[idx] : w;
+                return lessonConvertIPAToKyrachyng(ipa || '', original);
+            }).join(' ');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkButton = document.getElementById('lesson-quiz-check');
+            if (!checkButton) return;
+
+            const normalize = (str) =>
+                str.trim().toLowerCase().replace(/\s+/g, ' ');
+
+            // Expected Kyrachyng alphabet answers (from IPA, same as translator)
+            const expectedQ1 = normalize(
+                lessonExpectedKySentence(
+                    ['dach', 'chococanoy', 'trinezhach'],
+                    ['daCH', 'Chococanoy', 'trinezhach']
+                )
+            );
+            const expectedQ2 = normalize(
+                lessonExpectedKySentence(
+                    ['vorych', 'cocanoyoch', 'ovadrach'],
+                    ['voryCH', 'Cocanoyoch', 'ovadrach']
+                )
+            );
+            const expectedQ3 = 'b'; // correct radio option
+
+            const q1Input = document.getElementById('quiz-q1-ky');
+            const q2Input = document.getElementById('quiz-q2-ky');
+            const keyboard = document.querySelector('.ky-keyboard');
+
+            // On-screen keyboard support
+            let activeInput = q1Input;
+            const showKeyboard = () => {
+                if (keyboard) {
+                    keyboard.style.display = 'block';
+                }
+            };
+            const hideKeyboard = () => {
+                if (keyboard) {
+                    keyboard.style.display = 'none';
+                }
+            };
+            if (q1Input) {
+                q1Input.addEventListener('focus', () => {
+                    activeInput = q1Input;
+                    showKeyboard();
+                });
+            }
+            if (q2Input) {
+                q2Input.addEventListener('focus', () => {
+                    activeInput = q2Input;
+                    showKeyboard();
+                });
+            }
+
+            const keys = document.querySelectorAll('.ky-key');
+            const letterKeys = Array.from(keys).filter(k => {
+                const ch = k.getAttribute('data-char');
+                return ch && /^[a-z]$/i.test(ch);
+            });
+            let capsOn = false;
+
+            keys.forEach(key => {
+                key.addEventListener('click', () => {
+                    if (!activeInput) return;
+                    const action = key.getAttribute('data-action');
+                    const ch = key.getAttribute('data-char');
+                    if (action === 'backspace') {
+                        activeInput.value = activeInput.value.slice(0, -1);
+                    } else if (action === 'clear') {
+                        activeInput.value = '';
+                    } else if (action === 'toggle-caps') {
+                        capsOn = !capsOn;
+                        if (capsOn) {
+                            key.classList.add('ky-key-toggle');
+                        } else {
+                            key.classList.remove('ky-key-toggle');
+                        }
+                        // Update visible labels on all letter keys
+                        letterKeys.forEach(k => {
+                            const base = k.getAttribute('data-char') || '';
+                            k.textContent = capsOn ? base.toUpperCase() : base.toLowerCase();
+                        });
+                    } else if (ch !== null) {
+                        const toInsert = capsOn ? ch.toUpperCase() : ch.toLowerCase();
+                        activeInput.value += toInsert;
+                    }
+                    activeInput.focus();
+                });
+            });
+
+            // Hide keyboard when leaving Kyrachyng inputs (unless focus moves to the other)
+            const handleBlur = (event) => {
+                const related = event.relatedTarget;
+                const goingToOtherInput = related === q1Input || related === q2Input;
+                const goingToKey = related && related.classList && related.classList.contains('ky-key');
+                if (!goingToOtherInput && !goingToKey) {
+                    hideKeyboard();
+                    activeInput = null;
+                }
+            };
+
+            if (q1Input) q1Input.addEventListener('blur', handleBlur);
+            if (q2Input) q2Input.addEventListener('blur', handleBlur);
+
+            checkButton.addEventListener('click', () => {
+                const q1AnswerBox = document.getElementById('quiz-answer-q1');
+                const q2AnswerBox = document.getElementById('quiz-answer-q2');
+                const q3AnswerBox = document.getElementById('quiz-answer-q3');
+
+                const q1Feedback = document.getElementById('quiz-feedback-q1');
+                const q2Feedback = document.getElementById('quiz-feedback-q2');
+                const q3Feedback = document.getElementById('quiz-feedback-q3');
+
+                // Q1
+                if (q1Input && q1AnswerBox && q1Feedback) {
+                    const user = normalize(q1Input.value);
+                    const correct = user === expectedQ1;
+                    q1AnswerBox.style.display = 'block';
+                    const expectedDisplay = lessonExpectedKySentence(
+                        ['dach', 'chococanoy', 'trinezhach'],
+                        ['daCH', 'Chococanoy', 'trinezhach']
+                    );
+                    q1Feedback.innerHTML = correct
+                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                          + expectedDisplay +
+                          '</span>.'
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                          + expectedDisplay +
+                          '</span>.';
+                }
+
+                // Q2
+                if (q2Input && q2AnswerBox && q2Feedback) {
+                    const user = normalize(q2Input.value);
+                    const correct = user === expectedQ2;
+                    q2AnswerBox.style.display = 'block';
+                    const expectedDisplay2 = lessonExpectedKySentence(
+                        ['vorych', 'cocanoyoch', 'ovadrach'],
+                        ['voryCH', 'Cocanoyoch', 'ovadrach']
+                    );
+                    q2Feedback.innerHTML = correct
+                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                          + expectedDisplay2 +
+                          '</span>.'
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                          + expectedDisplay2 +
+                          '</span>.';
+                }
+
+                // Q3
+                if (q3AnswerBox && q3Feedback) {
+                    const selected = document.querySelector('input[name="quiz-q3"]:checked');
+                    const value = selected ? selected.value : null;
+                    q3AnswerBox.style.display = 'block';
+
+                    if (!value) {
+                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Choose an option above first, then click check.</span>';
+                    } else if (value === expectedQ3) {
+                        q3Feedback.innerHTML = '<span class="lesson-answer-correct">Correct!</span> “To be” changes form depending on the pronoun.';
+                    } else {
+                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Not quite.</span> The correct statement is that “to be” changes form depending on the pronoun.';
+                    }
+                }
+
+                const firstAnswer = document.getElementById('quiz-answer-q1');
+                if (firstAnswer) {
+                    firstAnswer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
