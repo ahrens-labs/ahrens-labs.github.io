@@ -934,9 +934,39 @@
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Between Tasks (min)</label>
                         <input id="defaultBreakInput" type="number" min="0" step="1" class="h-10 w-32 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" value="5">
                     </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Name</label>
+                        <input id="defaultBreakLabelInput" type="text" class="h-10 w-48 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder="Break">
+                    </div>
                     <button onclick="saveScheduleDefaults()" class="h-10 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors">Save Defaults</button>
                 </div>
                 </div>
+            <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
+                <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Break Rules</div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Create named breaks that apply after a subject daily or on a specific date.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">After Subject</label>
+                        <input id="breakRuleSubjectInput" type="text" list="subjectSuggestions" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder="Math (optional)">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Date (optional)</label>
+                        <input id="breakRuleDateInput" type="date" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Minutes</label>
+                        <input id="breakRuleMinutesInput" type="number" min="1" step="1" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" value="10">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Name</label>
+                        <input id="breakRuleLabelInput" type="text" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder="Snack">
+                    </div>
+                    <button onclick="addBreakRule()" class="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
+                        <i class="fa-solid fa-plus mr-1"></i>Add Rule
+                    </button>
+                </div>
+                <div id="breakRulesList" class="space-y-2 mt-3"></div>
+            </div>
             <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
                 <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Date Override</div>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Override a single date’s schedule.</p>
@@ -1714,7 +1744,9 @@
                 if(t.date !== dateStr || !t.time) return;
                 if(getPriorityRank(t.priority) >= 2) return;
                 const end = timeToMin(t.time) + (parseInt(t.duration, 10) || 30);
-                if(end > latest) latest = end;
+                const breakCfg = getBreakConfigAfterTask(t, dateStr);
+                const endWithBreak = end + (Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0);
+                if(endWithBreak > latest) latest = endWithBreak;
             });
             return latest;
         }
@@ -1882,6 +1914,25 @@
             if(/^([01]\d|2[0-3]):[0-5]\d$/.test(str)) return str;
             return fallback;
         }
+        function normalizeBreakRule(input = {}) {
+            const minutes = Number.isFinite(Number(input.minutes))
+                ? Math.max(1, Math.floor(Number(input.minutes)))
+                : null;
+            if(!minutes) return null;
+            const label = String(input.label || 'Break').trim().substring(0, 40) || 'Break';
+            const subjectRaw = String(input.subject || '').trim();
+            const subject = subjectRaw ? subjectRaw : null;
+            const dateRaw = String(input.date || '').trim();
+            const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+            if(!subject && !date) return null;
+            return {
+                id: input.id || generateId(),
+                minutes,
+                label,
+                subject,
+                date
+            };
+        }
         function normalizeScheduleOverride(input = {}) {
             const date = String(input.date || '');
             const start = normalizeClockValue(input.start, '08:00');
@@ -1901,7 +1952,9 @@
             const breakMinutes = Number.isFinite(Number(input?.defaultBreakMinutes))
                 ? Math.max(0, Math.floor(Number(input?.defaultBreakMinutes)))
                 : 5;
+            const breakLabel = String(input?.defaultBreakLabel || 'Break').trim().substring(0, 40) || 'Break';
             const overrides = Array.isArray(input?.dateOverrides) ? input.dateOverrides.map(normalizeScheduleOverride).filter(Boolean) : [];
+            const breakRules = Array.isArray(input?.breakRules) ? input.breakRules.map(normalizeBreakRule).filter(Boolean) : [];
             let safeStart = defaultStart;
             let safeEnd = defaultEnd;
             let safeLunchStart = defaultLunchStart;
@@ -1920,7 +1973,9 @@
                 defaultLunchStart: safeLunchStart,
                 defaultLunchEnd: safeLunchEnd,
                 defaultBreakMinutes: breakMinutes,
-                dateOverrides: overrides.sort((a, b) => a.date.localeCompare(b.date))
+                defaultBreakLabel: breakLabel,
+                dateOverrides: overrides.sort((a, b) => a.date.localeCompare(b.date)),
+                breakRules
             };
         }
 
@@ -1967,6 +2022,41 @@
         function getBreakMinutesForDate(dateStr) {
             const defaults = normalizeScheduleRules(scheduleRules);
             return Number.isFinite(defaults.defaultBreakMinutes) ? defaults.defaultBreakMinutes : 5;
+        }
+        function getDefaultBreakLabelForDate() {
+            const defaults = normalizeScheduleRules(scheduleRules);
+            return String(defaults.defaultBreakLabel || 'Break');
+        }
+        function getBreakConfigAfterTask(task, dateStr) {
+            const defaults = normalizeScheduleRules(scheduleRules);
+            const rules = defaults.breakRules || [];
+            let best = null;
+            let bestScore = -1;
+            rules.forEach(rule => {
+                if(!rule) return;
+                if(rule.date && rule.date !== dateStr) return;
+                if(rule.subject && (task?.subject || '') !== rule.subject) return;
+                let score = 0;
+                if(rule.date) score += 2;
+                if(rule.subject) score += 1;
+                if(score > bestScore) {
+                    best = rule;
+                    bestScore = score;
+                }
+            });
+            return {
+                minutes: Number.isFinite(best?.minutes) ? best.minutes : getBreakMinutesForDate(dateStr),
+                label: best?.label || getDefaultBreakLabelForDate()
+            };
+        }
+        function getBreakExtraAfterTask(task, dateStr) {
+            const defaults = getBreakMinutesForDate(dateStr);
+            const cfg = getBreakConfigAfterTask(task, dateStr);
+            return Math.max(0, (cfg.minutes || defaults) - defaults);
+        }
+        function buildBusySlotForTask(task, start, end, dateStr) {
+            const extra = getBreakExtraAfterTask(task, dateStr);
+            return { start, end: end + extra };
         }
         function isBlockedTimeActiveOnDate(block, dateStr) {
             if(!block || !dateStr) return false;
@@ -2344,7 +2434,7 @@
                 let duration = parseInt(t.duration) || 60; 
                 return { start, end: start + duration, task: t, type: 'fixed' };
             });
-            const busySlots = fixedScheduleSlots.map(slot => ({ start: slot.start, end: slot.end }));
+            const busySlots = fixedScheduleSlots.map(slot => buildBusySlotForTask(slot.task, slot.start, slot.end, dateStr));
             busySlots.push(...getBlockedSlotsForDate(dateStr));
             schedule.push(...fixedScheduleSlots);
             
@@ -2365,10 +2455,12 @@
                 if(getPriorityRank(t?.priority) >= 2) {
                     const latestNonLowEnd = schedule.reduce((max, item) => {
                         if(!item?.task || getPriorityRank(item.task.priority) >= 2) return max;
-                        return Math.max(max, item.end);
+                        const breakCfg = getBreakConfigAfterTask(item.task, dateStr);
+                        const endWithBreak = item.end + (Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0);
+                        return Math.max(max, endWithBreak);
                     }, -1);
                     if(latestNonLowEnd >= 0) {
-                        autoStartForTask = Math.max(autoStartForTask, latestNonLowEnd + breakMin);
+                        autoStartForTask = Math.max(autoStartForTask, latestNonLowEnd);
                     }
                 }
                 const afterRefs = Array.isArray(t.mustBeAfter) ? t.mustBeAfter : [];
@@ -2415,7 +2507,7 @@
                     const slotIndex = selectSlotIndexForPriority(preferredOptions, t);
                     const preferredSlot = preferredOptions[Math.max(0, slotIndex)];
                     schedule.push({ start: preferredSlot.start, end: preferredSlot.start + duration, task: t, type: 'auto' });
-                    busySlots.push({ start: preferredSlot.start, end: preferredSlot.start + duration });
+                    busySlots.push(buildBusySlotForTask(t, preferredSlot.start, preferredSlot.start + duration, dateStr));
                     busySlots.sort((a,b) => a.start - b.start);
                     placed = true;
                 } else {
@@ -2431,7 +2523,7 @@
                         const slotIndex = selectSlotIndexForPriority(fallbackOptions, t);
                         const fallbackSlot = fallbackOptions[Math.max(0, slotIndex)];
                         schedule.push({ start: fallbackSlot.start, end: fallbackSlot.start + duration, task: t, type: 'auto' });
-                        busySlots.push({ start: fallbackSlot.start, end: fallbackSlot.start + duration });
+                        busySlots.push(buildBusySlotForTask(t, fallbackSlot.start, fallbackSlot.start + duration, dateStr));
                         busySlots.sort((a,b) => a.start - b.start);
                         placed = true;
                     }
@@ -2441,6 +2533,30 @@
             });
 
             return schedule.sort((a,b) => a.start - b.start);
+        }
+
+        function injectBreakItems(schedule = [], dateStr) {
+            const sorted = (schedule || []).slice().sort((a, b) => a.start - b.start);
+            const out = [];
+            for(let i = 0; i < sorted.length; i++) {
+                const current = sorted[i];
+                out.push(current);
+                const next = sorted[i + 1];
+                if(!next || !current?.task) continue;
+                const gap = next.start - current.end;
+                const breakCfg = getBreakConfigAfterTask(current.task, dateStr);
+                const breakMinutes = Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0;
+                if(breakMinutes <= 0 || gap <= 0) continue;
+                const breakEnd = Math.min(current.end + breakMinutes, next.start);
+                if(breakEnd <= current.end) continue;
+                out.push({
+                    type: 'break',
+                    start: current.end,
+                    end: breakEnd,
+                    label: breakCfg.label || 'Break'
+                });
+            }
+            return out.sort((a, b) => a.start - b.start);
         }
 
         // --- Dashboard Logic ---
@@ -3283,6 +3399,31 @@
             `).join('');
         }
 
+        function renderBreakRulesList() {
+            const listEl = document.getElementById('breakRulesList');
+            if(!listEl) return;
+            scheduleRules = normalizeScheduleRules(scheduleRules);
+            const rules = scheduleRules.breakRules || [];
+            if(rules.length === 0) {
+                listEl.innerHTML = '<div class="text-xs text-slate-500 dark:text-slate-400 italic">No break rules yet.</div>';
+                return;
+            }
+            listEl.innerHTML = rules.map(rule => {
+                const subjectLabel = rule.subject ? `After ${rule.subject}` : 'After any subject';
+                const dateLabel = rule.date ? `on ${formatDateLabel(rule.date)}` : 'daily';
+                return `
+                    <div class="flex items-center justify-between gap-2 rounded-lg border border-emerald-200/70 dark:border-emerald-700/60 px-3 py-2 bg-emerald-50/70 dark:bg-emerald-900/20">
+                        <div class="text-xs text-slate-700 dark:text-slate-200">
+                            <span class="font-semibold">${rule.label}</span>
+                            <span class="ml-2">${rule.minutes} min</span>
+                            <span class="ml-2 text-slate-500 dark:text-slate-400">${subjectLabel} (${dateLabel})</span>
+                        </div>
+                        <button onclick="removeBreakRule('${rule.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-semibold">Remove</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
         function openBlockedTimesModal() {
             const modal = document.getElementById('blockedTimesModal');
             const panel = document.getElementById('blockedTimesPanel');
@@ -3304,11 +3445,14 @@
             if(defaultLunchEndInput) defaultLunchEndInput.value = defaults.defaultLunchEnd;
             const defaultBreakInput = document.getElementById('defaultBreakInput');
             if(defaultBreakInput) defaultBreakInput.value = defaults.defaultBreakMinutes;
+            const defaultBreakLabelInput = document.getElementById('defaultBreakLabelInput');
+            if(defaultBreakLabelInput) defaultBreakLabelInput.value = defaults.defaultBreakLabel || 'Break';
             const overrideDateInput = document.getElementById('overrideDateInput');
             if(overrideDateInput && !overrideDateInput.value) overrideDateInput.value = getDateStrLocal();
             renderBlockedTimesList();
             renderVacationList();
             renderScheduleOverridesList();
+            renderBreakRulesList();
             modal.classList.remove('hidden');
             setTimeout(() => {
                 panel.classList.remove('scale-95', 'opacity-0');
@@ -3365,6 +3509,7 @@
             const defaultLunchStart = normalizeClockValue(document.getElementById('defaultLunchStartInput')?.value, '11:30');
             const defaultLunchEnd = normalizeClockValue(document.getElementById('defaultLunchEndInput')?.value, '12:30');
             const defaultBreakInput = parseInt(document.getElementById('defaultBreakInput')?.value, 10);
+            const defaultBreakLabel = String(document.getElementById('defaultBreakLabelInput')?.value || 'Break').trim().substring(0, 40) || 'Break';
             if(timeToMin(defaultEnd) <= timeToMin(defaultStart)) {
                 showNotification('Default end must be after start', 'error');
                 return;
@@ -3379,7 +3524,9 @@
                 defaultEnd,
                 defaultLunchStart,
                 defaultLunchEnd,
-                defaultBreakMinutes: Number.isNaN(defaultBreakInput) ? 5 : Math.max(0, Math.floor(defaultBreakInput))
+                defaultBreakMinutes: Number.isNaN(defaultBreakInput) ? 5 : Math.max(0, Math.floor(defaultBreakInput)),
+                defaultBreakLabel,
+                breakRules: scheduleRules.breakRules || []
             });
             localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
@@ -3422,6 +3569,53 @@
             reAutoScheduleWeeks([getWeekKeyFromDateStr(dateStr)], true);
             ensureAllEventsScheduled();
             showNotification('Date override removed and week auto-updated', 'success');
+        }
+
+        function addBreakRule() {
+            const subject = String(document.getElementById('breakRuleSubjectInput')?.value || '').trim();
+            const date = String(document.getElementById('breakRuleDateInput')?.value || '').trim();
+            const minutesRaw = Number(document.getElementById('breakRuleMinutesInput')?.value);
+            const label = String(document.getElementById('breakRuleLabelInput')?.value || 'Break').trim().substring(0, 40) || 'Break';
+            if(!subject && !date) {
+                showNotification('Set a subject or date for the break rule', 'error');
+                return;
+            }
+            if(!Number.isFinite(minutesRaw) || minutesRaw <= 0) {
+                showNotification('Break minutes must be greater than 0', 'error');
+                return;
+            }
+            const newRule = normalizeBreakRule({
+                id: generateId(),
+                subject: subject || null,
+                date: date || null,
+                minutes: Math.floor(minutesRaw),
+                label
+            });
+            if(!newRule) {
+                showNotification('Enter a valid break rule', 'error');
+                return;
+            }
+            scheduleRules = normalizeScheduleRules({
+                ...scheduleRules,
+                breakRules: [...(scheduleRules.breakRules || []), newRule]
+            });
+            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            renderBreakRulesList();
+            reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
+            ensureAllEventsScheduled();
+            showNotification('Break rule added', 'success');
+        }
+
+        function removeBreakRule(ruleId) {
+            scheduleRules = normalizeScheduleRules({
+                ...scheduleRules,
+                breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== ruleId)
+            });
+            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            renderBreakRulesList();
+            reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
+            ensureAllEventsScheduled();
+            showNotification('Break rule removed', 'success');
         }
 
         function addBlockedTime() {
@@ -3803,7 +3997,19 @@
                 const isToday = dateStr === getDateStrLocal();
                 const isVacation = isDateInVacation(dateStr);
                 const schedule = isVacation ? [] : getSmartSchedule(dateStr);
-                const items = schedule.map(item => {
+                const scheduleWithBreaks = injectBreakItems(schedule, dateStr);
+                const items = scheduleWithBreaks.map(item => {
+                    if(item.type === 'break') {
+                        const minutes = Math.max(1, Math.round(item.end - item.start));
+                        return `
+                            <div class="rounded-lg border border-emerald-200/60 dark:border-emerald-700/50 p-2 bg-emerald-50/70 dark:bg-emerald-900/20">
+                                <div class="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                    <span>${item.label || 'Break'}</span>
+                                    <span>${minutes}m</span>
+                                </div>
+                            </div>
+                        `;
+                    }
                     const t = item.task;
                     const color = getTaskColor(t);
                     const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
@@ -5083,7 +5289,7 @@
                     .map(t => {
                         const start = timeToMin(t.time);
                         const duration = parseInt(t.duration, 10) || 30;
-                        return { start, end: start + duration };
+                        return buildBusySlotForTask(t, start, start + duration, dateStr);
                     });
                 busyByDate[dateStr] = [...fixedBusy, ...getBlockedSlotsForDate(dateStr)]
                     .sort((a, b) => a.start - b.start);
@@ -5150,7 +5356,7 @@
                 if(getPriorityRank(task?.priority) >= 2) {
                     const latestNonLowEnd = getLatestNonLowEndForDate(targetDate);
                     if(latestNonLowEnd >= 0) {
-                        constrainedStart = Math.max(constrainedStart, latestNonLowEnd + breakMin);
+                        constrainedStart = Math.max(constrainedStart, latestNonLowEnd);
                     }
                 }
 
@@ -5228,7 +5434,7 @@
                     task.time = nextTime;
                     task.timeSource = 'auto';
                     task.date = finalDate;
-                    placed.busy.push({ start: placed.slot.start, end: placed.slot.end });
+                    placed.busy.push(buildBusySlotForTask(task, placed.slot.start, placed.slot.end, finalDate));
                     placed.busy.sort((a, b) => a.start - b.start);
                     busyByDate[finalDate] = placed.busy;
                     if(taskChanged) {
@@ -5374,7 +5580,11 @@
                 processDates.forEach(d => {
                     const fixed = weekTasks.filter(t => t.time && !varIds.has(t.id) && t.date === d);
                     baseBusy[d] = [
-                        ...fixed.map(t => ({ start: timeToMin(t.time), end: timeToMin(t.time) + (parseInt(t.duration, 10) || 30) })),
+                        ...fixed.map(t => {
+                            const start = timeToMin(t.time);
+                            const end = start + (parseInt(t.duration, 10) || 30);
+                            return buildBusySlotForTask(t, start, end, d);
+                        }),
                         ...getBlockedSlotsForDate(d)
                     ].sort((a, b) => a.start - b.start);
                     fixed.forEach(t => fixedById.set(t.id, { date: t.date, start: timeToMin(t.time), duration: parseInt(t.duration, 10) || 30 }));
@@ -5392,9 +5602,12 @@
                         const maxEnd = Math.min(dayEnd, dueLimit);
                         const breakMin = getBreakMinutesForDate(date);
                         const busy = (baseBusy[date] || [...getBlockedSlotsForDate(date)]).concat(
-                            Array.from(assigned.values())
-                                .filter(x => x.date === date)
-                                .map(x => ({ start: x.start, end: x.start + x.duration }))
+                            Array.from(assigned.entries())
+                                .filter(([, x]) => x.date === date)
+                                .map(([id, x]) => {
+                                    const task = tasks.find(t => t.id === id) || null;
+                                    return buildBusySlotForTask(task, x.start, x.start + x.duration, date);
+                                })
                         ).sort((a, b) => a.start - b.start);
                         const starts = findCandidateOpenSlots(
                             busy,
