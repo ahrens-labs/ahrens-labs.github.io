@@ -2049,14 +2049,10 @@
                 label: best?.label || getDefaultBreakLabelForDate()
             };
         }
-        function getBreakExtraAfterTask(task, dateStr) {
-            const defaults = getBreakMinutesForDate(dateStr);
-            const cfg = getBreakConfigAfterTask(task, dateStr);
-            return Math.max(0, (cfg.minutes || defaults) - defaults);
-        }
         function buildBusySlotForTask(task, start, end, dateStr) {
-            const extra = getBreakExtraAfterTask(task, dateStr);
-            return { start, end: end + extra };
+            const cfg = getBreakConfigAfterTask(task, dateStr);
+            const breakMinutes = Number.isFinite(cfg.minutes) ? cfg.minutes : 0;
+            return { start, end: end + breakMinutes };
         }
         function isBlockedTimeActiveOnDate(block, dateStr) {
             if(!block || !dateStr) return false;
@@ -2451,7 +2447,7 @@
                 const dueLimit = (t.dueTime && taskDueDate === dateStr) ? timeToMin(t.dueTime) : hardAutoEnd;
                 let autoStartForTask = autoStart;
                 let maxEnd = Math.min(hardAutoEnd, dueLimit);
-                const breakMin = getBreakMinutesForDate(dateStr);
+                const breakMin = 0;
                 if(getPriorityRank(t?.priority) >= 2) {
                     const latestNonLowEnd = schedule.reduce((max, item) => {
                         if(!item?.task || getPriorityRank(item.task.priority) >= 2) return max;
@@ -5352,7 +5348,7 @@
                 const targetDueLimit = (task.dueTime && dueDate === targetDate) ? timeToMin(task.dueTime) : targetDayEnd;
                 let constrainedStart = startMin;
                 let constrainedMaxEnd = Math.min(targetDayEnd, targetDueLimit);
-                const breakMin = getBreakMinutesForDate(targetDate);
+                const breakMin = 0;
                 if(getPriorityRank(task?.priority) >= 2) {
                     const latestNonLowEnd = getLatestNonLowEndForDate(targetDate);
                     if(latestNonLowEnd >= 0) {
@@ -5600,7 +5596,7 @@
                         const dayEnd = timeToMin(getScheduleForDate(date).end);
                         const dueLimit = (task.dueTime && dueDate === date) ? timeToMin(task.dueTime) : dayEnd;
                         const maxEnd = Math.min(dayEnd, dueLimit);
-                        const breakMin = getBreakMinutesForDate(date);
+                        const breakMin = 0;
                         const busy = (baseBusy[date] || [...getBlockedSlotsForDate(date)]).concat(
                             Array.from(assigned.entries())
                                 .filter(([, x]) => x.date === date)
