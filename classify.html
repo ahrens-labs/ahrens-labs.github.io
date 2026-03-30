@@ -828,6 +828,37 @@
         </div>
     </div>
 
+    <!-- Modal: Edit Break -->
+    <div id="breakEditModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeBreakEditModal()"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-sm scale-95 opacity-0 transition-all" id="breakEditPanel">
+            <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Edit Break</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4" id="breakEditInfo">Edit break details.</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Name</label>
+                    <input id="breakEditLabel" type="text" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder="Break">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Minutes</label>
+                    <input id="breakEditMinutes" type="number" min="1" step="1" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Apply To</label>
+                    <select id="breakEditScope" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        <option value="date">Only this date</option>
+                        <option value="subject">Every time after this subject</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-end gap-3">
+                <button onclick="closeBreakEditModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Cancel</button>
+                <button onclick="removeBreakRuleFromModal()" class="px-4 py-2 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 font-medium transition-colors">Remove Rule</button>
+                <button onclick="saveBreakEdit()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Complete / Partial -->
     <div id="timeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeTimeModal()"></div>
@@ -2046,7 +2077,10 @@
             });
             return {
                 minutes: Number.isFinite(best?.minutes) ? best.minutes : getBreakMinutesForDate(dateStr),
-                label: best?.label || getDefaultBreakLabelForDate()
+                label: best?.label || getDefaultBreakLabelForDate(),
+                ruleId: best?.id || null,
+                subject: best?.subject || null,
+                date: best?.date || null
             };
         }
         function buildBusySlotForTask(task, start, end, dateStr) {
@@ -2549,7 +2583,10 @@
                     type: 'break',
                     start: current.end,
                     end: breakEnd,
-                    label: breakCfg.label || 'Break'
+                    label: breakCfg.label || 'Break',
+                    taskId: current.task.id,
+                    subject: current.task.subject || '',
+                    ruleId: breakCfg.ruleId || null
                 });
             }
             return out.sort((a, b) => a.start - b.start);
@@ -3157,6 +3194,126 @@
                 pendingConfirmAltAction();
                 closeConfirmModal();
             }
+        }
+
+        let pendingBreakEdit = null;
+        function openBreakEditModal(taskId, dateStr) {
+            const task = tasks.find(t => t.id === taskId);
+            if(!task || !dateStr) return;
+            const cfg = getBreakConfigAfterTask(task, dateStr);
+            pendingBreakEdit = {
+                taskId,
+                dateStr,
+                subject: task.subject || '',
+                ruleId: cfg.ruleId || null,
+                ruleDate: cfg.date || null,
+                ruleSubject: cfg.subject || null
+            };
+            const labelInput = document.getElementById('breakEditLabel');
+            const minutesInput = document.getElementById('breakEditMinutes');
+            const scopeInput = document.getElementById('breakEditScope');
+            const info = document.getElementById('breakEditInfo');
+            if(labelInput) labelInput.value = cfg.label || 'Break';
+            if(minutesInput) minutesInput.value = cfg.minutes || getBreakMinutesForDate(dateStr);
+            if(scopeInput) {
+                if(cfg.ruleId && cfg.date === dateStr) scopeInput.value = 'date';
+                else if(cfg.ruleId && cfg.subject) scopeInput.value = 'subject';
+                else scopeInput.value = 'date';
+            }
+            if(info) {
+                const subjectLabel = task.subject ? `after ${task.subject}` : 'after this task';
+                info.textContent = `Edit break ${subjectLabel} on ${formatDateLabel(dateStr)}.`;
+            }
+            const modal = document.getElementById('breakEditModal');
+            const panel = document.getElementById('breakEditPanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeBreakEditModal() {
+            const modal = document.getElementById('breakEditModal');
+            const panel = document.getElementById('breakEditPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                pendingBreakEdit = null;
+            }, 200);
+        }
+
+        function saveBreakEdit() {
+            if(!pendingBreakEdit) return;
+            const label = String(document.getElementById('breakEditLabel')?.value || 'Break').trim().substring(0, 40) || 'Break';
+            const minutesRaw = Number(document.getElementById('breakEditMinutes')?.value);
+            const scope = document.getElementById('breakEditScope')?.value || 'date';
+            if(!Number.isFinite(minutesRaw) || minutesRaw <= 0) {
+                showNotification('Break minutes must be greater than 0', 'error');
+                return;
+            }
+            scheduleRules = normalizeScheduleRules(scheduleRules);
+            let rules = scheduleRules.breakRules || [];
+
+            const removeRuleId = (id) => {
+                if(!id) return;
+                rules = rules.filter(r => r.id !== id);
+            };
+
+            const addRule = (rule) => {
+                const normalized = normalizeBreakRule(rule);
+                if(normalized) rules.push(normalized);
+            };
+
+            if(scope === 'subject' && !pendingBreakEdit.subject) {
+                showNotification('No subject found for this task', 'error');
+                return;
+            }
+
+            const newRule = {
+                id: pendingBreakEdit.ruleId || generateId(),
+                minutes: Math.floor(minutesRaw),
+                label,
+                subject: scope === 'subject' ? pendingBreakEdit.subject : (pendingBreakEdit.subject || null),
+                date: scope === 'date' ? pendingBreakEdit.dateStr : null
+            };
+
+            if(pendingBreakEdit.ruleId) {
+                removeRuleId(pendingBreakEdit.ruleId);
+            }
+            addRule(newRule);
+
+            scheduleRules = normalizeScheduleRules({ ...scheduleRules, breakRules: rules });
+            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            renderBreakRulesList();
+            if(scope === 'date') {
+                reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
+            } else {
+                reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
+            }
+            ensureAllEventsScheduled();
+            showNotification('Break updated', 'success');
+            closeBreakEditModal();
+        }
+
+        function removeBreakRuleFromModal() {
+            if(!pendingBreakEdit || !pendingBreakEdit.ruleId) {
+                showNotification('No break rule to remove', 'info');
+                return;
+            }
+            scheduleRules = normalizeScheduleRules({
+                ...scheduleRules,
+                breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== pendingBreakEdit.ruleId)
+            });
+            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            renderBreakRulesList();
+            reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
+            ensureAllEventsScheduled();
+            showNotification('Break rule removed', 'success');
+            closeBreakEditModal();
         }
 
         let pendingTimeTaskId = null;
@@ -3998,7 +4155,7 @@
                     if(item.type === 'break') {
                         const minutes = Math.max(1, Math.round(item.end - item.start));
                         return `
-                            <div class="rounded-lg border border-emerald-200/60 dark:border-emerald-700/50 p-2 bg-emerald-50/70 dark:bg-emerald-900/20">
+                            <div class="rounded-lg border border-emerald-200/60 dark:border-emerald-700/50 p-2 bg-emerald-50/70 dark:bg-emerald-900/20 cursor-pointer hover:border-emerald-400/70" onclick="openBreakEditModal('${item.taskId}', '${dateStr}')">
                                 <div class="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                                     <span>${item.label || 'Break'}</span>
                                     <span>${minutes}m</span>
