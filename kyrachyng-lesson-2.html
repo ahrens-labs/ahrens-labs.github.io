@@ -10,246 +10,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/kyrachyng-lessons.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <script src="js/script.js"></script>
-
-    <style>
-        .lesson-hero {
-            width: 100vw;
-            margin-left: calc(-50vw + 50%);
-            padding: 4.5rem 2rem 3.5rem;
-            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
-            color: #1e293b;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 2px 16px rgba(30,41,59,0.07);
-        }
-        .lesson-hero h2 {
-            font-family: "Orbitron", sans-serif;
-            font-size: 2.3rem;
-            font-weight: 900;
-            margin-bottom: 0.8rem;
-            background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: gradientShift 4s ease-in-out infinite;
-        }
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% center; }
-            50% { background-position: 100% center; }
-        }
-        .lesson-hero-subtitle {
-            font-size: 1.05rem;
-            color: #64748b;
-            max-width: 720px;
-            margin: 0 auto 0.75rem;
-        }
-        .lesson-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.25rem 0.85rem;
-            border-radius: 999px;
-            background: #e0f2fe;
-            border: 1px solid #bae6fd;
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: #0f172a;
-            margin-bottom: 0.75rem;
-        }
-        .lesson-container {
-            max-width: 960px;
-            margin: 2.2rem auto 0;
-            padding: 0 1.75rem 3rem;
-        }
-        .lesson-card {
-            background: white;
-            border-radius: 18px;
-            padding: 1.9rem 1.8rem;
-            box-shadow: 0 10px 32px rgba(15,23,42,0.12);
-            border: 1px solid #e2e8f0;
-            margin-bottom: 1.8rem;
-        }
-        .lesson-section-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-            color: #0f172a;
-        }
-        .lesson-text {
-            font-size: 0.98rem;
-            line-height: 1.7;
-            color: #475569;
-            margin-bottom: 0.75rem;
-        }
-        .lesson-example {
-            background: #f1f5f9;
-            border-radius: 10px;
-            padding: 0.9rem 1rem;
-            margin: 0.75rem 0;
-            font-size: 0.95rem;
-        }
-        .lesson-example-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem 1rem;
-            margin-bottom: 0.3rem;
-        }
-        .lesson-example-label {
-            font-weight: 600;
-            color: #0f172a;
-        }
-        .lesson-example-value {
-            font-family: "Roboto Mono", monospace;
-            color: #2563eb;
-        }
-        .lesson-example-value-kyrachyng {
-            font-family: "Kyrachyng", sans-serif;
-            color: #00c817;
-        }
-        .lesson-input,
-        .lesson-textarea {
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-            border-radius: 10px;
-            border: 1px solid #cbd5e1;
-            padding: 0.5rem 0.6rem;
-            font-size: 0.95rem;
-            font-family: inherit;
-            margin-top: 0.25rem;
-        }
-        .lesson-textarea {
-            min-height: 70px;
-            resize: vertical;
-        }
-        .lesson-input::placeholder {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color: #9ca3af;
-        }
-        .lesson-input:focus,
-        .lesson-textarea:focus {
-            outline: 2px solid #3b82f6;
-            outline-offset: 1px;
-            border-color: #3b82f6;
-        }
-        .lesson-answer {
-            margin-top: 0.6rem;
-            padding-top: 0.5rem;
-            border-top: 1px dashed #cbd5e1;
-            font-size: 0.9rem;
-            color: #4b5563;
-            display: none;
-        }
-        .lesson-answer-title {
-            font-weight: 600;
-            color: #0f172a;
-            margin-bottom: 0.15rem;
-        }
-        .lesson-answer-correct {
-            color: #15803d;
-            font-weight: 600;
-        }
-        .lesson-answer-incorrect {
-            color: #b91c1c;
-            font-weight: 600;
-        }
-        .ky-keyboard {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            padding: 0.75rem 1rem 1rem;
-            background: rgba(248, 250, 252, 0.97);
-            border-top: 1px solid #e2e8f0;
-            box-shadow: 0 -6px 18px rgba(15,23,42,0.18);
-            z-index: 999;
-            display: none; /* shown when a Kyrachyng quiz input is focused */
-        }
-        .ky-keyboard-title {
-            font-size: 0.9rem;
-            color: #475569;
-            margin-bottom: 0.5rem;
-        }
-        .ky-keyboard-rows {
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-        .ky-key-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-        }
-        .ky-key {
-            min-width: 32px;
-            padding: 0.35rem 0.55rem;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-            background: white;
-            font-size: 0.95rem;
-            cursor: pointer;
-            box-shadow: 0 1px 2px rgba(15,23,42,0.08);
-            transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
-        }
-        .ky-key:hover {
-            background: #e0f2fe;
-        }
-        .ky-key:active {
-            transform: translateY(1px);
-            box-shadow: 0 0 0 rgba(0,0,0,0);
-        }
-        .ky-key-wide {
-            padding: 0.35rem 0.9rem;
-        }
-        .ky-key-toggle {
-            background: #e0f2fe;
-            border-color: #38bdf8;
-        }
-        /* Kyrachyng display font (same as translator) */
-        @font-face {
-            font-family: 'Kyrachyng';
-            src: url('./Kyrachyng.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-        }
-        .kyrachyng-font {
-            font-family: 'Kyrachyng', sans-serif !important;
-        }
-        .lesson-checklist {
-            margin: 0.75rem 0 0;
-            padding-left: 1.1rem;
-            font-size: 0.95rem;
-            color: #475569;
-        }
-        .lesson-checklist li {
-            margin-bottom: 0.3rem;
-        }
-        .lesson-footer-nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 1.25rem;
-        }
-        .lesson-footer-nav a.button {
-            text-decoration: none;
-        }
-        @media (max-width: 700px) {
-            .lesson-hero {
-                padding: 2.8rem 1.1rem 2.1rem;
-            }
-            .lesson-hero h2 {
-                font-size: 1.8rem;
-            }
-            .lesson-container {
-                padding: 0 1.1rem 2.3rem;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="wrapper">
@@ -553,21 +316,20 @@
                 </article>
 
                 <article class="lesson-card">
-                    <h3 class="lesson-section-title">4. How to Make New Lessons</h3>
-                    <p class="lesson-text">
-                        To create another lesson, copy this file as <code>kyrachyng-lesson-2.html</code> (or any name you like),
-                        change the title, and swap in new example sentences and exercises.
-                    </p>
-                    <ul class="lesson-checklist">
-                        <li>Update the lesson label (for example, “Lesson 2 – Past Tense”).</li>
-                        <li>Change the English example sentences and add the Kyrachyng and IPA from the translator.</li>
-                        <li>Add a short explanation of the grammar you are teaching.</li>
-                        <li>Link to the new lesson from wherever you list Kyrachyng lessons.</li>
-                    </ul>
                     <div class="lesson-footer-nav">
-                        <a href="kyrachyng.html" class="button lab-button-language">← Back to Kyrachyng Translator</a>
+                        <a href="kyrachyng-lessons.html" class="button lab-button-language">View All Lessons</a>
                         <a href="kyrachyng-alphabet.html" class="button button-secondary">View Kyrachyng Alphabet</a>
+                        <a href="kyrachyng.html" class="button button-secondary">View Kyrachyng Translator</a>
                     </div>
+                </article>
+
+                <article class="lesson-card">
+                    <h3 class="lesson-section-title">Lesson progress</h3>
+                    <p class="lesson-text">
+                        When you are finished with this lesson, mark it complete so the path on Lessons Home lights up and Lesson 3 unlocks.
+                    </p>
+                    <button type="button" class="button lab-button-language ky-mark-lesson-complete" data-lesson="lesson2">Mark Lesson Complete</button>
+                    <p class="lesson-complete-banner" id="ky-lesson-complete-msg" hidden></p>
                 </article>
             </section>
         </main>
@@ -578,6 +340,7 @@
     <footer>
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>
+    <script src="js/kyrachyng-lessons-progress.js"></script>
 
     <script>
         // Minimal IPA → Kyrachyng alphabet mapping and converter,
@@ -844,6 +607,29 @@
                 }
             });
         });
+    </script>
+    <script>
+        (function () {
+            var btn = document.querySelector('.ky-mark-lesson-complete');
+            if (!btn || !window.KyrachyngLessonProgress) return;
+            var id = btn.getAttribute('data-lesson');
+            var msg = document.getElementById('ky-lesson-complete-msg');
+            function refresh() {
+                if (window.KyrachyngLessonProgress.isComplete(id)) {
+                    btn.disabled = true;
+                    btn.textContent = 'Lesson Complete';
+                    if (msg) {
+                        msg.hidden = false;
+                        msg.textContent = 'Nice work. Open Lessons Home to follow the path to the next lesson.';
+                    }
+                }
+            }
+            refresh();
+            btn.addEventListener('click', function () {
+                window.KyrachyngLessonProgress.markComplete(id);
+                refresh();
+            });
+        })();
     </script>
 </body>
 </html>
