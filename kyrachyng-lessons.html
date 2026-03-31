@@ -359,6 +359,12 @@
             var shouldAnimate = urlParams.get('animate') === 'true';
 
             if (completedLessonId && shouldAnimate) {
+                // Scroll to the lesson path before animation
+                var lessonPath = el('#lesson-path-root');
+                if (lessonPath) {
+                    lessonPath.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+
                 setTimeout(function () {
                     var completedIdx = P.ORDER.indexOf(completedLessonId);
                     if (completedIdx >= 0 && completedIdx < P.ORDER.length) {
@@ -388,7 +394,7 @@
 
                     // Clean up URL history
                     window.history.replaceState({}, document.title, 'kyrachyng-lessons.html');
-                }, 100);
+                }, 500);
             }
         })();
     </script>
