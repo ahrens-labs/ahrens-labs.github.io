@@ -533,14 +533,13 @@
                     btn.textContent = 'Lesson Complete';
                     if (msg) {
                         msg.hidden = false;
-                        msg.textContent = 'Nice work. You have finished the lesson path (or you can revisit Lessons Home anytime).';
+                        msg.textContent = 'Nice work. Navigating to Lessons Home...';
                     }
                 }
             }
             refresh();
             btn.addEventListener('click', function () {
-                window.KyrachyngLessonProgress.markComplete(id);
-                refresh();
+                window.KyrachyngLessonProgress.markCompleteAndNavigate(id);
             });
         })();
     </script>

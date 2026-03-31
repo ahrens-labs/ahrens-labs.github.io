@@ -86,8 +86,8 @@
                         <div class="lesson-path-content">
                             <a href="kyrachyng-lesson-2.html" class="lesson-hub-card lesson-path-card" data-card="lesson2" data-href-real="kyrachyng-lesson-2.html">
                                 <div class="lesson-hub-card-num">Lesson 2</div>
-                                <h3>More topics</h3>
-                                <p>Continue with the current second lesson content exactly as it is.</p>
+                                <h3>Greetings and Farewells</h3>
+                                <p>This lesson introduces common greeting and farewell phrases in Kyrachyng.</p>
                                 <p class="lesson-hub-card-lock" hidden>Locked — complete Lesson 1 first.</p>
                             </a>
                         </div>
@@ -352,6 +352,44 @@
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'visible') renderPath();
             });
+
+            // Handle completion animation
+            var urlParams = new URLSearchParams(window.location.search);
+            var completedLessonId = urlParams.get('completed');
+            var shouldAnimate = urlParams.get('animate') === 'true';
+
+            if (completedLessonId && shouldAnimate) {
+                setTimeout(function () {
+                    var completedIdx = P.ORDER.indexOf(completedLessonId);
+                    if (completedIdx >= 0 && completedIdx < P.ORDER.length) {
+                        // Animate the completed lesson
+                        var completedRow = document.querySelector('.lesson-path-row[data-lesson="' + completedLessonId + '"]');
+                        if (completedRow) {
+                            completedRow.classList.add('lesson-path-stop--completing');
+                        }
+
+                        // Animate unlock of next lesson if it exists
+                        if (completedIdx + 1 < P.ORDER.length) {
+                            var nextLessonId = P.ORDER[completedIdx + 1];
+                            setTimeout(function () {
+                                var nextRow = document.querySelector('.lesson-path-row[data-lesson="' + nextLessonId + '"]');
+                                if (nextRow) {
+                                    nextRow.classList.add('lesson-path-stop--unlocking');
+                                }
+
+                                // Light up the segment connecting them
+                                var segment = document.querySelector('[data-segment-after="' + completedLessonId + '"]');
+                                if (segment) {
+                                    segment.classList.add('lesson-path-segment--lighting-up');
+                                }
+                            }, 600);
+                        }
+                    }
+
+                    // Clean up URL history
+                    window.history.replaceState({}, document.title, 'kyrachyng-lessons.html');
+                }, 100);
+            }
         })();
     </script>
 </body>

@@ -620,14 +620,13 @@
                     btn.textContent = 'Lesson Complete';
                     if (msg) {
                         msg.hidden = false;
-                        msg.textContent = 'Nice work. Open Lessons Home to follow the path to the next lesson.';
+                        msg.textContent = 'Nice work. Navigating to Lessons Home...';
                     }
                 }
             }
             refresh();
             btn.addEventListener('click', function () {
-                window.KyrachyngLessonProgress.markComplete(id);
-                refresh();
+                window.KyrachyngLessonProgress.markCompleteAndNavigate(id);
             });
         })();
     </script>

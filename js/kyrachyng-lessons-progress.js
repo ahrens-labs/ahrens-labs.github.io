@@ -45,6 +45,14 @@
         }).length;
     }
 
+    function markCompleteAndNavigate(id) {
+        markComplete(id);
+        var idx = ORDER.indexOf(id);
+        var nextLesson = idx < ORDER.length - 1 ? ORDER[idx + 1] : null;
+        var animated = nextLesson ? 'true' : 'false';
+        window.location.href = 'kyrachyng-lessons.html?completed=' + id + '&animate=' + animated;
+    }
+
     global.KyrachyngLessonProgress = {
         getCompleted: getCompleted,
         isComplete: isComplete,
@@ -52,6 +60,7 @@
         isUnlocked: isUnlocked,
         resetProgress: resetProgress,
         completedCount: completedCount,
+        markCompleteAndNavigate: markCompleteAndNavigate,
         ORDER: ORDER
     };
 })(typeof window !== 'undefined' ? window : this);
