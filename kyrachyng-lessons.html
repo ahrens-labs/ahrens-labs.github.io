@@ -54,13 +54,13 @@
                     Your progress is saved in this browser. Complete lessons in order: Alphabet, then Lesson 2, then Basics (pronouns and “to be”).
                 </p>
 
-                <div class="lesson-path" id="lesson-path-root" aria-label="Lesson path">
+                <div class="lesson-path lesson-path--instant" id="lesson-path-root" aria-label="Lesson path">
                     <div class="lesson-path-row" data-lesson="lesson1">
                         <div class="lesson-path-rail">
                             <div class="lesson-path-node" data-role="node" aria-hidden="true"><span class="lesson-path-node-num">1</span></div>
                         </div>
                         <div class="lesson-path-content">
-                            <a href="kyrachyng-lesson-alphabet.html" class="lesson-hub-card lesson-path-card" data-card="lesson1" data-href-real="kyrachyng-lesson-alphabet.html">
+                            <a href="kyrachyng-lesson-1.html" class="lesson-hub-card lesson-path-card" data-card="lesson1" data-href-real="kyrachyng-lesson-1.html">
                                 <div class="lesson-hub-card-num">Lesson 1</div>
                                 <h3>Alphabet and Sounds</h3>
                                 <p>A lesson-style walkthrough of the Kyrachyng alphabet with grouped letters and guided practice.</p>
@@ -108,7 +108,7 @@
                             <div class="lesson-path-node" data-role="node" aria-hidden="true"><span class="lesson-path-node-num">3</span></div>
                         </div>
                         <div class="lesson-path-content">
-                            <a href="kyrachyng-lesson-1.html" class="lesson-hub-card lesson-path-card" data-card="lesson3" data-href-real="kyrachyng-lesson-1.html">
+                            <a href="kyrachyng-lesson-3.html" class="lesson-hub-card lesson-path-card" data-card="lesson3" data-href-real="kyrachyng-lesson-3.html">
                                 <div class="lesson-hub-card-num">Lesson 3</div>
                                 <h3>Basics: Pronouns and "to be"</h3>
                                 <p>The previous Lesson 1 content is now treated as Lesson 3.</p>
@@ -152,6 +152,14 @@
         (function () {
             var P = window.KyrachyngLessonProgress;
             if (!P) return;
+            var hasInitializedPath = false;
+            var params = new URLSearchParams(window.location.search);
+            var pendingCompletionId = params.get('animate') === 'true' ? params.get('completed') : null;
+            var unlockRevealRunning = false;
+            var unlockRevealLessonId = null;
+            var CHECKMARK_DELAY_MS = 350;
+            var LINE_START_DELAY_MS = 650;
+            var LINE_TRAVEL_MS = 3000;
 
             function el(sel) {
                 return document.querySelector(sel);
@@ -163,16 +171,45 @@
                 var c3 = P.isComplete('lesson3');
                 var u2 = P.isUnlocked('lesson2');
                 var u3 = P.isUnlocked('lesson3');
+                var pathRoot = el('#lesson-path-root');
+                var startY = 24;
+                var stagedUnlockId = null;
+
+                if (!hasInitializedPath && pendingCompletionId === 'lesson1') {
+                    stagedUnlockId = 'lesson2';
+                } else if (!hasInitializedPath && pendingCompletionId === 'lesson2') {
+                    stagedUnlockId = 'lesson3';
+                }
+
+                if (stagedUnlockId) {
+                    unlockRevealRunning = true;
+                    unlockRevealLessonId = stagedUnlockId;
+                }
+
+                function getNodeCenterY(lessonId) {
+                    var row = document.querySelector('.lesson-path-row[data-lesson="' + lessonId + '"]');
+                    if (!row || !pathRoot) return 0;
+                    var node = row.querySelector('[data-role="node"]');
+                    if (!node) return 0;
+                    var rootRect = pathRoot.getBoundingClientRect();
+                    var nodeRect = node.getBoundingClientRect();
+                    return (nodeRect.top - rootRect.top) + (nodeRect.height / 2);
+                }
+
+                function getProgressTargetPx() {
+                    if (c2) {
+                        return Math.max(0, getNodeCenterY('lesson3') - startY);
+                    }
+                    if (c1) {
+                        return Math.max(0, getNodeCenterY('lesson2') - startY);
+                    }
+                    return 0;
+                }
 
                 var current = null;
                 if (!c1) current = 'lesson1';
                 else if (!c2) current = 'lesson2';
                 else if (!c3) current = 'lesson3';
-
-                var seg1 = el('[data-segment-after="lesson1"]');
-                var seg2 = el('[data-segment-after="lesson2"]');
-                if (seg1) seg1.classList.toggle('lesson-path-segment--lit', c1);
-                if (seg2) seg2.classList.toggle('lesson-path-segment--lit', c2);
 
                 var lessons = [
                     { id: 'lesson1', unlocked: true, complete: c1, num: '1' },
@@ -180,20 +217,50 @@
                     { id: 'lesson3', unlocked: u3, complete: c3, num: '3' }
                 ];
 
+                function fireConfettiFromNode(node) {
+                    if (!node) return;
+                    var rect = node.getBoundingClientRect();
+                    var originX = rect.left + (rect.width / 2);
+                    var originY = rect.top + (rect.height / 2);
+                    var burst = document.createElement('div');
+                    burst.className = 'lesson-confetti';
+                    var colors = ['#10b981', '#34d399', '#3b82f6', '#60a5fa', '#f59e0b', '#f43f5e'];
+                    for (var i = 0; i < 44; i++) {
+                        var piece = document.createElement('span');
+                        piece.className = 'lesson-confetti-piece';
+                        piece.style.left = originX + 'px';
+                        piece.style.top = originY + 'px';
+                        piece.style.background = colors[i % colors.length];
+                        piece.style.setProperty('--dx', ((Math.random() * 280) - 140) + 'px');
+                        piece.style.setProperty('--dy', (180 + (Math.random() * 280)) + 'px');
+                        piece.style.setProperty('--rot', ((Math.random() * 900) - 450) + 'deg');
+                        piece.style.setProperty('--dur', (1500 + Math.random() * 900) + 'ms');
+                        burst.appendChild(piece);
+                    }
+                    document.body.appendChild(burst);
+                    window.setTimeout(function () {
+                        burst.remove();
+                    }, 2700);
+                }
+
                 lessons.forEach(function (L) {
                     var row = document.querySelector('.lesson-path-row[data-lesson="' + L.id + '"]');
                     if (!row) return;
                     var node = row.querySelector('[data-role="node"]');
                     var card = row.querySelector('[data-card="' + L.id + '"]');
+                    var effectiveUnlocked = L.unlocked && !(unlockRevealRunning && L.id === unlockRevealLessonId);
 
                     row.classList.toggle('lesson-path-stop--complete', L.complete);
                     row.classList.toggle('lesson-path-stop--current', current === L.id && !L.complete);
-                    row.classList.toggle('lesson-path-stop--locked', !L.unlocked);
+                    row.classList.toggle('lesson-path-stop--locked', !effectiveUnlocked);
 
                     if (node) {
-                        if (L.complete) {
+                        if (L.complete && !(pendingCompletionId && L.id === pendingCompletionId)) {
                             node.innerHTML = '<span class="lesson-path-node-check" aria-hidden="true">&#10003;</span>';
-                        } else if (!L.unlocked) {
+                        } else if (L.complete && pendingCompletionId && L.id === pendingCompletionId) {
+                            // Show blue lesson number before it pops into a checkmark.
+                            node.innerHTML = '<span class="lesson-path-node-num">' + L.num + '</span>';
+                        } else if (!effectiveUnlocked) {
                             node.innerHTML = '<span class="lesson-path-node-lock" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>';
                         } else {
                             node.innerHTML = '<span class="lesson-path-node-num">' + L.num + '</span>';
@@ -203,7 +270,7 @@
                     if (card && card.tagName === 'A') {
                         var real = card.getAttribute('data-href-real') || card.getAttribute('href');
                         var lockEl = card.querySelector('.lesson-hub-card-lock');
-                        if (L.unlocked) {
+                        if (effectiveUnlocked) {
                             card.href = real;
                             card.classList.remove('lesson-hub-card--locked');
                             card.removeAttribute('aria-disabled');
@@ -218,9 +285,72 @@
                         }
                     }
                 });
+
+                if (!pathRoot) return;
+                var targetPx = getProgressTargetPx();
+                var prevPx = targetPx;
+                if (pendingCompletionId === 'lesson1') {
+                    prevPx = 0;
+                } else if (pendingCompletionId === 'lesson2') {
+                    prevPx = Math.max(0, getNodeCenterY('lesson2') - startY);
+                }
+
+                if (!hasInitializedPath && pendingCompletionId && targetPx > prevPx) {
+                    // Keep instant mode while positioning at the completed lesson,
+                    // so we don't animate from the beginning of the path.
+                    pathRoot.classList.add('lesson-path--instant');
+                    pathRoot.style.setProperty('--path-progress-px', prevPx + 'px');
+                    // Force style flush before enabling transitions for the next leg.
+                    void pathRoot.offsetHeight;
+                    pathRoot.classList.remove('lesson-path--instant');
+                    var completedRow = document.querySelector('.lesson-path-row[data-lesson="' + pendingCompletionId + '"]');
+                    var completedNode = completedRow ? completedRow.querySelector('[data-role="node"]') : null;
+
+                    window.setTimeout(function () {
+                        if (completedNode) {
+                            completedNode.innerHTML = '<span class="lesson-path-node-check" aria-hidden="true">&#10003;</span>';
+                            completedNode.classList.add('lesson-path-node--pop');
+                            window.setTimeout(function () {
+                                completedNode.classList.remove('lesson-path-node--pop');
+                            }, 780);
+                            fireConfettiFromNode(completedNode);
+                        }
+                        // Keep completed lessons rendered as checkmarks for subsequent re-renders.
+                        pendingCompletionId = null;
+                    }, CHECKMARK_DELAY_MS);
+
+                    window.setTimeout(function () {
+                        pathRoot.style.setProperty('--path-progress-px', targetPx + 'px');
+                    }, LINE_START_DELAY_MS);
+
+                    window.setTimeout(function () {
+                        if (unlockRevealLessonId) {
+                            unlockRevealRunning = false;
+                            var revealRow = document.querySelector('.lesson-path-row[data-lesson="' + unlockRevealLessonId + '"]');
+                            var revealNode = revealRow ? revealRow.querySelector('[data-role="node"]') : null;
+                            renderPath();
+                            if (revealNode) {
+                                revealNode.innerHTML = '<span class="lesson-path-node-num" aria-hidden="true">' + (unlockRevealLessonId === 'lesson2' ? '2' : '3') + '</span>';
+                                revealNode.classList.add('lesson-path-node--pop');
+                                window.setTimeout(function () {
+                                    revealNode.classList.remove('lesson-path-node--pop');
+                                }, 780);
+                            }
+                            unlockRevealLessonId = null;
+                        }
+                        if (window.history && window.history.replaceState) {
+                            window.history.replaceState({}, '', 'kyrachyng-lessons.html');
+                        }
+                    }, LINE_START_DELAY_MS + LINE_TRAVEL_MS);
+                } else {
+                    // Normal loads should not replay the travel animation.
+                    pathRoot.classList.add('lesson-path--instant');
+                    pathRoot.style.setProperty('--path-progress-px', targetPx + 'px');
+                }
             }
 
             renderPath();
+            hasInitializedPath = true;
 
             var kyLessonResetStage = 0;
 
