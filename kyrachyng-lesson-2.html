@@ -52,7 +52,7 @@
                 <article class="lesson-card">
                     <h3 class="lesson-section-title">1. English to Kyrachyng Mapping</h3>
                     <p class="lesson-text">
-                        We will start by having a vocabulary list that you can look through and try to remember as much as possible.
+                        These are some of the greetings and farewells commonly used in the Kyrachyng language:
                     </p>
                     <div class="lesson-example">
                         <div class="lesson-example-row">
@@ -167,37 +167,28 @@
                 <article class="lesson-card">
                     <h3 class="lesson-section-title">2. Examples</h3>
                     <p class="lesson-text">
-                        In Kyrachyng people most often greet each other through saying "Good Day" (atykoch vobach) or "Hello" (paz), and say goodbye through saying "Goodbye" (pazoyt). Here is an example dialog:
+                        In Kyrachyng people most often greet each other through saying "Good Day" (atykoch vobach) or "Hello" (paz), and say goodbye through saying "Goodbye" (pazoyt). 
                     </p>
                     <div class="lesson-example">
                         <div class="lesson-example-row">
-                            <span class="lesson-example-label">English:</span>
-                            <span>You are awesome.</span>
+                            <span class="lesson-example-label">Example Dialog:</span>
                         </div>
                         <div class="lesson-example-row">
-                            <span class="lesson-example-label">Kyrachyng (English Alphabet):</span>
-                            <span class="lesson-example-value">[fill in]</span>
+                            <span class="lesson-example-value">Fred:</span>
+                            <span class="lesson-example-value-kyrachyng">paz</span>
+                            <span class="lesson-example-value">paz</span>
                         </div>
                         <div class="lesson-example-row">
-                            <span class="lesson-example-label">IPA (from translator):</span>
-                            <span class="lesson-example-value">[fill in]</span>
+                            <span class="lesson-example-value">Joe:</span>
+                            <span class="lesson-example-value-kyrachyng">aticaj vqbaj</span>
+                            <span class="lesson-example-value">atykach vobach</span>
+                        </div>
+                        <div class="lesson-example-row">
+                            <span class="lesson-example-value">Fred:</span>
+                            <span class="lesson-example-value-kyrachyng">vqrij Pakqnyoj jopra?</span>
+                            <span class="lesson-example-value">vorych Pakonoyauch chaupra?</span>
                         </div>
                     </div>
-                    <div class="lesson-example">
-                        <div class="lesson-example-row">
-                            <span class="lesson-example-label">English:</span>
-                            <span>We are happy.</span>
-                        </div>
-                        <div class="lesson-example-row">
-                            <span class="lesson-example-label">Kyrachyng:</span>
-                            <span class="lesson-example-value">[fill in]</span>
-                        </div>
-                    </div>
-                    <ul class="lesson-checklist">
-                        <li>Type each English sentence into the translator.</li>
-                        <li>Copy the Kyrachyng into the lesson.</li>
-                        <li>Optionally add notes explaining why each word looks the way it does.</li>
-                    </ul>
                 </article>
 
                 <article class="lesson-card">
@@ -209,7 +200,7 @@
                     <div class="lesson-example">
                         <div class="lesson-example-row">
                             <span class="lesson-example-label">Q1.</span>
-                            <span>Translate “I am awesome” and type it using the Kyrachyng alphabet.</span>
+                            <span>Translate “Hello” and type it using the Kyrachyng alphabet.</span>
                         </div>
                         <label class="lesson-example-row">
                             <span class="lesson-example-label">Your Kyrachyng:</span>
@@ -223,7 +214,7 @@
                     <div class="lesson-example">
                         <div class="lesson-example-row">
                             <span class="lesson-example-label">Q2.</span>
-                            <span>Translate “You are happy” and type it using the Kyrachyng alphabet.</span>
+                            <span>Translate “Goodbye” and type it using the Kyrachyng alphabet.</span>
                         </div>
                         <label class="lesson-example-row">
                             <span class="lesson-example-label">Your Kyrachyng:</span>
@@ -237,20 +228,20 @@
                     <div class="lesson-example">
                         <div class="lesson-example-row">
                             <span class="lesson-example-label">Q3.</span>
-                            <span>Which statement about Kyrachyng “to be” is correct?</span>
+                            <span>Which phrase is commonly used as a daytime greeting in this lesson?</span>
                         </div>
                         <div class="lesson-example-row" style="flex-direction: column; gap: 0.35rem; margin-top: 0.4rem;">
                             <label>
                                 <input type="radio" name="quiz-q3" value="a">
-                                <span>It always uses the same word, no matter which pronoun you use.</span>
+                                <span><span class="lesson-example-value-kyrachyng">pazyt</span> (Goodbye)</span>
                             </label>
                             <label>
                                 <input type="radio" name="quiz-q3" value="b">
-                                <span>It changes form depending on the pronoun (for example, “I am” vs. “you are”).</span>
+                                <span><span class="lesson-example-value-kyrachyng">aticaj vqbaj</span> (Good Day)</span>
                             </label>
                             <label>
                                 <input type="radio" name="quiz-q3" value="c">
-                                <span>It is never used with pronouns in Kyrachyng.</span>
+                                <span><span class="lesson-example-value-kyrachyng">vqrij Pakqnyoj jopra?</span> (How are you?)</span>
                             </label>
                         </div>
                         <div id="quiz-answer-q3" class="lesson-answer">
@@ -306,9 +297,7 @@
                     </div>
                     <ul class="lesson-checklist">
                         <li>First, try to answer from memory.</li>
-                        <li>Then use the Kyrachyng translator page to check your answers.</li>
-                        <li>Compare your Kyrachyng to the expected answers and note any differences.</li>
-                        <li>Update this quiz section when you copy this file for future lessons.</li>
+                        <li>Review any incorrect answers and reattempt the quiz.</li>
                     </ul>
                     <div style="margin-top: 0.9rem;">
                         <button type="button" id="lesson-quiz-check" class="button lab-button-language">Check Quiz Answers</button>
@@ -448,18 +437,8 @@
                 str.trim().toLowerCase().replace(/\s+/g, ' ');
 
             // Expected Kyrachyng alphabet answers (from IPA, same as translator)
-            const expectedQ1 = normalize(
-                lessonExpectedKySentence(
-                    ['dach', 'chococanoy', 'trinezhach'],
-                    ['daCH', 'Chococanoy', 'trinezhach']
-                )
-            );
-            const expectedQ2 = normalize(
-                lessonExpectedKySentence(
-                    ['vorych', 'cocanoyoch', 'ovadrach'],
-                    ['voryCH', 'Cocanoyoch', 'ovadrach']
-                )
-            );
+            const expectedQ1 = normalize('paz');
+            const expectedQ2 = normalize('pazyt');
             const expectedQ3 = 'b'; // correct radio option
 
             const q1Input = document.getElementById('quiz-q1-ky');
@@ -555,17 +534,12 @@
                     const user = normalize(q1Input.value);
                     const correct = user === expectedQ1;
                     q1AnswerBox.style.display = 'block';
-                    const expectedDisplay = lessonExpectedKySentence(
-                        ['dach', 'chococanoy', 'trinezhach'],
-                        ['daCH', 'Chococanoy', 'trinezhach']
-                    );
+                    const expectedDisplay = 'paz';
                     q1Feedback.innerHTML = correct
-                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                        ? '<span class="lesson-answer-correct">Correct!</span> “Hello” in Kyrachyng is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
-                          + expectedDisplay +
-                          '</span>.';
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                 }
 
                 // Q2
@@ -573,17 +547,12 @@
                     const user = normalize(q2Input.value);
                     const correct = user === expectedQ2;
                     q2AnswerBox.style.display = 'block';
-                    const expectedDisplay2 = lessonExpectedKySentence(
-                        ['vorych', 'cocanoyoch', 'ovadrach'],
-                        ['voryCH', 'Cocanoyoch', 'ovadrach']
-                    );
+                    const expectedDisplay2 = 'pazyt';
                     q2Feedback.innerHTML = correct
-                        ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
+                        ? '<span class="lesson-answer-correct">Correct!</span> “Goodbye” in Kyrachyng is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay2 +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
-                          + expectedDisplay2 +
-                          '</span>.';
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                 }
 
                 // Q3
@@ -597,9 +566,9 @@
                         q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Choose an option above first, then click check.</span>';
                     } else if (value === expectedQ3) {
                         q3Correct = true;
-                        q3Feedback.innerHTML = '<span class="lesson-answer-correct">Correct!</span> “To be” changes form depending on the pronoun.';
+                        q3Feedback.innerHTML = '<span class="lesson-answer-correct">Correct!</span> <span class="lesson-example-value-kyrachyng">aticaj vqbaj</span> is “Good Day,” a common greeting.';
                     } else {
-                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Not quite.</span> The correct statement is that “to be” changes form depending on the pronoun.';
+                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                     }
                 }
 
@@ -638,7 +607,7 @@
                     btn.textContent = 'Lesson Complete';
                     if (msg) {
                         msg.hidden = false;
-                        msg.textContent = 'Nice work. Navigating to Lessons Home...';
+                        msg.textContent = 'Nice work. Lesson completed.';
                     }
                 } else {
                     btn.disabled = true;

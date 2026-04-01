@@ -44,7 +44,7 @@
                 <div class="lesson-label">Kyrachyng • Lesson 3</div>
                 <h2>Basics: Pronouns and “to be”</h2>
                 <p class="lesson-hero-subtitle">
-                    This page was the original Lesson 1 and is now Lesson 3.
+                    Practice core sentence patterns with pronouns and the verb “to be”.
                 </p>
             </section>
 
@@ -81,7 +81,7 @@
                 <article class="lesson-card">
                     <h3 class="lesson-section-title">2. Try These Sentences</h3>
                     <p class="lesson-text">
-                        Use the main translator page to translate each sentence below into Kyrachyng, then write the Kyrachyng here when you build your own lessons.
+                        Translate each sentence into Kyrachyng, then compare your answer with the expected structure.
                     </p>
                     <div class="lesson-example">
                         <div class="lesson-example-row">
@@ -222,7 +222,7 @@
                         <li>First, try to answer from memory.</li>
                         <li>Then use the Kyrachyng translator page to check your answers.</li>
                         <li>Compare your Kyrachyng to the expected answers and note any differences.</li>
-                        <li>Update this quiz section when you copy this file for future lessons.</li>
+                        <li>Review any incorrect answers and try the quiz again.</li>
                     </ul>
                     <div style="margin-top: 0.9rem;">
                         <button type="button" id="lesson-quiz-check" class="button lab-button-language">Check Quiz Answers</button>
@@ -240,7 +240,7 @@
                 <article class="lesson-card">
                     <h3 class="lesson-section-title">Lesson progress</h3>
                     <p class="lesson-text">
-                        When you are finished with this lesson, mark it complete so the path on Lessons Home shows you are done with the series (or ready for future lessons).
+                        When you are finished with this lesson, mark it complete to save your progress.
                     </p>
                     <button type="button" class="button lab-button-language ky-mark-lesson-complete" data-lesson="lesson3">Mark Lesson Complete</button>
                     <p class="lesson-complete-banner" id="ky-lesson-complete-msg" hidden></p>
@@ -476,9 +476,7 @@
                         ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
-                          + expectedDisplay +
-                          '</span>.';
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                 }
 
                 // Q2
@@ -494,9 +492,7 @@
                         ? '<span class="lesson-answer-correct">Correct!</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
                           + expectedDisplay2 +
                           '</span>.'
-                        : '<span class="lesson-answer-incorrect">Not quite.</span> The expected answer in Kyrachyng alphabet is <span class="lesson-example-value-kyrachyng">'
-                          + expectedDisplay2 +
-                          '</span>.';
+                        : '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                 }
 
                 // Q3
@@ -512,7 +508,7 @@
                         q3Correct = true;
                         q3Feedback.innerHTML = '<span class="lesson-answer-correct">Correct!</span> “To be” changes form depending on the pronoun.';
                     } else {
-                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Not quite.</span> The correct statement is that “to be” changes form depending on the pronoun.';
+                        q3Feedback.innerHTML = '<span class="lesson-answer-incorrect">Not quite.</span> Try again.';
                     }
                 }
 
@@ -551,7 +547,7 @@
                     btn.textContent = 'Lesson Complete';
                     if (msg) {
                         msg.hidden = false;
-                        msg.textContent = 'Nice work. Navigating to Lessons Home...';
+                        msg.textContent = 'Nice work. Lesson completed.';
                     }
                 } else {
                     btn.disabled = true;
