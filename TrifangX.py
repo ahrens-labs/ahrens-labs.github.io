@@ -310,6 +310,7 @@ def reset_engine_state():
     # Reset caches (new game state)
     global SCORING_VERSION
     SCORING_VERSION += 1
+    _clear_engine_caches()
     # Reset king positions to starting squares
     white_king_row = 0
     white_king_col = 4

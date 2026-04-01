@@ -13257,6 +13257,53 @@ function navigateToPreviousMove() {
       startTimer(); // Start move timer for engine
       await engineMove();
     }
+    function normalizeSanForCompare(moveStr) {
+      if (!moveStr) return "";
+      return String(moveStr)
+        .trim()
+        .replace(/e\.p\./gi, "")
+        .replace(/[+#]/g, "")
+        .replace(/0-0-0/g, "O-O-O")
+        .replace(/0-0/g, "O-O");
+    }
+
+    function tryApplyEngineMove(moveStr) {
+      if (!moveStr) return null;
+
+      // 1) Try strict SAN/UCI parse first.
+      let applied = game.move(moveStr);
+      if (applied) return applied;
+
+      // 2) Try sloppy parse (used elsewhere for typed moves).
+      applied = game.move(moveStr, { sloppy: true });
+      if (applied) return applied;
+
+      // 3) Match against legal SAN list after normalizing check/mate markers.
+      const normalized = normalizeSanForCompare(moveStr);
+      const legalMoves = game.moves({ verbose: true });
+      const sanMatch = legalMoves.find(m => normalizeSanForCompare(m.san) === normalized);
+      if (sanMatch) {
+        applied = game.move({ from: sanMatch.from, to: sanMatch.to, promotion: sanMatch.promotion || 'q' });
+        if (applied) return applied;
+      }
+
+      // 4) Support engine long-style moves like "Ra1c1" or "a7a8Q" if emitted.
+      const compact = String(moveStr).trim().replace(/[+#]/g, "");
+      const longMatch = compact.match(/^([KQRBN])?([a-h][1-8])x?([a-h][1-8])([QRBNqrbn])?$/);
+      if (longMatch) {
+        const pieceLetter = longMatch[1] || null;
+        const from = longMatch[2];
+        const to = longMatch[3];
+        const promo = longMatch[4] ? longMatch[4].toLowerCase() : undefined;
+        const candidate = game.move({ from, to, promotion: promo || 'q' });
+        if (candidate && (!pieceLetter || candidate.piece.toUpperCase() === pieceLetter)) {
+          return candidate;
+        }
+      }
+
+      return null;
+    }
+
     async function engineMove() {
       console.log('=== engineMove START ===');
       console.log('Game over status:', gameOver);
@@ -13291,7 +13338,7 @@ function navigateToPreviousMove() {
         console.log('Engine move:', data.move);
         // Stop timer *before* making the move on the game object
         const moveTimeMs = stopTimerAndUpdateTotal(game.turn()); 
-        const move = game.move(data.move);
+        const move = tryApplyEngineMove(data.move);
         
         if (!move) {
           console.error('ERROR: Invalid move returned from engine:', data.move);
