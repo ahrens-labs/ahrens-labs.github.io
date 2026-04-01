@@ -3176,9 +3176,14 @@ def is_protected_piece(board, row, col, piece):
     return False
 def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col):
     """
-    Find all pieces of same type that can legally move to target square FROM CURRENT POSITION.
-    Returns minimal disambiguation: '', 'file', 'rank', or 'both'
-    Prefers file over rank when possible.
+    Find other pieces of the same type that can legally reach the target from the current
+    position. When more than one piece (including the mover) could reach the square, return
+    a single SAN disambiguation character:
+
+    - If every such piece sits on the same file, use the rank digit (e.g. R1a3).
+    - Otherwise use the file letter of the moving piece (e.g. Nfd7).
+
+    Returns '' when no disambiguation is needed.
     """
     ambiguous_pieces = []
 
@@ -3265,12 +3270,10 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
     if not ambiguous_pieces:
         return ''
 
-    # If another candidate shares the same file, use rank.
-    for row, col in ambiguous_pieces:
-        if col == best_col:
-            return str(8 - best_row)
-
-    # Otherwise use file (same rank or neither).
+    # All candidates (mover + others) share one file → rank; else → file of the mover.
+    all_cols = {best_col} | {c for _, c in ambiguous_pieces}
+    if len(all_cols) == 1:
+        return str(8 - best_row)
     return indices_to_pos_col(best_col)
 
 def is_protected_pawn(board, row, col, piece):
@@ -3494,6 +3497,86 @@ def convert_move(board, to_row, to_col, piece, color):
 def extract_moves(pgn_str):
     pattern = r'\b(?:0-0-0|0-0|[a-hRNBQK][a-h1-8x=+#]*)\b'
     return re.findall(pattern, pgn_str)
+
+# Piece SAN without full board: piece + optional disambiguation + optional x + dest square
+_OPENING_SAN_PIECE = re.compile(r'^([NBRQK])([a-h1-8]*?)(x?)([a-h][1-8])$', re.I)
+
+
+def _long_algebraic_parts(move_lower):
+    """Return (piece, from_sq, to_sq) for 5-char piece long form (e.g. Nf6d7, Rf1d1)."""
+    m = move_lower
+    if len(m) != 5:
+        return None
+    if m[0] not in 'nbrqk':
+        return None
+    if m[1] not in 'abcdefgh' or m[2] not in '12345678':
+        return None
+    if m[3] not in 'abcdefgh' or m[4] not in '12345678':
+        return None
+    return (m[0], m[1:3], m[3:5])
+
+
+def opening_move_tokens_equivalent(a, b):
+    """True if two PGN tokens are the same move (handles Nfd7 vs Nf6d7, O-O vs 0-0, etc.)."""
+    if not a or not b:
+        return False
+    if a.strip() == b.strip():
+        return True
+    ca = clean_move(a.strip()).lower()
+    cb = clean_move(b.strip()).lower()
+    if ca == cb:
+        return True
+    if ca in ('0-0', 'o-o') and cb in ('0-0', 'o-o'):
+        return True
+    if ca in ('0-0-0', 'o-o-o') and cb in ('0-0-0', 'o-o-o'):
+        return True
+    la = _long_algebraic_parts(ca)
+    lb = _long_algebraic_parts(cb)
+    if la and lb:
+        return la == lb
+    if la and not lb:
+        return _san_token_matches_long_algebraic(cb, la)
+    if lb and not la:
+        return _san_token_matches_long_algebraic(ca, lb)
+    return False
+
+
+def _san_token_matches_long_algebraic(san_lower, long_parts):
+    """SAN piece move matches 5-char long algebraic (same piece, from, to)."""
+    piece, from_sq, to_sq = long_parts
+    ma = _OPENING_SAN_PIECE.match(san_lower)
+    if ma:
+        p, disc, _cap, dest = ma.groups()
+        if p.lower() != piece:
+            return False
+        if dest != to_sq:
+            return False
+        if not disc:
+            return True
+        if disc == from_sq:
+            return True
+        if len(disc) == 1:
+            if disc in 'abcdefgh':
+                return disc == from_sq[0]
+            if disc in '12345678':
+                return disc == from_sq[1]
+        return False
+    return False
+
+
+def opening_line_matches_played(opening_str, played_str):
+    """
+    True if played_str's move list is a prefix of opening_str, allowing SAN variants
+    (e.g. book Nfd7 matches game Nf6d7).
+    """
+    to_play = extract_moves(opening_str)
+    played = extract_moves(played_str)
+    if len(played) > len(to_play):
+        return False
+    for i in range(len(played)):
+        if not opening_move_tokens_equivalent(played[i], to_play[i]):
+            return False
+    return True
 
 
 def players_turn(board, next_move, notation_move):
@@ -3819,9 +3902,7 @@ def best_move_function_test(board, bots, en_passant):
     ]
     if opening_moves != 'none':
         for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            if normalized_input in normalized_opening:
+            if opening_line_matches_played(opening, opening_moves):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -5291,13 +5372,14 @@ def best_move_function_test(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -5309,10 +5391,10 @@ def best_move_function_test(board, bots, en_passant):
                         else:
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -5445,9 +5527,7 @@ def best_move_function(board, bots, en_passant):
     ]
     if opening_moves != 'none':
         for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            if normalized_input in normalized_opening:
+            if opening_line_matches_played(opening, opening_moves):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -5964,13 +6044,14 @@ def best_move_function(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -5982,10 +6063,10 @@ def best_move_function(board, bots, en_passant):
                         else:
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -7019,10 +7100,8 @@ def best_move_black(board, bots, en_passant):
     elif opening_moves != 'none':
         # OPTIMIZATION: Fixed order - no shuffle needed for opening book
         for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            # Use prefix matching instead of substring matching to ensure correct position
-            if normalized_opening.startswith(normalized_input):
+            # Prefix match by move tokens (handles Nfd7 vs Nf6d7, O-O vs 0-0, etc.)
+            if opening_line_matches_played(opening, opening_moves):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -8700,13 +8779,14 @@ def best_move_black(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                             if best_piece != 'P':
                                   if piece in BLACK_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in BLACK_PIECES:
@@ -8718,10 +8798,10 @@ def best_move_black(board, bots, en_passant):
                         else:
                             if best_piece != 'P':
                                   if piece in BLACK_PIECES:
-                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in BLACK_PIECES:
