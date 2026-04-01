@@ -47,6 +47,10 @@ export default {
         return handleClassifySync(request, env, corsHeaders);
       } else if (path === '/api/classify/load' && request.method === 'GET') {
         return handleClassifyLoad(request, env, corsHeaders);
+      } else if (path === '/api/kyrachyng/progress/sync' && request.method === 'POST') {
+        return handleKyrachyngProgressSync(request, env, corsHeaders);
+      } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
+        return handleKyrachyngProgressLoad(request, env, corsHeaders);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -625,6 +629,81 @@ async function handleClassifyLoad(request, env, corsHeaders) {
   });
 }
 
+async function handleKyrachyngProgressSync(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const payload = await request.json();
+  const completed = Array.isArray(payload?.completed)
+    ? payload.completed.filter(x => typeof x === 'string')
+    : [];
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const updateReq = new Request('http://do/updateKyrachyngProgress', {
+    method: 'POST',
+    body: JSON.stringify({ completed })
+  });
+  await userAccount.fetch(updateReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleKyrachyngProgressLoad(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const getReq = new Request('http://do/getKyrachyngProgress', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getReq);
+  const progressData = await dataRes.json();
+
+  return new Response(JSON.stringify(progressData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Get user data handler
 async function handleGetUser(request, env, corsHeaders) {
   const authHeader = request.headers.get('Authorization');
@@ -875,6 +954,17 @@ export class UserAccount {
         return new Response(JSON.stringify(classifyData), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/updateKyrachyngProgress' && request.method === 'POST') {
+        const { completed } = await request.json();
+        await this.updateKyrachyngProgress(completed);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getKyrachyngProgress' && request.method === 'GET') {
+        const progress = await this.getKyrachyngProgress();
+        return new Response(JSON.stringify(progress), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -968,6 +1058,9 @@ export class UserAccount {
           calendarViewMode: 'month',
           darkMode: null,
           lastUpdated: null
+        },
+        kyrachyng: {
+          lessonsCompleted: []
         }
       }
     };
@@ -1201,6 +1294,34 @@ export class UserAccount {
       };
     }
     return userData.games.classify;
+  }
+
+  async updateKyrachyngProgress(completed) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+
+    if (!userData.games) userData.games = {};
+    if (!userData.games.kyrachyng) {
+      userData.games.kyrachyng = { lessonsCompleted: [] };
+    }
+
+    userData.games.kyrachyng.lessonsCompleted = Array.isArray(completed)
+      ? completed.filter(x => typeof x === 'string')
+      : [];
+    userData.games.kyrachyng.lastUpdated = Date.now();
+    await this.storage.put('userData', userData);
+  }
+
+  async getKyrachyngProgress() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.kyrachyng) {
+      return { lessonsCompleted: [] };
+    }
+    return {
+      lessonsCompleted: Array.isArray(userData.games.kyrachyng.lessonsCompleted)
+        ? userData.games.kyrachyng.lessonsCompleted
+        : []
+    };
   }
 
   async hashPassword(password) {

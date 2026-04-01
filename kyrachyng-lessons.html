@@ -349,8 +349,15 @@
                 }
             }
 
-            renderPath();
-            hasInitializedPath = true;
+            if (typeof P.init === 'function') {
+                P.init().then(function () {
+                    renderPath();
+                    hasInitializedPath = true;
+                });
+            } else {
+                renderPath();
+                hasInitializedPath = true;
+            }
 
             var kyLessonResetStage = 0;
 
@@ -482,6 +489,7 @@
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'visible') renderPath();
             });
+            window.addEventListener('kyrachyng-progress-loaded', renderPath);
 
             // Handle completion animation
             var urlParams = new URLSearchParams(window.location.search);

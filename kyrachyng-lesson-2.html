@@ -618,7 +618,12 @@
                     }
                 }
             }
-            refresh();
+            if (typeof window.KyrachyngLessonProgress.init === 'function') {
+                window.KyrachyngLessonProgress.init().then(refresh);
+            } else {
+                refresh();
+            }
+            window.addEventListener('kyrachyng-progress-loaded', refresh);
             btn.addEventListener('click', function () {
                 window.KyrachyngLessonProgress.markCompleteAndNavigate(id);
             });
