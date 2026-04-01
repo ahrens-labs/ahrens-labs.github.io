@@ -3858,11 +3858,62 @@ def best_move_function_test(board, bots, en_passant):
                     else:
                         next_move = clean_move(next_move)
                         piece, to_col, to_row, disambig = parse_move(next_move)
-                        pos = str(to_col) + str(to_row)
-                        row, col = pos_to_indices(pos)
-                        from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                        best_moves = [(from_row, from_col, row, col, piece.lower())]
-                        previous_score = score(board, 'w')
+                        if piece and to_col and to_row and not disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
+                            best_moves = [(from_row, from_col, row, col, piece.lower())]
+                            previous_score = score(board, 'w')
+                        if piece and to_col and to_row and disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row = from_col = None
+
+                            for r in range(8):
+                                for c in range(8):
+                                    if board[r][c] != piece.lower():
+                                        continue
+                                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                        continue
+                                    if disambig in "12345678" and str(8 - r) != disambig:
+                                        continue
+
+                                    dr = row - r
+                                    dc = col - c
+                                    ok = False
+
+                                    if piece.lower() == 'n':
+                                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                    elif piece.lower() == 'k':
+                                        ok = max(abs(dr), abs(dc)) == 1
+                                    elif piece.lower() in {'r', 'b', 'q'}:
+                                        if piece.lower() == 'r':
+                                            ok = (dr == 0 or dc == 0)
+                                        elif piece.lower() == 'b':
+                                            ok = abs(dr) == abs(dc)
+                                        else:
+                                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                        if ok:
+                                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                            rr, cc = r + step_r, c + step_c
+                                            while (rr, cc) != (row, col):
+                                                if board[rr][cc] != '0':
+                                                    ok = False
+                                                    break
+                                                rr += step_r
+                                                cc += step_c
+
+                                    if ok:
+                                        from_row, from_col = r, c
+                                        break
+                                if from_row is not None:
+                                    break
+
+                            if from_row is not None and from_col is not None:
+                                if board[from_row][from_col] == piece.lower():
+                                    best_moves = [(from_row, from_col, row, col, piece.lower())]
+                                    previous_score = score(board, 'w')
     elif start:
         best_options = [(6, 4, 4, 4, 'p')]
         best_moves = [random.choice(best_options)]
@@ -5484,11 +5535,62 @@ def best_move_function(board, bots, en_passant):
                     else:
                         next_move = clean_move(next_move)
                         piece, to_col, to_row, disambig = parse_move(next_move)
-                        pos = str(to_col) + str(to_row)
-                        row, col = pos_to_indices(pos)
-                        from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                        previous_score = score(board, 'w')
-                        result_scores[(from_row, from_col, row, col, piece.lower())] = previous_score
+                        if piece and to_col and to_row and not disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
+                            previous_score = score(board, 'w')
+                            result_scores[(from_row, from_col, row, col, piece.lower())] = previous_score
+                        if piece and to_col and to_row and disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row = from_col = None
+
+                            for r in range(8):
+                                for c in range(8):
+                                    if board[r][c] != piece.lower():
+                                        continue
+                                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                        continue
+                                    if disambig in "12345678" and str(8 - r) != disambig:
+                                        continue
+
+                                    dr = row - r
+                                    dc = col - c
+                                    ok = False
+
+                                    if piece.lower() == 'n':
+                                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                    elif piece.lower() == 'k':
+                                        ok = max(abs(dr), abs(dc)) == 1
+                                    elif piece.lower() in {'r', 'b', 'q'}:
+                                        if piece.lower() == 'r':
+                                            ok = (dr == 0 or dc == 0)
+                                        elif piece.lower() == 'b':
+                                            ok = abs(dr) == abs(dc)
+                                        else:
+                                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                        if ok:
+                                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                            rr, cc = r + step_r, c + step_c
+                                            while (rr, cc) != (row, col):
+                                                if board[rr][cc] != '0':
+                                                    ok = False
+                                                    break
+                                                rr += step_r
+                                                cc += step_c
+
+                                    if ok:
+                                        from_row, from_col = r, c
+                                        break
+                                if from_row is not None:
+                                    break
+
+                            if from_row is not None and from_col is not None:
+                                if board[from_row][from_col] == piece.lower():
+                                    previous_score = score(board, 'w')
+                                    result_scores[(from_row, from_col, row, col, piece.lower())] = previous_score
     elif start:
         best_options = [(6, 4, 4, 4, 'p')]
         previous_score = score(board, 'b')
