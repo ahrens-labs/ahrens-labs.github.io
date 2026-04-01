@@ -13287,11 +13287,12 @@ function navigateToPreviousMove() {
         if (applied) return applied;
       }
 
-      // 4) Support engine long-style moves like "Ra1c1" or "a7a8Q" if emitted.
+      // 4) Support engine long-style moves like "Rc8f8", "Ra1c1", "a7a8Q", etc.
+      // Accept optional separators/capture markers and mixed-case piece letters.
       const compact = String(moveStr).trim().replace(/[+#]/g, "");
-      const longMatch = compact.match(/^([KQRBN])?([a-h][1-8])x?([a-h][1-8])([QRBNqrbn])?$/);
+      const longMatch = compact.match(/^([KQRBNkqrbn])?([a-h][1-8])(?:[-x:]?)([a-h][1-8])([QRBNqrbn])?$/);
       if (longMatch) {
-        const pieceLetter = longMatch[1] || null;
+        const pieceLetter = longMatch[1] ? longMatch[1].toUpperCase() : null;
         const from = longMatch[2];
         const to = longMatch[3];
         const promo = longMatch[4] ? longMatch[4].toLowerCase() : undefined;
