@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <script src="js/script.js"></script>
     
     <script>
         tailwind.config = {
@@ -1384,27 +1385,34 @@
             return merged;
         }
 
+        // Account-scoped storage (falls back to local device when logged out)
+        const plannerUserId = localStorage.getItem('ahrenslabs_userId') || 'guest';
+        const plannerStorageKey = (key) => `classify_${plannerUserId}_${key}`;
+        const plannerGet = (key) => localStorage.getItem(plannerStorageKey(key));
+        const plannerSet = (key, value) => localStorage.setItem(plannerStorageKey(key), value);
+        const plannerRemove = (key) => localStorage.removeItem(plannerStorageKey(key));
+
         // State
-        const storedTasks = safeJsonParse(localStorage.getItem('plannerTasksV2'), []);
-        const storedBlockedTimes = safeJsonParse(localStorage.getItem('plannerBlockedTimesV1'), []);
-        const storedScheduleRules = safeJsonParse(localStorage.getItem('plannerScheduleRulesV1'), null);
-        const storedVacations = safeJsonParse(localStorage.getItem('plannerVacationsV1'), []);
-        const storedRepeatSkips = safeJsonParse(localStorage.getItem('plannerRepeatSkipsV1'), {});
+        const storedTasks = safeJsonParse(plannerGet('plannerTasksV2'), []);
+        const storedBlockedTimes = safeJsonParse(plannerGet('plannerBlockedTimesV1'), []);
+        const storedScheduleRules = safeJsonParse(plannerGet('plannerScheduleRulesV1'), null);
+        const storedVacations = safeJsonParse(plannerGet('plannerVacationsV1'), []);
+        const storedRepeatSkips = safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {});
         let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean).map(normalizeTask) : [];
         let blockedTimes = Array.isArray(storedBlockedTimes) ? storedBlockedTimes : [];
         let scheduleRules = normalizeScheduleRules(storedScheduleRules);
         let vacationRanges = normalizeVacationRanges(storedVacations);
         let repeatSkips = normalizeRepeatSkips(storedRepeatSkips);
-        let subjectColors = safeJsonParse(localStorage.getItem('plannerSubjectColors'), {}) || {};
+        let subjectColors = safeJsonParse(plannerGet('plannerSubjectColors'), {}) || {};
         let editingId = null;
         let currentCalendarDate = new Date();
-        let calendarViewMode = localStorage.getItem('calendarViewMode') || 'month';
+        let calendarViewMode = plannerGet('calendarViewMode') || 'month';
         let confettiCtx;
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             // Dark Mode check
-            if(localStorage.getItem('darkMode') === 'true' || (!('darkMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            if(plannerGet('darkMode') === 'true' || (!plannerGet('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             }
 
@@ -1434,7 +1442,7 @@
             pruneExpiredScheduleItems();
             
             // Migrate old data if exists
-            const oldTasks = safeJsonParse(localStorage.getItem('plannerTasks'), null);
+            const oldTasks = safeJsonParse(plannerGet('plannerTasks'), null);
             if(oldTasks && tasks.length === 0) {
                 tasks = oldTasks.map(t => ({
                     id: generateId(),
@@ -1453,7 +1461,7 @@
                     if(!subjectColors[t.subject]) subjectColors[t.subject] = t.color;
                 });
                 saveData();
-                localStorage.removeItem('plannerTasks'); // Clean up old key
+                plannerRemove('plannerTasks'); // Clean up old key
             }
 
             const trimmed = pruneRepeatFutureWeeks();
@@ -1467,7 +1475,7 @@
         // --- Dark Mode ---
         function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
-            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+            plannerSet('darkMode', document.documentElement.classList.contains('dark'));
         }
 
         // --- Utils & Dates ---
@@ -1994,8 +2002,8 @@
                 ...scheduleRules,
                 dateOverrides: (scheduleRules.dateOverrides || []).filter(o => o.date >= todayStr)
             });
-            localStorage.setItem('plannerVacationsV1', JSON.stringify(vacationRanges));
-            localStorage.setItem('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
+            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
         }
 
         const AUTO_DAY_START = 8 * 60;
@@ -2181,11 +2189,11 @@
         // --- Data Management ---
         function saveData() {
             pruneExpiredScheduleItems();
-            localStorage.setItem('plannerTasksV2', JSON.stringify(tasks));
-            localStorage.setItem('plannerSubjectColors', JSON.stringify(subjectColors));
-            localStorage.setItem('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
-            localStorage.setItem('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
+            plannerSet('plannerTasksV2', JSON.stringify(tasks));
+            plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
+            plannerSet('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
             renderAll();
         }
 
@@ -3232,7 +3240,7 @@
             addRule(newRule);
 
             scheduleRules = normalizeScheduleRules({ ...scheduleRules, breakRules: rules });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
             ensureAllEventsScheduled();
@@ -3249,7 +3257,7 @@
                 ...scheduleRules,
                 breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== pendingBreakEdit.ruleId)
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
             ensureAllEventsScheduled();
@@ -3621,7 +3629,7 @@
                 defaultBreakLabel,
                 breakRules: scheduleRules.breakRules || []
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
             ensureAllEventsScheduled();
@@ -3645,7 +3653,7 @@
                 ...scheduleRules,
                 dateOverrides: existing
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(normalized.date)], true);
             ensureAllEventsScheduled();
@@ -3657,7 +3665,7 @@
                 ...scheduleRules,
                 dateOverrides: (scheduleRules.dateOverrides || []).filter(o => o.date !== dateStr)
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(dateStr)], true);
             ensureAllEventsScheduled();
@@ -3690,7 +3698,7 @@
                 ...scheduleRules,
                 breakRules: [...(scheduleRules.breakRules || []), newRule]
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
             reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
             ensureAllEventsScheduled();
@@ -3702,7 +3710,7 @@
                 ...scheduleRules,
                 breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== ruleId)
             });
-            localStorage.setItem('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
+            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
             reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
             ensureAllEventsScheduled();
@@ -3742,7 +3750,7 @@
             }
             blockedTimes.push({ id: generateId(), date, start, end, repeatRule, repeatStartDate: date });
             blockedTimes = normalizeBlockedTimes(blockedTimes);
-            localStorage.setItem('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
+            plannerSet('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
             renderBlockedTimesList();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(date)], true);
             ensureAllEventsScheduled();
@@ -3791,8 +3799,8 @@
             const migratedRanges = ranges.map(r => ({ id: generateId(), start: r.start, end: r.end }));
             vacationRanges = normalizeVacationRanges([...(vacationRanges || []), ...migratedRanges]);
             blockedTimes = normalized.filter(b => String(b.label || '').toLowerCase() !== 'vacation');
-            localStorage.setItem('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
-            localStorage.setItem('plannerVacationsV1', JSON.stringify(vacationRanges));
+            plannerSet('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
+            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
         }
 
         function addVacationBlocks() {
@@ -3813,7 +3821,7 @@
                 ...(vacationRanges || []),
                 { id: generateId(), start: startDate, end: endDate }
             ]);
-            localStorage.setItem('plannerVacationsV1', JSON.stringify(vacationRanges));
+            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
             renderVacationList();
             reAutoScheduleWeeks(Array.from(affectedWeeks), true);
             ensureAllEventsScheduled();
@@ -3823,7 +3831,7 @@
         function removeBlockedTime(blockId) {
             const removed = normalizeBlockedTimes(blockedTimes).find(b => b.id === blockId);
             blockedTimes = normalizeBlockedTimes(blockedTimes).filter(b => b.id !== blockId);
-            localStorage.setItem('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
+            plannerSet('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
             renderBlockedTimesList();
             if(removed?.date) {
                 reAutoScheduleWeeks([getWeekKeyFromDateStr(removed.date)], true);
@@ -3837,7 +3845,7 @@
         function removeVacationRange(rangeId) {
             const removed = normalizeVacationRanges(vacationRanges).find(v => v.id === rangeId);
             vacationRanges = normalizeVacationRanges(vacationRanges).filter(v => v.id !== rangeId);
-            localStorage.setItem('plannerVacationsV1', JSON.stringify(vacationRanges));
+            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
             renderVacationList();
             if(removed) {
                 const affectedWeeks = new Set(getDateRangeInclusive(removed.start, removed.end).map(getWeekKeyFromDateStr));
@@ -3973,7 +3981,7 @@
         // --- Calendar Logic ---
         function setCalendarViewMode(mode) {
             calendarViewMode = mode === 'week' ? 'week' : 'month';
-            localStorage.setItem('calendarViewMode', calendarViewMode);
+            plannerSet('calendarViewMode', calendarViewMode);
             renderCalendar();
         }
 

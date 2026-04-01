@@ -4,7 +4,8 @@ const AHRENS_API_URL = 'https://chess-accounts.matthewahrens.workers.dev';
 // List of pages that require login
 const PROTECTED_PAGES = [
     'chess_engine.html',
-    'dungeon_game.html'
+    'dungeon_game.html',
+    'classify.html'
 ];
 
 // Check if current page requires login
