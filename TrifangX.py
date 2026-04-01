@@ -310,7 +310,6 @@ def reset_engine_state():
     # Reset caches (new game state)
     global SCORING_VERSION
     SCORING_VERSION += 1
-    _clear_engine_caches()
     # Reset king positions to starting squares
     white_king_row = 0
     white_king_col = 4
@@ -3176,14 +3175,9 @@ def is_protected_piece(board, row, col, piece):
     return False
 def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col):
     """
-    Find other pieces of the same type that can legally reach the target from the current
-    position. When more than one piece (including the mover) could reach the square, return
-    a single SAN disambiguation character:
-
-    - If every such piece sits on the same file, use the rank digit (e.g. R1a3).
-    - Otherwise use the file letter of the moving piece (e.g. Nfd7).
-
-    Returns '' when no disambiguation is needed.
+    Find all pieces of same type that can legally move to target square FROM CURRENT POSITION.
+    Returns minimal disambiguation: '', 'file', 'rank', or 'both'
+    Prefers file over rank when possible.
     """
     ambiguous_pieces = []
 
@@ -3270,10 +3264,12 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
     if not ambiguous_pieces:
         return ''
 
-    # All candidates (mover + others) share one file → rank; else → file of the mover.
-    all_cols = {best_col} | {c for _, c in ambiguous_pieces}
-    if len(all_cols) == 1:
-        return str(8 - best_row)
+    # If another candidate shares the same file, use rank.
+    for row, col in ambiguous_pieces:
+        if col == best_col:
+            return str(8 - best_row)
+
+    # Otherwise use file (same rank or neither).
     return indices_to_pos_col(best_col)
 
 def is_protected_pawn(board, row, col, piece):
@@ -3322,6 +3318,7 @@ def corner_queen_mate(board, target_row, target_col, winner):
                     distance = abs(row - target_row) + abs(col - target_col)
                     score += (7 - distance)*10
     return score
+
 def parse_move(move):
     move = move.lower()
     pattern = r'^([kqrnb])?([a-h])([1-8])'
@@ -3330,9 +3327,16 @@ def parse_move(move):
         piece = match.group(1) if match.group(1) else 'P'  # If no piece letter, it's a pawn
         col = match.group(2)
         row = int(match.group(3))
-        return piece.upper(), col, row
+        return piece.upper(), col, row, None
     else:
-        return None, None, None
+        pattern = r'^([kqrnb])([a-h1-8])([a-h])([1-8])'
+        match_2 = re.match(pattern, move)
+        if match_2:
+            piece = match_2.group(1) if match_2.group(1) else 'P'  # Disambiguated piece SAN
+            col = match_2.group(3)  # Destination file
+            row = int(match_2.group(4))  # Destination rank
+            disambig = match_2.group(2)
+            return piece.upper(), col, row, disambig
 
 def extract_long_algebraic(move):
     if len(move) != 5:
@@ -3498,86 +3502,6 @@ def extract_moves(pgn_str):
     pattern = r'\b(?:0-0-0|0-0|[a-hRNBQK][a-h1-8x=+#]*)\b'
     return re.findall(pattern, pgn_str)
 
-# Piece SAN without full board: piece + optional disambiguation + optional x + dest square
-_OPENING_SAN_PIECE = re.compile(r'^([NBRQK])([a-h1-8]*?)(x?)([a-h][1-8])$', re.I)
-
-
-def _long_algebraic_parts(move_lower):
-    """Return (piece, from_sq, to_sq) for 5-char piece long form (e.g. Nf6d7, Rf1d1)."""
-    m = move_lower
-    if len(m) != 5:
-        return None
-    if m[0] not in 'nbrqk':
-        return None
-    if m[1] not in 'abcdefgh' or m[2] not in '12345678':
-        return None
-    if m[3] not in 'abcdefgh' or m[4] not in '12345678':
-        return None
-    return (m[0], m[1:3], m[3:5])
-
-
-def opening_move_tokens_equivalent(a, b):
-    """True if two PGN tokens are the same move (handles Nfd7 vs Nf6d7, O-O vs 0-0, etc.)."""
-    if not a or not b:
-        return False
-    if a.strip() == b.strip():
-        return True
-    ca = clean_move(a.strip()).lower()
-    cb = clean_move(b.strip()).lower()
-    if ca == cb:
-        return True
-    if ca in ('0-0', 'o-o') and cb in ('0-0', 'o-o'):
-        return True
-    if ca in ('0-0-0', 'o-o-o') and cb in ('0-0-0', 'o-o-o'):
-        return True
-    la = _long_algebraic_parts(ca)
-    lb = _long_algebraic_parts(cb)
-    if la and lb:
-        return la == lb
-    if la and not lb:
-        return _san_token_matches_long_algebraic(cb, la)
-    if lb and not la:
-        return _san_token_matches_long_algebraic(ca, lb)
-    return False
-
-
-def _san_token_matches_long_algebraic(san_lower, long_parts):
-    """SAN piece move matches 5-char long algebraic (same piece, from, to)."""
-    piece, from_sq, to_sq = long_parts
-    ma = _OPENING_SAN_PIECE.match(san_lower)
-    if ma:
-        p, disc, _cap, dest = ma.groups()
-        if p.lower() != piece:
-            return False
-        if dest != to_sq:
-            return False
-        if not disc:
-            return True
-        if disc == from_sq:
-            return True
-        if len(disc) == 1:
-            if disc in 'abcdefgh':
-                return disc == from_sq[0]
-            if disc in '12345678':
-                return disc == from_sq[1]
-        return False
-    return False
-
-
-def opening_line_matches_played(opening_str, played_str):
-    """
-    True if played_str's move list is a prefix of opening_str, allowing SAN variants
-    (e.g. book Nfd7 matches game Nf6d7).
-    """
-    to_play = extract_moves(opening_str)
-    played = extract_moves(played_str)
-    if len(played) > len(to_play):
-        return False
-    for i in range(len(played)):
-        if not opening_move_tokens_equivalent(played[i], to_play[i]):
-            return False
-    return True
-
 
 def players_turn(board, next_move, notation_move):
     global number_of_moves, white_king_row, white_king_col, white_move_count
@@ -3644,7 +3568,7 @@ def players_turn(board, next_move, notation_move):
                 raise ValueError(f"Invalid pawn capture move format: {next_move}")
         else:
             next_move = clean_move(next_move)
-            piece, to_col, to_row = parse_move(next_move)
+            piece, to_col, to_row, disambig = parse_move(next_move)
             if piece is None or to_col is None or to_row is None:
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
@@ -3766,7 +3690,7 @@ def players_turn_white(board, next_move, notation_move):
                 raise ValueError(f"Invalid pawn capture move format: {next_move}")
         else:
             next_move = clean_move(next_move)
-            piece, to_col, to_row = parse_move(next_move)
+            piece, to_col, to_row, disambig = parse_move(next_move)
             if piece is None or to_col is None or to_row is None:
                 raise ValueError(f"Could not parse move: {next_move}")
             pos = str(to_col) + str(to_row)
@@ -3902,7 +3826,9 @@ def best_move_function_test(board, bots, en_passant):
     ]
     if opening_moves != 'none':
         for opening in openings:
-            if opening_line_matches_played(opening, opening_moves):
+            normalized_opening = normalize_pgn(opening)
+            normalized_input = normalize_pgn(opening_moves)
+            if normalized_input in normalized_opening:
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -3931,7 +3857,7 @@ def best_move_function_test(board, bots, en_passant):
                         previous_score = score(board, 'w')
                     else:
                         next_move = clean_move(next_move)
-                        piece, to_col, to_row = parse_move(next_move)
+                        piece, to_col, to_row, disambig = parse_move(next_move)
                         pos = str(to_col) + str(to_row)
                         row, col = pos_to_indices(pos)
                         from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
@@ -5372,14 +5298,13 @@ def best_move_function_test(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
-                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -5391,10 +5316,10 @@ def best_move_function_test(board, bots, en_passant):
                         else:
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -5527,7 +5452,9 @@ def best_move_function(board, bots, en_passant):
     ]
     if opening_moves != 'none':
         for opening in openings:
-            if opening_line_matches_played(opening, opening_moves):
+            normalized_opening = normalize_pgn(opening)
+            normalized_input = normalize_pgn(opening_moves)
+            if normalized_input in normalized_opening:
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -5556,7 +5483,7 @@ def best_move_function(board, bots, en_passant):
                         result_scores[(to_row+1, from_col, to_row, to_col, 'p')] = previous_score
                     else:
                         next_move = clean_move(next_move)
-                        piece, to_col, to_row = parse_move(next_move)
+                        piece, to_col, to_row, disambig = parse_move(next_move)
                         pos = str(to_col) + str(to_row)
                         row, col = pos_to_indices(pos)
                         from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
@@ -6044,14 +5971,13 @@ def best_move_function(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
-                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -6063,10 +5989,10 @@ def best_move_function(board, bots, en_passant):
                         else:
                             if best_piece != 'p':
                                   if piece in WHITE_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in WHITE_PIECES:
@@ -7100,13 +7026,16 @@ def best_move_black(board, bots, en_passant):
     elif opening_moves != 'none':
         # OPTIMIZATION: Fixed order - no shuffle needed for opening book
         for opening in openings:
-            # Prefix match by move tokens (handles Nfd7 vs Nf6d7, O-O vs 0-0, etc.)
-            if opening_line_matches_played(opening, opening_moves):
+            normalized_opening = normalize_pgn(opening)
+            normalized_input = normalize_pgn(opening_moves)
+            # Use prefix matching instead of substring matching to ensure correct position
+            if normalized_opening.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
                 if next_index < len(to_play_list):
                     next_move = to_play_list[next_index]
+                    print("NM:", next_move)
                     if next_move in {'0-0', 'O-O'}:
                         # Validate castling is legal before adding to result_scores
                         if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
@@ -7156,9 +7085,10 @@ def best_move_black(board, bots, en_passant):
                             pass  # Invalid move format, skip
                     else:
                         try:
+                            print("other")
                             next_move_clean = clean_move(next_move)
-                            piece, to_col, to_row = parse_move(next_move_clean)
-                            if piece and to_col and to_row:
+                            piece, to_col, to_row, disambig = parse_move(next_move_clean)
+                            if piece and to_col and to_row and not disambig:
                                 pos = str(to_col) + str(to_row)
                                 row, col = pos_to_indices(pos)
                                 from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
@@ -7169,10 +7099,63 @@ def best_move_black(board, bots, en_passant):
                                             previous_score = score(board, 'b')
                                             result_scores[(from_row, from_col, row, col, piece)] = previous_score
                                             break  # Use first valid opening match
+                            if piece and to_col and to_row and disambig:
+                                pos = str(to_col) + str(to_row)
+                                row, col = pos_to_indices(pos)
+                                from_row = from_col = None
+
+                                # Find source square constrained by SAN disambiguation.
+                                for r in range(8):
+                                    for c in range(8):
+                                        if board[r][c] != piece.upper():
+                                            continue
+                                        if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                            continue
+                                        if disambig in "12345678" and str(8 - r) != disambig:
+                                            continue
+
+                                        dr = row - r
+                                        dc = col - c
+                                        ok = False
+
+                                        if piece.lower() == 'n':
+                                            ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                        elif piece.lower() == 'k':
+                                            ok = max(abs(dr), abs(dc)) == 1
+                                        elif piece.lower() in {'r', 'b', 'q'}:
+                                            if piece.lower() == 'r':
+                                                ok = (dr == 0 or dc == 0)
+                                            elif piece.lower() == 'b':
+                                                ok = abs(dr) == abs(dc)
+                                            else:
+                                                ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                            if ok:
+                                                step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                                step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                                rr, cc = r + step_r, c + step_c
+                                                while (rr, cc) != (row, col):
+                                                    if board[rr][cc] != '0':
+                                                        ok = False
+                                                        break
+                                                    rr += step_r
+                                                    cc += step_c
+
+                                        if ok:
+                                            from_row, from_col = r, c
+                                            break
+                                    if from_row is not None:
+                                        break
+
+                                if from_row is not None and from_col is not None:
+                                    if board[from_row][from_col] == piece.upper():
+                                        previous_score = score(board, 'b')
+                                        result_scores[(from_row, from_col, row, col, piece)] = previous_score
+                                        break  # Use first valid opening match
                         except (ValueError, IndexError, TypeError):
                             pass  # Invalid move format, skip
 
     if not result_scores:
+        print("evaluation")
         # Quickly collect all legal move tasks for parallel evaluation
         for row in range(8):
             for col in range(8):
@@ -8779,14 +8762,13 @@ def best_move_black(board, bots, en_passant):
                         print(move_played)
                         en_passant = 'false'
                     else:
-                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
                         if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                             if best_piece != 'P':
                                   if piece in BLACK_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col) + '+'
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col) + '+'
                                     print(move_played)
                             else:
                                   if piece in BLACK_PIECES:
@@ -8798,10 +8780,10 @@ def best_move_black(board, bots, en_passant):
                         else:
                             if best_piece != 'P':
                                   if piece in BLACK_PIECES:
-                                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
                                     print(move_played)
                                   else:
-                                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
                                     print(move_played)
                             else:
                                   if piece in BLACK_PIECES:

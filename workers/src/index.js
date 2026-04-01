@@ -43,6 +43,10 @@ export default {
         return handleDungeonLoad(request, env, corsHeaders);
       } else if (path === '/api/dungeon/delete' && request.method === 'POST') {
         return handleDungeonDelete(request, env, corsHeaders);
+      } else if (path === '/api/classify/sync' && request.method === 'POST') {
+        return handleClassifySync(request, env, corsHeaders);
+      } else if (path === '/api/classify/load' && request.method === 'GET') {
+        return handleClassifyLoad(request, env, corsHeaders);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -550,6 +554,77 @@ async function handleDungeonDelete(request, env, corsHeaders) {
   });
 }
 
+async function handleClassifySync(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const classifyData = await request.json();
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const updateReq = new Request('http://do/updateClassifyData', {
+    method: 'POST',
+    body: JSON.stringify(classifyData)
+  });
+  await userAccount.fetch(updateReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleClassifyLoad(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const getReq = new Request('http://do/getClassifyData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getReq);
+  const classifyData = await dataRes.json();
+
+  return new Response(JSON.stringify(classifyData), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 // Get user data handler
 async function handleGetUser(request, env, corsHeaders) {
   const authHeader = request.headers.get('Authorization');
@@ -789,6 +864,17 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/updateClassifyData' && request.method === 'POST') {
+        const classifyData = await request.json();
+        await this.updateClassifyData(classifyData);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getClassifyData' && request.method === 'GET') {
+        const classifyData = await this.getClassifyData();
+        return new Response(JSON.stringify(classifyData), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -871,6 +957,17 @@ export class UserAccount {
             slot3: null
           },
           lastPlayedSlot: null
+        },
+        classify: {
+          tasks: [],
+          blockedTimes: [],
+          scheduleRules: null,
+          vacations: [],
+          repeatSkips: {},
+          subjectColors: {},
+          calendarViewMode: 'month',
+          darkMode: null,
+          lastUpdated: null
         }
       }
     };
@@ -1061,6 +1158,49 @@ export class UserAccount {
     
     userData.games.dungeon.saveSlots[slot] = null;
     await this.storage.put('userData', userData);
+  }
+
+  async updateClassifyData(classifyData) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+
+    if (!userData.games) userData.games = {};
+    if (!userData.games.classify) {
+      userData.games.classify = {
+        tasks: [],
+        blockedTimes: [],
+        scheduleRules: null,
+        vacations: [],
+        repeatSkips: {},
+        subjectColors: {},
+        calendarViewMode: 'month',
+        darkMode: null
+      };
+    }
+
+    userData.games.classify = {
+      ...userData.games.classify,
+      ...classifyData,
+      lastUpdated: Date.now()
+    };
+    await this.storage.put('userData', userData);
+  }
+
+  async getClassifyData() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.games || !userData.games.classify) {
+      return {
+        tasks: [],
+        blockedTimes: [],
+        scheduleRules: null,
+        vacations: [],
+        repeatSkips: {},
+        subjectColors: {},
+        calendarViewMode: 'month',
+        darkMode: null
+      };
+    }
+    return userData.games.classify;
   }
 
   async hashPassword(password) {

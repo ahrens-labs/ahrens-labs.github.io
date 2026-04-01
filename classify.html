@@ -1389,8 +1389,89 @@
         const plannerUserId = localStorage.getItem('ahrenslabs_userId') || 'guest';
         const plannerStorageKey = (key) => `classify_${plannerUserId}_${key}`;
         const plannerGet = (key) => localStorage.getItem(plannerStorageKey(key));
-        const plannerSet = (key, value) => localStorage.setItem(plannerStorageKey(key), value);
+        let cloudSyncEnabled = false;
+        let suppressCloudSync = false;
+        let cloudSyncTimer = null;
+        const plannerSet = (key, value) => {
+            localStorage.setItem(plannerStorageKey(key), value);
+            queueClassifyCloudSync();
+        };
         const plannerRemove = (key) => localStorage.removeItem(plannerStorageKey(key));
+
+        function buildClassifyCloudPayload() {
+            return {
+                tasks: Array.isArray(tasks) ? tasks : [],
+                blockedTimes: Array.isArray(blockedTimes) ? blockedTimes : [],
+                scheduleRules: normalizeScheduleRules(scheduleRules),
+                vacations: Array.isArray(vacationRanges) ? vacationRanges : [],
+                repeatSkips: normalizeRepeatSkips(repeatSkips),
+                subjectColors: subjectColors || {},
+                calendarViewMode: calendarViewMode || 'month',
+                darkMode: plannerGet('darkMode')
+            };
+        }
+
+        function applyClassifyCloudPayload(payload = {}) {
+            tasks = Array.isArray(payload.tasks) ? payload.tasks.filter(Boolean).map(normalizeTask) : [];
+            blockedTimes = Array.isArray(payload.blockedTimes) ? normalizeBlockedTimes(payload.blockedTimes) : [];
+            scheduleRules = normalizeScheduleRules(payload.scheduleRules);
+            vacationRanges = normalizeVacationRanges(payload.vacations);
+            repeatSkips = normalizeRepeatSkips(payload.repeatSkips);
+            subjectColors = payload.subjectColors || {};
+            calendarViewMode = payload.calendarViewMode || 'month';
+            if (payload.darkMode === 'true' || payload.darkMode === 'false') {
+                plannerSet('darkMode', payload.darkMode);
+            }
+        }
+
+        async function loadClassifyDataFromCloud() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return false;
+            try {
+                const response = await fetch(`${AHRENS_API_URL}/api/classify/load`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${sessionId}` }
+                });
+                if (!response.ok) return false;
+                const data = await response.json();
+                suppressCloudSync = true;
+                applyClassifyCloudPayload(data);
+                suppressCloudSync = false;
+                return true;
+            } catch (error) {
+                console.error('Failed to load classify data from cloud:', error);
+                suppressCloudSync = false;
+                return false;
+            }
+        }
+
+        function queueClassifyCloudSync() {
+            if (!cloudSyncEnabled || suppressCloudSync) return;
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return;
+            if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                syncClassifyDataToCloud();
+            }, 1200);
+        }
+
+        async function syncClassifyDataToCloud() {
+            if (!cloudSyncEnabled || suppressCloudSync) return;
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return;
+            try {
+                await fetch(`${AHRENS_API_URL}/api/classify/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`
+                    },
+                    body: JSON.stringify(buildClassifyCloudPayload())
+                });
+            } catch (error) {
+                console.error('Failed to sync classify data to cloud:', error);
+            }
+        }
 
         // State
         const storedTasks = safeJsonParse(plannerGet('plannerTasksV2'), []);
@@ -1410,11 +1491,14 @@
         let confettiCtx;
 
         // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Dark Mode check
             if(plannerGet('darkMode') === 'true' || (!plannerGet('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             }
+
+            // Load account-backed planner state before first render
+            await loadClassifyDataFromCloud();
 
             // Confetti setup
             const canvas = document.getElementById('confetti-canvas');
@@ -1469,7 +1553,17 @@
             if(trimmed > 0 || spawned > 0) {
                 saveData();
             }
+
+            // Enable cloud syncing after initial load/migrations
+            cloudSyncEnabled = true;
             renderAll();
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (cloudSyncEnabled && !suppressCloudSync) {
+                // Best-effort flush when leaving page
+                syncClassifyDataToCloud();
+            }
         });
 
         // --- Dark Mode ---
