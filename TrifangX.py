@@ -3182,11 +3182,11 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
     """
     ambiguous_pieces = []
 
-    # Find all pieces of same type (excluding the target square where piece just moved)
+    # Find all pieces of same type (excluding source and target squares)
     for row in range(8):
         for col in range(8):
-            # Skip the target square (piece that just moved is there)
-            if row == target_row and col == target_col:
+            # Skip the source square (where piece came from) and target square (where piece moved to)
+            if (row == best_row and col == best_col) or (row == target_row and col == target_col):
                 continue
 
             if board[row][col] == best_piece:
@@ -3202,16 +3202,14 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
                             # Moving along same row
                             step = 1 if target_col > col else -1
                             for c in range(col + step, target_col, step):
-                                # Treat original position as occupied
-                                if board[row][c] != '0' or (row == best_row and c == best_col):
+                                if board[row][c] != '0':
                                     path_clear = False
                                     break
                         else:
                             # Moving along same column
                             step = 1 if target_row > row else -1
                             for r in range(row + step, target_row, step):
-                                # Treat original position as occupied
-                                if board[r][col] != '0' or (r == best_row and col == best_col):
+                                if board[r][col] != '0':
                                     path_clear = False
                                     break
                         if path_clear:
@@ -3228,8 +3226,7 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
                         col_step = 1 if target_col > col else -1
                         r, c = row + row_step, col + col_step
                         while r != target_row:
-                            # Treat original position as occupied
-                            if board[r][c] != '0' or (r == best_row and c == best_col):
+                            if board[r][c] != '0':
                                 path_clear = False
                                 break
                             r += row_step
@@ -3244,34 +3241,37 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
                     if (row_diff == 2 and col_diff == 1) or (row_diff == 1 and col_diff == 2):
                         can_move = True
 
+                # Check if destination is occupied by a friendly piece (illegal move)
+                if can_move:
+                    dest_piece = board[target_row][target_col]
+                    if dest_piece != '0':  # Destination occupied
+                        # Check if same color (friendly piece)
+                        if best_piece.isupper() == dest_piece.isupper():
+                            can_move = False  # Can't capture own piece
+
+                if can_move:
+                    # Ensure the candidate move is legal (does not leave own king in check)
+                    temp_board = fast_copy_board(board)
+                    temp_board[target_row][target_col] = best_piece
+                    temp_board[row][col] = '0'
+                    moving_color = 'w' if best_piece.isupper() else 'b'
+                    king_row, king_col = find_king(temp_board, moving_color)
+                    if king_row != -1 and is_king_in_check(temp_board, king_row, king_col, moving_color):
+                        can_move = False
+
                 if can_move:
                     ambiguous_pieces.append((row, col))
 
     if not ambiguous_pieces:
         return ''
 
-    # Check if file disambiguation is sufficient
-    file_unique = True
+    # If another candidate shares the same file, use rank.
     for row, col in ambiguous_pieces:
         if col == best_col:
-            file_unique = False
-            break
+            return str(8 - best_row)
 
-    if file_unique:
-        return indices_to_pos_col(best_col)
-
-    # Check if rank disambiguation is sufficient
-    rank_unique = True
-    for row, col in ambiguous_pieces:
-        if row == best_row:
-            rank_unique = False
-            break
-
-    if rank_unique:
-        return str(8 - best_row)
-
-    # Need both file and rank
-    return indices_to_pos(best_row, best_col)
+    # Otherwise use file (same rank or neither).
+    return indices_to_pos_col(best_col)
 
 def is_protected_pawn(board, row, col, piece):
     if piece == 'p':
@@ -5248,6 +5248,7 @@ def best_move_function_test(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
                 board[target_row][target_col] = best_piece
                 if blind != 'y':
@@ -5280,20 +5281,14 @@ def best_move_function_test(board, bots, en_passant):
                     en_passant = 'false'
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
-                        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            if piece in WHITE_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
+                        if piece in WHITE_PIECES:
+                            move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
-                            if piece in WHITE_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col)
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col)
-                              print(move_played)
+                            move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            move_played += '+'
+                        print(move_played)
                         en_passant = 'false'
                     else:
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
@@ -5926,6 +5921,7 @@ def best_move_function(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
                 board[target_row][target_col] = best_piece
                 if blind != 'y':
@@ -5958,20 +5954,14 @@ def best_move_function(board, bots, en_passant):
                     en_passant = 'false'
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
-                        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            if piece in WHITE_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
+                        if piece in WHITE_PIECES:
+                            move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
-                            if piece in WHITE_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col)
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col)
-                              print(move_played)
+                            move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            move_played += '+'
+                        print(move_played)
                         en_passant = 'false'
                     else:
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
@@ -7022,6 +7012,7 @@ def best_move_black(board, bots, en_passant):
     normalized_opening = normalize_pgn(opening_moves)
     if normalized_opening == '1. e4':
         best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
+        best_options = [(1, 4, 2, 4, 'P')]
         best_option = random.choice(best_options)
         previous_score = score(board, 'b')
         result_scores[best_option] = previous_score
@@ -8666,6 +8657,7 @@ def best_move_black(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
                 board[target_row][target_col] = best_piece
                 if blind != 'y':
@@ -8698,20 +8690,14 @@ def best_move_black(board, bots, en_passant):
                     en_passant = 'false'
                 else:
                     if is_protected_piece(board, target_row, target_col, best_piece):
-                        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            if piece in BLACK_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col) + '+'
-                              print(move_played)
+                        disambiguation = get_move_disambiguation(board_before, best_piece, best_row, best_col, target_row, target_col)
+                        if piece in BLACK_PIECES:
+                            move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
                         else:
-                            if piece in BLACK_PIECES:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + 'x' + indices_to_pos(target_row, target_col)
-                              print(move_played)
-                            else:
-                              move_played = best_piece.upper() + indices_to_pos(best_row, best_col) + indices_to_pos(target_row, target_col)
-                              print(move_played)
+                            move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
+                            move_played += '+'
+                        print(move_played)
                         en_passant = 'false'
                     else:
                         if is_king_in_check(board, black_king_row, black_king_col, 'b'):
