@@ -1598,6 +1598,10 @@
             const normalizedDueDate = task.dueDate || task.due || normalizedEventDate || null;
             const normalizedWeek = task.week || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null);
             const normalizedTime = task.time || null;
+            const normalizedSplitGroupId = task.splitGroupId || null;
+            const normalizedSplitPercent = Number.isFinite(Number(task.splitPercent))
+                ? Math.max(1, Math.min(100, Math.round(Number(task.splitPercent))))
+                : null;
             let normalizedTimeSource = ['auto', 'user'].includes(task.timeSource) ? task.timeSource : null;
             if(!normalizedTimeSource && normalizedTime) {
                 // Legacy task inference: week/flexible scheduled times were typically auto-generated.
@@ -1640,6 +1644,8 @@
                 notes: String(task.notes || '').substring(0, 500),
                 completed: Boolean(task.completed),
                 completedDate: task.completedDate || null,
+                splitGroupId: normalizedSplitGroupId,
+                splitPercent: normalizedSplitPercent,
                 repeatGroupId,
                 repeatWeekKey: repeatGroupId ? (task.repeatWeekKey || normalizedWeek) : null,
                 repeatRule
@@ -5334,6 +5340,21 @@
             showNotification('Weekly planning queue ready', 'info');
         }
 
+        function isSplittableAutoTask(task, minMinutes = 45) {
+            if(!task || task.completed) return false;
+            const duration = parseInt(task.duration, 10);
+            if(!Number.isFinite(duration) || duration < minMinutes) return false;
+            if(task.date || task.time) return false;
+            if(task.scheduleType === 'date') return false;
+            if(task.timeSource === 'user') return false;
+            if(task.repeatGroupId || (task.repeatRule && task.repeatRule.type !== 'none')) return false;
+            if((task.mustBeAfter && task.mustBeAfter.length) || (task.mustBeBefore && task.mustBeBefore.length)) return false;
+            if(task.splitGroupId || Number(task.splitPercent)) return false;
+            const { baseRemaining } = extractRemainingPercentFromTitle(task.title || '');
+            if(baseRemaining < 100) return false;
+            return true;
+        }
+
         function planWeek(weekKey, includeFlexible = false, skipTimeBlock = false) {
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
@@ -5503,6 +5524,30 @@
                     ? Math.max(timeToMin(schedule.start), getNowMinRoundedTo5())
                     : timeToMin(schedule.start);
             };
+            const findLargestOpenSlot = (busySlots, startMin, endMin, breakMin = 0) => {
+                const sorted = (busySlots || []).slice().sort((a, b) => a.start - b.start);
+                let cursor = startMin;
+                let best = null;
+                for(const slot of sorted) {
+                    if(slot.end + breakMin <= cursor) continue;
+                    const gapEnd = Math.min(endMin, slot.start);
+                    if(gapEnd - cursor > 0) {
+                        const length = gapEnd - cursor;
+                        if(!best || length > best.length) {
+                            best = { start: cursor, end: gapEnd, length };
+                        }
+                    }
+                    cursor = Math.max(cursor, slot.end + breakMin);
+                    if(cursor >= endMin) break;
+                }
+                if(endMin - cursor > 0) {
+                    const length = endMin - cursor;
+                    if(!best || length > best.length) {
+                        best = { start: cursor, end: endMin, length };
+                    }
+                }
+                return best;
+            };
             const getTaskCandidateDates = (task) => {
                 const hasUserLockedDate = task.scheduleType === 'date' && Boolean(task.date);
                 const preferredDate = (task.date && processDates.includes(task.date)) ? task.date : processDates[0];
@@ -5595,7 +5640,7 @@
                 return null;
             };
 
-                const tryPlaceTaskWithDateList = (task, dateList) => {
+                const tryPlaceTaskWithDateList = (task, dateList, context) => {
                     const hasUserLockedDate = task.scheduleType === 'date' && Boolean(task.date);
                     let placed = null;
                     for(const candidateDate of (dateList || [])) {
@@ -5617,6 +5662,62 @@
                         if(slot) {
                             placed = { slot, date: candidateDate, busy: candidateBusy };
                             break;
+                        }
+                        if(!placed && isSplittableAutoTask(task, 45)) {
+                            const duration = parseInt(task.duration, 10) || 30;
+                            const dueDate = getTaskDueDate(task);
+                            const targetDayEnd = timeToMin(candidateSchedule.end);
+                            const targetDueLimit = (task.dueTime && dueDate === candidateDate) ? timeToMin(task.dueTime) : targetDayEnd;
+                            const maxEnd = Math.min(targetDayEnd, targetDueLimit);
+                            const bestGap = findLargestOpenSlot(candidateBusy, candidateDayStart, maxEnd, 0);
+                            if(bestGap && bestGap.length >= 15 && bestGap.length < duration) {
+                                const roundedGap = Math.floor(bestGap.length / 5) * 5;
+                                if(roundedGap >= 5) {
+                                    const { baseTitle, baseRemaining } = extractRemainingPercentFromTitle(task.title || '');
+                                    const groupId = generateId();
+                                    let firstDuration = Math.min(duration - 5, roundedGap);
+                                    firstDuration = Math.max(5, Math.floor(firstDuration / 5) * 5);
+                                    let secondDuration = duration - firstDuration;
+                                    if(secondDuration < 5) {
+                                        firstDuration = Math.max(5, duration - 5);
+                                        secondDuration = duration - firstDuration;
+                                    }
+                                    let firstPercent = Math.round(baseRemaining * (firstDuration / duration));
+                                    firstPercent = Math.max(1, Math.min(baseRemaining - 1, firstPercent));
+                                    const secondPercent = baseRemaining - firstPercent;
+
+                                    task.title = `${baseTitle} (${firstPercent}% part)`;
+                                    task.duration = firstDuration;
+                                    task.splitGroupId = groupId;
+                                    task.splitPercent = firstPercent;
+
+                                    const remainderTask = normalizeTask({
+                                        ...task,
+                                        id: generateId(),
+                                        title: `${baseTitle} (${secondPercent}% part)`,
+                                        duration: secondDuration,
+                                        date: null,
+                                        time: null,
+                                        timeSource: null,
+                                        splitGroupId: groupId,
+                                        splitPercent: secondPercent,
+                                        repeatGroupId: null,
+                                        repeatWeekKey: null,
+                                        repeatRule: normalizeRepeatRule({ type: 'none' })
+                                    });
+
+                                    const slotForPart = { start: bestGap.start, end: bestGap.start + firstDuration };
+                                    placed = { slot: slotForPart, date: candidateDate, busy: candidateBusy };
+
+                                    if(context) {
+                                        context.floating.push(remainderTask);
+                                        context.unscheduledIds.add(remainderTask.id);
+                                        context.candidateDatesByTask.set(remainderTask.id, getTaskCandidateDates(remainderTask));
+                                        tasks.push(remainderTask);
+                                    }
+                                    break;
+                                }
+                            }
                         }
                     }
 
@@ -5656,7 +5757,7 @@
                             const candidates = candidateDatesByTask.get(task.id) || [];
                             if(!candidates.includes(day)) continue;
                             if(shouldDeferToLaterDay(task, day, candidates)) continue;
-                            if(tryPlaceTaskWithDateList(task, [day])) {
+                            if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
                                 unscheduledIds.delete(task.id);
                                 packedAny = true;
                             }
@@ -5668,7 +5769,7 @@
                 floating.forEach(task => {
                     if(!unscheduledIds.has(task.id)) return;
                     const candidateDates = candidateDatesByTask.get(task.id) || [];
-                    if(tryPlaceTaskWithDateList(task, candidateDates)) {
+                    if(tryPlaceTaskWithDateList(task, candidateDates, { floating, unscheduledIds, candidateDatesByTask })) {
                         unscheduledIds.delete(task.id);
                     }
                 });
