@@ -5524,6 +5524,24 @@
                     ? Math.max(timeToMin(schedule.start), getNowMinRoundedTo5())
                     : timeToMin(schedule.start);
             };
+            const getOpenGaps = (busySlots, startMin, endMin, breakMin = 0) => {
+                const sorted = (busySlots || []).slice().sort((a, b) => a.start - b.start);
+                const gaps = [];
+                let cursor = startMin;
+                for(const slot of sorted) {
+                    if(slot.end + breakMin <= cursor) continue;
+                    const gapEnd = Math.min(endMin, slot.start);
+                    if(gapEnd - cursor > 0) {
+                        gaps.push({ start: cursor, end: gapEnd, length: gapEnd - cursor });
+                    }
+                    cursor = Math.max(cursor, slot.end + breakMin);
+                    if(cursor >= endMin) break;
+                }
+                if(endMin - cursor > 0) {
+                    gaps.push({ start: cursor, end: endMin, length: endMin - cursor });
+                }
+                return gaps;
+            };
             const findLargestOpenSlot = (busySlots, startMin, endMin, breakMin = 0) => {
                 const sorted = (busySlots || []).slice().sort((a, b) => a.start - b.start);
                 let cursor = startMin;
@@ -5773,6 +5791,84 @@
                         unscheduledIds.delete(task.id);
                     }
                 });
+
+                // Gap-fill pass: split remaining long tasks to consume open minutes on earlier days.
+                const remainingSplitCandidates = () => {
+                    return floating
+                        .filter(t => unscheduledIds.has(t.id))
+                        .filter(t => isSplittableAutoTask(t, 45))
+                        .sort(compareTasksForPacking);
+                };
+
+                for(const day of dayOrder) {
+                    const pool = remainingSplitCandidates();
+                    if(pool.length === 0) break;
+                    const daySchedule = getScheduleForDate(day);
+                    const dayStart = getDateStartMin(day);
+                    const dayEnd = timeToMin(daySchedule.end);
+                    const gaps = getOpenGaps(busyByDate[day] || [], dayStart, dayEnd, 0)
+                        .filter(g => g.length >= 15)
+                        .sort((a, b) => b.length - a.length);
+                    if(gaps.length === 0) continue;
+
+                    for(const gap of gaps) {
+                        const task = pool.find(t => {
+                            const dueDate = getTaskDueDate(t);
+                            return !dueDate || day <= dueDate;
+                        });
+                        if(!task) continue;
+                        const duration = parseInt(task.duration, 10) || 30;
+                        if(duration <= gap.length) continue;
+
+                        const { baseTitle, baseRemaining } = extractRemainingPercentFromTitle(task.title || '');
+                        const groupId = generateId();
+                        let firstDuration = Math.min(duration - 5, Math.floor(gap.length / 5) * 5);
+                        firstDuration = Math.max(5, firstDuration);
+                        let secondDuration = duration - firstDuration;
+                        if(secondDuration < 5) {
+                            firstDuration = Math.max(5, duration - 5);
+                            secondDuration = duration - firstDuration;
+                        }
+                        let firstPercent = Math.round(baseRemaining * (firstDuration / duration));
+                        firstPercent = Math.max(1, Math.min(baseRemaining - 1, firstPercent));
+                        const secondPercent = baseRemaining - firstPercent;
+
+                        task.title = `${baseTitle} (${firstPercent}% part)`;
+                        task.duration = firstDuration;
+                        task.splitGroupId = groupId;
+                        task.splitPercent = firstPercent;
+
+                        const remainderTask = normalizeTask({
+                            ...task,
+                            id: generateId(),
+                            title: `${baseTitle} (${secondPercent}% part)`,
+                            duration: secondDuration,
+                            date: null,
+                            time: null,
+                            timeSource: null,
+                            splitGroupId: groupId,
+                            splitPercent: secondPercent,
+                            repeatGroupId: null,
+                            repeatWeekKey: null,
+                            repeatRule: normalizeRepeatRule({ type: 'none' })
+                        });
+
+                        const nextTime = minToInputTime(gap.start);
+                        task.time = nextTime;
+                        task.timeSource = 'auto';
+                        task.date = day;
+                        busyByDate[day] = (busyByDate[day] || []).concat(
+                            buildBusySlotForTask(task, gap.start, gap.start + firstDuration, day)
+                        ).sort((a, b) => a.start - b.start);
+                        updated++;
+                        passChanges++;
+                        tasks.push(remainderTask);
+                        floating.push(remainderTask);
+                        unscheduledIds.delete(task.id);
+                        unscheduledIds.add(remainderTask.id);
+                        candidateDatesByTask.set(remainderTask.id, getTaskCandidateDates(remainderTask));
+                    }
+                }
 
                 return { changed: passChanges, depOrdered };
             };
