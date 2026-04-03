@@ -3996,6 +3996,49 @@
             }
         }
 
+        function showBreakReminder(task) {
+            if(!task) return;
+            const dateStr = task.date || getDateStrLocal();
+            const cfg = getBreakConfigAfterTask(task, dateStr);
+            const minutes = Number.isFinite(cfg.minutes) ? cfg.minutes : 0;
+            if(minutes <= 0) return;
+            const label = cfg.label || 'Break';
+            const title = 'Break Reminder';
+            const message = `${label}: ${minutes} min`;
+            confirmAction(title, message, 'OK', () => {});
+        }
+
+        function enforceBreakAfterCompletion(task) {
+            if(!task?.date || !task?.time) return false;
+            const cfg = getBreakConfigAfterTask(task, task.date);
+            const minutes = Number.isFinite(cfg.minutes) ? cfg.minutes : 0;
+            if(minutes <= 0) return false;
+            const start = timeToMin(task.time);
+            const duration = parseInt(task.duration, 10) || 30;
+            const breakEnd = start + duration + minutes;
+            const sameDay = tasks.filter(t => !t.completed && t.date === task.date && t.time && t.id !== task.id);
+            let hadAutoShift = false;
+            let hadUserConflict = false;
+            sameDay.forEach(t => {
+                const tStart = timeToMin(t.time);
+                if(tStart >= breakEnd || tStart < start) return;
+                if(t.timeSource === 'auto') {
+                    t.time = null;
+                    t.timeSource = null;
+                    hadAutoShift = true;
+                } else {
+                    hadUserConflict = true;
+                }
+            });
+            if(hadAutoShift) {
+                autoBlockWeekTimes(false, getWeekKeyFromDateStr(task.date), true, true);
+            }
+            if(hadUserConflict) {
+                showNotification('Break overlaps a manually scheduled task. Move it after your break.', 'info');
+            }
+            return hadAutoShift || hadUserConflict;
+        }
+
         function saveTimeAndComplete() {
             if(!pendingTimeTaskId) return closeTimeModal();
             const task = tasks.find(t => t.id === pendingTimeTaskId);
@@ -4063,6 +4106,10 @@
             if(spawned > 0) ensureAllEventsScheduled();
             saveData();
             closeTimeModal();
+            enforceBreakAfterCompletion(task);
+            setTimeout(() => {
+                showBreakReminder(task);
+            }, 200);
         }
 
         // Keyboard Shortcuts
