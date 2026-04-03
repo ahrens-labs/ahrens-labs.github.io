@@ -853,6 +853,36 @@
         </div>
     </div>
 
+    <!-- Modal: Break Reminder -->
+    <div id="breakReminderModal" class="fixed inset-0 z-[130] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeBreakReminderModal()"></div>
+        <div class="relative modal-panel rounded-3xl p-6 max-w-sm w-[92%] scale-95 opacity-0 transition-all" id="breakReminderPanel">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-white text-xl shadow-lg shadow-amber-500/30">
+                        <i class="fa-solid fa-mug-hot"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Break Reminder</div>
+                        <div class="text-lg font-display font-bold text-slate-900 dark:text-white" id="breakReminderLabel">Break</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-amber-600" id="breakReminderMinutes">10</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">minutes</div>
+                </div>
+            </div>
+            <div class="mt-4 rounded-2xl border border-amber-200/60 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-900/20 px-4 py-3">
+                <div class="text-xs text-amber-700 dark:text-amber-300 font-semibold">Return by</div>
+                <div class="text-sm font-semibold text-slate-800 dark:text-white" id="breakReminderEnds">--:--</div>
+            </div>
+            <div class="mt-5 flex justify-end gap-3">
+                <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Dismiss</button>
+                <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-medium transition-all">Start Break</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Complete / Partial -->
     <div id="timeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeTimeModal()"></div>
@@ -4003,9 +4033,7 @@
             const minutes = Number.isFinite(cfg.minutes) ? cfg.minutes : 0;
             if(minutes <= 0) return;
             const label = cfg.label || 'Break';
-            const title = 'Break Reminder';
-            const message = `${label}: ${minutes} min`;
-            confirmAction(title, message, 'OK', () => {});
+            openBreakReminderModal(task, label, minutes);
         }
 
         function enforceBreakAfterCompletion(task) {
@@ -4037,6 +4065,41 @@
                 showNotification('Break overlaps a manually scheduled task. Move it after your break.', 'info');
             }
             return hadAutoShift || hadUserConflict;
+        }
+
+        function openBreakReminderModal(task, label, minutes) {
+            const modal = document.getElementById('breakReminderModal');
+            const panel = document.getElementById('breakReminderPanel');
+            if(!modal || !panel) return;
+            const labelEl = document.getElementById('breakReminderLabel');
+            const minutesEl = document.getElementById('breakReminderMinutes');
+            const endsEl = document.getElementById('breakReminderEnds');
+            if(labelEl) labelEl.textContent = label;
+            if(minutesEl) minutesEl.textContent = minutes;
+            let endsText = '--:--';
+            if(task?.date && task?.time) {
+                const start = timeToMin(task.time);
+                const duration = parseInt(task.duration, 10) || 30;
+                const endMin = start + duration + minutes;
+                endsText = minToTime(endMin);
+            }
+            if(endsEl) endsEl.textContent = endsText;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeBreakReminderModal() {
+            const modal = document.getElementById('breakReminderModal');
+            const panel = document.getElementById('breakReminderPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
         }
 
         function saveTimeAndComplete() {
