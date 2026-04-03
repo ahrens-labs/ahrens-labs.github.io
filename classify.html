@@ -876,6 +876,10 @@
                 <div class="text-xs text-amber-700 dark:text-amber-300 font-semibold">Return by</div>
                 <div class="text-sm font-semibold text-slate-800 dark:text-white" id="breakReminderEnds">--:--</div>
             </div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>Break countdown</span>
+                <span class="font-semibold text-slate-800 dark:text-white" id="breakReminderCountdown">--:--</span>
+            </div>
             <div class="mt-5 flex justify-end gap-3">
                 <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Dismiss</button>
                 <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-medium transition-all">Start Break</button>
@@ -4074,6 +4078,7 @@
             const labelEl = document.getElementById('breakReminderLabel');
             const minutesEl = document.getElementById('breakReminderMinutes');
             const endsEl = document.getElementById('breakReminderEnds');
+            const countdownEl = document.getElementById('breakReminderCountdown');
             if(labelEl) labelEl.textContent = label;
             if(minutesEl) minutesEl.textContent = minutes;
             let endsText = '--:--';
@@ -4084,22 +4089,55 @@
                 endsText = minToTime(endMin);
             }
             if(endsEl) endsEl.textContent = endsText;
+            if(countdownEl) countdownEl.textContent = `${minutes}:00`;
             modal.classList.remove('hidden');
             setTimeout(() => {
                 panel.classList.remove('scale-95', 'opacity-0');
                 panel.classList.add('scale-100', 'opacity-100');
             }, 10);
+            startBreakCountdown(minutes * 60);
         }
 
         function closeBreakReminderModal() {
             const modal = document.getElementById('breakReminderModal');
             const panel = document.getElementById('breakReminderPanel');
             if(!modal || !panel) return;
+            stopBreakCountdown();
             panel.classList.add('scale-95', 'opacity-0');
             panel.classList.remove('scale-100', 'opacity-100');
             setTimeout(() => {
                 modal.classList.add('hidden');
             }, 200);
+        }
+
+        let breakCountdownTimer = null;
+        let breakCountdownEnd = null;
+
+        function startBreakCountdown(totalSeconds) {
+            stopBreakCountdown();
+            if(!Number.isFinite(totalSeconds) || totalSeconds <= 0) return;
+            const countdownEl = document.getElementById('breakReminderCountdown');
+            breakCountdownEnd = Date.now() + (totalSeconds * 1000);
+            const tick = () => {
+                const remainingMs = breakCountdownEnd - Date.now();
+                const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+                const mins = Math.floor(remainingSec / 60);
+                const secs = remainingSec % 60;
+                if(countdownEl) countdownEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                if(remainingSec <= 0) {
+                    stopBreakCountdown();
+                }
+            };
+            tick();
+            breakCountdownTimer = setInterval(tick, 1000);
+        }
+
+        function stopBreakCountdown() {
+            if(breakCountdownTimer) {
+                clearInterval(breakCountdownTimer);
+                breakCountdownTimer = null;
+            }
+            breakCountdownEnd = null;
         }
 
         function saveTimeAndComplete() {
