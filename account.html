@@ -298,16 +298,8 @@
                     
                     if (response.ok) {
                         setPasswordTabVisibility(true);
-                        if (manageMode) {
-                            switchTab('password');
-                            return;
-                        }
-                        // Already logged in, redirect to referring page or home
-                        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
-                        showNotification('Already logged in!', 'success');
-                        setTimeout(() => {
-                            window.location.href = returnUrl;
-                        }, 1000);
+                        setAuthTabsVisibility(false);
+                        switchTab('password');
                         return;
                     }
                 } catch (error) {
@@ -315,6 +307,7 @@
                 }
             }
             setPasswordTabVisibility(false);
+            setAuthTabsVisibility(true);
 
             // Check for email verification
             const verifyToken = urlParams.get('verify');
@@ -352,6 +345,18 @@
             if (!isLoggedIn) {
                 switchTab('login');
             }
+        }
+
+        function setAuthTabsVisibility(show) {
+            const tabs = document.querySelectorAll('.account-tab');
+            const loginTab = tabs[0];
+            const signupTab = tabs[1];
+            if (loginTab) loginTab.style.display = show ? 'block' : 'none';
+            if (signupTab) signupTab.style.display = show ? 'block' : 'none';
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            if (loginForm) loginForm.style.display = show ? '' : 'none';
+            if (signupForm) signupForm.style.display = show ? '' : 'none';
         }
         
         async function handleLogin(event) {
@@ -447,9 +452,9 @@
                 return;
             }
 
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            const confirmPassword = document.getElementById('confirm-new-password').value;
+            const currentPassword = document.getElementById('current-password').value.trim();
+            const newPassword = document.getElementById('new-password').value.trim();
+            const confirmPassword = document.getElementById('confirm-new-password').value.trim();
             
             if (newPassword !== confirmPassword) {
                 showNotification('New passwords do not match', 'error');
