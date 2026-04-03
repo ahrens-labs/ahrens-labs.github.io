@@ -474,16 +474,27 @@
                     },
                     body: JSON.stringify({ currentPassword, newPassword })
                 });
-                
-                const data = await response.json();
-                
-                if (data.success) {
+
+                let data = null;
+                let rawText = '';
+                try {
+                    rawText = await response.text();
+                    data = rawText ? JSON.parse(rawText) : null;
+                } catch (parseError) {
+                    data = null;
+                }
+
+                if (response.ok && data && data.success) {
                     document.getElementById('current-password').value = '';
                     document.getElementById('new-password').value = '';
                     document.getElementById('confirm-new-password').value = '';
                     showNotification('Password updated successfully!', 'success', 3000);
                 } else {
-                    showNotification(data.error || 'Password update failed', 'error');
+                    const message = data?.error
+                        || (response.status === 404 ? 'Password change not available yet. Please try again later.' : null)
+                        || (rawText ? rawText : null)
+                        || 'Password update failed';
+                    showNotification(message, 'error');
                 }
             } catch (error) {
                 console.error('Change password error:', error);
