@@ -29,6 +29,8 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
+      } else if (path === '/api/change-password' && request.method === 'POST') {
+        return handleChangePassword(request, env, corsHeaders);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
@@ -163,6 +165,68 @@ async function handleSignup(request, env, corsHeaders) {
     email,
     message: 'Account created successfully!'
   }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Change password handler
+async function handleChangePassword(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { currentPassword, newPassword } = await request.json();
+  if (!currentPassword || !newPassword) {
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (String(newPassword).length < 6) {
+    return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const changeReq = new Request('http://do/changePassword', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+  const changeRes = await userAccount.fetch(changeReq);
+  const result = await changeRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Change password failed' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -909,6 +973,12 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/changePassword' && request.method === 'POST') {
+        const { currentPassword, newPassword } = await request.json();
+        const result = await this.changePassword(currentPassword, newPassword);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/updateChessData' && request.method === 'POST') {
         const chessData = await request.json();
         await this.updateChessData(chessData);
@@ -1145,6 +1215,27 @@ export class UserAccount {
     userData.verificationTokenExpiry = null;
     await this.storage.put('userData', userData);
 
+    return { success: true };
+  }
+
+  async changePassword(currentPassword, newPassword) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!newPassword || String(newPassword).length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+
+    const currentHash = await this.hashPassword(currentPassword || '');
+    if (currentHash !== userData.passwordHash) {
+      return { success: false, error: 'Current password is incorrect' };
+    }
+
+    const newHash = await this.hashPassword(newPassword);
+    userData.passwordHash = newHash;
+    userData.passwordUpdatedAt = Date.now();
+    await this.storage.put('userData', userData);
     return { success: true };
   }
 

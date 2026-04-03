@@ -212,6 +212,7 @@
         <div class="account-tabs">
             <button class="account-tab active" onclick="switchTab('login')">Login</button>
             <button class="account-tab" onclick="switchTab('signup')">Sign Up</button>
+            <button class="account-tab" id="password-tab" onclick="switchTab('password')" style="display: none;">Change Password</button>
         </div>
         
         <!-- Login Form -->
@@ -248,6 +249,24 @@
             </div>
             <button type="submit" class="form-button">Create Account</button>
         </form>
+
+        <!-- Change Password Form -->
+        <form id="password-form" class="account-form" onsubmit="handleChangePassword(event)">
+            <div class="form-group">
+                <label for="current-password">Current Password</label>
+                <input type="password" id="current-password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="new-password">New Password</label>
+                <input type="password" id="new-password" required minlength="6">
+                <small style="color: #94a3b8; font-size: 0.8em; margin-top: 4px; display: block;">Must be at least 6 characters</small>
+            </div>
+            <div class="form-group">
+                <label for="confirm-new-password">Confirm New Password</label>
+                <input type="password" id="confirm-new-password" required minlength="6">
+            </div>
+            <button type="submit" class="form-button">Update Password</button>
+        </form>
         
         <div class="back-link">
             <a href="index.html">← Back to Home</a>
@@ -266,6 +285,8 @@
         // Check if already logged in
         window.addEventListener('DOMContentLoaded', async () => {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            const urlParams = new URLSearchParams(window.location.search);
+            const manageMode = urlParams.get('manage') === '1';
             if (sessionId) {
                 // Check if session is still valid
                 try {
@@ -276,6 +297,11 @@
                     });
                     
                     if (response.ok) {
+                        setPasswordTabVisibility(true);
+                        if (manageMode) {
+                            switchTab('password');
+                            return;
+                        }
                         // Already logged in, redirect to referring page or home
                         const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
                         showNotification('Already logged in!', 'success');
@@ -288,9 +314,9 @@
                     console.error('Session check error:', error);
                 }
             }
+            setPasswordTabVisibility(false);
 
             // Check for email verification
-            const urlParams = new URLSearchParams(window.location.search);
             const verifyToken = urlParams.get('verify');
             const email = urlParams.get('email');
             
@@ -310,9 +336,21 @@
             if (tab === 'login') {
                 tabs[0].classList.add('active');
                 document.getElementById('login-form').classList.add('active');
-            } else {
+            } else if (tab === 'signup') {
                 tabs[1].classList.add('active');
                 document.getElementById('signup-form').classList.add('active');
+            } else {
+                const passwordTab = document.getElementById('password-tab');
+                if (passwordTab) passwordTab.classList.add('active');
+                document.getElementById('password-form').classList.add('active');
+            }
+        }
+
+        function setPasswordTabVisibility(isLoggedIn) {
+            const passwordTab = document.getElementById('password-tab');
+            if (passwordTab) passwordTab.style.display = isLoggedIn ? 'block' : 'none';
+            if (!isLoggedIn) {
+                switchTab('login');
             }
         }
         
@@ -396,6 +434,55 @@
             } catch (error) {
                 console.error('Signup error:', error);
                 showNotification('Signup failed. Please try again.', 'error');
+            }
+        }
+
+        async function handleChangePassword(event) {
+            event.preventDefault();
+            
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) {
+                showNotification('Please log in to change your password', 'error');
+                switchTab('login');
+                return;
+            }
+
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-new-password').value;
+            
+            if (newPassword !== confirmPassword) {
+                showNotification('New passwords do not match', 'error');
+                return;
+            }
+            if (newPassword.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`
+                    },
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('current-password').value = '';
+                    document.getElementById('new-password').value = '';
+                    document.getElementById('confirm-new-password').value = '';
+                    showNotification('Password updated successfully!', 'success', 3000);
+                } else {
+                    showNotification(data.error || 'Password update failed', 'error');
+                }
+            } catch (error) {
+                console.error('Change password error:', error);
+                showNotification('Password update failed. Please try again.', 'error');
             }
         }
         

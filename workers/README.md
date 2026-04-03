@@ -30,6 +30,7 @@
 - `POST /api/logout` - Logout
 - `POST /api/sync` - Sync user data
 - `GET /api/user` - Get user data
+- `POST /api/change-password` - Change password (requires auth)
 
 ## Development
 

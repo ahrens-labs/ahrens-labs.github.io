@@ -21,14 +21,17 @@ window.addEventListener('DOMContentLoaded', () => {
     // If on account.html and already logged in, handle return URL
     if (window.location.pathname.endsWith('account.html')) {
         const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+        const urlParams = new URLSearchParams(window.location.search);
+        const manageMode = urlParams.get('manage') === '1';
         if (sessionId) {
             // Already logged in, redirect to return URL or home
-            const urlParams = new URLSearchParams(window.location.search);
-            const returnUrl = urlParams.get('return') || 'index.html';
-            console.log('Already logged in on account page, redirecting to:', returnUrl);
-            setTimeout(() => {
-                window.location.href = returnUrl;
-            }, 500);
+            if (!manageMode) {
+                const returnUrl = urlParams.get('return') || 'index.html';
+                console.log('Already logged in on account page, redirecting to:', returnUrl);
+                setTimeout(() => {
+                    window.location.href = returnUrl;
+                }, 500);
+            }
         }
     }
 });
@@ -41,6 +44,25 @@ async function checkLoginStatus() {
     const signupBtn = document.getElementById('header-signup-btn');
     const logoutBtn = document.getElementById('header-logout-btn');
     const usernameSpan = document.getElementById('header-username');
+    const authContainer = document.getElementById('header-auth-buttons');
+    let accountBtn = document.getElementById('header-account-btn');
+    if (!accountBtn && authContainer) {
+        accountBtn = document.createElement('button');
+        accountBtn.id = 'header-account-btn';
+        accountBtn.textContent = 'Account';
+        accountBtn.style.padding = '6px 14px';
+        accountBtn.style.background = '#8e44ad';
+        accountBtn.style.color = 'white';
+        accountBtn.style.border = 'none';
+        accountBtn.style.borderRadius = '6px';
+        accountBtn.style.cursor = 'pointer';
+        accountBtn.style.fontWeight = '600';
+        accountBtn.style.fontSize = '0.85em';
+        accountBtn.style.transition = 'all 0.3s';
+        accountBtn.style.whiteSpace = 'nowrap';
+        accountBtn.onclick = () => { window.location.href = 'account.html?manage=1'; };
+        authContainer.insertBefore(accountBtn, logoutBtn || null);
+    }
     
     if (!loginBtn || !signupBtn || !logoutBtn || !usernameSpan) {
         // Header elements not found, but still check if protected page
@@ -58,6 +80,7 @@ async function checkLoginStatus() {
         signupBtn.style.display = 'block';
         logoutBtn.style.display = 'none';
         usernameSpan.style.display = 'none';
+        if (accountBtn) accountBtn.style.display = 'none';
         
         // Redirect to login if on a protected page
         if (requiresLogin()) {
@@ -83,6 +106,7 @@ async function checkLoginStatus() {
             logoutBtn.style.display = 'block';
             usernameSpan.style.display = 'block';
             usernameSpan.textContent = username;
+            if (accountBtn) accountBtn.style.display = 'block';
             return;
         } else {
             // Invalid session
@@ -95,6 +119,7 @@ async function checkLoginStatus() {
             signupBtn.style.display = 'block';
             logoutBtn.style.display = 'none';
             usernameSpan.style.display = 'none';
+            if (accountBtn) accountBtn.style.display = 'none';
             
             // Redirect to login if on a protected page
             if (requiresLogin()) {
@@ -106,6 +131,7 @@ async function checkLoginStatus() {
     } catch (error) {
         console.error('Session check error:', error);
         
+        if (accountBtn) accountBtn.style.display = 'none';
         // On error, redirect if on protected page
         if (requiresLogin()) {
             console.log('Error checking auth on protected page, redirecting...');
