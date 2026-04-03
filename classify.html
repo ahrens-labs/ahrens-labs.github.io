@@ -882,8 +882,24 @@
             </div>
             <div class="mt-5 flex justify-end gap-3">
                 <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Dismiss</button>
-                <button onclick="closeBreakReminderModal()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-medium transition-all">Start Break</button>
+                <button onclick="startBreakFromReminder()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-medium transition-all">Start Break</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Break Timer Banner -->
+    <div id="breakTimerBanner" class="fixed top-4 left-1/2 -translate-x-1/2 z-[140] hidden">
+        <div class="flex items-center gap-3 rounded-2xl border border-amber-200/60 dark:border-amber-500/30 bg-white/95 dark:bg-slate-900/90 backdrop-blur px-4 py-2 shadow-lg">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-rose-400 flex items-center justify-center text-white text-sm">
+                <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+            <div class="min-w-[160px]">
+                <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400" id="breakTimerLabel">Break</div>
+                <div class="text-sm font-semibold text-slate-900 dark:text-white" id="breakTimerCountdown">00:00</div>
+            </div>
+            <button onclick="closeBreakTimerBanner()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
     </div>
 
@@ -4096,13 +4112,14 @@
                 panel.classList.add('scale-100', 'opacity-100');
             }, 10);
             startBreakCountdown(minutes * 60);
+            const bannerLabel = document.getElementById('breakTimerLabel');
+            if(bannerLabel) bannerLabel.textContent = label;
         }
 
         function closeBreakReminderModal() {
             const modal = document.getElementById('breakReminderModal');
             const panel = document.getElementById('breakReminderPanel');
             if(!modal || !panel) return;
-            stopBreakCountdown();
             panel.classList.add('scale-95', 'opacity-0');
             panel.classList.remove('scale-100', 'opacity-100');
             setTimeout(() => {
@@ -4117,14 +4134,18 @@
             stopBreakCountdown();
             if(!Number.isFinite(totalSeconds) || totalSeconds <= 0) return;
             const countdownEl = document.getElementById('breakReminderCountdown');
+            const bannerCountdown = document.getElementById('breakTimerCountdown');
             breakCountdownEnd = Date.now() + (totalSeconds * 1000);
             const tick = () => {
                 const remainingMs = breakCountdownEnd - Date.now();
                 const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
                 const mins = Math.floor(remainingSec / 60);
                 const secs = remainingSec % 60;
-                if(countdownEl) countdownEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                const text = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                if(countdownEl) countdownEl.textContent = text;
+                if(bannerCountdown) bannerCountdown.textContent = text;
                 if(remainingSec <= 0) {
+                    closeBreakTimerBanner();
                     stopBreakCountdown();
                 }
             };
@@ -4138,6 +4159,24 @@
                 breakCountdownTimer = null;
             }
             breakCountdownEnd = null;
+        }
+
+        function startBreakFromReminder() {
+            openBreakTimerBanner();
+            closeBreakReminderModal();
+        }
+
+        function openBreakTimerBanner() {
+            const banner = document.getElementById('breakTimerBanner');
+            if(!banner) return;
+            banner.classList.remove('hidden');
+        }
+
+        function closeBreakTimerBanner() {
+            const banner = document.getElementById('breakTimerBanner');
+            if(!banner) return;
+            banner.classList.add('hidden');
+            stopBreakCountdown();
         }
 
         function saveTimeAndComplete() {
