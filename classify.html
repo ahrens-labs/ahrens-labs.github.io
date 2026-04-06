@@ -4148,6 +4148,7 @@
                 if(remainingSec <= 0) {
                     closeBreakTimerBanner();
                     stopBreakCountdown();
+                    showNotification('Break finished. Time to get back to work.', 'info');
                 }
             };
             tick();
