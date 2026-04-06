@@ -4098,12 +4098,10 @@
             if(labelEl) labelEl.textContent = label;
             if(minutesEl) minutesEl.textContent = minutes;
             let endsText = '--:--';
-            if(task?.date && task?.time) {
-                const start = timeToMin(task.time);
-                const duration = parseInt(task.duration, 10) || 30;
-                const endMin = start + duration + minutes;
-                endsText = minToTime(endMin);
-            }
+            const now = new Date();
+            const nowMin = (now.getHours() * 60) + now.getMinutes();
+            const endMin = (nowMin + minutes) % (24 * 60);
+            endsText = minToTime(endMin);
             if(endsEl) endsEl.textContent = endsText;
             if(countdownEl) countdownEl.textContent = `${String(minutes).padStart(2, '0')}:00`;
             modal.classList.remove('hidden');
