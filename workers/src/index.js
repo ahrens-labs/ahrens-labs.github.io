@@ -214,6 +214,7 @@ async function handleChangePassword(request, env, corsHeaders) {
 
   const changeReq = new Request('http://do/changePassword', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ currentPassword, newPassword })
   });
   const changeRes = await userAccount.fetch(changeReq);

@@ -4888,6 +4888,8 @@
     let showHistoryInBlindfold = false;
     let moveHistory = [];
     let currentMoveIndex = -1;
+    /** Last move line while at live position (includes clock); restored when leaving history scrub. */
+    let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
     let lastMoveSquares = { from: null, to: null };
     let gameStartTime = null;
@@ -7678,6 +7680,80 @@
       return elapsed;
     }
 
+    /** Moves (SAN list) that have been played on the position currently shown on the board. */
+    function getViewedHistorySlice() {
+      if (!game) return [];
+      const full = game.history();
+      if (currentMoveIndex === -1) return full;
+      if (currentMoveIndex === -2) return [];
+      const end = Math.min(currentMoveIndex + 1, full.length);
+      return full.slice(0, end);
+    }
+
+    /** chess.js instance matching the board view (replay uses move list; live uses `game`). */
+    function getSidebarChess() {
+      if (!game) return new Chess();
+      if (currentMoveIndex === -1) return game;
+      if (currentMoveIndex === -2) return new Chess();
+      const full = game.history();
+      const c = new Chess();
+      const n = Math.min(currentMoveIndex + 1, full.length);
+      for (let i = 0; i < n; i++) {
+        if (!c.move(full[i])) break;
+      }
+      return c;
+    }
+
+    /** Captured-piece lists for the viewed ply (same encoding as `capturedPieces` during live play). */
+    function getCapturedPiecesForView() {
+      if (currentMoveIndex === -1) {
+        return capturedPieces;
+      }
+      const n = currentMoveIndex === -2 ? 0 : currentMoveIndex + 1;
+      const white = [];
+      const black = [];
+      const c = new Chess();
+      const hist = game.history();
+      for (let i = 0; i < n && i < hist.length; i++) {
+        const mv = c.move(hist[i]);
+        if (mv && mv.captured) {
+          if (mv.color === 'w') {
+            white.push('b' + mv.captured.toUpperCase());
+          } else {
+            black.push('w' + mv.captured.toUpperCase());
+          }
+        }
+      }
+      return { white, black };
+    }
+
+    function updateLastMoveDisplayForView() {
+      const el = document.getElementById('last-move');
+      if (!el || !game) return;
+      if (currentMoveIndex === -1) {
+        el.textContent = lastLiveMoveDisplayText;
+        return;
+      }
+      if (currentMoveIndex === -2) {
+        el.textContent = 'None';
+        return;
+      }
+      const h = game.history();
+      if (currentMoveIndex >= 0 && currentMoveIndex < h.length) {
+        el.textContent = h[currentMoveIndex];
+      } else {
+        el.textContent = 'None';
+      }
+    }
+
+    function refreshSidebarForViewedPosition() {
+      if (!game) return;
+      updateTurnDisplay();
+      updateOpeningDisplay();
+      updateGameStats();
+      updateLastMoveDisplayForView();
+    }
+
 function navigateToPreviousMove() {
       if (currentMoveIndex === -1 && moveHistory.length > 0) {
         currentMoveIndex = moveHistory.length - 2;
@@ -7687,6 +7763,7 @@ function navigateToPreviousMove() {
         currentMoveIndex = -2;
         board.position('start');
         updateMoveHighlight();
+        refreshSidebarForViewedPosition();
       } else if (currentMoveIndex > 0) {
         currentMoveIndex--;
         displayPositionAtIndex(currentMoveIndex);
@@ -7707,6 +7784,7 @@ function navigateToPreviousMove() {
         currentMoveIndex = -1;
         board.position(game.fen());
         updateMoveHighlight();
+        refreshSidebarForViewedPosition();
       }
     }
 
@@ -7714,18 +7792,21 @@ function navigateToPreviousMove() {
       currentMoveIndex = -2;
       board.position('start');
       updateMoveHighlight();
+      refreshSidebarForViewedPosition();
     }
 
     function navigateToCurrent() {
       currentMoveIndex = -1;
       board.position(game.fen());
       updateMoveHighlight();
+      refreshSidebarForViewedPosition();
     }
 
     function displayPositionAtIndex(index) {
       if (index >= 0 && index < moveHistory.length) {
         board.position(moveHistory[index]);
         updateMoveHighlight();
+        refreshSidebarForViewedPosition();
       }
     }
 
@@ -7821,6 +7902,7 @@ function navigateToPreviousMove() {
     function updateLastMove(move, timeStr, color, move_number) {
       const txt = move ? `${move} (${timeStr})` : "None";
       document.getElementById("last-move").textContent = txt;
+      lastLiveMoveDisplayText = txt;
 
       if (move) {
         moveHistory.push(game.fen());
@@ -7830,7 +7912,9 @@ function navigateToPreviousMove() {
 }
 
     function updateTurnDisplay() {
-      document.getElementById("turn-color").textContent = game.turn() === "w" ? "White" : "Black";
+      if (!game) return;
+      const vc = getSidebarChess();
+      document.getElementById("turn-color").textContent = vc.turn() === "w" ? "White" : "Black";
     }
 
     function highlightLegalMoves(square) {
@@ -8695,8 +8779,9 @@ function navigateToPreviousMove() {
     }
 
     function detectOpening() {
-      const history = game.history();
-      let movesStr = history.join(" ");
+      if (!game) return null;
+      const slice = getViewedHistorySlice();
+      let movesStr = slice.join(" ");
       
       // Check for exact matches, starting with longest sequences
       const sortedOpenings = Object.keys(openingBook).sort((a, b) => b.length - a.length);
@@ -8711,15 +8796,25 @@ function navigateToPreviousMove() {
     }
 
     function updateOpeningDisplay() {
-      const opening = detectOpening();
       const openingNameEl = document.getElementById("opening-name");
-      
+      const openingWrap = document.getElementById("opening-display");
+      if (!openingNameEl || !openingWrap || !game) return;
+
+      const slice = getViewedHistorySlice();
+      const opening = detectOpening();
+
       if (opening) {
         openingNameEl.textContent = opening;
-        document.getElementById("opening-display").style.display = "block";
-      } else if (game.history().length > 10) {
+        openingWrap.style.display = "block";
+      } else if (slice.length > 10) {
         openingNameEl.textContent = "General Position";
-        document.getElementById("opening-display").style.display = "block";
+        openingWrap.style.display = "block";
+      } else if (slice.length === 0) {
+        openingNameEl.textContent = "Starting position";
+        openingWrap.style.display = "block";
+      } else {
+        openingNameEl.textContent = "—";
+        openingWrap.style.display = "block";
       }
     }
 
@@ -8762,18 +8857,20 @@ function navigateToPreviousMove() {
     }
 
     function updateGameStats() {
-      // Update captured pieces display
+      const vc = getSidebarChess();
+      const moveCount = getViewedHistorySlice().length;
+
+      // Update captured pieces display (for the viewed ply)
       updateCapturedPieces();
-      
-      // Calculate and update material balance
-      updateMaterialBalance();
-      
+
+      // Calculate and update material balance from viewed position
+      updateMaterialBalance(vc);
+
       // Update game phase - more accurate detection
-      const moveCount = game.history().length;
       const phaseEl = document.getElementById("game-phase");
       
       // Count pieces and check game state for more accurate phase detection
-      const boardState = game.board();
+      const boardState = vc.board();
       let pieceCount = 0;
       let queenCount = 0;
       let rookCount = 0;
@@ -8816,8 +8913,8 @@ function navigateToPreviousMove() {
       
       // Update check status
       const checkEl = document.getElementById("check-status");
-      if (game.in_check()) {
-        const turn = game.turn();
+      if (vc.in_check()) {
+        const turn = vc.turn();
         checkEl.textContent = turn === 'w' ? "White in Check" : "Black in Check";
         checkEl.style.color = "#e74c3c";
         checkEl.style.fontWeight = "700";
@@ -8828,7 +8925,7 @@ function navigateToPreviousMove() {
       }
       
       // Update castling rights
-      const fen = game.fen();
+      const fen = vc.fen();
       const castlingRights = fen.split(' ')[2];
       const castlingEl = document.getElementById("castling-rights");
       if (castlingRights === '-') {
@@ -8856,13 +8953,14 @@ function navigateToPreviousMove() {
     function updateCapturedPieces() {
       const whiteCapDiv = document.getElementById("white-captures-display");
       const blackCapDiv = document.getElementById("black-captures-display");
+      const caps = getCapturedPiecesForView();
       
       // Get the current piece theme path
       const pieceTheme = pieceThemes[currentPieceStyle] || pieceThemes['classic'];
       const isLocal = pieceTheme.includes('lib/img/chesspieces/');
       
-      whiteCapDiv.innerHTML = capturedPieces.white.length > 0 ? 
-        capturedPieces.white.map(p => {
+      whiteCapDiv.innerHTML = caps.white.length > 0 ? 
+        caps.white.map(p => {
           if (isLocal) {
             const piecePath = pieceTheme.replace('{piece}', p);
             return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
@@ -8874,8 +8972,8 @@ function navigateToPreviousMove() {
         }).join('') :
         '';
       
-      blackCapDiv.innerHTML = capturedPieces.black.length > 0 ? 
-        capturedPieces.black.map(p => {
+      blackCapDiv.innerHTML = caps.black.length > 0 ? 
+        caps.black.map(p => {
           if (isLocal) {
             const piecePath = pieceTheme.replace('{piece}', p);
             return `<div class="captured-piece" style="background-image: url('${piecePath}')"></div>`;
@@ -8888,13 +8986,14 @@ function navigateToPreviousMove() {
         '';
     }
 
-    function updateMaterialBalance() {
+    function updateMaterialBalance(viewChess) {
+      const vc = viewChess || game || new Chess();
       const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
       
       let whiteMaterial = 0;
       let blackMaterial = 0;
       
-      const board = game.board();
+      const board = vc.board();
       for (let i = 0; i < 8; i++) {
         for (let j = 0; j < 8; j++) {
           const piece = board[i][j];
@@ -10304,15 +10403,24 @@ function navigateToPreviousMove() {
     }
     
     function checkAndUnlockAchievements() {
-      // This function is called after game completion to check and unlock achievements
-      const newAchievements = checkAchievements();
-      
-      if (newAchievements.length > 0) {
+      // Run until no new unlocks: totalPoints is computed once per checkAchievements() pass,
+      // so point-gated achievements may only become eligible after prior unlocks in the same game end.
+      const aggregatedNew = [];
+      let iteration = 0;
+      const maxIterations = 100;
+      while (iteration++ < maxIterations) {
+        const batch = checkAchievements();
+        if (!batch.length) break;
+        aggregatedNew.push(...batch);
         saveAchievements();
         updateAchievementsDisplay();
         updateTotalPoints();
-        // Show notifications one at a time with delays
-        showAchievementNotificationsSequentially(newAchievements);
+      }
+      if (iteration >= maxIterations) {
+        console.warn('checkAndUnlockAchievements: max iterations reached; report if achievements look wrong.');
+      }
+      if (aggregatedNew.length > 0) {
+        showAchievementNotificationsSequentially(aggregatedNew);
       }
     }
 
