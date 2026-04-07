@@ -10192,9 +10192,8 @@
           }
           const tc = rec.timeControl || '—';
           const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
-          const whiteMoves = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
           const moveCountLine = plyCount > 0
-            ? (' · ' + whiteMoves + ' White move' + (whiteMoves === 1 ? '' : 's') + ' (' + plyCount + ' half-move' + (plyCount === 1 ? '' : 's') + ')')
+            ? (' · ' + plyCount + ' move' + (plyCount === 1 ? '' : 's'))
             : '';
           return (
             '<div class="game-history-row ' + outcomeClass + '">' +
