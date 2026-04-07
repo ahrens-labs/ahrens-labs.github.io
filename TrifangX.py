@@ -192,16 +192,6 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
 
     return move_played
 
-def format_debug_board(board):
-    lines = ["  a b c d e f g h", " +-----------------+"]
-    for r in range(8):
-        row_str = str(8 - r) + "| "
-        for c in range(8):
-            row_str += board[r][c] + " "
-        lines.append(row_str + "|")
-    lines.append(" +-----------------+")
-    return "\n".join(lines)
-
 def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board_after_third_move):
     if not DEBUG_LOGS:
         return
@@ -212,7 +202,7 @@ def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current
     print(f"Predicted follow-up: {predicted_move_2}")
     print(f"Score              : {current_score}")
     print("Board after move 3 :")
-    print(format_debug_board(board_after_third_move))
+    print_board(board_after_third_move)
     print("=" * 52)
 
 def clean_move(move):
