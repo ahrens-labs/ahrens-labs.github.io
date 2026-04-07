@@ -5069,10 +5069,6 @@
     /** Elapsed thinking time per half-move (same order as game.history()), formatted like the move timer. */
     let moveClockTimes = [];
     let currentMoveIndex = -1;
-    let historyAnimationInProgress = false;
-    let historyAnimationTimeoutId = null;
-    let queuedHistoryTargetIndex = null;
-    const HISTORY_NAV_ANIMATION_MS = 110;
     /** Last move line while at live position (includes clock); restored when leaving history scrub. */
     let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
@@ -7948,120 +7944,47 @@
       return moveHistory[index] || game.fen();
     }
 
-    function applyViewedPosition(index, animate = false) {
+    function applyViewedPosition(index) {
       currentMoveIndex = index;
-      board.position(getFenForMoveIndex(index), animate);
+      board.position(getFenForMoveIndex(index));
       updateMoveHighlight();
       refreshSidebarForViewedPosition();
     }
 
-    function animateHistoryStep(fromIndex, toIndex) {
-      if (!board || !game) return false;
-      if (fromIndex === toIndex) return false;
-      const fromOrder = historyIndexToOrder(fromIndex);
-      const toOrder = historyIndexToOrder(toIndex);
-      if (Math.abs(fromOrder - toOrder) !== 1) return false;
-
-      try {
-        historyAnimationInProgress = true;
-        currentMoveIndex = toIndex;
-        board.position(getFenForMoveIndex(toIndex), true);
-        updateMoveHighlight();
-        refreshSidebarForViewedPosition();
-        historyAnimationTimeoutId = setTimeout(function() {
-          board.position(getFenForMoveIndex(toIndex), false);
-          historyAnimationInProgress = false;
-          historyAnimationTimeoutId = null;
-
-          if (queuedHistoryTargetIndex !== null && queuedHistoryTargetIndex !== currentMoveIndex) {
-            const queuedTarget = queuedHistoryTargetIndex;
-            queuedHistoryTargetIndex = null;
-            requestHistoryNavigation(queuedTarget);
-          } else {
-            queuedHistoryTargetIndex = null;
-          }
-        }, HISTORY_NAV_ANIMATION_MS);
-        return true;
-      } catch (err) {
-        historyAnimationInProgress = false;
-        return false;
-      }
-    }
-
-    function historyIndexToOrder(index) {
-      if (index === -2) return -1;
-      if (index === -1) return moveHistory.length;
-      return index;
-    }
-
-    function historyOrderToIndex(order) {
-      if (order === -1) return -2;
-      if (order === moveHistory.length) return -1;
-      return order;
-    }
-
-    function requestHistoryNavigation(targetIndex) {
-      if (!board || !game) return;
-
-      if (historyAnimationInProgress) {
-        queuedHistoryTargetIndex = targetIndex;
-        return;
-      }
-
-      if (targetIndex === currentMoveIndex) return;
-
-      const currentOrder = historyIndexToOrder(currentMoveIndex);
-      const targetOrder = historyIndexToOrder(targetIndex);
-      const nextIndex = Math.abs(targetOrder - currentOrder) <= 1
-        ? targetIndex
-        : historyOrderToIndex(currentOrder + (targetOrder > currentOrder ? 1 : -1));
-
-      if (!animateHistoryStep(currentMoveIndex, nextIndex)) {
-        applyViewedPosition(targetIndex);
-      }
-    }
-
     function navigateToPreviousMove() {
       if (!moveHistory.length) return;
-      const baseIndex = queuedHistoryTargetIndex !== null ? queuedHistoryTargetIndex : currentMoveIndex;
-
-      if (baseIndex === -1) {
-        requestHistoryNavigation(Math.max(moveHistory.length - 2, 0));
-      } else if (baseIndex === 0) {
-        requestHistoryNavigation(-2);
-      } else if (baseIndex > 0) {
-        requestHistoryNavigation(baseIndex - 1);
+      if (currentMoveIndex === -1) {
+        currentMoveIndex = moveHistory.length - 2;
+        if (currentMoveIndex < 0) currentMoveIndex = 0;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === 0) {
+        applyViewedPosition(-2);
+      } else if (currentMoveIndex > 0) {
+        currentMoveIndex--;
+        displayPositionAtIndex(currentMoveIndex);
       }
     }
 
     function navigateToNextMove() {
       if (!moveHistory.length) return;
-      const baseIndex = queuedHistoryTargetIndex !== null ? queuedHistoryTargetIndex : currentMoveIndex;
-
-      if (baseIndex === -2) {
-        requestHistoryNavigation(0);
-      } else if (baseIndex === -1) {
+      if (currentMoveIndex === -2) {
+        currentMoveIndex = 0;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === -1) {
         return;
-      } else if (baseIndex < moveHistory.length - 1) {
-        requestHistoryNavigation(baseIndex + 1);
-      } else if (baseIndex === moveHistory.length - 1) {
-        requestHistoryNavigation(-1);
+      } else if (currentMoveIndex < moveHistory.length - 1) {
+        currentMoveIndex++;
+        displayPositionAtIndex(currentMoveIndex);
+      } else if (currentMoveIndex === moveHistory.length - 1) {
+        applyViewedPosition(-1);
       }
     }
 
     function navigateToStart() {
-      queuedHistoryTargetIndex = null;
-      if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
-      historyAnimationInProgress = false;
-      historyAnimationTimeoutId = null;
       applyViewedPosition(-2);
     }
 
     function navigateToCurrent() {
-      queuedHistoryTargetIndex = null;
-      if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
-      historyAnimationInProgress = false;
-      historyAnimationTimeoutId = null;
       applyViewedPosition(-1);
     }
 
@@ -8160,10 +8083,6 @@
 
     function jumpToMove(index) {
       if (!blindfoldMode && index >= 0 && index < moveHistory.length) {
-        queuedHistoryTargetIndex = null;
-        if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
-        historyAnimationInProgress = false;
-        historyAnimationTimeoutId = null;
         applyViewedPosition(index);
       }
     }
