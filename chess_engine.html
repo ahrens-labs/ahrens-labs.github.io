@@ -8216,6 +8216,8 @@
       const notEl = document.getElementById('notation-container');
       if (notEl) {
         notEl.classList.remove('blindfold-hidden');
+        // Beat .blindfold-hidden { display: none !important } from blindfold games
+        notEl.style.setProperty('display', 'block', 'important');
       }
       const flip = document.getElementById('flip-board-btn');
       if (flip) flip.style.display = 'block';
@@ -8230,7 +8232,8 @@
       if (board) {
         board.position(getFenForMoveIndex(index));
       }
-      refreshSidebarForViewedPosition();
+      // Notation must render before refreshSidebarForViewedPosition: updateNotationDisplay()
+      // clears the container first; if refresh throws, the list would stay empty.
       if (isHistoryReplayMode) {
         updateNotationDisplay();
         updateMoveHighlight();
@@ -8238,6 +8241,7 @@
       } else {
         updateMoveHighlight();
       }
+      refreshSidebarForViewedPosition();
     }
 
     function navigateToPreviousMove() {
@@ -8301,8 +8305,10 @@
     }
 
     function updateNotationDisplay() {
+      if (!game) return;
       const history = game.history();
       const container = document.getElementById("notation-container");
+      if (!container) return;
       container.innerHTML = '';
       const minHeight = 60;
       const maxHeight = 600;
@@ -9350,6 +9356,7 @@
 
       // Update game phase - more accurate detection
       const phaseEl = document.getElementById("game-phase");
+      if (!phaseEl) return;
       
       // Count pieces and check game state for more accurate phase detection
       const boardState = vc.board();
@@ -9391,25 +9398,29 @@
       }
       
       // Update pieces count display
-      document.getElementById("pieces-count").textContent = pieceCount;
+      const piecesCountEl = document.getElementById("pieces-count");
+      if (piecesCountEl) piecesCountEl.textContent = pieceCount;
       
       // Update check status
       const checkEl = document.getElementById("check-status");
-      if (vc.in_check()) {
-        const turn = vc.turn();
-        checkEl.textContent = turn === 'w' ? "White in Check" : "Black in Check";
-        checkEl.style.color = "#e74c3c";
-        checkEl.style.fontWeight = "700";
-      } else {
-        checkEl.textContent = "None";
-        checkEl.style.color = "#7f8c8d";
-        checkEl.style.fontWeight = "500";
+      if (checkEl) {
+        if (vc.in_check()) {
+          const turn = vc.turn();
+          checkEl.textContent = turn === 'w' ? "White in Check" : "Black in Check";
+          checkEl.style.color = "#e74c3c";
+          checkEl.style.fontWeight = "700";
+        } else {
+          checkEl.textContent = "None";
+          checkEl.style.color = "#7f8c8d";
+          checkEl.style.fontWeight = "500";
+        }
       }
       
       // Update castling rights
       const fen = vc.fen();
       const castlingRights = fen.split(' ')[2];
       const castlingEl = document.getElementById("castling-rights");
+      if (!castlingEl) return;
       if (castlingRights === '-') {
         castlingEl.textContent = "None";
         castlingEl.style.color = "#7f8c8d";
@@ -9435,6 +9446,7 @@
     function updateCapturedPieces() {
       const whiteCapDiv = document.getElementById("white-captures-display");
       const blackCapDiv = document.getElementById("black-captures-display");
+      if (!whiteCapDiv || !blackCapDiv) return;
       const caps = getCapturedPiecesForView();
       
       // Get the current piece theme path
@@ -9492,6 +9504,7 @@
       
       const difference = whiteMaterial - blackMaterial;
       const balanceEl = document.getElementById("material-balance");
+      if (!balanceEl) return;
       
       balanceEl.classList.remove('positive', 'negative', 'equal');
       
