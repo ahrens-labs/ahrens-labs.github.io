@@ -12179,20 +12179,7 @@ function navigateToPreviousMove() {
         queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
         kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
         pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
-        dailyStats: {
-          lastResetDate: null,
-          gamesPlayedToday: 0,
-          gamesWonToday: 0,
-          movesMadeToday: 0,
-          capturesToday: 0,
-          checksGivenToday: 0,
-          uniqueSquaresVisitedToday: [],
-          longestGameToday: 0,
-          fastestWinToday: Infinity,
-          promotionsToday: 0,
-          castlingToday: 0,
-          todayDailyIds: []
-        },
+        dailyStats: createFreshDailyStats(new Date().toDateString()),
         winsByTimeControl: {
           none: 0,
           '60': 0,
@@ -12272,27 +12259,42 @@ function navigateToPreviousMove() {
         timeControls: ['none']
       });
       
-      // Reset all visual settings to defaults
-      localStorage.setItem('chessBoardStyle', 'classic');
+      // Persisted points (cloud + legacy); must match empty achievements
+      localStorage.setItem('totalPoints', '0');
+      
+      // Reset all visual settings to defaults (keys must match readers: chessboardStyle, timeControl, moveEffect)
+      localStorage.setItem('chessboardStyle', 'classic');
       localStorage.setItem('chessPieceStyle', 'classic');
       localStorage.setItem('highlightColor', 'red');
       localStorage.setItem('arrowColor', 'red');
       localStorage.setItem('legalMoveDotStyle', 'gray-circle');
       localStorage.setItem('pageTheme', 'light');
+      localStorage.setItem('moveEffect', 'default');
+      localStorage.setItem('timeControl', 'none');
       localStorage.setItem('selectedTimeControl', 'none');
       
-      // Apply default settings immediately
-      changeBoardStyle('classic');
-      changePieceStyle('classic');
+      // Repopulate dropdowns from reset unlocks, then sync selects (changeBoardStyle reads #board-style value)
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+      if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+      const boardSel = document.getElementById('board-style');
+      if (boardSel) boardSel.value = 'classic';
+      const pieceSel = document.getElementById('piece-style');
+      if (pieceSel) pieceSel.value = 'classic';
+      const settingsTime = document.getElementById('settings-time-control');
+      if (settingsTime) settingsTime.value = 'none';
+      const mainTime = document.getElementById('time-control');
+      if (mainTime) mainTime.value = 'none';
+      const moveEffSel = document.getElementById('settings-move-effect');
+      if (moveEffSel) moveEffSel.value = 'default';
+      
+      changeBoardStyle();
+      changePieceStyle();
       applyHighlightColor('red');
       applyArrowColor('red');
       applyLegalMoveDotStyle('gray-circle');
       applyPageTheme('light');
-      
-      // Reset time control
-      if (typeof setTimeControl === 'function') {
-        setTimeControl('none');
-      }
+      applyMoveEffect('default');
+      if (typeof applySettingsTimeControl === 'function') applySettingsTimeControl();
       
       // Save everything
       saveAchievements();
@@ -12312,6 +12314,13 @@ function navigateToPreviousMove() {
       if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
       if (typeof updateShopPoints === 'function') updateShopPoints();
       if (typeof renderShopItems === 'function') renderShopItems();
+      
+      // Persist reset to cloud immediately (avoid losing reset if tab closes during debounce)
+      if (typeof saveChessDataToCloud === 'function') {
+        saveChessDataToCloud(true).catch(function (e) {
+          console.error('Immediate cloud save after reset failed:', e);
+        });
+      }
       
       // Sync reset to account if logged in
       if (typeof autoSync === 'function') autoSync();
@@ -12494,6 +12503,71 @@ function navigateToPreviousMove() {
       }
     }
 
+    /** Full daily counters + metadata; shared by full reset and midnight rollover. */
+    function createFreshDailyStats(lastResetDate) {
+      return {
+        lastResetDate,
+        todayDailyIds: null,
+        dailyPickDate: null,
+        gamesPlayedToday: 0,
+        gamesWonToday: 0,
+        winsAsWhiteToday: 0,
+        winsAsBlackToday: 0,
+        quickWinsToday: 0,
+        fastWins30Today: 0,
+        kingMovesToday: 0,
+        pawnMovesToday: 0,
+        movesMadeToday: 0,
+        capturesToday: 0,
+        checksGivenToday: 0,
+        uniqueSquaresVisitedToday: [],
+        longestGameToday: 0,
+        fastestWinToday: Infinity,
+        promotionsToday: 0,
+        castlingToday: 0,
+        checksToday: 0,
+        bishopMovesInBlindfoldToday: 0,
+        longestStreakNoPiecesLostToday: 0,
+        winsByTimeControlToday: {},
+        gamesCastledToday: 0,
+        gamesPromotedToday: 0,
+        winsWithMaterialAdvantageToday: 0,
+        uniqueOpeningsPlayedToday: [],
+        uniqueCheckmatePiecesToday: [],
+        gamesWithEnPassantToday: 0,
+        underpromotionsToday: 0,
+        underpromotionMovesToday: 0,
+        queenSacrificeWinsToday: 0,
+        timePressureWinsToday: 0,
+        perfectWinsToday: 0,
+        maxChecksInSingleGameToday: 0,
+        castlingTypesToday: [],
+        varietyPromotionGamesToday: 0,
+        comebackWinsToday: 0,
+        pieceHunterGamesToday: 0,
+        knightMovesInPureBlindfoldToday: 0,
+        triplePromotionGamesToday: 0,
+        queenTourGamesToday: 0,
+        rookLadderGamesToday: 0,
+        bishopPairWinsToday: 0,
+        knightForkGamesToday: 0,
+        pawnStormGamesToday: 0,
+        kingWalkGamesToday: 0,
+        pieceCycleGamesToday: 0,
+        squareMasterGamesToday: 0,
+        pureBlindfoldWinsToday: 0,
+        sacrificeChainGamesToday: 0,
+        centerControlGamesToday: 0,
+        pawnIslandGamesToday: 0,
+        rookBatteryGamesToday: 0,
+        pinMasterGamesToday: 0,
+        skewerKingGamesToday: 0,
+        discoveredAttackGamesToday: 0,
+        windmillGamesToday: 0,
+        zwischenzugGamesToday: 0
+      };
+    }
+
     function resetDailyStatsIfNeeded() {
       const today = new Date().toDateString();
       const todayDate = new Date();
@@ -12534,70 +12608,7 @@ function navigateToPreviousMove() {
         });
         saveAchievements();
         
-        lifetimeStats.dailyStats = {
-          lastResetDate: today,
-          todayDailyIds: null, // Filled by getTodayDailyAchievements (3 random dailies)
-          dailyPickDate: null, // YYYY-MM-DD when todayDailyIds was chosen
-          gamesPlayedToday: 0,
-          gamesWonToday: 0,
-          winsAsWhiteToday: 0,
-          winsAsBlackToday: 0,
-          quickWinsToday: 0, // Wins in ≤25 moves today
-          fastWins30Today: 0, // Wins in ≤30 moves today
-          kingMovesToday: 0,
-          pawnMovesToday: 0,
-          movesMadeToday: 0,
-          capturesToday: 0,
-          checksGivenToday: 0,
-          uniqueSquaresVisitedToday: [],
-          longestGameToday: 0,
-          fastestWinToday: Infinity,
-          promotionsToday: 0,
-          castlingToday: 0,
-          checksToday: 0,
-          // New daily challenge tracking
-          bishopMovesInBlindfoldToday: 0,
-          // Personality tracking removed
-          longestStreakNoPiecesLostToday: 0,
-          winsByTimeControlToday: {},
-          gamesCastledToday: 0,
-          gamesPromotedToday: 0,
-          winsWithMaterialAdvantageToday: 0,
-          uniqueOpeningsPlayedToday: [],
-          uniqueCheckmatePiecesToday: [],
-          gamesWithEnPassantToday: 0,
-          underpromotionsToday: 0,
-          underpromotionMovesToday: 0,
-          queenSacrificeWinsToday: 0,
-          timePressureWinsToday: 0,
-          perfectWinsToday: 0,
-          maxChecksInSingleGameToday: 0,
-          castlingTypesToday: [], // Track castling types across all games today (k for kingside, q for queenside)
-          varietyPromotionGamesToday: 0,
-          comebackWinsToday: 0,
-          pieceHunterGamesToday: 0,
-          // New unique daily challenge tracking
-          knightMovesInPureBlindfoldToday: 0,
-          triplePromotionGamesToday: 0,
-          queenTourGamesToday: 0,
-          rookLadderGamesToday: 0,
-          bishopPairWinsToday: 0,
-          knightForkGamesToday: 0,
-          pawnStormGamesToday: 0,
-          kingWalkGamesToday: 0,
-          pieceCycleGamesToday: 0,
-          squareMasterGamesToday: 0,
-          pureBlindfoldWinsToday: 0,
-          sacrificeChainGamesToday: 0,
-          centerControlGamesToday: 0,
-          pawnIslandGamesToday: 0,
-          rookBatteryGamesToday: 0,
-          pinMasterGamesToday: 0,
-          skewerKingGamesToday: 0,
-          discoveredAttackGamesToday: 0,
-          windmillGamesToday: 0,
-          zwischenzugGamesToday: 0
-        };
+        lifetimeStats.dailyStats = createFreshDailyStats(today);
         saveLifetimeStats();
       } else {
         // Same day - update last play date but don't reset streak
@@ -14017,6 +14028,8 @@ function navigateToPreviousMove() {
           'arrowColor': () => cloudChessData.settings?.arrowColor || 'red',
           'legalMoveDotStyle': () => cloudChessData.settings?.legalMoveDotStyle || 'blue-circle',
           'pageTheme': () => cloudChessData.settings?.pageTheme || 'light',
+          'moveEffect': () => cloudChessData.settings?.moveEffect || 'default',
+          'timeControl': () => cloudChessData.settings?.timeControl || 'none',
           'playerStats': () => JSON.stringify(cloudChessData.stats?.playerStats || {wins:0,losses:0,draws:0}),
           'lifetimeStats': () => JSON.stringify(cloudChessData.stats?.lifetimeStats || {}),
           'checkmateAddonsEnabled': () => JSON.stringify(cloudChessData.settings?.checkmateAddons || []),
@@ -14058,6 +14071,8 @@ function navigateToPreviousMove() {
           'arrowColor': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.arrowColor = v; },
           'legalMoveDotStyle': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.legalMoveDotStyle = v; },
           'pageTheme': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.pageTheme = v; },
+          'moveEffect': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.moveEffect = v; },
+          'timeControl': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.timeControl = v; },
           'playerStats': (v) => { if (!cloudChessData.stats) cloudChessData.stats = {}; cloudChessData.stats.playerStats = JSON.parse(v); },
           'lifetimeStats': (v) => { if (!cloudChessData.stats) cloudChessData.stats = {}; cloudChessData.stats.lifetimeStats = JSON.parse(v); },
           'checkmateAddonsEnabled': (v) => { if (!cloudChessData.settings) cloudChessData.settings = {}; cloudChessData.settings.checkmateAddons = JSON.parse(v); },
@@ -14072,7 +14087,7 @@ function navigateToPreviousMove() {
         
         if (keyMap[key]) {
           keyMap[key](value);
-          saveChessDataToCloud();
+          saveChessDataToCloud(false);
         }
       },
       
@@ -14091,12 +14106,12 @@ function navigateToPreviousMove() {
       }
     });
     
-    // Save chess data to cloud (debounced)
-    async function saveChessDataToCloud() {
+    // Save chess data to cloud (debounced; use immediate after full reset)
+    async function saveChessDataToCloud(immediate) {
       if (!isLoggedIn || !currentSessionId) return;
       
       clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(async () => {
+      const doSave = async () => {
         try {
           const response = await fetch(`${API_BASE_URL}/api/chess/sync`, {
             method: 'POST',
@@ -14115,7 +14130,13 @@ function navigateToPreviousMove() {
         } catch (error) {
           console.error('Save to cloud error:', error);
         }
-      }, 2000); // Debounce 2 seconds
+      };
+      
+      if (immediate) {
+        await doSave();
+      } else {
+        saveTimeout = setTimeout(doSave, 2000); // Debounce 2 seconds
+      }
     }
 
     // Initialize account system
