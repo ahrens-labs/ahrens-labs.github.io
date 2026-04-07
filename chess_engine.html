@@ -377,9 +377,9 @@
       display: flex !important;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       height: auto;
-      min-height: 450px;
+      min-height: 0;
       justify-content: flex-start;
       align-self: flex-start;
       position: relative;
@@ -775,35 +775,44 @@
       }
     }
 
-    /* Timers Container */
+    /* Timers above board: side-by-side bar matching board width */
     #timers-container {
       font-family: "Inter", sans-serif;
       color: #333;
       display: none;
-      flex-direction: column;
+      flex-direction: row;
+      flex-wrap: wrap;
       justify-content: center;
-      gap: 15px;
+      align-items: stretch;
+      gap: 12px;
       user-select: none;
       background-color: white;
       border-radius: 15px;
-      padding: 25px;
+      padding: 14px 16px;
       border: 1px solid #e9ecef;
       box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
-      min-width: 250px;
-      min-height: 150px;
+      width: 100%;
+      max-width: 450px;
+      box-sizing: border-box;
+      min-height: 0;
       visibility: visible !important;
       position: relative;
       z-index: 1;
+      order: -1;
     }
 
-    #timers-container div {
-      font-size: 1.2em;
+    #timers-container > div {
+      font-size: 1.05em;
       font-weight: 600;
-      padding: 15px;
+      padding: 12px 14px;
       background-color: #f8f9fa;
       border-radius: 10px;
       border-left: 4px solid #3498db;
       transition: all 0.3s ease;
+      flex: 1 1 42%;
+      min-width: 140px;
+      text-align: center;
+      box-sizing: border-box;
     }
     
     .time-slot {
@@ -811,9 +820,9 @@
       visibility: visible !important;
     }
 
-    #timers-container div:hover {
+    #timers-container > div:hover {
       background-color: #e9ecef;
-      transform: translateX(3px);
+      transform: translateY(-1px);
     }
 
     /* Move Timer */
@@ -948,9 +957,9 @@
       z-index: 1;
     }
     
-    /* Ensure board container has flexible height to accommodate flip button */
+    /* Board + clocks column: clocks on top */
     #board-timers-container {
-      min-height: 450px;
+      min-height: 0;
       height: auto;
       display: flex;
       flex-direction: column;
@@ -1005,8 +1014,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
-      min-height: 450px;
+      gap: 16px;
+      min-height: 0;
       height: auto;
       justify-content: flex-start;
       align-self: flex-start;
@@ -3096,13 +3105,15 @@
     }
     #notation-container .move-item .move-elapsed {
       font-size: 0.68em;
-      font-weight: 500;
-      opacity: 0.78;
+      font-weight: 600;
+      color: #e74c3c;
+      opacity: 0.95;
       font-variant-numeric: tabular-nums;
       letter-spacing: -0.02em;
     }
     #notation-container .move-item.highlighted .move-elapsed {
-      opacity: 0.95;
+      color: #ffdede;
+      opacity: 1;
     }
 
     #notation-container::before {
@@ -3230,6 +3241,10 @@
         width: 350px;
         height: 350px;
       }
+
+      #timers-container {
+        max-width: 350px;
+      }
       
       h2 {
         font-size: 2rem;
@@ -3251,8 +3266,10 @@
         max-width: 90%;
       }
       
-      #timers-container {
-        min-width: 200px;
+      #timers-container > div {
+        min-width: 120px;
+        font-size: 0.95em;
+        padding: 10px 8px;
       }
     }
 
@@ -4463,7 +4480,6 @@
             <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
                 <button id="header-login-btn" onclick="window.location.href='account.html?return=chess_engine.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
                 <button id="header-signup-btn" onclick="window.location.href='account.html?return=chess_engine.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
-                <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
                 <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
             </div>
         </header>
@@ -4595,16 +4611,9 @@
         </div>
 
         <div id="board-timers-container">
-          <div id="board" style="position: relative;">
-            <div id="arrow-overlay">
-              <svg id="arrow-svg"></svg>
-            </div>
-          </div>
-          <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
-
+          <!-- Countdown clocks above the board (not below) -->
           <div id="timers-container">
               <!-- The divs here will be reordered by JavaScript in startGame() based on playerColor. -->
-              <!-- They now have IDs for easier manipulation -->
             <div id="time-slot-white" class="time-slot">
               White Time Left: <span id="white-total">--:--.--</span>
             </div>
@@ -4612,6 +4621,13 @@
               Black Time Left: <span id="black-total">--:--.--</span>
             </div>
           </div>
+
+          <div id="board" style="position: relative;">
+            <div id="arrow-overlay">
+              <svg id="arrow-svg"></svg>
+            </div>
+          </div>
+          <button id="flip-board-btn" onclick="flipBoard()" style="background: rgba(52, 152, 219, 0.9); color: white; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 0.9em; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: none; transition: all 0.3s ease; margin-top: 10px; width: 100%; max-width: 200px; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.background='rgba(52, 152, 219, 1)'" onmouseout="this.style.background='rgba(52, 152, 219, 0.9)'">🔄 Flip Board</button>
         </div>
       </div>
 
@@ -14380,13 +14396,11 @@ function navigateToPreviousMove() {
     function updateHeaderAuthButtons() {
       const loginBtn = document.getElementById('header-login-btn');
       const signupBtn = document.getElementById('header-signup-btn');
-      const logoutBtn = document.getElementById('header-logout-btn');
       const usernameSpan = document.getElementById('header-username');
       
       if (isLoggedIn) {
         if (loginBtn) loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'block';
         if (usernameSpan) {
           const username = localStorage.getItem('accountUsername') || 'User';
           usernameSpan.textContent = username;
@@ -14395,7 +14409,6 @@ function navigateToPreviousMove() {
       } else {
         if (loginBtn) loginBtn.style.display = 'block';
         if (signupBtn) signupBtn.style.display = 'block';
-        if (logoutBtn) logoutBtn.style.display = 'none';
         if (usernameSpan) usernameSpan.style.display = 'none';
       }
     }

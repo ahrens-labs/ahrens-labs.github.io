@@ -176,6 +176,43 @@
             text-decoration: underline;
         }
 
+        .account-session-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .account-session-text {
+            margin: 0;
+            color: #334155;
+            font-size: 0.95em;
+        }
+
+        .account-logout-btn {
+            padding: 10px 18px;
+            background: white;
+            color: #b91c1c;
+            border: 2px solid #fecaca;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9em;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .account-logout-btn:hover {
+            background: #fef2f2;
+            border-color: #f87171;
+        }
+
     </style>
 </head>
 <body>
@@ -197,7 +234,6 @@
                 <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
                     <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
                     <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
-                    <button id="header-logout-btn" onclick="handleLogout()" style="display: none; padding: 6px 14px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Logout</button>
                     <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
                 </div>
             </div>
@@ -207,6 +243,11 @@
         <div class="account-header">
             <h1>Ahrens Labs Account</h1>
             <p>One account for all projects</p>
+        </div>
+
+        <div id="account-session-bar" class="account-session-bar" style="display: none;">
+            <p class="account-session-text">Signed in as <strong id="account-session-username"></strong></p>
+            <button type="button" class="account-logout-btn" onclick="handleLogout()">Log out</button>
         </div>
         
         <div class="account-tabs">
@@ -341,7 +382,21 @@
 
         function setPasswordTabVisibility(isLoggedIn) {
             const passwordTab = document.getElementById('password-tab');
+            const sessionBar = document.getElementById('account-session-bar');
+            const headerAuth = document.getElementById('header-auth-buttons');
             if (passwordTab) passwordTab.style.display = isLoggedIn ? 'block' : 'none';
+            if (sessionBar) {
+                sessionBar.style.display = isLoggedIn ? 'flex' : 'none';
+                if (isLoggedIn) {
+                    const nameEl = document.getElementById('account-session-username');
+                    if (nameEl) {
+                        nameEl.textContent = localStorage.getItem('ahrenslabs_username') || 'Your account';
+                    }
+                }
+            }
+            if (headerAuth) {
+                headerAuth.style.display = isLoggedIn ? 'none' : 'flex';
+            }
             if (!isLoggedIn) {
                 switchTab('login');
             }
