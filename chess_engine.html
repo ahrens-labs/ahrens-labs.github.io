@@ -438,6 +438,15 @@
       opacity: 0.94;
     }
 
+    #board.board-live-animating,
+    #board.board-live-animating:hover {
+      --board-hover-y: 0px;
+      --board-nav-x: 0px;
+      --board-nav-y: 0px;
+      transform: translate3d(0, 0, 0);
+      filter: none;
+    }
+
     /* Board Color Themes with Enhanced Visual Effects */
     .board-theme-classic .white-1e1d7 { 
       background: linear-gradient(135deg, #f0d9b5 0%, #e8d0a8 100%);
@@ -5110,6 +5119,10 @@
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
     const BOARD_NAV_ANIMATION_MS = 150;
     const BOARD_NAV_SWAP_DELAY_MS = 55;
+    const LIVE_MOVE_SPEED_MS = 180;
+    const LIVE_SNAP_SPEED_MS = 90;
+    const LIVE_SNAPBACK_SPEED_MS = 120;
+    const LIVE_TRASH_SPEED_MS = 90;
     
     // Shop system - unlock tracking
     const defaultUnlocked = {
@@ -7672,11 +7685,16 @@
 
         // Create preview board with dragging enabled
         board = Chessboard('board', {
-          draggable: false,
-          position: 'start',
-          orientation: 'white',
-          pieceTheme: pieceThemes[currentPieceStyle]
-        });
+        draggable: false,
+        position: 'start',
+        orientation: 'white',
+        snapSpeed: LIVE_SNAP_SPEED_MS,
+        snapbackSpeed: LIVE_SNAPBACK_SPEED_MS,
+        appearSpeed: 0,
+        moveSpeed: LIVE_MOVE_SPEED_MS,
+        trashSpeed: LIVE_TRASH_SPEED_MS,
+        pieceTheme: pieceThemes[currentPieceStyle]
+      });
         applyMoveEffect(currentMoveEffect);
 
         // Reset right-click handler flag
@@ -13172,11 +13190,11 @@
         draggable: true,
         position: "start",
         orientation: playerColor,
-        snapSpeed: 50,
-        snapbackSpeed: 50,
+        snapSpeed: LIVE_SNAP_SPEED_MS,
+        snapbackSpeed: LIVE_SNAPBACK_SPEED_MS,
         appearSpeed: 0,
-        moveSpeed: 100,
-        trashSpeed: 50,
+        moveSpeed: LIVE_MOVE_SPEED_MS,
+        trashSpeed: LIVE_TRASH_SPEED_MS,
         dragThrottleRate: 0,
         sparePieces: false,
         dropOffBoard: 'snapback',
@@ -13799,6 +13817,59 @@
       handleMove(from, to, promotionPiece);
     }
 
+    function animateAppliedMove(move, finalFen = game ? game.fen() : 'start') {
+      if (!board || !move || !move.from || !move.to) {
+        if (board) {
+          board.position(finalFen);
+        }
+        return;
+      }
+
+      const boardEl = document.getElementById('board');
+      const animationCommands = [];
+      const flags = move.flags || '';
+
+      if (flags.includes('k')) {
+        animationCommands.push(`${move.from}-${move.to}`);
+        animationCommands.push(move.color === 'w' ? 'h1-f1' : 'h8-f8');
+      } else if (flags.includes('q')) {
+        animationCommands.push(`${move.from}-${move.to}`);
+        animationCommands.push(move.color === 'w' ? 'a1-d1' : 'a8-d8');
+      } else {
+        animationCommands.push(`${move.from}-${move.to}`);
+      }
+
+      try {
+        if (boardEl) {
+          boardEl.classList.add('board-live-animating');
+        }
+        board.move(...animationCommands);
+      } catch (err) {
+        console.warn('Board move animation fallback to position sync:', err);
+        if (boardEl) {
+          boardEl.classList.remove('board-live-animating');
+        }
+        board.position(finalFen);
+        return;
+      }
+
+      if (flags.includes('p') || flags.includes('e')) {
+        setTimeout(() => {
+          board.position(finalFen, false);
+          if (boardEl) {
+            boardEl.classList.remove('board-live-animating');
+          }
+        }, LIVE_MOVE_SPEED_MS + 20);
+        return;
+      }
+
+      setTimeout(() => {
+        if (boardEl) {
+          boardEl.classList.remove('board-live-animating');
+        }
+      }, LIVE_MOVE_SPEED_MS + 20);
+    }
+
     // Initialize promotion modal event handlers (use event delegation for reliability)
     function initPromotionHandlers() {
       const promotionModal = document.getElementById('promotion-modal');
@@ -13860,7 +13931,7 @@
       const prevTurn = game.turn() === "w" ? "b" : "w";
       const moveTimeMs = stopTimerAndUpdateTotal(prevTurn);
       updateLastMove(move.san, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-      board.position(game.fen());
+      animateAppliedMove(move, game.fen());
       highlightLastMove(source, target);
       highlightCheck();
       updateTurnDisplay();
@@ -14020,8 +14091,7 @@
         
         updateLastMove(data.move, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
         
-        // Show opponent's move first
-        board.position(game.fen());
+        animateAppliedMove(move, game.fen());
         
         highlightLastMove(move.from, move.to);
         highlightCheck();
@@ -14105,7 +14175,7 @@
             
             const premoveMoveTimeMs = 0; // Instant premove
             updateLastMove(premoveAttempt.san, "00:00.00", game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-            board.position(game.fen());
+            animateAppliedMove(premoveAttempt, game.fen());
             
             // Remove red highlights for this executed premove
             $("#board .square-55d63").removeClass("premove-highlight premove-source");
