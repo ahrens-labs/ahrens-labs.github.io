@@ -3081,8 +3081,32 @@
       background-color: #2980b9 !important;
     }
 
+    #notation-container .move-item {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      vertical-align: middle;
+      line-height: 1.15;
+      min-width: 2.6em;
+    }
+    #notation-container .move-item .move-san {
+      font-weight: 600;
+    }
+    #notation-container .move-item .move-elapsed {
+      font-size: 0.68em;
+      font-weight: 500;
+      opacity: 0.78;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+    #notation-container .move-item.highlighted .move-elapsed {
+      opacity: 0.95;
+    }
+
     #notation-container::before {
-      content: 'Move History (\2190 \2192 keys to navigate)';
+      content: 'Move History (\2190 \2192 keys) — small figures: time spent on that move';
       display: block;
       font-family: 'Inter', sans-serif;
       font-size: 0.95rem;
@@ -4887,6 +4911,8 @@
     let blindfoldMode = false;
     let showHistoryInBlindfold = false;
     let moveHistory = [];
+    /** Elapsed thinking time per half-move (same order as game.history()), formatted like the move timer. */
+    let moveClockTimes = [];
     let currentMoveIndex = -1;
     /** Last move line while at live position (includes clock); restored when leaving history scrub. */
     let lastLiveMoveDisplayText = 'None';
@@ -7740,7 +7766,9 @@
       }
       const h = game.history();
       if (currentMoveIndex >= 0 && currentMoveIndex < h.length) {
-        el.textContent = h[currentMoveIndex];
+        const san = h[currentMoveIndex];
+        const t = moveClockTimes[currentMoveIndex];
+        el.textContent = t != null && t !== '' ? `${san} (${t})` : san;
       } else {
         el.textContent = 'None';
       }
@@ -7817,75 +7845,76 @@ function navigateToPreviousMove() {
       }
     }
 
+    /** One cell in the notation list: SAN on top, elapsed time below (chess.com style). */
+    function appendNotationMoveCell(moveRow, moveIndex, san, highlighted) {
+      const elapsed = moveClockTimes[moveIndex];
+      const wrap = document.createElement('span');
+      wrap.className = 'move-item';
+      if (highlighted) wrap.classList.add('highlighted');
+      wrap.setAttribute('data-move-index', String(moveIndex));
+      wrap.onclick = function() { jumpToMove(moveIndex); };
+
+      const sanEl = document.createElement('span');
+      sanEl.className = 'move-san';
+      sanEl.textContent = san;
+
+      const timeEl = document.createElement('span');
+      timeEl.className = 'move-elapsed';
+      timeEl.textContent = elapsed != null && elapsed !== '' ? elapsed : '—';
+
+      wrap.appendChild(sanEl);
+      wrap.appendChild(timeEl);
+
+      wrap.onmouseover = function() {
+        if (!this.classList.contains('highlighted')) this.style.backgroundColor = '#ecf0f1';
+      };
+      wrap.onmouseout = function() {
+        if (!this.classList.contains('highlighted')) this.style.backgroundColor = 'transparent';
+      };
+      moveRow.appendChild(wrap);
+    }
+
     function updateNotationDisplay() {
       const history = game.history();
       const container = document.getElementById("notation-container");
       container.innerHTML = '';
-      // Dynamic height: expands up to board height as moves are played
+      // Dynamic height: two-line cells need more vertical space per half-move
       const minHeight = 60;
       const maxHeight = 450;
-      const basePadding = 35;
-      let dynHeight = minHeight + Math.min(history.length * 16, maxHeight-minHeight);
+      let dynHeight = minHeight + Math.min(history.length * 26, maxHeight - minHeight);
       dynHeight = Math.max(minHeight, Math.min(dynHeight, maxHeight));
       container.style.minHeight = minHeight + 'px';
       container.style.height = dynHeight + 'px';
       container.style.maxHeight = maxHeight + 'px';
       // Group moves by full move (White + Black)
       for (let i = 0; i < history.length; i += 2) {
-          const moveNum = Math.floor(i / 2) + 1;
+        const moveNum = Math.floor(i / 2) + 1;
         const moveRow = document.createElement('div');
-        moveRow.style.marginBottom = '4px';
+        moveRow.style.marginBottom = '6px';
         moveRow.style.display = 'flex';
-        moveRow.style.alignItems = 'center';
+        moveRow.style.alignItems = 'flex-end';
         moveRow.style.gap = '8px';
         
-        // Move number
         const moveNumSpan = document.createElement('span');
         moveNumSpan.className = 'move-number';
         moveNumSpan.textContent = moveNum + '.';
         moveNumSpan.style.fontWeight = '600';
         moveNumSpan.style.minWidth = '30px';
         moveNumSpan.style.color = '#7f8c8d';
+        moveNumSpan.style.alignSelf = 'flex-start';
+        moveNumSpan.style.paddingTop = '2px';
         moveRow.appendChild(moveNumSpan);
         
-        // White move
         const whiteMove = history[i];
         if (whiteMove) {
-          const whiteSpan = document.createElement('span');
-          whiteSpan.className = 'move-item';
-        if (currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1)) {
-            whiteSpan.classList.add('highlighted');
-          }
-          whiteSpan.setAttribute('data-move-index', i);
-          whiteSpan.onclick = function() { jumpToMove(i); };
-          whiteSpan.textContent = whiteMove;
-          whiteSpan.style.cursor = 'pointer';
-          whiteSpan.style.padding = '2px 6px';
-          whiteSpan.style.borderRadius = '4px';
-          whiteSpan.style.transition = 'background-color 0.2s';
-          whiteSpan.onmouseover = function() { this.style.backgroundColor = '#ecf0f1'; };
-          whiteSpan.onmouseout = function() { if (!this.classList.contains('highlighted')) this.style.backgroundColor = 'transparent'; };
-          moveRow.appendChild(whiteSpan);
+          const whiteHi = currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1);
+          appendNotationMoveCell(moveRow, i, whiteMove, whiteHi);
         }
         
-        // Black move
         const blackMove = history[i + 1];
         if (blackMove) {
-          const blackSpan = document.createElement('span');
-          blackSpan.className = 'move-item';
-          if (currentMoveIndex === i + 1 || (currentMoveIndex === -1 && i + 1 === history.length - 1)) {
-            blackSpan.classList.add('highlighted');
-          }
-          blackSpan.setAttribute('data-move-index', i + 1);
-          blackSpan.onclick = function() { jumpToMove(i + 1); };
-          blackSpan.textContent = blackMove;
-          blackSpan.style.cursor = 'pointer';
-          blackSpan.style.padding = '2px 6px';
-          blackSpan.style.borderRadius = '4px';
-          blackSpan.style.transition = 'background-color 0.2s';
-          blackSpan.onmouseover = function() { this.style.backgroundColor = '#ecf0f1'; };
-          blackSpan.onmouseout = function() { if (!this.classList.contains('highlighted')) this.style.backgroundColor = 'transparent'; };
-          moveRow.appendChild(blackSpan);
+          const blackHi = currentMoveIndex === i + 1 || (currentMoveIndex === -1 && i + 1 === history.length - 1);
+          appendNotationMoveCell(moveRow, i + 1, blackMove, blackHi);
         }
         
         container.appendChild(moveRow);
@@ -7906,6 +7935,7 @@ function navigateToPreviousMove() {
 
       if (move) {
         moveHistory.push(game.fen());
+        moveClockTimes.push(timeStr != null && timeStr !== '' ? timeStr : '00:00.00');
         currentMoveIndex = -1;
         updateNotationDisplay();
       }
@@ -9760,6 +9790,7 @@ function navigateToPreviousMove() {
         game.reset();
       }
       moveHistory = [];
+      moveClockTimes = [];
       currentMoveIndex = -1;
       capturedPieces = { white: [], black: [] };
       lastMoveSquares = { from: null, to: null };
@@ -12867,6 +12898,7 @@ function navigateToPreviousMove() {
         game.reset();
       }
       moveHistory = [];
+      moveClockTimes = [];
       currentMoveIndex = -1;
       capturedPieces = { white: [], black: [] };
       lastMoveSquares = { from: null, to: null };
