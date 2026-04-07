@@ -172,6 +172,53 @@
       }
     }
 
+    #chess-pregame-tools {
+      display: none;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 16px 12px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.55);
+      border-bottom: 1px solid rgba(52, 152, 219, 0.12);
+    }
+    .chess-pregame-tools-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      max-width: 1200px;
+      width: 100%;
+    }
+    .chess-pregame-tool-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85em;
+      font-family: inherit;
+      color: #fff;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .chess-pregame-tool-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    }
+    .chess-pregame-tool-btn.chess-pregame-ach {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+    .chess-pregame-tool-btn.chess-pregame-shop {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+    }
+    .chess-pregame-tool-btn.chess-pregame-history {
+      background: linear-gradient(135deg, #16a085, #1abc9c);
+    }
+    .chess-pregame-tool-btn.chess-pregame-settings {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    }
+
     /* Main content container */
     main {
       display: flex;
@@ -4682,8 +4729,14 @@
                 <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
             </div>
         </header>
+        <div id="chess-pregame-tools" style="display: none;" role="navigation" aria-label="Chess menu before game">
+            <div class="chess-pregame-tools-inner">
+                <button type="button" class="chess-pregame-tool-btn chess-pregame-ach" onclick="showAllAchievements()">Achievements</button>
+                <button type="button" class="chess-pregame-tool-btn chess-pregame-shop" onclick="showShop()">Shop</button>
+                <button type="button" class="chess-pregame-tool-btn chess-pregame-history" onclick="showGameHistoryModal()">Game history</button>
+                <button type="button" class="chess-pregame-tool-btn chess-pregame-settings" onclick="showSettings()">Settings</button>
             </div>
-        </header>
+        </div>
 	    
 	<h2 id="game-title" style="display: none;">
     Play Chess against Trifang<span class="sharp">X</span>
@@ -4869,10 +4922,6 @@
           <div id="total-achievement-points" style="font-size: 1.5em;">0</div>
         </div>
         <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
-        <button onclick="showAllAchievements()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">View All Achievements</button>
-        <button onclick="showShop()" class="shop-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(243, 156, 18, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Shop"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Shop</button>
-        <button onclick="showGameHistoryModal()" class="settings-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #16a085, #1abc9c); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', sans-serif;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(26, 188, 156, 0.35)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Game history">📜 Game history</button>
-        <button onclick="showSettings()" class="settings-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Settings"><span aria-hidden="true">⚙</span> Settings</button>
       </div>
 
       <div id="game-buttons">
@@ -6653,6 +6702,7 @@
     }
     
     function showShop() {
+      if (!requireChessPregameForNonStatsModal()) return;
       const modal = document.getElementById('shop-modal');
       if (!modal) return;
       
@@ -6682,6 +6732,27 @@
         el.style.transform = 'translateY(-10px)';
         setTimeout(() => el.remove(), 300);
       }, 4000);
+    }
+
+    function isChessPregamePhase() {
+      const lp = document.getElementById('login-page');
+      if (lp && lp.style.display !== 'none') return false;
+      const cs = document.getElementById('choose-side');
+      return !!(cs && cs.style.display === 'block');
+    }
+
+    function updateChessPregameToolsVisibility() {
+      const bar = document.getElementById('chess-pregame-tools');
+      if (!bar) return;
+      bar.style.display = isChessPregamePhase() ? 'flex' : 'none';
+    }
+
+    function requireChessPregameForNonStatsModal() {
+      if (!isChessPregamePhase()) {
+        showNotification('Use the menu above before you start a game.', 'error');
+        return false;
+      }
+      return true;
     }
 
     // Shop purchase confirmation (pending purchase state)
@@ -7316,6 +7387,7 @@
     }
 
     function showSettings() {
+      if (!requireChessPregameForNonStatsModal()) return;
       const modal = document.getElementById('settings-modal');
       if (!modal) return;
       updateSettingsDropdowns();
@@ -7599,6 +7671,7 @@
         if (gameTitle) gameTitle.style.display = 'block';
         if (chooseSide) chooseSide.style.display = 'block';
         if (gameContainer) gameContainer.style.display = 'block';
+        updateChessPregameToolsVisibility();
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
@@ -9947,6 +10020,7 @@
     }
 
     function showGameHistoryModal() {
+      if (!requireChessPregameForNonStatsModal()) return;
       if (!isLoggedIn || !dataLoaded || !cloudChessData) {
         showNotification('Please log in to view game history', 'error');
         return;
@@ -10149,6 +10223,7 @@
       if (ban) {
         ban.style.display = 'flex';
       }
+      updateChessPregameToolsVisibility();
     }
 
     function exitHistoryReplay() {
@@ -10168,6 +10243,7 @@
       if (board) {
         board.draggable(!gameOver);
       }
+      updateChessPregameToolsVisibility();
     }
     
     function resignGame() {
@@ -12147,8 +12223,9 @@
       }
     }
 
-    function showAllAchievements() {
+    function showAllAchievements(allowDuringGameRefresh) {
       try {
+        if (!allowDuringGameRefresh && !requireChessPregameForNonStatsModal()) return;
         const modal = document.getElementById('all-achievements-modal');
         if (!modal) {
           console.error('Achievements modal not found');
@@ -12957,7 +13034,7 @@
       
       // Refresh the achievements modal if it's open
       if (document.getElementById('all-achievements-modal').classList.contains('show')) {
-        showAllAchievements();
+        showAllAchievements(true);
       }
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
       if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
@@ -13353,6 +13430,14 @@
         showLoginPage();
         return;
       }
+
+      const pgTools = document.getElementById('chess-pregame-tools');
+      if (pgTools) pgTools.style.display = 'none';
+      closeShop();
+      closeSettings();
+      closeGameHistoryModal();
+      const achModalEl = document.getElementById('all-achievements-modal');
+      if (achModalEl) achModalEl.classList.remove('show');
 
       if (isHistoryReplayMode) {
         isHistoryReplayMode = false;
@@ -14823,6 +14908,7 @@
       document.getElementById('game-title').style.display = 'none';
       document.getElementById('choose-side').style.display = 'none';
       document.getElementById('game-container').style.display = 'none';
+      updateChessPregameToolsVisibility();
       switchLoginPageTab(tab);
     }
     
@@ -14832,6 +14918,7 @@
       document.getElementById('game-title').style.display = 'block';
       document.getElementById('choose-side').style.display = 'block';
       document.getElementById('game-container').style.display = 'block';
+      updateChessPregameToolsVisibility();
     }
     
     // Switch login page tab
@@ -14916,6 +15003,7 @@
         if (signupBtn) signupBtn.style.display = 'block';
         if (usernameSpan) usernameSpan.style.display = 'none';
       }
+      updateChessPregameToolsVisibility();
     }
 
     // Check if session is valid

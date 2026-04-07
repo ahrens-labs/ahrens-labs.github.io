@@ -429,21 +429,8 @@ def get_move():
 
     try:
         if color == 'white':
-            # Player just played as white, so engine plays as black
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
-            # Engine plays as black (moves black pieces - lowercase)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
-                return_move = convert_long_move(return_move)
-        else: # color is black
-            # Player just played as black, so engine plays as white
+            # Player just played as white, so engine plays as black.
+            # Apply the human's move with players_turn (white pieces, row 0 castling, convert_move 'w').
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
                     players_turn(board, '0-0', '0-0')
@@ -452,6 +439,21 @@ def get_move():
                 else:
                     next_move = move_notation.strip()
                     players_turn(board, next_move, notation_move)
+            # Engine plays as black (moves black pieces - lowercase)
+            return_move = best_move_black(board, 'false', 'false')
+            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
+                return_move = convert_long_move(return_move)
+        else: # color is black
+            # Player just played as black, so engine plays as white.
+            # Apply the human's move with players_turn_white (black pieces, row 7 castling, convert_move 'b').
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn_white(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn_white(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn_white(board, next_move, notation_move)
             # Engine plays as white (moves white pieces - uppercase)
             return_move = best_move_function(board, 'false', 'false')
             if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'} :
@@ -3766,7 +3768,8 @@ def players_turn(board, next_move, notation_move):
     is_draw(board)
     number_of_moves += 1
     game_moves.append(notation_move)
-    output = print_moves('b', number_of_moves, game_moves)
+    # print_moves: 'w' = last ply was White (incomplete pair); 'b' = last ply was Black
+    output = print_moves('w', number_of_moves, game_moves)
     print(output)
 
 def players_turn_white(board, next_move, notation_move):
@@ -3885,7 +3888,7 @@ def players_turn_white(board, next_move, notation_move):
     is_draw(board)
     number_of_moves += 1
     game_moves.append(notation_move)
-    output = print_moves('w', number_of_moves, game_moves)
+    output = print_moves('b', number_of_moves, game_moves)
     print(output)
 
 def print_board(board):
