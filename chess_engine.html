@@ -3080,44 +3080,61 @@
       z-index: 1;
     }
     
-    #notation-container .move-item.highlighted {
-      background-color: #3498db !important;
-      color: white !important;
+    /* Column layout: 1. e4 e5    00:01.12  00:03.32 */
+    #notation-container .notation-row {
+      display: grid;
+      grid-template-columns: 2.4ch minmax(2.5ch, max-content) minmax(2.5ch, max-content) 1fr minmax(7.5ch, 9ch) minmax(7.5ch, 9ch);
+      column-gap: 10px;
+      row-gap: 2px;
+      align-items: baseline;
+      padding: 3px 2px;
+      margin-bottom: 2px;
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+    #notation-container .notation-num {
+      color: #7f8c8d;
       font-weight: 600;
-    }
-    
-    #notation-container .move-item.highlighted:hover {
-      background-color: #2980b9 !important;
-    }
-
-    #notation-container .move-item {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      vertical-align: middle;
-      line-height: 1.15;
-      min-width: 2.6em;
-    }
-    #notation-container .move-item .move-san {
-      font-weight: 600;
-    }
-    #notation-container .move-item .move-elapsed {
-      font-size: 0.68em;
-      font-weight: 600;
-      color: #e74c3c;
-      opacity: 0.95;
       font-variant-numeric: tabular-nums;
+    }
+    #notation-container .notation-san {
+      font-weight: 600;
+      color: #2c3e50;
+      cursor: pointer;
+      padding: 2px 5px;
+      margin: 0 -2px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+    }
+    #notation-container .notation-san:hover:not(.notation-san--empty) {
+      background: #ecf0f1;
+    }
+    #notation-container .notation-san.highlighted {
+      background: #3498db;
+      color: #fff;
+    }
+    #notation-container .notation-san--empty {
+      cursor: default;
+      min-height: 1em;
+    }
+    #notation-container .notation-spacer {
+      min-width: 8px;
+    }
+    #notation-container .notation-time {
+      color: #e74c3c;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
       letter-spacing: -0.02em;
     }
-    #notation-container .move-item.highlighted .move-elapsed {
-      color: #ffdede;
-      opacity: 1;
+    #notation-container .notation-time--muted {
+      color: #bdc3c7;
+      font-weight: 500;
     }
 
     #notation-container::before {
-      content: 'Move History (\2190 \2192 keys) — small figures: time spent on that move';
+      content: 'Move History (\2190 \2192 keys) — moves then White / Black times';
       display: block;
       font-family: 'Inter', sans-serif;
       font-size: 0.95rem;
@@ -7855,85 +7872,88 @@ function navigateToPreviousMove() {
     }
 
     function updateMoveHighlight() {
-      $('.move-item').removeClass('highlighted');
+      $('#notation-container .notation-san').removeClass('highlighted');
       if (currentMoveIndex >= 0 && currentMoveIndex < moveHistory.length) {
-        $(`.move-item[data-move-index="${currentMoveIndex}"]`).addClass('highlighted');
+        $(`#notation-container .notation-san[data-move-index="${currentMoveIndex}"]`).addClass('highlighted');
       }
     }
 
-    /** One cell in the notation list: SAN on top, elapsed time below (chess.com style). */
-    function appendNotationMoveCell(moveRow, moveIndex, san, highlighted) {
-      const elapsed = moveClockTimes[moveIndex];
-      const wrap = document.createElement('span');
-      wrap.className = 'move-item';
-      if (highlighted) wrap.classList.add('highlighted');
-      wrap.setAttribute('data-move-index', String(moveIndex));
-      wrap.onclick = function() { jumpToMove(moveIndex); };
-
-      const sanEl = document.createElement('span');
-      sanEl.className = 'move-san';
-      sanEl.textContent = san;
-
-      const timeEl = document.createElement('span');
-      timeEl.className = 'move-elapsed';
-      timeEl.textContent = elapsed != null && elapsed !== '' ? elapsed : '—';
-
-      wrap.appendChild(sanEl);
-      wrap.appendChild(timeEl);
-
-      wrap.onmouseover = function() {
-        if (!this.classList.contains('highlighted')) this.style.backgroundColor = '#ecf0f1';
-      };
-      wrap.onmouseout = function() {
-        if (!this.classList.contains('highlighted')) this.style.backgroundColor = 'transparent';
-      };
-      moveRow.appendChild(wrap);
+    function notationTimeText(moveIndex) {
+      if (moveIndex < 0) return '—';
+      const t = moveClockTimes[moveIndex];
+      return t != null && t !== '' ? t : '—';
     }
 
     function updateNotationDisplay() {
       const history = game.history();
       const container = document.getElementById("notation-container");
       container.innerHTML = '';
-      // Dynamic height: two-line cells need more vertical space per half-move
       const minHeight = 60;
       const maxHeight = 450;
-      let dynHeight = minHeight + Math.min(history.length * 26, maxHeight - minHeight);
+      const fullMoveRows = Math.max(1, Math.ceil(history.length / 2));
+      let dynHeight = minHeight + Math.min(fullMoveRows * 22, maxHeight - minHeight);
       dynHeight = Math.max(minHeight, Math.min(dynHeight, maxHeight));
       container.style.minHeight = minHeight + 'px';
       container.style.height = dynHeight + 'px';
       container.style.maxHeight = maxHeight + 'px';
-      // Group moves by full move (White + Black)
+
       for (let i = 0; i < history.length; i += 2) {
         const moveNum = Math.floor(i / 2) + 1;
-        const moveRow = document.createElement('div');
-        moveRow.style.marginBottom = '6px';
-        moveRow.style.display = 'flex';
-        moveRow.style.alignItems = 'flex-end';
-        moveRow.style.gap = '8px';
-        
-        const moveNumSpan = document.createElement('span');
-        moveNumSpan.className = 'move-number';
-        moveNumSpan.textContent = moveNum + '.';
-        moveNumSpan.style.fontWeight = '600';
-        moveNumSpan.style.minWidth = '30px';
-        moveNumSpan.style.color = '#7f8c8d';
-        moveNumSpan.style.alignSelf = 'flex-start';
-        moveNumSpan.style.paddingTop = '2px';
-        moveRow.appendChild(moveNumSpan);
-        
+        const row = document.createElement('div');
+        row.className = 'notation-row';
+
+        const numEl = document.createElement('span');
+        numEl.className = 'notation-num';
+        numEl.textContent = moveNum + '.';
+        row.appendChild(numEl);
+
         const whiteMove = history[i];
-        if (whiteMove) {
-          const whiteHi = currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1);
-          appendNotationMoveCell(moveRow, i, whiteMove, whiteHi);
-        }
-        
+        const whiteHi = currentMoveIndex === i || (currentMoveIndex === -1 && i === history.length - 1);
+        const wSan = document.createElement('span');
+        wSan.className = 'notation-san';
+        if (whiteHi) wSan.classList.add('highlighted');
+        wSan.textContent = whiteMove || '';
+        wSan.setAttribute('data-move-index', String(i));
+        wSan.setAttribute('title', 'White move');
+        wSan.onclick = function() { jumpToMove(i); };
+        row.appendChild(wSan);
+
         const blackMove = history[i + 1];
+        const blackHi = blackMove && (currentMoveIndex === i + 1 || (currentMoveIndex === -1 && i + 1 === history.length - 1));
+        const bSan = document.createElement('span');
+        bSan.className = 'notation-san';
         if (blackMove) {
-          const blackHi = currentMoveIndex === i + 1 || (currentMoveIndex === -1 && i + 1 === history.length - 1);
-          appendNotationMoveCell(moveRow, i + 1, blackMove, blackHi);
+          if (blackHi) bSan.classList.add('highlighted');
+          bSan.textContent = blackMove;
+          bSan.setAttribute('data-move-index', String(i + 1));
+          bSan.setAttribute('title', 'Black move');
+          bSan.onclick = function() { jumpToMove(i + 1); };
+        } else {
+          bSan.classList.add('notation-san--empty');
+          bSan.textContent = '';
         }
-        
-        container.appendChild(moveRow);
+        row.appendChild(bSan);
+
+        const spacer = document.createElement('span');
+        spacer.className = 'notation-spacer';
+        spacer.setAttribute('aria-hidden', 'true');
+        row.appendChild(spacer);
+
+        const wTime = document.createElement('span');
+        wTime.className = 'notation-time';
+        wTime.textContent = whiteMove ? notationTimeText(i) : '—';
+        if (!whiteMove) wTime.classList.add('notation-time--muted');
+        wTime.setAttribute('title', 'Time on White move');
+        row.appendChild(wTime);
+
+        const bTime = document.createElement('span');
+        bTime.className = 'notation-time';
+        bTime.textContent = blackMove ? notationTimeText(i + 1) : '—';
+        if (!blackMove) bTime.classList.add('notation-time--muted');
+        bTime.setAttribute('title', 'Time on Black move');
+        row.appendChild(bTime);
+
+        container.appendChild(row);
       }
     }
 
