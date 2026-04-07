@@ -24,7 +24,7 @@ import requests
 ENABLE_MULTIPROCESSING = False
 
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
-DEBUG_LOGS = False
+DEBUG_LOGS = True
 
 # Pre-compile regex for performance
 MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
@@ -448,6 +448,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
+    DEBUG_LOGS = True
     if piece == '0-0':
         board[7][7] = '0'
         board[7][5] = 'r'
@@ -729,6 +730,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
+    DEBUG_LOGS = True
     if piece == '0-0':
         # Removed print for performance in parallel processing
         board[0][7] = '0'
@@ -742,7 +744,16 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            # Removed print statements for parallel performance
+            if best_piece != 'p':
+                if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                    print(best_piece.lower() + 'x' + indices_to_pos(target_row, target_col))
+                elif DEBUG_LOGS:
+                    print(best_piece.lower() + indices_to_pos(target_row, target_col))
+            else:
+                if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                    print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
+                elif DEBUG_LOGS:
+                    print(indices_to_pos(target_row, target_col))
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -751,13 +762,21 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                # Removed print statements for parallel performance
+                if best_piece2 != 'P':
+                    if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                        print(best_piece2.upper() + 'x' + indices_to_pos(target_row2, target_col2))
+                    elif DEBUG_LOGS:
+                        print(best_piece2.upper() + indices_to_pos(target_row2, target_col2))
+                else:
+                    if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                        print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
+                    elif DEBUG_LOGS:
+                        print(indices_to_pos(target_row2, target_col2))
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
                     board[target_row2][target_col2] = 'Q'
                 current_score = score(board, 'b')
-                # Removed print for parallel performance
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -786,7 +805,16 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            # Removed print statements for parallel performance
+            if best_piece != 'p':
+                if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                    print(best_piece.lower() + 'x' + indices_to_pos(target_row, target_col))
+                elif DEBUG_LOGS:
+                    print(best_piece.lower() + indices_to_pos(target_row, target_col))
+            else:
+                if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                    print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
+                elif DEBUG_LOGS:
+                    print(indices_to_pos(target_row, target_col))
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -795,13 +823,21 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                # Removed print statements for parallel performance
+                if best_piece2 != 'P':
+                    if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                        print(best_piece2.upper() + 'x' + indices_to_pos(target_row2, target_col2))
+                    elif DEBUG_LOGS:
+                        print(best_piece2.upper() + indices_to_pos(target_row2, target_col2))
+                else:
+                    if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                        print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
+                    elif DEBUG_LOGS:
+                        print(indices_to_pos(target_row2, target_col2))
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
                     board[target_row2][target_col2] = 'Q'
                 current_score = score(board, 'b')
-                # Removed print for parallel performance
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -855,20 +891,38 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         bad_checkmate = True
                         return 1000, scoring_time
                     if not checkmate and not bad_checkmate and not stalemate:
+                        if best_piece != 'p':
+                            if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                                print(best_piece.lower() + 'x' + indices_to_pos(target_row, target_col))
+                            elif DEBUG_LOGS:
+                                print(best_piece.lower() + indices_to_pos(target_row, target_col))
+                        else:
+                            if board[target_row][target_col] in WHITE_PIECES and DEBUG_LOGS:
+                                print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
+                            elif DEBUG_LOGS:
+                                print(indices_to_pos(target_row, target_col))
                         board[best_row][best_col] = '0'
                         board[target_row][target_col] = best_piece
                         if target_row == 0 and best_piece == 'p':
                             board[target_row][target_col] = 'q'
-                        # Removed print_piece_move for performance
                         best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                             checkmate2 = True
                         if not checkmate2:
+                            if best_piece2 != 'P':
+                                if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                                    print(best_piece2.upper() + 'x' + indices_to_pos(target_row2, target_col2))
+                                elif DEBUG_LOGS:
+                                    print(best_piece2.upper() + indices_to_pos(target_row2, target_col2))
+                            else:
+                                if board[target_row2][target_col2] in BLACK_PIECES and DEBUG_LOGS:
+                                    print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
+                                elif DEBUG_LOGS:
+                                    print(indices_to_pos(target_row2, target_col2))
                             board[best_row2][best_col2] = '0'
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 7 and best_piece2 == 'P':
                                 board[target_row2][target_col2] = 'Q'
-                            # Removed print_piece_move for performance
                             current_score = score(board, 'b')
                             for move in good_moves:
                                 if (from_row, from_col, from_row, from_col, piece, '0') == move:
@@ -2410,7 +2464,7 @@ def score_pawn(board, row, col, color, stats):
 
 
 def check_passed_pawn(board, row, col, color):
-    
+
     passed_left = False
     passed_right = False
     passed_straight = False
