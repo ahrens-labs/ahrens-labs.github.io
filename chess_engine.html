@@ -13969,6 +13969,8 @@
         return;
       }
 
+      // Save now so reload shows the position while waiting for the engine (opponent's turn)
+      persistChessEngineSession();
       startTimer(); // Start move timer for engine
       await engineMove();
       schedulePersistChessEngineSession();
@@ -14218,6 +14220,7 @@
             // After executing premove, get engine response
             // The next premove in the chain will be executed after the engine moves
             console.log('Premove executed, now getting engine response...', premoves.length, 'premoves remaining');
+            persistChessEngineSession();
             startTimer();
             await engineMove();
             return;
@@ -14329,6 +14332,7 @@
         return;
       }
 
+      persistChessEngineSession();
       startTimer();
       engineMove();
       schedulePersistChessEngineSession();
