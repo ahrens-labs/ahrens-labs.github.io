@@ -2551,8 +2551,12 @@ def check_passed_pawn(board, row, col, color):
         else:
             return False, False
 def print_moves(last_move, number_of_moves, game_moves):
+    """Format game_moves as PGN text. last_move: 'b' = last ply was Black (full pairs); 'w' = last ply was White (open pair)."""
     opening_moves = ""
     move_number = 0
+    if not game_moves:
+        print("")
+        return ""
     if last_move == 'b':
         for number in range(len(game_moves) // 2):
             if move_number < len(game_moves):
@@ -2566,7 +2570,8 @@ def print_moves(last_move, number_of_moves, game_moves):
     else:
         for number in range(len(game_moves) // 2 + 1):
             if number == len(game_moves) // 2:
-                opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
+                if move_number < len(game_moves):
+                    opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
                 break
             if move_number < len(game_moves):
                 opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
@@ -7410,7 +7415,9 @@ def best_move_black(board, bots, en_passant):
         game_moves.append(move_played)
         number_of_moves += 1
         white_move_count += 1  # Increment white's move count
-        output = print_moves('w', number_of_moves, game_moves)
+        # Last ply is Black iff we have an even number of SANs (pairs complete).
+        _print_moves_flag = 'b' if len(game_moves) % 2 == 0 else 'w'
+        output = print_moves(_print_moves_flag, number_of_moves, game_moves)
         if blind != 'y':
             print(output)
         is_draw(board)

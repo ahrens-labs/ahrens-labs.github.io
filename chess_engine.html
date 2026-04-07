@@ -219,6 +219,35 @@
       background: linear-gradient(135deg, #9b59b6, #8e44ad);
     }
 
+    #chess-ingame-tools {
+      display: none;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .chess-ingame-tool-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8em;
+      font-family: inherit;
+      color: #fff;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .chess-ingame-tool-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+    }
+    .chess-ingame-tool-btn.chess-ingame-ach {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+    .chess-ingame-tool-btn.chess-ingame-settings {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    }
+
     /* Main content container */
     main {
       display: flex;
@@ -4899,6 +4928,10 @@
       </div>
 
       <div id="right-panel">
+        <div id="chess-ingame-tools" style="display: none;" role="navigation" aria-label="During game: achievements and settings">
+          <button type="button" class="chess-ingame-tool-btn chess-ingame-ach" onclick="showAllAchievements()">Achievements</button>
+          <button type="button" class="chess-ingame-tool-btn chess-ingame-settings" onclick="showSettings()">Settings</button>
+        </div>
         <div id="opening-display">
           <div class="opening-label">Opening:</div>
           <div class="opening-name" id="opening-name">-</div>
@@ -6758,8 +6791,22 @@
 
     function updateChessPregameToolsVisibility() {
       const bar = document.getElementById('chess-pregame-tools');
-      if (!bar) return;
-      bar.style.display = isChessPregamePhase() ? 'flex' : 'none';
+      if (bar) {
+        bar.style.display = isChessPregamePhase() ? 'flex' : 'none';
+      }
+      const ingameBar = document.getElementById('chess-ingame-tools');
+      if (ingameBar) {
+        const lp = document.getElementById('login-page');
+        if (lp && lp.style.display !== 'none') {
+          ingameBar.style.display = 'none';
+        } else {
+          const cs = document.getElementById('choose-side');
+          const gc = document.getElementById('game-container');
+          const sideHidden = cs && cs.style.display === 'none';
+          const gameVisible = gc && gc.style.display !== 'none';
+          ingameBar.style.display = sideHidden && gameVisible ? 'flex' : 'none';
+        }
+      }
     }
 
     function requireChessPregameForNonStatsModal() {
@@ -7402,7 +7449,6 @@
     }
 
     function showSettings() {
-      if (!requireChessPregameForNonStatsModal()) return;
       const modal = document.getElementById('settings-modal');
       if (!modal) return;
       updateSettingsDropdowns();
@@ -8167,6 +8213,10 @@
         const el = document.getElementById(id);
         if (el) el.style.display = 'block';
       });
+      const notEl = document.getElementById('notation-container');
+      if (notEl) {
+        notEl.classList.remove('blindfold-hidden');
+      }
       const flip = document.getElementById('flip-board-btn');
       if (flip) flip.style.display = 'block';
       const ex = document.getElementById('export-pgn-btn');
@@ -8193,6 +8243,10 @@
     function navigateToPreviousMove() {
       if (!moveHistory.length) return;
       if (currentMoveIndex === -1) {
+        if (moveHistory.length === 1) {
+          applyViewedPosition(-2);
+          return;
+        }
         currentMoveIndex = moveHistory.length - 2;
         if (currentMoveIndex < 0) currentMoveIndex = 0;
         displayPositionAtIndex(currentMoveIndex);
@@ -8321,7 +8375,7 @@
     }
 
     function jumpToMove(index) {
-      if (!blindfoldMode && index >= 0 && index < moveHistory.length) {
+      if (index >= 0 && index < moveHistory.length && (!blindfoldMode || isHistoryReplayMode)) {
         applyViewedPosition(index);
       }
     }
@@ -10137,10 +10191,15 @@
             }
           }
           const tc = rec.timeControl || '—';
+          const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
+          const whiteMoves = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
+          const moveCountLine = plyCount > 0
+            ? (' · ' + whiteMoves + ' White move' + (whiteMoves === 1 ? '' : 's') + ' (' + plyCount + ' half-move' + (plyCount === 1 ? '' : 's') + ')')
+            : '';
           return (
             '<div class="game-history-row ' + outcomeClass + '">' +
             '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
-            '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + '</span></div>' +
+            '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + moveCountLine + '</span></div>' +
             '<div class="game-history-row-actions">' +
             '<button type="button" class="gh-btn-export" onclick="exportGameHistoryRecordAt(' + idx + ')">Export</button>' +
             '<button type="button" class="gh-btn-play" onclick="playGameHistoryRecordAt(' + idx + ')">Play on board</button>' +
@@ -12314,7 +12373,6 @@
 
     function showAllAchievements(allowDuringGameRefresh) {
       try {
-        if (!allowDuringGameRefresh && !requireChessPregameForNonStatsModal()) return;
         const modal = document.getElementById('all-achievements-modal');
         if (!modal) {
           console.error('Achievements modal not found');
@@ -13605,6 +13663,9 @@
       choosePanel.style.transform = "scale(0.95)";
       setTimeout(() => {
         choosePanel.style.display = "none";
+        if (typeof updateChessPregameToolsVisibility === 'function') {
+          updateChessPregameToolsVisibility();
+        }
       }, 300);
       
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
