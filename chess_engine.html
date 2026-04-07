@@ -7759,7 +7759,19 @@
         // Show the board container
         document.getElementById('board-timers-container').style.display = 'flex';
 
-        // Engine is not reset on page load; it syncs when a game starts or resumes.
+        console.log("Attempting to stop and then start the engine automatically on page load...");
+        sendEngineCommand('stop')
+            .then(() => {
+                console.log("Stop command sent successfully. Now sending start command...");
+                return sendEngineCommand('start');
+            })
+            .then(() => {
+                console.log("Start command sent successfully. Engine should be reset and running.");
+            })
+            .catch(error => {
+                console.error("Error during automatic engine reset on page load:", error);
+                console.error("Failed to automatically reset engine on page load. Check console for details.");
+            });
 
         // Load sound settings
         const savedSound = localStorage.getItem('soundEnabled');
@@ -7781,18 +7793,6 @@
         updatePlayerStatsDisplay();
         updateAchievementsDisplay();
         updateTotalPoints();
-
-        // Resume in-progress game (same session only); engine syncs inside startGame
-        (async function tryResumeChessGame() {
-          try {
-            const snap = loadChessEngineSession();
-            if (!snap || snap.sessionId !== currentSessionId) return;
-            if (!Array.isArray(snap.history)) return;
-            await startGame(snap);
-          } catch (e) {
-            console.warn('tryResumeChessGame:', e);
-          }
-        })();
     });
 
         $(document).keydown(function(e) {
@@ -7903,7 +7903,6 @@
                 }
                 gameOver = true;
                 recordGameToCloudHistory(playerColor === 'white' ? '0-1' : '1-0');
-                clearChessEngineSession();
                 
       // Update statistics
       playerStats.losses++;
@@ -10077,10 +10076,9 @@
         return;
       }
       if (!gameOver && game && game.history().length > 0) {
-        if (!window.confirm('Leave your current game? Unsaved progress will use the normal resume slot only if you were in an active game.')) {
+        if (!window.confirm('Leave your current game?')) {
           return;
         }
-        clearChessEngineSession();
       }
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;
@@ -10208,7 +10206,6 @@
       moveContainer.innerHTML = `RESIGNATION! <span style="color:red;">You Lose!</span>`;
       gameOver = true;
       recordGameToCloudHistory(playerColor === 'white' ? '0-1' : '1-0');
-      clearChessEngineSession();
       
       // Play losing celebration
       playSound('checkmate');
@@ -10294,7 +10291,6 @@
         const banR = document.getElementById('history-replay-banner');
         if (banR) banR.style.display = 'none';
       }
-      clearChessEngineSession();
       
       // Reset game state
       gameOver = false;
@@ -13350,7 +13346,7 @@
       container.appendChild(playerSlot);
     }
 
-    async function startGame(resumeSnapshot) {
+    async function startGame() {
       // Check if user is logged in
       if (!isLoggedIn || !currentSessionId) {
         showNotification('Please login to play', 'error');
@@ -13358,18 +13354,11 @@
         return;
       }
 
-      const isResume = resumeSnapshot && typeof resumeSnapshot === 'object' &&
-        resumeSnapshot.sessionId === currentSessionId &&
-        Array.isArray(resumeSnapshot.history);
-
-      if (!isResume) {
-        if (isHistoryReplayMode) {
-          isHistoryReplayMode = false;
-          replayModeBackup = null;
-          const banHr = document.getElementById('history-replay-banner');
-          if (banHr) banHr.style.display = 'none';
-        }
-        clearChessEngineSession();
+      if (isHistoryReplayMode) {
+        isHistoryReplayMode = false;
+        replayModeBackup = null;
+        const banHr = document.getElementById('history-replay-banner');
+        if (banHr) banHr.style.display = 'none';
       }
       
       gameOver = false;
@@ -13386,89 +13375,6 @@
         console.log('Error clearing highlights/arrows:', e);
       }
 
-      if (isResume) {
-        playerColor = resumeSnapshot.playerColor === 'white' || resumeSnapshot.playerColor === 'black'
-          ? resumeSnapshot.playerColor
-          : 'white';
-        blindfoldMode = !!resumeSnapshot.blindfoldMode;
-        showHistoryInBlindfold = !!resumeSnapshot.showHistoryInBlindfold;
-        currentTimeControl = resumeSnapshot.currentTimeControl || 'none';
-        const tcEl = document.getElementById('time-control');
-        if (tcEl) tcEl.value = currentTimeControl;
-        const colorEl = document.getElementById('color-select');
-        if (colorEl) colorEl.value = playerColor;
-        const blindEl = document.getElementById('blindfold-mode');
-        if (blindEl) blindEl.checked = blindfoldMode;
-        const showHistEl = document.getElementById('show-history');
-        if (showHistEl) showHistEl.checked = showHistoryInBlindfold;
-
-        timeLimited = !!resumeSnapshot.timeLimited;
-        increment = typeof resumeSnapshot.increment === 'number' ? resumeSnapshot.increment : 0;
-        whiteTime = typeof resumeSnapshot.whiteTime === 'number' ? resumeSnapshot.whiteTime : 0;
-        blackTime = typeof resumeSnapshot.blackTime === 'number' ? resumeSnapshot.blackTime : 0;
-        if (!timeLimited) {
-          whiteTime = 0;
-          blackTime = 0;
-        }
-
-        if (!game) {
-          game = new Chess();
-        } else {
-          game.reset();
-        }
-        for (let i = 0; i < resumeSnapshot.history.length; i++) {
-          const r = game.move(resumeSnapshot.history[i]);
-          if (!r) {
-            console.warn('Resume failed at move', i, resumeSnapshot.history[i]);
-            clearChessEngineSession();
-            showNotification('Saved game could not be restored.', 'error');
-            return;
-          }
-        }
-
-        moveHistory = [];
-        const tmp = new Chess();
-        for (let mi = 0; mi < resumeSnapshot.history.length; mi++) {
-          tmp.move(resumeSnapshot.history[mi]);
-          moveHistory.push(tmp.fen());
-        }
-        moveClockTimes = Array.isArray(resumeSnapshot.moveClockTimes)
-          ? resumeSnapshot.moveClockTimes.slice()
-          : [];
-        while (moveClockTimes.length < moveHistory.length) {
-          moveClockTimes.push('00:00.00');
-        }
-        currentMoveIndex = -1;
-
-        capturedPieces = { white: [], black: [] };
-        resetGameStats();
-        const verboseHist = game.history({ verbose: true });
-        for (let vi = 0; vi < verboseHist.length; vi++) {
-          trackCapturedPiece(verboseHist[vi]);
-        }
-
-        if (verboseHist.length) {
-          const lm = verboseHist[verboseHist.length - 1];
-          lastMoveSquares = { from: lm.from, to: lm.to };
-        } else {
-          lastMoveSquares = { from: null, to: null };
-        }
-
-        gameStartTime = resumeSnapshot.gameStartTime
-          ? new Date(resumeSnapshot.gameStartTime)
-          : new Date();
-        premoves = [];
-        selectedSquare = null;
-
-        const timersContainerResume = document.getElementById("timers-container");
-        if (timersContainerResume) {
-          if (timeLimited) {
-            timersContainerResume.style.display = "flex";
-          } else {
-            timersContainerResume.style.display = "none";
-          }
-        }
-      } else {
       const side = document.getElementById("color-select").value;
       const timeOption = document.getElementById("time-control").value;
       blindfoldMode = document.getElementById("blindfold-mode").checked;
@@ -13517,7 +13423,6 @@
       resetGameStats();
       premoves = []; // Clear any premoves
       selectedSquare = null; // Clear any selection
-      }
       
       // Hide the options panel with fade effect
       const choosePanel = document.getElementById("choose-side");
@@ -13530,18 +13435,7 @@
       
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
 
-      if (isResume && game.history().length) {
-        const h = game.history();
-        const lastSan = h[h.length - 1];
-        const lastIdx = h.length - 1;
-        const lastTime = moveClockTimes[lastIdx] || '00:00.00';
-        const txt = `${lastSan} (${lastTime})`;
-        document.getElementById("last-move").textContent = txt;
-        lastLiveMoveDisplayText = txt;
-        updateNotationDisplay();
-      } else {
-        updateLastMove(null, "00:00.00", 0, 0);
-      }
+      updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
 
       // Destroy preview board and create game board
@@ -13559,7 +13453,7 @@
       
       board = Chessboard("board", {
         draggable: true,
-        position: (isResume && game) ? game.fen() : "start",
+        position: "start",
         orientation: playerColor,
         snapSpeed: 50,
         snapbackSpeed: 50,
@@ -13807,11 +13701,6 @@
         pieceTheme: pieceThemes[currentPieceStyle],
       });
 
-      if (isResume && lastMoveSquares.from && lastMoveSquares.to) {
-        highlightLastMove(lastMoveSquares.from, lastMoveSquares.to);
-        highlightCheck();
-      }
-
       // Ensure arrow overlay exists
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
@@ -13957,9 +13846,7 @@
       document.getElementById("move-timer-container").style.display = "block";
       document.getElementById("last-move-container").style.display = "block";
       document.getElementById("notation-container").style.display = "block";
-      if (!isResume) {
-        document.getElementById("notation-container").textContent = "";
-      }
+      document.getElementById("notation-container").textContent = "";
       document.getElementById("game-stats-panel").style.display = "block";
       document.getElementById("export-pgn-btn").style.display = "block";
       document.getElementById("resign-btn").style.display = "block";
@@ -14003,22 +13890,10 @@
       
       startTimer();
       
-      // Initialize engine (new game: fresh start; resume: replay player moves so server matches position)
-      if (isResume) {
-        await syncEngineWithReplayedMoves();
-        const engineToMove =
-          (playerColor === "white" && game.turn() === "b") ||
-          (playerColor === "black" && game.turn() === "w");
-        if (engineToMove) {
-          await engineMove();
-        }
-      } else {
-        await sendEngineCommand("start");
-        if (playerColor === "black") {
-          await engineMove();
-        }
+      await sendEngineCommand("start");
+      if (playerColor === "black") {
+        await engineMove();
       }
-      schedulePersistChessEngineSession();
     }
 
     // Check for insufficient material (draw condition)
@@ -14101,7 +13976,6 @@
         playSound('move');
         gameOver = true;
         recordGameToCloudHistory('1/2-1/2');
-        clearChessEngineSession();
         clearPremove();
         
         // Celebrate draw with animation
@@ -14288,7 +14162,6 @@
         celebrateCheckmate(true);
         gameOver = true;
         recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
-        clearChessEngineSession();
         
         // Update statistics and achievements
         playerStats.wins++;
@@ -14326,11 +14199,8 @@
         return;
       }
 
-      // Save now so reload shows the position while waiting for the engine (opponent's turn)
-      persistChessEngineSession();
       startTimer(); // Start move timer for engine
       await engineMove();
-      schedulePersistChessEngineSession();
     }
     function normalizeSanForCompare(moveStr) {
       if (!moveStr) return "";
@@ -14476,7 +14346,6 @@
           }
           gameOver = true;
           recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
-          clearChessEngineSession();
           clearPremove();
           
           // Update statistics and achievements
@@ -14549,7 +14418,6 @@
               celebrateCheckmate(true);
               gameOver = true;
               recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
-              clearChessEngineSession();
               clearPremove();
               
               // Update statistics and achievements
@@ -14579,7 +14447,6 @@
             // After executing premove, get engine response
             // The next premove in the chain will be executed after the engine moves
             console.log('Premove executed, now getting engine response...', premoves.length, 'premoves remaining');
-            persistChessEngineSession();
             startTimer();
             await engineMove();
             return;
@@ -14590,7 +14457,6 @@
           }
         }
 
-        schedulePersistChessEngineSession();
         startTimer(); // Start move timer for player
       } catch (err) {
         // Replaced alert() with UI message
@@ -14598,7 +14464,6 @@
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
         console.error('Engine connection error:', err);
         gameOver = true;
-        clearChessEngineSession();
         
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
@@ -14655,7 +14520,6 @@
         celebrateCheckmate(true);
         gameOver = true;
         recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
-        clearChessEngineSession();
         
         // Update statistics and achievements
         playerStats.wins++;
@@ -14692,10 +14556,8 @@
         return;
       }
 
-      persistChessEngineSession();
       startTimer();
       engineMove();
-      schedulePersistChessEngineSession();
     }
 
     // ================================
@@ -14905,89 +14767,6 @@
       }
     });
 
-    // --- In-progress chess game (survives reload; cleared on Start Game / game over) ---
-    const CHESS_ENGINE_SESSION_KEY = 'chess_engine_active_session_v1';
-    let chessPersistTimer = null;
-
-    function clearChessEngineSession() {
-      try {
-        originalLocalStorage.removeItem(CHESS_ENGINE_SESSION_KEY);
-      } catch (e) { /* ignore */ }
-    }
-
-    function persistChessEngineSession() {
-      if (!isLoggedIn || !currentSessionId || !game || gameOver) return;
-      try {
-        const payload = {
-          v: 1,
-          sessionId: currentSessionId,
-          fen: game.fen(),
-          history: game.history(),
-          playerColor: playerColor,
-          whiteTime: whiteTime,
-          blackTime: blackTime,
-          timeLimited: timeLimited,
-          increment: increment,
-          currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : (document.getElementById('time-control') && document.getElementById('time-control').value),
-          blindfoldMode: !!blindfoldMode,
-          showHistoryInBlindfold: !!(document.getElementById('show-history') && document.getElementById('show-history').checked),
-          moveClockTimes: Array.isArray(moveClockTimes) ? moveClockTimes.slice() : [],
-          gameStartTime: gameStartTime && gameStartTime.getTime ? gameStartTime.getTime() : Date.now()
-        };
-        originalLocalStorage.setItem(CHESS_ENGINE_SESSION_KEY, JSON.stringify(payload));
-      } catch (e) {
-        console.warn('persistChessEngineSession:', e);
-      }
-    }
-
-    function schedulePersistChessEngineSession() {
-      if (chessPersistTimer) clearTimeout(chessPersistTimer);
-      chessPersistTimer = setTimeout(function() {
-        chessPersistTimer = null;
-        persistChessEngineSession();
-      }, 450);
-    }
-
-    function loadChessEngineSession() {
-      try {
-        const raw = originalLocalStorage.getItem(CHESS_ENGINE_SESSION_KEY);
-        if (!raw) return null;
-        return JSON.parse(raw);
-      } catch (e) {
-        return null;
-      }
-    }
-
-    async function syncEngineWithReplayedMoves() {
-      await sendEngineCommand('start');
-      const hist = game.history();
-      if (!hist.length) return;
-      const g = new Chess();
-      for (let i = 0; i < hist.length; i++) {
-        const turnBefore = g.turn();
-        const san = hist[i];
-        g.move(san);
-        const playerJustMoved =
-          (playerColor === 'white' && turnBefore === 'w') ||
-          (playerColor === 'black' && turnBefore === 'b');
-        if (playerJustMoved) {
-          const res = await fetch('https://hedgehoglover23.pythonanywhere.com/move', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              move: san,
-              color: g.turn() === 'w' ? 'black' : 'white'
-            })
-          });
-          if (!res.ok) {
-            console.warn('Engine sync move failed', res.status);
-            break;
-          }
-          await res.json().catch(function() { return {}; });
-        }
-      }
-    }
-    
     // Save chess data to cloud (debounced; use immediate after full reset)
     async function saveChessDataToCloud(immediate) {
       if (!isLoggedIn || !currentSessionId) return;
