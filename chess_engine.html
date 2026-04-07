@@ -2426,6 +2426,68 @@
       display: block;
     }
 
+    #game-history-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10008;
+      animation: fadeIn 0.3s ease-out;
+      overflow-y: auto;
+    }
+
+    #game-history-modal.show {
+      display: block;
+    }
+
+    .game-history-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.9rem;
+    }
+
+    .game-history-row-meta {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .game-history-row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .game-history-row-actions button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+
+    .gh-btn-export {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: #fff;
+    }
+
+    .gh-btn-play {
+      background: linear-gradient(135deg, #1abc9c, #16a085);
+      color: #fff;
+    }
+
     .settings-dialog {
       background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
       margin: 5% auto;
@@ -4809,6 +4871,7 @@
         <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
         <button onclick="showAllAchievements()" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">View All Achievements</button>
         <button onclick="showShop()" class="shop-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(243, 156, 18, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Shop"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Shop</button>
+        <button onclick="showGameHistoryModal()" class="settings-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #16a085, #1abc9c); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', sans-serif;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(26, 188, 156, 0.35)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Game history">📜 Game history</button>
         <button onclick="showSettings()" class="settings-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.3s ease; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', 'Android Emoji', sans-serif;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(155, 89, 182, 0.3)'" onmouseout="this.style.transform=''; this.style.boxShadow=''" title="Settings"><span aria-hidden="true">⚙</span> Settings</button>
       </div>
 
@@ -4953,6 +5016,23 @@
     </div>
   </div>
 
+  <div id="history-replay-banner" style="display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 10009; background: linear-gradient(135deg, #1abc9c, #16a085); color: #fff; padding: 10px 16px; text-align: center; font-family: 'Inter', sans-serif; font-size: 0.95rem; box-shadow: 0 2px 12px rgba(0,0,0,0.15); align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+    <span>Viewing a saved game — use arrow keys to step through moves (← → ↑ ↓).</span>
+    <button type="button" onclick="exitHistoryReplay()" style="background: #fff; color: #16a085; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; font-family: inherit;">Exit replay</button>
+  </div>
+
+  <!-- Game history modal -->
+  <div id="game-history-modal" onclick="if (event.target === this) closeGameHistoryModal();">
+    <div class="settings-dialog" style="max-width: 560px;" onclick="event.stopPropagation();">
+      <div class="settings-header">
+        <h2 style="font-family: 'Inter', sans-serif; margin: 0;">📜 Game history</h2>
+        <button class="close-achievements-btn" type="button" onclick="closeGameHistoryModal()">×</button>
+      </div>
+      <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">Last 50 games vs TrifangX (stored in your account).</p>
+      <div id="game-history-list" style="max-height: min(60vh, 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+  </div>
+
   <!-- Settings Modal -->
   <div id="settings-modal">
     <div class="settings-dialog">
@@ -5073,6 +5153,9 @@
     let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
     let lastMoveSquares = { from: null, to: null };
+    /** Saved live state when viewing a past game on the board (arrow keys). */
+    let replayModeBackup = null;
+    let isHistoryReplayMode = false;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -7713,7 +7796,7 @@
     });
 
         $(document).keydown(function(e) {
-            if (!blindfoldMode && board && moveHistory.length > 0) {
+            if (board && moveHistory.length > 0 && (!blindfoldMode || isHistoryReplayMode)) {
                 if (e.key === 'ArrowLeft' || e.keyCode === 37) {
                     e.preventDefault();
                     navigateToPreviousMove();
@@ -7819,6 +7902,7 @@
                 moveContainer.innerHTML = 'TIME OUT! <span style="color:red;">You lose!</span>';
                 }
                 gameOver = true;
+                recordGameToCloudHistory(playerColor === 'white' ? '0-1' : '1-0');
                 clearChessEngineSession();
                 
       // Update statistics
@@ -9785,25 +9869,28 @@
       }
     }
 
-    function exportPGN() {
+    function inferResultFromGame() {
+      if (!game) return '*';
+      if (game.in_checkmate()) {
+        return game.turn() === 'w' ? '0-1' : '1-0';
+      }
+      if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
+        return '1/2-1/2';
+      }
+      return '*';
+    }
+
+    function buildPgnStringForRecord(result) {
       const date = new Date();
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '.');
-      
+      const r = result || '*';
       let pgn = '[Event "Chess vs TrifangX"]\n';
       pgn += '[Site "Ahrens Labs"]\n';
       pgn += `[Date "${dateStr}"]\n`;
       pgn += '[Round "1"]\n';
       pgn += `[White "${playerColor === 'white' ? 'Player' : 'TrifangX'}"]\n`;
       pgn += `[Black "${playerColor === 'black' ? 'Player' : 'TrifangX'}"]\n`;
-      
-      let result = '*';
-      if (game.in_checkmate()) {
-        result = game.turn() === 'w' ? '0-1' : '1-0';
-      } else if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-        result = '1/2-1/2';
-      }
-      pgn += `[Result "${result}"]\n\n`;
-      
+      pgn += `[Result "${r}"]\n\n`;
       const history = game.history();
       let moveText = '';
       for (let i = 0; i < history.length; i++) {
@@ -9815,19 +9902,274 @@
           moveText += '\n';
         }
       }
-      
-      pgn += moveText.trim() + ` ${result}`;
-      
-      // Create download
+      pgn += moveText.trim() + (history.length ? ` ${r}` : r);
+      return pgn;
+    }
+
+    function downloadPgnString(pgn, filenameBase) {
       const blob = new Blob([pgn], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `chess_game_${dateStr}.pgn`;
+      a.download = filenameBase + '.pgn';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+    }
+
+    function recordGameToCloudHistory(result) {
+      if (!cloudChessData || !game || game.history().length === 0) return;
+      if (result !== '1-0' && result !== '0-1' && result !== '1/2-1/2') return;
+      const pgn = buildPgnStringForRecord(result);
+      const rec = {
+        id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9),
+        savedAt: new Date().toISOString(),
+        result: result,
+        playerColor: playerColor,
+        timeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : 'none',
+        pgn: pgn,
+        historySan: game.history().slice(),
+        moveClockTimes: Array.isArray(moveClockTimes) ? moveClockTimes.slice() : []
+      };
+      if (!cloudChessData.gameHistory) cloudChessData.gameHistory = [];
+      cloudChessData.gameHistory.unshift(rec);
+      if (cloudChessData.gameHistory.length > 50) {
+        cloudChessData.gameHistory = cloudChessData.gameHistory.slice(0, 50);
+      }
+      saveChessDataToCloud(true);
+    }
+
+    function exportPGN() {
+      const result = inferResultFromGame();
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '.');
+      const pgn = buildPgnStringForRecord(result);
+      downloadPgnString(pgn, 'chess_game_' + dateStr);
+    }
+
+    function showGameHistoryModal() {
+      if (!isLoggedIn || !dataLoaded || !cloudChessData) {
+        showNotification('Please log in to view game history', 'error');
+        return;
+      }
+      const modal = document.getElementById('game-history-modal');
+      const list = document.getElementById('game-history-list');
+      if (!modal || !list) return;
+      const items = cloudChessData.gameHistory || [];
+      if (items.length === 0) {
+        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No completed games yet. Finish a game and it will appear here.</p>';
+      } else {
+        list.innerHTML = items.map(function(rec, idx) {
+          const d = rec.savedAt ? new Date(rec.savedAt) : new Date();
+          const ds = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+          let label = '';
+          if (rec.result === '1/2-1/2') label = 'Draw';
+          else if (rec.playerColor === 'white') {
+            label = rec.result === '1-0' ? 'You won' : 'You lost';
+          } else {
+            label = rec.result === '0-1' ? 'You won' : 'You lost';
+          }
+          const tc = rec.timeControl || '—';
+          return (
+            '<div class="game-history-row">' +
+            '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
+            '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + '</span></div>' +
+            '<div class="game-history-row-actions">' +
+            '<button type="button" class="gh-btn-export" onclick="exportGameHistoryRecordAt(' + idx + ')">Export</button>' +
+            '<button type="button" class="gh-btn-play" onclick="playGameHistoryRecordAt(' + idx + ')">Play on board</button>' +
+            '</div></div>'
+          );
+        }).join('');
+      }
+      modal.classList.add('show');
+    }
+
+    function closeGameHistoryModal() {
+      const modal = document.getElementById('game-history-modal');
+      if (modal) modal.classList.remove('show');
+    }
+
+    function exportGameHistoryRecordAt(index) {
+      const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+      const rec = items[index];
+      if (!rec || !rec.pgn) {
+        showNotification('Game not found', 'error');
+        return;
+      }
+      const base = 'chess_game_' + (rec.savedAt || '').slice(0, 10).replace(/-/g, '.');
+      downloadPgnString(rec.pgn, base || 'chess_game');
+    }
+
+    function rebuildCapturedPiecesFromSanList(sanList) {
+      capturedPieces = { white: [], black: [] };
+      const c = new Chess();
+      for (let i = 0; i < sanList.length; i++) {
+        const mv = c.move(sanList[i]);
+        if (mv && mv.captured) {
+          const capturedPieceCode = mv.color === 'w' ? 'b' + mv.captured.toUpperCase() : 'w' + mv.captured.toUpperCase();
+          if (mv.color === 'w') {
+            capturedPieces.white.push(capturedPieceCode);
+          } else {
+            capturedPieces.black.push(capturedPieceCode);
+          }
+        }
+      }
+    }
+
+    function snapshotLiveGameStateForReplay() {
+      return {
+        historySan: game ? game.history().slice() : [],
+        moveHistory: moveHistory.slice(),
+        moveClockTimes: moveClockTimes.slice(),
+        currentMoveIndex: currentMoveIndex,
+        playerColor: playerColor,
+        gameOver: gameOver,
+        blindfoldMode: blindfoldMode,
+        capturedPieces: { white: capturedPieces.white.slice(), black: capturedPieces.black.slice() },
+        lastMoveSquares: { from: lastMoveSquares.from, to: lastMoveSquares.to },
+        lastLiveMoveDisplayText: lastLiveMoveDisplayText
+      };
+    }
+
+    function restoreLiveGameStateFromReplayBackup(b) {
+      if (!b || !game) return;
+      game.reset();
+      for (let i = 0; i < b.historySan.length; i++) {
+        if (!game.move(b.historySan[i])) break;
+      }
+      moveHistory = [];
+      const tmp = new Chess();
+      for (let j = 0; j < b.historySan.length; j++) {
+        tmp.move(b.historySan[j]);
+        moveHistory.push(tmp.fen());
+      }
+      moveClockTimes = b.moveClockTimes.slice();
+      while (moveClockTimes.length < moveHistory.length) {
+        moveClockTimes.push('00:00.00');
+      }
+      currentMoveIndex = b.currentMoveIndex;
+      playerColor = b.playerColor;
+      gameOver = b.gameOver;
+      blindfoldMode = b.blindfoldMode;
+      capturedPieces = { white: b.capturedPieces.white.slice(), black: b.capturedPieces.black.slice() };
+      lastMoveSquares = { from: b.lastMoveSquares.from, to: b.lastMoveSquares.to };
+      lastLiveMoveDisplayText = b.lastLiveMoveDisplayText;
+      if (board) {
+        board.position(game.fen());
+        board.orientation(playerColor);
+      }
+      if (blindfoldMode) {
+        document.getElementById('board').classList.add('blindfold-hidden');
+        document.getElementById('timers-container').classList.add('blindfold-hidden');
+      } else {
+        document.getElementById('board').classList.remove('blindfold-hidden');
+        document.getElementById('timers-container').classList.remove('blindfold-hidden');
+      }
+      updateNotationDisplay();
+      refreshSidebarForViewedPosition();
+    }
+
+    function playGameHistoryRecordAt(index) {
+      const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+      const rec = items[index];
+      if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
+        showNotification('Could not load that game', 'error');
+        return;
+      }
+      if (!gameOver && game && game.history().length > 0) {
+        if (!window.confirm('Leave your current game? Unsaved progress will use the normal resume slot only if you were in an active game.')) {
+          return;
+        }
+        clearChessEngineSession();
+      }
+      replayModeBackup = snapshotLiveGameStateForReplay();
+      isHistoryReplayMode = true;
+      premoves = [];
+      selectedSquare = null;
+
+      game.reset();
+      for (let i = 0; i < rec.historySan.length; i++) {
+        const m = game.move(rec.historySan[i]);
+        if (!m) {
+          showNotification('Saved game could not be replayed.', 'error');
+          exitHistoryReplay();
+          return;
+        }
+      }
+      moveHistory = [];
+      const tmp = new Chess();
+      for (let k = 0; k < rec.historySan.length; k++) {
+        tmp.move(rec.historySan[k]);
+        moveHistory.push(tmp.fen());
+      }
+      const mct = Array.isArray(rec.moveClockTimes) ? rec.moveClockTimes : [];
+      moveClockTimes = [];
+      for (let m = 0; m < rec.historySan.length; m++) {
+        moveClockTimes.push(mct[m] != null && mct[m] !== '' ? mct[m] : '—');
+      }
+      playerColor = rec.playerColor === 'black' ? 'black' : 'white';
+      gameOver = true;
+      currentMoveIndex = -1;
+      resetGameStats();
+      rebuildCapturedPiecesFromSanList(rec.historySan);
+      const vhist = game.history({ verbose: true });
+      if (vhist.length) {
+        const lm = vhist[vhist.length - 1];
+        lastMoveSquares = { from: lm.from, to: lm.to };
+      } else {
+        lastMoveSquares = { from: null, to: null };
+      }
+      const h = game.history();
+      if (h.length) {
+        const li = h.length - 1;
+        const t = moveClockTimes[li] || '—';
+        lastLiveMoveDisplayText = h[li] + ' (' + t + ')';
+      } else {
+        lastLiveMoveDisplayText = 'None';
+      }
+
+      document.getElementById('choose-side').style.display = 'none';
+      document.getElementById('game-container').style.display = 'block';
+      document.getElementById('game-title').style.display = 'block';
+      document.getElementById('board').classList.remove('blindfold-hidden');
+      document.getElementById('timers-container').classList.remove('blindfold-hidden');
+
+      if (board) {
+        board.position(game.fen());
+        board.orientation(playerColor);
+        board.draggable(false);
+      }
+      updateNotationDisplay();
+      updateTurnDisplay();
+      updateOpeningDisplay();
+      updateGameStats();
+      highlightLastMove(lastMoveSquares.from, lastMoveSquares.to);
+      highlightCheck();
+
+      closeGameHistoryModal();
+      const ban = document.getElementById('history-replay-banner');
+      if (ban) {
+        ban.style.display = 'flex';
+      }
+    }
+
+    function exitHistoryReplay() {
+      if (!isHistoryReplayMode) {
+        const ban = document.getElementById('history-replay-banner');
+        if (ban) ban.style.display = 'none';
+        return;
+      }
+      isHistoryReplayMode = false;
+      const b = replayModeBackup;
+      replayModeBackup = null;
+      const ban = document.getElementById('history-replay-banner');
+      if (ban) ban.style.display = 'none';
+      if (b) {
+        restoreLiveGameStateFromReplayBackup(b);
+      }
+      if (board) {
+        board.draggable(!gameOver);
+      }
     }
     
     function resignGame() {
@@ -9865,6 +10207,7 @@
       const moveContainer = document.getElementById("move-timer-container");
       moveContainer.innerHTML = `RESIGNATION! <span style="color:red;">You Lose!</span>`;
       gameOver = true;
+      recordGameToCloudHistory(playerColor === 'white' ? '0-1' : '1-0');
       clearChessEngineSession();
       
       // Play losing celebration
@@ -9945,6 +10288,12 @@
 
     function startRematch() {
       closeRematchModal();
+      if (isHistoryReplayMode) {
+        isHistoryReplayMode = false;
+        replayModeBackup = null;
+        const banR = document.getElementById('history-replay-banner');
+        if (banR) banR.style.display = 'none';
+      }
       clearChessEngineSession();
       
       // Reset game state
@@ -13014,6 +13363,12 @@
         Array.isArray(resumeSnapshot.history);
 
       if (!isResume) {
+        if (isHistoryReplayMode) {
+          isHistoryReplayMode = false;
+          replayModeBackup = null;
+          const banHr = document.getElementById('history-replay-banner');
+          if (banHr) banHr.style.display = 'none';
+        }
         clearChessEngineSession();
       }
       
@@ -13745,6 +14100,7 @@
         moveContainer.innerHTML = `<span style="color:#f39c12;">${drawReason}</span>`;
         playSound('move');
         gameOver = true;
+        recordGameToCloudHistory('1/2-1/2');
         clearChessEngineSession();
         clearPremove();
         
@@ -13931,6 +14287,7 @@
         playSound('checkmate');
         celebrateCheckmate(true);
         gameOver = true;
+        recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
         clearChessEngineSession();
         
         // Update statistics and achievements
@@ -14118,6 +14475,7 @@
             console.error('Error in celebrateCheckmate:', err);
           }
           gameOver = true;
+          recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
           clearChessEngineSession();
           clearPremove();
           
@@ -14190,6 +14548,7 @@
               playSound('checkmate');
               celebrateCheckmate(true);
               gameOver = true;
+              recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
               clearChessEngineSession();
               clearPremove();
               
@@ -14295,6 +14654,7 @@
         playSound('checkmate');
         celebrateCheckmate(true);
         gameOver = true;
+        recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
         clearChessEngineSession();
         
         // Update statistics and achievements
@@ -14416,7 +14776,8 @@
             lifetimeStats: {}
           },
           pointsSpent: data.pointsSpent || 0,
-          cheatPoints: data.cheatPoints || 0
+          cheatPoints: data.cheatPoints || 0,
+          gameHistory: Array.isArray(data.gameHistory) ? data.gameHistory : []
         };
         
         isLoggedIn = true;
