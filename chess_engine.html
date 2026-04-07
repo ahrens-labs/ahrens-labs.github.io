@@ -2504,6 +2504,21 @@
       font-size: 0.9rem;
     }
 
+    .game-history-row.game-history-row--win {
+      border-left: 4px solid #27ae60;
+      background: linear-gradient(90deg, rgba(39, 174, 96, 0.1) 0%, #fff 14px);
+    }
+
+    .game-history-row.game-history-row--loss {
+      border-left: 4px solid #e74c3c;
+      background: linear-gradient(90deg, rgba(231, 76, 60, 0.1) 0%, #fff 14px);
+    }
+
+    .game-history-row.game-history-row--draw {
+      border-left: 4px solid #7f8c8d;
+      background: linear-gradient(90deg, rgba(127, 140, 141, 0.1) 0%, #fff 14px);
+    }
+
     .game-history-row-meta {
       flex: 1;
       min-width: 180px;
@@ -8104,11 +8119,75 @@
       return moveHistory[index] || game.fen();
     }
 
+    function findKingSquareOnChessJs(chess) {
+      if (!chess) return null;
+      const turn = chess.turn();
+      const b = chess.board();
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const piece = b[i][j];
+          if (piece && piece.type === 'k' && piece.color === turn) {
+            const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+            return files[j] + (8 - i);
+          }
+        }
+      }
+      return null;
+    }
+
+    function syncHistoryReplayHighlights() {
+      if (!board || !game || !isHistoryReplayMode) return;
+      $("#board .square-55d63").removeClass("highlight-last-move highlight-check");
+      const vc = getSidebarChess();
+      const histVerbose = game.history({ verbose: true });
+      let idx = currentMoveIndex;
+      if (idx === -2) {
+        if (vc.in_check()) {
+          const ks = findKingSquareOnChessJs(vc);
+          if (ks) $("#board .square-" + ks).addClass("highlight-check");
+        }
+        return;
+      }
+      if (idx === -1) {
+        idx = histVerbose.length - 1;
+      }
+      if (idx >= 0 && idx < histVerbose.length) {
+        const lm = histVerbose[idx];
+        highlightLastMove(lm.from, lm.to);
+      }
+      if (vc.in_check()) {
+        const ks = findKingSquareOnChessJs(vc);
+        if (ks) $("#board .square-" + ks).addClass("highlight-check");
+      }
+    }
+
+    function ensureReplaySidebarPanelsVisible() {
+      const show = ['move-timer-container', 'last-move-container', 'notation-container', 'game-stats-panel', 'player-stats-panel', 'achievements-panel'];
+      show.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'block';
+      });
+      const flip = document.getElementById('flip-board-btn');
+      if (flip) flip.style.display = 'block';
+      const ex = document.getElementById('export-pgn-btn');
+      if (ex) ex.style.display = 'block';
+      const rs = document.getElementById('resign-btn');
+      if (rs) rs.style.display = 'none';
+    }
+
     function applyViewedPosition(index) {
       currentMoveIndex = index;
-      board.position(getFenForMoveIndex(index));
-      updateMoveHighlight();
+      if (board) {
+        board.position(getFenForMoveIndex(index));
+      }
       refreshSidebarForViewedPosition();
+      if (isHistoryReplayMode) {
+        updateNotationDisplay();
+        updateMoveHighlight();
+        syncHistoryReplayHighlights();
+      } else {
+        updateMoveHighlight();
+      }
     }
 
     function navigateToPreviousMove() {
@@ -10036,15 +10115,30 @@
           const d = rec.savedAt ? new Date(rec.savedAt) : new Date();
           const ds = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
           let label = '';
-          if (rec.result === '1/2-1/2') label = 'Draw';
-          else if (rec.playerColor === 'white') {
-            label = rec.result === '1-0' ? 'You won' : 'You lost';
+          let outcomeClass = 'game-history-row--draw';
+          if (rec.result === '1/2-1/2') {
+            label = 'Draw';
+            outcomeClass = 'game-history-row--draw';
+          } else if (rec.playerColor === 'white') {
+            if (rec.result === '1-0') {
+              label = 'You won';
+              outcomeClass = 'game-history-row--win';
+            } else {
+              label = 'You lost';
+              outcomeClass = 'game-history-row--loss';
+            }
           } else {
-            label = rec.result === '0-1' ? 'You won' : 'You lost';
+            if (rec.result === '0-1') {
+              label = 'You won';
+              outcomeClass = 'game-history-row--win';
+            } else {
+              label = 'You lost';
+              outcomeClass = 'game-history-row--loss';
+            }
           }
           const tc = rec.timeControl || '—';
           return (
-            '<div class="game-history-row">' +
+            '<div class="game-history-row ' + outcomeClass + '">' +
             '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
             '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + '</span></div>' +
             '<div class="game-history-row-actions">' +
@@ -10200,6 +10294,7 @@
         lastLiveMoveDisplayText = 'None';
       }
 
+      ensureReplaySidebarPanelsVisible();
       document.getElementById('choose-side').style.display = 'none';
       document.getElementById('game-container').style.display = 'block';
       document.getElementById('game-title').style.display = 'block';
@@ -10207,16 +10302,10 @@
       document.getElementById('timers-container').classList.remove('blindfold-hidden');
 
       if (board) {
-        board.position(game.fen());
         board.orientation(playerColor);
         board.draggable(false);
       }
-      updateNotationDisplay();
-      updateTurnDisplay();
-      updateOpeningDisplay();
-      updateGameStats();
-      highlightLastMove(lastMoveSquares.from, lastMoveSquares.to);
-      highlightCheck();
+      applyViewedPosition(-2);
 
       closeGameHistoryModal();
       const ban = document.getElementById('history-replay-banner');
