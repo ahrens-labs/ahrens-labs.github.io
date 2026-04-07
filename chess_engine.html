@@ -10210,8 +10210,10 @@
           }
           const tc = rec.timeControl || '—';
           const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
-          const moveCountLine = plyCount > 0
-            ? (' · ' + plyCount + ' move' + (plyCount === 1 ? '' : 's'))
+          // "N moves" = N times White has moved (full-move count), not half-move / ply count
+          const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
+          const moveCountLine = whiteMoveCount > 0
+            ? (' · ' + whiteMoveCount + ' move' + (whiteMoveCount === 1 ? '' : 's'))
             : '';
           return (
             '<div class="game-history-row ' + outcomeClass + '">' +
@@ -10387,18 +10389,8 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      // Show final position first, then jump to start (same as ↑) so notation/sidebar match arrow-key replay.
-      applyViewedPosition(-1);
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          if (!isHistoryReplayMode) {
-            replayNotationSanOverride = null;
-            return;
-          }
-          navigateToStart();
-          replayNotationSanOverride = null;
-        });
-      });
+      navigateToStart();
+      replayNotationSanOverride = null;
 
       const ban = document.getElementById('history-replay-banner');
       if (ban) {
