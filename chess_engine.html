@@ -388,6 +388,9 @@
 
     /* Chess Board Styling */
     #board {
+      --board-hover-y: 0px;
+      --board-nav-x: 0px;
+      --board-nav-y: 0px;
       width: 450px;
       height: 450px;
       border-radius: 15px;
@@ -398,15 +401,41 @@
       overflow: hidden;
       position: relative;
       background-color: white;
-      transition: all 0.3s ease;
+      transform: translate3d(var(--board-nav-x), calc(var(--board-hover-y) + var(--board-nav-y)), 0);
+      transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease, filter 0.18s ease, opacity 0.18s ease;
+      will-change: transform, opacity, filter;
       z-index: 1;
     }
 
     #board:hover {
-      transform: translateY(-2px);
+      --board-hover-y: -2px;
       box-shadow: 
           0 20px 40px rgba(0, 0, 0, 0.2),
           0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    #board.board-nav-animating {
+      filter: saturate(1.03) brightness(1.01);
+    }
+
+    #board.board-nav-left {
+      --board-nav-x: 12px;
+      opacity: 0.94;
+    }
+
+    #board.board-nav-right {
+      --board-nav-x: -12px;
+      opacity: 0.94;
+    }
+
+    #board.board-nav-up {
+      --board-nav-y: 12px;
+      opacity: 0.94;
+    }
+
+    #board.board-nav-down {
+      --board-nav-y: -12px;
+      opacity: 0.94;
     }
 
     /* Board Color Themes with Enhanced Visual Effects */
@@ -5069,6 +5098,9 @@
     /** Elapsed thinking time per half-move (same order as game.history()), formatted like the move timer. */
     let moveClockTimes = [];
     let currentMoveIndex = -1;
+    let pendingBoardNavigation = null;
+    let boardNavigationInFlight = false;
+    let boardNavigationResetTimer = null;
     /** Last move line while at live position (includes clock); restored when leaving history scrub. */
     let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
@@ -5076,6 +5108,8 @@
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
+    const BOARD_NAV_ANIMATION_MS = 150;
+    const BOARD_NAV_SWAP_DELAY_MS = 55;
     
     // Shop system - unlock tracking
     const defaultUnlocked = {
@@ -7713,16 +7747,16 @@
             if (!blindfoldMode && board && moveHistory.length > 0) {
                 if (e.key === 'ArrowLeft' || e.keyCode === 37) {
                     e.preventDefault();
-                    navigateToPreviousMove();
+                    queueBoardNavigation('left', navigateToPreviousMove);
                 } else if (e.key === 'ArrowRight' || e.keyCode === 39) {
                     e.preventDefault();
-                    navigateToNextMove();
+                    queueBoardNavigation('right', navigateToNextMove);
                 } else if (e.key === 'ArrowUp' || e.keyCode === 38) {
                     e.preventDefault();
-                    navigateToStart();
+                    queueBoardNavigation('up', navigateToStart);
                 } else if (e.key === 'ArrowDown' || e.keyCode === 40) {
                     e.preventDefault();
-                    navigateToCurrent();
+                    queueBoardNavigation('down', navigateToCurrent);
                 }
             }
         });
@@ -7949,6 +7983,47 @@
       board.position(getFenForMoveIndex(index));
       updateMoveHighlight();
       refreshSidebarForViewedPosition();
+    }
+
+    function animateBoardNavigation(direction, applyNavigation) {
+      const boardEl = document.getElementById('board');
+      if (!boardEl) {
+        applyNavigation();
+        return;
+      }
+
+      clearTimeout(boardNavigationResetTimer);
+      boardEl.classList.remove('board-nav-left', 'board-nav-right', 'board-nav-up', 'board-nav-down');
+      boardEl.classList.add('board-nav-animating', `board-nav-${direction}`);
+
+      setTimeout(() => {
+        applyNavigation();
+        boardEl.classList.remove(`board-nav-${direction}`);
+        boardNavigationResetTimer = setTimeout(() => {
+          boardEl.classList.remove('board-nav-animating');
+        }, BOARD_NAV_ANIMATION_MS);
+      }, BOARD_NAV_SWAP_DELAY_MS);
+    }
+
+    function flushBoardNavigationQueue() {
+      if (!pendingBoardNavigation || boardNavigationInFlight) return;
+
+      const { direction, navigateFn } = pendingBoardNavigation;
+      pendingBoardNavigation = null;
+      boardNavigationInFlight = true;
+
+      animateBoardNavigation(direction, () => {
+        navigateFn();
+        setTimeout(() => {
+          boardNavigationInFlight = false;
+          flushBoardNavigationQueue();
+        }, BOARD_NAV_ANIMATION_MS);
+      });
+    }
+
+    function queueBoardNavigation(direction, navigateFn) {
+      pendingBoardNavigation = { direction, navigateFn };
+      flushBoardNavigationQueue();
     }
 
     function navigateToPreviousMove() {
