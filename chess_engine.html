@@ -5253,6 +5253,8 @@
     /** Saved live state when viewing a past game on the board (arrow keys). */
     let replayModeBackup = null;
     let isHistoryReplayMode = false;
+    /** While loading history replay, SAN list for notation if game.history() is empty. */
+    let replayNotationSanOverride = null;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -8306,7 +8308,10 @@
 
     function updateNotationDisplay() {
       if (!game) return;
-      const history = game.history();
+      let history = game.history();
+      if (history.length === 0 && replayNotationSanOverride && replayNotationSanOverride.length) {
+        history = replayNotationSanOverride.slice();
+      }
       const container = document.getElementById("notation-container");
       if (!container) return;
       container.innerHTML = '';
@@ -10219,12 +10224,15 @@
           );
         }).join('');
       }
+      modal.style.removeProperty('display');
       modal.classList.add('show');
     }
 
     function closeGameHistoryModal() {
       const modal = document.getElementById('game-history-modal');
-      if (modal) modal.classList.remove('show');
+      if (!modal) return;
+      modal.classList.remove('show');
+      modal.style.display = 'none';
     }
 
     function exportGameHistoryRecordAt(index) {
@@ -10319,12 +10327,14 @@
           return;
         }
       }
+      closeGameHistoryModal();
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;
       premoves = [];
       selectedSquare = null;
 
       game.reset();
+      replayNotationSanOverride = null;
       for (let i = 0; i < rec.historySan.length; i++) {
         const m = game.move(rec.historySan[i]);
         if (!m) {
@@ -10333,6 +10343,7 @@
           return;
         }
       }
+      replayNotationSanOverride = rec.historySan.slice();
       moveHistory = [];
       const tmp = new Chess();
       for (let k = 0; k < rec.historySan.length; k++) {
@@ -10376,9 +10387,19 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      applyViewedPosition(-2);
+      // Show final position first, then jump to start (same as ↑) so notation/sidebar match arrow-key replay.
+      applyViewedPosition(-1);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (!isHistoryReplayMode) {
+            replayNotationSanOverride = null;
+            return;
+          }
+          navigateToStart();
+          replayNotationSanOverride = null;
+        });
+      });
 
-      closeGameHistoryModal();
       const ban = document.getElementById('history-replay-banner');
       if (ban) {
         ban.style.display = 'flex';
@@ -10388,11 +10409,13 @@
 
     function exitHistoryReplay() {
       if (!isHistoryReplayMode) {
+        replayNotationSanOverride = null;
         const ban = document.getElementById('history-replay-banner');
         if (ban) ban.style.display = 'none';
         return;
       }
       isHistoryReplayMode = false;
+      replayNotationSanOverride = null;
       const b = replayModeBackup;
       replayModeBackup = null;
       const ban = document.getElementById('history-replay-banner');
