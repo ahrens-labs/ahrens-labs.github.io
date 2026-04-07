@@ -176,13 +176,19 @@ def _apply_debug_move(board, piece, from_row, from_col, to_row, to_col, color):
 def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, captured_piece, color):
     debug_board = fast_copy_board(board_before)
     _apply_debug_move(debug_board, piece, from_row, from_col, to_row, to_col, color)
+    debug_captured_piece = captured_piece
+
+    # Pawn captures should always be logged with "x", including en passant where
+    # the target square is empty in the pre-move board state.
+    if piece in {'p', 'P'} and from_col != to_col and captured_piece == '0':
+        debug_captured_piece = 'P' if color == 'b' else 'p'
 
     if piece == '0-0':
         move_played = 'O-O'
     elif piece == '0-0-0':
         move_played = 'O-O-O'
     else:
-        move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, captured_piece, color)
+        move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
 
     opponent_color = 'w' if color == 'b' else 'b'
     opp_king_row, opp_king_col = find_king(debug_board, opponent_color)
