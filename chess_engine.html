@@ -5072,7 +5072,7 @@
     let historyAnimationInProgress = false;
     let historyAnimationTimeoutId = null;
     let queuedHistoryTargetIndex = null;
-    const HISTORY_NAV_ANIMATION_MS = 140;
+    const HISTORY_NAV_ANIMATION_MS = 110;
     /** Last move line while at live position (includes clock); restored when leaving history scrub. */
     let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
@@ -7948,73 +7948,28 @@
       return moveHistory[index] || game.fen();
     }
 
-    function applyViewedPosition(index) {
+    function applyViewedPosition(index, animate = false) {
       currentMoveIndex = index;
-      board.position(getFenForMoveIndex(index));
+      board.position(getFenForMoveIndex(index), animate);
       updateMoveHighlight();
       refreshSidebarForViewedPosition();
-    }
-
-    function getVerboseHistory() {
-      if (!game) return [];
-      try {
-        const verbose = game.history({ verbose: true });
-        if (Array.isArray(verbose) && (!verbose.length || typeof verbose[0] === 'object')) {
-          return verbose;
-        }
-      } catch (err) {}
-
-      const temp = new Chess();
-      return game.history().map(function(san) {
-        return temp.move(san);
-      }).filter(Boolean);
-    }
-
-    function buildBoardAnimationMoves(move, reverse = false) {
-      if (!move) return [];
-
-      if (move.flags && (move.flags.includes('k') || move.flags.includes('q'))) {
-        const isWhite = move.color === 'w';
-        if (move.flags.includes('k')) {
-          return reverse
-            ? [isWhite ? 'g1-e1' : 'g8-e8', isWhite ? 'f1-h1' : 'f8-h8']
-            : [isWhite ? 'e1-g1' : 'e8-g8', isWhite ? 'h1-f1' : 'h8-f8'];
-        }
-        return reverse
-          ? [isWhite ? 'c1-e1' : 'c8-e8', isWhite ? 'd1-a1' : 'd8-a8']
-          : [isWhite ? 'e1-c1' : 'e8-c8', isWhite ? 'a1-d1' : 'a8-d8'];
-      }
-
-      return [reverse ? `${move.to}-${move.from}` : `${move.from}-${move.to}`];
     }
 
     function animateHistoryStep(fromIndex, toIndex) {
       if (!board || !game) return false;
       if (fromIndex === toIndex) return false;
-      if (Math.abs(fromIndex - toIndex) !== 1) return false;
-      if (fromIndex === moveHistory.length - 1 && toIndex === -1) return false;
-
-      const verboseHistory = getVerboseHistory();
-      let move = null;
-      let reverse = false;
-
-      if (toIndex > fromIndex) {
-        move = verboseHistory[toIndex];
-      } else {
-        reverse = true;
-        move = verboseHistory[fromIndex];
-      }
-
-      if (!move) return false;
+      const fromOrder = historyIndexToOrder(fromIndex);
+      const toOrder = historyIndexToOrder(toIndex);
+      if (Math.abs(fromOrder - toOrder) !== 1) return false;
 
       try {
         historyAnimationInProgress = true;
-        board.move.apply(board, buildBoardAnimationMoves(move, reverse));
+        currentMoveIndex = toIndex;
+        board.position(getFenForMoveIndex(toIndex), true);
+        updateMoveHighlight();
+        refreshSidebarForViewedPosition();
         historyAnimationTimeoutId = setTimeout(function() {
-          currentMoveIndex = toIndex;
           board.position(getFenForMoveIndex(toIndex), false);
-          updateMoveHighlight();
-          refreshSidebarForViewedPosition();
           historyAnimationInProgress = false;
           historyAnimationTimeoutId = null;
 
