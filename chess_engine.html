@@ -3112,62 +3112,68 @@
     /* Move History/Notation Container */
     #notation-container {
       background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-      padding: 15px;
+      padding: 0 8px 10px;
       border-radius: 15px;
       box-shadow: 
           0 4px 15px rgba(0, 0, 0, 0.08),
           inset 0 1px 0 rgba(255, 255, 255, 0.8);
       border: 1px solid rgba(52, 152, 219, 0.1);
       font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 1rem;
-      line-height: 1.55;
+      font-size: 0.8rem;
+      line-height: 1.45;
       min-height: 60px;
       height: auto;
       max-height: 600px;
       transition: min-height 0.35s cubic-bezier(0.33,1,0.68,1), max-height 0.35s cubic-bezier(0.33,1,0.68,1);
       box-sizing: border-box;
       overflow-y: auto;
-      overflow-x: auto;
+      overflow-x: hidden;
       display: none;
       color: #34495e;
       flex-shrink: 0;
       position: relative;
       z-index: 1;
       min-width: 0;
+      isolation: isolate;
     }
     
-    /* Column layout: 1. e4 e5    00:01.12  00:03.32 — generous gaps so moves/times don’t clip */
+    /* Fits sidebar width: no horizontal scroll; columns share space */
     #notation-container .notation-row {
       display: grid;
       grid-template-columns:
-        minmax(2.5rem, max-content)
-        minmax(2.75rem, max-content)
-        minmax(2.75rem, max-content)
-        minmax(0.5rem, 1fr)
-        minmax(6.75rem, max-content)
-        minmax(6.75rem, max-content);
-      column-gap: 20px;
-      row-gap: 4px;
+        minmax(0, 1.6rem)
+        minmax(0, 1fr)
+        minmax(0, 1fr)
+        2px
+        minmax(0, 1fr)
+        minmax(0, 1fr);
+      column-gap: 5px;
+      row-gap: 2px;
       align-items: center;
-      padding: 8px 6px;
-      margin-bottom: 10px;
-      font-size: 1.02rem;
-      line-height: 1.45;
+      padding: 4px 2px;
+      margin-bottom: 6px;
+      font-size: 0.76rem;
+      line-height: 1.35;
     }
     #notation-container .notation-num {
       color: #7f8c8d;
       font-weight: 600;
+      font-size: 0.74rem;
+      text-align: end;
+      padding-right: 2px;
     }
     #notation-container .notation-san {
       font-weight: 600;
       color: #2c3e50;
       cursor: pointer;
-      padding: 5px 10px;
+      padding: 3px 4px;
       margin: 0;
-      border-radius: 6px;
+      border-radius: 4px;
       transition: background-color 0.15s ease;
       letter-spacing: 0.01em;
       white-space: nowrap;
+      min-width: 0;
+      text-align: center;
     }
     #notation-container .notation-san:hover:not(.notation-san--empty) {
       background: #ecf0f1;
@@ -3185,23 +3191,23 @@
     }
     #notation-container .notation-time {
       font-weight: 600;
-      font-size: 0.88em;
+      font-size: 0.65rem;
       text-align: center;
       white-space: nowrap;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.02em;
       font-variant-numeric: tabular-nums;
-      padding: 5px 10px;
-      border-radius: 8px;
+      padding: 3px 4px;
+      border-radius: 5px;
       box-sizing: border-box;
-      justify-self: end;
-      min-width: 6.5rem;
-      width: max-content;
+      justify-self: stretch;
+      min-width: 0;
+      width: 100%;
       max-width: 100%;
     }
     /* White’s clock: white box, black digits */
     #notation-container .notation-time--white {
       background: #ffffff;
-      border: 2px solid #cfd8dc;
+      border: 1px solid #cfd8dc;
       color: #1a1a1a;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.06);
     }
@@ -3215,7 +3221,7 @@
     /* Black’s clock: black box, white digits */
     #notation-container .notation-time--black {
       background: #0d0d0d;
-      border: 2px solid #000000;
+      border: 1px solid #000000;
       color: #ffffff;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.12);
     }
@@ -3228,22 +3234,25 @@
     }
 
     #notation-container::before {
-      content: 'Move History (\2190 \2192 keys) — moves then White / Black times';
+      content: 'Move history\A← / → keys · tap a move · W / B times';
       display: block;
       font-family: 'Inter', sans-serif;
-      font-size: 0.95rem;
+      font-size: 0.72rem;
       font-weight: 600;
       color: #1a252f;
       text-align: center;
-      margin: -15px -15px 12px;
-      padding: 14px 15px 12px;
+      white-space: pre-line;
+      line-height: 1.35;
+      margin: 0 0 8px;
+      padding: 10px 6px 9px;
       border-bottom: 2px solid #d5dde4;
       position: sticky;
       top: 0;
       background-color: #eef1f5;
       background-image: none;
-      z-index: 2;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      z-index: 5;
+      box-shadow: 0 3px 0 #eef1f5, 0 6px 8px rgba(0, 0, 0, 0.08);
+      border-radius: 15px 15px 0 0;
     }
 
     .page-theme-dark #notation-container::before,
@@ -3262,7 +3271,7 @@
       background-image: none !important;
       color: #eceff1 !important;
       border-bottom-color: #454a52 !important;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 3px 0 #2d3035, 0 6px 10px rgba(0, 0, 0, 0.45) !important;
     }
 
     .move-pair {
