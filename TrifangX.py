@@ -138,24 +138,71 @@ def print_piece_move(board, best_piece, best_row, best_col, target_row, target_c
 
     return move_played
 
-def format_debug_move(piece, from_col=None, to_row=None, to_col=None, captured_piece='0'):
-    if piece in ('0-0', '0-0-0'):
-        return piece
+def _apply_debug_move(board, piece, from_row, from_col, to_row, to_col, color):
+    if piece == '0-0':
+        if color == 'b':
+            board[7][7] = '0'
+            board[7][5] = 'r'
+            board[7][6] = 'k'
+            board[7][4] = '0'
+        else:
+            board[0][7] = '0'
+            board[0][5] = 'R'
+            board[0][6] = 'K'
+            board[0][4] = '0'
+        return
 
-    target_square = indices_to_pos(to_row, to_col)
-    is_capture = captured_piece in ALL_PIECES
+    if piece == '0-0-0':
+        if color == 'b':
+            board[7][0] = '0'
+            board[7][3] = 'r'
+            board[7][2] = 'k'
+            board[7][4] = '0'
+        else:
+            board[0][0] = '0'
+            board[0][3] = 'R'
+            board[0][2] = 'K'
+            board[0][4] = '0'
+        return
 
-    if piece in ('P', 'p'):
-        if is_capture:
-            return indices_to_pos_col(from_col) + 'x' + target_square
-        return target_square
+    board[from_row][from_col] = '0'
+    if piece == 'p' and color == 'b' and to_row == 0:
+        board[to_row][to_col] = 'q'
+    elif piece == 'P' and color == 'w' and to_row == 7:
+        board[to_row][to_col] = 'Q'
+    else:
+        board[to_row][to_col] = piece
 
-    piece_letter = piece.upper()
-    if is_capture:
-        return piece_letter + 'x' + target_square
-    return piece_letter + target_square
+def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, captured_piece, color):
+    debug_board = fast_copy_board(board_before)
+    _apply_debug_move(debug_board, piece, from_row, from_col, to_row, to_col, color)
 
-def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score):
+    if piece == '0-0':
+        move_played = 'O-O'
+    elif piece == '0-0-0':
+        move_played = 'O-O-O'
+    else:
+        move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, captured_piece, color)
+
+    opponent_color = 'w' if color == 'b' else 'b'
+    opp_king_row, opp_king_col = find_king(debug_board, opponent_color)
+    if (opp_king_row != -1 and is_king_in_check(debug_board, opp_king_row, opp_king_col, opponent_color)
+            and not move_played.endswith('+')):
+        move_played += '+'
+
+    return move_played
+
+def format_debug_board(board):
+    lines = ["  a b c d e f g h", " +-----------------+"]
+    for r in range(8):
+        row_str = str(8 - r) + "| "
+        for c in range(8):
+            row_str += board[r][c] + " "
+        lines.append(row_str + "|")
+    lines.append(" +-----------------+")
+    return "\n".join(lines)
+
+def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board_after_third_move):
     if not DEBUG_LOGS:
         return
 
@@ -164,6 +211,8 @@ def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current
     print(f"Predicted reply    : {predicted_move_1}")
     print(f"Predicted follow-up: {predicted_move_2}")
     print(f"Score              : {current_score}")
+    print("Board after move 3 :")
+    print(format_debug_board(board_after_third_move))
     print("=" * 52)
 
 def clean_move(move):
@@ -476,8 +525,8 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
-    analyzed_move = format_debug_move(piece, from_col, to_row, to_col, captured_piece)
     if piece == '0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
         board[7][7] = '0'
         board[7][5] = 'r'
         board[7][6] = 'k'
@@ -490,7 +539,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return -1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
@@ -498,11 +547,11 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 current_score = score(board, 'w')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                 scoring_time += 0
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
@@ -520,6 +569,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             return 10000, scoring_time
             # sys.exit() # Removed sys.exit()
     elif piece == '0-0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
         board[7][0] = '0'
         board[7][3] = 'r'
         board[7][2] = 'k'
@@ -532,7 +582,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return -1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
@@ -540,11 +590,11 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 current_score = score(board, 'w')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -562,6 +612,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             # sys.exit() # Removed sys.exit()
 
     else:
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
         board[from_row][from_col] = '0'
         board[to_row][to_col] = piece
         if piece == 'P' and to_row == 0:
@@ -595,7 +646,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         bad_checkmate = True
                         return -1000, scoring_time
                     if not checkmate and not bad_checkmate and not stalemate:
-                        predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
                         board[best_row][best_col] = '0'
                         board[target_row][target_col] = best_piece
                         if target_row == 7 and best_piece == 'P':
@@ -605,7 +656,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                             checkmate2 = True
                         if not checkmate2:
-                            predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
                             board[best_row2][best_col2] = '0'
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 0 and best_piece2 == 'p':
@@ -615,7 +666,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                             for move in good_moves:
                                 if (from_row, from_col, from_row, from_col, piece, '0') == move:
                                     current_score += 0.5
-                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                             board[best_row2][best_col2] = best_piece2
                             board[target_row2][target_col2] = captured2
                             board[best_row][best_col] = best_piece
@@ -727,8 +778,8 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
-    analyzed_move = format_debug_move(piece, from_col, to_row, to_col, captured_piece)
     if piece == '0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
         # Removed print for performance in parallel processing
         board[0][7] = '0'
         board[0][5] = 'R'
@@ -741,7 +792,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -750,13 +801,13 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
                     board[target_row2][target_col2] = 'Q'
                 current_score = score(board, 'b')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -773,6 +824,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             return -10000, scoring_time
             # sys.exit() # Removed sys.exit()
     elif piece == '0-0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
         # Removed print for performance in parallel processing
         board[0][0] = '0'
         board[0][3] = 'R'
@@ -785,7 +837,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -794,13 +846,13 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
                     board[target_row2][target_col2] = 'Q'
                 current_score = score(board, 'b')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                 board[best_row2][best_col2] = best_piece2
                 board[target_row2][target_col2] = captured2
                 board[best_row][best_col] = best_piece
@@ -818,6 +870,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             # sys.exit() # Removed sys.exit()
 
     else:
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
         board[from_row][from_col] = '0'
         board[to_row][to_col] = piece
         if piece == 'P' and to_row == 7:
@@ -854,7 +907,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         bad_checkmate = True
                         return 1000, scoring_time
                     if not checkmate and not bad_checkmate and not stalemate:
-                        predicted_move_1 = format_debug_move(best_piece, best_col, target_row, target_col, board[target_row][target_col])
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
                         board[best_row][best_col] = '0'
                         board[target_row][target_col] = best_piece
                         if target_row == 0 and best_piece == 'p':
@@ -863,7 +916,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                             checkmate2 = True
                         if not checkmate2:
-                            predicted_move_2 = format_debug_move(best_piece2, best_col2, target_row2, target_col2, board[target_row2][target_col2])
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
                             board[best_row2][best_col2] = '0'
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 7 and best_piece2 == 'P':
@@ -872,7 +925,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                             for move in good_moves:
                                 if (from_row, from_col, from_row, from_col, piece, '0') == move:
                                     current_score -= 0.5
-                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score)
+                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
                             board[best_row2][best_col2] = best_piece2
                             board[target_row2][target_col2] = captured2
                             board[best_row][best_col] = best_piece
