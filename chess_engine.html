@@ -5069,6 +5069,10 @@
     /** Elapsed thinking time per half-move (same order as game.history()), formatted like the move timer. */
     let moveClockTimes = [];
     let currentMoveIndex = -1;
+    let historyAnimationInProgress = false;
+    let historyAnimationTimeoutId = null;
+    let queuedHistoryTargetIndex = null;
+    const HISTORY_NAV_ANIMATION_MS = 140;
     /** Last move line while at live position (includes clock); restored when leaving history scrub. */
     let lastLiveMoveDisplayText = 'None';
     let capturedPieces = { white: [], black: [] };
@@ -7937,59 +7941,178 @@
       updateLastMoveDisplayForView();
     }
 
-function navigateToPreviousMove() {
-      if (currentMoveIndex === -1 && moveHistory.length > 0) {
-        currentMoveIndex = moveHistory.length - 2;
-        if (currentMoveIndex < 0) currentMoveIndex = 0;
-        displayPositionAtIndex(currentMoveIndex);
-      } else if (currentMoveIndex === 0) {
-        currentMoveIndex = -2;
-        board.position('start');
-        updateMoveHighlight();
-        refreshSidebarForViewedPosition();
-      } else if (currentMoveIndex > 0) {
-        currentMoveIndex--;
-        displayPositionAtIndex(currentMoveIndex);
+    function getFenForMoveIndex(index) {
+      if (!game) return 'start';
+      if (index === -2) return 'start';
+      if (index === -1) return game.fen();
+      return moveHistory[index] || game.fen();
+    }
+
+    function applyViewedPosition(index) {
+      currentMoveIndex = index;
+      board.position(getFenForMoveIndex(index));
+      updateMoveHighlight();
+      refreshSidebarForViewedPosition();
+    }
+
+    function getVerboseHistory() {
+      if (!game) return [];
+      try {
+        const verbose = game.history({ verbose: true });
+        if (Array.isArray(verbose) && (!verbose.length || typeof verbose[0] === 'object')) {
+          return verbose;
+        }
+      } catch (err) {}
+
+      const temp = new Chess();
+      return game.history().map(function(san) {
+        return temp.move(san);
+      }).filter(Boolean);
+    }
+
+    function buildBoardAnimationMoves(move, reverse = false) {
+      if (!move) return [];
+
+      if (move.flags && (move.flags.includes('k') || move.flags.includes('q'))) {
+        const isWhite = move.color === 'w';
+        if (move.flags.includes('k')) {
+          return reverse
+            ? [isWhite ? 'g1-e1' : 'g8-e8', isWhite ? 'f1-h1' : 'f8-h8']
+            : [isWhite ? 'e1-g1' : 'e8-g8', isWhite ? 'h1-f1' : 'h8-f8'];
+        }
+        return reverse
+          ? [isWhite ? 'c1-e1' : 'c8-e8', isWhite ? 'd1-a1' : 'd8-a8']
+          : [isWhite ? 'e1-c1' : 'e8-c8', isWhite ? 'a1-d1' : 'a8-d8'];
+      }
+
+      return [reverse ? `${move.to}-${move.from}` : `${move.from}-${move.to}`];
+    }
+
+    function animateHistoryStep(fromIndex, toIndex) {
+      if (!board || !game) return false;
+      if (fromIndex === toIndex) return false;
+      if (Math.abs(fromIndex - toIndex) !== 1) return false;
+      if (fromIndex === moveHistory.length - 1 && toIndex === -1) return false;
+
+      const verboseHistory = getVerboseHistory();
+      let move = null;
+      let reverse = false;
+
+      if (toIndex > fromIndex) {
+        move = verboseHistory[toIndex];
+      } else {
+        reverse = true;
+        move = verboseHistory[fromIndex];
+      }
+
+      if (!move) return false;
+
+      try {
+        historyAnimationInProgress = true;
+        board.move.apply(board, buildBoardAnimationMoves(move, reverse));
+        historyAnimationTimeoutId = setTimeout(function() {
+          currentMoveIndex = toIndex;
+          board.position(getFenForMoveIndex(toIndex), false);
+          updateMoveHighlight();
+          refreshSidebarForViewedPosition();
+          historyAnimationInProgress = false;
+          historyAnimationTimeoutId = null;
+
+          if (queuedHistoryTargetIndex !== null && queuedHistoryTargetIndex !== currentMoveIndex) {
+            const queuedTarget = queuedHistoryTargetIndex;
+            queuedHistoryTargetIndex = null;
+            requestHistoryNavigation(queuedTarget);
+          } else {
+            queuedHistoryTargetIndex = null;
+          }
+        }, HISTORY_NAV_ANIMATION_MS);
+        return true;
+      } catch (err) {
+        historyAnimationInProgress = false;
+        return false;
+      }
+    }
+
+    function historyIndexToOrder(index) {
+      if (index === -2) return -1;
+      if (index === -1) return moveHistory.length;
+      return index;
+    }
+
+    function historyOrderToIndex(order) {
+      if (order === -1) return -2;
+      if (order === moveHistory.length) return -1;
+      return order;
+    }
+
+    function requestHistoryNavigation(targetIndex) {
+      if (!board || !game) return;
+
+      if (historyAnimationInProgress) {
+        queuedHistoryTargetIndex = targetIndex;
+        return;
+      }
+
+      if (targetIndex === currentMoveIndex) return;
+
+      const currentOrder = historyIndexToOrder(currentMoveIndex);
+      const targetOrder = historyIndexToOrder(targetIndex);
+      const nextIndex = Math.abs(targetOrder - currentOrder) <= 1
+        ? targetIndex
+        : historyOrderToIndex(currentOrder + (targetOrder > currentOrder ? 1 : -1));
+
+      if (!animateHistoryStep(currentMoveIndex, nextIndex)) {
+        applyViewedPosition(targetIndex);
+      }
+    }
+
+    function navigateToPreviousMove() {
+      if (!moveHistory.length) return;
+      const baseIndex = queuedHistoryTargetIndex !== null ? queuedHistoryTargetIndex : currentMoveIndex;
+
+      if (baseIndex === -1) {
+        requestHistoryNavigation(Math.max(moveHistory.length - 2, 0));
+      } else if (baseIndex === 0) {
+        requestHistoryNavigation(-2);
+      } else if (baseIndex > 0) {
+        requestHistoryNavigation(baseIndex - 1);
       }
     }
 
     function navigateToNextMove() {
-      if (currentMoveIndex === -2 && moveHistory.length > 0) {
-        currentMoveIndex = 0;
-        displayPositionAtIndex(currentMoveIndex);
-      } else if (currentMoveIndex === -1) {
-        // Already at current position, do nothing
+      if (!moveHistory.length) return;
+      const baseIndex = queuedHistoryTargetIndex !== null ? queuedHistoryTargetIndex : currentMoveIndex;
+
+      if (baseIndex === -2) {
+        requestHistoryNavigation(0);
+      } else if (baseIndex === -1) {
         return;
-      } else if (currentMoveIndex < moveHistory.length - 1) {
-        currentMoveIndex++;
-        displayPositionAtIndex(currentMoveIndex);
-      } else if (currentMoveIndex === moveHistory.length - 1) {
-        currentMoveIndex = -1;
-        board.position(game.fen());
-        updateMoveHighlight();
-        refreshSidebarForViewedPosition();
+      } else if (baseIndex < moveHistory.length - 1) {
+        requestHistoryNavigation(baseIndex + 1);
+      } else if (baseIndex === moveHistory.length - 1) {
+        requestHistoryNavigation(-1);
       }
     }
 
     function navigateToStart() {
-      currentMoveIndex = -2;
-      board.position('start');
-      updateMoveHighlight();
-      refreshSidebarForViewedPosition();
+      queuedHistoryTargetIndex = null;
+      if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
+      historyAnimationInProgress = false;
+      historyAnimationTimeoutId = null;
+      applyViewedPosition(-2);
     }
 
     function navigateToCurrent() {
-      currentMoveIndex = -1;
-      board.position(game.fen());
-      updateMoveHighlight();
-      refreshSidebarForViewedPosition();
+      queuedHistoryTargetIndex = null;
+      if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
+      historyAnimationInProgress = false;
+      historyAnimationTimeoutId = null;
+      applyViewedPosition(-1);
     }
 
     function displayPositionAtIndex(index) {
       if (index >= 0 && index < moveHistory.length) {
-        board.position(moveHistory[index]);
-        updateMoveHighlight();
-        refreshSidebarForViewedPosition();
+        applyViewedPosition(index);
       }
     }
 
@@ -8082,8 +8205,11 @@ function navigateToPreviousMove() {
 
     function jumpToMove(index) {
       if (!blindfoldMode && index >= 0 && index < moveHistory.length) {
-        currentMoveIndex = index;
-        displayPositionAtIndex(index);
+        queuedHistoryTargetIndex = null;
+        if (historyAnimationTimeoutId) clearTimeout(historyAnimationTimeoutId);
+        historyAnimationInProgress = false;
+        historyAnimationTimeoutId = null;
+        applyViewedPosition(index);
       }
     }
 
