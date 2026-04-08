@@ -31,6 +31,8 @@ export default {
         return handleGetUser(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
         return handleChangePassword(request, env, corsHeaders);
+      } else if (path === '/api/delete-account' && request.method === 'POST') {
+        return handleDeleteAccount(request, env, corsHeaders);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
@@ -226,6 +228,66 @@ async function handleChangePassword(request, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Delete account handler
+async function handleDeleteAccount(request, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { password } = await request.json();
+  if (!password) {
+    return new Response(JSON.stringify({ error: 'Password is required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = authHeader.replace('Bearer ', '');
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const deleteReq = new Request('http://do/deleteAccount', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+  const deleteRes = await userAccount.fetch(deleteReq);
+  const result = await deleteRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Account deletion failed' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const destroyReq = new Request('http://do/destroy', { method: 'POST' });
+  await session.fetch(destroyReq);
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -980,6 +1042,12 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/deleteAccount' && request.method === 'POST') {
+        const { password } = await request.json();
+        const result = await this.deleteAccount(password);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/updateChessData' && request.method === 'POST') {
         const chessData = await request.json();
         await this.updateChessData(chessData);
@@ -1237,6 +1305,21 @@ export class UserAccount {
     userData.passwordHash = newHash;
     userData.passwordUpdatedAt = Date.now();
     await this.storage.put('userData', userData);
+    return { success: true };
+  }
+
+  async deleteAccount(password) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+
+    const passwordHash = await this.hashPassword(password || '');
+    if (passwordHash !== userData.passwordHash) {
+      return { success: false, error: 'Password is incorrect' };
+    }
+
+    await this.storage.deleteAll();
     return { success: true };
   }
 
