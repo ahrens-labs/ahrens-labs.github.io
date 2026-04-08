@@ -10404,6 +10404,12 @@
         board.draggable(false);
       }
       navigateToStart();
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (!isHistoryReplayMode) return;
+          navigateToStart();
+        });
+      });
       replayNotationSanOverride = null;
       const ban = document.getElementById('history-replay-banner');
       if (ban) {
