@@ -10392,6 +10392,11 @@
       // Populate the full notation list immediately while keeping the board at
       // the initial position when a saved game replay is opened.
       applyViewedPosition(-2);
+      const syncReplayStartView = function () {
+        if (!isHistoryReplayMode) return;
+        navigateToStart();
+        updateNotationDisplay();
+      };
       // Sync navigateToStart() often runs before the game UI has laid out; notation stays empty until ↑ runs.
       // Defer two frames (layout + paint) then run the same path as the Up arrow key.
       requestAnimationFrame(function () {
@@ -10400,7 +10405,8 @@
             replayNotationSanOverride = null;
             return;
           }
-          navigateToStart();
+          syncReplayStartView();
+          setTimeout(syncReplayStartView, 150);
           replayNotationSanOverride = null;
           const ban = document.getElementById('history-replay-banner');
           if (ban) {
