@@ -10107,12 +10107,15 @@
       const date = new Date();
       const dateStr = date.toISOString().split('T')[0].replace(/-/g, '.');
       const r = result || '*';
+      const playerName = localStorage.getItem('accountUsername')
+        || localStorage.getItem('ahrenslabs_username')
+        || 'Player';
       let pgn = '[Event "Chess vs TrifangX"]\n';
       pgn += '[Site "Ahrens Labs"]\n';
       pgn += `[Date "${dateStr}"]\n`;
       pgn += '[Round "1"]\n';
-      pgn += `[White "${playerColor === 'white' ? 'Player' : 'TrifangX'}"]\n`;
-      pgn += `[Black "${playerColor === 'black' ? 'Player' : 'TrifangX'}"]\n`;
+      pgn += `[White "${playerColor === 'white' ? playerName : 'TrifangX'}"]\n`;
+      pgn += `[Black "${playerColor === 'black' ? playerName : 'TrifangX'}"]\n`;
       pgn += `[Result "${r}"]\n\n`;
       const history = game.history();
       let moveText = '';
@@ -10245,7 +10248,18 @@
         return;
       }
       const base = 'chess_game_' + (rec.savedAt || '').slice(0, 10).replace(/-/g, '.');
-      downloadPgnString(rec.pgn, base || 'chess_game');
+      const playerName = localStorage.getItem('accountUsername')
+        || localStorage.getItem('ahrenslabs_username')
+        || 'Player';
+      let pgn = rec.pgn;
+      if (rec.playerColor === 'white') {
+        pgn = pgn.replace(/\[White ".*?"\]/, `[White "${playerName}"]`);
+        pgn = pgn.replace(/\[Black ".*?"\]/, '[Black "TrifangX"]');
+      } else {
+        pgn = pgn.replace(/\[White ".*?"\]/, '[White "TrifangX"]');
+        pgn = pgn.replace(/\[Black ".*?"\]/, `[Black "${playerName}"]`);
+      }
+      downloadPgnString(pgn, base || 'chess_game');
     }
 
     function rebuildCapturedPiecesFromSanList(sanList) {
@@ -10389,8 +10403,8 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      // Open the replay board first, then run the exact same path as a manual
-      // Up-arrow press once the UI is visible.
+      // Open the replay board first, then keep rerunning the same start-view
+      // path until the notation rows are present.
       applyViewedPosition(-1);
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
@@ -10398,12 +10412,23 @@
             replayNotationSanOverride = null;
             return;
           }
-          setTimeout(function () {
-            if (!isHistoryReplayMode) return;
-            $(document).trigger($.Event('keydown', { key: 'ArrowUp', keyCode: 38, which: 38 }));
-            updateNotationDisplay();
-          }, 350);
-          replayNotationSanOverride = null;
+          let replayStartSyncAttempts = 0;
+          const syncReplayStartView = function () {
+            if (!isHistoryReplayMode) {
+              replayNotationSanOverride = null;
+              return;
+            }
+            navigateToStart();
+            const notationContainer = document.getElementById('notation-container');
+            const hasRows = notationContainer && notationContainer.querySelector('.notation-row');
+            if (hasRows || replayStartSyncAttempts >= 12) {
+              replayNotationSanOverride = null;
+              return;
+            }
+            replayStartSyncAttempts++;
+            setTimeout(syncReplayStartView, 150);
+          };
+          setTimeout(syncReplayStartView, 350);
           const ban = document.getElementById('history-replay-banner');
           if (ban) {
             ban.style.display = 'flex';
