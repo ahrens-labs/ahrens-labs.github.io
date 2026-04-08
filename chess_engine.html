@@ -8270,6 +8270,14 @@
         currentMoveIndex = 0;
         displayPositionAtIndex(currentMoveIndex);
       } else if (currentMoveIndex === -1) {
+        if (isHistoryReplayMode) {
+          const notationContainer = document.getElementById('notation-container');
+          const hasNotationRows = notationContainer && notationContainer.querySelector('.notation-row');
+          if (!hasNotationRows) {
+            currentMoveIndex = 0;
+            displayPositionAtIndex(currentMoveIndex);
+          }
+        }
         return;
       } else if (currentMoveIndex < moveHistory.length - 1) {
         currentMoveIndex++;
