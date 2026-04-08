@@ -5255,7 +5255,6 @@
     let isHistoryReplayMode = false;
     /** While loading history replay, SAN list for notation if game.history() is empty. */
     let replayNotationSanOverride = null;
-    let replayNotationSyncTimer = null;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -8309,8 +8308,8 @@
 
     function updateNotationDisplay() {
       if (!game) return;
-      let history = game.history();
-      if (history.length === 0 && replayNotationSanOverride && replayNotationSanOverride.length) {
+      let history = isHistoryReplayMode ? getViewedHistorySlice() : game.history();
+      if (!history.length && replayNotationSanOverride && replayNotationSanOverride.length && !isHistoryReplayMode) {
         history = replayNotationSanOverride.slice();
       }
       const container = document.getElementById("notation-container");
@@ -10345,10 +10344,6 @@
         }
       }
       closeGameHistoryModal();
-      if (replayNotationSyncTimer) {
-        clearInterval(replayNotationSyncTimer);
-        replayNotationSyncTimer = null;
-      }
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;
       premoves = [];
@@ -10408,65 +10403,16 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      // Open the replay board first, then keep rerunning the same start-view
-      // path until the notation rows are present.
-      applyViewedPosition(-1);
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          if (!isHistoryReplayMode) {
-            replayNotationSanOverride = null;
-            return;
-          }
-          let replayStartSyncAttempts = 0;
-          const syncReplayStartView = function () {
-            if (!isHistoryReplayMode) {
-              replayNotationSanOverride = null;
-              return;
-            }
-            navigateToStart();
-            const notationContainer = document.getElementById('notation-container');
-            const hasRows = notationContainer && notationContainer.querySelector('.notation-row');
-            if (hasRows || replayStartSyncAttempts >= 12) {
-              replayNotationSanOverride = null;
-              return;
-            }
-            replayStartSyncAttempts++;
-            setTimeout(syncReplayStartView, 150);
-          };
-          setTimeout(syncReplayStartView, 350);
-          replayNotationSyncTimer = setInterval(function () {
-            if (!isHistoryReplayMode) {
-              clearInterval(replayNotationSyncTimer);
-              replayNotationSyncTimer = null;
-              return;
-            }
-            const notationContainer = document.getElementById('notation-container');
-            const hasRows = notationContainer && notationContainer.querySelector('.notation-row');
-            if (!hasRows) {
-              navigateToStart();
-              return;
-            }
-            replayStartSyncAttempts++;
-            if (replayStartSyncAttempts >= 12) {
-              replayNotationSanOverride = null;
-              clearInterval(replayNotationSyncTimer);
-              replayNotationSyncTimer = null;
-            }
-          }, 250);
-          const ban = document.getElementById('history-replay-banner');
-          if (ban) {
-            ban.style.display = 'flex';
-          }
-          updateChessPregameToolsVisibility();
-        });
-      });
+      navigateToStart();
+      replayNotationSanOverride = null;
+      const ban = document.getElementById('history-replay-banner');
+      if (ban) {
+        ban.style.display = 'flex';
+      }
+      updateChessPregameToolsVisibility();
     }
 
     function exitHistoryReplay() {
-      if (replayNotationSyncTimer) {
-        clearInterval(replayNotationSyncTimer);
-        replayNotationSyncTimer = null;
-      }
       if (!isHistoryReplayMode) {
         replayNotationSanOverride = null;
         const ban = document.getElementById('history-replay-banner');
