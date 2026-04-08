@@ -5255,6 +5255,7 @@
     let isHistoryReplayMode = false;
     /** While loading history replay, SAN list for notation if game.history() is empty. */
     let replayNotationSanOverride = null;
+    let replayNotationSyncTimer = null;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -10344,6 +10345,10 @@
         }
       }
       closeGameHistoryModal();
+      if (replayNotationSyncTimer) {
+        clearInterval(replayNotationSyncTimer);
+        replayNotationSyncTimer = null;
+      }
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;
       premoves = [];
@@ -10429,6 +10434,25 @@
             setTimeout(syncReplayStartView, 150);
           };
           setTimeout(syncReplayStartView, 350);
+          replayNotationSyncTimer = setInterval(function () {
+            if (!isHistoryReplayMode) {
+              clearInterval(replayNotationSyncTimer);
+              replayNotationSyncTimer = null;
+              return;
+            }
+            const notationContainer = document.getElementById('notation-container');
+            const hasRows = notationContainer && notationContainer.querySelector('.notation-row');
+            if (!hasRows) {
+              navigateToStart();
+              return;
+            }
+            replayStartSyncAttempts++;
+            if (replayStartSyncAttempts >= 12) {
+              replayNotationSanOverride = null;
+              clearInterval(replayNotationSyncTimer);
+              replayNotationSyncTimer = null;
+            }
+          }, 250);
           const ban = document.getElementById('history-replay-banner');
           if (ban) {
             ban.style.display = 'flex';
@@ -10439,6 +10463,10 @@
     }
 
     function exitHistoryReplay() {
+      if (replayNotationSyncTimer) {
+        clearInterval(replayNotationSyncTimer);
+        replayNotationSyncTimer = null;
+      }
       if (!isHistoryReplayMode) {
         replayNotationSanOverride = null;
         const ban = document.getElementById('history-replay-banner');
