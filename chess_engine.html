@@ -10389,24 +10389,20 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      // Populate the full notation list immediately while keeping the board at
-      // the initial position when a saved game replay is opened.
-      applyViewedPosition(-2);
-      const syncReplayStartView = function () {
-        if (!isHistoryReplayMode) return;
-        navigateToStart();
-        updateNotationDisplay();
-      };
-      // Sync navigateToStart() often runs before the game UI has laid out; notation stays empty until ↑ runs.
-      // Defer two frames (layout + paint) then run the same path as the Up arrow key.
+      // Open the replay board first, then run the exact same path as a manual
+      // Up-arrow press once the UI is visible.
+      applyViewedPosition(-1);
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           if (!isHistoryReplayMode) {
             replayNotationSanOverride = null;
             return;
           }
-          syncReplayStartView();
-          setTimeout(syncReplayStartView, 150);
+          setTimeout(function () {
+            if (!isHistoryReplayMode) return;
+            $(document).trigger($.Event('keydown', { key: 'ArrowUp', keyCode: 38, which: 38 }));
+            updateNotationDisplay();
+          }, 350);
           replayNotationSanOverride = null;
           const ban = document.getElementById('history-replay-banner');
           if (ban) {
