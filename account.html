@@ -215,40 +215,43 @@
 
         .account-danger-zone {
             display: none;
-            margin-top: 28px;
-            padding: 18px;
-            border: 1px solid #fecaca;
+            margin-top: 32px;
+            padding: 20px 18px;
             border-radius: 12px;
-            background: #fff5f5;
+            border: 1px solid #fecaca;
+            background: #fffafa;
         }
 
-        .account-danger-zone h2 {
-            margin: 0 0 8px;
+        .account-danger-title {
+            margin: 0 0 10px 0;
+            font-size: 1.05em;
             color: #991b1b;
-            font-size: 1.05rem;
         }
 
-        .account-danger-zone p {
-            margin: 0 0 14px;
-            color: #7f1d1d;
-            font-size: 0.92rem;
-            line-height: 1.5;
+        .account-danger-text {
+            margin: 0 0 16px 0;
+            color: #64748b;
+            font-size: 0.9em;
+            line-height: 1.45;
         }
 
         .account-delete-btn {
-            padding: 10px 18px;
-            background: #b91c1c;
+            width: 100%;
+            padding: 12px 16px;
+            margin-top: 8px;
+            background: #dc2626;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
+            font-size: 0.95em;
             font-weight: 600;
-            font-size: 0.9em;
             cursor: pointer;
             font-family: 'Inter', sans-serif;
+            transition: background 0.2s;
         }
 
         .account-delete-btn:hover {
-            background: #991b1b;
+            background: #b91c1c;
         }
 
     </style>
@@ -333,7 +336,7 @@
         <form id="password-form" class="account-form" onsubmit="handleChangePassword(event)">
             <div class="form-group">
                 <label for="current-password">Current Password</label>
-                <input type="password" id="current-password" required minlength="6">
+                <input type="password" id="current-password" required autocomplete="current-password">
             </div>
             <div class="form-group">
                 <label for="new-password">New Password</label>
@@ -347,11 +350,15 @@
             <button type="submit" class="form-button">Update Password</button>
         </form>
 
-        <section id="account-danger-zone" class="account-danger-zone">
-            <h2>Delete Account</h2>
-            <p>This permanently deletes your account data for the site. Enter your password when prompted to confirm.</p>
-            <button type="button" class="account-delete-btn" onclick="handleDeleteAccount()">Delete Account</button>
-        </section>
+        <div id="account-danger-zone" class="account-danger-zone" style="display: none;">
+            <h3 class="account-danger-title">Delete account</h3>
+            <p class="account-danger-text">This permanently removes your account and all cloud data (chess progress, dungeon saves, Classify, Kyrachyng lessons). This cannot be undone.</p>
+            <div class="form-group">
+                <label for="delete-account-password">Type your password to confirm</label>
+                <input type="password" id="delete-account-password" autocomplete="current-password">
+            </div>
+            <button type="button" class="account-delete-btn" id="delete-account-btn">Delete my account permanently</button>
+        </div>
         
         <div class="back-link">
             <a href="index.html">← Back to Home</a>
@@ -427,10 +434,8 @@
         function setPasswordTabVisibility(isLoggedIn) {
             const passwordTab = document.getElementById('password-tab');
             const sessionBar = document.getElementById('account-session-bar');
-            const dangerZone = document.getElementById('account-danger-zone');
             const headerAuth = document.getElementById('header-auth-buttons');
             if (passwordTab) passwordTab.style.display = isLoggedIn ? 'block' : 'none';
-            if (dangerZone) dangerZone.style.display = isLoggedIn ? 'block' : 'none';
             if (sessionBar) {
                 sessionBar.style.display = isLoggedIn ? 'flex' : 'none';
                 if (isLoggedIn) {
@@ -442,6 +447,14 @@
             }
             if (headerAuth) {
                 headerAuth.style.display = isLoggedIn ? 'none' : 'flex';
+            }
+            const dangerZone = document.getElementById('account-danger-zone');
+            if (dangerZone) {
+                dangerZone.style.display = isLoggedIn ? 'block' : 'none';
+                if (!isLoggedIn) {
+                    const delPwd = document.getElementById('delete-account-password');
+                    if (delPwd) delPwd.value = '';
+                }
             }
             if (!isLoggedIn) {
                 switchTab('login');
@@ -553,9 +566,9 @@
                 return;
             }
 
-            const currentPassword = document.getElementById('current-password').value.trim();
-            const newPassword = document.getElementById('new-password').value.trim();
-            const confirmPassword = document.getElementById('confirm-new-password').value.trim();
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-new-password').value;
             
             if (newPassword !== confirmPassword) {
                 showNotification('New passwords do not match', 'error');
@@ -606,21 +619,17 @@
         async function handleDeleteAccount() {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) {
-                showNotification('Please log in to delete your account', 'error');
-                switchTab('login');
+                showNotification('Please log in first', 'error');
                 return;
             }
-
-            const firstConfirm = window.confirm('Delete your account permanently? This cannot be undone.');
-            if (!firstConfirm) return;
-
-            const password = window.prompt('Enter your password to confirm account deletion:');
-            if (password === null) return;
-            if (!password.trim()) {
-                showNotification('Password is required to delete your account', 'error');
+            const password = document.getElementById('delete-account-password').value;
+            if (!password) {
+                showNotification('Enter your password to delete your account', 'error');
                 return;
             }
-
+            if (!confirm('Delete your account and all cloud data permanently? This cannot be undone.')) {
+                return;
+            }
             try {
                 const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
                     method: 'POST',
@@ -628,51 +637,32 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${sessionId}`
                     },
-                    body: JSON.stringify({ password: password.trim() })
+                    body: JSON.stringify({ password })
                 });
-
-                const data = await response.json();
-                if (response.ok && data.success) {
+                let data = null;
+                let rawText = '';
+                try {
+                    rawText = await response.text();
+                    data = rawText ? JSON.parse(rawText) : null;
+                } catch (e) {
+                    data = null;
+                }
+                if (response.ok && data && data.success) {
                     localStorage.removeItem('ahrenslabs_sessionId');
                     localStorage.removeItem('ahrenslabs_username');
                     localStorage.removeItem('ahrenslabs_userId');
-                    showNotification('Account deleted successfully.', 'success', 3000);
-                    setPasswordTabVisibility(false);
-                    setAuthTabsVisibility(true);
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1200);
-                    return;
+                    showNotification('Your account has been deleted.', 'success', 2500);
+                    setTimeout(() => { window.location.href = 'index.html'; }, 800);
+                } else {
+                    const message = data?.error
+                        || (response.status === 404 ? 'Account deletion is not available on this server yet.' : null)
+                        || 'Could not delete account';
+                    showNotification(message, 'error');
                 }
-
-                showNotification(data.error || 'Account deletion failed', 'error');
             } catch (error) {
                 console.error('Delete account error:', error);
-                showNotification('Account deletion failed. Please try again.', 'error');
+                showNotification('Could not delete account. Please try again.', 'error');
             }
-        }
-
-        async function handleLogout() {
-            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            if (sessionId) {
-                try {
-                    await fetch(`${API_BASE_URL}/api/logout`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${sessionId}`
-                        }
-                    });
-                } catch (error) {
-                    console.error('Logout error:', error);
-                }
-            }
-
-            localStorage.removeItem('ahrenslabs_sessionId');
-            localStorage.removeItem('ahrenslabs_username');
-            localStorage.removeItem('ahrenslabs_userId');
-            setPasswordTabVisibility(false);
-            setAuthTabsVisibility(true);
-            showNotification('Logged out.', 'success');
         }
         
         async function verifyEmail(token, email) {

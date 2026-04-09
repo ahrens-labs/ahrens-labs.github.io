@@ -173,8 +173,8 @@ async function handleSignup(request, env, corsHeaders) {
 
 // Change password handler
 async function handleChangePassword(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -194,8 +194,6 @@ async function handleChangePassword(request, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
 
@@ -234,25 +232,34 @@ async function handleChangePassword(request, env, corsHeaders) {
   });
 }
 
-// Delete account handler
+// Delete account (requires session + current password; destroys session)
 async function handleDeleteAccount(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const { password } = await request.json();
-  if (!password) {
-    return new Response(JSON.stringify({ error: 'Password is required' }), {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const sessionId = authHeader.replace('Bearer ', '');
+  const { password } = body;
+  if (!password || typeof password !== 'string') {
+    return new Response(JSON.stringify({ error: 'Password is required to delete your account' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
 
@@ -267,20 +274,19 @@ async function handleDeleteAccount(request, env, corsHeaders) {
     });
   }
 
-  const userId = userResult.userId;
-  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
-  const deleteReq = new Request('http://do/deleteAccount', {
+  const delReq = new Request('http://do/deleteAccount', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password })
+    body: JSON.stringify({ password }),
   });
-  const deleteRes = await userAccount.fetch(deleteReq);
-  const result = await deleteRes.json();
+  const delRes = await userAccount.fetch(delReq);
+  const result = await delRes.json();
 
   if (!result.success) {
-    return new Response(JSON.stringify({ error: result.error || 'Account deletion failed' }), {
+    return new Response(JSON.stringify({ error: result.error || 'Could not delete account' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -355,15 +361,13 @@ async function handleLogin(request, env, corsHeaders) {
 
 // Logout handler
 async function handleLogout(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -379,15 +383,13 @@ async function handleLogout(request, env, corsHeaders) {
 
 // Sync handler
 async function handleSync(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -422,15 +424,13 @@ async function handleSync(request, env, corsHeaders) {
 
 // Chess sync handler - saves all chess data to cloud
 async function handleChessSync(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -463,15 +463,13 @@ async function handleChessSync(request, env, corsHeaders) {
 
 // Chess load handler - loads all chess data from cloud
 async function handleChessLoad(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -501,15 +499,13 @@ async function handleChessLoad(request, env, corsHeaders) {
 
 // Dungeon slots handler - get all save slots
 async function handleDungeonSlots(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -539,15 +535,13 @@ async function handleDungeonSlots(request, env, corsHeaders) {
 
 // Dungeon save handler - save to specific slot
 async function handleDungeonSave(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -588,15 +582,13 @@ async function handleDungeonSave(request, env, corsHeaders) {
 
 // Dungeon load handler - load from specific slot
 async function handleDungeonLoad(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -638,15 +630,13 @@ async function handleDungeonLoad(request, env, corsHeaders) {
 
 // Dungeon delete handler - delete specific slot
 async function handleDungeonDelete(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -686,15 +676,13 @@ async function handleDungeonDelete(request, env, corsHeaders) {
 }
 
 async function handleClassifySync(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
@@ -723,15 +711,13 @@ async function handleClassifySync(request, env, corsHeaders) {
 }
 
 async function handleClassifyLoad(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
@@ -757,15 +743,13 @@ async function handleClassifyLoad(request, env, corsHeaders) {
 }
 
 async function handleKyrachyngProgressSync(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
@@ -798,15 +782,13 @@ async function handleKyrachyngProgressSync(request, env, corsHeaders) {
 }
 
 async function handleKyrachyngProgressLoad(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
@@ -833,15 +815,13 @@ async function handleKyrachyngProgressLoad(request, env, corsHeaders) {
 
 // Get user data handler
 async function handleGetUser(request, env, corsHeaders) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-
-  const sessionId = authHeader.replace('Bearer ', '');
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
   
@@ -868,12 +848,25 @@ async function handleGetUser(request, env, corsHeaders) {
   const dataRes = await userAccount.fetch(getDataReq);
   const userData = await dataRes.json();
 
+  if (userData == null || typeof userData !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   return new Response(JSON.stringify(userData), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
 // Helper functions
+function parseBearerToken(authHeader) {
+  if (!authHeader || typeof authHeader !== 'string') return null;
+  const m = authHeader.match(/^Bearer\s+(\S+)/i);
+  return m ? m[1] : null;
+}
+
 function generateUserId(email) {
   // Simple hash function for user ID
   let hash = 0;
@@ -986,6 +979,87 @@ async function handleVerifyEmail(request, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+}
+
+// Password storage: PBKDF2-HMAC-SHA256 with unique random salt per user (not encryption;
+// one-way hashing so stored values cannot be recovered). Legacy accounts used bare SHA-256;
+// they are upgraded to PBKDF2 on next successful login.
+const PBKDF2_ITERATIONS = 120000;
+
+function uint8ToHex(u8) {
+  return Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToUint8(hex) {
+  if (!hex || hex.length % 2 !== 0) return new Uint8Array(0);
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function timingSafeEqualHex(a, b) {
+  const aa = String(a).toLowerCase();
+  const bb = String(b).toLowerCase();
+  if (aa.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aa.length; i++) {
+    diff |= aa.charCodeAt(i) ^ bb.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function pbkdf2Sha256(password, salt, iterations) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return new Uint8Array(bits);
+}
+
+async function hashPasswordSecure(plain) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await pbkdf2Sha256(plain, salt, PBKDF2_ITERATIONS);
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${uint8ToHex(salt)}$${uint8ToHex(hash)}`;
+}
+
+async function legacySha256Password(plain) {
+  const encoder = new TextEncoder();
+  const buf = await crypto.subtle.digest('SHA-256', encoder.encode(plain));
+  return uint8ToHex(new Uint8Array(buf));
+}
+
+async function verifyStoredPassword(plain, stored) {
+  if (plain == null || stored == null || typeof stored !== 'string') return false;
+  if (stored.startsWith('pbkdf2$')) {
+    const parts = stored.split('$');
+    if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
+    const iter = parseInt(parts[1], 10);
+    if (!Number.isFinite(iter) || iter < 10000 || iter > 2000000) return false;
+    const saltHex = parts[2];
+    const expectedHex = parts[3];
+    if (!/^[0-9a-fA-F]+$/.test(saltHex) || saltHex.length % 2 !== 0) return false;
+    if (!/^[0-9a-fA-F]{64}$/.test(expectedHex)) return false;
+    const salt = hexToUint8(saltHex);
+    if (salt.length === 0) return false;
+    const hash = await pbkdf2Sha256(plain, salt, iter);
+    return timingSafeEqualHex(uint8ToHex(hash), expectedHex);
+  }
+  if (/^[0-9a-fA-F]{64}$/.test(stored)) {
+    const legacy = await legacySha256Password(plain);
+    return timingSafeEqualHex(legacy, stored);
+  }
+  return false;
 }
 
 // Durable Object: UserAccount
@@ -1107,9 +1181,16 @@ export class UserAccount {
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
+        let userDataSafe = userData;
+        if (userData && typeof userData === 'object') {
+          userDataSafe = { ...userData };
+          if ('passwordHash' in userDataSafe) {
+            userDataSafe.passwordHash = userDataSafe.passwordHash ? '[redacted]' : null;
+          }
+        }
         return new Response(JSON.stringify({
           storageKeys: Array.from(allKeys.keys()),
-          userDataValue: userData,
+          userDataValue: userDataSafe,
           userDataType: typeof userData,
           hasUserData: userData !== null,
           hasUserDataUndefined: userData !== undefined,
@@ -1142,8 +1223,7 @@ export class UserAccount {
       return { success: false, error: 'User already exists' };
     }
 
-    // Simple password hash (in production, use proper hashing)
-    const passwordHash = await this.hashPassword(password);
+    const passwordHash = await hashPasswordSecure(password);
 
     const userData = {
       email,
@@ -1214,11 +1294,16 @@ export class UserAccount {
       return { success: false };
     }
 
-    const passwordHash = await this.hashPassword(password);
-    if (passwordHash === userData.passwordHash) {
-      return { success: true };
+    const stored = userData.passwordHash;
+    const ok = await verifyStoredPassword(password, stored);
+    if (!ok) {
+      return { success: false };
     }
-    return { success: false };
+    if (typeof stored === 'string' && !stored.startsWith('pbkdf2$')) {
+      userData.passwordHash = await hashPasswordSecure(password);
+      await this.storage.put('userData', userData);
+    }
+    return { success: true };
   }
 
   async getData() {
@@ -1296,13 +1381,12 @@ export class UserAccount {
       return { success: false, error: 'Password must be at least 6 characters' };
     }
 
-    const currentHash = await this.hashPassword(currentPassword || '');
-    if (currentHash !== userData.passwordHash) {
+    const ok = await verifyStoredPassword(currentPassword || '', userData.passwordHash);
+    if (!ok) {
       return { success: false, error: 'Current password is incorrect' };
     }
 
-    const newHash = await this.hashPassword(newPassword);
-    userData.passwordHash = newHash;
+    userData.passwordHash = await hashPasswordSecure(newPassword);
     userData.passwordUpdatedAt = Date.now();
     await this.storage.put('userData', userData);
     return { success: true };
@@ -1311,15 +1395,13 @@ export class UserAccount {
   async deleteAccount(password) {
     const userData = await this.storage.get('userData');
     if (!userData) {
-      return { success: false, error: 'User not found' };
+      return { success: false, error: 'Account not found' };
     }
-
-    const passwordHash = await this.hashPassword(password || '');
-    if (passwordHash !== userData.passwordHash) {
+    const ok = await verifyStoredPassword(password, userData.passwordHash);
+    if (!ok) {
       return { success: false, error: 'Password is incorrect' };
     }
-
-    await this.storage.deleteAll();
+    await this.storage.delete('userData');
     return { success: true };
   }
 
@@ -1499,14 +1581,6 @@ export class UserAccount {
     };
   }
 
-  async hashPassword(password) {
-    // Simple hash for demo - use proper hashing in production
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
 }
 
 // Durable Object: Session
