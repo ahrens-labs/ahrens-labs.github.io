@@ -254,6 +254,89 @@
             background: #b91c1c;
         }
 
+        .account-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(4px);
+        }
+
+        .account-modal-overlay.is-open {
+            display: flex;
+        }
+
+        .account-modal-panel {
+            width: 100%;
+            max-width: 420px;
+            padding: 28px 26px 22px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+            border: 1px solid #e2e8f0;
+        }
+
+        .account-modal-title {
+            margin: 0 0 12px 0;
+            font-size: 1.35em;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .account-modal-body {
+            margin: 0 0 24px 0;
+            color: #64748b;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .account-modal-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .account-modal-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            border: none;
+            transition: background 0.2s, transform 0.15s;
+        }
+
+        .account-modal-btn:active {
+            transform: scale(0.98);
+        }
+
+        .account-modal-btn-cancel {
+            background: #f1f5f9;
+            color: #334155;
+            border: 2px solid #e2e8f0;
+        }
+
+        .account-modal-btn-cancel:hover {
+            background: #e2e8f0;
+        }
+
+        .account-modal-btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+
+        .account-modal-btn-danger:hover {
+            background: #b91c1c;
+        }
+
     </style>
 </head>
 <body>
@@ -371,6 +454,19 @@
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>
 
+    <div id="delete-account-modal" class="account-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-desc">
+        <div class="account-modal-panel" role="document">
+            <h2 id="delete-modal-title" class="account-modal-title">Delete your account?</h2>
+            <p id="delete-modal-desc" class="account-modal-body">
+                This will permanently remove your account and all cloud data: chess progress, dungeon saves, Classify planner data, and Kyrachyng lesson progress. You will not be able to recover it.
+            </p>
+            <div class="account-modal-actions">
+                <button type="button" class="account-modal-btn account-modal-btn-cancel" id="delete-modal-cancel">Cancel</button>
+                <button type="button" class="account-modal-btn account-modal-btn-danger" id="delete-modal-confirm">Yes, delete permanently</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
         
@@ -409,7 +505,45 @@
                 await verifyEmail(verifyToken, email);
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+
+            const deleteModal = document.getElementById('delete-account-modal');
+            const deleteModalCancel = document.getElementById('delete-modal-cancel');
+            const deleteModalConfirm = document.getElementById('delete-modal-confirm');
+            if (deleteModalCancel) {
+                deleteModalCancel.addEventListener('click', closeDeleteAccountModal);
+            }
+            if (deleteModalConfirm) {
+                deleteModalConfirm.addEventListener('click', executeConfirmedAccountDeletion);
+            }
+            if (deleteModal) {
+                deleteModal.addEventListener('click', (e) => {
+                    if (e.target === deleteModal) closeDeleteAccountModal();
+                });
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && deleteModal && deleteModal.classList.contains('is-open')) {
+                    closeDeleteAccountModal();
+                }
+            });
         });
+
+        function openDeleteAccountModal() {
+            const deleteModal = document.getElementById('delete-account-modal');
+            if (!deleteModal) return;
+            deleteModal.classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+            const confirmBtn = document.getElementById('delete-modal-confirm');
+            if (confirmBtn) confirmBtn.focus();
+        }
+
+        function closeDeleteAccountModal() {
+            const deleteModal = document.getElementById('delete-account-modal');
+            if (!deleteModal) return;
+            deleteModal.classList.remove('is-open');
+            document.body.style.overflow = '';
+            const trigger = document.getElementById('delete-account-btn');
+            if (trigger) trigger.focus();
+        }
         
         function switchTab(tab) {
             const tabs = document.querySelectorAll('.account-tab');
@@ -618,7 +752,7 @@
             }
         }
 
-        async function handleDeleteAccount() {
+        function handleDeleteAccount() {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) {
                 showNotification('Please log in first', 'error');
@@ -629,9 +763,18 @@
                 showNotification('Enter your password to delete your account', 'error');
                 return;
             }
-            if (!confirm('Delete your account and all cloud data permanently? This cannot be undone.')) {
+            openDeleteAccountModal();
+        }
+
+        async function executeConfirmedAccountDeletion() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            const password = document.getElementById('delete-account-password').value;
+            if (!sessionId || !password) {
+                closeDeleteAccountModal();
+                showNotification('Session or password missing. Try again.', 'error');
                 return;
             }
+            closeDeleteAccountModal();
             try {
                 const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
                     method: 'POST',

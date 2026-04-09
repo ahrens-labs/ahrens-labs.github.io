@@ -10361,7 +10361,6 @@
       }
       playerColor = rec.playerColor === 'black' ? 'black' : 'white';
       gameOver = true;
-      currentMoveIndex = -1;
       resetGameStats();
       rebuildCapturedPiecesFromSanList(rec.historySan);
       const vhist = game.history({ verbose: true });
@@ -10391,21 +10390,14 @@
         board.orientation(playerColor);
         board.draggable(false);
       }
-      // Sync navigateToStart() often runs before the game UI has laid out; notation stays empty until ↑ runs.
-      // Defer two frames (layout + paint) then run the same path as the Up arrow key.
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          if (!isHistoryReplayMode) {
-            return;
-          }
-          navigateToStart();
-          const ban = document.getElementById('history-replay-banner');
-          if (ban) {
-            ban.style.display = 'flex';
-          }
-          updateChessPregameToolsVisibility();
-        });
-      });
+      // Jump to start (currentMoveIndex -2) now. If we left -1 until a deferred navigateToStart, → would
+      // no-op because navigateToNextMove returns on -1, and the first ply could never be shown.
+      navigateToStart();
+      const ban = document.getElementById('history-replay-banner');
+      if (ban) {
+        ban.style.display = 'flex';
+      }
+      updateChessPregameToolsVisibility();
     }
 
     function exitHistoryReplay() {
