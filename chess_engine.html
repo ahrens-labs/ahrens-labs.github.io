@@ -5255,6 +5255,8 @@
     let isHistoryReplayMode = false;
     /** Full SAN list for the saved game for the whole replay session (notation never shrinks when scrubbing). */
     let historyReplayFullSan = null;
+    /** True once the user has actually stepped forward to the final move; prevents Right from mis-recovering on initial load. */
+    let reachedReplayEnd = false;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -8270,16 +8272,24 @@
         currentMoveIndex = 0;
         displayPositionAtIndex(currentMoveIndex);
       } else if (currentMoveIndex === -1) {
+        // If we're in replay mode and haven't actually stepped to the end yet,
+        // the -1 state is a stuck-on-load artefact — recover by jumping to move 0.
+        if (isHistoryReplayMode && !reachedReplayEnd) {
+          currentMoveIndex = 0;
+          displayPositionAtIndex(currentMoveIndex);
+        }
         return;
       } else if (currentMoveIndex < moveHistory.length - 1) {
         currentMoveIndex++;
         displayPositionAtIndex(currentMoveIndex);
       } else if (currentMoveIndex === moveHistory.length - 1) {
+        if (isHistoryReplayMode) reachedReplayEnd = true;
         applyViewedPosition(-1);
       }
     }
 
     function navigateToStart() {
+      reachedReplayEnd = false;
       applyViewedPosition(-2);
     }
 
@@ -10334,6 +10344,7 @@
       closeGameHistoryModal();
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;
+      reachedReplayEnd = false;
       premoves = [];
       selectedSquare = null;
 
@@ -10393,6 +10404,7 @@
       // Jump to start (currentMoveIndex -2) now. If we left -1 until a deferred navigateToStart, → would
       // no-op because navigateToNextMove returns on -1, and the first ply could never be shown.
       navigateToStart();
+      currentMoveIndex = -2; // Belt-and-suspenders: ensure start state regardless of any side-effects above.
       const ban = document.getElementById('history-replay-banner');
       if (ban) {
         ban.style.display = 'flex';
@@ -10409,6 +10421,7 @@
       }
       isHistoryReplayMode = false;
       historyReplayFullSan = null;
+      reachedReplayEnd = false;
       const b = replayModeBackup;
       replayModeBackup = null;
       const ban = document.getElementById('history-replay-banner');
