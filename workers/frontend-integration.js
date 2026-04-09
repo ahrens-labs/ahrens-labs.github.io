@@ -83,15 +83,19 @@ async function signup(email, password, username) {
   }
 }
 
-// Login
-async function login(email, password) {
+// Login (username must match the account)
+async function login(email, password, username) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({
+        email,
+        password,
+        username: username != null ? String(username).trim() : ''
+      })
     });
     
     const data = await response.json();

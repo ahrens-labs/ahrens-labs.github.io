@@ -15133,13 +15133,17 @@
     
     // Handle login from login page
     async function handleLoginPageLogin() {
-      const email = document.getElementById('login-page-email').value;
-      const password = document.getElementById('login-page-password').value;
-      if (!email || !password) {
-        showNotification('Please enter email and password', 'error');
+      const usernameEl = document.getElementById('login-page-username');
+      const emailEl = document.getElementById('login-page-email');
+      const passwordEl = document.getElementById('login-page-password');
+      const username = usernameEl ? usernameEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+      const password = passwordEl ? passwordEl.value : '';
+      if (!username || !email || !password) {
+        showNotification('Please enter username, email, and password', 'error');
         return;
       }
-      const success = await login(email, password);
+      const success = await login(email, password, username);
       if (success) {
         hideLoginPage();
         updateHeaderAuthButtons();
@@ -15265,14 +15269,18 @@
     }
 
     // Login
-    async function login(email, password) {
+    async function login(email, password, username) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({
+            email,
+            password,
+            username: username != null && String(username).trim() !== '' ? String(username).trim() : ''
+          })
         });
         
         const data = await response.json();

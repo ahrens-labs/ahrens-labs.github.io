@@ -302,10 +302,10 @@ async function handleDeleteAccount(request, env, corsHeaders) {
 
 // Login handler
 async function handleLogin(request, env, corsHeaders) {
-  const { email, password } = await request.json();
+  const { email, password, username } = await request.json();
 
-  if (!email || !password) {
-    return new Response(JSON.stringify({ error: 'Missing email or password' }), {
+  if (!email || !password || username == null || String(username).trim() === '') {
+    return new Response(JSON.stringify({ error: 'Missing username, email, or password' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -314,6 +314,23 @@ async function handleLogin(request, env, corsHeaders) {
   const userId = generateUserId(email);
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const getDataPreAuth = new Request('http://do/getData', { method: 'GET' });
+  const preDataRes = await userAccount.fetch(getDataPreAuth);
+  const preUserData = await preDataRes.json();
+  if (preUserData == null || typeof preUserData !== 'object') {
+    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (normalizeLoginUsername(username) !== normalizeLoginUsername(preUserData.username)) {
+    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   const authReq = new Request('http://do/authenticate', {
     method: 'POST',
@@ -330,13 +347,6 @@ async function handleLogin(request, env, corsHeaders) {
     });
   }
 
-  // Get user data to return username
-  const getDataReq = new Request('http://do/getData', {
-    method: 'GET'
-  });
-  const dataRes = await userAccount.fetch(getDataReq);
-  const userData = await dataRes.json();
-
   // Create session
   const sessionId = generateSessionId();
   const sessionObjId = env.SESSION.idFromName(sessionId);
@@ -352,8 +362,8 @@ async function handleLogin(request, env, corsHeaders) {
     success: true, 
     sessionId,
     userId,
-    username: userData?.username || email,
-    email: userData?.email || email
+    username: preUserData?.username || email,
+    email: preUserData?.email || email
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -865,6 +875,11 @@ function parseBearerToken(authHeader) {
   if (!authHeader || typeof authHeader !== 'string') return null;
   const m = authHeader.match(/^Bearer\s+(\S+)/i);
   return m ? m[1] : null;
+}
+
+function normalizeLoginUsername(s) {
+  if (s == null || typeof s !== 'string') return '';
+  return s.trim().toLowerCase();
 }
 
 function generateUserId(email) {
