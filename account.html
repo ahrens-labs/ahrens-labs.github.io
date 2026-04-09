@@ -470,8 +470,32 @@
     <script>
         const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
         
+        function setupDeleteAccountModal() {
+            const deleteModal = document.getElementById('delete-account-modal');
+            const deleteModalCancel = document.getElementById('delete-modal-cancel');
+            const deleteModalConfirm = document.getElementById('delete-modal-confirm');
+            if (deleteModalCancel) {
+                deleteModalCancel.addEventListener('click', closeDeleteAccountModal);
+            }
+            if (deleteModalConfirm) {
+                deleteModalConfirm.addEventListener('click', () => { void executeConfirmedAccountDeletion(); });
+            }
+            if (deleteModal) {
+                deleteModal.addEventListener('click', (e) => {
+                    if (e.target === deleteModal) closeDeleteAccountModal();
+                });
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && deleteModal && deleteModal.classList.contains('is-open')) {
+                    closeDeleteAccountModal();
+                }
+            });
+        }
+
         // Check if already logged in
         window.addEventListener('DOMContentLoaded', async () => {
+            setupDeleteAccountModal();
+
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             const urlParams = new URLSearchParams(window.location.search);
             const manageMode = urlParams.get('manage') === '1';
@@ -505,26 +529,6 @@
                 await verifyEmail(verifyToken, email);
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-
-            const deleteModal = document.getElementById('delete-account-modal');
-            const deleteModalCancel = document.getElementById('delete-modal-cancel');
-            const deleteModalConfirm = document.getElementById('delete-modal-confirm');
-            if (deleteModalCancel) {
-                deleteModalCancel.addEventListener('click', closeDeleteAccountModal);
-            }
-            if (deleteModalConfirm) {
-                deleteModalConfirm.addEventListener('click', executeConfirmedAccountDeletion);
-            }
-            if (deleteModal) {
-                deleteModal.addEventListener('click', (e) => {
-                    if (e.target === deleteModal) closeDeleteAccountModal();
-                });
-            }
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && deleteModal && deleteModal.classList.contains('is-open')) {
-                    closeDeleteAccountModal();
-                }
-            });
         });
 
         function openDeleteAccountModal() {
