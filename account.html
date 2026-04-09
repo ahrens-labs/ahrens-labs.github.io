@@ -357,7 +357,7 @@
                 <label for="delete-account-password">Type your password to confirm</label>
                 <input type="password" id="delete-account-password" autocomplete="current-password">
             </div>
-            <button type="button" class="account-delete-btn" id="delete-account-btn">Delete my account permanently</button>
+            <button type="button" class="account-delete-btn" id="delete-account-btn" onclick="handleDeleteAccount()">Delete my account permanently</button>
         </div>
         
         <div class="back-link">
@@ -605,7 +605,9 @@
                     showNotification('Password updated successfully!', 'success', 3000);
                 } else {
                     const message = data?.error
-                        || (response.status === 404 ? 'Password change not available yet. Please try again later.' : null)
+                        || (response.status === 404
+                            ? 'Change password not on the server yet (404). Deploy the chess-accounts Worker: cd workers && npm run deploy'
+                            : null)
                         || (rawText ? rawText : null)
                         || 'Password update failed';
                     showNotification(message, 'error');
@@ -655,7 +657,9 @@
                     setTimeout(() => { window.location.href = 'index.html'; }, 800);
                 } else {
                     const message = data?.error
-                        || (response.status === 404 ? 'Account deletion is not available on this server yet.' : null)
+                        || (response.status === 404
+                            ? 'Delete account not on the server yet (404). Deploy the chess-accounts Worker: cd workers && npm run deploy'
+                            : null)
                         || 'Could not delete account';
                     showNotification(message, 'error');
                 }
