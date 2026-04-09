@@ -5253,8 +5253,8 @@
     /** Saved live state when viewing a past game on the board (arrow keys). */
     let replayModeBackup = null;
     let isHistoryReplayMode = false;
-    /** While loading history replay, SAN list for notation if game.history() is empty. */
-    let replayNotationSanOverride = null;
+    /** Full SAN list for the saved game for the whole replay session (notation never shrinks when scrubbing). */
+    let historyReplayFullSan = null;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -8308,9 +8308,11 @@
 
     function updateNotationDisplay() {
       if (!game) return;
-      let history = game.history();
-      if (history.length === 0 && replayNotationSanOverride && replayNotationSanOverride.length) {
-        history = replayNotationSanOverride.slice();
+      let history;
+      if (isHistoryReplayMode && historyReplayFullSan && historyReplayFullSan.length) {
+        history = historyReplayFullSan.slice();
+      } else {
+        history = game.history();
       }
       const container = document.getElementById("notation-container");
       if (!container) return;
@@ -10336,7 +10338,7 @@
       selectedSquare = null;
 
       game.reset();
-      replayNotationSanOverride = null;
+      historyReplayFullSan = null;
       for (let i = 0; i < rec.historySan.length; i++) {
         const m = game.move(rec.historySan[i]);
         if (!m) {
@@ -10345,7 +10347,7 @@
           return;
         }
       }
-      replayNotationSanOverride = rec.historySan.slice();
+      historyReplayFullSan = rec.historySan.slice();
       moveHistory = [];
       const tmp = new Chess();
       for (let k = 0; k < rec.historySan.length; k++) {
@@ -10394,11 +10396,9 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           if (!isHistoryReplayMode) {
-            replayNotationSanOverride = null;
             return;
           }
           navigateToStart();
-          replayNotationSanOverride = null;
           const ban = document.getElementById('history-replay-banner');
           if (ban) {
             ban.style.display = 'flex';
@@ -10410,13 +10410,13 @@
 
     function exitHistoryReplay() {
       if (!isHistoryReplayMode) {
-        replayNotationSanOverride = null;
+        historyReplayFullSan = null;
         const ban = document.getElementById('history-replay-banner');
         if (ban) ban.style.display = 'none';
         return;
       }
       isHistoryReplayMode = false;
-      replayNotationSanOverride = null;
+      historyReplayFullSan = null;
       const b = replayModeBackup;
       replayModeBackup = null;
       const ban = document.getElementById('history-replay-banner');

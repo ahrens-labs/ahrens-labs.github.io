@@ -984,7 +984,8 @@ async function handleVerifyEmail(request, env, corsHeaders) {
 // Password storage: PBKDF2-HMAC-SHA256 with unique random salt per user (not encryption;
 // one-way hashing so stored values cannot be recovered). Legacy accounts used bare SHA-256;
 // they are upgraded to PBKDF2 on next successful login.
-const PBKDF2_ITERATIONS = 120000;
+// Cloudflare Workers Web Crypto rejects PBKDF2 iteration counts above 100000.
+const PBKDF2_ITERATIONS = 100000;
 
 function uint8ToHex(u8) {
   return Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
@@ -1045,7 +1046,7 @@ async function verifyStoredPassword(plain, stored) {
     const parts = stored.split('$');
     if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
     const iter = parseInt(parts[1], 10);
-    if (!Number.isFinite(iter) || iter < 10000 || iter > 2000000) return false;
+    if (!Number.isFinite(iter) || iter < 10000 || iter > 100000) return false;
     const saltHex = parts[2];
     const expectedHex = parts[3];
     if (!/^[0-9a-fA-F]+$/.test(saltHex) || saltHex.length % 2 !== 0) return false;
