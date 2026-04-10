@@ -327,6 +327,20 @@ scores = {}
 position_history = defaultdict(int)
 engine_running = True
 
+# --- Single-game occupancy lock ---
+# game_active is True while a human player is in a game.
+# game_active_since records when the lock was acquired so stale locks
+# (e.g. player closes their tab without stopping) auto-expire after TTL.
+game_active = False
+game_active_since = None
+GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-released
+
+def _is_lock_stale():
+    """Return True if game_active but the TTL has expired."""
+    if not game_active or game_active_since is None:
+        return False
+    return (time.time() - game_active_since) > GAME_LOCK_TTL
+
 # King position tracking - eliminates expensive find_king() board scans
 white_king_row = 0
 white_king_col = 4
@@ -344,19 +358,40 @@ CORS(app, resources={r"/*": {
     "supports_credentials": False
 }})
 # --- Flask Routes ---
+@app.route('/status', methods=['GET'])
+def engine_status():
+    """Return whether the engine is currently occupied by a game."""
+    occupied = game_active and not _is_lock_stale()
+    return jsonify({"occupied": occupied})
+
+@app.route('/heartbeat', methods=['POST'])
+def heartbeat():
+    """Keep the current game lock alive (call every ~30 s from the frontend)."""
+    global game_active_since
+    if game_active:
+        game_active_since = time.time()
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "No active game"}), 400
+
 @app.route('/start', methods=['POST'])
 def start_engine():
-    global engine_running
+    global engine_running, game_active, game_active_since
+    # Reject if a game is already in progress (and the lock hasn't gone stale).
+    if game_active and not _is_lock_stale():
+        return jsonify({"error": "A game is already in progress. Please wait."}), 409
     engine_running = True
-    # Re-initialize board and state when starting, if desired, to ensure a fresh game
+    game_active = True
+    game_active_since = time.time()
     reset_engine_state()
     return jsonify({"message": "Engine started and state reset"})
 
 @app.route('/stop', methods=['POST'])
 def stop_engine():
-    global engine_running
+    global engine_running, game_active, game_active_since
     engine_running = False
-    reset_engine_state() # Ensure state is reset when stopping
+    game_active = False
+    game_active_since = None
+    reset_engine_state()
     return jsonify({"message": "Engine stopped and reset"})
 
 def reset_engine_state():

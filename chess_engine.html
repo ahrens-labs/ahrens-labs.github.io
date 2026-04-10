@@ -4879,7 +4879,13 @@
     </div>
     
     <div class="control-row">
-      <button onclick="startGame()">Start Game</button>
+      <button id="start-game-btn" onclick="startGame()">Start Game</button>
+    </div>
+    <!-- Shown when the engine is busy with another player's game -->
+    <div id="engine-busy-banner" style="display:none; margin-top:14px; padding:12px 18px; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; color:#856404; font-size:0.92rem; text-align:center;">
+      <strong>Someone is already playing a game.</strong><br>
+      <span style="font-size:0.85rem;">The board will unlock automatically when their game ends.</span>
+      <br><button onclick="checkEngineStatus()" style="margin-top:8px; padding:4px 14px; font-size:0.82rem; cursor:pointer;">Check again</button>
     </div>
   </div>
 
@@ -6524,6 +6530,56 @@
       "b3": "Larsen's Opening (Queen's Fianchetto)"
     };
 
+    // --- Engine occupancy helpers ---
+    const ENGINE_BASE = 'https://hedgehoglover23.pythonanywhere.com';
+    let _heartbeatInterval = null;
+
+    let _statusPollInterval = null;
+
+    function checkEngineStatus() {
+      return fetch(`${ENGINE_BASE}/status`)
+        .then(r => r.json())
+        .then(data => {
+          const busy = data.occupied === true;
+          const btn  = document.getElementById('start-game-btn');
+          const banner = document.getElementById('engine-busy-banner');
+          if (btn)    btn.disabled = busy;
+          if (banner) banner.style.display = busy ? 'block' : 'none';
+          // While busy, auto-poll every 15 s so the banner disappears without a manual refresh.
+          if (busy && !_statusPollInterval) {
+            _statusPollInterval = setInterval(() => {
+              checkEngineStatus().then(stillBusy => {
+                if (!stillBusy) {
+                  clearInterval(_statusPollInterval);
+                  _statusPollInterval = null;
+                }
+              });
+            }, 15000);
+          } else if (!busy && _statusPollInterval) {
+            clearInterval(_statusPollInterval);
+            _statusPollInterval = null;
+          }
+          return busy;
+        })
+        .catch(() => false); // If status check fails, assume free so the user can try
+    }
+
+    function startHeartbeat() {
+      stopHeartbeat();
+      _heartbeatInterval = setInterval(() => {
+        fetch(`${ENGINE_BASE}/heartbeat`, { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: '{}' })
+          .catch(() => {}); // silent — just keeps the lock alive
+      }, 30000);
+    }
+
+    function stopHeartbeat() {
+      if (_heartbeatInterval) {
+        clearInterval(_heartbeatInterval);
+        _heartbeatInterval = null;
+      }
+    }
+
     // --- sendEngineCommand function ---
     function sendEngineCommand(endpoint) {
     // Key change: Add 'return' here to return the promise chain
@@ -7897,19 +7953,9 @@
         // Show the board container
         document.getElementById('board-timers-container').style.display = 'flex';
 
-        console.log("Attempting to stop and then start the engine automatically on page load...");
-        sendEngineCommand('stop')
-            .then(() => {
-                console.log("Stop command sent successfully. Now sending start command...");
-                return sendEngineCommand('start');
-            })
-            .then(() => {
-                console.log("Start command sent successfully. Engine should be reset and running.");
-            })
-            .catch(error => {
-                console.error("Error during automatic engine reset on page load:", error);
-                console.error("Failed to automatically reset engine on page load. Check console for details.");
-            });
+        // On page load just check status — don't send stop/start which would boot
+        // an active player.  The actual start is deferred until the user clicks "Start Game".
+        checkEngineStatus();
 
         // Load sound settings
         const savedSound = localStorage.getItem('soundEnabled');
@@ -10490,7 +10536,8 @@
       commitGameStatsToLifetime();
       checkAndUnlockAchievements();
       
-      // Send resignation to engine
+      // Send resignation to engine and release the occupancy lock
+      stopHeartbeat();
       sendEngineCommand("resign").catch(err => console.error("Error sending resignation:", err));
       
       // Show rematch modal
@@ -10511,6 +10558,11 @@
     }
 
     function showRematchModal(title, message) {
+      // Game is over — release the occupancy lock so others can play.
+      stopHeartbeat();
+      sendEngineCommand('stop').catch(() => {});
+      // Re-check status so the "someone is playing" banner hides for anyone waiting.
+      checkEngineStatus();
       const modal = document.getElementById('rematch-modal');
       const iconEl = document.getElementById('rematch-icon');
       const titleEl = document.getElementById('rematch-title');
@@ -10611,9 +10663,9 @@
       // Start new game
       startTimer();
       
-      // Restart engine
+      // Restart engine (rematch — same player, no need to re-check occupancy)
       sendEngineCommand("start").then(() => {
-        // Personality modifiers removed
+        startHeartbeat();
         if (playerColor === "black") {
           engineMove();
         }
@@ -13619,6 +13671,13 @@
         return;
       }
 
+      // Check engine occupancy before proceeding
+      const busy = await checkEngineStatus();
+      if (busy) {
+        showNotification('Someone else is currently playing. Please wait.', 'error');
+        return;
+      }
+
       const pgTools = document.getElementById('chess-pregame-tools');
       if (pgTools) pgTools.style.display = 'none';
       closeShop();
@@ -14167,6 +14226,7 @@
       startTimer();
       
       await sendEngineCommand("start");
+      startHeartbeat(); // Keep the occupancy lock alive every 30 s
       if (playerColor === "black") {
         await engineMove();
       }
