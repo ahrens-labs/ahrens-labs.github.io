@@ -2553,6 +2553,72 @@
       min-width: 180px;
     }
 
+    .game-history-row-fav {
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+
+    .gh-btn-favorite {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #94a3b8;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .gh-btn-favorite:hover {
+      background: #e2e8f0;
+      color: #64748b;
+    }
+
+    .gh-btn-favorite--on {
+      background: #fffbeb;
+      color: #d97706;
+    }
+
+    .gh-btn-favorite--on:hover {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .gh-filter-field--checkbox {
+      justify-content: flex-end;
+    }
+
+    .gh-filter-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-top: 1.35rem;
+    }
+
+    @media (max-width: 520px) {
+      .gh-filter-field--checkbox {
+        justify-content: flex-start;
+      }
+      .gh-filter-checkbox-label {
+        margin-top: 0;
+      }
+    }
+
+    .gh-filter-checkbox-label input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #d97706;
+      cursor: pointer;
+    }
+
     .game-history-row-actions {
       display: flex;
       flex-wrap: wrap;
@@ -2577,6 +2643,117 @@
     .gh-btn-play {
       background: linear-gradient(135deg, #1abc9c, #16a085);
       color: #fff;
+    }
+
+    .gh-filters {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+    }
+    .gh-filters-title {
+      margin: 0 0 12px 0;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+    .gh-filters-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
+    }
+    @media (max-width: 520px) {
+      .gh-filters-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .gh-filter-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .gh-filter-field--wide {
+      grid-column: 1 / -1;
+    }
+    .gh-filter-field > label {
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.8rem;
+    }
+    .gh-filter-hint {
+      font-weight: 400;
+      color: #94a3b8;
+      font-size: 0.72rem;
+      line-height: 1.3;
+      margin-top: -2px;
+    }
+    .gh-filter-input,
+    .gh-filter-select {
+      width: 100%;
+      max-width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      background: #fff;
+      color: #334155;
+      box-sizing: border-box;
+    }
+    .gh-filter-input:focus,
+    .gh-filter-select:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.15);
+    }
+    .gh-filter-moves-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+    }
+    .gh-filter-moves-pair {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .gh-filter-moves-pair span {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .gh-filter-moves-pair .gh-filter-input {
+      width: 4.25rem;
+      max-width: 5rem;
+    }
+    .gh-filters-actions {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .gh-btn-clear-filters {
+      padding: 8px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #475569;
+      font-weight: 600;
+      font-size: 0.82rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .gh-btn-clear-filters:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
     }
 
     .settings-dialog {
@@ -5131,35 +5308,56 @@
         <h2 style="font-family: 'Inter', sans-serif; margin: 0;">📜 Game history</h2>
         <button class="close-achievements-btn" type="button" onclick="closeGameHistoryModal()">×</button>
       </div>
-      <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">Last 50 games vs TrifangX (stored in your account).</p>
-      <div class="game-history-filters" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem;">
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;">
-          <span style="color: #555; font-weight: 600;">Date</span>
-          <label for="game-history-date-from" style="color: #666;">From</label>
-          <input type="date" id="game-history-date-from" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
-          <label for="game-history-date-to" style="color: #666;">To</label>
-          <input type="date" id="game-history-date-to" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+      <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">Up to 50 recent games vs TrifangX are kept automatically. Star a game to favorite it — favorites are never removed by the rolling limit or account stat reset.</p>
+      <div class="gh-filters" aria-label="Filter saved games">
+        <div class="gh-filters-title">Filters</div>
+        <div class="gh-filters-grid">
+          <div class="gh-filter-field">
+            <label for="game-history-date-from">From date</label>
+            <input type="date" id="game-history-date-from" class="gh-filter-input" onchange="refreshGameHistoryModal()" />
+          </div>
+          <div class="gh-filter-field">
+            <label for="game-history-date-to">To date</label>
+            <input type="date" id="game-history-date-to" class="gh-filter-input" onchange="refreshGameHistoryModal()" />
+          </div>
+          <div class="gh-filter-field">
+            <label for="game-history-filter-outcome">Result</label>
+            <select id="game-history-filter-outcome" class="gh-filter-select" onchange="refreshGameHistoryModal()">
+              <option value="">Any</option>
+              <option value="win">Win</option>
+              <option value="loss">Loss</option>
+              <option value="draw">Draw</option>
+            </select>
+          </div>
+          <div class="gh-filter-field">
+            <label for="game-history-filter-tc">Time control</label>
+            <select id="game-history-filter-tc" class="gh-filter-select" onchange="refreshGameHistoryModal()">
+              <option value="">Any</option>
+            </select>
+          </div>
+          <div class="gh-filter-field gh-filter-field--checkbox">
+            <label class="gh-filter-checkbox-label" for="game-history-filter-favorites-only">
+              <input type="checkbox" id="game-history-filter-favorites-only" onchange="refreshGameHistoryModal()" />
+              Favorites only
+            </label>
+          </div>
+          <div class="gh-filter-field gh-filter-field--wide">
+            <label for="game-history-filter-moves-min">Move count (White's full moves)</label>
+            <span class="gh-filter-hint">Optional range; leave blank for no minimum or maximum.</span>
+            <div class="gh-filter-moves-row">
+              <div class="gh-filter-moves-pair">
+                <span>Min</span>
+                <input type="number" id="game-history-filter-moves-min" class="gh-filter-input" min="0" max="999" placeholder="—" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" />
+              </div>
+              <div class="gh-filter-moves-pair">
+                <span>Max</span>
+                <input type="number" id="game-history-filter-moves-max" class="gh-filter-input" min="0" max="999" placeholder="—" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" />
+              </div>
+            </div>
+          </div>
         </div>
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;">
-          <label for="game-history-filter-outcome" style="color: #555; font-weight: 600;">Result</label>
-          <select id="game-history-filter-outcome" onchange="refreshGameHistoryModal()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; min-width: 120px;">
-            <option value="">Any</option>
-            <option value="win">Win</option>
-            <option value="loss">Loss</option>
-            <option value="draw">Draw</option>
-          </select>
-          <label for="game-history-filter-tc" style="color: #555; font-weight: 600;">Time</label>
-          <select id="game-history-filter-tc" onchange="refreshGameHistoryModal()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; min-width: 140px;">
-            <option value="">Any time control</option>
-          </select>
-          <label for="game-history-filter-moves-min" style="color: #666;">Moves ≥</label>
-          <input type="number" id="game-history-filter-moves-min" min="0" max="999" placeholder="min" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" style="width: 4.5em; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
-          <label for="game-history-filter-moves-max" style="color: #666;">≤</label>
-          <input type="number" id="game-history-filter-moves-max" min="0" max="999" placeholder="max" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" style="width: 4.5em; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
-          <span style="color: #888; font-size: 0.8rem;">(White full moves)</span>
-        </div>
-        <div>
-          <button type="button" class="gh-btn-export" onclick="clearGameHistoryFilters()">Clear all filters</button>
+        <div class="gh-filters-actions">
+          <button type="button" class="gh-btn-clear-filters" onclick="clearGameHistoryFilters()">Reset filters</button>
         </div>
       </div>
       <div id="game-history-list" style="max-height: min(60vh, 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
@@ -10380,11 +10578,47 @@
       };
       if (!cloudChessData.gameHistory) cloudChessData.gameHistory = [];
       cloudChessData.gameHistory.unshift(rec);
-      if (cloudChessData.gameHistory.length > 50) {
-        cloudChessData.gameHistory = cloudChessData.gameHistory.slice(0, 50);
-      }
+      trimGameHistoryToCap();
       saveChessDataToCloud(true);
     }
+
+    /** Favorited games are never dropped by the rolling cap; non-favorites keep the 50 newest. */
+    function trimGameHistoryToCap() {
+      if (!cloudChessData || !Array.isArray(cloudChessData.gameHistory)) return;
+      const items = cloudChessData.gameHistory;
+      let nonFavKept = 0;
+      const out = [];
+      for (let i = 0; i < items.length; i++) {
+        const r = items[i];
+        if (!r) continue;
+        if (gameHistoryRecordIsFavorite(r)) {
+          out.push(r);
+        } else if (nonFavKept < 50) {
+          out.push(r);
+          nonFavKept++;
+        }
+      }
+      cloudChessData.gameHistory = out;
+    }
+
+    function gameHistoryRecordIsFavorite(rec) {
+      return !!(rec && rec.favorite === true);
+    }
+
+    function toggleGameHistoryFavoriteAt(index) {
+      const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+      const rec = items[index];
+      if (!rec) {
+        showNotification('Game not found', 'error');
+        return;
+      }
+      rec.favorite = !gameHistoryRecordIsFavorite(rec);
+      trimGameHistoryToCap();
+      saveChessDataToCloud(true);
+      refreshGameHistoryModal();
+    }
+
+    window.toggleGameHistoryFavoriteAt = toggleGameHistoryFavoriteAt;
 
     function exportPGN() {
       const result = inferResultFromGame();
@@ -10436,7 +10670,7 @@
         seen.add(rec.timeControl != null && rec.timeControl !== '' ? rec.timeControl : 'none');
       });
       const prev = sel.value;
-      sel.innerHTML = '<option value="">Any time control</option>';
+      sel.innerHTML = '<option value="">Any</option>';
       Array.from(seen).sort().forEach(function (tc) {
         const opt = document.createElement('option');
         opt.value = tc;
@@ -10462,11 +10696,14 @@
       const maxEl = document.getElementById('game-history-filter-moves-max');
       const minMoves = minEl && minEl.value !== '' ? parseInt(minEl.value, 10) : NaN;
       const maxMoves = maxEl && maxEl.value !== '' ? parseInt(maxEl.value, 10) : NaN;
+      const favOnlyEl = document.getElementById('game-history-filter-favorites-only');
+      const favoritesOnly = !!(favOnlyEl && favOnlyEl.checked);
 
       return items.map(function (rec, idx) {
         return { rec: rec, idx: idx };
       }).filter(function (entry) {
         const rec = entry.rec;
+        if (favoritesOnly && !gameHistoryRecordIsFavorite(rec)) return false;
         if (fromVal || toVal) {
           const key = gameHistoryRecordDateKey(rec);
           if (!key) return false;
@@ -10492,17 +10729,25 @@
       if (!list || !cloudChessData) return;
       const fullCount = (cloudChessData.gameHistory || []).length;
       const entries = getGameHistoryFilteredEntries();
+      const favOnlyEl = document.getElementById('game-history-filter-favorites-only');
+      const favoritesOnlyFilter = !!(favOnlyEl && favOnlyEl.checked);
+      const anyFavorite = (cloudChessData.gameHistory || []).some(gameHistoryRecordIsFavorite);
       if (fullCount === 0) {
         list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No completed games yet. Finish a game and it will appear here.</p>';
         return;
       }
       if (entries.length === 0) {
-        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No games match your filters. Try changing or clearing filters.</p>';
+        if (favoritesOnlyFilter && !anyFavorite) {
+          list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No favorited games yet. Use the star on a row to favorite a game; favorites are kept even when older games roll off.</p>';
+        } else {
+          list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No games match your filters. Try changing or clearing filters.</p>';
+        }
         return;
       }
       list.innerHTML = entries.map(function (entry) {
         const rec = entry.rec;
         const idx = entry.idx;
+        const isFav = gameHistoryRecordIsFavorite(rec);
         const d = rec.savedAt ? new Date(rec.savedAt) : new Date();
         const ds = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
         let label = '';
@@ -10535,7 +10780,12 @@
           : '';
         return (
           '<div class="game-history-row ' + outcomeClass + '">' +
+          '<div class="game-history-row-fav">' +
+          '<button type="button" class="gh-btn-favorite' + (isFav ? ' gh-btn-favorite--on' : '') + '" onclick="toggleGameHistoryFavoriteAt(' + idx + ')" aria-pressed="' + (isFav ? 'true' : 'false') + '" title="' + (isFav ? 'Remove from favorites' : 'Add to favorites') + '">' +
+          (isFav ? '★' : '☆') +
+          '</button></div>' +
           '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
+          (isFav ? ' <span style="color:#d97706;font-size:0.8rem;font-weight:600;">· Favorite</span>' : '') +
           '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + moveCountLine + '</span></div>' +
           '<div class="game-history-row-actions">' +
           '<button type="button" class="gh-btn-export" onclick="exportGameHistoryRecordAt(' + idx + ')">Export</button>' +
@@ -10565,6 +10815,8 @@
       const maxEl = document.getElementById('game-history-filter-moves-max');
       if (minEl) minEl.value = '';
       if (maxEl) maxEl.value = '';
+      const favOnlyEl = document.getElementById('game-history-filter-favorites-only');
+      if (favOnlyEl) favOnlyEl.checked = false;
       populateGameHistoryTimeControlFilter();
       refreshGameHistoryModal();
     }
@@ -13385,9 +13637,11 @@
       
       closeResetConfirmModal();
       
-      // Reset all achievements and stats
+      // Reset all achievements and stats (keep favorited games in history)
       if (cloudChessData) {
-        cloudChessData.gameHistory = [];
+        cloudChessData.gameHistory = (cloudChessData.gameHistory || []).filter(function (r) {
+          return r && r.favorite === true;
+        });
       }
       achievements = [];
       playerStats = { wins: 0, losses: 0, draws: 0 };
@@ -15288,10 +15542,16 @@
           cheatPoints: data.cheatPoints || 0,
           gameHistory: Array.isArray(data.gameHistory) ? data.gameHistory : []
         };
-        
+        const gameHistoryLenBeforeTrim = (cloudChessData.gameHistory || []).length;
+        trimGameHistoryToCap();
+
         isLoggedIn = true;
         dataLoaded = true;
         currentUserId = localStorage.getItem('ahrenslabs_userId');
+
+        if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
+          saveChessDataToCloud(true);
+        }
         
         // Update username display
         const username = localStorage.getItem('ahrenslabs_username') || 'Player';
