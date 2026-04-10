@@ -6595,6 +6595,24 @@
       checkEngineStatus();
     }
 
+    /** Log result on the Python server (prints USERNAME beat/lost to TrifangX + SAN moves). */
+    function notifyGameFinishedToEngine(outcome) {
+      try {
+        const username =
+          (typeof localStorage !== 'undefined' && localStorage.getItem('ahrenslabs_username')) ||
+          'Player';
+        const notation =
+          typeof game !== 'undefined' && game && typeof game.history === 'function'
+            ? game.history().join(' ')
+            : '';
+        fetch(`${ENGINE_BASE}/game_finished`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, outcome: outcome, notation: notation })
+        }).catch(function () {});
+      } catch (e) {}
+    }
+
     // --- sendEngineCommand function ---
     function sendEngineCommand(endpoint) {
     // Key change: Add 'return' here to return the promise chain
@@ -8116,6 +8134,7 @@
       trackLossStats();
       commitGameStatsToLifetime();
       checkAndUnlockAchievements();
+                notifyGameFinishedToEngine('loss');
                 releaseEngineOnGameEnd();
                 // Show rematch modal
                 setTimeout(() => showRematchModal("⏰ Time Out", "You ran out of time! Play again?"), 1500);
@@ -10608,6 +10627,7 @@
       trackLossStats();
       commitGameStatsToLifetime();
       checkAndUnlockAchievements();
+      notifyGameFinishedToEngine('loss');
       releaseEngineOnGameEnd();
       // Show rematch modal
       setTimeout(() => showRematchModal("You Resigned", "Would you like to play again?"), 2000);
@@ -14397,6 +14417,7 @@
         }
         commitGameStatsToLifetime();
         checkAndUnlockAchievements();
+        notifyGameFinishedToEngine('draw');
         releaseEngineOnGameEnd();
         // Show rematch modal
         setTimeout(() => showRematchModal("🤝 Draw", `${drawReason}. Play again?`), 2000);
@@ -14597,6 +14618,7 @@
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
         checkAndUnlockAchievements();
+        notifyGameFinishedToEngine('win');
         releaseEngineOnGameEnd();
         // Show rematch modal
         setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
@@ -14764,6 +14786,7 @@
           }
           commitGameStatsToLifetime();
           checkAndUnlockAchievements();
+          notifyGameFinishedToEngine('loss');
           releaseEngineOnGameEnd();
           // Show rematch modal
           setTimeout(() => showRematchModal("💔 Defeat", "You were checkmated! Play again?"), 2000);
@@ -14842,6 +14865,7 @@
               trackWinStats(moveCount, checkmatePiece);
               commitGameStatsToLifetime();
               checkAndUnlockAchievements();
+              notifyGameFinishedToEngine('win');
               releaseEngineOnGameEnd();
               // Show rematch modal
               setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);
@@ -14868,6 +14892,7 @@
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
         console.error('Engine connection error:', err);
         gameOver = true;
+        notifyGameFinishedToEngine('error');
         releaseEngineOnGameEnd();
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
@@ -14954,6 +14979,7 @@
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
         checkAndUnlockAchievements();
+        notifyGameFinishedToEngine('win');
         releaseEngineOnGameEnd();
         // Show rematch modal
         setTimeout(() => showRematchModal("🎉 Victory!", "Congratulations! You won! Play again?"), 2000);

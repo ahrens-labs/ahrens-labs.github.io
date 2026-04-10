@@ -71,18 +71,6 @@ def print_board(board):
     print(" +-----------------+")
     print()  # Print a space after the board
 
-def pgn_prefix_next_black_move(game_moves):
-    """Prefix when Black is about to move (e.g. '1...' after White's first move)."""
-    n = len(game_moves)
-    if n == 0:
-        return "1..."
-    return f"{(n + 1) // 2}..."
-
-def pgn_prefix_next_white_move(game_moves):
-    """Prefix when White is about to move (e.g. '1. ' or '2. ')."""
-    fm = len(game_moves) // 2 + 1
-    return f"{fm}. "
-
 #def print_moves(turn, number_of_moves, game_moves):
  #   output = ""
   #  for i, move in enumerate(game_moves):
@@ -327,7 +315,7 @@ scores = {}
 position_history = defaultdict(int)
 engine_running = True
 
-# --- Single-game occupancy lock ---
+# --- Single-game occupancy lock (matches chess_engine.html /status + /heartbeat) ---
 # game_active is True while a human player is in a game.
 # game_active_since records when the lock was acquired so stale locks
 # (e.g. player closes their tab without stopping) auto-expire after TTL.
@@ -335,11 +323,24 @@ game_active = False
 game_active_since = None
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-released
 
+
 def _is_lock_stale():
     """Return True if game_active but the TTL has expired."""
     if not game_active or game_active_since is None:
         return False
     return (time.time() - game_active_since) > GAME_LOCK_TTL
+
+
+def _account_username_from_payload(data):
+    """Ahrenslabs account name from JSON (sent by chess_engine.html)."""
+    if not data:
+        return 'Player'
+    for key in ('username', 'user', 'account', 'player'):
+        val = data.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()[:80]
+    return 'Player'
+
 
 # King position tracking - eliminates expensive find_king() board scans
 white_king_row = 0
@@ -364,6 +365,7 @@ def engine_status():
     occupied = game_active and not _is_lock_stale()
     return jsonify({"occupied": occupied})
 
+
 @app.route('/heartbeat', methods=['POST'])
 def heartbeat():
     """Keep the current game lock alive (call every ~30 s from the frontend)."""
@@ -373,10 +375,10 @@ def heartbeat():
         return jsonify({"ok": True})
     return jsonify({"ok": False, "error": "No active game"}), 400
 
+
 @app.route('/start', methods=['POST'])
 def start_engine():
     global engine_running, game_active, game_active_since
-    # Reject if a game is already in progress (and the lock hasn't gone stale).
     if game_active and not _is_lock_stale():
         return jsonify({"error": "A game is already in progress. Please wait."}), 409
     engine_running = True
@@ -384,6 +386,7 @@ def start_engine():
     game_active_since = time.time()
     reset_engine_state()
     return jsonify({"message": "Engine started and state reset"})
+
 
 @app.route('/stop', methods=['POST'])
 def stop_engine():
@@ -393,6 +396,27 @@ def stop_engine():
     game_active_since = None
     reset_engine_state()
     return jsonify({"message": "Engine stopped and reset"})
+
+
+@app.route('/game_finished', methods=['POST'])
+def game_finished():
+    """Print game result to server log (PythonAnywhere / gunicorn error log)."""
+    data = request.get_json() or {}
+    username = _account_username_from_payload(data)
+    outcome = str(data.get('outcome') or data.get('result') or '').strip().lower()
+    notation = str(data.get('notation') or '').strip()
+    if not notation:
+        notation = '(no moves)'
+    if outcome in ('win', 'won', 'beat', 'victory'):
+        print(f"{username} beat TrifangX — {notation}")
+    elif outcome in ('loss', 'lost', 'defeat', 'resign', 'timeout', 'error'):
+        print(f"{username} lost to TrifangX — {notation}")
+    elif outcome in ('draw', 'tie'):
+        print(f"{username} drew with TrifangX — {notation}")
+    else:
+        return jsonify({'ok': False, 'error': 'Unknown outcome; use win, loss, or draw'}), 400
+    return jsonify({'ok': True})
+
 
 def reset_engine_state():
     global draws, fifty_move_rule, wins, castled, castled_white
@@ -464,23 +488,7 @@ def get_move():
 
     try:
         if color == 'white':
-            # Player just played as white, so engine plays as black.
-            # Apply the human's move with players_turn (white pieces, row 0 castling, convert_move 'w').
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
-            # Engine plays as black (moves black pieces - lowercase)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
-                return_move = convert_long_move(return_move)
-        else: # color is black
-            # Player just played as black, so engine plays as white.
-            # Apply the human's move with players_turn_white (black pieces, row 7 castling, convert_move 'b').
+            # Player just played as white, so engine plays as black
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
                     players_turn_white(board, '0-0', '0-0')
@@ -489,6 +497,20 @@ def get_move():
                 else:
                     next_move = move_notation.strip()
                     players_turn_white(board, next_move, notation_move)
+            # Engine plays as black (moves black pieces - lowercase)
+            return_move = best_move_black(board, 'false', 'false')
+            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
+                return_move = convert_long_move(return_move)
+        else: # color is black
+            # Player just played as black, so engine plays as white
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn(board, next_move, notation_move)
             # Engine plays as white (moves white pieces - uppercase)
             return_move = best_move_function(board, 'false', 'false')
             if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'} :
@@ -2104,9 +2126,9 @@ def score_knight(board, row, col, color, stats):
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
             score += 0.6# * SCORING_MODIFIERS["centralization_b"]
         elif (col) == 0 or (col) == 7:
-            score -= 0.5# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
         if (row) == 0 or (row) == 7:
-            score -= 0.5# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
         elif row in [5, 4, 3, 2]:
             score += 0.2# * SCORING_MODIFIERS["centralization_b"]
             if row in [3, 2]:
@@ -2144,9 +2166,9 @@ def score_knight(board, row, col, color, stats):
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
             score -= 0.6# * SCORING_MODIFIERS["centralization_w"]
         elif (col) == 0 or (col) == 7:
-            score += 0.5# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
         if (row) == 0 or (row) == 7:
-            score += 0.5# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
         elif row in [5, 4, 3, 2]:
             score -= 0.2# * SCORING_MODIFIERS["centralization_w"]
             if row in [4, 5]:
@@ -2586,12 +2608,8 @@ def check_passed_pawn(board, row, col, color):
         else:
             return False, False
 def print_moves(last_move, number_of_moves, game_moves):
-    """Format game_moves as PGN text. last_move: 'b' = last ply was Black (full pairs); 'w' = last ply was White (open pair)."""
     opening_moves = ""
     move_number = 0
-    if not game_moves:
-        print("")
-        return ""
     if last_move == 'b':
         for number in range(len(game_moves) // 2):
             if move_number < len(game_moves):
@@ -2605,8 +2623,7 @@ def print_moves(last_move, number_of_moves, game_moves):
     else:
         for number in range(len(game_moves) // 2 + 1):
             if number == len(game_moves) // 2:
-                if move_number < len(game_moves):
-                    opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
+                opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
                 break
             if move_number < len(game_moves):
                 opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
@@ -3808,8 +3825,7 @@ def players_turn(board, next_move, notation_move):
     is_draw(board)
     number_of_moves += 1
     game_moves.append(notation_move)
-    # print_moves: 'w' = last ply was White (incomplete pair); 'b' = last ply was Black
-    output = print_moves('w', number_of_moves, game_moves)
+    output = print_moves('b', number_of_moves, game_moves)
     print(output)
 
 def players_turn_white(board, next_move, notation_move):
@@ -3928,7 +3944,7 @@ def players_turn_white(board, next_move, notation_move):
     is_draw(board)
     number_of_moves += 1
     game_moves.append(notation_move)
-    output = print_moves('b', number_of_moves, game_moves)
+    output = print_moves('w', number_of_moves, game_moves)
     print(output)
 
 def print_board(board):
@@ -3990,8 +4006,8 @@ def best_move_function(board, bots, en_passant):
         print('OM:', opening_moves)
 
     good_moves = [(6, 4, 4, 4, 'p', '0'), (6, 3, 4, 3, 'p', '0'), (7, 6, 5, 5, 'n', '0'), (7, 6, 5, 5, 'n', '0'), (5, 3, 1, 7, 'b', 'P'), (7, 5, 4, 2, 'b', '0'), (5, 5, 4, 3, 'n', 'P'), (4, 4, 3, 3, 'p', 'P')]
-    openings = ['1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 Nf6 7. e5 Ne4 8. Qd5',
-                '1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 d6 7. Qb3 Bxc3+ 8. bxc3 Qe7 9. 0-0 Nf6 10. e5 Nxe5 11. Nxe5 dxe5 12. Ba3 c5 13. Bb5+ Bd7 14. Bxd7+ Qxd7 15. Bxc5 Ne4 16. Be3 0-0 17. Rfd1',
+    openings = [#'1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 Nf6 7. e5 Ne4 8. Qd5',
+                #'1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 d6 7. Qb3 Bxc3+ 8. bxc3 Qe7 9. 0-0 Nf6 10. e5 Nxe5 11. Nxe5 dxe5 12. Ba3 c5 13. Bb5+ Bd7 14. Bxd7+ Qxd7 15. Bxc5 Ne4 16. Be3 0-0 17. Rfd1',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. 0-0 Nxe4 5. Re1 Nd6 6. Bf1 f6 7. d4 Nf7 8. dxe5 fxe5 9. Nc3',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. 0-0 Qf6 6. d4 exd4 7. Bg5 Qd6 8. Nxd4 Be7 9. Be3 Nf6 10. f3',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. 0-0 Nxe4 5. Re1 Nd6 6. Nxe5 Nxe5 7. Rxe5+ Be7 8. Bf1 0-0 9. d4 Bf6 10. Re1 Nf5 11. d5 d6 12. Nc3 h6 13. Ne4 Be5 14. c3 Bd7 15. a4 a5 16. Bd2 c6 17. dxc6 Bxc6 18. Bb5 Bxb5 19. axb5 Re8 20. Ng3 Nxg3 21. hxg3 Bf6 22. Qa4 Qd7 23. Rxe8+ Rxe8 24. Be3 Re5 25. Qxa5 Rxb5 26. Qa8+ Kh7 27. Qa4 Qf5 28. g4 Qe5 29. Ra2 Rd5 30. Qc2+ g6 31. Ra4 Qe6 32. Qb3 Bg5 33. Bxg5 b5 34. Ra7 hxg5 35. Kf1 Qe4 36. Rxf7+ Kh6 37. Re7 Qd3+ 38. Re2 b4 39. f3 Qd1+ 40. Qxd1 Rxd1+ 41. Re1 Rxe1+ 42. Kxe1 b3 43. Ke2 Kg7 44. Ke3 Kf6 45. Kd4 Ke6 46. Kc4 d5+ 47. Kxb3 Ke5 48. Kc2 d4 49. c4 Kd6 50. b4 Ke5 51. Kd3 Kf6  52. Kxd4 Kf7 53. b5 Ke6 54. Kc5 Ke7 55. b6 Ke6 56. b7',
@@ -4220,7 +4236,7 @@ def best_move_function(board, bots, en_passant):
                                     output = print_moves('b', number_of_moves, game_moves)
                                     print(output.rstrip(' '), end='')
                                     next_move = print_piece_move(board, piece, row, col, row-1, col-1, 'P', 'b')
-                                    print(' ' + pgn_prefix_next_black_move(game_moves) + ' ' + next_move + '#')
+                                    print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
                                     return next_move
                                     sys.exit()
                                 elif bad_checkmate:
@@ -4315,7 +4331,7 @@ def best_move_function(board, bots, en_passant):
                                     output = print_moves('b', number_of_moves, game_moves)
                                     print(output.rstrip(' '), end='')
                                     next_move = print_piece_move(board, piece, row, col, row-1, col+1, 'P', 'b')
-                                    print(' ' + pgn_prefix_next_black_move(game_moves) + ' ' + next_move + '#')
+                                    print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
                                     return next_move
                                     sys.exit()
                                 elif bad_checkmate:
@@ -4522,7 +4538,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_black_move(game_moves), end='')
+                    print(str(black_move_count+1) + '. ', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             elif best_piece == 'en_passant_plus':
@@ -4532,7 +4548,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_black_move(game_moves), end='')
+                    print(str(black_move_count+1) + '. ', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             else:
@@ -4544,7 +4560,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_black_move(game_moves), end='')
+                    print(str(black_move_count+1) + '. ', end='')
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
@@ -4553,7 +4569,7 @@ def best_move_function(board, bots, en_passant):
                     if blind != 'y':
                         print_board(board)
                         print()
-                        print(pgn_prefix_next_black_move(game_moves), end='')
+                        print(str(black_move_count+1) + '. ', end='')
                     if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                         if piece in WHITE_PIECES:
                             move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q' + '+'
@@ -4627,7 +4643,7 @@ def best_move_function(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(pgn_prefix_next_black_move(game_moves), end='')
+                print(str(number_of_moves+1) + '. ', end='')
             print('0-0')
         elif best_move == '0-0-0':
             en_passant = 'false'
@@ -4641,7 +4657,7 @@ def best_move_function(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(pgn_prefix_next_black_move(game_moves), end='')
+                print(str(number_of_moves+1) + '. ', end='')
             print('0-0-0')
         if blind != 'y':
             print(previous_score)
@@ -7322,7 +7338,7 @@ def best_move_black(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_white_move(game_moves), end='')
+                    print(str(white_move_count+1) + '. ', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             elif best_piece == 'en_passant_plus':
@@ -7333,7 +7349,7 @@ def best_move_black(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_white_move(game_moves), end='')
+                    print(str(white_move_count+1) + '. ', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             else:
@@ -7345,7 +7361,7 @@ def best_move_black(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(pgn_prefix_next_white_move(game_moves), end='')
+                    print(str(white_move_count+1) + '. ', end='')
                 if best_piece == 'K':
                     king_move_white = 1
                 black_king_row, black_king_col = find_king(board, 'b')
@@ -7354,7 +7370,7 @@ def best_move_black(board, bots, en_passant):
                     if blind != 'y':
                         print_board(board)
                         print()
-                        print(pgn_prefix_next_white_move(game_moves), end='')
+                        print(str(white_move_count+1) + '. ', end='')
                     if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                         if piece in BLACK_PIECES:
                             move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q' + '+'
@@ -7428,7 +7444,7 @@ def best_move_black(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(pgn_prefix_next_white_move(game_moves), end='')
+                print(str(number_of_moves) + '...', end='')
             print('0-0')
         elif best_move == '0-0-0':
             en_passant = 'false'
@@ -7442,7 +7458,7 @@ def best_move_black(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(pgn_prefix_next_white_move(game_moves), end='')
+                print(str(number_of_moves) + '...', end='')
             print('0-0-0')
         if blind != 'y':
             print(previous_score)
@@ -7450,9 +7466,7 @@ def best_move_black(board, bots, en_passant):
         game_moves.append(move_played)
         number_of_moves += 1
         white_move_count += 1  # Increment white's move count
-        # Last ply is Black iff we have an even number of SANs (pairs complete).
-        _print_moves_flag = 'b' if len(game_moves) % 2 == 0 else 'w'
-        output = print_moves(_print_moves_flag, number_of_moves, game_moves)
+        output = print_moves('b', number_of_moves, game_moves)
         if blind != 'y':
             print(output)
         is_draw(board)
