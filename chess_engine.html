@@ -5126,19 +5126,41 @@
 
   <!-- Game history modal -->
   <div id="game-history-modal" onclick="if (event.target === this) closeGameHistoryModal();">
-    <div class="settings-dialog" style="max-width: 560px;" onclick="event.stopPropagation();">
+    <div class="settings-dialog" style="max-width: 640px;" onclick="event.stopPropagation();">
       <div class="settings-header">
         <h2 style="font-family: 'Inter', sans-serif; margin: 0;">📜 Game history</h2>
         <button class="close-achievements-btn" type="button" onclick="closeGameHistoryModal()">×</button>
       </div>
       <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">Last 50 games vs TrifangX (stored in your account).</p>
-      <div class="game-history-date-filter" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem;">
-        <span style="color: #555; font-weight: 600;">Filter by date</span>
-        <label for="game-history-date-from" style="color: #666;">From</label>
-        <input type="date" id="game-history-date-from" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
-        <label for="game-history-date-to" style="color: #666;">To</label>
-        <input type="date" id="game-history-date-to" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
-        <button type="button" class="gh-btn-export" onclick="clearGameHistoryDateFilter()" style="margin-left: 4px;">Clear dates</button>
+      <div class="game-history-filters" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;">
+          <span style="color: #555; font-weight: 600;">Date</span>
+          <label for="game-history-date-from" style="color: #666;">From</label>
+          <input type="date" id="game-history-date-from" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+          <label for="game-history-date-to" style="color: #666;">To</label>
+          <input type="date" id="game-history-date-to" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;">
+          <label for="game-history-filter-outcome" style="color: #555; font-weight: 600;">Result</label>
+          <select id="game-history-filter-outcome" onchange="refreshGameHistoryModal()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; min-width: 120px;">
+            <option value="">Any</option>
+            <option value="win">Win</option>
+            <option value="loss">Loss</option>
+            <option value="draw">Draw</option>
+          </select>
+          <label for="game-history-filter-tc" style="color: #555; font-weight: 600;">Time</label>
+          <select id="game-history-filter-tc" onchange="refreshGameHistoryModal()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit; min-width: 140px;">
+            <option value="">Any time control</option>
+          </select>
+          <label for="game-history-filter-moves-min" style="color: #666;">Moves ≥</label>
+          <input type="number" id="game-history-filter-moves-min" min="0" max="999" placeholder="min" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" style="width: 4.5em; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+          <label for="game-history-filter-moves-max" style="color: #666;">≤</label>
+          <input type="number" id="game-history-filter-moves-max" min="0" max="999" placeholder="max" onchange="refreshGameHistoryModal()" oninput="refreshGameHistoryModal()" style="width: 4.5em; padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+          <span style="color: #888; font-size: 0.8rem;">(White full moves)</span>
+        </div>
+        <div>
+          <button type="button" class="gh-btn-export" onclick="clearGameHistoryFilters()">Clear all filters</button>
+        </div>
       </div>
       <div id="game-history-list" style="max-height: min(60vh, 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
@@ -6885,7 +6907,8 @@
     function updateChessPregameToolsVisibility() {
       const bar = document.getElementById('chess-pregame-tools');
       if (bar) {
-        bar.style.display = isChessPregamePhase() ? 'flex' : 'none';
+        // Show the same top bar during saved-game replay so Shop / Settings / History stay available.
+        bar.style.display = (isChessPregamePhase() || isHistoryReplayMode) ? 'flex' : 'none';
       }
       const ingameBar = document.getElementById('chess-ingame-tools');
       if (ingameBar) {
@@ -6897,12 +6920,14 @@
           const gc = document.getElementById('game-container');
           const sideHidden = cs && cs.style.display === 'none';
           const gameVisible = gc && gc.style.display !== 'none';
-          ingameBar.style.display = sideHidden && gameVisible ? 'flex' : 'none';
+          // Hide ingame strip while replay uses the full pregame top bar (avoids duplicate buttons).
+          ingameBar.style.display = (sideHidden && gameVisible && !isHistoryReplayMode) ? 'flex' : 'none';
         }
       }
     }
 
     function requireChessPregameForNonStatsModal() {
+      if (isHistoryReplayMode) return true;
       if (!isChessPregamePhase()) {
         showNotification('Use the menu above before you start a game.', 'error');
         return false;
@@ -10273,20 +10298,84 @@
       }
     }
 
+    function playerResultFromRecord(rec) {
+      if (!rec) return 'loss';
+      if (rec.result === '1/2-1/2') return 'draw';
+      if (rec.playerColor === 'white') return rec.result === '1-0' ? 'win' : 'loss';
+      return rec.result === '0-1' ? 'win' : 'loss';
+    }
+
+    function whiteMoveCountFromRecord(rec) {
+      const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
+      return plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
+    }
+
+    function formatGameHistoryTimeControlLabel(tc) {
+      const v = tc == null || tc === '' ? 'none' : String(tc);
+      if (v === 'none') return 'None';
+      if (typeof shopItems !== 'undefined' && shopItems.timeControls) {
+        const found = shopItems.timeControls.find(function (t) { return t.id === v; });
+        if (found) return found.name;
+      }
+      return v;
+    }
+
+    function populateGameHistoryTimeControlFilter() {
+      const sel = document.getElementById('game-history-filter-tc');
+      if (!sel || !cloudChessData) return;
+      const items = cloudChessData.gameHistory || [];
+      const seen = new Set();
+      items.forEach(function (rec) {
+        seen.add(rec.timeControl != null && rec.timeControl !== '' ? rec.timeControl : 'none');
+      });
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Any time control</option>';
+      Array.from(seen).sort().forEach(function (tc) {
+        const opt = document.createElement('option');
+        opt.value = tc;
+        opt.textContent = formatGameHistoryTimeControlLabel(tc);
+        sel.appendChild(opt);
+      });
+      if (prev && Array.from(sel.options).some(function (o) { return o.value === prev; })) {
+        sel.value = prev;
+      }
+    }
+
     function getGameHistoryFilteredEntries() {
       const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
       const fromEl = document.getElementById('game-history-date-from');
       const toEl = document.getElementById('game-history-date-to');
       const fromVal = fromEl && fromEl.value ? fromEl.value : '';
       const toVal = toEl && toEl.value ? toEl.value : '';
+      const outcomeEl = document.getElementById('game-history-filter-outcome');
+      const outcomeVal = outcomeEl && outcomeEl.value ? outcomeEl.value : '';
+      const tcEl = document.getElementById('game-history-filter-tc');
+      const tcVal = tcEl && tcEl.value !== undefined && tcEl.value !== '' ? tcEl.value : '';
+      const minEl = document.getElementById('game-history-filter-moves-min');
+      const maxEl = document.getElementById('game-history-filter-moves-max');
+      const minMoves = minEl && minEl.value !== '' ? parseInt(minEl.value, 10) : NaN;
+      const maxMoves = maxEl && maxEl.value !== '' ? parseInt(maxEl.value, 10) : NaN;
+
       return items.map(function (rec, idx) {
         return { rec: rec, idx: idx };
       }).filter(function (entry) {
-        if (!fromVal && !toVal) return true;
-        const key = gameHistoryRecordDateKey(entry.rec);
-        if (!key) return false;
-        if (fromVal && key < fromVal) return false;
-        if (toVal && key > toVal) return false;
+        const rec = entry.rec;
+        if (fromVal || toVal) {
+          const key = gameHistoryRecordDateKey(rec);
+          if (!key) return false;
+          if (fromVal && key < fromVal) return false;
+          if (toVal && key > toVal) return false;
+        }
+        if (outcomeVal) {
+          if (playerResultFromRecord(rec) !== outcomeVal) return false;
+        }
+        if (tcVal !== '') {
+          const rtc = rec.timeControl != null && rec.timeControl !== '' ? rec.timeControl : 'none';
+          if (rtc !== tcVal) return false;
+        }
+        const wm = whiteMoveCountFromRecord(rec);
+        if (!isNaN(minMoves) && wm < minMoves) return false;
+        if (!isNaN(maxMoves) && wm > maxMoves) return false;
         return true;
       });
     }
@@ -10301,7 +10390,7 @@
         return;
       }
       if (entries.length === 0) {
-        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No games in this date range. Try different dates or clear the filter.</p>';
+        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No games match your filters. Try changing or clearing filters.</p>';
         return;
       }
       list.innerHTML = entries.map(function (entry) {
@@ -10356,16 +10445,25 @@
       }
     }
 
-    function clearGameHistoryDateFilter() {
+    function clearGameHistoryFilters() {
       const fromEl = document.getElementById('game-history-date-from');
       const toEl = document.getElementById('game-history-date-to');
       if (fromEl) fromEl.value = '';
       if (toEl) toEl.value = '';
+      const outcomeEl = document.getElementById('game-history-filter-outcome');
+      if (outcomeEl) outcomeEl.value = '';
+      const tcEl = document.getElementById('game-history-filter-tc');
+      if (tcEl) tcEl.value = '';
+      const minEl = document.getElementById('game-history-filter-moves-min');
+      const maxEl = document.getElementById('game-history-filter-moves-max');
+      if (minEl) minEl.value = '';
+      if (maxEl) maxEl.value = '';
+      populateGameHistoryTimeControlFilter();
       refreshGameHistoryModal();
     }
 
     window.refreshGameHistoryModal = refreshGameHistoryModal;
-    window.clearGameHistoryDateFilter = clearGameHistoryDateFilter;
+    window.clearGameHistoryFilters = clearGameHistoryFilters;
 
     function showGameHistoryModal() {
       if (!requireChessPregameForNonStatsModal()) return;
@@ -10375,6 +10473,7 @@
       }
       const modal = document.getElementById('game-history-modal');
       if (!modal) return;
+      populateGameHistoryTimeControlFilter();
       modal.style.removeProperty('display');
       modal.classList.add('show');
       renderGameHistoryList();
