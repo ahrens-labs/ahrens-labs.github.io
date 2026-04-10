@@ -5066,7 +5066,7 @@
   <div id="reset-confirm-modal">
     <div class="reset-confirm-dialog">
       <h3 id="reset-confirm-title">⚠️ Warning</h3>
-      <p id="reset-confirm-message">This will reset ALL achievements and points to zero!</p>
+      <p id="reset-confirm-message">This will reset ALL achievements and points to zero, and clear your saved game history!</p>
       <div id="reset-confirm-list-container"></div>
       <input type="text" id="reset-confirm-input" class="reset-confirm-input" placeholder="Type RESET to confirm" style="display: none;">
       <div class="reset-confirm-buttons">
@@ -5132,6 +5132,14 @@
         <button class="close-achievements-btn" type="button" onclick="closeGameHistoryModal()">×</button>
       </div>
       <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">Last 50 games vs TrifangX (stored in your account).</p>
+      <div class="game-history-date-filter" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; font-family: 'Inter', sans-serif; font-size: 0.88rem;">
+        <span style="color: #555; font-weight: 600;">Filter by date</span>
+        <label for="game-history-date-from" style="color: #666;">From</label>
+        <input type="date" id="game-history-date-from" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+        <label for="game-history-date-to" style="color: #666;">To</label>
+        <input type="date" id="game-history-date-to" onchange="refreshGameHistoryModal()" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;" />
+        <button type="button" class="gh-btn-export" onclick="clearGameHistoryDateFilter()" style="margin-left: 4px;">Clear dates</button>
+      </div>
       <div id="game-history-list" style="max-height: min(60vh, 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
   </div>
@@ -10235,6 +10243,111 @@
       downloadPgnString(pgn, 'chess_game_' + dateStr);
     }
 
+    function gameHistoryRecordDateKey(rec) {
+      if (!rec || !rec.savedAt) return '';
+      const s = String(rec.savedAt);
+      if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      try {
+        return new Date(rec.savedAt).toISOString().slice(0, 10);
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function getGameHistoryFilteredEntries() {
+      const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+      const fromEl = document.getElementById('game-history-date-from');
+      const toEl = document.getElementById('game-history-date-to');
+      const fromVal = fromEl && fromEl.value ? fromEl.value : '';
+      const toVal = toEl && toEl.value ? toEl.value : '';
+      return items.map(function (rec, idx) {
+        return { rec: rec, idx: idx };
+      }).filter(function (entry) {
+        if (!fromVal && !toVal) return true;
+        const key = gameHistoryRecordDateKey(entry.rec);
+        if (!key) return false;
+        if (fromVal && key < fromVal) return false;
+        if (toVal && key > toVal) return false;
+        return true;
+      });
+    }
+
+    function renderGameHistoryList() {
+      const list = document.getElementById('game-history-list');
+      if (!list || !cloudChessData) return;
+      const fullCount = (cloudChessData.gameHistory || []).length;
+      const entries = getGameHistoryFilteredEntries();
+      if (fullCount === 0) {
+        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No completed games yet. Finish a game and it will appear here.</p>';
+        return;
+      }
+      if (entries.length === 0) {
+        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No games in this date range. Try different dates or clear the filter.</p>';
+        return;
+      }
+      list.innerHTML = entries.map(function (entry) {
+        const rec = entry.rec;
+        const idx = entry.idx;
+        const d = rec.savedAt ? new Date(rec.savedAt) : new Date();
+        const ds = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        let label = '';
+        let outcomeClass = 'game-history-row--draw';
+        if (rec.result === '1/2-1/2') {
+          label = 'Draw';
+          outcomeClass = 'game-history-row--draw';
+        } else if (rec.playerColor === 'white') {
+          if (rec.result === '1-0') {
+            label = 'You won';
+            outcomeClass = 'game-history-row--win';
+          } else {
+            label = 'You lost';
+            outcomeClass = 'game-history-row--loss';
+          }
+        } else {
+          if (rec.result === '0-1') {
+            label = 'You won';
+            outcomeClass = 'game-history-row--win';
+          } else {
+            label = 'You lost';
+            outcomeClass = 'game-history-row--loss';
+          }
+        }
+        const tc = rec.timeControl || '—';
+        const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
+        const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
+        const moveCountLine = whiteMoveCount > 0
+          ? (' · ' + whiteMoveCount + ' move' + (whiteMoveCount === 1 ? '' : 's'))
+          : '';
+        return (
+          '<div class="game-history-row ' + outcomeClass + '">' +
+          '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
+          '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + moveCountLine + '</span></div>' +
+          '<div class="game-history-row-actions">' +
+          '<button type="button" class="gh-btn-export" onclick="exportGameHistoryRecordAt(' + idx + ')">Export</button>' +
+          '<button type="button" class="gh-btn-play" onclick="playGameHistoryRecordAt(' + idx + ')">Play on board</button>' +
+          '</div></div>'
+        );
+      }).join('');
+    }
+
+    function refreshGameHistoryModal() {
+      const modal = document.getElementById('game-history-modal');
+      if (modal && modal.classList.contains('show')) {
+        renderGameHistoryList();
+      }
+    }
+
+    function clearGameHistoryDateFilter() {
+      const fromEl = document.getElementById('game-history-date-from');
+      const toEl = document.getElementById('game-history-date-to');
+      if (fromEl) fromEl.value = '';
+      if (toEl) toEl.value = '';
+      refreshGameHistoryModal();
+    }
+
+    window.refreshGameHistoryModal = refreshGameHistoryModal;
+    window.clearGameHistoryDateFilter = clearGameHistoryDateFilter;
+
     function showGameHistoryModal() {
       if (!requireChessPregameForNonStatsModal()) return;
       if (!isLoggedIn || !dataLoaded || !cloudChessData) {
@@ -10242,57 +10355,10 @@
         return;
       }
       const modal = document.getElementById('game-history-modal');
-      const list = document.getElementById('game-history-list');
-      if (!modal || !list) return;
-      const items = cloudChessData.gameHistory || [];
-      if (items.length === 0) {
-        list.innerHTML = '<p style="color:#666;font-family:Inter,sans-serif;">No completed games yet. Finish a game and it will appear here.</p>';
-      } else {
-        list.innerHTML = items.map(function(rec, idx) {
-          const d = rec.savedAt ? new Date(rec.savedAt) : new Date();
-          const ds = d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-          let label = '';
-          let outcomeClass = 'game-history-row--draw';
-          if (rec.result === '1/2-1/2') {
-            label = 'Draw';
-            outcomeClass = 'game-history-row--draw';
-          } else if (rec.playerColor === 'white') {
-            if (rec.result === '1-0') {
-              label = 'You won';
-              outcomeClass = 'game-history-row--win';
-            } else {
-              label = 'You lost';
-              outcomeClass = 'game-history-row--loss';
-            }
-          } else {
-            if (rec.result === '0-1') {
-              label = 'You won';
-              outcomeClass = 'game-history-row--win';
-            } else {
-              label = 'You lost';
-              outcomeClass = 'game-history-row--loss';
-            }
-          }
-          const tc = rec.timeControl || '—';
-          const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
-          // "N moves" = N times White has moved (full-move count), not half-move / ply count
-          const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
-          const moveCountLine = whiteMoveCount > 0
-            ? (' · ' + whiteMoveCount + ' move' + (whiteMoveCount === 1 ? '' : 's'))
-            : '';
-          return (
-            '<div class="game-history-row ' + outcomeClass + '">' +
-            '<div class="game-history-row-meta"><strong>' + label + '</strong> · ' + (rec.result || '') +
-            '<br><span style="color:#666;font-size:0.85rem;">' + ds + ' · ' + tc + moveCountLine + '</span></div>' +
-            '<div class="game-history-row-actions">' +
-            '<button type="button" class="gh-btn-export" onclick="exportGameHistoryRecordAt(' + idx + ')">Export</button>' +
-            '<button type="button" class="gh-btn-play" onclick="playGameHistoryRecordAt(' + idx + ')">Play on board</button>' +
-            '</div></div>'
-          );
-        }).join('');
-      }
+      if (!modal) return;
       modal.style.removeProperty('display');
       modal.classList.add('show');
+      renderGameHistoryList();
     }
 
     function closeGameHistoryModal() {
@@ -12990,7 +13056,7 @@
       if (stage === 1) {
         // First warning
         titleEl.textContent = '⚠️ Warning';
-        messageEl.textContent = 'This will reset ALL achievements and points to zero!\n\nThis action cannot be undone.';
+        messageEl.textContent = 'This will reset ALL achievements and points to zero, and clear your saved game history!\n\nThis action cannot be undone.';
         messageEl.style.color = '#555';
         listContainer.innerHTML = '';
         inputEl.style.display = 'none';
@@ -13002,7 +13068,7 @@
         titleEl.textContent = '⚠️ Are you ABSOLUTELY SURE?';
         messageEl.textContent = 'This will delete:';
         messageEl.style.color = '#555';
-        listContainer.innerHTML = '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li></ul>';
+        listContainer.innerHTML = '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li><li>All saved game history (last 50 games)</li></ul>';
         inputEl.style.display = 'none';
         yesBtn.textContent = 'Continue';
         yesBtn.onclick = () => showResetConfirmModal(3);
@@ -13083,6 +13149,9 @@
       closeResetConfirmModal();
       
       // Reset all achievements and stats
+      if (cloudChessData) {
+        cloudChessData.gameHistory = [];
+      }
       achievements = [];
       playerStats = { wins: 0, losses: 0, draws: 0 };
       lifetimeStats = {
@@ -13304,7 +13373,7 @@
           const dialog = modal.querySelector('.reset-confirm-dialog');
           titleEl.textContent = '✅ Success!';
           titleEl.style.color = '#2ecc71';
-          messageEl.textContent = 'All achievements and statistics have been reset successfully!';
+          messageEl.textContent = 'All achievements, statistics, and game history have been reset successfully!';
           messageEl.style.color = '#555';
           listContainer.innerHTML = '';
           inputEl.style.display = 'none';
