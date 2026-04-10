@@ -6610,6 +6610,40 @@
       }
     }
 
+    /**
+     * Reload / close tab / navigate away: end the server-side game and drop occupancy lock.
+     * Uses keepalive + sendBeacon so the request often completes after the page is gone.
+     */
+    function releaseEngineOccupancyOnPageExit() {
+      try {
+        stopHeartbeat();
+        if (_statusPollInterval) {
+          clearInterval(_statusPollInterval);
+          _statusPollInterval = null;
+        }
+      } catch (e) {}
+      const url = ENGINE_BASE + '/stop';
+      const body = JSON.stringify({});
+      try {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body,
+          keepalive: true
+        }).catch(function () {});
+      } catch (e2) {}
+      try {
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+        }
+      } catch (e3) {}
+    }
+
+    window.addEventListener('pagehide', function (ev) {
+      if (ev.persisted) return;
+      releaseEngineOccupancyOnPageExit();
+    });
+
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
     function releaseEngineOnGameEnd() {
       stopHeartbeat();
