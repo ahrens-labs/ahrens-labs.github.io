@@ -2505,18 +2505,59 @@
     #game-history-modal {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.7);
       z-index: 10008;
       animation: fadeIn 0.3s ease-out;
-      overflow-y: auto;
+      overflow: hidden;
+      background: #eef1f5;
     }
 
     #game-history-modal.show {
-      display: block;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #game-history-modal .game-history-dialog {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: max(16px, env(safe-area-inset-top, 0px))
+        max(20px, env(safe-area-inset-right, 0px))
+        max(16px, env(safe-area-inset-bottom, 0px))
+        max(20px, env(safe-area-inset-left, 0px));
+      background: linear-gradient(165deg, #ffffff 0%, #f1f5f9 55%, #e8ecf1 100%);
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    #game-history-modal .game-history-dialog > .settings-header,
+    #game-history-modal .game-history-dialog > p,
+    #game-history-modal .game-history-dialog > .gh-filters {
+      flex-shrink: 0;
+    }
+
+    #game-history-modal .game-history-dialog > .settings-header {
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+    }
+
+    #game-history-modal #game-history-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .game-history-row {
@@ -5301,9 +5342,9 @@
     <button type="button" onclick="exitHistoryReplay()" style="background: #fff; color: #16a085; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; font-family: inherit;">Exit replay</button>
   </div>
 
-  <!-- Game history modal -->
-  <div id="game-history-modal" onclick="if (event.target === this) closeGameHistoryModal();">
-    <div class="settings-dialog" style="max-width: 640px;" onclick="event.stopPropagation();">
+  <!-- Game history modal (full viewport) -->
+  <div id="game-history-modal">
+    <div class="game-history-dialog" onclick="event.stopPropagation();">
       <div class="settings-header">
         <h2 style="font-family: 'Inter', sans-serif; margin: 0;">📜 Game history</h2>
         <button class="close-achievements-btn" type="button" onclick="closeGameHistoryModal()">×</button>
@@ -5360,7 +5401,7 @@
           <button type="button" class="gh-btn-clear-filters" onclick="clearGameHistoryFilters()">Reset filters</button>
         </div>
       </div>
-      <div id="game-history-list" style="max-height: min(60vh, 420px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+      <div id="game-history-list"></div>
     </div>
   </div>
 
