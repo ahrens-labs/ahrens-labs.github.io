@@ -91,33 +91,32 @@ export default {
 // Signup handler
 async function handleSignup(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !password || !username) {
+  if (!normalizedEmail || !password || !username) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return new Response(JSON.stringify({ error: 'Invalid email format' }), {
+  if (!isLikelyRealEmail(normalizedEmail)) {
+    return new Response(JSON.stringify({ error: 'Please use a real email address' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   // Get user account DO
-  const userId = generateUserId(email);
-  console.log('Signup - email:', email, 'userId:', userId);
+  const userId = generateUserId(normalizedEmail);
+  console.log('Signup - email:', normalizedEmail, 'userId:', userId);
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
   // Create user via DO fetch
   const createReq = new Request('http://do/create', {
     method: 'POST',
-    body: JSON.stringify({ email, password, username })
+    body: JSON.stringify({ email: normalizedEmail, password, username })
   });
   
   const createRes = await userAccount.fetch(createReq);
@@ -142,7 +141,7 @@ async function handleSignup(request, env, corsHeaders) {
 
   // Send verification email
   try {
-    await sendVerificationEmail(email, username, verificationToken);
+    await sendVerificationEmail(normalizedEmail, username, verificationToken);
   } catch (error) {
     console.error('Failed to send verification email:', error);
     // Continue with signup even if email fails
@@ -164,7 +163,7 @@ async function handleSignup(request, env, corsHeaders) {
     sessionId,
     userId,
     username,
-    email,
+    email: normalizedEmail,
     message: 'Account created successfully!'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -303,15 +302,16 @@ async function handleDeleteAccount(request, env, corsHeaders) {
 // Login handler
 async function handleLogin(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
+  const normalizedEmail = normalizeEmail(email);
 
-  if (!email || !password || username == null || String(username).trim() === '') {
+  if (!normalizedEmail || !password || username == null || String(username).trim() === '') {
     return new Response(JSON.stringify({ error: 'Missing username, email, or password' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const userId = generateUserId(email);
+  const userId = generateUserId(normalizedEmail);
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
@@ -362,8 +362,8 @@ async function handleLogin(request, env, corsHeaders) {
     success: true, 
     sessionId,
     userId,
-    username: preUserData?.username || email,
-    email: preUserData?.email || email
+    username: preUserData?.username || normalizedEmail,
+    email: preUserData?.email || normalizedEmail
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -880,6 +880,31 @@ function parseBearerToken(authHeader) {
 function normalizeLoginUsername(s) {
   if (s == null || typeof s !== 'string') return '';
   return s.trim().toLowerCase();
+}
+
+function normalizeEmail(email) {
+  if (email == null || typeof email !== 'string') return '';
+  return email.trim().toLowerCase();
+}
+
+function isLikelyRealEmail(email) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+  if (!emailRegex.test(normalized)) return false;
+  const domain = normalized.split('@')[1] || '';
+  const blockedDomains = new Set([
+    'example.com',
+    'example.org',
+    'example.net',
+    'test.com',
+    'invalid.com',
+    'mailinator.com',
+    'tempmail.com',
+    '10minutemail.com',
+    'guerrillamail.com',
+  ]);
+  return !blockedDomains.has(domain);
 }
 
 function generateUserId(email) {

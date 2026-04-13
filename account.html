@@ -422,10 +422,6 @@
                 <input type="text" id="login-username" required minlength="3" autocomplete="off">
             </div>
             <div class="form-group">
-                <label for="login-email">Email</label>
-                <input type="email" id="login-email" required autocomplete="off">
-            </div>
-            <div class="form-group">
                 <label for="login-password">Password</label>
                 <div class="password-input-wrap">
                     <input type="password" id="login-password" required autocomplete="off">
@@ -680,17 +676,50 @@
             if (loginForm) loginForm.style.display = show ? '' : 'none';
             if (signupForm) signupForm.style.display = show ? '' : 'none';
         }
+
+        function normalizeEmail(email) {
+            return String(email || '').trim().toLowerCase();
+        }
+
+        function isLikelyRealEmail(email) {
+            const normalized = normalizeEmail(email);
+            if (!normalized) return false;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+            if (!emailRegex.test(normalized)) return false;
+            const domain = normalized.split('@')[1] || '';
+            const blockedDomains = new Set([
+                'example.com',
+                'example.org',
+                'example.net',
+                'test.com',
+                'invalid.com',
+                'mailinator.com',
+                'tempmail.com',
+                '10minutemail.com',
+                'guerrillamail.com'
+            ]);
+            return !blockedDomains.has(domain);
+        }
         
         async function handleLogin(event) {
             event.preventDefault();
             
             const username = document.getElementById('login-username').value.trim();
-            const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
+            let email = normalizeEmail(localStorage.getItem('ahrenslabs_email'));
             
             if (!username) {
                 showNotification('Please enter your username', 'error');
                 return;
+            }
+            if (!email) {
+                const entered = normalizeEmail(window.prompt('Enter your account email once for this device:') || '');
+                if (!isLikelyRealEmail(entered)) {
+                    showNotification('A valid account email is required to log in', 'error');
+                    return;
+                }
+                email = entered;
+                localStorage.setItem('ahrenslabs_email', email);
             }
             
             try {
@@ -708,6 +737,11 @@
                     localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);
+                    if (data.email) {
+                        localStorage.setItem('ahrenslabs_email', normalizeEmail(data.email));
+                    } else {
+                        localStorage.setItem('ahrenslabs_email', email);
+                    }
                     
                     showNotification('Login successful! 🎉', 'success');
                     
@@ -728,13 +762,17 @@
         async function handleSignup(event) {
             event.preventDefault();
             
-            const username = document.getElementById('signup-username').value;
-            const email = document.getElementById('signup-email').value;
+            const username = document.getElementById('signup-username').value.trim();
+            const email = normalizeEmail(document.getElementById('signup-email').value);
             const password = document.getElementById('signup-password').value;
             const confirmPassword = document.getElementById('signup-confirm-password').value;
             
             if (password !== confirmPassword) {
                 showNotification('Passwords do not match', 'error');
+                return;
+            }
+            if (!isLikelyRealEmail(email)) {
+                showNotification('Please use a real email address you can access', 'error');
                 return;
             }
             
@@ -753,6 +791,7 @@
                     localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);
+                    localStorage.setItem('ahrenslabs_email', email);
                     
                     showNotification('Account created successfully! 🎉', 'success', 3000);
                     
@@ -898,6 +937,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    localStorage.setItem('ahrenslabs_email', normalizeEmail(email));
                     showNotification('Email verified successfully! 🎉', 'success', 5000);
                 } else {
                     showNotification(data.error || 'Email verification failed', 'error');
