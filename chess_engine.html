@@ -11651,6 +11651,7 @@
       sendEngineCommand("start").then(() => {
         markEngineLockHeldByThisTab();
         startHeartbeat();
+        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
         if (playerColor === "black") {
           engineMove();
         }
@@ -15818,6 +15819,8 @@
         releaseEngineOnGameEnd();
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
+      } finally {
+        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
       }
     }
     function submitMove() {
