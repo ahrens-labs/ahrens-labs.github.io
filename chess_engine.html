@@ -951,31 +951,6 @@
       font-weight: 700;
     }
 
-    /* Shown for the whole live game (your move or engine’s) — server slot stays taken until the game ends. */
-    .engine-occupancy-lock-badge {
-      flex: 1 1 100%;
-      width: 100%;
-      max-width: min(720px, 100%);
-      margin: 0 auto;
-      box-sizing: border-box;
-      padding: 8px 12px;
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-align: center;
-      color: #92400e;
-      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-      border: 1px solid #fbbf24;
-      border-radius: 10px;
-      line-height: 1.35;
-    }
-
-    #game-container.blindfold-game-active .engine-occupancy-lock-badge {
-      color: #fde68a;
-      background: rgba(15, 23, 42, 0.65);
-      border-color: rgba(251, 191, 36, 0.45);
-    }
-
     /* Game Statistics Panel */
     #game-stats-panel {
       background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
@@ -5440,9 +5415,6 @@
       <div id="last-move-container">
         Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
       </div>
-      <div id="engine-occupancy-lock-badge" class="engine-occupancy-lock-badge" style="display: none;" role="status" aria-live="polite">
-        🔒 Engine in use — this game holds the shared server slot until it ends (on your turn and the engine’s).
-      </div>
     </div>
 
     <div id="move-input-container" class="blindfold-move-panel" style="display: none;" aria-label="Enter your move in algebraic notation">
@@ -7200,15 +7172,6 @@
       }, 8000);
     }
 
-    /** In-game reminder: the server slot is held for the whole game, not only while the engine is thinking. */
-    function updateEngineOccupancyLockBadge() {
-      const el = document.getElementById('engine-occupancy-lock-badge');
-      if (!el) return;
-      const cs = document.getElementById('choose-side');
-      const inLiveGame = cs && cs.style.display === 'none' && typeof gameOver !== 'undefined' && !gameOver;
-      el.style.display = inLiveGame ? 'block' : 'none';
-    }
-
     function checkEngineStatus() {
       return fetch(`${ENGINE_BASE}/status`)
         .then(r => r.json())
@@ -7294,7 +7257,6 @@
       clearEngineLockHolderSession();
       sendEngineCommand('stop').catch(() => {});
       checkEngineStatus();
-      if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
     }
 
     /** Log result on the Python server (prints USERNAME beat/lost to TrifangX + SAN moves). */
@@ -11652,7 +11614,6 @@
       sendEngineCommand("start").then(() => {
         markEngineLockHeldByThisTab();
         startHeartbeat();
-        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
         if (playerColor === "black") {
           engineMove();
         }
@@ -14781,7 +14742,6 @@
         if (typeof updateChessPregameToolsVisibility === 'function') {
           updateChessPregameToolsVisibility();
         }
-        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
       }, 300);
       
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
@@ -15242,7 +15202,6 @@
       if (playerColor === "black") {
         await engineMove();
       }
-      if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
     }
 
     // Check for insufficient material (draw condition)
@@ -15821,8 +15780,6 @@
         releaseEngineOnGameEnd();
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
-      } finally {
-        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
       }
     }
     function submitMove() {
