@@ -418,8 +418,8 @@
         <!-- Login Form -->
         <form id="login-form" class="account-form active" autocomplete="off" onsubmit="handleLogin(event)">
             <div class="form-group">
-                <label for="login-username">Username</label>
-                <input type="text" id="login-username" required minlength="3" autocomplete="off">
+                <label for="login-username">Username or email</label>
+                <input type="text" id="login-username" name="username" required minlength="1" autocomplete="username" placeholder="Your username or account email">
             </div>
             <div class="form-group">
                 <label for="login-password">Password</label>
@@ -721,9 +721,15 @@
                     body: JSON.stringify({ username, password })
                 });
                 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch {
+                    showNotification('Login failed. Unexpected server response.', 'error');
+                    return;
+                }
                 
-                if (data.success) {
+                if (response.ok && data.success) {
                     localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);

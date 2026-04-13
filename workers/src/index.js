@@ -350,37 +350,61 @@ async function handleDeleteAccount(request, env, corsHeaders) {
   });
 }
 
-// Login handler
+// Login handler — username (registry) or email (same userId as signup); then password check.
 async function handleLogin(request, env, corsHeaders) {
-  const { password, username } = await request.json();
-  const normalizedUsername = normalizeUsernameForIndex(username);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const { password, username: loginIdentifier } = body;
+  const raw = typeof loginIdentifier === 'string' ? loginIdentifier.trim() : '';
 
-  if (!normalizedUsername || !password) {
+  if (!raw || password == null || typeof password !== 'string' || password === '') {
     return new Response(JSON.stringify({ error: 'Missing username or password' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
-  const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
-  const resolveReq = new Request('http://do/resolve', {
-    method: 'POST',
-    body: JSON.stringify({ username: normalizedUsername }),
-  });
-  const resolveRes = await usernameRegistry.fetch(resolveReq);
-  let resolveData = null;
-  try {
-    resolveData = await resolveRes.json();
-  } catch {
-    resolveData = null;
-  }
-  const userId = resolveData?.userId;
-  if (!resolveRes.ok || !userId) {
-    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  let userId = null;
+  let normalizedUsernameKey = '';
+
+  const emailNorm = normalizeEmail(raw);
+  const useEmailLogin = emailNorm && raw.includes('@') && isLikelyRealEmail(emailNorm);
+
+  if (useEmailLogin) {
+    userId = generateUserId(emailNorm);
+  } else {
+    normalizedUsernameKey = normalizeUsernameForIndex(raw);
+    if (!normalizedUsernameKey) {
+      return new Response(JSON.stringify({ error: 'Missing username or password' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
+    const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
+    const resolveReq = new Request('http://do/resolve', {
+      method: 'POST',
+      body: JSON.stringify({ username: normalizedUsernameKey }),
     });
+    const resolveRes = await usernameRegistry.fetch(resolveReq);
+    let resolveData = null;
+    try {
+      resolveData = await resolveRes.json();
+    } catch {
+      resolveData = null;
+    }
+    userId = resolveData?.userId;
+    if (!resolveRes.ok || !userId) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
@@ -396,11 +420,26 @@ async function handleLogin(request, env, corsHeaders) {
     });
   }
 
-  if (normalizeLoginUsername(username) !== normalizeLoginUsername(preUserData.username)) {
-    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  if (useEmailLogin) {
+    const storedEmail = normalizeEmail(preUserData.email);
+    if (!storedEmail || storedEmail !== emailNorm) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } else {
+    // Registry already mapped this username to userId. Only enforce match when a username
+    // is stored (legacy accounts may have omitted it; password still proves identity).
+    const storedName = preUserData.username;
+    if (storedName != null && String(storedName).trim() !== '') {
+      if (normalizedUsernameKey !== normalizeLoginUsername(storedName)) {
+        return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
   }
 
   const authReq = new Request('http://do/authenticate', {
@@ -433,7 +472,7 @@ async function handleLogin(request, env, corsHeaders) {
     success: true, 
     sessionId,
     userId,
-    username: preUserData?.username || normalizedUsername,
+    username: preUserData?.username || normalizedUsernameKey || 'Player',
     email: preUserData?.email || null
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
