@@ -5,7 +5,8 @@ compatibility_date = "2024-01-01"
 [durable_objects]
 bindings = [
   { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },
-  { name = "SESSION", class_name = "Session", script_name = "chess-accounts" }
+  { name = "SESSION", class_name = "Session", script_name = "chess-accounts" },
+  { name = "USERNAME_REGISTRY", class_name = "UsernameRegistry", script_name = "chess-accounts" }
 ]
 
 [[migrations]]
@@ -16,6 +17,10 @@ new_sqlite_classes = ["UserAccount", "Session"]
 tag = "v2"
 renamed_classes = []
 deleted_classes = []
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["UsernameRegistry"]
 
 [vars]
 # Environment variables can go here

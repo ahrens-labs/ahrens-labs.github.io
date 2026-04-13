@@ -92,8 +92,9 @@ export default {
 async function handleSignup(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
   const normalizedEmail = normalizeEmail(email);
+  const normalizedUsername = normalizeUsernameForIndex(username);
 
-  if (!normalizedEmail || !password || !username) {
+  if (!normalizedEmail || !password || !username || !normalizedUsername) {
     return new Response(JSON.stringify({ error: 'Missing required fields' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -110,20 +111,56 @@ async function handleSignup(request, env, corsHeaders) {
   // Get user account DO
   const userId = generateUserId(normalizedEmail);
   console.log('Signup - email:', normalizedEmail, 'userId:', userId);
+
+  // Reserve username globally (case-insensitive) before creating the user.
+  const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
+  const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
+  const reserveUsernameReq = new Request('http://do/reserve', {
+    method: 'POST',
+    body: JSON.stringify({ username: normalizedUsername, userId }),
+  });
+  const reserveUsernameRes = await usernameRegistry.fetch(reserveUsernameReq);
+  let reserveUsernameData = null;
+  try {
+    reserveUsernameData = await reserveUsernameRes.json();
+  } catch {
+    reserveUsernameData = null;
+  }
+  if (!reserveUsernameRes.ok || !reserveUsernameData?.success) {
+    return new Response(JSON.stringify({ error: reserveUsernameData?.error || 'Username is already taken' }), {
+      status: reserveUsernameRes.status === 409 ? 409 : 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
   // Create user via DO fetch
-  const createReq = new Request('http://do/create', {
-    method: 'POST',
-    body: JSON.stringify({ email: normalizedEmail, password, username })
-  });
-  
-  const createRes = await userAccount.fetch(createReq);
-  const result = await createRes.json();
-  
-  if (!result.success) {
-    return new Response(JSON.stringify({ error: result.error || 'Signup failed' }), {
+  let result = null;
+  try {
+    const createReq = new Request('http://do/create', {
+      method: 'POST',
+      body: JSON.stringify({ email: normalizedEmail, password, username })
+    });
+    const createRes = await userAccount.fetch(createReq);
+    result = await createRes.json();
+  } catch (error) {
+    const releaseUsernameReq = new Request('http://do/release', {
+      method: 'POST',
+      body: JSON.stringify({ username: normalizedUsername, userId }),
+    });
+    await usernameRegistry.fetch(releaseUsernameReq);
+    throw error;
+  }
+
+  if (!result?.success) {
+    const releaseUsernameReq = new Request('http://do/release', {
+      method: 'POST',
+      body: JSON.stringify({ username: normalizedUsername, userId }),
+    });
+    await usernameRegistry.fetch(releaseUsernameReq);
+    return new Response(JSON.stringify({ error: result?.error || 'Signup failed' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -275,6 +312,10 @@ async function handleDeleteAccount(request, env, corsHeaders) {
 
   const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const userDataReq = new Request('http://do/getData', { method: 'GET' });
+  const userDataRes = await userAccount.fetch(userDataReq);
+  const userData = await userDataRes.json();
+  const usernameForRelease = normalizeUsernameForIndex(userData?.username);
 
   const delReq = new Request('http://do/deleteAccount', {
     method: 'POST',
@@ -289,6 +330,16 @@ async function handleDeleteAccount(request, env, corsHeaders) {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  if (usernameForRelease) {
+    const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
+    const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
+    const releaseUsernameReq = new Request('http://do/release', {
+      method: 'POST',
+      body: JSON.stringify({ username: usernameForRelease, userId: userResult.userId }),
+    });
+    await usernameRegistry.fetch(releaseUsernameReq);
   }
 
   const destroyReq = new Request('http://do/destroy', { method: 'POST' });
@@ -880,6 +931,10 @@ function parseBearerToken(authHeader) {
 function normalizeLoginUsername(s) {
   if (s == null || typeof s !== 'string') return '';
   return s.trim().toLowerCase();
+}
+
+function normalizeUsernameForIndex(username) {
+  return normalizeLoginUsername(username);
 }
 
 function normalizeEmail(email) {
@@ -1694,5 +1749,72 @@ export class Session {
 
   async destroy() {
     await this.storage.deleteAll();
+  }
+}
+
+// Durable Object: UsernameRegistry
+export class UsernameRegistry {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.storage = state.storage;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === '/reserve' && request.method === 'POST') {
+      const { username, userId } = await request.json();
+      const result = await this.reserve(username, userId);
+      return new Response(JSON.stringify(result), {
+        status: result.success ? 200 : (result.status || 400),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } else if (path === '/release' && request.method === 'POST') {
+      const { username, userId } = await request.json();
+      const result = await this.release(username, userId);
+      return new Response(JSON.stringify(result), {
+        status: result.success ? 200 : (result.status || 400),
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('UsernameRegistry DO', { status: 200 });
+  }
+
+  async reserve(username, userId) {
+    const key = normalizeUsernameForIndex(username);
+    if (!key || !userId) {
+      return { success: false, error: 'Missing username or userId', status: 400 };
+    }
+
+    const storageKey = `username:${key}`;
+    const existing = await this.storage.get(storageKey);
+    if (existing && existing.userId && existing.userId !== userId) {
+      return { success: false, error: 'Username is already taken', status: 409 };
+    }
+
+    await this.storage.put(storageKey, { userId, username: key, updatedAt: Date.now() });
+    return { success: true };
+  }
+
+  async release(username, userId) {
+    const key = normalizeUsernameForIndex(username);
+    if (!key) {
+      return { success: false, error: 'Missing username', status: 400 };
+    }
+
+    const storageKey = `username:${key}`;
+    const existing = await this.storage.get(storageKey);
+    if (!existing) {
+      return { success: true };
+    }
+    if (userId && existing.userId && existing.userId !== userId) {
+      return { success: false, error: 'Username is owned by a different account', status: 409 };
+    }
+
+    await this.storage.delete(storageKey);
+    return { success: true };
   }
 }
