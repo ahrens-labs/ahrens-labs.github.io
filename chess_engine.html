@@ -3719,15 +3719,307 @@
       display: none !important;
     }
 
-    #move-input-container {
+    /* --- Blindfold game shell: purpose-built layout (not "board mode minus board") --- */
+    #blindfold-mental-board {
+      display: none;
+      box-sizing: border-box;
+      width: min(100%, 420px);
+      min-height: 200px;
+      margin: 0 auto 8px;
+      padding: 22px 20px;
+      border-radius: 16px;
+      border: 1px dashed rgba(148, 163, 184, 0.85);
+      background: linear-gradient(160deg, rgba(15, 23, 42, 0.04) 0%, rgba(51, 65, 85, 0.06) 100%);
       text-align: center;
-      margin: 20px auto;
-      padding: 20px;
-      background-color: white;
-      border-radius: 15px;
-      border: 1px solid #e9ecef;
-      max-width: 600px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    #game-container.blindfold-game-active #blindfold-mental-board {
+      display: block;
+    }
+
+    .blindfold-mental-icon {
+      font-size: 2rem;
+      line-height: 1;
+      display: block;
+      margin-bottom: 8px;
+      filter: grayscale(0.2);
+      opacity: 0.92;
+    }
+
+    .blindfold-mental-title {
+      margin: 0 0 6px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #334155;
+    }
+
+    .blindfold-mental-tagline {
+      margin: 0 0 12px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      color: #64748b;
+    }
+
+    .blindfold-mental-tips {
+      margin: 0;
+      padding: 0 0 0 1.1em;
+      text-align: left;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: #94a3b8;
+    }
+
+    #game-container.blindfold-game-active {
+      max-width: 820px;
+      padding: 12px 14px 28px;
+      margin: 0 auto;
+      border-radius: 0;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 42%, #f1f5f9 42%, #f8fafc 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    #game-container.blindfold-game-active #game-title {
+      color: #f8fafc !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+
+    #game-container.blindfold-game-active .game-hud-row {
+      width: 100%;
+      max-width: min(720px, 100%);
+      margin: 8px auto 14px;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 12px 20px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 14px;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 0.88rem;
+      box-sizing: border-box;
+    }
+
+    #game-container.blindfold-game-active .game-hud-row #timer,
+    #game-container.blindfold-game-active .game-hud-row #turn-color,
+    #game-container.blindfold-game-active .game-hud-row #last-move {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    #game-container.blindfold-game-active #board-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+      width: 100%;
+    }
+
+    #game-container.blindfold-game-active #board-with-captures {
+      flex-direction: column;
+      width: 100%;
+      gap: 10px;
+    }
+
+    #game-container.blindfold-game-active #captured-pieces-left {
+      flex-direction: row;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px 24px;
+      min-width: 0;
+      width: 100%;
+      max-width: min(720px, 100%);
+      margin: 0 auto;
+    }
+
+    #game-container.blindfold-game-active #captured-pieces-left .captured-section {
+      flex: 1 1 140px;
+      min-width: 120px;
+      max-width: 280px;
+    }
+
+    #game-container.blindfold-game-active #captured-pieces-left .captured-section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+    }
+
+    #game-container.blindfold-game-active #timers-container {
+      width: 100%;
+      max-width: min(720px, 100%);
+      margin: 0 auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    #game-container.blindfold-game-active #timers-container .time-slot {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    #game-container.blindfold-game-active #board-timers-container {
+      width: 100%;
+      align-items: stretch;
+    }
+
+    #game-container.blindfold-game-active #right-panel {
+      width: 100%;
+      max-width: min(720px, 100%);
+      min-width: 0;
+      height: auto;
+      max-height: none;
+      margin: 0 auto;
+      align-self: center;
+    }
+
+    #game-container.blindfold-game-active #opening-display,
+    #game-container.blindfold-game-active #game-stats-panel {
+      display: none !important;
+    }
+
+    #game-container.blindfold-game-active #notation-container {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(71, 85, 105, 0.6);
+      color: #e2e8f0;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    #game-container.blindfold-game-active #notation-container::before {
+      color: #94a3b8 !important;
+      border-bottom-color: rgba(71, 85, 105, 0.6) !important;
+    }
+
+    #game-container.blindfold-game-active #notation-container .notation-num {
+      color: #64748b;
+    }
+
+    #game-container.blindfold-game-active #notation-container .notation-san {
+      color: #f1f5f9;
+    }
+
+    #game-container.blindfold-game-active #notation-container .notation-san:hover:not(.notation-san--empty) {
+      background: rgba(51, 65, 85, 0.85);
+    }
+
+    #game-container.blindfold-game-active #notation-container .notation-san.highlighted {
+      background: #3b82f6;
+      color: #fff;
+    }
+
+    #game-container.blindfold-game-active #notation-container .black-move {
+      color: #cbd5e1;
+      background: rgba(30, 41, 59, 0.65);
+      border-left-color: #64748b;
+    }
+
+    #game-container.blindfold-game-active #player-stats-panel {
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 12px;
+      padding: 12px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    #game-container.blindfold-game-active #player-stats-panel h3 {
+      color: #1e293b;
+    }
+
+    #game-container.blindfold-game-active #game-buttons {
+      justify-content: center;
+      gap: 12px;
+    }
+
+    #game-container.blindfold-game-active #game-buttons button {
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .blindfold-move-panel {
+      text-align: left;
+      margin: 0 auto 16px;
+      padding: 18px 20px;
+      width: 100%;
+      max-width: min(720px, 100%);
+      box-sizing: border-box;
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .blindfold-move-label {
+      display: block;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+
+    .blindfold-move-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .blindfold-move-input {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 14px 16px;
+      font-size: 1.15rem;
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+      background: #fff;
+      color: #0f172a;
+      box-shadow: 0 2px 12px rgba(59, 130, 246, 0.12);
+    }
+
+    .blindfold-move-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .blindfold-move-submit {
+      padding: 14px 22px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      white-space: nowrap;
+    }
+
+    .blindfold-move-submit:hover {
+      filter: brightness(1.05);
+    }
+
+    .blindfold-move-hint {
+      margin: 10px 0 0;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: #64748b;
     }
 
     #show-history-row {
@@ -5108,7 +5400,7 @@
   </div>
 
   <div id="game-container" style="display: none;">
-    <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
+    <div id="game-hud-row" class="game-hud-row" style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
     <div id="move-timer-container">
       Time for this move: <span id="timer">00:00.00</span>
       </div>
@@ -5140,6 +5432,17 @@
             <div id="time-slot-black" class="time-slot">
               Black Time Left: <span id="black-total">--:--.--</span>
             </div>
+          </div>
+
+          <div id="blindfold-mental-board" class="blindfold-mental-board" aria-hidden="true">
+            <span class="blindfold-mental-icon" aria-hidden="true">👁️</span>
+            <h3 class="blindfold-mental-title">Blindfold</h3>
+            <p class="blindfold-mental-tagline">No board — visualize the position. Type moves in algebraic notation (SAN) below.</p>
+            <ul class="blindfold-mental-tips">
+              <li>Clocks stay visible so you can manage time without seeing the pieces.</li>
+              <li>Captured material beside this panel is a memory aid; pure blindfold is stronger with it ignored.</li>
+              <li>Move list appears only if you enabled it before starting.</li>
+            </ul>
           </div>
 
           <div id="board" style="position: relative;">
@@ -5200,8 +5503,18 @@
         <button id="export-pgn-btn" onclick="exportPGN()">Export Game (PGN)</button>
         <button id="resign-btn" onclick="resignGame()" style="display: none;">Resign</button>
       </div>
+      </div>
     </div>
-  </div>
+
+    <div id="move-input-container" class="blindfold-move-panel" style="display: none;" aria-label="Enter your move in algebraic notation">
+      <label for="move-input" class="blindfold-move-label">Your move</label>
+      <div class="blindfold-move-row">
+        <input type="text" id="move-input" class="blindfold-move-input" placeholder="e.g. e4, Nf3, O-O"
+               onkeypress="if(event.key === 'Enter') submitMove()" autocomplete="off" spellcheck="false" />
+        <button type="button" class="blindfold-move-submit" onclick="submitMove()">Enter</button>
+      </div>
+      <p class="blindfold-move-hint">Standard algebraic notation. Castling: O-O or O-O-O. Press Enter to submit.</p>
+    </div>
 
     <div id="player-stats-panel">
       <h3>Your Statistics</h3>
@@ -5228,6 +5541,7 @@
         </div>
       </div>
     </div>
+  </div>
 
   <!-- Custom Confirmation Modal -->
   <div id="confirm-modal">
@@ -5491,20 +5805,6 @@
       </div>
       <div id="all-achievements-list" style="flex: 1; min-height: 0; width: 100%; overflow-y: auto;"></div>
     </div>
-  </div>
-
-  <div id="move-input-container" style="display: none;">
-    <input type="text" id="move-input" placeholder="Enter move (e.g., e4, Nf3, O-O)" 
-           onkeypress="if(event.key === 'Enter') submitMove()"
-           style="padding: 12px 18px; font-size: 1.1em; border: 2px solid #3498db; 
-                  border-radius: 20px; margin-right: 10px; font-family: 'Inter', sans-serif;
-                  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);">
-    <button onclick="submitMove()" 
-            style="padding: 12px 24px; font-size: 1.1em; background-color: #3498db; 
-                   color: white; border: none; border-radius: 20px; cursor: pointer;
-                   font-family: 'Inter', sans-serif; font-weight: 600; max-width: none;">
-      Submit Move
-    </button>
   </div>
 
   <script>
@@ -6937,16 +7237,6 @@
         throw error; // Propagate the error so the awaiting function can catch it
     });
 }
-
-    function toggleHistoryOption() {
-      const blindfoldChecked = document.getElementById("blindfold-mode").checked;
-      const historyRow = document.getElementById("show-history-row");
-      if (blindfoldChecked) {
-        historyRow.style.display = "inline-block";
-      } else {
-        historyRow.style.display = "none";
-      }
-    }
 
     // Personality modifier functions removed for performance
 
@@ -10966,13 +11256,7 @@
         board.position(game.fen());
         board.orientation(playerColor);
       }
-      if (blindfoldMode) {
-        document.getElementById('board').classList.add('blindfold-hidden');
-        document.getElementById('timers-container').classList.add('blindfold-hidden');
-      } else {
-        document.getElementById('board').classList.remove('blindfold-hidden');
-        document.getElementById('timers-container').classList.remove('blindfold-hidden');
-      }
+      syncBlindfoldGameShellUi();
       updateNotationDisplay();
       refreshSidebarForViewedPosition();
     }
@@ -11042,8 +11326,7 @@
       document.getElementById('choose-side').style.display = 'none';
       document.getElementById('game-container').style.display = 'block';
       document.getElementById('game-title').style.display = 'block';
-      document.getElementById('board').classList.remove('blindfold-hidden');
-      document.getElementById('timers-container').classList.remove('blindfold-hidden');
+      syncBlindfoldGameShellUi();
 
       if (board) {
         board.orientation(playerColor);
@@ -14242,6 +14525,27 @@
       });
     }
 
+    /** Board hidden + mental-board shell when playing blindfold; normal layout during history replay. */
+    function syncBlindfoldGameShellUi() {
+      const gc = document.getElementById('game-container');
+      const boardEl = document.getElementById('board');
+      const timersEl = document.getElementById('timers-container');
+      const flip = document.getElementById('flip-board-btn');
+      if (!gc || !boardEl || !timersEl) return;
+      const inReplay = typeof isHistoryReplayMode !== 'undefined' && isHistoryReplayMode;
+      const effectiveBlindfold = blindfoldMode && !inReplay;
+      if (effectiveBlindfold) {
+        gc.classList.add('blindfold-game-active');
+        boardEl.classList.add('blindfold-hidden');
+        timersEl.classList.remove('blindfold-hidden');
+        if (flip) flip.style.display = 'none';
+      } else {
+        gc.classList.remove('blindfold-game-active');
+        boardEl.classList.remove('blindfold-hidden');
+        timersEl.classList.remove('blindfold-hidden');
+      }
+    }
+
     function setupTimerDisplayOrder() {
       // Get the parent container
       const container = document.getElementById('timers-container');
@@ -14804,24 +15108,19 @@
       // Initialize stats
       updateGameStats();
       
-      // Handle blindfold mode
+      // Handle blindfold mode (typed moves; clocks stay available when timed)
       if (blindfoldMode) {
-        document.getElementById("board").classList.add("blindfold-hidden");
-        document.getElementById("timers-container").classList.add("blindfold-hidden");
         document.getElementById("move-input-container").style.display = "block";
-        
-        // Handle move history visibility in blindfold mode
         if (showHistoryInBlindfold) {
           document.getElementById("notation-container").classList.remove("blindfold-hidden");
         } else {
           document.getElementById("notation-container").classList.add("blindfold-hidden");
         }
       } else {
-        document.getElementById("board").classList.remove("blindfold-hidden");
-        document.getElementById("timers-container").classList.remove("blindfold-hidden");
         document.getElementById("notation-container").classList.remove("blindfold-hidden");
         document.getElementById("move-input-container").style.display = "none";
       }
+      syncBlindfoldGameShellUi();
       
       startTimer();
       
