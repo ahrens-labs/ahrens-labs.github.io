@@ -223,7 +223,9 @@
       display: none;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-top: 4px;
+      margin-bottom: 0;
+      justify-content: center;
       align-items: center;
     }
     .chess-ingame-tool-btn {
@@ -5455,10 +5457,6 @@
       </div>
 
       <div id="right-panel">
-        <div id="chess-ingame-tools" style="display: none;" role="navigation" aria-label="During game: achievements and settings">
-          <button type="button" class="chess-ingame-tool-btn chess-ingame-ach" onclick="showAllAchievements()">Achievements</button>
-          <button type="button" class="chess-ingame-tool-btn chess-ingame-settings" onclick="showSettings()">Settings</button>
-        </div>
         <div id="opening-display">
           <div class="opening-label">Opening:</div>
           <div class="opening-name" id="opening-name">-</div>
@@ -5498,6 +5496,11 @@
         </div>
         <div id="achievements-list" style="max-height: 200px; overflow-y: auto;"></div>
       </div>
+
+        <div id="chess-ingame-tools" style="display: none;" role="navigation" aria-label="During game: achievements and settings">
+          <button type="button" class="chess-ingame-tool-btn chess-ingame-ach" onclick="showAllAchievements()">Achievements</button>
+          <button type="button" class="chess-ingame-tool-btn chess-ingame-settings" onclick="showSettings()">Settings</button>
+        </div>
 
       <div id="game-buttons">
         <button id="export-pgn-btn" onclick="exportPGN()">Export Game (PGN)</button>
