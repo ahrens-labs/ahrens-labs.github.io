@@ -2539,27 +2539,27 @@
       background: linear-gradient(165deg, #ffffff 0%, #f1f5f9 55%, #e8ecf1 100%);
       position: relative;
       box-sizing: border-box;
-    }
-
-    #game-history-modal .game-history-dialog > .settings-header,
-    #game-history-modal .game-history-dialog > p,
-    #game-history-modal .game-history-dialog > .gh-filters {
-      flex-shrink: 0;
+      /* Single scroll for title, intro, filters, and game rows (not only the list). */
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     #game-history-modal .game-history-dialog > .settings-header {
       margin-bottom: 12px;
       padding-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    #game-history-modal .game-history-dialog > p,
+    #game-history-modal .game-history-dialog > .gh-filters {
+      flex-shrink: 0;
     }
 
     #game-history-modal #game-history-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      -webkit-overflow-scrolling: touch;
     }
 
     .game-history-row {
