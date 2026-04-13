@@ -908,11 +908,13 @@
       text-align: center;
       margin: 0;
       font-family: "Inter", sans-serif;
+      font-size: 1.3em;
+      font-weight: 600;
       user-select: none;
       color: #2c3e50;
       background-color: white;
       border-radius: 15px;
-      padding: 16px 18px;
+      padding: 20px;
       border: 1px solid #e9ecef;
       max-width: 300px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -920,40 +922,18 @@
       z-index: 1;
     }
 
-    .hud-move-stack {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .hud-kicker {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #64748b;
-    }
-
-    #timer.hud-timer-value,
-    .hud-timer-value {
-      font-size: 1.35rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      color: #0f172a;
-      line-height: 1.2;
-    }
-
     /* Last Move Container */
     #last-move-container {
-      text-align: left;
+      text-align: center;
       margin: 0;
       font-family: "Inter", sans-serif;
-      user-select: none;
+      font-size: 1.2em;
+      font-weight: 600;
       color: #2c3e50;
+      user-select: none;
       background-color: white;
       border-radius: 15px;
-      padding: 16px 18px;
+      padding: 20px;
       border: 1px solid #e9ecef;
       max-width: 500px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -961,32 +941,39 @@
       z-index: 1;
     }
 
-    .hud-status-grid {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      column-gap: 12px;
-      row-gap: 8px;
-      align-items: baseline;
-    }
-
-    .hud-status-grid .hud-kicker {
-      text-align: right;
-    }
-
-    #turn-color.hud-turn-val,
-    .hud-turn-val {
-      color: #2563eb;
+    #turn-color {
+      color: #3498db;
       font-weight: 700;
-      font-size: 1.05rem;
     }
 
-    #last-move.hud-last-val,
-    .hud-last-val {
-      color: #b91c1c;
+    #last-move {
+      color: #e74c3c;
+      font-weight: 700;
+    }
+
+    /* Shown for the whole live game (your move or engine’s) — server slot stays taken until the game ends. */
+    .engine-occupancy-lock-badge {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: min(720px, 100%);
+      margin: 0 auto;
+      box-sizing: border-box;
+      padding: 8px 12px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 0.78rem;
       font-weight: 600;
-      font-size: 0.98rem;
+      text-align: center;
+      color: #92400e;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fbbf24;
+      border-radius: 10px;
       line-height: 1.35;
-      word-break: break-word;
+    }
+
+    #game-container.blindfold-game-active .engine-occupancy-lock-badge {
+      color: #fde68a;
+      background: rgba(15, 23, 42, 0.65);
+      border-color: rgba(251, 191, 36, 0.45);
     }
 
     /* Game Statistics Panel */
@@ -3776,22 +3763,6 @@
 
     #game-container.blindfold-game-active #blindfold-mental-board {
       display: block;
-      border-style: solid;
-      border-color: rgba(71, 85, 105, 0.5);
-      background: linear-gradient(165deg, rgba(15, 23, 42, 0.5) 0%, rgba(30, 41, 59, 0.35) 55%, rgba(241, 245, 249, 0.2) 100%);
-      min-height: 0;
-    }
-
-    #game-container.blindfold-game-active .blindfold-mental-title {
-      color: #e2e8f0;
-    }
-
-    #game-container.blindfold-game-active .blindfold-mental-tagline {
-      color: #cbd5e1;
-    }
-
-    #game-container.blindfold-game-active .blindfold-mental-tips {
-      color: #94a3b8;
     }
 
     .blindfold-mental-icon {
@@ -3828,6 +3799,10 @@
       color: #94a3b8;
     }
 
+    #game-container .game-hud-row {
+      margin: 20px auto;
+    }
+
     #game-container.blindfold-game-active {
       max-width: 820px;
       padding: 12px 14px 28px;
@@ -3845,69 +3820,25 @@
     #game-container.blindfold-game-active .game-hud-row {
       width: 100%;
       max-width: min(720px, 100%);
-      margin: 8px auto 16px;
-      padding: 12px;
+      margin: 8px auto 14px;
+      padding: 12px 16px;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      align-items: stretch;
-      gap: 12px;
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      color: inherit;
+      align-items: center;
+      gap: 12px 20px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 14px;
+      color: #e2e8f0;
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 0.875rem;
+      font-size: 0.88rem;
       box-sizing: border-box;
     }
 
-    /* Dark cards: high contrast for move clock + turn / last move (avoid light text on white cards). */
-    #game-container.blindfold-game-active #move-timer-container,
-    #game-container.blindfold-game-active #last-move-container {
-      flex: 1 1 min(300px, 100%);
-      min-width: 0;
-      max-width: none;
-      margin: 0;
-      padding: 14px 16px;
-      text-align: left;
-      background: linear-gradient(155deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.99) 100%);
-      border: 1px solid rgba(100, 116, 139, 0.45);
-      border-radius: 14px;
-      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.25);
-      color: #94a3b8;
-      font-size: 0.82rem;
-      font-weight: 500;
-      line-height: 1.45;
-    }
-
-    #game-container.blindfold-game-active #move-timer-container .hud-move-stack {
-      align-items: flex-start;
-    }
-
-    #game-container.blindfold-game-active #move-timer-container .hud-kicker {
-      color: #94a3b8;
-    }
-
-    #game-container.blindfold-game-active #timer.hud-timer-value,
-    #game-container.blindfold-game-active .hud-timer-value {
-      font-size: 1.5rem;
-      font-weight: 700;
+    #game-container.blindfold-game-active .game-hud-row #timer {
       font-variant-numeric: tabular-nums;
-      color: #f8fafc;
-    }
-
-    #game-container.blindfold-game-active #last-move-container .hud-kicker {
-      color: #94a3b8;
-    }
-
-    #game-container.blindfold-game-active #turn-color.hud-turn-val,
-    #game-container.blindfold-game-active .hud-turn-val {
-      color: #93c5fd;
-    }
-
-    #game-container.blindfold-game-active #last-move.hud-last-val,
-    #game-container.blindfold-game-active .hud-last-val {
-      color: #fecaca;
+      font-weight: 600;
     }
 
     #game-container.blindfold-game-active #board-row {
@@ -4117,6 +4048,11 @@
       font-size: 0.78rem;
       line-height: 1.4;
       color: #64748b;
+    }
+
+    #game-container.blindfold-game-active #move-input-container.blindfold-move-panel {
+      margin-top: 0;
+      margin-bottom: 14px;
     }
 
     #show-history-row {
@@ -5497,21 +5433,26 @@
   </div>
 
   <div id="game-container" style="display: none;">
-    <div id="game-hud-row" class="game-hud-row" style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
+    <div id="game-hud-row" class="game-hud-row" style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
     <div id="move-timer-container">
-      <div class="hud-move-stack">
-        <span class="hud-kicker">Move clock</span>
-        <span id="timer" class="hud-timer-value">00:00.00</span>
-      </div>
+      Time for this move: <span id="timer">00:00.00</span>
       </div>
       <div id="last-move-container">
-        <div class="hud-status-grid">
-          <span class="hud-kicker">Turn</span>
-          <span id="turn-color" class="hud-turn-val">White</span>
-          <span class="hud-kicker">Last move</span>
-          <span id="last-move" class="hud-last-val">None</span>
-        </div>
+        Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
       </div>
+      <div id="engine-occupancy-lock-badge" class="engine-occupancy-lock-badge" style="display: none;" role="status" aria-live="polite">
+        🔒 Engine in use — this game holds the shared server slot until it ends (on your turn and the engine’s).
+      </div>
+    </div>
+
+    <div id="move-input-container" class="blindfold-move-panel" style="display: none;" aria-label="Enter your move in algebraic notation">
+      <label for="move-input" class="blindfold-move-label">Your move</label>
+      <div class="blindfold-move-row">
+        <input type="text" id="move-input" class="blindfold-move-input" placeholder="e.g. e4, Nf3, O-O"
+               onkeypress="if(event.key === 'Enter') submitMove()" autocomplete="off" spellcheck="false" />
+        <button type="button" class="blindfold-move-submit" onclick="submitMove()">Enter</button>
+      </div>
+      <p class="blindfold-move-hint">Standard algebraic notation. Castling: O-O or O-O-O. Press Enter to submit.</p>
     </div>
 
     <div id="board-row">
@@ -5542,7 +5483,7 @@
           <div id="blindfold-mental-board" class="blindfold-mental-board" aria-hidden="true">
             <span class="blindfold-mental-icon" aria-hidden="true">👁️</span>
             <h3 class="blindfold-mental-title">Blindfold</h3>
-            <p class="blindfold-mental-tagline">No board — visualize the position. Type moves in algebraic notation (SAN) below.</p>
+            <p class="blindfold-mental-tagline">No board — visualize the position. Type moves in algebraic notation (SAN) in the strip under the clock and last move.</p>
             <ul class="blindfold-mental-tips">
               <li>Clocks stay visible so you can manage time without seeing the pieces.</li>
               <li>Captured material beside this panel is a memory aid; pure blindfold is stronger with it ignored.</li>
@@ -5610,16 +5551,6 @@
         <button id="resign-btn" onclick="resignGame()" style="display: none;">Resign</button>
       </div>
       </div>
-    </div>
-
-    <div id="move-input-container" class="blindfold-move-panel" style="display: none;" aria-label="Enter your move in algebraic notation">
-      <label for="move-input" class="blindfold-move-label">Your move</label>
-      <div class="blindfold-move-row">
-        <input type="text" id="move-input" class="blindfold-move-input" placeholder="e.g. e4, Nf3, O-O"
-               onkeypress="if(event.key === 'Enter') submitMove()" autocomplete="off" spellcheck="false" />
-        <button type="button" class="blindfold-move-submit" onclick="submitMove()">Enter</button>
-      </div>
-      <p class="blindfold-move-hint">Standard algebraic notation. Castling: O-O or O-O-O. Press Enter to submit.</p>
     </div>
 
     <div id="player-stats-panel">
@@ -7225,33 +7156,75 @@
     let _heartbeatInterval = null;
 
     let _statusPollInterval = null;
+    /** Last successful /status occupied value — kept on fetch errors so the waiting-room “board lock” does not flicker off between polls. */
+    let _lastStatusOccupied = false;
+    let _pregameStatusPollInterval = null;
+
+    function applyEngineOccupancyWaitingRoomUi(busy) {
+      const btn = document.getElementById('start-game-btn');
+      const banner = document.getElementById('engine-busy-banner');
+      if (btn) btn.disabled = busy;
+      if (banner) banner.style.display = busy ? 'block' : 'none';
+      // While busy, auto-poll every 15 s so the banner disappears without a manual refresh.
+      if (busy && !_statusPollInterval) {
+        _statusPollInterval = setInterval(() => {
+          checkEngineStatus().then(stillBusy => {
+            if (!stillBusy) {
+              clearInterval(_statusPollInterval);
+              _statusPollInterval = null;
+            }
+          });
+        }, 15000);
+      } else if (!busy && _statusPollInterval) {
+        clearInterval(_statusPollInterval);
+        _statusPollInterval = null;
+      }
+    }
+
+    function stopPregameStatusPolling() {
+      if (_pregameStatusPollInterval) {
+        clearInterval(_pregameStatusPollInterval);
+        _pregameStatusPollInterval = null;
+      }
+    }
+
+    /** While logged in and the side-chooser is visible, poll /status so the lock stays accurate even on your turn / long thinks. */
+    function ensurePregameStatusPolling() {
+      if (_pregameStatusPollInterval) return;
+      _pregameStatusPollInterval = setInterval(() => {
+        if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+          checkEngineStatus();
+        } else {
+          stopPregameStatusPolling();
+        }
+      }, 8000);
+    }
+
+    /** In-game reminder: the server slot is held for the whole game, not only while the engine is thinking. */
+    function updateEngineOccupancyLockBadge() {
+      const el = document.getElementById('engine-occupancy-lock-badge');
+      if (!el) return;
+      const cs = document.getElementById('choose-side');
+      const inLiveGame = cs && cs.style.display === 'none' && typeof gameOver !== 'undefined' && !gameOver;
+      el.style.display = inLiveGame ? 'block' : 'none';
+    }
 
     function checkEngineStatus() {
       return fetch(`${ENGINE_BASE}/status`)
         .then(r => r.json())
         .then(data => {
           const busy = data.occupied === true;
-          const btn  = document.getElementById('start-game-btn');
-          const banner = document.getElementById('engine-busy-banner');
-          if (btn)    btn.disabled = busy;
-          if (banner) banner.style.display = busy ? 'block' : 'none';
-          // While busy, auto-poll every 15 s so the banner disappears without a manual refresh.
-          if (busy && !_statusPollInterval) {
-            _statusPollInterval = setInterval(() => {
-              checkEngineStatus().then(stillBusy => {
-                if (!stillBusy) {
-                  clearInterval(_statusPollInterval);
-                  _statusPollInterval = null;
-                }
-              });
-            }, 15000);
-          } else if (!busy && _statusPollInterval) {
-            clearInterval(_statusPollInterval);
-            _statusPollInterval = null;
+          _lastStatusOccupied = busy;
+          applyEngineOccupancyWaitingRoomUi(busy);
+          if (typeof ensurePregameStatusPolling === 'function' && typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+            ensurePregameStatusPolling();
           }
           return busy;
         })
-        .catch(() => false); // If status check fails, assume free so the user can try
+        .catch(() => {
+          applyEngineOccupancyWaitingRoomUi(_lastStatusOccupied);
+          return _lastStatusOccupied;
+        });
     }
 
     function startHeartbeat() {
@@ -7320,6 +7293,7 @@
       clearEngineLockHolderSession();
       sendEngineCommand('stop').catch(() => {});
       checkEngineStatus();
+      if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
     }
 
     /** Log result on the Python server (prints USERNAME beat/lost to TrifangX + SAN moves). */
@@ -11636,7 +11610,7 @@
       resetGameStats();
       
       // Reset UI
-      document.getElementById("move-timer-container").innerHTML = '<div class="hud-move-stack"><span class="hud-kicker">Move clock</span><span id="timer" class="hud-timer-value">00:00.00</span></div>';
+      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
       updateGameStats();
@@ -14701,6 +14675,8 @@
     }
 
     async function startGame() {
+      stopPregameStatusPolling();
+
       // Check if user is logged in
       if (!isLoggedIn || !currentSessionId) {
         showNotification('Please login to play', 'error');
@@ -14803,9 +14779,10 @@
         if (typeof updateChessPregameToolsVisibility === 'function') {
           updateChessPregameToolsVisibility();
         }
+        if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
       }, 300);
       
-      document.getElementById("move-timer-container").innerHTML = '<div class="hud-move-stack"><span class="hud-kicker">Move clock</span><span id="timer" class="hud-timer-value">00:00.00</span></div>';
+      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
 
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
