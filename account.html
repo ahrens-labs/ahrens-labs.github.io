@@ -416,19 +416,19 @@
         </div>
         
         <!-- Login Form -->
-        <form id="login-form" class="account-form active" onsubmit="handleLogin(event)">
+        <form id="login-form" class="account-form active" autocomplete="off" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label for="login-username">Username</label>
-                <input type="text" id="login-username" required minlength="3" autocomplete="username">
+                <input type="text" id="login-username" required minlength="3" autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="login-email">Email</label>
-                <input type="email" id="login-email" required autocomplete="email">
+                <input type="email" id="login-email" required autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="login-password">Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="login-password" required autocomplete="current-password">
+                    <input type="password" id="login-password" required autocomplete="off">
                     <button type="button" class="password-toggle-btn" id="toggle-login-password" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('login-password', this)">Show</button>
                 </div>
             </div>
@@ -436,19 +436,19 @@
         </form>
         
         <!-- Signup Form -->
-        <form id="signup-form" class="account-form" onsubmit="handleSignup(event)">
+        <form id="signup-form" class="account-form" autocomplete="off" onsubmit="handleSignup(event)">
             <div class="form-group">
                 <label for="signup-username">Username</label>
-                <input type="text" id="signup-username" required minlength="3">
+                <input type="text" id="signup-username" required minlength="3" autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="signup-email">Email</label>
-                <input type="email" id="signup-email" required>
+                <input type="email" id="signup-email" required autocomplete="off">
             </div>
             <div class="form-group">
                 <label for="signup-password">Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="signup-password" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="signup-password" required minlength="6" autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('signup-password', this)">Show</button>
                 </div>
                 <small style="color: #94a3b8; font-size: 0.8em; margin-top: 4px; display: block;">Must be at least 6 characters</small>
@@ -456,7 +456,7 @@
             <div class="form-group">
                 <label for="signup-confirm-password">Confirm Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="signup-confirm-password" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="signup-confirm-password" required minlength="6" autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('signup-confirm-password', this)">Show</button>
                 </div>
             </div>
@@ -464,18 +464,18 @@
         </form>
 
         <!-- Change Password Form -->
-        <form id="password-form" class="account-form" onsubmit="handleChangePassword(event)">
+        <form id="password-form" class="account-form" autocomplete="off" onsubmit="handleChangePassword(event)">
             <div class="form-group">
                 <label for="current-password">Current Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="current-password" required autocomplete="current-password">
+                    <input type="password" id="current-password" required autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('current-password', this)">Show</button>
                 </div>
             </div>
             <div class="form-group">
                 <label for="new-password">New Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="new-password" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="new-password" required minlength="6" autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('new-password', this)">Show</button>
                 </div>
                 <small style="color: #94a3b8; font-size: 0.8em; margin-top: 4px; display: block;">Must be at least 6 characters</small>
@@ -483,7 +483,7 @@
             <div class="form-group">
                 <label for="confirm-new-password">Confirm New Password</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="confirm-new-password" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="confirm-new-password" required minlength="6" autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('confirm-new-password', this)">Show</button>
                 </div>
             </div>
@@ -496,7 +496,7 @@
             <div class="form-group">
                 <label for="delete-account-password">Type your password to confirm</label>
                 <div class="password-input-wrap">
-                    <input type="password" id="delete-account-password" autocomplete="current-password">
+                    <input type="password" id="delete-account-password" autocomplete="off">
                     <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('delete-account-password', this)">Show</button>
                 </div>
             </div>
