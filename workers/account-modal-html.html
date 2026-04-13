@@ -102,13 +102,12 @@ function switchAccountTab(tab) {
 // Handle login submit
 async function handleLoginSubmit() {
   const username = document.getElementById('login-username').value.trim();
-  const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if (!username || !email || !password) {
-    showNotification('Please enter username, email, and password', 'error');
+  if (!username || !password) {
+    showNotification('Please enter username and password', 'error');
     return;
   }
-  await login(email, password, username);
+  await login(password, username);
   updateAccountModalView();
 }
 

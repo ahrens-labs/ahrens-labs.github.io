@@ -706,20 +706,10 @@
             
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
-            let email = normalizeEmail(localStorage.getItem('ahrenslabs_email'));
             
             if (!username) {
                 showNotification('Please enter your username', 'error');
                 return;
-            }
-            if (!email) {
-                const entered = normalizeEmail(window.prompt('Enter your account email once for this device:') || '');
-                if (!isLikelyRealEmail(entered)) {
-                    showNotification('A valid account email is required to log in', 'error');
-                    return;
-                }
-                email = entered;
-                localStorage.setItem('ahrenslabs_email', email);
             }
             
             try {
@@ -728,7 +718,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, password })
                 });
                 
                 const data = await response.json();
@@ -737,11 +727,6 @@
                     localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);
-                    if (data.email) {
-                        localStorage.setItem('ahrenslabs_email', normalizeEmail(data.email));
-                    } else {
-                        localStorage.setItem('ahrenslabs_email', email);
-                    }
                     
                     showNotification('Login successful! 🎉', 'success');
                     

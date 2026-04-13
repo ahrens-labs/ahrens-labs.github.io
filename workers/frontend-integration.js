@@ -83,8 +83,8 @@ async function signup(email, password, username) {
   }
 }
 
-// Login (username must match the account)
-async function login(email, password, username) {
+// Login (username + password)
+async function login(password, username) {
   try {
     const response = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
@@ -92,7 +92,6 @@ async function login(email, password, username) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email,
         password,
         username: username != null ? String(username).trim() : ''
       })
@@ -105,7 +104,7 @@ async function login(email, password, username) {
       currentUserId = data.userId;
       isLoggedIn = true;
       localStorage.setItem('chessSessionId', currentSessionId);
-      updateAccountUI(true, email);
+      updateAccountUI(true, data.username || username || 'User');
       showNotification('Logged in successfully!', 'success');
       closeAccountModal();
       // Load user data from account

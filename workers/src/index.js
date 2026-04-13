@@ -352,17 +352,37 @@ async function handleDeleteAccount(request, env, corsHeaders) {
 
 // Login handler
 async function handleLogin(request, env, corsHeaders) {
-  const { email, password, username } = await request.json();
-  const normalizedEmail = normalizeEmail(email);
+  const { password, username } = await request.json();
+  const normalizedUsername = normalizeUsernameForIndex(username);
 
-  if (!normalizedEmail || !password || username == null || String(username).trim() === '') {
-    return new Response(JSON.stringify({ error: 'Missing username, email, or password' }), {
+  if (!normalizedUsername || !password) {
+    return new Response(JSON.stringify({ error: 'Missing username or password' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const userId = generateUserId(normalizedEmail);
+  const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
+  const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
+  const resolveReq = new Request('http://do/resolve', {
+    method: 'POST',
+    body: JSON.stringify({ username: normalizedUsername }),
+  });
+  const resolveRes = await usernameRegistry.fetch(resolveReq);
+  let resolveData = null;
+  try {
+    resolveData = await resolveRes.json();
+  } catch {
+    resolveData = null;
+  }
+  const userId = resolveData?.userId;
+  if (!resolveRes.ok || !userId) {
+    return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
@@ -413,8 +433,8 @@ async function handleLogin(request, env, corsHeaders) {
     success: true, 
     sessionId,
     userId,
-    username: preUserData?.username || normalizedEmail,
-    email: preUserData?.email || normalizedEmail
+    username: preUserData?.username || normalizedUsername,
+    email: preUserData?.email || null
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1771,6 +1791,13 @@ export class UsernameRegistry {
         status: result.success ? 200 : (result.status || 400),
         headers: { 'Content-Type': 'application/json' }
       });
+    } else if (path === '/resolve' && request.method === 'POST') {
+      const { username } = await request.json();
+      const result = await this.resolve(username);
+      return new Response(JSON.stringify(result), {
+        status: result.success ? 200 : (result.status || 404),
+        headers: { 'Content-Type': 'application/json' }
+      });
     } else if (path === '/release' && request.method === 'POST') {
       const { username, userId } = await request.json();
       const result = await this.release(username, userId);
@@ -1797,6 +1824,20 @@ export class UsernameRegistry {
 
     await this.storage.put(storageKey, { userId, username: key, updatedAt: Date.now() });
     return { success: true };
+  }
+
+  async resolve(username) {
+    const key = normalizeUsernameForIndex(username);
+    if (!key) {
+      return { success: false, error: 'Missing username', status: 400 };
+    }
+
+    const storageKey = `username:${key}`;
+    const existing = await this.storage.get(storageKey);
+    if (!existing || !existing.userId) {
+      return { success: false, error: 'Username not found', status: 404 };
+    }
+    return { success: true, userId: existing.userId };
   }
 
   async release(username, userId) {
