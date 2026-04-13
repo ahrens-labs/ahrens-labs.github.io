@@ -61,37 +61,12 @@
       flex-shrink: 0;
     }
     .settings-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       border-bottom: 3px solid #e9ecef;
     }
     .settings-header h2 {
       margin: 0;
       color: #2c3e50;
       font-family: "Inter", sans-serif;
-    }
-    .close-achievements-btn {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      font-size: 1.5em;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-family: "Inter", sans-serif;
-      line-height: 1;
-      text-decoration: none;
-    }
-    .close-achievements-btn:hover {
-      background: #c0392b;
-      transform: rotate(90deg) scale(1.1);
     }
     #game-history-list {
       display: flex;
@@ -325,7 +300,6 @@
   <main class="gh-page-main">
     <div class="settings-header">
       <h2>📜 Game history</h2>
-      <a class="close-achievements-btn" href="../../chess_engine.html" title="Back to chess" aria-label="Close">×</a>
     </div>
     <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">
       Up to 50 recent games vs TrifangX are kept automatically. Star a game to favorite it — favorites are never removed by the rolling limit or account stat reset.
