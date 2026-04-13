@@ -908,13 +908,11 @@
       text-align: center;
       margin: 0;
       font-family: "Inter", sans-serif;
-      font-size: 1.3em;
-      font-weight: 600;
       user-select: none;
       color: #2c3e50;
       background-color: white;
       border-radius: 15px;
-      padding: 20px;
+      padding: 16px 18px;
       border: 1px solid #e9ecef;
       max-width: 300px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -922,18 +920,40 @@
       z-index: 1;
     }
 
+    .hud-move-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-kicker {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    #timer.hud-timer-value,
+    .hud-timer-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
     /* Last Move Container */
     #last-move-container {
-      text-align: center;
+      text-align: left;
       margin: 0;
       font-family: "Inter", sans-serif;
-      font-size: 1.2em;
-      font-weight: 600;
-      color: #2c3e50;
       user-select: none;
+      color: #2c3e50;
       background-color: white;
       border-radius: 15px;
-      padding: 20px;
+      padding: 16px 18px;
       border: 1px solid #e9ecef;
       max-width: 500px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -941,14 +961,32 @@
       z-index: 1;
     }
 
-    #turn-color {
-      color: #3498db;
-      font-weight: 700;
+    .hud-status-grid {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 12px;
+      row-gap: 8px;
+      align-items: baseline;
     }
 
-    #last-move {
-      color: #e74c3c;
+    .hud-status-grid .hud-kicker {
+      text-align: right;
+    }
+
+    #turn-color.hud-turn-val,
+    .hud-turn-val {
+      color: #2563eb;
       font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    #last-move.hud-last-val,
+    .hud-last-val {
+      color: #b91c1c;
+      font-weight: 600;
+      font-size: 0.98rem;
+      line-height: 1.35;
+      word-break: break-word;
     }
 
     /* Game Statistics Panel */
@@ -3738,6 +3776,22 @@
 
     #game-container.blindfold-game-active #blindfold-mental-board {
       display: block;
+      border-style: solid;
+      border-color: rgba(71, 85, 105, 0.5);
+      background: linear-gradient(165deg, rgba(15, 23, 42, 0.5) 0%, rgba(30, 41, 59, 0.35) 55%, rgba(241, 245, 249, 0.2) 100%);
+      min-height: 0;
+    }
+
+    #game-container.blindfold-game-active .blindfold-mental-title {
+      color: #e2e8f0;
+    }
+
+    #game-container.blindfold-game-active .blindfold-mental-tagline {
+      color: #cbd5e1;
+    }
+
+    #game-container.blindfold-game-active .blindfold-mental-tips {
+      color: #94a3b8;
     }
 
     .blindfold-mental-icon {
@@ -3791,28 +3845,69 @@
     #game-container.blindfold-game-active .game-hud-row {
       width: 100%;
       max-width: min(720px, 100%);
-      margin: 8px auto 14px;
-      padding: 12px 16px;
+      margin: 8px auto 16px;
+      padding: 12px;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      align-items: center;
-      gap: 12px 20px;
-      background: rgba(15, 23, 42, 0.55);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 14px;
-      color: #e2e8f0;
+      align-items: stretch;
+      gap: 12px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      color: inherit;
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 0.88rem;
+      font-size: 0.875rem;
       box-sizing: border-box;
     }
 
-    #game-container.blindfold-game-active .game-hud-row #timer,
-    #game-container.blindfold-game-active .game-hud-row #turn-color,
-    #game-container.blindfold-game-active .game-hud-row #last-move {
+    /* Dark cards: high contrast for move clock + turn / last move (avoid light text on white cards). */
+    #game-container.blindfold-game-active #move-timer-container,
+    #game-container.blindfold-game-active #last-move-container {
+      flex: 1 1 min(300px, 100%);
+      min-width: 0;
+      max-width: none;
+      margin: 0;
+      padding: 14px 16px;
+      text-align: left;
+      background: linear-gradient(155deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.99) 100%);
+      border: 1px solid rgba(100, 116, 139, 0.45);
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.25);
+      color: #94a3b8;
+      font-size: 0.82rem;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    #game-container.blindfold-game-active #move-timer-container .hud-move-stack {
+      align-items: flex-start;
+    }
+
+    #game-container.blindfold-game-active #move-timer-container .hud-kicker {
+      color: #94a3b8;
+    }
+
+    #game-container.blindfold-game-active #timer.hud-timer-value,
+    #game-container.blindfold-game-active .hud-timer-value {
+      font-size: 1.5rem;
+      font-weight: 700;
       font-variant-numeric: tabular-nums;
-      font-weight: 600;
       color: #f8fafc;
+    }
+
+    #game-container.blindfold-game-active #last-move-container .hud-kicker {
+      color: #94a3b8;
+    }
+
+    #game-container.blindfold-game-active #turn-color.hud-turn-val,
+    #game-container.blindfold-game-active .hud-turn-val {
+      color: #93c5fd;
+    }
+
+    #game-container.blindfold-game-active #last-move.hud-last-val,
+    #game-container.blindfold-game-active .hud-last-val {
+      color: #fecaca;
     }
 
     #game-container.blindfold-game-active #board-row {
@@ -5404,10 +5499,18 @@
   <div id="game-container" style="display: none;">
     <div id="game-hud-row" class="game-hud-row" style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap; margin: 20px auto;">
     <div id="move-timer-container">
-      Time for this move: <span id="timer">00:00.00</span>
+      <div class="hud-move-stack">
+        <span class="hud-kicker">Move clock</span>
+        <span id="timer" class="hud-timer-value">00:00.00</span>
+      </div>
       </div>
       <div id="last-move-container">
-        Turn: <span id="turn-color">White</span> | Last Move: <span id="last-move">None</span>
+        <div class="hud-status-grid">
+          <span class="hud-kicker">Turn</span>
+          <span id="turn-color" class="hud-turn-val">White</span>
+          <span class="hud-kicker">Last move</span>
+          <span id="last-move" class="hud-last-val">None</span>
+        </div>
       </div>
     </div>
 
@@ -11507,7 +11610,7 @@
       resetGameStats();
       
       // Reset UI
-      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
+      document.getElementById("move-timer-container").innerHTML = '<div class="hud-move-stack"><span class="hud-kicker">Move clock</span><span id="timer" class="hud-timer-value">00:00.00</span></div>';
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
       updateGameStats();
@@ -14675,7 +14778,7 @@
         }
       }, 300);
       
-      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
+      document.getElementById("move-timer-container").innerHTML = '<div class="hud-move-stack"><span class="hud-kicker">Move clock</span><span id="timer" class="hud-timer-value">00:00.00</span></div>';
 
       updateLastMove(null, "00:00.00", 0, 0);
       updateTurnDisplay();
