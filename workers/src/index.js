@@ -350,6 +350,24 @@ async function handleDeleteAccount(request, env, corsHeaders) {
   });
 }
 
+/** Backfill USERNAME_REGISTRY for accounts created before registry existed (idempotent reserve). */
+async function ensureUsernameRegistryEntry(env, userId, usernameDisplay) {
+  if (!userId || usernameDisplay == null) return;
+  const key = normalizeUsernameForIndex(String(usernameDisplay));
+  if (!key) return;
+  try {
+    const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
+    const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
+    const reserveReq = new Request('http://do/reserve', {
+      method: 'POST',
+      body: JSON.stringify({ username: key, userId }),
+    });
+    await usernameRegistry.fetch(reserveReq);
+  } catch (e) {
+    console.error('ensureUsernameRegistryEntry', e);
+  }
+}
+
 // Login handler — username (registry) or email (same userId as signup); then password check.
 async function handleLogin(request, env, corsHeaders) {
   let body;
@@ -372,7 +390,7 @@ async function handleLogin(request, env, corsHeaders) {
   let normalizedUsernameKey = '';
 
   const emailNorm = normalizeEmail(raw);
-  const useEmailLogin = emailNorm && raw.includes('@') && isLikelyRealEmail(emailNorm);
+  const useEmailLogin = looksLikeEmailForLogin(raw);
 
   if (useEmailLogin) {
     userId = generateUserId(emailNorm);
@@ -400,10 +418,17 @@ async function handleLogin(request, env, corsHeaders) {
     }
     userId = resolveData?.userId;
     if (!resolveRes.ok || !userId) {
-      return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          error:
+            'No account found for this username. Older accounts may not be in the username directory yet — sign in with your email address once; after that, username sign-in will work.',
+          code: 'USERNAME_NOT_IN_REGISTRY',
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
   }
 
@@ -455,6 +480,10 @@ async function handleLogin(request, env, corsHeaders) {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  if (preUserData.username && String(preUserData.username).trim() !== '') {
+    await ensureUsernameRegistryEntry(env, userId, preUserData.username);
   }
 
   // Create session
@@ -999,6 +1028,15 @@ function normalizeUsernameForIndex(username) {
 function normalizeEmail(email) {
   if (email == null || typeof email !== 'string') return '';
   return email.trim().toLowerCase();
+}
+
+/** For /api/login only: accept any plausible email so legacy accounts work (signup still uses isLikelyRealEmail). */
+function looksLikeEmailForLogin(raw) {
+  if (raw == null || typeof raw !== 'string') return false;
+  const t = raw.trim();
+  if (!t.includes('@')) return false;
+  const n = normalizeEmail(t);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(n);
 }
 
 function isLikelyRealEmail(email) {
