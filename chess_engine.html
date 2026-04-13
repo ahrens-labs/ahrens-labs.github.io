@@ -7207,6 +7207,21 @@
 
     // --- Engine occupancy helpers ---
     const ENGINE_BASE = 'https://hedgehoglover23.pythonanywhere.com';
+    /** Set only in this tab after /start succeeds — pagehide must not call /stop for other visitors' reloads. */
+    const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
+
+    function markEngineLockHeldByThisTab() {
+      try {
+        sessionStorage.setItem(ENGINE_LOCK_SESSION_KEY, '1');
+      } catch (e) {}
+    }
+
+    function clearEngineLockHolderSession() {
+      try {
+        sessionStorage.removeItem(ENGINE_LOCK_SESSION_KEY);
+      } catch (e) {}
+    }
+
     let _heartbeatInterval = null;
 
     let _statusPollInterval = null;
@@ -7256,8 +7271,8 @@
     }
 
     /**
-     * Reload / close tab / navigate away: end the server-side game and drop occupancy lock.
-     * Uses keepalive + sendBeacon so the request often completes after the page is gone.
+     * Reload / close tab / navigate away: only THIS tab may release the lock (it called /start).
+     * Other users reloading the site must not POST /stop — that was freeing the engine for everyone.
      */
     function releaseEngineOccupancyOnPageExit() {
       try {
@@ -7267,6 +7282,16 @@
           _statusPollInterval = null;
         }
       } catch (e) {}
+      let isLockHolder = false;
+      try {
+        isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
+      } catch (e) {
+        isLockHolder = false;
+      }
+      if (!isLockHolder) {
+        return;
+      }
+      clearEngineLockHolderSession();
       const url = ENGINE_BASE + '/stop';
       const body = JSON.stringify({});
       try {
@@ -7292,6 +7317,7 @@
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
     function releaseEngineOnGameEnd() {
       stopHeartbeat();
+      clearEngineLockHolderSession();
       sendEngineCommand('stop').catch(() => {});
       checkEngineStatus();
     }
@@ -11649,6 +11675,7 @@
       
       // Restart engine (rematch — same player, no need to re-check occupancy)
       sendEngineCommand("start").then(() => {
+        markEngineLockHeldByThisTab();
         startHeartbeat();
         if (playerColor === "black") {
           engineMove();
@@ -15231,6 +15258,7 @@
       startTimer();
       
       await sendEngineCommand("start");
+      markEngineLockHeldByThisTab();
       startHeartbeat(); // Keep the occupancy lock alive every 30 s
       if (playerColor === "black") {
         await engineMove();
