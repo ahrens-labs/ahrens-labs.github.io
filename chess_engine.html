@@ -7250,6 +7250,7 @@
     function releaseEngineOccupancyOnPageExit() {
       try {
         stopHeartbeat();
+        stopPregameStatusPolling();
         if (_statusPollInterval) {
           clearInterval(_statusPollInterval);
           _statusPollInterval = null;
@@ -15241,6 +15242,7 @@
       if (playerColor === "black") {
         await engineMove();
       }
+      if (typeof updateEngineOccupancyLockBadge === 'function') updateEngineOccupancyLockBadge();
     }
 
     // Check for insufficient material (draw condition)
@@ -16180,6 +16182,7 @@
     
     // Show login page
     function showLoginPage(tab = 'login') {
+      stopPregameStatusPolling();
       document.getElementById('login-page').style.display = 'flex';
       document.getElementById('game-title').style.display = 'none';
       document.getElementById('choose-side').style.display = 'none';
@@ -16195,6 +16198,9 @@
       document.getElementById('choose-side').style.display = 'block';
       document.getElementById('game-container').style.display = 'block';
       updateChessPregameToolsVisibility();
+      checkEngineStatus().then(() => {
+        if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) ensurePregameStatusPolling();
+      }).catch(() => {});
     }
     
     // Switch login page tab
