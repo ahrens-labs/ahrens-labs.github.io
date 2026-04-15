@@ -5924,6 +5924,7 @@
     let isRightClickDragging = false; // Track if user is right-click dragging
     let rightClickStartSquare = null; // Track starting square for right-click drag
     let gameStats = { // In-game statistics for achievements (temporary, only committed when game ends)
+      // Captures delivered by your moving piece (by type); not the type of enemy piece taken
       capturesByQueen: 0,
       capturesByRook: 0,
       capturesByBishop: 0,
@@ -5936,7 +5937,7 @@
       enPassants: 0,
       longestGame: 0,
       shortestWin: Infinity,
-      // Track what pieces were captured (not what captured them)
+      // Enemy piece types taken off the board (victim); not which of your pieces captured them
       capturedQueens: 0,
       capturedRooks: 0,
       capturedBishops: 0,
@@ -6548,6 +6549,7 @@
       resetGameStats();
     }
     let lifetimeStats = { // Lifetime statistics
+      // Captures delivered by your moving piece (by type); not the type of enemy piece taken
       capturesByQueen: 0,
       capturesByRook: 0,
       capturesByBishop: 0,
@@ -6560,7 +6562,7 @@
       enPassants: 0,
       longestGame: 0,
       shortestWin: Infinity,
-      // Track what pieces were captured (not what captured them)
+      // Enemy piece types taken off the board (victim); not which of your pieces captured them
       capturedQueens: 0,
       capturedRooks: 0,
       capturedBishops: 0,
@@ -11678,172 +11680,172 @@
           return { current: playerStats.draws, target: 25 };
         }},
         
-        // Captured Piece Achievements (enemy pieces you captured) — tiers scale with rarity: queen rarest, pawns most common.
-        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Captured 5 queens', category: 'In-Game', points: 450, requiredPoints: 1800, groupKey: 'captured_queens', progress: () => {
+        // Material hunters — how many enemy pieces of that type you took (victim type). Not which of your pieces made the capture.
+        { id: 'queen_hunter_5', name: '👸 Queen Hunter', desc: 'Took 5 enemy queens', category: 'In-Game', points: 450, requiredPoints: 1800, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 5 };
         }},
-        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Captured 10 queens', category: 'In-Game', points: 1100, requiredPoints: 10000, groupKey: 'captured_queens', progress: () => {
+        { id: 'queen_hunter_10', name: '👸 Queen Slayer', desc: 'Took 10 enemy queens', category: 'In-Game', points: 1100, requiredPoints: 10000, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 10 };
         }},
-        { id: 'queen_hunter_25', name: '👸 Queen Reaper', desc: 'Captured 25 queens', category: 'In-Game', points: 3200, requiredPoints: 35000, groupKey: 'captured_queens', progress: () => {
+        { id: 'queen_hunter_25', name: '👸 Queen Reaper', desc: 'Took 25 enemy queens', category: 'In-Game', points: 3200, requiredPoints: 35000, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 25 };
         }},
-        { id: 'queen_hunter_50', name: '👸 Queen Annihilator', desc: 'Captured 50 queens', category: 'In-Game', points: 7500, requiredPoints: 80000, groupKey: 'captured_queens', progress: () => {
+        { id: 'queen_hunter_50', name: '👸 Queen Annihilator', desc: 'Took 50 enemy queens', category: 'In-Game', points: 7500, requiredPoints: 80000, groupKey: 'captured_queens', progress: () => {
           return { current: (lifetimeStats.capturedQueens || 0), target: 50 };
         }},
-        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Captured 10 rooks', category: 'In-Game', points: 200, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_10', name: '🏰 Rook Hunter', desc: 'Took 10 enemy rooks', category: 'In-Game', points: 200, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 10 };
         }},
-        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Captured 25 rooks', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_25', name: '🏰 Rook Slayer', desc: 'Took 25 enemy rooks', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 25 };
         }},
-        { id: 'rook_hunter_50', name: '🏰 Rook Marauder', desc: 'Captured 50 rooks', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_50', name: '🏰 Rook Marauder', desc: 'Took 50 enemy rooks', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 50 };
         }},
-        { id: 'rook_hunter_75', name: '🏰 Rook Warlord', desc: 'Captured 75 rooks', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_75', name: '🏰 Rook Warlord', desc: 'Took 75 enemy rooks', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 75 };
         }},
-        { id: 'rook_hunter_100', name: '🏰 Rook Immortal', desc: 'Captured 100 rooks', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_rooks', progress: () => {
+        { id: 'rook_hunter_100', name: '🏰 Rook Immortal', desc: 'Took 100 enemy rooks', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_rooks', progress: () => {
           return { current: (lifetimeStats.capturedRooks || 0), target: 100 };
         }},
-        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Captured 10 bishops', category: 'In-Game', points: 200, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_10', name: '♗ Bishop Hunter', desc: 'Took 10 enemy bishops', category: 'In-Game', points: 200, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 10 };
         }},
-        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Captured 25 bishops', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_25', name: '♗ Bishop Slayer', desc: 'Took 25 enemy bishops', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 25 };
         }},
-        { id: 'bishop_hunter_50', name: '♗ Bishop Marauder', desc: 'Captured 50 bishops', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_50', name: '♗ Bishop Marauder', desc: 'Took 50 enemy bishops', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 50 };
         }},
-        { id: 'bishop_hunter_75', name: '♗ Bishop Warlord', desc: 'Captured 75 bishops', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_75', name: '♗ Bishop Warlord', desc: 'Took 75 enemy bishops', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 75 };
         }},
-        { id: 'bishop_hunter_100', name: '♗ Bishop Immortal', desc: 'Captured 100 bishops', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_bishops', progress: () => {
+        { id: 'bishop_hunter_100', name: '♗ Bishop Immortal', desc: 'Took 100 enemy bishops', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_bishops', progress: () => {
           return { current: (lifetimeStats.capturedBishops || 0), target: 100 };
         }},
-        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Captured 10 knights', category: 'In-Game', points: 200, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_10', name: '🐴 Knight Hunter', desc: 'Took 10 enemy knights', category: 'In-Game', points: 200, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 10 };
         }},
-        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Captured 25 knights', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_25', name: '🐴 Knight Slayer', desc: 'Took 25 enemy knights', category: 'In-Game', points: 480, requiredPoints: 4000, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 25 };
         }},
-        { id: 'knight_hunter_50', name: '🐴 Knight Marauder', desc: 'Captured 50 knights', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_50', name: '🐴 Knight Marauder', desc: 'Took 50 enemy knights', category: 'In-Game', points: 950, requiredPoints: 12000, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 50 };
         }},
-        { id: 'knight_hunter_75', name: '🐴 Knight Warlord', desc: 'Captured 75 knights', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_75', name: '🐴 Knight Warlord', desc: 'Took 75 enemy knights', category: 'In-Game', points: 1500, requiredPoints: 25000, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 75 };
         }},
-        { id: 'knight_hunter_100', name: '🐴 Knight Immortal', desc: 'Captured 100 knights', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_knights', progress: () => {
+        { id: 'knight_hunter_100', name: '🐴 Knight Immortal', desc: 'Took 100 enemy knights', category: 'In-Game', points: 2200, requiredPoints: 40000, groupKey: 'captured_knights', progress: () => {
           return { current: (lifetimeStats.capturedKnights || 0), target: 100 };
         }},
-        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Captured 50 pawns', category: 'In-Game', points: 180, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_50', name: '♟️ Pawn Hunter', desc: 'Took 50 enemy pawns', category: 'In-Game', points: 180, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 50 };
         }},
-        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Captured 100 pawns', category: 'In-Game', points: 420, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_100', name: '♟️ Pawn Slayer', desc: 'Took 100 enemy pawns', category: 'In-Game', points: 420, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 100 };
         }},
-        { id: 'pawn_hunter_200', name: '♟️ Pawn Reaper', desc: 'Captured 200 pawns', category: 'In-Game', points: 900, requiredPoints: 8000, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_200', name: '♟️ Pawn Reaper', desc: 'Took 200 enemy pawns', category: 'In-Game', points: 900, requiredPoints: 8000, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 200 };
         }},
-        { id: 'pawn_hunter_350', name: '♟️ Pawn Avalanche', desc: 'Captured 350 pawns', category: 'In-Game', points: 1600, requiredPoints: 20000, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_350', name: '♟️ Pawn Avalanche', desc: 'Took 350 enemy pawns', category: 'In-Game', points: 1600, requiredPoints: 20000, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 350 };
         }},
-        { id: 'pawn_hunter_500', name: '♟️ Pawn Apocalypse', desc: 'Captured 500 pawns', category: 'In-Game', points: 2600, requiredPoints: 45000, groupKey: 'captured_pawns', progress: () => {
+        { id: 'pawn_hunter_500', name: '♟️ Pawn Apocalypse', desc: 'Took 500 enemy pawns', category: 'In-Game', points: 2600, requiredPoints: 45000, groupKey: 'captured_pawns', progress: () => {
           return { current: (lifetimeStats.capturedPawns || 0), target: 500 };
         }},
         
-        // Group keys — captures made *by* your pieces (higher tiers gated; pawns easiest to farm with pawns).
-        { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Captured 10 pieces with your queen', category: 'In-Game', points: 120, groupKey: 'captures_with_queen', progress: () => {
+        // Striking power — captures made by your moving piece (your queen, rook, etc.); counts any victim type.
+        { id: 'queen_capturer', name: '👸 Queen Capturer', desc: 'Made 10 captures with your queen (moving piece)', category: 'In-Game', points: 120, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 10 };
         }},
-        { id: 'queen_master', name: '👸 Queen Master', desc: 'Captured 25 pieces with your queen', category: 'In-Game', points: 350, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_master', name: '👸 Queen Master', desc: 'Made 25 captures with your queen (moving piece)', category: 'In-Game', points: 350, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 25 };
         }},
-        { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Captured 50 pieces with your queen', category: 'In-Game', points: 800, requiredPoints: 6000, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_legend', name: '👑 Queen Legend', desc: 'Made 50 captures with your queen (moving piece)', category: 'In-Game', points: 800, requiredPoints: 6000, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 50 };
         }},
-        { id: 'queen_tactician', name: '👑 Queen Tactician', desc: 'Captured 75 pieces with your queen', category: 'In-Game', points: 1400, requiredPoints: 18000, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_tactician', name: '👑 Queen Tactician', desc: 'Made 75 captures with your queen (moving piece)', category: 'In-Game', points: 1400, requiredPoints: 18000, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 75 };
         }},
-        { id: 'queen_executioner', name: '👑 Queen Executioner', desc: 'Captured 100 pieces with your queen', category: 'In-Game', points: 2200, requiredPoints: 35000, groupKey: 'captures_with_queen', progress: () => {
+        { id: 'queen_executioner', name: '👑 Queen Executioner', desc: 'Made 100 captures with your queen (moving piece)', category: 'In-Game', points: 2200, requiredPoints: 35000, groupKey: 'captures_with_queen', progress: () => {
           return { current: (lifetimeStats.capturesByQueen || 0), target: 100 };
         }},
-        { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Captured 10 pieces with your rook', category: 'In-Game', points: 110, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_capturer', name: '🏰 Rook Capturer', desc: 'Made 10 captures with your rook (moving piece)', category: 'In-Game', points: 110, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 10 };
         }},
-        { id: 'rook_master', name: '🏰 Rook Master', desc: 'Captured 25 pieces with your rook', category: 'In-Game', points: 300, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_master', name: '🏰 Rook Master', desc: 'Made 25 captures with your rook (moving piece)', category: 'In-Game', points: 300, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 25 };
         }},
-        { id: 'rook_legend', name: '🏰 Rook Legend', desc: 'Captured 50 pieces with your rook', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_legend', name: '🏰 Rook Legend', desc: 'Made 50 captures with your rook (moving piece)', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 50 };
         }},
-        { id: 'rook_tactician', name: '🏰 Rook Tactician', desc: 'Captured 75 pieces with your rook', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_tactician', name: '🏰 Rook Tactician', desc: 'Made 75 captures with your rook (moving piece)', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 75 };
         }},
-        { id: 'rook_executioner', name: '🏰 Rook Executioner', desc: 'Captured 100 pieces with your rook', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_rook', progress: () => {
+        { id: 'rook_executioner', name: '🏰 Rook Executioner', desc: 'Made 100 captures with your rook (moving piece)', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_rook', progress: () => {
           return { current: (lifetimeStats.capturesByRook || 0), target: 100 };
         }},
-        { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Captured 10 pieces with your bishop', category: 'In-Game', points: 115, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_capturer', name: '♗ Bishop Capturer', desc: 'Made 10 captures with your bishop (moving piece)', category: 'In-Game', points: 115, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 10 };
         }},
-        { id: 'bishop_master', name: '♗ Bishop Master', desc: 'Captured 25 pieces with your bishop', category: 'In-Game', points: 300, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_master', name: '♗ Bishop Master', desc: 'Made 25 captures with your bishop (moving piece)', category: 'In-Game', points: 300, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 25 };
         }},
-        { id: 'bishop_legend', name: '♗ Bishop Legend', desc: 'Captured 50 pieces with your bishop', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_legend', name: '♗ Bishop Legend', desc: 'Made 50 captures with your bishop (moving piece)', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 50 };
         }},
-        { id: 'bishop_tactician', name: '♗ Bishop Tactician', desc: 'Captured 75 pieces with your bishop', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_tactician', name: '♗ Bishop Tactician', desc: 'Made 75 captures with your bishop (moving piece)', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 75 };
         }},
-        { id: 'bishop_executioner', name: '♗ Bishop Executioner', desc: 'Captured 100 pieces with your bishop', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_bishop', progress: () => {
+        { id: 'bishop_executioner', name: '♗ Bishop Executioner', desc: 'Made 100 captures with your bishop (moving piece)', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_bishop', progress: () => {
           return { current: (lifetimeStats.capturesByBishop || 0), target: 100 };
         }},
-        { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Captured 10 pieces with your knight', category: 'In-Game', points: 125, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_capturer', name: '🐴 Knight Capturer', desc: 'Made 10 captures with your knight (moving piece)', category: 'In-Game', points: 125, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 10 };
         }},
-        { id: 'knight_master', name: '🐴 Knight Master', desc: 'Captured 25 pieces with your knight', category: 'In-Game', points: 300, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_master', name: '🐴 Knight Master', desc: 'Made 25 captures with your knight (moving piece)', category: 'In-Game', points: 300, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 25 };
         }},
-        { id: 'knight_legend', name: '🐴 Knight Legend', desc: 'Captured 50 pieces with your knight', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_legend', name: '🐴 Knight Legend', desc: 'Made 50 captures with your knight (moving piece)', category: 'In-Game', points: 650, requiredPoints: 6000, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 50 };
         }},
-        { id: 'knight_tactician', name: '🐴 Knight Tactician', desc: 'Captured 75 pieces with your knight', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_tactician', name: '🐴 Knight Tactician', desc: 'Made 75 captures with your knight (moving piece)', category: 'In-Game', points: 1100, requiredPoints: 18000, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 75 };
         }},
-        { id: 'knight_executioner', name: '🐴 Knight Executioner', desc: 'Captured 100 pieces with your knight', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_knight', progress: () => {
+        { id: 'knight_executioner', name: '🐴 Knight Executioner', desc: 'Made 100 captures with your knight (moving piece)', category: 'In-Game', points: 1700, requiredPoints: 35000, groupKey: 'captures_with_knight', progress: () => {
           return { current: (lifetimeStats.capturesByKnight || 0), target: 100 };
         }},
-        { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Captured 10 pieces with your pawn', category: 'In-Game', points: 140, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_capturer', name: '♟️ Pawn Capturer', desc: 'Made 10 captures with your pawn (moving piece)', category: 'In-Game', points: 140, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 10 };
         }},
-        { id: 'pawn_master', name: '♟️ Pawn Master', desc: 'Captured 25 pieces with your pawn', category: 'In-Game', points: 380, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_master', name: '♟️ Pawn Master', desc: 'Made 25 captures with your pawn (moving piece)', category: 'In-Game', points: 380, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 25 };
         }},
-        { id: 'pawn_legend', name: '♟️ Pawn Legend', desc: 'Captured 50 pieces with your pawn', category: 'In-Game', points: 800, requiredPoints: 6000, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_legend', name: '♟️ Pawn Legend', desc: 'Made 50 captures with your pawn (moving piece)', category: 'In-Game', points: 800, requiredPoints: 6000, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 50 };
         }},
-        { id: 'pawn_tactician', name: '♟️ Pawn Tactician', desc: 'Captured 75 pieces with your pawn', category: 'In-Game', points: 1300, requiredPoints: 18000, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_tactician', name: '♟️ Pawn Tactician', desc: 'Made 75 captures with your pawn (moving piece)', category: 'In-Game', points: 1300, requiredPoints: 18000, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 75 };
         }},
-        { id: 'pawn_executioner', name: '♟️ Pawn Executioner', desc: 'Captured 100 pieces with your pawn', category: 'In-Game', points: 1900, requiredPoints: 35000, groupKey: 'captures_with_pawn', progress: () => {
+        { id: 'pawn_executioner', name: '♟️ Pawn Executioner', desc: 'Made 100 captures with your pawn (moving piece)', category: 'In-Game', points: 1900, requiredPoints: 35000, groupKey: 'captures_with_pawn', progress: () => {
           return { current: (lifetimeStats.capturesByPawn || 0), target: 100 };
         }},
-        { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Captured 50 pieces total', category: 'In-Game', points: 220, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_master', name: '⚔️ Capture Master', desc: 'Made 50 captures total (any of your pieces)', category: 'In-Game', points: 220, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 50 };
         }},
-        { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Captured 100 pieces total', category: 'In-Game', points: 450, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_legend', name: '🗡️ Capture Legend', desc: 'Made 100 captures total (any of your pieces)', category: 'In-Game', points: 450, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 100 };
         }},
-        { id: 'capture_king', name: '👑 Capture King', desc: 'Captured 200 pieces total', category: 'In-Game', points: 900, requiredPoints: 9000, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_king', name: '👑 Capture King', desc: 'Made 200 captures total (any of your pieces)', category: 'In-Game', points: 900, requiredPoints: 9000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 200 };
         }},
-        { id: 'capture_god', name: '⚡ Capture God', desc: 'Captured 500 pieces total', category: 'In-Game', points: 2200, requiredPoints: 32000, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_god', name: '⚡ Capture God', desc: 'Made 500 captures total (any of your pieces)', category: 'In-Game', points: 2200, requiredPoints: 32000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 500 };
         }},
-        { id: 'capture_titan', name: '🌠 Capture Titan', desc: 'Captured 1000 pieces total', category: 'In-Game', points: 4800, requiredPoints: 70000, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_titan', name: '🌠 Capture Titan', desc: 'Made 1000 captures total (any of your pieces)', category: 'In-Game', points: 4800, requiredPoints: 70000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 1000 };
         }},
-        { id: 'capture_mythic', name: '✴️ Capture Mythic', desc: 'Captured 2000 pieces total', category: 'In-Game', points: 10000, requiredPoints: 150000, groupKey: 'total_captures', progress: () => {
+        { id: 'capture_mythic', name: '✴️ Capture Mythic', desc: 'Made 2000 captures total (any of your pieces)', category: 'In-Game', points: 10000, requiredPoints: 150000, groupKey: 'total_captures', progress: () => {
           return { current: (lifetimeStats.totalCaptures || 0), target: 2000 };
         }},
         { id: 'castler', name: '🏰 Castler', desc: 'Castled 5 times', category: 'In-Game', points: 90, groupKey: 'castling', progress: () => {
@@ -12034,7 +12036,7 @@
         { id: 'check_on_5', name: '✓ Check on 5', desc: 'Gave check on your 5th move', category: 'Random', points: 75, groupKey: 'check_on_5', progress: () => {
           return { current: ((lifetimeStats.checkOnMove5 || 0) + ((gameStats && gameStats.checkOnMove5) || 0)), target: 1 };
         }},
-        { id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Captured on your 10th move', category: 'Random', points: 50, groupKey: 'capture_on_10', progress: () => {
+        { id: 'capture_on_10', name: '⚔️ Capture on 10', desc: 'Made a capture on your 10th move', category: 'Random', points: 50, groupKey: 'capture_on_10', progress: () => {
           return { current: ((lifetimeStats.captureOnMove10 || 0) + ((gameStats && gameStats.captureOnMove10) || 0)), target: 1 };
         }},
         
@@ -12087,7 +12089,7 @@
           const combined = new Set([...(lifetimeStats.dailyStats.uniqueSquaresVisitedToday || []), ...((gameStats && gameStats.dailyStats && gameStats.dailyStats.uniqueSquaresVisitedToday) || [])]);
           return { current: combined.size, target: 20 };
         }},
-        { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day', category: 'Daily', points: 150, isDaily: true, progress: () => {
+        { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day (any of your pieces)', category: 'Daily', points: 150, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 5 };
@@ -12097,7 +12099,7 @@
           resetDailyStatsIfNeeded();
           return { current: Math.min(2, lifetimeStats.dailyStats.quickWinsToday || 0), target: 2 };
         }},
-        { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day', category: 'Daily', points: 180, isDaily: true, progress: () => {
+        { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day (any of your pieces)', category: 'Daily', points: 180, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 10 };
           resetDailyStatsIfNeeded();
           return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 10 };
@@ -12212,7 +12214,7 @@
           resetDailyStatsIfNeeded();
           return { current: Math.min(3, lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
         }},
-        { id: 'daily_center_control', name: '🎯 Center Control', desc: 'Make 15 captures today (all games)', category: 'Daily', points: 480, isDaily: true, progress: () => {
+        { id: 'daily_center_control', name: '🎯 Center Control', desc: 'Make 15 captures today, all games (any of your pieces)', category: 'Daily', points: 480, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 15 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
@@ -12234,7 +12236,7 @@
           resetDailyStatsIfNeeded();
           return { current: Math.min(3, lifetimeStats.dailyStats.gamesPlayedToday || 0), target: 3 };
         }},
-        { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 25 captures today (all games)', category: 'Daily', points: 225, isDaily: true, progress: () => {
+        { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 25 captures today, all games (any of your pieces)', category: 'Daily', points: 225, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 25 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
@@ -12354,49 +12356,49 @@
           const comebackWins = (lifetimeStats.dailyStats.comebackWinsToday || 0);
           return { current: comebackWins, target: 1 };
         }},
-        { id: 'daily_piece_hunter', name: '🎯 Piece Hunter', desc: 'Make 18 captures today (all games)', category: 'Daily', points: 450, isDaily: true, progress: () => {
+        { id: 'daily_piece_hunter', name: '🎯 Piece Hunter', desc: 'Make 18 captures today, all games (any of your pieces)', category: 'Daily', points: 450, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 18 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
           return { current: Math.min(18, cur), target: 18 };
         }},
-        { id: 'daily_elite_capturer', name: '⚔️ Elite Capturer', desc: 'Make 20 captures today (all games)', category: 'Daily', points: 360, isDaily: true, progress: () => {
+        { id: 'daily_elite_capturer', name: '⚔️ Elite Capturer', desc: 'Make 20 captures today, all games (any of your pieces)', category: 'Daily', points: 360, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 20 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
           return { current: Math.min(20, cur), target: 20 };
         }},
-        { id: 'daily_pawn_sweeper', name: '🧹 Pawn Sweeper', desc: 'Capture 8 pawns today (your captures)', category: 'Daily', points: 380, isDaily: true, progress: () => {
+        { id: 'daily_pawn_sweeper', name: '🧹 Pawn Sweeper', desc: 'Take 8 enemy pawns today (victim type)', category: 'Daily', points: 380, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 8 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
           return { current: Math.min(8, c.p), target: 8 };
         }},
-        { id: 'daily_knight_roundup', name: '🐴 Knight Roundup', desc: 'Capture 4 knights today (your captures)', category: 'Daily', points: 460, isDaily: true, progress: () => {
+        { id: 'daily_knight_roundup', name: '🐴 Knight Roundup', desc: 'Take 4 enemy knights today (victim type)', category: 'Daily', points: 460, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
           return { current: Math.min(4, c.n), target: 4 };
         }},
-        { id: 'daily_bishop_ambush', name: '♗ Bishop Ambush', desc: 'Capture 3 bishops today (your captures)', category: 'Daily', points: 430, isDaily: true, progress: () => {
+        { id: 'daily_bishop_ambush', name: '♗ Bishop Ambush', desc: 'Take 3 enemy bishops today (victim type)', category: 'Daily', points: 430, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
           return { current: Math.min(3, c.b), target: 3 };
         }},
-        { id: 'daily_rook_raider_adv', name: '🏰 Rook Raider', desc: 'Capture 3 rooks today (your captures)', category: 'Daily', points: 480, isDaily: true, progress: () => {
+        { id: 'daily_rook_raider_adv', name: '🏰 Rook Raider', desc: 'Take 3 enemy rooks today (victim type)', category: 'Daily', points: 480, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
           return { current: Math.min(3, c.r), target: 3 };
         }},
-        { id: 'daily_queen_snatcher', name: '👑 Queen Snatcher', desc: 'Capture 2 queens today (your captures)', category: 'Daily', points: 520, isDaily: true, progress: () => {
+        { id: 'daily_queen_snatcher', name: '👑 Queen Snatcher', desc: 'Take 2 enemy queens today (victim type)', category: 'Daily', points: 520, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
           return { current: Math.min(2, c.q), target: 2 };
         }},
-        { id: 'daily_full_deck_hunter', name: '🃏 Full Deck', desc: 'Capture at least one pawn, knight, bishop, rook, and queen today', category: 'Daily', points: 580, isDaily: true, progress: () => {
+        { id: 'daily_full_deck_hunter', name: '🃏 Full Deck', desc: 'Take at least one enemy pawn, knight, bishop, rook, and queen today', category: 'Daily', points: 580, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();

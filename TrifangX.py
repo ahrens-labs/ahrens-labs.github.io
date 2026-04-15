@@ -688,7 +688,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
         pos_hash = tuple(tuple(row) for row in board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
-            current_score = -1.25
+            current_score = -0.25
             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
         else:
             if piece == 'k':
@@ -698,7 +698,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
                 scoring_time += score_time
                 if draw:
-                    current_score = -1.25
+                    current_score = -0.25
                     scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                 else:
                     if best_row == best_col == target_row == target_col == best_piece == captured == '1':
@@ -707,7 +707,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                             checkmate = True
                         else:
                             stalemate = True
-                            current_score = -1.25
+                            current_score = -0.25
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                     elif best_row == best_col == target_row == target_col == best_piece == captured == '2':
                         bad_checkmate = True
@@ -947,7 +947,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
         pos_hash = tuple(tuple(row) for row in board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
-            current_score = 1.25
+            current_score = 0.25
             # Removed print for performance
             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
         else:
@@ -957,7 +957,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
 
                 best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                 if draw:
-                    current_score = 1.25
+                    current_score = 0.25
                     # Removed print for performance
                     scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                 else:
@@ -967,7 +967,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                             checkmate = True
                         else:
                             stalemate = True
-                            current_score = 1.25
+                            current_score = 0.25
                             # Removed print for performance
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                     elif best_row == best_col == target_row == target_col == best_piece == captured == '2':
@@ -4896,7 +4896,7 @@ def best_move_player(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = 1.25
+                                current_score = 0.25
                                 if current_score < previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -4907,7 +4907,7 @@ def best_move_player(board):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
                                     score_time += score_time2
                                     if draw:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -4967,7 +4967,7 @@ def best_move_player(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -4978,7 +4978,7 @@ def best_move_player(board):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
                                         score_time += score_time2
                                         if draw:
-                                            current_score = 1.25
+                                            current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -5045,7 +5045,7 @@ def best_move_player(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -5056,7 +5056,7 @@ def best_move_player(board):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
                                         score_time += score_time2
                                         if draw:
-                                            current_score = 1.25
+                                            current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -5132,7 +5132,7 @@ def best_move_player(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -5143,7 +5143,7 @@ def best_move_player(board):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
                                         score_time += score_time2
                                         if draw:
-                                            current_score = 1.25
+                                            current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -5208,7 +5208,7 @@ def best_move_player(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = 1.25
+                                current_score = 0.25
                                 if current_score < previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -5220,7 +5220,7 @@ def best_move_player(board):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
                                     score_time += score_time2
                                     if draw:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -5378,7 +5378,7 @@ def best_move2(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = -1.25
+                                current_score = -0.25
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -5414,7 +5414,7 @@ def best_move2(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -5455,7 +5455,7 @@ def best_move2(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -5496,7 +5496,7 @@ def best_move2(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -5536,7 +5536,7 @@ def best_move2(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = -1.25
+                                current_score = -0.25
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -5642,6 +5642,9 @@ def best_move_black(board, bots, en_passant):
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. Nc3 b5 6. Bb3 Be7 7. a4 b4 8. Nd5 0-0 9. Nxf6+ Bxf6',
                 '1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. e5 Nfd7 5. f4 c5 6. Nf3 Nc6 7. Be3 cxd4 8. Nxd4 Bc5 9. Qd2 Bxd4 10. Bxd4 Nxd4 11. Qxd4 Qb6 12. Qd2 Qxb2 13. Rb1 Qa3 14. Nb5 Qxa2 15. Nd6+ Ke7 16. Rc1',
                 '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6',
+                '1. e4 c6 2. d4 d5 3. e5 c5 4. dxc5 e6 5. a3 Bxc5 6. b4 Be7 7. Nf3 f6 8. Bb2 a5 9. b5 Nd7 10. Bd3 Nh6 11. Nbd2 Nf7 12. exf6 Bxf6 13. Bxf6 Qxf6 14. c4 Nc5 15. Bc2 a4',
+                '1. e4 c6 2. d4 d5 3. e5 c5 4. dxc5 e6 5. Be3 Nd7 6. Bb5 Ne7 7. c3 a6 8. Bxd7+ Bxd7 9. Nf3 Nf5 10. Bd4 Nxd4 11. cxd4 b6 12. cxb6 Qxb6',
+                '1. e4 c6 2. d4 d5 3. e5 c5 4. c3 Nc6 5. Nf3 cxd4 6. cxd4 Bg4 7. Be2 e6 8. 0-0 Nge7 9. Nc3 Nf5',
                 '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb4+ 7. Bd2 Nxe4 8. Bxb4 Nxb4 9. Bxf7+ Kxf7 10. Qb3+ d5 11. Ne5+ Ke6 12. Qxb4 Qf8 13. Qxf8 Rxf8 14. f3 Nd6',
                 '1. e4 d6 2. d4 Nf6 3. Nc3 g6 4.f4 Bg7',
                 '1. e4 d6 2. d4 Nf6 3. Nc3 g6 4.Nf3 Bg7 5. Bc4 0-0',
@@ -6525,7 +6528,7 @@ def best_move_black(board, bots, en_passant):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, 'N')]
@@ -6535,7 +6538,7 @@ def best_move_black(board, bots, en_passant):
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                         if draw:
-                                            current_score = 1.25
+                                            current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -6567,7 +6570,7 @@ def best_move_black(board, bots, en_passant):
                                                     board[target_row][target_col] = 'q'
                                                 best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                 if draw2:
-                                                    current_score = 1.25
+                                                    current_score = 0.25
                                                     if current_score < previous_score:
                                                         previous_score = current_score
                                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -6650,7 +6653,7 @@ def best_move_black(board, bots, en_passant):
                                     pos_hash = tuple(tuple(row) for row in board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'B')]
@@ -6660,7 +6663,7 @@ def best_move_black(board, bots, en_passant):
                                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                             best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                             if draw:
-                                                current_score = 1.25
+                                                current_score = 0.25
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -6692,7 +6695,7 @@ def best_move_black(board, bots, en_passant):
                                                         board[target_row][target_col] = 'q'
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
-                                                        current_score = 1.25
+                                                        current_score = 0.25
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -6782,7 +6785,7 @@ def best_move_black(board, bots, en_passant):
                                     pos_hash = tuple(tuple(row) for row in board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'R')]
@@ -6792,7 +6795,7 @@ def best_move_black(board, bots, en_passant):
                                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                             best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                             if draw:
-                                                current_score = 1.25
+                                                current_score = 0.25
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -6824,7 +6827,7 @@ def best_move_black(board, bots, en_passant):
                                                         board[target_row][target_col] = 'q'
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
-                                                        current_score = 1.25
+                                                        current_score = 0.25
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -6914,7 +6917,7 @@ def best_move_black(board, bots, en_passant):
                                     pos_hash = tuple(tuple(row) for row in board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'Q')]
@@ -6924,7 +6927,7 @@ def best_move_black(board, bots, en_passant):
                                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                             best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                             if draw:
-                                                current_score = 1.25
+                                                current_score = 0.25
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -6956,7 +6959,7 @@ def best_move_black(board, bots, en_passant):
                                                         board[target_row][target_col] = 'q'
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
-                                                        current_score = 1.25
+                                                        current_score = 0.25
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -7046,7 +7049,7 @@ def best_move_black(board, bots, en_passant):
                                     pos_hash = tuple(tuple(row) for row in board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
-                                        current_score = 1.25
+                                        current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'K')]
@@ -7057,7 +7060,7 @@ def best_move_black(board, bots, en_passant):
                                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                             best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                             if draw:
-                                                current_score = 1.25
+                                                current_score = 0.25
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -7089,7 +7092,7 @@ def best_move_black(board, bots, en_passant):
                                                         board[target_row][target_col] = 'q'
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
-                                                        current_score = 1.25
+                                                        current_score = 0.25
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -7685,7 +7688,7 @@ def best_move_player_black(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = -1.25
+                                current_score = -0.25
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -7695,7 +7698,7 @@ def best_move_player_black(board):
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move2_black(board)
                                     if draw:
-                                        current_score = -1.25
+                                        current_score = -0.25
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -7754,7 +7757,7 @@ def best_move_player_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -7764,7 +7767,7 @@ def best_move_player_black(board):
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move2_black(board)
                                         if draw:
-                                            current_score = -1.25
+                                            current_score = -0.25
                                             if current_score > previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -7829,7 +7832,7 @@ def best_move_player_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -7839,7 +7842,7 @@ def best_move_player_black(board):
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move2_black(board)
                                         if draw:
-                                            current_score = -1.25
+                                            current_score = -0.25
                                             if current_score > previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -7914,7 +7917,7 @@ def best_move_player_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = -1.25
+                                    current_score = -0.25
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -7924,7 +7927,7 @@ def best_move_player_black(board):
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move2_black(board)
                                         if draw:
-                                            current_score = -1.25
+                                            current_score = -0.25
                                             if current_score > previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, piece)]
@@ -7988,7 +7991,7 @@ def best_move_player_black(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = -1.25
+                                current_score = -0.25
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -7999,7 +8002,7 @@ def best_move_player_black(board):
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move2_black(board)
                                     if draw:
-                                        current_score = -1.25
+                                        current_score = -0.25
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, piece)]
@@ -8151,7 +8154,7 @@ def best_move2_black(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = 1.25
+                                current_score = 0.25
                                 if current_score < previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
@@ -8185,7 +8188,7 @@ def best_move2_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -8225,7 +8228,7 @@ def best_move2_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -8265,7 +8268,7 @@ def best_move2_black(board):
                                 pos_hash = tuple(tuple(row) for row in board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
-                                    current_score = 1.25
+                                    current_score = 0.25
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, piece)]
@@ -8304,7 +8307,7 @@ def best_move2_black(board):
                             pos_hash = tuple(tuple(row) for row in board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
-                                current_score = 1.25
+                                current_score = 0.25
                                 if current_score < previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, new_row, new_col, piece)]
