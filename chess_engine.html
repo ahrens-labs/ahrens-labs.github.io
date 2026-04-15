@@ -5274,6 +5274,9 @@
       </label>
     </div>
     
+    <div class="control-row" id="engine-capacity-row" style="font-size:0.88rem; opacity:0.92; margin-top:6px;">
+      <span id="engine-capacity-text">Active games on server: <strong id="engine-capacity-value">…</strong></span>
+    </div>
     <div class="control-row">
       <button id="start-game-btn" onclick="startGame()">Start Game</button>
     </div>
@@ -7000,7 +7003,27 @@
     let _statusPollInterval = null;
     /** Last successful /status occupied value — kept on fetch errors so the waiting-room “board lock” does not flicker off between polls. */
     let _lastStatusOccupied = false;
+    /** Last successful active_games / max_games from /status (for display when a poll fails). */
+    let _lastActiveGames = null;
+    let _lastMaxGames = null;
     let _pregameStatusPollInterval = null;
+
+    function updateEngineCapacityDisplay(active, max) {
+      const valEl = document.getElementById('engine-capacity-value');
+      const row = document.getElementById('engine-capacity-row');
+      if (!valEl) return;
+      const a = active == null ? NaN : Number(active);
+      const m = max == null ? NaN : Number(max);
+      if (!Number.isFinite(a) || !Number.isFinite(m) || m < 1) {
+        valEl.textContent = '…';
+        if (row) row.title = 'Waiting for server status…';
+        return;
+      }
+      valEl.textContent = a + ' / ' + m;
+      if (row) {
+        row.title = a >= m ? 'All slots in use — Start Game is disabled until a slot frees up.' : '';
+      }
+    }
 
     function applyEngineOccupancyWaitingRoomUi(busy) {
       const btn = document.getElementById('start-game-btn');
@@ -7049,6 +7072,17 @@
           const occ = data && data.occupied;
           const busy = occ === true || occ === 'true' || occ === 1;
           _lastStatusOccupied = busy;
+          const ag = data && data.active_games;
+          const mg = data && data.max_games;
+          const aN = ag == null ? NaN : Number(ag);
+          const mN = mg == null ? NaN : Number(mg);
+          if (Number.isFinite(aN) && Number.isFinite(mN) && mN >= 1) {
+            _lastActiveGames = aN;
+            _lastMaxGames = mN;
+            updateEngineCapacityDisplay(aN, mN);
+          } else if (_lastActiveGames != null && _lastMaxGames != null) {
+            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
+          }
           applyEngineOccupancyWaitingRoomUi(busy);
           if (typeof ensurePregameStatusPolling === 'function' && typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
             ensurePregameStatusPolling();
@@ -7056,6 +7090,11 @@
           return busy;
         })
         .catch(() => {
+          if (_lastActiveGames != null && _lastMaxGames != null) {
+            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
+          } else {
+            updateEngineCapacityDisplay(null, null);
+          }
           applyEngineOccupancyWaitingRoomUi(_lastStatusOccupied);
           return _lastStatusOccupied;
         });
