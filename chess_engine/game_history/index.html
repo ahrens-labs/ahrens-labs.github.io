@@ -87,6 +87,17 @@
       font-size: 0.86rem;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 14px rgba(15, 23, 42, 0.05);
     }
+    .game-history-row--playable {
+      cursor: pointer;
+    }
+    .game-history-row--playable:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08), 0 4px 16px rgba(15, 23, 42, 0.06);
+    }
+    .game-history-row--playable:focus-visible {
+      outline: 2px solid #2980b9;
+      outline-offset: 2px;
+    }
     .game-history-row.game-history-row--win {
       border-left: 4px solid #27ae60;
       background: linear-gradient(90deg, rgba(39, 174, 96, 0.1) 0%, #fff 14px);
@@ -108,9 +119,18 @@
     }
     .gh-row-head {
       display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+    .gh-row-head-main {
+      display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 6px 8px;
+      flex: 1;
+      min-width: 0;
     }
     .gh-outcome-badge {
       display: inline-flex;
@@ -509,28 +529,21 @@
       accent-color: #d97706;
       cursor: pointer;
     }
-    .game-history-row-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-self: center;
-    }
-    .game-history-row-actions button {
-      padding: 6px 10px;
+    .gh-btn-export {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: #fff;
       border: none;
       border-radius: 7px;
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.78rem;
       font-family: inherit;
     }
-    .gh-btn-export {
-      background: linear-gradient(135deg, #3498db, #2980b9);
-      color: #fff;
-    }
-    .gh-btn-play {
-      background: linear-gradient(135deg, #1abc9c, #16a085);
-      color: #fff;
+    .gh-btn-export--head {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+      margin-left: auto;
+      line-height: 1.25;
     }
     .gh-filters {
       font-family: "Inter", sans-serif;

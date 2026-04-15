@@ -361,11 +361,16 @@
         return (
           '<div class="game-history-row ' +
           outcomeClass +
-          '">' +
-          '<div class="game-history-row-fav">' +
+          ' game-history-row--playable" tabindex="0" title="Open this game on the board" ' +
+          'onclick="window.playGameHistoryRecordAt(' +
+          idx +
+          ')" onkeydown="window.ghGameHistoryRowKeydown(event,' +
+          idx +
+          ')">' +
+          '<div class="game-history-row-fav" onclick="event.stopPropagation()">' +
           '<button type="button" class="gh-btn-favorite' +
           (isFav ? ' gh-btn-favorite--on' : '') +
-          '" onclick="window.toggleGameHistoryFavoriteAt(' +
+          '" onclick="event.stopPropagation(); window.toggleGameHistoryFavoriteAt(' +
           idx +
           ')" aria-pressed="' +
           (isFav ? 'true' : 'false') +
@@ -376,6 +381,7 @@
           '</button></div>' +
           '<div class="game-history-row-meta">' +
           '<div class="gh-row-head">' +
+          '<div class="gh-row-head-main">' +
           '<span class="gh-outcome-badge ' +
           badgeClass +
           '">' +
@@ -385,6 +391,10 @@
           (rec.result || '—') +
           '</span>' +
           (isFav ? '<span class="gh-fav-inline">Favorite</span>' : '') +
+          '</div>' +
+          '<button type="button" class="gh-btn-export gh-btn-export--head" onclick="event.stopPropagation(); window.exportGameHistoryRecordAt(' +
+          idx +
+          ')">Export</button>' +
           '</div>' +
           '<div class="gh-stat-chips">' +
           '<div class="gh-stat gh-stat--played" role="group" aria-label="When played">' +
@@ -423,15 +433,7 @@
           '<span class="gh-stat-side-value">' +
           sideLabel +
           '</span></div></div>' +
-          '</div></div>' +
-          '<div class="game-history-row-actions">' +
-          '<button type="button" class="gh-btn-export" onclick="window.exportGameHistoryRecordAt(' +
-          idx +
-          ')">Export</button>' +
-          '<button type="button" class="gh-btn-play" onclick="window.playGameHistoryRecordAt(' +
-          idx +
-          ')">Play on board</button>' +
-          '</div></div>'
+          '</div></div></div>'
         );
       })
       .join('');
@@ -501,11 +503,18 @@
     window.location.href = '../../chess_engine.html?replayIndex=' + encodeURIComponent(String(index));
   }
 
+  function ghGameHistoryRowKeydown(ev, index) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    playGameHistoryRecordAt(index);
+  }
+
   window.refreshGameHistoryModal = refreshGameHistoryModal;
   window.clearGameHistoryFilters = clearGameHistoryFilters;
   window.toggleGameHistoryFavoriteAt = toggleGameHistoryFavoriteAt;
   window.exportGameHistoryRecordAt = exportGameHistoryRecordAt;
   window.playGameHistoryRecordAt = playGameHistoryRecordAt;
+  window.ghGameHistoryRowKeydown = ghGameHistoryRowKeydown;
 
   async function loadChessDataFromCloud() {
     currentSessionId = localStorage.getItem('ahrenslabs_sessionId');
