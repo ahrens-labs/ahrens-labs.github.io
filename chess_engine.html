@@ -228,6 +228,42 @@
       background: linear-gradient(135deg, #9b59b6, #8e44ad);
     }
 
+    /* Undo global `button { … }` (below) so Achievements / Shop / Settings / Game history share one shape */
+    #chess-pregame-tools .chess-pregame-tool-btn {
+      width: auto;
+      max-width: none;
+      margin: 0;
+      padding: 6px 14px;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85em;
+      font-family: inherit;
+      font-weight: 600;
+      line-height: 1.2;
+      color: #fff;
+      box-shadow: none;
+    }
+    #chess-pregame-tools button.chess-pregame-tool-btn {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #chess-pregame-tools a.chess-pregame-tool-btn {
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #chess-pregame-tools .chess-pregame-tool-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    }
+    #chess-pregame-tools button.chess-pregame-tool-btn:hover {
+      background-color: transparent;
+    }
+
     #chess-ingame-tools {
       display: none;
       flex-wrap: wrap;
