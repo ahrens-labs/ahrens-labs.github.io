@@ -315,7 +315,7 @@
     .gh-stat-clock-svg--classical {
       color: #2563eb;
     }
-    /* Moves — centered KPI number */
+    /* Moves — centered KPI; color tier by full-move count */
     .gh-stat--moves {
       display: flex;
       flex-direction: column;
@@ -323,24 +323,71 @@
       justify-content: center;
       padding: 5px 5px;
       border-radius: 8px;
-      background: #faf5ff;
-      border: 1px dashed rgba(124, 58, 237, 0.45);
+      border: 1px dashed transparent;
       min-height: 2.85rem;
     }
     .gh-stat-moves-value {
       font-size: 1.28rem;
       font-weight: 800;
       line-height: 1;
-      color: #6d28d9;
       letter-spacing: -0.03em;
     }
     .gh-stat-moves-caption {
       margin-top: 2px;
-      font-size: 0.58rem;
+      font-size: 0.65rem;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.02em;
+      text-transform: none;
+    }
+    .gh-stat--moves.gh-stat-moves--empty {
+      background: #f8fafc;
+      border-color: rgba(100, 116, 139, 0.4);
+    }
+    .gh-stat--moves.gh-stat-moves--empty .gh-stat-moves-value {
+      color: #64748b;
+    }
+    .gh-stat--moves.gh-stat-moves--empty .gh-stat-moves-caption {
+      color: #94a3b8;
+    }
+    .gh-stat--moves.gh-stat-moves--brief {
+      background: linear-gradient(180deg, #ecfeff 0%, #cffafe 100%);
+      border-color: rgba(6, 182, 212, 0.5);
+    }
+    .gh-stat--moves.gh-stat-moves--brief .gh-stat-moves-value {
+      color: #0e7490;
+    }
+    .gh-stat--moves.gh-stat-moves--brief .gh-stat-moves-caption {
+      color: #0891b2;
+    }
+    .gh-stat--moves.gh-stat-moves--standard {
+      background: linear-gradient(180deg, #faf5ff 0%, #e9d5ff 100%);
+      border-color: rgba(124, 58, 237, 0.45);
+    }
+    .gh-stat--moves.gh-stat-moves--standard .gh-stat-moves-value {
+      color: #6d28d9;
+    }
+    .gh-stat--moves.gh-stat-moves--standard .gh-stat-moves-caption {
       color: #7c3aed;
+    }
+    .gh-stat--moves.gh-stat-moves--long {
+      background: linear-gradient(180deg, #fffbeb 0%, #fde68a 100%);
+      border-color: rgba(245, 158, 11, 0.55);
+    }
+    .gh-stat--moves.gh-stat-moves--long .gh-stat-moves-value {
+      color: #b45309;
+    }
+    .gh-stat--moves.gh-stat-moves--long .gh-stat-moves-caption {
+      color: #d97706;
+    }
+    .gh-stat--moves.gh-stat-moves--epic {
+      background: linear-gradient(180deg, #fff1f2 0%, #fecdd3 100%);
+      border-color: rgba(225, 29, 72, 0.45);
+    }
+    .gh-stat--moves.gh-stat-moves--epic .gh-stat-moves-value {
+      color: #be123c;
+    }
+    .gh-stat--moves.gh-stat-moves--epic .gh-stat-moves-caption {
+      color: #e11d48;
     }
     /* Your side — full-width bar + swatch */
     .gh-stat--side {
@@ -641,7 +688,7 @@
           </label>
         </div>
         <div class="gh-filter-field gh-filter-field--wide">
-          <label for="game-history-filter-moves-min">Move count (White's full moves)</label>
+          <label for="game-history-filter-moves-min">Moves (White move count, same as cards)</label>
           <span class="gh-filter-hint">Optional range; leave blank for no minimum or maximum.</span>
           <div class="gh-filter-moves-row">
             <div class="gh-filter-moves-pair">

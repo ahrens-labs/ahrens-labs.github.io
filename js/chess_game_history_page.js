@@ -165,6 +165,16 @@
     return 'classical';
   }
 
+  /** Visual tier for the moves KPI from full-move count (plies / 2 rounded up). */
+  function movesVisualTier(fullMoves) {
+    const n = typeof fullMoves === 'number' ? fullMoves : 0;
+    if (n <= 0) return 'empty';
+    if (n <= 18) return 'brief';
+    if (n <= 42) return 'standard';
+    if (n <= 70) return 'long';
+    return 'epic';
+  }
+
   function timeControlGlyph(kind) {
     if (kind === 'bullet') {
       return (
@@ -341,6 +351,7 @@
         const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
         const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
         const movesDisplay = whiteMoveCount > 0 ? String(whiteMoveCount) : '—';
+        const movesTier = movesVisualTier(whiteMoveCount);
         const sideLabel = rec.playerColor === 'black' ? 'Black' : 'White';
         const sideStatClass =
           rec.playerColor === 'black' ? 'gh-stat-side--black' : 'gh-stat-side--white';
@@ -396,11 +407,13 @@
           '<span class="gh-stat-clock-value">' +
           tcLabel +
           '</span></div></div>' +
-          '<div class="gh-stat gh-stat--moves" role="group" aria-label="Move count">' +
+          '<div class="gh-stat gh-stat--moves gh-stat-moves--' +
+          movesTier +
+          '" role="group" aria-label="Moves">' +
           '<span class="gh-stat-moves-value">' +
           movesDisplay +
           '</span>' +
-          '<span class="gh-stat-moves-caption">full moves</span></div>' +
+          '<span class="gh-stat-moves-caption">Moves</span></div>' +
           '<div class="gh-stat gh-stat--side ' +
           sideStatClass +
           '" role="group" aria-label="Your side">' +
