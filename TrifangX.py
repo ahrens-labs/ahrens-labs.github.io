@@ -2,6 +2,9 @@ import random
 import sys
 import time
 import threading
+import uuid
+import atexit
+import multiprocessing
 from collections import defaultdict
 import re
 from flask import Flask, request, jsonify
@@ -315,20 +318,111 @@ scores = {}
 position_history = defaultdict(int)
 engine_running = True
 
-# --- Single-game occupancy lock (matches chess_engine.html /status + /heartbeat) ---
-# game_active is True while a human player is in a game.
-# game_active_since records when the lock was acquired so stale locks
-# (e.g. player closes their tab without stopping) auto-expire after TTL.
-game_active = False
-game_active_since = None
-GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-released
+# --- Multi-game sessions (each game_id has its own snapshot; moves run in fork workers on Linux) ---
+_GAMES_LOCK = threading.RLock()
+# game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
+GAMES = {}
+GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
+MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
+MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
+_MOVE_POOL = None
+_INLINE_ENGINE_LOCK = threading.Lock()  # used when fork pool is unavailable (e.g. some Windows setups)
+
+ENGINE_STATE_KEYS = (
+    'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
+    'fake_castled_black',
+    'edge_up_black_king', 'edge_down_black_king', 'edge_left_black_king', 'edge_right_black_king',
+    'edge_up_white_king', 'edge_down_white_king', 'edge_left_white_king', 'edge_right_white_king',
+    'number_of_moves', 'white_move_count', 'black_move_count', 'king_move', 'king_move_white',
+    'game_moves', 'scores', 'board', 'white_king_row', 'white_king_col', 'black_king_row', 'black_king_col',
+    'position_history', 'engine_running', 'SCORING_VERSION', 'SCORING_MODIFIERS',
+)
 
 
-def _is_lock_stale():
-    """Return True if game_active but the TTL has expired."""
-    if not game_active or game_active_since is None:
-        return False
-    return (time.time() - game_active_since) > GAME_LOCK_TTL
+def _capture_engine_state_to_dict():
+    """Pickle-friendly snapshot of engine globals (one game)."""
+    g = globals()
+    out = {}
+    for key in ENGINE_STATE_KEYS:
+        v = g.get(key, None)
+        if key == 'position_history':
+            out[key] = dict(v)
+        elif key == 'board':
+            out[key] = fast_copy_board(v)
+        elif key == 'game_moves':
+            out[key] = list(v)
+        elif key == 'scores':
+            out[key] = dict(v)
+        elif key == 'SCORING_MODIFIERS':
+            out[key] = dict(v)
+        else:
+            out[key] = copy.deepcopy(v)
+    return out
+
+
+def _restore_engine_state_from_dict(d):
+    """Restore engine globals from a snapshot dict."""
+    g = globals()
+    for key in ENGINE_STATE_KEYS:
+        if key not in d:
+            continue
+        val = d[key]
+        if key == 'position_history':
+            g[key] = defaultdict(int, val)
+        elif key == 'board':
+            g[key] = fast_copy_board(val)
+        elif key == 'game_moves':
+            g[key] = list(val)
+        elif key == 'scores':
+            g[key] = dict(val)
+        elif key == 'SCORING_MODIFIERS':
+            g[key] = dict(val)
+        else:
+            g[key] = copy.deepcopy(val)
+    g['stop_event'] = threading.Event()
+    g['timer_thread'] = None
+
+
+def _prune_stale_games():
+    now = time.time()
+    with _GAMES_LOCK:
+        stale = [gid for gid, info in GAMES.items() if now - info['active_since'] > GAME_LOCK_TTL]
+        for gid in stale:
+            GAMES.pop(gid, None)
+
+
+def _shutdown_move_pool():
+    global _MOVE_POOL
+    try:
+        if _MOVE_POOL is not None:
+            _MOVE_POOL.terminate()
+            _MOVE_POOL.join()
+    except Exception:
+        pass
+    _MOVE_POOL = None
+
+
+atexit.register(_shutdown_move_pool)
+
+
+def _ensure_move_pool():
+    """Lazy fork-pool so different games' /move calls can run on different CPU cores (Linux)."""
+    global _MOVE_POOL
+    if _MOVE_POOL is not None:
+        return _MOVE_POOL
+    if os.environ.get('TRIFANGX_DISABLE_MOVE_POOL') == '1':
+        return None
+    try:
+        ctx = multiprocessing.get_context('fork')
+        _MOVE_POOL = ctx.Pool(processes=MOVE_POOL_PROCESSES)
+    except (ValueError, OSError, AttributeError):
+        _MOVE_POOL = None
+    return _MOVE_POOL
+
+
+def _restart_move_pool_after_modifier_change():
+    """Workers forked at pool creation won't see updated SCORING_MODIFIERS; recycle pool."""
+    _shutdown_move_pool()
 
 
 def _account_username_from_payload(data):
@@ -361,41 +455,61 @@ CORS(app, resources={r"/*": {
 # --- Flask Routes ---
 @app.route('/status', methods=['GET'])
 def engine_status():
-    """Return whether the engine is currently occupied by a game."""
-    occupied = game_active and not _is_lock_stale()
-    return jsonify({"occupied": occupied})
+    """Return whether the server is at max concurrent games (waiting-room banner)."""
+    _prune_stale_games()
+    with _GAMES_LOCK:
+        n = len(GAMES)
+    at_capacity = n >= MAX_CONCURRENT_GAMES
+    return jsonify({
+        "occupied": at_capacity,
+        "active_games": n,
+        "max_games": MAX_CONCURRENT_GAMES,
+    })
 
 
 @app.route('/heartbeat', methods=['POST'])
 def heartbeat():
-    """Keep the current game lock alive (call every ~30 s from the frontend)."""
-    global game_active_since
-    if game_active:
-        game_active_since = time.time()
-        return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "No active game"}), 400
+    """Keep a game session alive (call every ~30 s from the frontend)."""
+    data = request.get_json() or {}
+    gid = data.get('game_id')
+    if not gid or not isinstance(gid, str):
+        return jsonify({"ok": False, "error": "game_id required"}), 400
+    with _GAMES_LOCK:
+        if gid not in GAMES:
+            return jsonify({"ok": False, "error": "Unknown or expired game_id"}), 400
+        GAMES[gid]['active_since'] = time.time()
+    return jsonify({"ok": True})
 
 
 @app.route('/start', methods=['POST'])
 def start_engine():
-    global engine_running, game_active, game_active_since
-    if game_active and not _is_lock_stale():
-        return jsonify({"error": "A game is already in progress. Please wait."}), 409
-    engine_running = True
-    game_active = True
-    game_active_since = time.time()
-    reset_engine_state()
-    return jsonify({"message": "Engine started and state reset"})
+    global engine_running
+    _prune_stale_games()
+    with _GAMES_LOCK:
+        if len(GAMES) >= MAX_CONCURRENT_GAMES:
+            return jsonify({
+                "error": "Server is at maximum concurrent games. Please try again shortly.",
+            }), 503
+        gid = str(uuid.uuid4())
+        engine_running = True
+        reset_engine_state()
+        snap = _capture_engine_state_to_dict()
+        GAMES[gid] = {'active_since': time.time(), 'snapshot': snap}
+    return jsonify({"message": "Engine started and state reset", "game_id": gid})
 
 
 @app.route('/stop', methods=['POST'])
 def stop_engine():
-    global engine_running, game_active, game_active_since
-    engine_running = False
-    game_active = False
-    game_active_since = None
-    reset_engine_state()
-    return jsonify({"message": "Engine stopped and reset"})
+    global engine_running
+    data = request.get_json() or {}
+    gid = data.get('game_id')
+    if not gid or not isinstance(gid, str):
+        return jsonify({"error": "game_id required"}), 400
+    with _GAMES_LOCK:
+        GAMES.pop(gid, None)
+        remaining = len(GAMES)
+    engine_running = remaining > 0
+    return jsonify({"message": "Engine stopped and game released"})
 
 
 @app.route('/game_finished', methods=['POST'])
@@ -426,6 +540,7 @@ def reset_engine_state():
     global edge_up_white_king, edge_down_white_king
     global edge_left_white_king, edge_right_white_king
     global number_of_moves, king_move, king_move_white
+    global white_move_count, black_move_count
     global position_history, stop_event, timer_thread
     global game_moves, scores, board # Make sure board is also reset
     global white_king_row, white_king_col, black_king_row, black_king_col
@@ -469,69 +584,92 @@ def reset_engine_state():
     black_king_col = 4
     board = initialize_board() # Reset board to initial state
 
-@app.route('/move', methods=['POST'])
-def get_move():
-    if not engine_running:
-        return jsonify({'error': 'Engine is not running'}), 400
-    data = request.get_json()
-    move_notation = data.get('move')
-    color = data.get('color', 'white')
-        # Move received (removed print for performance)
 
+def _compute_engine_move_reply(move_notation, color):
+    """Run one engine reply using current module globals (board, etc.)."""
+    notation_move = None
     if move_notation:
         notation_move = move_notation.strip()
         if len(clean_move(move_notation)) == 4 and move_notation != '0-0-0':
             move_notation = convert_to_long_algebraic(clean_move(move_notation), board, color[0])
-            print("CTLA:", move_notation)
-            # Move notation (removed print for performance)
     return_move = None
+    if color == 'white':
+        if move_notation:
+            if move_notation in {'0-0', 'O-O'}:
+                players_turn_white(board, '0-0', '0-0')
+            elif move_notation in {'0-0-0', 'O-O-O'}:
+                players_turn_white(board, '0-0-0', '0-0-0')
+            else:
+                next_move = move_notation.strip()
+                players_turn_white(board, next_move, notation_move)
+        return_move = best_move_black(board, 'false', 'false')
+        if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
+            return_move = convert_long_move(return_move)
+    else:
+        if move_notation:
+            if move_notation in {'0-0', 'O-O'}:
+                players_turn(board, '0-0', '0-0')
+            elif move_notation in {'0-0-0', 'O-O-O'}:
+                players_turn(board, '0-0-0', '0-0-0')
+            else:
+                next_move = move_notation.strip()
+                players_turn(board, next_move, notation_move)
+        return_move = best_move_function(board, 'false', 'false')
+        if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
+            return_move = convert_long_move(return_move)
+    return return_move
+
+
+def _worker_move(bundle):
+    """Runs in a forked worker (Linux) so each game can search on a different CPU core."""
+    snapshot, move_notation, color = bundle
+    _restore_engine_state_from_dict(snapshot)
+    _clear_engine_caches()
+    return_move = _compute_engine_move_reply(move_notation, color)
+    return _capture_engine_state_to_dict(), return_move
+
+
+@app.route('/move', methods=['POST'])
+def get_move():
+    data = request.get_json() or {}
+    gid = data.get('game_id')
+    if not gid or not isinstance(gid, str):
+        return jsonify({'error': 'game_id required'}), 400
+    with _GAMES_LOCK:
+        if gid not in GAMES:
+            return jsonify({'error': 'Unknown or expired game_id'}), 400
+        snap = GAMES[gid]['snapshot']
+    move_notation = data.get('move')
+    color = data.get('color', 'white')
 
     try:
-        if color == 'white':
-            # Player just played as white, so engine plays as black
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
-            # Engine plays as black (moves black pieces - lowercase)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
-                return_move = convert_long_move(return_move)
-        else: # color is black
-            # Player just played as black, so engine plays as white
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
-            # Engine plays as white (moves white pieces - uppercase)
-            return_move = best_move_function(board, 'false', 'false')
-            if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'} :
-                return_move = convert_long_move(return_move)
-
-        if return_move == '0-0':
-            return jsonify({'move': 'O-O'})
-        elif return_move == '0-0-0':
-            return jsonify({'move': 'O-O-O'})
-
-        if not return_move:
-            return jsonify({'error': 'Engine failed to generate move'}), 500
-
-        return jsonify({'move': return_move})
-
+        pool = _ensure_move_pool()
+        if pool is not None:
+            new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
+        else:
+            with _INLINE_ENGINE_LOCK:
+                _restore_engine_state_from_dict(snap)
+                _clear_engine_caches()
+                return_move = _compute_engine_move_reply(move_notation, color)
+                new_snap = _capture_engine_state_to_dict()
+        with _GAMES_LOCK:
+            if gid in GAMES:
+                GAMES[gid]['snapshot'] = new_snap
+                GAMES[gid]['active_since'] = time.time()
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         print(f"ERROR in /move: {e}")
         print(f"Traceback: {error_trace}")
         return jsonify({'error': f'Exception: {str(e)}'}), 500
+
+    if return_move == '0-0':
+        return jsonify({'move': 'O-O'})
+    if return_move == '0-0-0':
+        return jsonify({'move': 'O-O-O'})
+    if not return_move:
+        return jsonify({'error': 'Engine failed to generate move'}), 500
+    return jsonify({'move': return_move})
 
 @app.route('/modifiers', methods=['POST', 'GET'])
 def update_modifiers():
@@ -558,6 +696,7 @@ def update_modifiers():
     # Modifiers affect evaluation; bump version and clear caches
     global SCORING_VERSION
     SCORING_VERSION += 1
+    _restart_move_pool_after_modifier_change()
 
     return jsonify({'message': 'Modifiers updated', 'modifiers': SCORING_MODIFIERS})
 
