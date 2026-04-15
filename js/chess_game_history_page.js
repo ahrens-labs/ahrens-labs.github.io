@@ -299,11 +299,14 @@
             outcomeClass = 'game-history-row--loss';
           }
         }
-        const tc = rec.timeControl || '—';
+        const tcLabel = formatGameHistoryTimeControlLabel(rec.timeControl);
         const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
         const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
-        const moveCountLine =
-          whiteMoveCount > 0 ? ' · ' + whiteMoveCount + ' move' + (whiteMoveCount === 1 ? '' : 's') : '';
+        const movesDisplay = whiteMoveCount > 0 ? String(whiteMoveCount) : '—';
+        const sideLabel = rec.playerColor === 'black' ? 'Black' : 'White';
+        let badgeClass = 'gh-outcome-badge--draw';
+        if (outcomeClass === 'game-history-row--win') badgeClass = 'gh-outcome-badge--win';
+        else if (outcomeClass === 'game-history-row--loss') badgeClass = 'gh-outcome-badge--loss';
         return (
           '<div class="game-history-row ' +
           outcomeClass +
@@ -320,19 +323,36 @@
           '">' +
           (isFav ? '★' : '☆') +
           '</button></div>' +
-          '<div class="game-history-row-meta"><strong>' +
+          '<div class="game-history-row-meta">' +
+          '<div class="gh-row-head">' +
+          '<span class="gh-outcome-badge ' +
+          badgeClass +
+          '">' +
           label +
-          '</strong> · ' +
-          (rec.result || '') +
-          (isFav
-            ? ' <span style="color:#d97706;font-size:0.8rem;font-weight:600;">· Favorite</span>'
-            : '') +
-          '<br><span style="color:#666;font-size:0.85rem;">' +
+          '</span>' +
+          '<span class="gh-result-chip">' +
+          (rec.result || '—') +
+          '</span>' +
+          (isFav ? '<span class="gh-fav-inline">Favorite</span>' : '') +
+          '</div>' +
+          '<div class="gh-stat-chips">' +
+          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Played</span>' +
+          '<span class="gh-stat-pill-value">' +
           ds +
-          ' · ' +
-          tc +
-          moveCountLine +
-          '</span></div>' +
+          '</span></span>' +
+          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Clock</span>' +
+          '<span class="gh-stat-pill-value">' +
+          tcLabel +
+          '</span></span>' +
+          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Moves</span>' +
+          '<span class="gh-stat-pill-value">' +
+          movesDisplay +
+          '</span></span>' +
+          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Your side</span>' +
+          '<span class="gh-stat-pill-value">' +
+          sideLabel +
+          '</span></span>' +
+          '</div></div>' +
           '<div class="game-history-row-actions">' +
           '<button type="button" class="gh-btn-export" onclick="window.exportGameHistoryRecordAt(' +
           idx +
