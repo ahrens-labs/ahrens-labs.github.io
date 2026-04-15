@@ -15213,6 +15213,8 @@
         console.log('Last move:', lastMove, 'Game turn:', game.turn());
         console.log('Sending request to engine...');
         const gid = getEngineGameId();
+        const MOVE_POLL_MS = 40;
+        const MOVE_MAX_WAIT_MS = 180000;
         const response = await fetch(`${ENGINE_BASE}/move`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -15224,10 +15226,38 @@
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const msg =
+            response.status === 503
+              ? "Engine busy (too many concurrent searches); try again shortly."
+              : `HTTP error! status: ${response.status}`;
+          throw new Error(msg);
         }
 
-        const data = await response.json();
+        const startData = await response.json();
+        let data;
+        if (response.status === 202 && startData.job_id) {
+          const deadline = Date.now() + MOVE_MAX_WAIT_MS;
+          while (Date.now() < deadline) {
+            const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, { method: "GET" });
+            const d = await pr.json().catch(() => ({}));
+            if (d.status === "done" && d.move) {
+              data = { move: d.move };
+              break;
+            }
+            if (d.status === "error" || (pr.status >= 400 && d.error)) {
+              throw new Error(d.error || `Engine error (HTTP ${pr.status})`);
+            }
+            if (d.status === "gone" || (pr.status === 404 && d.status === "gone")) {
+              throw new Error(d.error || "Move job expired or unknown.");
+            }
+            await new Promise((r) => setTimeout(r, MOVE_POLL_MS));
+          }
+          if (!data) {
+            throw new Error("Engine move timed out while waiting for result.");
+          }
+        } else {
+          data = startData;
+        }
         console.log('Engine response:', data);
         if (!data.move) {
           console.log('ERROR: No move returned from engine');

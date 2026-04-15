@@ -328,6 +328,13 @@ MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
 _MOVE_POOL = None
 _INLINE_ENGINE_LOCK = threading.Lock()  # used when fork pool is unavailable (e.g. some Windows setups)
 
+# Async move jobs: single-threaded WSGI would otherwise block the whole worker on pool.apply().
+# POST /move enqueues work and returns 202 + job_id; GET /move_result/<job_id> returns the move when ready.
+_MOVE_JOBS_LOCK = threading.Lock()
+MOVE_JOBS = {}  # job_id -> {'status': 'pending'|'done'|'error', 'created': float, 'move': str|None, 'error': str|None}
+MAX_IN_FLIGHT_MOVE_JOBS = max(24, MAX_CONCURRENT_GAMES * 6)
+_MOVE_BG_SEM = threading.Semaphore(MAX_IN_FLIGHT_MOVE_JOBS)
+
 ENGINE_STATE_KEYS = (
     'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
     'fake_castled_black',
@@ -629,19 +636,18 @@ def _worker_move(bundle):
     return _capture_engine_state_to_dict(), return_move
 
 
-@app.route('/move', methods=['POST'])
-def get_move():
-    data = request.get_json() or {}
-    gid = data.get('game_id')
-    if not gid or not isinstance(gid, str):
-        return jsonify({'error': 'game_id required'}), 400
-    with _GAMES_LOCK:
-        if gid not in GAMES:
-            return jsonify({'error': 'Unknown or expired game_id'}), 400
-        snap = GAMES[gid]['snapshot']
-    move_notation = data.get('move')
-    color = data.get('color', 'white')
+def _normalize_engine_move_for_json(return_move):
+    if return_move == '0-0':
+        return 'O-O'
+    if return_move == '0-0-0':
+        return 'O-O-O'
+    return return_move
 
+
+def _run_move_job(job_id, gid, snap, move_notation, color):
+    """Background thread: run search (pool or inline), then publish result for /move_result."""
+    err_text = None
+    out_move = None
     try:
         pool = _ensure_move_pool()
         if pool is not None:
@@ -656,20 +662,97 @@ def get_move():
             if gid in GAMES:
                 GAMES[gid]['snapshot'] = new_snap
                 GAMES[gid]['active_since'] = time.time()
+        if not return_move:
+            err_text = 'Engine failed to generate move'
+        else:
+            out_move = _normalize_engine_move_for_json(return_move)
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"ERROR in /move: {e}")
+        print(f"ERROR in move job {job_id}: {e}")
         print(f"Traceback: {error_trace}")
-        return jsonify({'error': f'Exception: {str(e)}'}), 500
+        err_text = str(e)
+    finally:
+        try:
+            _MOVE_BG_SEM.release()
+        except ValueError:
+            pass
+    with _MOVE_JOBS_LOCK:
+        rec = MOVE_JOBS.get(job_id)
+        if not rec:
+            return
+        if err_text:
+            rec['status'] = 'error'
+            rec['error'] = err_text
+        else:
+            rec['status'] = 'done'
+            rec['move'] = out_move
 
-    if return_move == '0-0':
-        return jsonify({'move': 'O-O'})
-    if return_move == '0-0-0':
-        return jsonify({'move': 'O-O-O'})
-    if not return_move:
-        return jsonify({'error': 'Engine failed to generate move'}), 500
-    return jsonify({'move': return_move})
+
+@app.route('/move', methods=['POST'])
+def get_move():
+    """Queue engine work and return immediately so other players' requests are not blocked on WSGI."""
+    data = request.get_json() or {}
+    gid = data.get('game_id')
+    if not gid or not isinstance(gid, str):
+        return jsonify({'error': 'game_id required'}), 400
+    with _GAMES_LOCK:
+        if gid not in GAMES:
+            return jsonify({'error': 'Unknown or expired game_id'}), 400
+        snap = copy.deepcopy(GAMES[gid]['snapshot'])
+    move_notation = data.get('move')
+    color = data.get('color', 'white')
+
+    if not _MOVE_BG_SEM.acquire(blocking=False):
+        return jsonify({
+            'error': 'Too many engine calculations in flight. Please retry in a moment.',
+        }), 503
+
+    job_id = str(uuid.uuid4())
+    with _MOVE_JOBS_LOCK:
+        MOVE_JOBS[job_id] = {
+            'status': 'pending',
+            'created': time.time(),
+            'move': None,
+            'error': None,
+        }
+    try:
+        t = threading.Thread(
+            target=_run_move_job,
+            args=(job_id, gid, snap, move_notation, color),
+            daemon=True,
+        )
+        t.start()
+    except Exception:
+        _MOVE_BG_SEM.release()
+        with _MOVE_JOBS_LOCK:
+            MOVE_JOBS.pop(job_id, None)
+        return jsonify({'error': 'Failed to start engine job'}), 500
+
+    return jsonify({
+        'job_id': job_id,
+        'status': 'pending',
+        'poll': '/move_result/' + job_id,
+    }), 202
+
+
+@app.route('/move_result/<job_id>', methods=['GET'])
+def move_result(job_id):
+    """Poll for the result of a POST /move job (202 flow)."""
+    if not job_id or not isinstance(job_id, str):
+        return jsonify({'error': 'job_id required'}), 400
+    with _MOVE_JOBS_LOCK:
+        rec = MOVE_JOBS.get(job_id)
+        if not rec:
+            return jsonify({'status': 'gone', 'error': 'Unknown or expired job_id'}), 404
+        st = rec['status']
+        if st == 'pending':
+            return jsonify({'status': 'pending'})
+        if st == 'error':
+            MOVE_JOBS.pop(job_id, None)
+            return jsonify({'status': 'error', 'error': rec.get('error', 'unknown')}), 500
+        MOVE_JOBS.pop(job_id, None)
+        return jsonify({'status': 'done', 'move': rec['move']})
 
 @app.route('/modifiers', methods=['POST', 'GET'])
 def update_modifiers():
