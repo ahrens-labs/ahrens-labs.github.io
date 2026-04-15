@@ -166,15 +166,30 @@
   }
 
   function timeControlGlyph(kind) {
-    if (kind === 'bullet') return '\u25cf';
+    if (kind === 'bullet') {
+      return (
+        '<svg class="gh-stat-clock-svg gh-stat-clock-svg--bullet" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+        '<g stroke="currentColor" stroke-linecap="round" opacity="0.45">' +
+        '<line x1="1" y1="9" x2="5" y2="9" stroke-width="1.6"/>' +
+        '<line x1="0" y1="12" x2="6.5" y2="12" stroke-width="2"/>' +
+        '<line x1="1" y1="15" x2="5" y2="15" stroke-width="1.6"/>' +
+        '</g>' +
+        '<rect x="7" y="7.5" width="15" height="9" rx="4.5" fill="currentColor"/>' +
+        '</svg>'
+      );
+    }
     if (kind === 'blitz') return '\u26a1';
     if (kind === 'rapid') return '\u23f1';
     if (kind === 'classical') {
       return (
         '<svg class="gh-stat-clock-svg gh-stat-clock-svg--classical" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
-        '<rect x="3" y="7" width="7" height="10" rx="1.2" fill="currentColor" opacity="0.9"/>' +
-        '<rect x="14" y="7" width="7" height="10" rx="1.2" fill="currentColor" opacity="0.9"/>' +
-        '<path d="M6.5 4.5h2M15.5 4.5h2M5 7V5.5a1 1 0 011-1h3a1 1 0 011 1V7M14 7V5.5a1 1 0 011-1h3a1 1 0 011 1V7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+        '<rect x="1.5" y="17" width="21" height="4" rx="1.75" fill="currentColor" opacity="0.92"/>' +
+        '<circle cx="8" cy="10.5" r="5.25" fill="none" stroke="currentColor" stroke-width="1.35"/>' +
+        '<line x1="8" y1="10.5" x2="8" y2="6.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
+        '<line x1="8" y1="10.5" x2="11" y2="12" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>' +
+        '<circle cx="16" cy="10.5" r="5.25" fill="none" stroke="currentColor" stroke-width="1.35"/>' +
+        '<line x1="16" y1="10.5" x2="16" y2="7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
+        '<line x1="16" y1="10.5" x2="13.2" y2="9.4" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>' +
         '</svg>'
       );
     }
