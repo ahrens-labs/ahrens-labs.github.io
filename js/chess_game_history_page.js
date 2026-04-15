@@ -304,6 +304,8 @@
         const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
         const movesDisplay = whiteMoveCount > 0 ? String(whiteMoveCount) : '—';
         const sideLabel = rec.playerColor === 'black' ? 'Black' : 'White';
+        const sidePillClass =
+          rec.playerColor === 'black' ? 'gh-stat-pill--side-black' : 'gh-stat-pill--side-white';
         let badgeClass = 'gh-outcome-badge--draw';
         if (outcomeClass === 'game-history-row--win') badgeClass = 'gh-outcome-badge--win';
         else if (outcomeClass === 'game-history-row--loss') badgeClass = 'gh-outcome-badge--loss';
@@ -336,19 +338,21 @@
           (isFav ? '<span class="gh-fav-inline">Favorite</span>' : '') +
           '</div>' +
           '<div class="gh-stat-chips">' +
-          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Played</span>' +
+          '<span class="gh-stat-pill gh-stat-pill--played"><span class="gh-stat-pill-label">Played</span>' +
           '<span class="gh-stat-pill-value">' +
           ds +
           '</span></span>' +
-          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Clock</span>' +
+          '<span class="gh-stat-pill gh-stat-pill--clock"><span class="gh-stat-pill-label">Clock</span>' +
           '<span class="gh-stat-pill-value">' +
           tcLabel +
           '</span></span>' +
-          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Moves</span>' +
+          '<span class="gh-stat-pill gh-stat-pill--moves"><span class="gh-stat-pill-label">Moves</span>' +
           '<span class="gh-stat-pill-value">' +
           movesDisplay +
           '</span></span>' +
-          '<span class="gh-stat-pill"><span class="gh-stat-pill-label">Your side</span>' +
+          '<span class="gh-stat-pill ' +
+          sidePillClass +
+          '"><span class="gh-stat-pill-label">Your side</span>' +
           '<span class="gh-stat-pill-value">' +
           sideLabel +
           '</span></span>' +
