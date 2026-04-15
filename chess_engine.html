@@ -5943,6 +5943,12 @@
       capturedBishops: 0,
       capturedKnights: 0,
       capturedPawns: 0,
+      // Your pieces lost (victim type) when the opponent captures; per-game only (not merged to lifetime)
+      lostQueens: 0,
+      lostRooks: 0,
+      lostBishops: 0,
+      lostKnights: 0,
+      lostPawns: 0,
       // Random achievement tracking
       movesToE4: 0,
       movesToD4: 0,
@@ -6014,6 +6020,11 @@
         capturedBishops: 0,
         capturedKnights: 0,
         capturedPawns: 0,
+        lostQueens: 0,
+        lostRooks: 0,
+        lostBishops: 0,
+        lostKnights: 0,
+        lostPawns: 0,
         movesToE4: 0,
         movesToD4: 0,
         movesToE5: 0,
@@ -6096,6 +6107,7 @@
     }
     
     function trackWinStats(moveCount, checkmatePiece = null) {
+      gameStats._isWinGameEnd = true;
       // Track wins by time control
       if (currentTimeControl && lifetimeStats.winsByTimeControl) {
         if (!lifetimeStats.winsByTimeControl[currentTimeControl]) {
@@ -6173,9 +6185,9 @@
       }
       
       // Track perfect games (no pieces lost)
-      const totalLost = (gameStats.capturedQueens || 0) + (gameStats.capturedRooks || 0) + 
-                       (gameStats.capturedBishops || 0) + (gameStats.capturedKnights || 0) + 
-                       (gameStats.capturedPawns || 0);
+      const totalLost = (gameStats.lostQueens || 0) + (gameStats.lostRooks || 0) +
+                       (gameStats.lostBishops || 0) + (gameStats.lostKnights || 0) +
+                       (gameStats.lostPawns || 0);
       if (totalLost === 0) {
         lifetimeStats.perfectGames = (lifetimeStats.perfectGames || 0) + 1;
         // Track perfect wins for daily challenge
@@ -6185,7 +6197,7 @@
       }
       
       // Track queen sacrifice wins (if we lost a queen but still won)
-      if (gameStats.capturedQueens > 0 && lifetimeStats.dailyStats) {
+      if (gameStats.lostQueens > 0 && lifetimeStats.dailyStats) {
         lifetimeStats.dailyStats.queenSacrificeWinsToday = (lifetimeStats.dailyStats.queenSacrificeWinsToday || 0) + 1;
       }
       
@@ -6281,12 +6293,12 @@
         console.error('Error tracking opening:', e);
       }
       
-      // Comeback wins (lifetime): opponent net-captured 5+ more points than you this game
-      const _oppCap = (gameStats.capturedQueens || 0) * 9 + (gameStats.capturedRooks || 0) * 5 +
+      // Comeback wins (lifetime): opponent took 5+ more points of material from you than you took from them (exchange)
+      const materialWeLost = (gameStats.lostQueens || 0) * 9 + (gameStats.lostRooks || 0) * 5 +
+        (gameStats.lostBishops || 0) * 3 + (gameStats.lostKnights || 0) * 3 + (gameStats.lostPawns || 0);
+      const materialWeCaptured = (gameStats.capturedQueens || 0) * 9 + (gameStats.capturedRooks || 0) * 5 +
         (gameStats.capturedBishops || 0) * 3 + (gameStats.capturedKnights || 0) * 3 + (gameStats.capturedPawns || 0);
-      const _plCap = (gameStats.capturesByQueen || 0) * 9 + (gameStats.capturesByRook || 0) * 5 +
-        (gameStats.capturesByBishop || 0) * 3 + (gameStats.capturesByKnight || 0) * 3 + (gameStats.capturesByPawn || 0);
-      if (_oppCap - _plCap >= 5) {
+      if (materialWeLost - materialWeCaptured >= 5) {
         lifetimeStats.comebackWins = (lifetimeStats.comebackWins || 0) + 1;
       }
 
@@ -6447,7 +6459,7 @@
           lifetimeStats.creativeRookBatteryWins = (lifetimeStats.creativeRookBatteryWins || 0) + 1;
         }
       }
-      if (gameStats.capturedQueens > 0) {
+      if (gameStats.lostQueens > 0) {
         lifetimeStats.creativeQueenDownWins = (lifetimeStats.creativeQueenDownWins || 0) + 1;
       }
       
@@ -6506,6 +6518,9 @@
             });
           }
         } else if (typeof gameStats[key] === 'number') {
+          if (key === 'lostQueens' || key === 'lostRooks' || key === 'lostBishops' || key === 'lostKnights' || key === 'lostPawns') {
+            return;
+          }
           lifetimeStats[key] = (lifetimeStats[key] || 0) + gameStats[key];
           // Note: promotionsToday and castlingToday are already tracked per-move in gameStats.dailyStats
           // They will be added separately below, so we don't double-count here
@@ -6530,17 +6545,12 @@
         lifetimeStats.dailyStats.underpromotionsToday = (lifetimeStats.dailyStats.underpromotionsToday || 0) + 1;
       }
       
-      // Track comeback wins (win after being down 5+ material at some point)
-      // Check if we won and had negative material difference at any point
-      // Simplified: if we won and opponent captured more valuable pieces than us
-      const opponentCapturedValue = (gameStats.capturedQueens || 0) * 9 + (gameStats.capturedRooks || 0) * 5 + 
-                                    (gameStats.capturedBishops || 0) * 3 + (gameStats.capturedKnights || 0) * 3 + 
-                                    (gameStats.capturedPawns || 0) * 1;
-      const playerCapturedValue = (gameStats.capturesByQueen || 0) * 9 + (gameStats.capturesByRook || 0) * 5 + 
-                                  (gameStats.capturesByBishop || 0) * 3 + (gameStats.capturesByKnight || 0) * 3 + 
-                                  (gameStats.capturesByPawn || 0) * 1;
-      // If opponent captured 5+ more points worth of material, it's a comeback
-      if (opponentCapturedValue - playerCapturedValue >= 5 && lifetimeStats.dailyStats) {
+      // Daily comeback tally: only wins; net exchange down 5+ (same rule as lifetime comebackWins in trackWinStats)
+      const materialWeLostDaily = (gameStats.lostQueens || 0) * 9 + (gameStats.lostRooks || 0) * 5 +
+        (gameStats.lostBishops || 0) * 3 + (gameStats.lostKnights || 0) * 3 + (gameStats.lostPawns || 0);
+      const materialWeCapturedDaily = (gameStats.capturedQueens || 0) * 9 + (gameStats.capturedRooks || 0) * 5 +
+        (gameStats.capturedBishops || 0) * 3 + (gameStats.capturedKnights || 0) * 3 + (gameStats.capturedPawns || 0);
+      if (gameStats._isWinGameEnd && materialWeLostDaily - materialWeCapturedDaily >= 5 && lifetimeStats.dailyStats) {
         lifetimeStats.dailyStats.comebackWinsToday = (lifetimeStats.dailyStats.comebackWinsToday || 0) + 1;
       }
       
@@ -10149,39 +10159,60 @@
           capturedPieces.black.push(capturedPieceCode);
         }
         
-        // Track captures by piece type for achievements (only player's captures)
+        // Track captures for achievements (only player's captures)
         if (isPlayerMove) {
           gameStats.totalCaptures++;
           
-          const pieceType = move.captured.toLowerCase();
-          if (pieceType === 'q') {
-            gameStats.capturesByQueen++;
-            // Also track that we captured a queen
+          const victimType = move.captured.toLowerCase();
+          if (victimType === 'q') {
             gameStats.capturedQueens++;
-          } else if (pieceType === 'r') {
-            gameStats.capturesByRook++;
+          } else if (victimType === 'r') {
             gameStats.capturedRooks++;
-          } else if (pieceType === 'b') {
-            gameStats.capturesByBishop++;
+          } else if (victimType === 'b') {
             gameStats.capturedBishops++;
-          } else if (pieceType === 'n') {
-            gameStats.capturesByKnight++;
+          } else if (victimType === 'n') {
             gameStats.capturedKnights++;
-          } else if (pieceType === 'p') {
-            gameStats.capturesByPawn++;
+          } else if (victimType === 'p') {
             gameStats.capturedPawns++;
           }
+          const moverType = move.piece ? String(move.piece).toLowerCase() : '';
+          if (moverType === 'q') {
+            gameStats.capturesByQueen++;
+          } else if (moverType === 'r') {
+            gameStats.capturesByRook++;
+          } else if (moverType === 'b') {
+            gameStats.capturesByBishop++;
+          } else if (moverType === 'n') {
+            gameStats.capturesByKnight++;
+          } else if (moverType === 'p') {
+            gameStats.capturesByPawn++;
+          }
           // Track captured piece types for daily challenge
-          if (gameStats.dailyStats && !gameStats.dailyStats.capturedPieceTypes.includes(pieceType)) {
-            gameStats.dailyStats.capturedPieceTypes.push(pieceType);
+          if (gameStats.dailyStats && !gameStats.dailyStats.capturedPieceTypes.includes(victimType)) {
+            gameStats.dailyStats.capturedPieceTypes.push(victimType);
           }
           if (gameStats.dailyStats) {
             if (!gameStats.dailyStats.playerCapturesByType) {
               gameStats.dailyStats.playerCapturesByType = { p: 0, n: 0, b: 0, r: 0, q: 0 };
             }
-            if (pieceType === 'p' || pieceType === 'n' || pieceType === 'b' || pieceType === 'r' || pieceType === 'q') {
-              gameStats.dailyStats.playerCapturesByType[pieceType]++;
+            if (victimType === 'p' || victimType === 'n' || victimType === 'b' || victimType === 'r' || victimType === 'q') {
+              gameStats.dailyStats.playerCapturesByType[victimType]++;
             }
+          }
+        }
+        
+        if (isOpponentMove && move.captured) {
+          const lostType = move.captured.toLowerCase();
+          if (lostType === 'q') {
+            gameStats.lostQueens++;
+          } else if (lostType === 'r') {
+            gameStats.lostRooks++;
+          } else if (lostType === 'b') {
+            gameStats.lostBishops++;
+          } else if (lostType === 'n') {
+            gameStats.lostKnights++;
+          } else if (lostType === 'p') {
+            gameStats.lostPawns++;
           }
         }
         
