@@ -183,13 +183,8 @@
     if (kind === 'classical') {
       return (
         '<svg class="gh-stat-clock-svg gh-stat-clock-svg--classical" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
-        '<rect x="1.5" y="17" width="21" height="4" rx="1.75" fill="currentColor" opacity="0.92"/>' +
-        '<circle cx="8" cy="10.5" r="5.25" fill="none" stroke="currentColor" stroke-width="1.35"/>' +
-        '<line x1="8" y1="10.5" x2="8" y2="6.75" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
-        '<line x1="8" y1="10.5" x2="11" y2="12" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>' +
-        '<circle cx="16" cy="10.5" r="5.25" fill="none" stroke="currentColor" stroke-width="1.35"/>' +
-        '<line x1="16" y1="10.5" x2="16" y2="7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>' +
-        '<line x1="16" y1="10.5" x2="13.2" y2="9.4" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/>' +
+        '<path fill="none" stroke="currentColor" stroke-width="1.65" stroke-linejoin="round" stroke-linecap="round" d="M6 3.5H18L12 12L18 20.5H6L12 12L6 3.5z"/>' +
+        '<line x1="9.5" y1="12" x2="14.5" y2="12" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" opacity="0.4"/>' +
         '</svg>'
       );
     }
