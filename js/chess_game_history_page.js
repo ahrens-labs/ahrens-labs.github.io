@@ -155,6 +155,32 @@
     return found ? found.name : v;
   }
 
+  /** bullet | blitz | rapid | classical — matches chess_engine shop ids */
+  function timeControlCategory(tc) {
+    const v = tc == null || tc === '' ? 'none' : String(tc);
+    if (v === '60') return 'bullet';
+    if (v === '180|2' || v === '300|0') return 'blitz';
+    if (v === '600|0' || v === '900|5') return 'rapid';
+    if (v === '3600|0' || v === 'none') return 'classical';
+    return 'classical';
+  }
+
+  function timeControlGlyph(kind) {
+    if (kind === 'bullet') return '\u25cf';
+    if (kind === 'blitz') return '\u26a1';
+    if (kind === 'rapid') return '\u23f1';
+    if (kind === 'classical') {
+      return (
+        '<svg class="gh-stat-clock-svg gh-stat-clock-svg--classical" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+        '<rect x="3" y="7" width="7" height="10" rx="1.2" fill="currentColor" opacity="0.9"/>' +
+        '<rect x="14" y="7" width="7" height="10" rx="1.2" fill="currentColor" opacity="0.9"/>' +
+        '<path d="M6.5 4.5h2M15.5 4.5h2M5 7V5.5a1 1 0 011-1h3a1 1 0 011 1V7M14 7V5.5a1 1 0 011-1h3a1 1 0 011 1V7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+        '</svg>'
+      );
+    }
+    return '\u23f1';
+  }
+
   function gameHistoryRecordDateKey(rec) {
     if (!rec || !rec.savedAt) return '';
     const s = String(rec.savedAt);
@@ -300,6 +326,8 @@
           }
         }
         const tcLabel = formatGameHistoryTimeControlLabel(rec.timeControl);
+        const tcCat = timeControlCategory(rec.timeControl);
+        const tcGlyph = timeControlGlyph(tcCat);
         const plyCount = Array.isArray(rec.historySan) ? rec.historySan.length : 0;
         const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
         const movesDisplay = whiteMoveCount > 0 ? String(whiteMoveCount) : '—';
@@ -345,10 +373,16 @@
           '<span class="gh-stat-played-value">' +
           ds +
           '</span></div></div>' +
-          '<div class="gh-stat gh-stat--clock" role="group" aria-label="Time control">' +
-          '<span class="gh-stat-clock-glyph" aria-hidden="true">⏱</span>' +
+          '<div class="gh-stat gh-stat--clock gh-stat-clock--' +
+          tcCat +
+          '" role="group" aria-label="Time control">' +
+          '<span class="gh-stat-clock-glyph gh-stat-clock-glyph--' +
+          tcCat +
+          '" aria-hidden="true">' +
+          tcGlyph +
+          '</span>' +
           '<div class="gh-stat-clock-lines">' +
-          '<span class="gh-stat-clock-label">Clock</span>' +
+          '<span class="gh-stat-clock-label">Time Control</span>' +
           '<span class="gh-stat-clock-value">' +
           tcLabel +
           '</span></div></div>' +

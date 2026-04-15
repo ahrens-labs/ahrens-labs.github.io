@@ -222,13 +222,19 @@
       gap: 10px;
       padding: 10px 14px;
       border-radius: 999px;
-      background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
-      border: 1px solid rgba(245, 158, 11, 0.45);
+      border: 1px solid transparent;
     }
     .gh-stat-clock-glyph {
-      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       line-height: 1;
       flex-shrink: 0;
+    }
+    .gh-stat-clock-svg {
+      display: block;
+      width: 1.85rem;
+      height: 1.85rem;
     }
     .gh-stat-clock-lines {
       display: flex;
@@ -241,14 +247,70 @@
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      color: #d97706;
     }
     .gh-stat-clock-value {
       font-size: 0.88rem;
       font-weight: 700;
-      color: #92400e;
       line-height: 1.25;
       word-break: break-word;
+    }
+    /* Bullet — brown */
+    .gh-stat-clock--bullet {
+      background: linear-gradient(180deg, #faf5f0 0%, #fde8d4 100%);
+      border-color: rgba(120, 53, 15, 0.4);
+    }
+    .gh-stat-clock--bullet .gh-stat-clock-label {
+      color: #92400e;
+    }
+    .gh-stat-clock--bullet .gh-stat-clock-value {
+      color: #451a03;
+    }
+    .gh-stat-clock-glyph--bullet {
+      color: #92400e;
+      font-size: 1.2rem;
+    }
+    /* Blitz — lightning */
+    .gh-stat-clock--blitz {
+      background: linear-gradient(180deg, #fffbeb 0%, #fef9c3 100%);
+      border-color: rgba(234, 179, 8, 0.5);
+    }
+    .gh-stat-clock--blitz .gh-stat-clock-label {
+      color: #b45309;
+    }
+    .gh-stat-clock--blitz .gh-stat-clock-value {
+      color: #78350f;
+    }
+    .gh-stat-clock-glyph--blitz {
+      font-size: 1.35rem;
+    }
+    /* Rapid — green clock */
+    .gh-stat-clock--rapid {
+      background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+    .gh-stat-clock--rapid .gh-stat-clock-label {
+      color: #047857;
+    }
+    .gh-stat-clock--rapid .gh-stat-clock-value {
+      color: #064e3b;
+    }
+    .gh-stat-clock-glyph--rapid {
+      color: #059669;
+      font-size: 1.3rem;
+    }
+    /* Classical / none — blue chess-clock icon */
+    .gh-stat-clock--classical {
+      background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+      border-color: rgba(59, 130, 246, 0.45);
+    }
+    .gh-stat-clock--classical .gh-stat-clock-label {
+      color: #1d4ed8;
+    }
+    .gh-stat-clock--classical .gh-stat-clock-value {
+      color: #1e3a8a;
+    }
+    .gh-stat-clock-svg--classical {
+      color: #2563eb;
     }
     /* Moves — centered KPI number */
     .gh-stat--moves {
