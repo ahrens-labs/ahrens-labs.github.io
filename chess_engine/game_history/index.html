@@ -71,21 +71,21 @@
     #game-history-list {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 10px;
     }
     .game-history-row {
       display: flex;
       flex-wrap: wrap;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
-      padding: 16px 18px;
+      gap: 8px;
+      padding: 10px 12px;
       background: #fff;
       border: 1px solid #dbe2ea;
-      border-radius: 14px;
+      border-radius: 11px;
       font-family: "Inter", sans-serif;
-      font-size: 0.9rem;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 20px rgba(15, 23, 42, 0.06);
+      font-size: 0.86rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 14px rgba(15, 23, 42, 0.05);
     }
     .game-history-row.game-history-row--win {
       border-left: 4px solid #27ae60;
@@ -101,23 +101,23 @@
     }
     .game-history-row-meta {
       flex: 1;
-      min-width: 180px;
+      min-width: 160px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 7px;
     }
     .gh-row-head {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px 12px;
+      gap: 6px 8px;
     }
     .gh-outcome-badge {
       display: inline-flex;
       align-items: center;
-      padding: 7px 12px;
+      padding: 4px 10px;
       border-radius: 999px;
-      font-size: 0.95rem;
+      font-size: 0.86rem;
       font-weight: 600;
       letter-spacing: 0.01em;
       line-height: 1.2;
@@ -141,10 +141,10 @@
     .gh-result-chip {
       display: inline-flex;
       align-items: center;
-      padding: 5px 10px;
-      border-radius: 8px;
+      padding: 3px 8px;
+      border-radius: 6px;
       font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      font-size: 0.88rem;
+      font-size: 0.8rem;
       font-weight: 600;
       background: #f8fafc;
       color: #1e293b;
@@ -164,11 +164,11 @@
     .gh-stat-chips {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 12px;
+      gap: 6px;
+      padding: 7px;
       background: #f8fafc;
       border: 1px solid #e8edf3;
-      border-radius: 10px;
+      border-radius: 8px;
       align-items: stretch;
     }
     @media (max-width: 520px) {
@@ -181,14 +181,14 @@
       grid-column: 1 / -1;
       display: flex;
       align-items: stretch;
-      min-height: 3.1rem;
+      min-height: 2.35rem;
       background: #fff;
-      border-radius: 8px;
+      border-radius: 7px;
       border: 1px solid #dce7f2;
       overflow: hidden;
     }
     .gh-stat-played-rail {
-      width: 5px;
+      width: 4px;
       flex-shrink: 0;
       background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
     }
@@ -196,8 +196,8 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 3px;
-      padding: 9px 12px;
+      gap: 1px;
+      padding: 5px 9px;
       min-width: 0;
     }
     .gh-stat-played-label {
@@ -208,10 +208,10 @@
       color: #2563eb;
     }
     .gh-stat-played-value {
-      font-size: 0.94rem;
+      font-size: 0.84rem;
       font-weight: 600;
       color: #1e3a8a;
-      line-height: 1.35;
+      line-height: 1.3;
       word-break: break-word;
     }
     /* Clock — horizontal capsule with icon */
@@ -219,8 +219,8 @@
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
+      gap: 6px;
+      padding: 5px 10px;
       border-radius: 999px;
       border: 1px solid transparent;
     }
@@ -233,8 +233,8 @@
     }
     .gh-stat-clock-svg {
       display: block;
-      width: 1.85rem;
-      height: 1.85rem;
+      width: 1.4rem;
+      height: 1.4rem;
       flex-shrink: 0;
     }
     .gh-stat-clock-lines {
@@ -250,9 +250,9 @@
       text-transform: uppercase;
     }
     .gh-stat-clock-value {
-      font-size: 0.88rem;
+      font-size: 0.8rem;
       font-weight: 700;
-      line-height: 1.25;
+      line-height: 1.2;
       word-break: break-word;
     }
     /* Bullet — brown */
@@ -284,7 +284,7 @@
       color: #78350f;
     }
     .gh-stat-clock-glyph--blitz {
-      font-size: 1.35rem;
+      font-size: 1.15rem;
     }
     /* Rapid — green clock */
     .gh-stat-clock--rapid {
@@ -299,7 +299,7 @@
     }
     .gh-stat-clock-glyph--rapid {
       color: #059669;
-      font-size: 1.3rem;
+      font-size: 1.12rem;
     }
     /* Classical / none — hourglass (long / thoughtful time) */
     .gh-stat-clock--classical {
@@ -321,25 +321,25 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 10px 8px;
-      border-radius: 10px;
+      padding: 5px 5px;
+      border-radius: 8px;
       background: #faf5ff;
       border: 1px dashed rgba(124, 58, 237, 0.45);
-      min-height: 5.25rem;
+      min-height: 2.85rem;
     }
     .gh-stat-moves-value {
-      font-size: 1.75rem;
+      font-size: 1.28rem;
       font-weight: 800;
       line-height: 1;
       color: #6d28d9;
       letter-spacing: -0.03em;
     }
     .gh-stat-moves-caption {
-      margin-top: 6px;
-      font-size: 0.62rem;
+      margin-top: 2px;
+      font-size: 0.58rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.07em;
+      letter-spacing: 0.06em;
       color: #7c3aed;
     }
     /* Your side — full-width bar + swatch */
@@ -348,14 +348,14 @@
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: 8px;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 7px;
     }
     .gh-stat-side-swatch {
-      width: 30px;
-      height: 30px;
-      border-radius: 7px;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
       flex-shrink: 0;
     }
     .gh-stat-side-text {
@@ -371,7 +371,7 @@
       text-transform: uppercase;
     }
     .gh-stat-side-value {
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 700;
       line-height: 1.2;
     }
@@ -410,14 +410,14 @@
       align-self: flex-start;
     }
     .gh-btn-favorite {
-      width: 40px;
-      height: 40px;
+      width: 34px;
+      height: 34px;
       padding: 0;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #f1f5f9;
       color: #94a3b8;
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       line-height: 1;
       cursor: pointer;
       font-family: inherit;
@@ -465,15 +465,16 @@
     .game-history-row-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
+      align-self: center;
     }
     .game-history-row-actions button {
-      padding: 8px 12px;
+      padding: 6px 10px;
       border: none;
-      border-radius: 8px;
+      border-radius: 7px;
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       font-family: inherit;
     }
     .gh-btn-export {
