@@ -162,85 +162,183 @@
       border: 1px solid #fcd34d;
     }
     .gh-stat-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px;
       background: #f8fafc;
       border: 1px solid #e8edf3;
       border-radius: 10px;
+      align-items: stretch;
     }
-    .gh-stat-pill {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 3px;
-      padding: 8px 11px;
-      min-width: 5.5rem;
-      border-radius: 8px;
-      border: 1px solid rgba(148, 163, 184, 0.45);
+    @media (max-width: 520px) {
+      .gh-stat-chips {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* Played — full-width strip with colored rail */
+    .gh-stat--played {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: stretch;
+      min-height: 3.1rem;
       background: #fff;
+      border-radius: 8px;
+      border: 1px solid #dce7f2;
+      overflow: hidden;
     }
-    .gh-stat-pill-label {
+    .gh-stat-played-rail {
+      width: 5px;
+      flex-shrink: 0;
+      background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+    }
+    .gh-stat-played-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      padding: 9px 12px;
+      min-width: 0;
+    }
+    .gh-stat-played-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #2563eb;
+    }
+    .gh-stat-played-value {
+      font-size: 0.94rem;
+      font-weight: 600;
+      color: #1e3a8a;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    /* Clock — horizontal capsule with icon */
+    .gh-stat--clock {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+    .gh-stat-clock-glyph {
+      font-size: 1.2rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .gh-stat-clock-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .gh-stat-clock-label {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #d97706;
+    }
+    .gh-stat-clock-value {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #92400e;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    /* Moves — centered KPI number */
+    .gh-stat--moves {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 8px;
+      border-radius: 10px;
+      background: #faf5ff;
+      border: 1px dashed rgba(124, 58, 237, 0.45);
+      min-height: 5.25rem;
+    }
+    .gh-stat-moves-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1;
+      color: #6d28d9;
+      letter-spacing: -0.03em;
+    }
+    .gh-stat-moves-caption {
+      margin-top: 6px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #7c3aed;
+    }
+    /* Your side — full-width bar + swatch */
+    .gh-stat--side {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+    }
+    .gh-stat-side-swatch {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      flex-shrink: 0;
+    }
+    .gh-stat-side-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .gh-stat-side-label {
       font-size: 0.62rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    .gh-stat-pill-value {
-      font-size: 0.92rem;
-      font-weight: 600;
-      line-height: 1.3;
-      word-break: break-word;
+    .gh-stat-side-value {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.2;
     }
-    .gh-stat-pill--played {
-      background: #eff6ff;
-      border-color: rgba(59, 130, 246, 0.35);
+    .gh-stat-side--white {
+      background: #fff;
+      border: 1px solid #cbd5e1;
     }
-    .gh-stat-pill--played .gh-stat-pill-label {
-      color: #3b82f6;
+    .gh-stat-side--white .gh-stat-side-swatch {
+      background: linear-gradient(145deg, #ffffff, #e2e8f0);
+      border: 2px solid #94a3b8;
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9);
     }
-    .gh-stat-pill--played .gh-stat-pill-value {
-      color: #1e3a8a;
-    }
-    .gh-stat-pill--clock {
-      background: #fffbeb;
-      border-color: rgba(245, 158, 11, 0.4);
-    }
-    .gh-stat-pill--clock .gh-stat-pill-label {
-      color: #d97706;
-    }
-    .gh-stat-pill--clock .gh-stat-pill-value {
-      color: #78350f;
-    }
-    .gh-stat-pill--moves {
-      background: #f5f3ff;
-      border-color: rgba(139, 92, 246, 0.35);
-    }
-    .gh-stat-pill--moves .gh-stat-pill-label {
-      color: #7c3aed;
-    }
-    .gh-stat-pill--moves .gh-stat-pill-value {
-      color: #4c1d95;
-    }
-    .gh-stat-pill--side-white {
-      background: #f8fafc;
-      border-color: rgba(71, 85, 105, 0.35);
-    }
-    .gh-stat-pill--side-white .gh-stat-pill-label {
+    .gh-stat-side--white .gh-stat-side-label {
       color: #64748b;
     }
-    .gh-stat-pill--side-white .gh-stat-pill-value {
+    .gh-stat-side--white .gh-stat-side-value {
       color: #0f172a;
     }
-    .gh-stat-pill--side-black {
+    .gh-stat-side--black {
       background: #1e293b;
-      border-color: #334155;
+      border: 1px solid #334155;
     }
-    .gh-stat-pill--side-black .gh-stat-pill-label {
+    .gh-stat-side--black .gh-stat-side-swatch {
+      background: linear-gradient(145deg, #334155, #0f172a);
+      border: 2px solid #020617;
+      box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.35);
+    }
+    .gh-stat-side--black .gh-stat-side-label {
       color: #94a3b8;
     }
-    .gh-stat-pill--side-black .gh-stat-pill-value {
-      color: #f1f5f9;
+    .gh-stat-side--black .gh-stat-side-value {
+      color: #f8fafc;
     }
     .game-history-row-fav {
       flex-shrink: 0;

@@ -304,8 +304,8 @@
         const whiteMoveCount = plyCount > 0 ? Math.ceil(plyCount / 2) : 0;
         const movesDisplay = whiteMoveCount > 0 ? String(whiteMoveCount) : '—';
         const sideLabel = rec.playerColor === 'black' ? 'Black' : 'White';
-        const sidePillClass =
-          rec.playerColor === 'black' ? 'gh-stat-pill--side-black' : 'gh-stat-pill--side-white';
+        const sideStatClass =
+          rec.playerColor === 'black' ? 'gh-stat-side--black' : 'gh-stat-side--white';
         let badgeClass = 'gh-outcome-badge--draw';
         if (outcomeClass === 'game-history-row--win') badgeClass = 'gh-outcome-badge--win';
         else if (outcomeClass === 'game-history-row--loss') badgeClass = 'gh-outcome-badge--loss';
@@ -338,24 +338,34 @@
           (isFav ? '<span class="gh-fav-inline">Favorite</span>' : '') +
           '</div>' +
           '<div class="gh-stat-chips">' +
-          '<span class="gh-stat-pill gh-stat-pill--played"><span class="gh-stat-pill-label">Played</span>' +
-          '<span class="gh-stat-pill-value">' +
+          '<div class="gh-stat gh-stat--played" role="group" aria-label="When played">' +
+          '<span class="gh-stat-played-rail" aria-hidden="true"></span>' +
+          '<div class="gh-stat-played-text">' +
+          '<span class="gh-stat-played-label">Played</span>' +
+          '<span class="gh-stat-played-value">' +
           ds +
-          '</span></span>' +
-          '<span class="gh-stat-pill gh-stat-pill--clock"><span class="gh-stat-pill-label">Clock</span>' +
-          '<span class="gh-stat-pill-value">' +
+          '</span></div></div>' +
+          '<div class="gh-stat gh-stat--clock" role="group" aria-label="Time control">' +
+          '<span class="gh-stat-clock-glyph" aria-hidden="true">⏱</span>' +
+          '<div class="gh-stat-clock-lines">' +
+          '<span class="gh-stat-clock-label">Clock</span>' +
+          '<span class="gh-stat-clock-value">' +
           tcLabel +
-          '</span></span>' +
-          '<span class="gh-stat-pill gh-stat-pill--moves"><span class="gh-stat-pill-label">Moves</span>' +
-          '<span class="gh-stat-pill-value">' +
+          '</span></div></div>' +
+          '<div class="gh-stat gh-stat--moves" role="group" aria-label="Move count">' +
+          '<span class="gh-stat-moves-value">' +
           movesDisplay +
-          '</span></span>' +
-          '<span class="gh-stat-pill ' +
-          sidePillClass +
-          '"><span class="gh-stat-pill-label">Your side</span>' +
-          '<span class="gh-stat-pill-value">' +
+          '</span>' +
+          '<span class="gh-stat-moves-caption">full moves</span></div>' +
+          '<div class="gh-stat gh-stat--side ' +
+          sideStatClass +
+          '" role="group" aria-label="Your side">' +
+          '<span class="gh-stat-side-swatch" aria-hidden="true"></span>' +
+          '<div class="gh-stat-side-text">' +
+          '<span class="gh-stat-side-label">Your side</span>' +
+          '<span class="gh-stat-side-value">' +
           sideLabel +
-          '</span></span>' +
+          '</span></div></div>' +
           '</div></div>' +
           '<div class="game-history-row-actions">' +
           '<button type="button" class="gh-btn-export" onclick="window.exportGameHistoryRecordAt(' +
