@@ -6904,11 +6904,15 @@
     });
 
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
-    function releaseEngineOnGameEnd() {
+    async function releaseEngineOnGameEnd() {
       stopHeartbeat();
       clearEngineLockHolderSession();
-      sendEngineCommand('stop').catch(() => {});
-      checkEngineStatus();
+      try {
+        await sendEngineCommand('stop');
+      } catch (e) {
+        /* still refresh occupancy so UI can recover */
+      }
+      await checkEngineStatus();
     }
 
     /** Log result on the Python server (prints USERNAME beat/lost to TrifangX + SAN moves). */
