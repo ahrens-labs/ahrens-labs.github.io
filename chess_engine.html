@@ -2990,6 +2990,55 @@
       }
     }
 
+    @keyframes balloon-rise {
+      to {
+        transform: translateY(calc(-100vh - 100px));
+      }
+    }
+
+    @keyframes heart-rise {
+      to {
+        transform: translateY(calc(-100vh - 40px)) translateX(var(--heart-drift, 0px));
+        opacity: 0;
+      }
+    }
+
+    @keyframes ribbon-fall {
+      from {
+        opacity: 0.88;
+        transform: translateY(0) translateX(0) rotate(var(--rib-rot, 0deg));
+      }
+      to {
+        transform: translateY(110vh) translateX(var(--ribbon-drift, 0px)) rotate(calc(var(--rib-rot, 0deg) + 720deg));
+        opacity: 0.2;
+      }
+    }
+
+    @keyframes meteor-dash {
+      from {
+        opacity: 1;
+        transform: rotate(var(--mr, 35deg)) translate(0, 0);
+      }
+      to {
+        opacity: 0;
+        transform: rotate(var(--mr, 35deg)) translate(var(--mx, 360px), var(--my, 420px));
+      }
+    }
+
+    @keyframes spotlight-spin {
+      0% {
+        opacity: 0;
+        transform: rotate(-12deg) scale(1.08);
+      }
+      25% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0;
+        transform: rotate(18deg) scale(1);
+      }
+    }
+
     @keyframes screenFlash {
       0%, 100% { opacity: 0; }
       10% { opacity: 0.3; }
@@ -5800,7 +5849,14 @@
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 750, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
         { id: 'fireworks', name: 'Fireworks', price: 1250, preview: '🎆', coolness: 8, description: 'Firework add-on' },
-        { id: 'pulse', name: 'Pulse', price: 400, preview: '💓', coolness: 3, description: 'Pulse add-on' }
+        { id: 'pulse', name: 'Pulse', price: 400, preview: '💓', coolness: 3, description: 'Pulse add-on' },
+        { id: 'sparkles', name: 'Starfall', price: 900, preview: '✨', coolness: 6, description: 'Twinkling stars across the screen' },
+        { id: 'balloons', name: 'Balloons', price: 1100, preview: '🎈', coolness: 7, description: 'Balloons float up on a win' },
+        { id: 'spotlight', name: 'Spotlight', price: 1350, preview: '🔦', coolness: 7, description: 'Sweeping stage lights' },
+        { id: 'hearts', name: 'Hearts', price: 800, preview: '❤️', coolness: 5, description: 'Floating hearts' },
+        { id: 'meteors', name: 'Meteors', price: 1600, preview: '☄️', coolness: 8, description: 'Shooting streaks' },
+        { id: 'ribbons', name: 'Streamers', price: 1000, preview: '🎀', coolness: 6, description: 'Colorful streamers' },
+        { id: 'shockwave', name: 'Shockwave', price: 1250, preview: '💫', coolness: 7, description: 'Expanding rings from the board' }
       ],
       timeControls: [
         { id: 'none', name: 'None', price: 0, preview: '⏸️', coolness: 1, description: 'No time limit' },
@@ -10484,6 +10540,102 @@
           setTimeout(() => { boardEl.style.animation = ''; boardEl.style.boxShadow = ''; }, 5000);
         }
       }
+
+      // Same purchasable celebration add-ons as checkmate (warm palette where it fits)
+      if (addons.includes('sparkles')) {
+        for (let i = 0; i < 70; i++) {
+          setTimeout(() => {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
+            sparkle.style.left = (Math.random() * window.innerWidth) + 'px';
+            sparkle.style.top = (Math.random() * window.innerHeight * 0.55) + 'px';
+            sparkle.style.width = (12 + Math.random() * 18) + 'px';
+            sparkle.style.height = sparkle.style.width;
+            sparkle.style.animation = 'sparkle ' + (0.5 + Math.random() * 0.8) + 's ease-out forwards';
+            document.body.appendChild(sparkle);
+            setTimeout(() => sparkle.remove(), 1500);
+          }, i * 22);
+        }
+      }
+      if (addons.includes('balloons')) {
+        const colors = ['#f39c12', '#e67e22', '#f1c40f', '#d35400', '#f7dc6f', '#e59866'];
+        for (let i = 0; i < 24; i++) {
+          setTimeout(() => {
+            const b = document.createElement('div');
+            const w = 26 + Math.random() * 20;
+            b.style.cssText = 'position:fixed;left:' + (Math.random() * 92 + 4) + 'vw;bottom:-50px;width:' + w + 'px;height:' + (w * 1.25) + 'px;border-radius:50% 50% 50% 50%/55% 55% 45% 45%;background:' + colors[i % colors.length] + ';opacity:0.93;z-index:9996;pointer-events:none;box-shadow:inset -5px -10px rgba(0,0,0,0.18);animation:balloon-rise ' + (4 + Math.random() * 3.5) + 's linear forwards';
+            document.body.appendChild(b);
+            setTimeout(() => b.remove(), 9000);
+          }, i * 110);
+        }
+      }
+      if (addons.includes('spotlight')) {
+        const o = document.createElement('div');
+        o.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9994;background:conic-gradient(from 200deg at 50% 0%, transparent 0deg, rgba(255,200,120,0.16) 38deg, transparent 72deg, rgba(255,180,80,0.12) 105deg, transparent 150deg);animation:spotlight-spin 3.8s ease-in-out forwards';
+        document.body.appendChild(o);
+        setTimeout(() => o.remove(), 4200);
+      }
+      if (addons.includes('hearts')) {
+        const hearts = ['\u2764\uFE0F', '\uD83D\uDC9B', '\uD83D\uDC9A', '\uD83D\uDC99', '\uD83D\uDC9C', '\uD83E\uDE75'];
+        for (let i = 0; i < 40; i++) {
+          setTimeout(() => {
+            const h = document.createElement('div');
+            const drift = ((Math.random() - 0.5) * 120) + 'px';
+            h.style.cssText = '--heart-drift:' + drift + ';position:fixed;left:' + (Math.random() * 96 + 2) + 'vw;bottom:-36px;font-size:' + (16 + Math.random() * 22) + 'px;z-index:9996;pointer-events:none;line-height:1;animation:heart-rise ' + (2.8 + Math.random() * 2.2) + 's ease-out forwards';
+            h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+            document.body.appendChild(h);
+            setTimeout(() => h.remove(), 6000);
+          }, i * 38);
+        }
+      }
+      if (addons.includes('meteors')) {
+        for (let i = 0; i < 18; i++) {
+          setTimeout(() => {
+            const fromLeft = Math.random() > 0.5;
+            const m = document.createElement('div');
+            const mx = (fromLeft ? 300 + Math.random() * 260 : -300 - Math.random() * 260) + 'px';
+            const my = (360 + Math.random() * 200) + 'px';
+            const mr = (fromLeft ? 26 + Math.random() * 14 : -26 - Math.random() * 14) + 'deg';
+            m.style.cssText = '--mx:' + mx + ';--my:' + my + ';--mr:' + mr + ';position:fixed;' + (fromLeft ? 'left:5%' : 'right:5%') + ';top:' + (8 + Math.random() * 35) + '%;width:130px;height:4px;background:linear-gradient(90deg,transparent,rgba(255,220,140,0.98),rgba(243,156,18,0.95),transparent);border-radius:2px;z-index:9996;pointer-events:none;box-shadow:0 0 14px rgba(243,156,18,0.85);animation:meteor-dash ' + (0.45 + Math.random() * 0.35) + 's ease-in forwards';
+            document.body.appendChild(m);
+            setTimeout(() => m.remove(), 900);
+          }, i * 140);
+        }
+      }
+      if (addons.includes('ribbons')) {
+        const colors = ['#f39c12', '#e67e22', '#f1c40f', '#d68910', '#ca6f1e', '#b9770e'];
+        for (let i = 0; i < 55; i++) {
+          setTimeout(() => {
+            const r = document.createElement('div');
+            const rot = (Math.random() * 50 - 25) + 'deg';
+            r.style.cssText = '--ribbon-drift:' + ((Math.random() - 0.5) * 200) + 'px;--rib-rot:' + rot + ';position:fixed;left:' + (Math.random() * 100) + '%;top:-24px;width:' + (7 + Math.random() * 14) + 'px;height:' + (36 + Math.random() * 55) + 'px;background:' + colors[i % colors.length] + ';border-radius:3px;opacity:0.88;z-index:9996;pointer-events:none;animation:ribbon-fall ' + (1.8 + Math.random() * 1.4) + 's linear forwards';
+            document.body.appendChild(r);
+            setTimeout(() => r.remove(), 4000);
+          }, i * 32);
+        }
+      }
+      if (addons.includes('shockwave')) {
+        const board = document.getElementById('board');
+        const br = board ? board.getBoundingClientRect() : null;
+        const cx = br ? br.left + br.width / 2 : window.innerWidth / 2;
+        const cy = br ? br.top + br.height / 2 : window.innerHeight / 2;
+        for (let ring = 0; ring < 6; ring++) {
+          setTimeout(() => {
+            const el = document.createElement('div');
+            el.className = 'ripple';
+            el.style.left = cx + 'px';
+            el.style.top = cy + 'px';
+            el.style.width = '24px';
+            el.style.height = '24px';
+            el.style.marginLeft = '-12px';
+            el.style.marginTop = '-12px';
+            el.style.border = '3px solid rgba(243, 156, 18, 0.85)';
+            el.style.animation = 'ripple 1.35s ease-out forwards';
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1400);
+          }, ring * 180);
+        }
+      }
     }
 
     function celebrateCheckmate(playerWon) {
@@ -10585,6 +10737,114 @@
             boardEl.style.animation = 'victoryPulse 0.8s ease-in-out 6';
             boardEl.style.transition = 'all 0.3s ease';
             setTimeout(() => { boardEl.style.animation = ''; boardEl.style.filter = ''; boardEl.style.boxShadow = ''; }, 5000);
+          }
+        }
+
+        // Add-on: starfall (sparkles)
+        if (addons.includes('sparkles')) {
+          for (let i = 0; i < 90; i++) {
+            setTimeout(() => {
+              const sparkle = document.createElement('div');
+              sparkle.className = 'sparkle';
+              sparkle.style.left = (Math.random() * window.innerWidth) + 'px';
+              sparkle.style.top = (Math.random() * window.innerHeight * 0.55) + 'px';
+              sparkle.style.width = (12 + Math.random() * 18) + 'px';
+              sparkle.style.height = sparkle.style.width;
+              sparkle.style.animation = 'sparkle ' + (0.5 + Math.random() * 0.8) + 's ease-out forwards';
+              document.body.appendChild(sparkle);
+              setTimeout(() => sparkle.remove(), 1500);
+            }, i * 22);
+          }
+        }
+
+        // Add-on: balloons
+        if (addons.includes('balloons')) {
+          const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
+          for (let i = 0; i < 28; i++) {
+            setTimeout(() => {
+              const b = document.createElement('div');
+              const w = 26 + Math.random() * 20;
+              b.style.cssText = 'position:fixed;left:' + (Math.random() * 92 + 4) + 'vw;bottom:-50px;width:' + w + 'px;height:' + (w * 1.25) + 'px;border-radius:50% 50% 50% 50%/55% 55% 45% 45%;background:' + colors[i % colors.length] + ';opacity:0.93;z-index:9996;pointer-events:none;box-shadow:inset -5px -10px rgba(0,0,0,0.18);animation:balloon-rise ' + (4 + Math.random() * 3.5) + 's linear forwards';
+              document.body.appendChild(b);
+              setTimeout(() => b.remove(), 9000);
+            }, i * 110);
+          }
+        }
+
+        // Add-on: spotlight
+        if (addons.includes('spotlight')) {
+          const o = document.createElement('div');
+          o.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9994;background:conic-gradient(from 160deg at 50% 0%, transparent 0deg, rgba(255,240,180,0.14) 42deg, transparent 78deg, rgba(130,200,255,0.12) 118deg, transparent 160deg);animation:spotlight-spin 3.8s ease-in-out forwards';
+          document.body.appendChild(o);
+          setTimeout(() => o.remove(), 4200);
+        }
+
+        // Add-on: hearts
+        if (addons.includes('hearts')) {
+          const hearts = ['\u2764\uFE0F', '\uD83D\uDC9B', '\uD83D\uDC9A', '\uD83D\uDC99', '\uD83D\uDC9C', '\uD83E\uDE75'];
+          for (let i = 0; i < 45; i++) {
+            setTimeout(() => {
+              const h = document.createElement('div');
+              const drift = ((Math.random() - 0.5) * 120) + 'px';
+              h.style.cssText = '--heart-drift:' + drift + ';position:fixed;left:' + (Math.random() * 96 + 2) + 'vw;bottom:-36px;font-size:' + (16 + Math.random() * 22) + 'px;z-index:9996;pointer-events:none;line-height:1;animation:heart-rise ' + (2.8 + Math.random() * 2.2) + 's ease-out forwards';
+              h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+              document.body.appendChild(h);
+              setTimeout(() => h.remove(), 6000);
+            }, i * 38);
+          }
+        }
+
+        // Add-on: meteors
+        if (addons.includes('meteors')) {
+          for (let i = 0; i < 22; i++) {
+            setTimeout(() => {
+              const fromLeft = Math.random() > 0.5;
+              const m = document.createElement('div');
+              const mx = (fromLeft ? 320 + Math.random() * 280 : -320 - Math.random() * 280) + 'px';
+              const my = (380 + Math.random() * 200) + 'px';
+              const mr = (fromLeft ? 28 + Math.random() * 12 : -28 - Math.random() * 12) + 'deg';
+              m.style.cssText = '--mx:' + mx + ';--my:' + my + ';--mr:' + mr + ';position:fixed;' + (fromLeft ? 'left:5%' : 'right:5%') + ';top:' + (8 + Math.random() * 35) + '%;width:140px;height:4px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.95),rgba(147,197,253,0.9),transparent);border-radius:2px;z-index:9996;pointer-events:none;box-shadow:0 0 12px rgba(147,197,253,0.8);animation:meteor-dash ' + (0.45 + Math.random() * 0.35) + 's ease-in forwards';
+              document.body.appendChild(m);
+              setTimeout(() => m.remove(), 900);
+            }, i * 140);
+          }
+        }
+
+        // Add-on: ribbons (streamers)
+        if (addons.includes('ribbons')) {
+          const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#e91e63', '#9b59b6'];
+          for (let i = 0; i < 65; i++) {
+            setTimeout(() => {
+              const r = document.createElement('div');
+              const rot = (Math.random() * 50 - 25) + 'deg';
+              r.style.cssText = '--ribbon-drift:' + ((Math.random() - 0.5) * 200) + 'px;--rib-rot:' + rot + ';position:fixed;left:' + (Math.random() * 100) + '%;top:-24px;width:' + (7 + Math.random() * 14) + 'px;height:' + (36 + Math.random() * 55) + 'px;background:' + colors[i % colors.length] + ';border-radius:3px;opacity:0.88;z-index:9996;pointer-events:none;animation:ribbon-fall ' + (1.8 + Math.random() * 1.4) + 's linear forwards';
+              document.body.appendChild(r);
+              setTimeout(() => r.remove(), 4000);
+            }, i * 32);
+          }
+        }
+
+        // Add-on: shockwave rings
+        if (addons.includes('shockwave')) {
+          const board = document.getElementById('board');
+          const br = board ? board.getBoundingClientRect() : null;
+          const cx = br ? br.left + br.width / 2 : window.innerWidth / 2;
+          const cy = br ? br.top + br.height / 2 : window.innerHeight / 2;
+          for (let ring = 0; ring < 6; ring++) {
+            setTimeout(() => {
+              const el = document.createElement('div');
+              el.className = 'ripple';
+              el.style.left = cx + 'px';
+              el.style.top = cy + 'px';
+              el.style.width = '24px';
+              el.style.height = '24px';
+              el.style.marginLeft = '-12px';
+              el.style.marginTop = '-12px';
+              el.style.border = '3px solid rgba(46, 204, 113, 0.75)';
+              el.style.animation = 'ripple 1.35s ease-out forwards';
+              document.body.appendChild(el);
+              setTimeout(() => el.remove(), 1400);
+            }, ring * 180);
           }
         }
       } else {
