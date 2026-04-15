@@ -5113,10 +5113,10 @@
     <div class="control-row">
       <button id="start-game-btn" onclick="startGame()">Start Game</button>
     </div>
-    <!-- Shown when the engine is busy with another player's game -->
+    <!-- Shown when the engine is busy with another player's game (includes engine thinking) -->
     <div id="engine-busy-banner" style="display:none; margin-top:14px; padding:12px 18px; background:#fff3cd; border:1px solid #ffc107; border-radius:8px; color:#856404; font-size:0.92rem; text-align:center;">
-      <strong>Someone is already playing a game.</strong><br>
-      <span style="font-size:0.85rem;">The board will unlock automatically when their game ends.</span>
+      <strong>A game is already in progress on the board.</strong><br>
+      <span style="font-size:0.85rem;">That includes while the other player&rsquo;s game is running and while the engine is thinking. It will unlock when that game ends.</span>
       <br><button onclick="checkEngineStatus()" style="margin-top:8px; padding:4px 14px; font-size:0.82rem; cursor:pointer;">Check again</button>
     </div>
   </div>
@@ -6827,7 +6827,8 @@
       return fetch(`${ENGINE_BASE}/status`)
         .then(r => r.json())
         .then(data => {
-          const busy = data.occupied === true;
+          const occ = data && data.occupied;
+          const busy = occ === true || occ === 'true' || occ === 1;
           _lastStatusOccupied = busy;
           applyEngineOccupancyWaitingRoomUi(busy);
           if (typeof ensurePregameStatusPolling === 'function' && typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
@@ -6930,33 +6931,43 @@
 
     // --- sendEngineCommand function ---
     function sendEngineCommand(endpoint) {
-    // Key change: Add 'return' here to return the promise chain
-    return fetch(`https://hedgehoglover23.pythonanywhere.com/${endpoint}`, {
+      return fetch(`${ENGINE_BASE}/${endpoint}`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => {
-                throw new Error(`Server error for /${endpoint}: ${err.message || response.statusText}`);
-            }).catch(() => {
-                throw new Error(`Server error for /${endpoint}: ${response.status} ${response.statusText}`);
-            });
-        }
-        return response.json(); // This 'return' passes the parsed data down
-    })
-    .then(data => {
-        console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
-        return data; // This 'return data' is correct for the internal chain
-    })
-    .catch(error => {
-        console.error(`Error sending command /${endpoint}:`, error);
-        throw error; // Propagate the error so the awaiting function can catch it
-    });
-}
+      })
+        .then(function (response) {
+          if (!response.ok) {
+            const httpErr = new Error(response.statusText || 'HTTP error');
+            httpErr.statusCode = response.status;
+            return response
+              .json()
+              .then(function (body) {
+                const msg =
+                  body &&
+                  (body.error || body.message || (typeof body === 'string' ? body : null));
+                const e = new Error(
+                  typeof msg === 'string' && msg ? msg : `Server error for /${endpoint}: ${response.status}`
+                );
+                e.statusCode = response.status;
+                throw e;
+              })
+              .catch(function (inner) {
+                if (inner && inner.statusCode) throw inner;
+                throw httpErr;
+              });
+          }
+          return response.json();
+        })
+        .then(function (data) {
+          console.log(`Command /${endpoint} successful:`, data.message || data.status || data);
+          return data;
+        })
+        .catch(function (error) {
+          console.error(`Error sending command /${endpoint}:`, error);
+          throw error;
+        });
+    }
 
     // Personality modifier functions removed for performance
 
@@ -14009,6 +14020,28 @@
         return;
       }
 
+      // Acquire the server lock before leaving pregame. /status can disagree with /start (e.g. other
+      // worker or timing); a 409 here means a game is active—including the engine's turn—so show the
+      // yellow waiting-room banner while #choose-side is still visible.
+      try {
+        await sendEngineCommand('start');
+      } catch (startErr) {
+        const code = startErr && startErr.statusCode;
+        if (code === 409) {
+          _lastStatusOccupied = true;
+          applyEngineOccupancyWaitingRoomUi(true);
+          showNotification(
+            'A game is already in progress (including while the engine is thinking). Please wait for it to finish.',
+            'error'
+          );
+        } else {
+          showNotification('Could not reach the game server. Please try again.', 'error');
+        }
+        return;
+      }
+      markEngineLockHeldByThisTab();
+      startHeartbeat();
+
       const pgTools = document.getElementById('chess-pregame-tools');
       if (pgTools) pgTools.style.display = 'none';
       closeShop();
@@ -14550,9 +14583,6 @@
       
       startTimer();
       
-      await sendEngineCommand("start");
-      markEngineLockHeldByThisTab();
-      startHeartbeat(); // Keep the occupancy lock alive every 30 s
       if (playerColor === "black") {
         await engineMove();
       }
