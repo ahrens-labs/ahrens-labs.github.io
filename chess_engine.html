@@ -6088,7 +6088,8 @@
           maxConsecutiveChecks: 0, // Max consecutive checks in this game
           zwischenzugMade: false, // Track if zwischenzug made
           pawnMovesToday: 0, // Player pawn moves (committed to lifetime daily at game end)
-          underpromotionMovesToday: 0
+          underpromotionMovesToday: 0,
+          playerCapturesByType: { p: 0, n: 0, b: 0, r: 0, q: 0 }
         }
       };
     }
@@ -6488,6 +6489,14 @@
           lifetimeStats.dailyStats.kingMovesToday = (lifetimeStats.dailyStats.kingMovesToday || 0) + (gameStats.dailyStats.kingMoves || 0);
           lifetimeStats.dailyStats.pawnMovesToday = (lifetimeStats.dailyStats.pawnMovesToday || 0) + (gameStats.dailyStats.pawnMovesToday || 0);
           lifetimeStats.dailyStats.underpromotionMovesToday = (lifetimeStats.dailyStats.underpromotionMovesToday || 0) + (gameStats.dailyStats.underpromotionMovesToday || 0);
+          if (!lifetimeStats.dailyStats.playerCapturesByTypeToday) {
+            lifetimeStats.dailyStats.playerCapturesByTypeToday = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+          }
+          const pct = gameStats.dailyStats.playerCapturesByType || { p: 0, n: 0, b: 0, r: 0, q: 0 };
+          ['p', 'n', 'b', 'r', 'q'].forEach(k => {
+            lifetimeStats.dailyStats.playerCapturesByTypeToday[k] =
+              (lifetimeStats.dailyStats.playerCapturesByTypeToday[k] || 0) + (pct[k] || 0);
+          });
           if (gameStats.dailyStats.uniqueSquaresVisitedToday) {
             gameStats.dailyStats.uniqueSquaresVisitedToday.forEach(square => {
               if (!lifetimeStats.dailyStats.uniqueSquaresVisitedToday.includes(square)) {
@@ -10164,6 +10173,14 @@
           if (gameStats.dailyStats && !gameStats.dailyStats.capturedPieceTypes.includes(pieceType)) {
             gameStats.dailyStats.capturedPieceTypes.push(pieceType);
           }
+          if (gameStats.dailyStats) {
+            if (!gameStats.dailyStats.playerCapturesByType) {
+              gameStats.dailyStats.playerCapturesByType = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+            }
+            if (pieceType === 'p' || pieceType === 'n' || pieceType === 'b' || pieceType === 'r' || pieceType === 'q') {
+              gameStats.dailyStats.playerCapturesByType[pieceType]++;
+            }
+          }
         }
         
         // If opponent captured one of our pieces, reset the "no pieces lost" streak
@@ -11994,6 +12011,17 @@
       if (typeof autoSync === 'function') autoSync();
     }
 
+    /** Player's captures by opponent piece type today (committed + current game). */
+    function getDailyPlayerCapturesByTypeMerged() {
+      resetDailyStatsIfNeeded();
+      const keys = ['p', 'n', 'b', 'r', 'q'];
+      const lt = (lifetimeStats && lifetimeStats.dailyStats && lifetimeStats.dailyStats.playerCapturesByTypeToday) || {};
+      const g = (typeof gameStats !== 'undefined' && gameStats && gameStats.dailyStats && gameStats.dailyStats.playerCapturesByType) || {};
+      const out = {};
+      keys.forEach(k => { out[k] = (lt[k] || 0) + (g[k] || 0); });
+      return out;
+    }
+
     function getAllAchievementsList() {
       return [
         // General Achievements - Grouped
@@ -12640,6 +12668,55 @@
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
           return { current: Math.min(18, cur), target: 18 };
+        }},
+        { id: 'daily_elite_capturer', name: '⚔️ Elite Capturer', desc: 'Make 20 captures today (all games)', category: 'Daily', points: 360, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 20 };
+          resetDailyStatsIfNeeded();
+          const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
+          return { current: Math.min(20, cur), target: 20 };
+        }},
+        { id: 'daily_pawn_sweeper', name: '🧹 Pawn Sweeper', desc: 'Capture 8 pawns today (your captures)', category: 'Daily', points: 380, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 8 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(8, c.p), target: 8 };
+        }},
+        { id: 'daily_knight_roundup', name: '🐴 Knight Roundup', desc: 'Capture 4 knights today (your captures)', category: 'Daily', points: 460, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(4, c.n), target: 4 };
+        }},
+        { id: 'daily_bishop_ambush', name: '♗ Bishop Ambush', desc: 'Capture 3 bishops today (your captures)', category: 'Daily', points: 430, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(3, c.b), target: 3 };
+        }},
+        { id: 'daily_rook_raider_adv', name: '🏰 Rook Raider', desc: 'Capture 3 rooks today (your captures)', category: 'Daily', points: 480, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 3 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(3, c.r), target: 3 };
+        }},
+        { id: 'daily_queen_snatcher', name: '👑 Queen Snatcher', desc: 'Capture 2 queens today (your captures)', category: 'Daily', points: 520, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(2, c.q), target: 2 };
+        }},
+        { id: 'daily_full_deck_hunter', name: '🃏 Full Deck', desc: 'Capture at least one pawn, knight, bishop, rook, and queen today', category: 'Daily', points: 580, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          const ok = c.p >= 1 && c.n >= 1 && c.b >= 1 && c.r >= 1 && c.q >= 1;
+          return { current: ok ? 1 : 0, target: 1 };
+        }},
+        { id: 'daily_checkmate_maestro', name: '🎨 Checkmate Maestro', desc: 'Deliver checkmate with 4 different piece types today (queen, rook, knight, bishop, or pawn)', category: 'Daily', points: 520, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
+          resetDailyStatsIfNeeded();
+          const u = lifetimeStats.dailyStats.uniqueCheckmatePiecesToday || [];
+          return { current: Math.min(4, u.length), target: 4 };
         }},
         
         // ========================================================================
@@ -14029,7 +14106,7 @@
     // ========================================================================
     // DAILY CHALLENGES CONFIGURATION
     // ========================================================================
-    // Three random challenges are chosen per calendar day (see getTodayDailyAchievements).
+    // Three challenges per calendar day are chosen deterministically (same for all players that day).
     // This function lists IDs for fallback validation; IDs are also derived from achievements with isDaily: true.
     // ========================================================================
     function getAllDailyChallengeIds() {
@@ -14084,7 +14161,15 @@
         'daily_piece_sacrifice_chain', // Win 3 games today
         'daily_center_control',        // 15 captures today
         'daily_pawn_island',           // 18 checks today
-        'daily_rook_battery'          // Play 4 games today
+        'daily_rook_battery',          // Play 4 games today
+        'daily_elite_capturer',
+        'daily_pawn_sweeper',
+        'daily_knight_roundup',
+        'daily_bishop_ambush',
+        'daily_rook_raider_adv',
+        'daily_queen_snatcher',
+        'daily_full_deck_hunter',
+        'daily_checkmate_maestro',
         // ADD NEW DAILY CHALLENGE IDs HERE:
         // 'daily_your_new_challenge',
       ];
@@ -14102,19 +14187,57 @@
     }
     
     // ========================================================================
-    // DAILY CHALLENGES SCHEDULE CONFIGURATION
+    // DAILY CHALLENGES — same three for every player on a calendar day
     // ========================================================================
-    // Easy-to-edit configuration: Each array contains 3 daily challenge IDs
-    // that will be active on that day. The system cycles through these sets
-    // based on the day of year (0-365), so if you have N sets, they will
-    // repeat every N days.
-    //
-    // To add new challenges to the schedule:
-    // 1. Add the challenge ID to getAllDailyChallengeIds() above
-    // 2. Add the challenge definition in getAllAchievementsList() with isDaily: true
-    // 3. Add it to one or more arrays below to include it in the rotation
-    // ========================================================================
-    // Daily challenges: three IDs picked at random each calendar day (see getTodayDailyAchievements).
+    // Picks use a deterministic shuffle (seeded PRNG) from the local date
+    // string YYYY-MM-DD plus a fixed salt, so everyone sees the same dailies.
+
+    const DAILY_CHALLENGE_PICK_SALT = 'ahrenslabs-chess-daily-v2';
+
+    function hashStringToSeed(str) {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function mulberry32(a) {
+      return function () {
+        let t = (a += 0x6d2b79f5);
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /** Fisher–Yates shuffle with seeded RNG; pool sorted for stable order across code versions. */
+    function getDeterministicDailyChallengeIds(dateString, validList, maxPick) {
+      const pool = [...(validList || [])]
+        .filter(id => typeof id === 'string' && id.length > 0)
+        .sort();
+      if (pool.length === 0) return [];
+      const seed = hashStringToSeed(DAILY_CHALLENGE_PICK_SALT + '|' + dateString);
+      const rand = mulberry32(seed);
+      const shuffled = pool.slice();
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(rand() * (i + 1));
+        const t = shuffled[i];
+        shuffled[i] = shuffled[j];
+        shuffled[j] = t;
+      }
+      const need = Math.min(maxPick || 3, shuffled.length);
+      const selected = shuffled.slice(0, need);
+      const validSet = new Set(pool);
+      const fallback = ['daily_explorer', 'daily_warrior', 'daily_checker'];
+      let fi = 0;
+      while (selected.length < 3 && fi < fallback.length) {
+        const id = fallback[fi++];
+        if (validSet.has(id) && !selected.includes(id)) selected.push(id);
+      }
+      return selected.slice(0, 3);
+    }
 
     function getTodayDailyAchievements() {
       try {
@@ -14129,35 +14252,18 @@
         const validList = getAllDailyChallengeIds();
         const validSet = new Set(validList);
 
-        if (Array.isArray(ds.todayDailyIds) && ds.todayDailyIds.length === 3 && ds.dailyPickDate === dateString) {
-          if (ds.todayDailyIds.every(id => validSet.has(id))) {
-            return ds.todayDailyIds;
-          }
-        }
-
         if (validList.length === 0) {
           return [];
         }
 
-        const pool = validList.filter(id => typeof id === 'string' && id.length > 0);
-        const shuffled = pool.slice();
-        for (let i = shuffled.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          const t = shuffled[i];
-          shuffled[i] = shuffled[j];
-          shuffled[j] = t;
+        const selected = getDeterministicDailyChallengeIds(dateString, validList, 3);
+        const sameLen = Array.isArray(ds.todayDailyIds) && ds.todayDailyIds.length === selected.length;
+        const sameIds = sameLen && ds.todayDailyIds.every((id, i) => id === selected[i]);
+        if (ds.dailyPickDate === dateString && sameIds && selected.every(id => validSet.has(id))) {
+          return ds.todayDailyIds;
         }
 
-        const need = Math.min(3, shuffled.length);
-        const selected = shuffled.slice(0, need);
-        const fallback = ['daily_explorer', 'daily_warrior', 'daily_checker'];
-        let idx = 0;
-        while (selected.length < 3 && idx < fallback.length) {
-          const id = fallback[idx++];
-          if (validSet.has(id) && !selected.includes(id)) selected.push(id);
-        }
-
-        ds.todayDailyIds = selected.slice(0, 3);
+        ds.todayDailyIds = selected;
         ds.dailyPickDate = dateString;
         saveLifetimeStats();
         return ds.todayDailyIds;
@@ -14228,7 +14334,8 @@
         skewerKingGamesToday: 0,
         discoveredAttackGamesToday: 0,
         windmillGamesToday: 0,
-        zwischenzugGamesToday: 0
+        zwischenzugGamesToday: 0,
+        playerCapturesByTypeToday: { p: 0, n: 0, b: 0, r: 0, q: 0 }
       };
     }
 
@@ -14277,6 +14384,9 @@
       } else {
         // Same day - update last play date but don't reset streak
         lifetimeStats.lastPlayDate = todayDate.toISOString();
+        if (lifetimeStats.dailyStats && !lifetimeStats.dailyStats.playerCapturesByTypeToday) {
+          lifetimeStats.dailyStats.playerCapturesByTypeToday = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+        }
         saveLifetimeStats();
       }
     }
