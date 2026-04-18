@@ -324,7 +324,26 @@ _GAMES_LOCK = threading.RLock()
 GAMES = {}
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
-MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
+
+
+def _move_pool_worker_count():
+    """Fork workers for multi-game /move. Capped by CPU count to limit context-switch thrash on
+    CPU-bound search; capped by MAX_CONCURRENT_GAMES so we do not queue extra games behind a tiny
+    pool when the host has the cores. Single active game bypasses the pool (see _run_move_job).
+    Override with env TRIFANGX_MOVE_POOL_PROCESSES (integer 1–32)."""
+    env = os.environ.get('TRIFANGX_MOVE_POOL_PROCESSES')
+    if env:
+        try:
+            n = int(str(env).strip())
+            return max(1, min(32, n))
+        except ValueError:
+            pass
+    _nc = max(1, os.cpu_count() or 2)
+    return max(2, min(MAX_CONCURRENT_GAMES, _nc))
+
+
+# Evaluated at import (and matches pool size used in _ensure_move_pool).
+MOVE_POOL_PROCESSES = _move_pool_worker_count()
 _MOVE_POOL = None
 _INLINE_ENGINE_LOCK = threading.Lock()  # used when fork pool is unavailable (e.g. some Windows setups)
 
@@ -421,7 +440,7 @@ def _ensure_move_pool():
         return None
     try:
         ctx = multiprocessing.get_context('fork')
-        _MOVE_POOL = ctx.Pool(processes=MOVE_POOL_PROCESSES)
+        _MOVE_POOL = ctx.Pool(processes=_move_pool_worker_count())
     except (ValueError, OSError, AttributeError):
         _MOVE_POOL = None
     return _MOVE_POOL
@@ -471,6 +490,7 @@ def engine_status():
         "occupied": at_capacity,
         "active_games": n,
         "max_games": MAX_CONCURRENT_GAMES,
+        "move_pool_workers": _move_pool_worker_count(),
     })
 
 
