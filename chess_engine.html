@@ -8659,6 +8659,11 @@
     function startTimer() {
       clearInterval(timerInterval);
       timerStart = performance.now();
+      // Show 00:00.00 the same instant the new thinking period begins (centisecond display).
+      const timerElNow = document.getElementById("timer");
+      if (timerElNow) {
+        timerElNow.textContent = formatTime(0);
+      }
 
       const turn = game.turn();
       const isPlayerTurn = (playerColor === "white" && turn === "w") || (playerColor === "black" && turn === "b");
@@ -8744,7 +8749,8 @@
     // UNMODIFIED Logic, only checking if the color that just moved was the player's color
     function stopTimerAndUpdateTotal(color) {
       clearInterval(timerInterval);
-      const elapsed = performance.now() - timerStart;
+      // Snap to centiseconds (10 ms) so recorded move times match the UI clock granularity.
+      const elapsed = Math.round((performance.now() - timerStart) / 10) * 10;
       if (timeLimited) {
         if (
           (color === "w" && playerColor === "white") ||
@@ -8760,6 +8766,10 @@
             document.getElementById("black-total").textContent = formatTime(blackTime);
           }
         }
+      }
+      const timerElStop = document.getElementById("timer");
+      if (timerElStop) {
+        timerElStop.textContent = formatTime(elapsed);
       }
       return elapsed;
     }
@@ -15413,8 +15423,9 @@
             lastMoveSquares = { from, to };
             
             const prevTurn = game.turn() === "w" ? "b" : "w";
-            const premoveMoveTimeMs = stopTimerAndUpdateTotal(prevTurn);
-            updateLastMove(premoveAttempt.san, formatTime(premoveMoveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
+            stopTimerAndUpdateTotal(prevTurn);
+            // Premove is pre-decided; listed time is always zero.
+            updateLastMove(premoveAttempt.san, formatTime(0), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
             board.position(game.fen());
             
             // Remove red highlights for this executed premove
