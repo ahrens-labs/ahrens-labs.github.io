@@ -644,18 +644,24 @@ def _normalize_engine_move_for_json(return_move):
     return return_move
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color):
+def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
     """Background thread: run search (pool or inline), then publish result for /move_result."""
     err_text = None
     out_move = None
     try:
-        pool = _ensure_move_pool()
+        # With only one active session, run in-process: avoids fork IPC, double pickling, and
+        # per-move LRU clears—restores single-game speed. Two+ games need fork workers so
+        # globals are not clobbered by concurrent searches.
+        force_pool = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
+        want_pool = use_fork_pool or force_pool
+        pool = _ensure_move_pool() if want_pool else None
         if pool is not None:
             new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
         else:
             with _INLINE_ENGINE_LOCK:
                 _restore_engine_state_from_dict(snap)
-                _clear_engine_caches()
+                # Skip cache_clear here: fork workers still clear after restore (fork inherits
+                # parent LRU); keeping LRU warm between moves is a large win for one game.
                 return_move = _compute_engine_move_reply(move_notation, color)
                 new_snap = _capture_engine_state_to_dict()
         with _GAMES_LOCK:
@@ -700,6 +706,8 @@ def get_move():
         if gid not in GAMES:
             return jsonify({'error': 'Unknown or expired game_id'}), 400
         snap = copy.deepcopy(GAMES[gid]['snapshot'])
+        # Snapshot decision with the lock so we do not fork for one game or inline for two.
+        use_fork_pool = len(GAMES) > 1
     move_notation = data.get('move')
     color = data.get('color', 'white')
 
@@ -719,7 +727,7 @@ def get_move():
     try:
         t = threading.Thread(
             target=_run_move_job,
-            args=(job_id, gid, snap, move_notation, color),
+            args=(job_id, gid, snap, move_notation, color, use_fork_pool),
             daemon=True,
         )
         t.start()
