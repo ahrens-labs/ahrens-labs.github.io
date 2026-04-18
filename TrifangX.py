@@ -21,6 +21,8 @@ import requests
 # -----------------------------------------------------------------------------
 # Performance switches (server-friendly defaults)
 # -----------------------------------------------------------------------------
+# TRIFANGX_ASYNC_MOVE_SINGLE=1 — with only one game, still use 202 + thread (for debugging);
+# default is synchronous /move (200) for the lowest latency when alone.
 # Creating a `multiprocessing.Pool` inside each `/move` request is extremely slow
 # on hosted platforms (process spawn + pickling), often *slower* than sequential.
 # If you move to a dedicated VM with real multi-core CPU, you can flip this on.
@@ -644,13 +646,10 @@ def _normalize_engine_move_for_json(return_move):
     return return_move
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
-    """Background thread: run search (pool or inline), then publish result for /move_result."""
-    err_text = None
-    out_move = None
+def _execute_move_core(gid, snap, move_notation, color, use_fork_pool):
+    """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None)."""
     try:
-        # One active game: run in-process (no fork IPC / pickle). Two+ games need fork workers
-        # so searches do not clobber the same module globals. TRIFANGX_FORCE_MOVE_POOL=1 always forks.
+        # One active game: in-process (no fork). Two+ games: fork pool. TRIFANGX_FORCE_MOVE_POOL=1 always forks.
         force_pool = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
         want_pool = bool(use_fork_pool or force_pool)
         pool = _ensure_move_pool() if want_pool else None
@@ -667,15 +666,21 @@ def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
                 GAMES[gid]['snapshot'] = new_snap
                 GAMES[gid]['active_since'] = time.time()
         if not return_move:
-            err_text = 'Engine failed to generate move'
-        else:
-            out_move = _normalize_engine_move_for_json(return_move)
+            return None, 'Engine failed to generate move'
+        return _normalize_engine_move_for_json(return_move), None
     except Exception as e:
         import traceback
-        error_trace = traceback.format_exc()
-        print(f"ERROR in move job {job_id}: {e}")
-        print(f"Traceback: {error_trace}")
-        err_text = str(e)
+        print(f"ERROR in move: {e}")
+        print(traceback.format_exc())
+        return None, str(e)
+
+
+def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
+    """Background thread: run search (pool or inline), then publish result for /move_result."""
+    err_text = None
+    out_move = None
+    try:
+        out_move, err_text = _execute_move_core(gid, snap, move_notation, color, use_fork_pool)
     finally:
         try:
             _MOVE_BG_SEM.release()
@@ -695,7 +700,7 @@ def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
 
 @app.route('/move', methods=['POST'])
 def get_move():
-    """Queue engine work and return immediately so other players' requests are not blocked on WSGI."""
+    """Run engine reply. Single active game: synchronous 200 + {move} (lowest latency). Multiple games: 202 + job."""
     data = request.get_json() or {}
     gid = data.get('game_id')
     if not gid or not isinstance(gid, str):
@@ -717,6 +722,19 @@ def get_move():
         return jsonify({
             'error': 'Too many engine calculations in flight. Please retry in a moment.',
         }), 503
+
+    # Solo default: answer in this request (no thread + no client poll). Multi-game stays async for WSGI.
+    if not use_fork_pool and os.environ.get('TRIFANGX_ASYNC_MOVE_SINGLE') != '1':
+        try:
+            out_move, err_text = _execute_move_core(gid, snap, move_notation, color, use_fork_pool)
+            if err_text:
+                return jsonify({'error': err_text}), 500
+            return jsonify({'move': out_move}), 200
+        finally:
+            try:
+                _MOVE_BG_SEM.release()
+            except ValueError:
+                pass
 
     job_id = str(uuid.uuid4())
     with _MOVE_JOBS_LOCK:
@@ -866,7 +884,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 black_king_row, black_king_col = find_king(board, 'b')
         elif checkmate:
             return 10000, scoring_time
-            # sys.exit() # Removed sys.exit()
+            # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
         board[7][0] = '0'
@@ -908,7 +926,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 black_king_row, black_king_col = find_king(board, 'b')
         elif checkmate:
             return 10000, scoring_time
-            # sys.exit() # Removed sys.exit()
+            # #sys.exit() # Removed #sys.exit()
 
     else:
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
@@ -973,7 +991,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                     elif checkmate:
                         return 10000, scoring_time
-                        # sys.exit() # Removed sys.exit()
+                        # #sys.exit() # Removed #sys.exit()
                     elif bad_checkmate:
                         current_score = -1000
                         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
@@ -1121,7 +1139,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                 white_king_row, white_king_col = find_king(board, 'w')
         elif checkmate:
             return -10000, scoring_time
-            # sys.exit() # Removed sys.exit()
+            # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
         # Removed print for performance in parallel processing
@@ -1166,7 +1184,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                 white_king_row, white_king_col = find_king(board, 'w')
         elif checkmate:
             return -10000, scoring_time
-            # sys.exit() # Removed sys.exit()
+            # #sys.exit() # Removed #sys.exit()
 
     else:
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
@@ -1232,7 +1250,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                     elif checkmate:
                         return -10000, scoring_time
-                        # sys.exit() # Removed sys.exit()
+                        # #sys.exit() # Removed #sys.exit()
                     elif bad_checkmate:
                         current_score = 1000
                         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
@@ -3535,31 +3553,31 @@ def is_draw(board):
                 white_knights += 1
     if pieces == 2:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 3 and white_knights == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 3 and black_knights == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 4 and black_knights == 1 and white_knights == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 4 and black_bishops == 1 and white_bishops == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 4 and black_bishops == 1 and white_knights == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 4 and black_knights == 1 and white_bishops == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 3 and black_bishops == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
     if pieces == 3 and white_bishops == 1:
         print('Draw by insuffiecient material')
-        sys.exit()
+        #sys.exit()
 
 def is_protected_piece(board, row, col, piece):
     """Legacy function - checks if piece type exists on path to square"""
@@ -4051,7 +4069,7 @@ def players_turn(board, next_move, notation_move):
             if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                 if is_checkmate(board, 'b'):
                     print('CHECKMATE! You win!')
-                    sys.exit()
+                    #sys.exit()
 
 
     is_draw(board)
@@ -4171,7 +4189,7 @@ def players_turn_white(board, next_move, notation_move):
             if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                 if is_checkmate(board, 'w'):
                     print('CHECKMATE! You win!')
-                    sys.exit()
+                    #sys.exit()
 
     is_draw(board)
     number_of_moves += 1
@@ -4470,7 +4488,7 @@ def best_move_function(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row-1, col-1, 'P', 'b')
                                     print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = -1000
                                     if current_score > previous_score:
@@ -4565,7 +4583,7 @@ def best_move_function(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row-1, col+1, 'P', 'b')
                                     print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = -1000
                                     if current_score > previous_score:
@@ -4911,7 +4929,7 @@ def best_move_function(board, bots, en_passant):
                 fifty_move_rule = 0
         if fifty_move_rule >= 50:
             print('Draw by 50-Move Rule')
-            sys.exit()
+            #sys.exit()
         print('MP:', move_played)
         return move_played
 
@@ -6290,7 +6308,7 @@ def best_move_black(board, bots, en_passant):
                                         next_move = print_piece_move(board, piece, row, col, row+2, col, '0', 'w')
                                         print(' ' + next_move + '#')
                                         return next_move
-                                        sys.exit()
+                                        #sys.exit()
                                     elif bad_checkmate:
                                         current_score = 1000
                                         if current_score < previous_score:
@@ -6377,7 +6395,7 @@ def best_move_black(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row+1, col, '0', 'w')
                                     print(' ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = 1000
                                     if current_score < previous_score:
@@ -6464,7 +6482,7 @@ def best_move_black(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row+1, col-1, captured_piece, 'w')
                                     print(' ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = 1000
                                     if current_score < previous_score:
@@ -6550,7 +6568,7 @@ def best_move_black(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row+1, col-1, 'p', 'w')
                                     print(' ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = 1000
                                     if current_score < previous_score:
@@ -6638,7 +6656,7 @@ def best_move_black(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row+1, col+1, captured_piece, 'w')
                                     print(' ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = 1000
                                     if current_score < previous_score:
@@ -6724,7 +6742,7 @@ def best_move_black(board, bots, en_passant):
                                     next_move = print_piece_move(board, piece, row, col, row+1, col+1, 'p', 'w')
                                     print(' ' + next_move + '#')
                                     return next_move
-                                    sys.exit()
+                                    #sys.exit()
                                 elif bad_checkmate:
                                     current_score = 1000
                                     if current_score < previous_score:
@@ -6849,7 +6867,7 @@ def best_move_black(board, bots, en_passant):
                                                 next_move = print_piece_move(board, piece, row, col, new_row, new_col, captured_piece, 'w')
                                                 print(' ' + next_move + '#')
                                                 return next_move
-                                                sys.exit()
+                                                #sys.exit()
                                             elif bad_checkmate:
                                                 current_score = 1000
                                                 if current_score < previous_score:
@@ -6974,7 +6992,7 @@ def best_move_black(board, bots, en_passant):
                                                     next_move = print_piece_move(board, piece, row, col, new_row, new_col, captured_piece, 'w')
                                                     print(' ' + next_move + '#')
                                                     return next_move
-                                                    sys.exit()
+                                                    #sys.exit()
                                                 elif bad_checkmate:
                                                     current_score = 1000
                                                     if current_score < previous_score:
@@ -7106,7 +7124,7 @@ def best_move_black(board, bots, en_passant):
                                                     next_move = print_piece_move(board, piece, row, col, new_row, new_col, captured_piece, 'w')
                                                     print(' ' + next_move + '#')
                                                     return next_move
-                                                    sys.exit()
+                                                    #sys.exit()
                                                 elif bad_checkmate:
                                                     current_score = 1000
                                                     if current_score < previous_score:
@@ -7238,7 +7256,7 @@ def best_move_black(board, bots, en_passant):
                                                     next_move = print_piece_move(board, piece, row, col, new_row, new_col, captured_piece, 'w')
                                                     print(' ' + next_move + '#')
                                                     return next_move
-                                                    sys.exit()
+                                                    #sys.exit()
                                                 elif bad_checkmate:
                                                     current_score = 1000
                                                     if current_score < previous_score:
@@ -7371,7 +7389,7 @@ def best_move_black(board, bots, en_passant):
                                                     next_move = print_piece_move(board, piece, row, col, new_row, new_col, captured_piece, 'w')
                                                     print(' ' + next_move + '#')
                                                     return next_move
-                                                    sys.exit()
+                                                    #sys.exit()
                                                 elif bad_checkmate:
                                                     current_score = 1000
                                                     if current_score < previous_score:
@@ -7463,7 +7481,7 @@ def best_move_black(board, bots, en_passant):
                                                         print(output.rstrip(' '), end='')
                                                         print(' 0-0' + '#')
                                                         return next_move
-                                                        sys.exit()
+                                                        #sys.exit()
                                             else:
                                                 board[0][4] = 'K'
                                                 board[0][6] = '0'
@@ -7548,7 +7566,7 @@ def best_move_black(board, bots, en_passant):
                                                     print(output.rstrip(' '), end='')
                                                     print(' 0-0-0' + '#')
                                                     return next_move
-                                                    sys.exit()
+                                                    #sys.exit()
                                             else:
                                                 board[0][4] = 'K'
                                                 board[0][2] = '0'
