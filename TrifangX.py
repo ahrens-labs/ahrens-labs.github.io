@@ -320,7 +320,7 @@ scores = {}
 position_history = defaultdict(int)
 engine_running = True
 
-# --- Multi-game sessions (each game_id has its own snapshot; moves run in fork workers on Linux) ---
+# --- Multi-game sessions (each game_id has its own snapshot; searches run in-process, serialized) ---
 _GAMES_LOCK = threading.RLock()
 # game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
 GAMES = {}
@@ -646,13 +646,16 @@ def _normalize_engine_move_for_json(return_move):
     return return_move
 
 
-def _execute_move_core(gid, snap, move_notation, color, use_fork_pool):
-    """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None)."""
+def _execute_move_core(gid, snap, move_notation, color):
+    """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
+
+    Default is always in-process under _INLINE_ENGINE_LOCK: restore snapshot, search, capture.
+    Forking for multiple games was slower (pickle + cold caches per move) than serializing searches.
+    Set TRIFANGX_FORCE_MOVE_POOL=1 to use fork workers (parallel CPU, higher per-move overhead).
+    """
     try:
-        # One active game: in-process (no fork). Two+ games: fork pool. TRIFANGX_FORCE_MOVE_POOL=1 always forks.
         force_pool = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
-        want_pool = bool(use_fork_pool or force_pool)
-        pool = _ensure_move_pool() if want_pool else None
+        pool = _ensure_move_pool() if force_pool else None
         if pool is not None:
             new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
         else:
@@ -675,12 +678,12 @@ def _execute_move_core(gid, snap, move_notation, color, use_fork_pool):
         return None, str(e)
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color, use_fork_pool):
+def _run_move_job(job_id, gid, snap, move_notation, color):
     """Background thread: run search (pool or inline), then publish result for /move_result."""
     err_text = None
     out_move = None
     try:
-        out_move, err_text = _execute_move_core(gid, snap, move_notation, color, use_fork_pool)
+        out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
     finally:
         try:
             _MOVE_BG_SEM.release()
@@ -708,10 +711,9 @@ def get_move():
     with _GAMES_LOCK:
         if gid not in GAMES:
             return jsonify({'error': 'Unknown or expired game_id'}), 400
-        use_fork_pool = len(GAMES) > 1
-        # With a single session, jobs are serialized on the inline lock and the snapshot dict is
-        # replaced whole after each move — a deepcopy is redundant and costly on every /move.
-        if use_fork_pool:
+        multiple_games = len(GAMES) > 1
+        # With one session the snapshot dict is replaced whole after each move — deepcopy redundant.
+        if multiple_games:
             snap = copy.deepcopy(GAMES[gid]['snapshot'])
         else:
             snap = GAMES[gid]['snapshot']
@@ -724,9 +726,9 @@ def get_move():
         }), 503
 
     # Solo default: answer in this request (no thread + no client poll). Multi-game stays async for WSGI.
-    if not use_fork_pool and os.environ.get('TRIFANGX_ASYNC_MOVE_SINGLE') != '1':
+    if not multiple_games and os.environ.get('TRIFANGX_ASYNC_MOVE_SINGLE') != '1':
         try:
-            out_move, err_text = _execute_move_core(gid, snap, move_notation, color, use_fork_pool)
+            out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
             if err_text:
                 return jsonify({'error': err_text}), 500
             return jsonify({'move': out_move}), 200
@@ -747,7 +749,7 @@ def get_move():
     try:
         t = threading.Thread(
             target=_run_move_job,
-            args=(job_id, gid, snap, move_notation, color, use_fork_pool),
+            args=(job_id, gid, snap, move_notation, color),
             daemon=True,
         )
         t.start()
