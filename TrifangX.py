@@ -23,6 +23,8 @@ import requests
 # -----------------------------------------------------------------------------
 # TRIFANGX_ASYNC_MOVE_SINGLE=1 — with only one game, still use 202 + thread (for debugging);
 # default is synchronous /move (200) for the lowest latency when alone.
+# TRIFANGX_DISABLE_DEDICATED_WORKERS=1 — disable per-game subprocess workers; all moves serialize
+# in-process (for debugging or platforms where fork workers fail).
 # Creating a `multiprocessing.Pool` inside each `/move` request is extremely slow
 # on hosted platforms (process spawn + pickling), often *slower* than sequential.
 # If you move to a dedicated VM with real multi-core CPU, you can flip this on.
@@ -320,7 +322,7 @@ scores = {}
 position_history = defaultdict(int)
 engine_running = True
 
-# --- Multi-game sessions (each game_id has its own snapshot; searches run in-process, serialized) ---
+# --- Multi-game sessions (each game_id has its own snapshot) ---
 _GAMES_LOCK = threading.RLock()
 # game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
 GAMES = {}
@@ -328,7 +330,11 @@ GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
 MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
 _MOVE_POOL = None
-_INLINE_ENGINE_LOCK = threading.Lock()  # used when fork pool is unavailable (e.g. some Windows setups)
+_INLINE_ENGINE_LOCK = threading.Lock()  # single-game and inline fallback (serialized)
+# When len(GAMES)>1: one dedicated subprocess per game_id holds engine globals; moves are cheap IPC.
+_DEDICATED_WORKERS = {}  # gid -> {'proc', 'conn', 'lock'}
+_DEDICATED_WORKERS_LOCK = threading.Lock()
+_MP_CTX = None
 
 # Async move jobs: single-threaded WSGI would otherwise block the whole worker on pool.apply().
 # POST /move enqueues work and returns 202 + job_id; GET /move_result/<job_id> returns the move when ready.
@@ -394,10 +400,15 @@ def _restore_engine_state_from_dict(d):
 
 def _prune_stale_games():
     now = time.time()
+    stale = []
     with _GAMES_LOCK:
-        stale = [gid for gid, info in GAMES.items() if now - info['active_since'] > GAME_LOCK_TTL]
+        for gid, info in list(GAMES.items()):
+            if now - info['active_since'] > GAME_LOCK_TTL:
+                stale.append(gid)
         for gid in stale:
             GAMES.pop(gid, None)
+    for gid in stale:
+        _shutdown_dedicated_worker(gid)
 
 
 def _shutdown_move_pool():
@@ -432,6 +443,189 @@ def _ensure_move_pool():
 def _restart_move_pool_after_modifier_change():
     """Workers forked at pool creation won't see updated SCORING_MODIFIERS; recycle pool."""
     _shutdown_move_pool()
+
+
+def _get_mp_ctx():
+    global _MP_CTX
+    if _MP_CTX is not None:
+        return _MP_CTX
+    try:
+        _MP_CTX = multiprocessing.get_context('fork')
+    except ValueError:
+        _MP_CTX = multiprocessing.get_context()
+    return _MP_CTX
+
+
+def _shutdown_dedicated_worker(gid):
+    """Terminate the subprocess that runs engine search for this game_id."""
+    with _DEDICATED_WORKERS_LOCK:
+        rec = _DEDICATED_WORKERS.pop(gid, None)
+    if not rec:
+        return
+    conn, proc = rec['conn'], rec['proc']
+    try:
+        if proc.is_alive():
+            try:
+                conn.send({'cmd': 'shutdown'})
+            except Exception:
+                pass
+            proc.join(timeout=3.0)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(timeout=2.0)
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def _shutdown_all_dedicated_workers():
+    with _DEDICATED_WORKERS_LOCK:
+        gids = list(_DEDICATED_WORKERS.keys())
+    for gid in gids:
+        _shutdown_dedicated_worker(gid)
+
+
+atexit.register(_shutdown_all_dedicated_workers)
+
+
+def _game_worker_entry(conn, initial_snap):
+    """Child process: restore snapshot once, then serve move commands (no full snapshot per move)."""
+    import traceback
+    try:
+        _restore_engine_state_from_dict(initial_snap)
+        _clear_engine_caches()
+    except Exception as e:
+        try:
+            conn.send({'ok': False, 'error': f'worker init: {e}'})
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return
+    while True:
+        try:
+            msg = conn.recv()
+        except (EOFError, BrokenPipeError, OSError):
+            break
+        if not isinstance(msg, dict):
+            continue
+        if msg.get('cmd') == 'shutdown':
+            break
+        if msg.get('cmd') != 'move':
+            try:
+                conn.send({'ok': False, 'error': 'unknown cmd'})
+            except Exception:
+                break
+            continue
+        try:
+            return_move = _compute_engine_move_reply(msg.get('move'), msg.get('color', 'white'))
+            out_snap = _capture_engine_state_to_dict()
+            conn.send({'ok': True, 'move': return_move, 'snap': out_snap})
+        except Exception as e:
+            try:
+                conn.send({'ok': False, 'error': str(e), 'trace': traceback.format_exc()})
+            except Exception:
+                break
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def _ensure_dedicated_worker(gid):
+    """Return (conn, lock) for gid's subprocess, starting it from GAMES[gid]['snapshot'] if needed."""
+    with _DEDICATED_WORKERS_LOCK:
+        rec = _DEDICATED_WORKERS.get(gid)
+        if rec and rec['proc'].is_alive():
+            return rec['conn'], rec['lock']
+    with _GAMES_LOCK:
+        if gid not in GAMES:
+            return None, None
+        snap = copy.deepcopy(GAMES[gid]['snapshot'])
+    ctx = _get_mp_ctx()
+    parent_conn, child_conn = ctx.Pipe(duplex=True)
+    lock = threading.Lock()
+    proc = ctx.Process(target=_game_worker_entry, args=(child_conn, snap), daemon=True)
+    try:
+        proc.start()
+    except Exception as e:
+        print(f'dedicated worker start failed: {e}')
+        try:
+            parent_conn.close()
+        except Exception:
+            pass
+        try:
+            child_conn.close()
+        except Exception:
+            pass
+        return None, None
+    try:
+        child_conn.close()
+    except Exception:
+        pass
+    if not proc.is_alive():
+        try:
+            parent_conn.close()
+        except Exception:
+            pass
+        return None, None
+    with _DEDICATED_WORKERS_LOCK:
+        old = _DEDICATED_WORKERS.pop(gid, None)
+        if old:
+            oconn, oproc = old['conn'], old['proc']
+            try:
+                if oproc.is_alive():
+                    try:
+                        oconn.send({'cmd': 'shutdown'})
+                    except Exception:
+                        pass
+                    oproc.join(timeout=1.0)
+                    if oproc.is_alive():
+                        oproc.terminate()
+            except Exception:
+                pass
+            try:
+                oconn.close()
+            except Exception:
+                pass
+        _DEDICATED_WORKERS[gid] = {'proc': proc, 'conn': parent_conn, 'lock': lock}
+    return parent_conn, lock
+
+
+def _dedicated_worker_move(gid, move_notation, color):
+    """Run one search in gid's subprocess. Returns (move_san_or_None, err_or_None)."""
+    conn, lock = _ensure_dedicated_worker(gid)
+    if conn is None:
+        return None, 'Engine worker failed to start'
+    with lock:
+        try:
+            conn.send({'cmd': 'move', 'move': move_notation, 'color': color})
+            resp = conn.recv()
+        except (EOFError, BrokenPipeError, OSError) as e:
+            _shutdown_dedicated_worker(gid)
+            return None, str(e)
+    if not resp.get('ok'):
+        err = resp.get('error', 'worker failure')
+        _shutdown_dedicated_worker(gid)
+        return None, err
+    new_snap = resp.get('snap')
+    raw_mv = resp.get('move')
+    if new_snap is not None:
+        with _GAMES_LOCK:
+            if gid in GAMES:
+                GAMES[gid]['snapshot'] = new_snap
+                GAMES[gid]['active_since'] = time.time()
+    if not raw_mv:
+        return None, 'Engine failed to generate move'
+    return _normalize_engine_move_for_json(raw_mv), None
 
 
 def _account_username_from_payload(data):
@@ -517,6 +711,7 @@ def stop_engine():
     with _GAMES_LOCK:
         GAMES.pop(gid, None)
         remaining = len(GAMES)
+    _shutdown_dedicated_worker(gid)
     engine_running = remaining > 0
     return jsonify({"message": "Engine stopped and game released"})
 
@@ -649,21 +844,50 @@ def _normalize_engine_move_for_json(return_move):
 def _execute_move_core(gid, snap, move_notation, color):
     """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
 
-    Default is always in-process under _INLINE_ENGINE_LOCK: restore snapshot, search, capture.
-    Forking for multiple games was slower (pickle + cold caches per move) than serializing searches.
-    Set TRIFANGX_FORCE_MOVE_POOL=1 to use fork workers (parallel CPU, higher per-move overhead).
+    One active game: in-process (warm LRU, lowest latency).
+    Multiple games: one dedicated subprocess per game_id (parallel search; state stays in the child).
+    TRIFANGX_DISABLE_DEDICATED_WORKERS=1 forces in-process only (serialized).
+    TRIFANGX_FORCE_MOVE_POOL=1 uses the old fork pool instead of dedicated workers (debug only).
     """
     try:
+        with _GAMES_LOCK:
+            n = len(GAMES)
         force_pool = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
-        pool = _ensure_move_pool() if force_pool else None
-        if pool is not None:
+        if force_pool:
+            pool = _ensure_move_pool()
+            if pool is None:
+                force_pool = False
+        if force_pool:
+            if snap is None:
+                with _GAMES_LOCK:
+                    if gid not in GAMES:
+                        return None, 'Unknown or expired game_id'
+                    snap = copy.deepcopy(GAMES[gid]['snapshot'])
             new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
-        else:
-            with _INLINE_ENGINE_LOCK:
-                _restore_engine_state_from_dict(snap)
-                # Do not clear score/check LRU caches here — fork workers still clear after restore.
-                return_move = _compute_engine_move_reply(move_notation, color)
-                new_snap = _capture_engine_state_to_dict()
+            with _GAMES_LOCK:
+                if gid in GAMES:
+                    GAMES[gid]['snapshot'] = new_snap
+                    GAMES[gid]['active_since'] = time.time()
+            if not return_move:
+                return None, 'Engine failed to generate move'
+            return _normalize_engine_move_for_json(return_move), None
+
+        use_dedicated = n > 1 and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
+        if use_dedicated:
+            out, err = _dedicated_worker_move(gid, move_notation, color)
+            if err is None:
+                return out, None
+            print(f'dedicated worker: {err}; falling back to inline')
+
+        with _GAMES_LOCK:
+            if gid not in GAMES:
+                return None, 'Unknown or expired game_id'
+            if snap is None:
+                snap = copy.deepcopy(GAMES[gid]['snapshot'])
+        with _INLINE_ENGINE_LOCK:
+            _restore_engine_state_from_dict(snap)
+            return_move = _compute_engine_move_reply(move_notation, color)
+            new_snap = _capture_engine_state_to_dict()
         with _GAMES_LOCK:
             if gid in GAMES:
                 GAMES[gid]['snapshot'] = new_snap
@@ -712,8 +936,12 @@ def get_move():
         if gid not in GAMES:
             return jsonify({'error': 'Unknown or expired game_id'}), 400
         multiple_games = len(GAMES) > 1
-        # With one session the snapshot dict is replaced whole after each move — deepcopy redundant.
-        if multiple_games:
+        force_pool_move = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
+        # Multi-game + dedicated subprocess: worker holds state; no snapshot copy for /move.
+        # Multi-game + pool or inline fallback: need a deep copy when not using shallow single-game ref.
+        if multiple_games and not force_pool_move and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1':
+            snap = None
+        elif multiple_games:
             snap = copy.deepcopy(GAMES[gid]['snapshot'])
         else:
             snap = GAMES[gid]['snapshot']
@@ -810,6 +1038,12 @@ def update_modifiers():
     global SCORING_VERSION
     SCORING_VERSION += 1
     _restart_move_pool_after_modifier_change()
+    _shutdown_all_dedicated_workers()
+    with _GAMES_LOCK:
+        for info in GAMES.values():
+            d = info['snapshot']
+            d['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
+            d['SCORING_VERSION'] = SCORING_VERSION
 
     return jsonify({'message': 'Modifiers updated', 'modifiers': SCORING_MODIFIERS})
 
