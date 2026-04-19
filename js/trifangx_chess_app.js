@@ -9168,9 +9168,22 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           if ($square.length === 0) return;
           
           const square = $square.data('square');
-          if (square) {
-            mouseDownSquare = square;
+          if (!square) return;
+          // Chessboard starts a drag on our pieces; its window mouseup runs after this handler's
+          // bubble-phase mouseup on #board. If we record mouseDownSquare for those squares,
+          // we call handleSquareClick here (e.g. select) then again from onDrop(same,same)
+          // (deselect) — click-to-move never sticks. Only track clicks chessboard won't finish
+          // via onDrop: empty squares, or occupied by opponent (onDragStart returns false).
+          mouseDownSquare = null;
+          if (!game || typeof game.get !== 'function') return;
+          const pieceAt = game.get(square);
+          if (pieceAt) {
+            const mine = playerColor === 'white' ? 'w' : 'b';
+            if (pieceAt.color === mine) {
+              return;
+            }
           }
+          mouseDownSquare = square;
         }).on('mouseup.trifangxLiveCt', function(e) {
           // Only handle left click
           if (e.button !== 0) return;
@@ -10077,10 +10090,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         });
 
         if (!response.ok) {
+          let detail = '';
+          try {
+            const errBody = await response.json();
+            if (errBody && typeof errBody.error === 'string') detail = errBody.error.trim();
+          } catch (eJson) {}
           const msg =
             response.status === 503
               ? "Engine busy (too many concurrent searches); try again shortly."
-              : `HTTP error! status: ${response.status}`;
+              : detail || `HTTP error! status: ${response.status}`;
           throw new Error(msg);
         }
 

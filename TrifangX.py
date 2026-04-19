@@ -325,6 +325,7 @@ engine_running = True
 # --- Multi-game sessions (each game_id has its own snapshot) ---
 _GAMES_LOCK = threading.RLock()
 # game_id (uuid str) -> { 'active_since': epoch seconds, 'snapshot': dict }
+# Process-local only: one WSGI worker (or sticky sessions) so /start, /heartbeat, and /move share GAMES.
 GAMES = {}
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
