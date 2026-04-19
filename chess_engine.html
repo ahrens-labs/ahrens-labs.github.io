@@ -7449,67 +7449,19 @@
           boardEl._rightClickHandlersInitialized = false;
         }
       }
-      board = Chessboard("board", {
-        draggable: true,
-        position: game ? game.fen() : "start",
-        orientation: playerColor,
-        snapSpeed: 50,
-        snapbackSpeed: 50,
-        appearSpeed: 0,
-        moveSpeed: 100,
-        trashSpeed: 50,
-        dragThrottleRate: 0,
-        sparePieces: false,
-        dropOffBoard: 'snapback',
-        onDragStart: (source, piece, position, orientation) => {
-          if (game.game_over() || gameOver) {
-            const sourceSquare = $(`#board .square-${source}`);
-            sourceSquare.addClass('illegal-move');
-            setTimeout(() => sourceSquare.removeClass('illegal-move'), 600);
-            return false;
-          }
-          const turn = game.turn();
-          if ((playerColor === "white" && turn !== "w") || (playerColor === "black" && turn !== "b")) {
-            const sourceSquare = $(`#board .square-${source}`);
-            sourceSquare.addClass('illegal-move');
-            setTimeout(() => sourceSquare.removeClass('illegal-move'), 600);
-            return false;
-          }
-          if ((turn === 'w' && piece.search(/^b/) !== -1) || (turn === 'b' && piece.search(/^w/) !== -1)) {
-            const sourceSquare = $(`#board .square-${source}`);
-            sourceSquare.addClass('illegal-move');
-            setTimeout(() => sourceSquare.removeClass('illegal-move'), 600);
-            return false;
-          }
-          highlightLegalMoves(source);
-        },
-        onDragMove: (newLocation, oldLocation, source, piece, position, orientation) => {
-          $("#board .square-55d63").removeClass("legal-target");
-          const moves = game.moves({ square: source, verbose: true });
-          const isLegal = moves.some(move => move.to === newLocation);
-          if (isLegal) {
-            $(`#board .square-${newLocation}`).addClass("legal-target");
-          }
-        },
-        onDrop: handleMove,
-        onSnapEnd: () => {
-          removeHighlights();
-          $("#board .square-55d63").removeClass("legal-target");
-        },
-        pieceTheme: pieceThemes[currentPieceStyle],
-      });
-      
-      // Ensure arrow overlay exists (it may have been removed by board.destroy())
+      // Must use the same Chessboard config as startGame / resume (not onDrop: handleMove).
+      // A minimal config breaks drag/click-to-move, promotion, and premove sync with chess.js.
+      board = Chessboard('board', buildLiveChessboardOptions(game ? game.fen() : 'start'));
+
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
 
-      // Initialize right-click handlers after board is created
       setTimeout(() => {
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false; // Reset flag
+        const bel = document.getElementById('board');
+        if (bel) {
+          bel._rightClickHandlersInitialized = false;
         }
-        ensureArrowOverlay(); // Ensure again after a delay
+        ensureArrowOverlay();
         initRightClickHandlers();
       }, 100);
     }
@@ -14962,7 +14914,8 @@
                 black: (snap.capturedPieces.black || []).slice(),
               }
             : { white: [], black: [] };
-        currentMoveIndex = typeof snap.currentMoveIndex === 'number' ? snap.currentMoveIndex : -1;
+        // Always follow the live tip after reload; a saved scrub index would desync board vs game.
+        currentMoveIndex = -1;
         lastLiveMoveDisplayText =
           typeof snap.lastLiveMoveDisplayText === 'string' ? snap.lastLiveMoveDisplayText : 'None';
         premoves = Array.isArray(snap.premoves) ? snap.premoves.slice() : [];
