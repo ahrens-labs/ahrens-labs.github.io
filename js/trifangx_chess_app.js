@@ -1326,7 +1326,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
     // --- Engine occupancy helpers ---
     const ENGINE_BASE = 'https://hedgehoglover23.pythonanywhere.com';
-    /** Set only in this tab after /start succeeds — pagehide must not call /stop for other visitors' reloads. */
+    /** Set in this tab after /start; used with pagehide skip rules so unrelated tabs do not POST /stop. */
     const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
     const ENGINE_GAME_ID_KEY = 'trifangx_engine_game_id';
@@ -1334,9 +1334,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
-    /** Set after /start while still on the lobby URL so snapshots persist before redirect to the live page. */
-    const TRIFANGX_LIVE_NAV_PENDING_KEY = 'trifangx_live_nav_pending';
-    /** Set only immediately before `location.replace(trifangx_live.html)` so pagehide does not /stop or wipe the snapshot. */
+    /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
 
     function getEngineGameId() {
@@ -1557,17 +1555,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return isTrifangxLiveDedicatedPage() ? 'trifangx_live.html' : 'chess_engine.html';
     }
 
-    /** True while a live engine session should persist across reload (dedicated page, ?txlive=1, or mid-start redirect). */
+    /** True while a live engine session should persist snapshots (?txlive=1 on lobby, or dedicated live page). */
     function trifangxLivePlayActiveInUrl() {
       if (isTrifangxLiveDedicatedPage()) return true;
       try {
-        if (new URL(window.location.href).searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
-          return true;
-        }
-      } catch (e) {}
-      try {
-        return sessionStorage.getItem(TRIFANGX_LIVE_NAV_PENDING_KEY) === '1';
-      } catch (e2) {
+        return new URL(window.location.href).searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1';
+      } catch (e) {
         return false;
       }
     }
@@ -1576,9 +1569,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (isTrifangxLiveDedicatedPage()) {
         return;
       }
-      try {
-        sessionStorage.setItem(TRIFANGX_LIVE_NAV_PENDING_KEY, '1');
-      } catch (e) {}
       try {
         const u = new URL(window.location.href);
         u.searchParams.set(TRIFANGX_LIVE_URL_PARAM, '1');
@@ -1591,7 +1581,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
       } catch (e) {}
       try {
-        sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
         sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
       } catch (e1) {}
       try {
@@ -1664,34 +1653,48 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       persistTrifangxLiveSnapshot();
     }
 
+    /**
+     * Chess lobby link from trifangx_live.html: release the engine (live pagehide never does).
+     */
+    function leaveLiveForChessLobby(ev) {
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+      try {
+        releaseEngineOccupancyOnPageExit();
+      } catch (e) {}
+      window.location.href = new URL('chess_engine.html', window.location.href).href;
+    }
+
     window.addEventListener('pagehide', function (ev) {
       if (ev.persisted) return;
       let skipRelease = false;
       try {
-        if (pagehideNavigationIsReload() && trifangxLivePlayActiveInUrl()) {
-          let isLockHolder = false;
-          try {
-            isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
-          } catch (e) {}
-          const gid = getEngineGameId();
-          if (isLockHolder && gid) {
-            persistTrifangxLiveSnapshot();
-            skipRelease = true;
-          }
+        let isLockHolder = false;
+        try {
+          isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
+        } catch (e) {}
+        const gid = getEngineGameId();
+
+        if (isLockHolder && gid && trifangxLivePlayActiveInUrl()) {
+          persistTrifangxLiveSnapshot();
         }
-        if (
-          !skipRelease &&
-          sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1'
+
+        // Dedicated live URL is only the in-game board — reload is the same view; never /stop from pagehide.
+        if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
+          skipRelease = true;
+        } else if (
+          !isTrifangxLiveDedicatedPage() &&
+          pagehideNavigationIsReload() &&
+          trifangxLivePlayActiveInUrl() &&
+          isLockHolder &&
+          gid
         ) {
-          let isLockHolder2 = false;
-          try {
-            isLockHolder2 = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
-          } catch (e3) {}
-          const gid2 = getEngineGameId();
-          if (isLockHolder2 && gid2) {
-            persistTrifangxLiveSnapshot();
-            skipRelease = true;
-          }
+          skipRelease = true;
+        } else if (
+          sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1' &&
+          isLockHolder &&
+          gid
+        ) {
+          skipRelease = true;
         }
       } catch (e2) {}
       if (!skipRelease) {
@@ -3034,7 +3037,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         let liveResumed = false;
         if (isTrifangxLiveDedicatedPage()) {
           try {
-            sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
             sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
           } catch (eNav) {}
         }
