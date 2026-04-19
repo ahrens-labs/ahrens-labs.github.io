@@ -7241,6 +7241,13 @@
           currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
           timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
           premoves: Array.isArray(premoves) ? premoves.slice() : [],
+          moveTimerElapsedMs:
+            timerInterval != null &&
+            typeof performance !== 'undefined' &&
+            typeof timerStart === 'number' &&
+            timerStart > 0
+              ? Math.max(0, performance.now() - timerStart)
+              : 0,
         };
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
       } catch (e) {}
@@ -8722,13 +8729,19 @@
 
 
     // MODIFIED: Timer always counts up, but only deducts time if it's the player's turn.
-    function startTimer() {
+    // Optional resumeElapsedMs (from live snapshot) continues the move clock across reload.
+    function startTimer(resumeElapsedMs) {
       clearInterval(timerInterval);
-      timerStart = performance.now();
-      // Show 00:00.00 the same instant the new thinking period begins (centisecond display).
+      const resume =
+        typeof resumeElapsedMs === 'number' &&
+        Number.isFinite(resumeElapsedMs) &&
+        resumeElapsedMs > 0
+          ? resumeElapsedMs
+          : 0;
+      timerStart = performance.now() - resume;
       const timerElNow = document.getElementById("timer");
       if (timerElNow) {
-        timerElNow.textContent = formatTime(0);
+        timerElNow.textContent = formatTime(resume);
       }
 
       const turn = game.turn();
@@ -9618,13 +9631,51 @@
       drawArrows();
     }
 
+    function tearDownRightClickHandlers() {
+      const h = window.__trifangxRCH;
+      if (!h) return;
+      if (h.arrowRedrawTimeout) {
+        clearTimeout(h.arrowRedrawTimeout);
+        h.arrowRedrawTimeout = null;
+      }
+      if (h.arrowObserver) {
+        try {
+          h.arrowObserver.disconnect();
+        } catch (e) {}
+        h.arrowObserver = null;
+      }
+      if (h.preventContextMenu) {
+        document.removeEventListener('contextmenu', h.preventContextMenu, true);
+        h.preventContextMenu = null;
+      }
+      if (h.handleRightClickUp) {
+        document.removeEventListener('mouseup', h.handleRightClickUp, true);
+        h.handleRightClickUp = null;
+      }
+      if (h.clearLeftClickDoc) {
+        document.removeEventListener('click', h.clearLeftClickDoc, true);
+        h.clearLeftClickDoc = null;
+      }
+      if (h.boardMousedownHandler && h.boardEl) {
+        try {
+          h.boardEl.removeEventListener('mousedown', h.boardMousedownHandler, true);
+        } catch (e2) {}
+      }
+      h.boardMousedownHandler = null;
+      h.boardEl = null;
+    }
+
     function initRightClickHandlers() {
+      tearDownRightClickHandlers();
+      if (!window.__trifangxRCH) window.__trifangxRCH = {};
+      const h = window.__trifangxRCH;
+      h.arrowRedrawTimeout = null;
+
       const boardEl = document.getElementById('board');
       if (!boardEl) return;
-      
-      // Prevent context menu on right-click - use capture phase on document to catch all elements including pieces
-      const preventContextMenu = function(e) {
-        // Only prevent if clicking on board or pieces
+      h.boardEl = boardEl;
+
+      h.preventContextMenu = function (e) {
         const target = e.target;
         if (boardEl.contains(target) || target.closest('#board')) {
           e.preventDefault();
@@ -9632,17 +9683,14 @@
           return false;
         }
       };
-      document.addEventListener('contextmenu', preventContextMenu, true);
-      
-      // Handle right-click down - use capture phase to catch before chessboard.js
-      boardEl.addEventListener('mousedown', function(e) {
-        if (e.button === 2) { // Right mouse button
-          // Check if game is started
-          const isGameStarted = document.getElementById("choose-side").style.display === "none";
+      document.addEventListener('contextmenu', h.preventContextMenu, true);
+
+      h.boardMousedownHandler = function (e) {
+        if (e.button === 2) {
+          const isGameStarted = document.getElementById('choose-side').style.display === 'none';
           if (!isGameStarted) {
-            return; // Don't allow highlighting before game starts
+            return;
           }
-          
           e.preventDefault();
           e.stopPropagation();
           const square = getSquareFromElement(e.target);
@@ -9651,96 +9699,89 @@
             rightClickStartSquare = square;
           }
         }
-      }, true); // Use capture phase
-      
-      // Handle right-click up (on document to catch even if mouse leaves board)
-      const handleRightClickUp = function(e) {
-        if (e.button === 2) { // Right mouse button
+      };
+      boardEl.addEventListener('mousedown', h.boardMousedownHandler, true);
+
+      h.handleRightClickUp = function (e) {
+        if (e.button === 2) {
           e.preventDefault();
           e.stopPropagation();
-          
+
           if (isRightClickDragging && rightClickStartSquare) {
-            // Try to get the square from the current mouse position
             const elements = document.elementsFromPoint(e.clientX, e.clientY);
             let square = null;
             for (const el of elements) {
               square = getSquareFromElement(el);
               if (square) break;
             }
-            
+
             if (square && square !== rightClickStartSquare) {
-              // Drawing arrow
               const arrowKey = `${rightClickStartSquare}-${square}`;
-              const existingIndex = arrows.findIndex(a => `${a.from}-${a.to}` === arrowKey);
-              
+              const existingIndex = arrows.findIndex((a) => `${a.from}-${a.to}` === arrowKey);
+
               if (existingIndex >= 0) {
-                // Remove arrow if it exists
                 arrows.splice(existingIndex, 1);
               } else {
-                // Add arrow
                 arrows.push({ from: rightClickStartSquare, to: square });
               }
-              // Draw arrows immediately
               setTimeout(() => {
                 drawArrows();
               }, 10);
             } else if (square === rightClickStartSquare) {
-              // Single right-click on same square - toggle highlight
-              // Check if game is started
-              const isGameStarted = document.getElementById("choose-side").style.display === "none";
+              const isGameStarted = document.getElementById('choose-side').style.display === 'none';
               if (isGameStarted) {
                 toggleSquareHighlight(square);
               }
             }
-            // If square is null, user dragged outside board - don't do anything
           }
-          
+
           isRightClickDragging = false;
           rightClickStartSquare = null;
-          
-          // Redraw all arrows after mouseup
+
           setTimeout(() => {
             drawArrows();
           }, 10);
         }
       };
-      document.addEventListener('mouseup', handleRightClickUp, true);
-      
-      // Redraw arrows when board is updated (debounced to prevent interference with timer)
-      let arrowRedrawTimeout = null;
-      const observer = new MutationObserver(function() {
-        // Clear any pending redraw
-        if (arrowRedrawTimeout) {
-          clearTimeout(arrowRedrawTimeout);
+      document.addEventListener('mouseup', h.handleRightClickUp, true);
+
+      h.arrowObserver = new MutationObserver(function () {
+        if (h.arrowRedrawTimeout) {
+          clearTimeout(h.arrowRedrawTimeout);
         }
-        // Debounce arrow redraw to prevent excessive calls that could interfere with timer
-        arrowRedrawTimeout = setTimeout(() => {
+        h.arrowRedrawTimeout = setTimeout(() => {
           drawArrows();
-          arrowRedrawTimeout = null;
+          h.arrowRedrawTimeout = null;
         }, 150);
       });
-      observer.observe(boardEl, { childList: true, subtree: true });
-      
-      // Clear highlights and arrows on left-click anywhere (board or outside)
-      document.addEventListener('click', function(e) {
-        // Only handle left clicks (button 0)
+      h.arrowObserver.observe(boardEl, { childList: true, subtree: true });
+
+      h.clearLeftClickDoc = function (e) {
         if (e.button !== 0) return;
-        
-        // Don't clear if clicking on UI controls
         const target = e.target;
-        if (target.closest('#choose-side') || 
-            target.closest('button') || 
-            target.closest('select') ||
-            target.closest('input')) {
+        if (
+          target.closest('#choose-side') ||
+          target.closest('button') ||
+          target.closest('select') ||
+          target.closest('input')
+        ) {
           return;
         }
-        
-        // Clear right-click highlights and arrows
         clearRightClickHighlights();
         clearArrows();
-      }, true);
-      
+      };
+      document.addEventListener('click', h.clearLeftClickDoc, true);
+
       boardEl._rightClickHandlersInitialized = true;
+    }
+
+    function disconnectTrifangxImgDragObserver() {
+      if (window.__trifangxImgDragObserver) {
+        try {
+          window.__trifangxImgDragObserver.disconnect();
+        } catch (e) {}
+        window.__trifangxImgDragObserver = null;
+      }
     }
 
     function isPremoveLegal(from, to, piece) {
@@ -14621,27 +14662,26 @@
       };
     }
 
-    async function finalizeLiveChessboardMountAsync() {
+    async function finalizeLiveChessboardMountAsync(resumeMoveTimerMs) {
+      tearDownRightClickHandlers();
+      disconnectTrifangxImgDragObserver();
+      $(document).off('.trifangxLivePcancel');
+      $('#board').off('.trifangxLiveCt');
+      $('#board').off('dragstart.trifangxLiveDlg', 'img');
+
       premoveJustSet = false;
-      // Ensure arrow overlay exists
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
 
-      // Initialize right-click handlers after board is created
       setTimeout(() => {
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false; // Reset flag
-        }
-        ensureArrowOverlay(); // Ensure again after a delay
+        ensureArrowOverlay();
         initRightClickHandlers();
       }, 100);
 
-      // Add click-to-move functionality using mousedown/mouseup to avoid drag interference
       setTimeout(() => {
         let mouseDownSquare = null;
-        
-        $('#board').off('mousedown mouseup').on('mousedown', function(e) {
+
+        $('#board').off('.trifangxLiveCt').on('mousedown.trifangxLiveCt', function(e) {
           // Only handle left click
           if (e.button !== 0) return;
           
@@ -14663,7 +14703,7 @@
           if (square) {
             mouseDownSquare = square;
           }
-        }).on('mouseup', function(e) {
+        }).on('mouseup.trifangxLiveCt', function(e) {
           // Only handle left click
           if (e.button !== 0) return;
           
@@ -14698,69 +14738,72 @@
         });
       }, 100);
 
-      // Cancel premoves and clear highlights on mousedown/touchstart outside of pieces/board
       premoveJustSet = false;
-      $(document).on('mousedown touchstart', function(e) {
-          // Check if the click is on the board or a piece
+      $(document)
+        .off('.trifangxLivePcancel')
+        .on('mousedown.trifangxLivePcancel touchstart.trifangxLivePcancel', function (e) {
           const $target = $(e.target);
           const isOnBoard = $target.closest('#board').length > 0;
-          const isOnPiece = $target.hasClass('piece-417db') || $target.hasClass('square-55d63') || $target.closest('.square-55d63').length > 0;
-          
-          // Only cancel if clicking outside the board/pieces
-          if (!isOnBoard && !isOnPiece) {
-          // Don't cancel premoves if we just set one in the same event cycle
-          if (premoves.length > 0 && !premoveJustSet) {
-            console.log('Click detected outside board/pieces, canceling all premoves');
-          clearPremove();
-          }
-          
-          // Clear right-click highlights
-          if (rightClickHighlightedSquares.size > 0) {
-            clearRightClickHighlights();
-          }
-        }
-        premoveJustSet = false;
-      });
+          const isOnPiece =
+            $target.hasClass('piece-417db') ||
+            $target.hasClass('square-55d63') ||
+            $target.closest('.square-55d63').length > 0;
 
-      // Prevent native HTML5 drag on piece images
+          if (!isOnBoard && !isOnPiece) {
+            if (premoves.length > 0 && !premoveJustSet) {
+              console.log('Click detected outside board/pieces, canceling all premoves');
+              clearPremove();
+            }
+            if (rightClickHighlightedSquares.size > 0) {
+              clearRightClickHighlights();
+            }
+          }
+          premoveJustSet = false;
+        });
+
       setTimeout(() => {
-        $('#board img').on('dragstart', function(e) {
+        disconnectTrifangxImgDragObserver();
+        $('#board img').off('dragstart.trifangxLiveImgDirect');
+        $('#board img').on('dragstart.trifangxLiveImgDirect', function (e) {
           e.preventDefault();
           return false;
         });
-        // Also set draggable attribute to false
         $('#board img').attr('draggable', 'false');
-        
-        // Use MutationObserver to handle dynamically added images
-        const observer = new MutationObserver(function(mutations) {
-          mutations.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
+
+        const observer = new MutationObserver(function (mutations) {
+          mutations.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
               if (node.tagName === 'IMG') {
                 $(node).attr('draggable', 'false');
-                $(node).on('dragstart', function(e) {
-                  e.preventDefault();
-                  return false;
-                });
+                $(node)
+                  .off('dragstart.trifangxLiveMo')
+                  .on('dragstart.trifangxLiveMo', function (e) {
+                    e.preventDefault();
+                    return false;
+                  });
               }
               if (node.querySelectorAll) {
                 $(node).find('img').attr('draggable', 'false');
-                $(node).find('img').on('dragstart', function(e) {
-                  e.preventDefault();
-                  return false;
-                });
+                $(node)
+                  .find('img')
+                  .off('dragstart.trifangxLiveMo')
+                  .on('dragstart.trifangxLiveMo', function (e) {
+                    e.preventDefault();
+                    return false;
+                  });
               }
             });
           });
         });
-        
-        observer.observe(document.getElementById('board'), {
-          childList: true,
-          subtree: true
-        });
+
+        const bel = document.getElementById('board');
+        if (bel) {
+          observer.observe(bel, { childList: true, subtree: true });
+          window.__trifangxImgDragObserver = observer;
+        }
       }, 200);
-      
-      // Add event delegation for dynamically added images
-      $('#board').on('dragstart', 'img', function(e) {
+
+      $('#board').on('dragstart.trifangxLiveDlg', 'img', function (e) {
         e.preventDefault();
         return false;
       });
@@ -14810,7 +14853,13 @@
         updateNotationDisplay();
       }
 
-      startTimer();
+      const resumeMs =
+        typeof resumeMoveTimerMs === 'number' &&
+        Number.isFinite(resumeMoveTimerMs) &&
+        resumeMoveTimerMs > 0
+          ? resumeMoveTimerMs
+          : undefined;
+      startTimer(resumeMs);
 
       const engineToMove =
         (playerColor === 'white' && game.turn() === 'b') ||
@@ -14970,6 +15019,8 @@
         if (lm) lm.textContent = lastLiveMoveDisplayText;
 
         if (board) {
+          disconnectTrifangxImgDragObserver();
+          tearDownRightClickHandlers();
           board.destroy();
           const bel = document.getElementById('board');
           if (bel) bel._rightClickHandlersInitialized = false;
@@ -14984,7 +15035,12 @@
         }
         highlightCheck();
 
-        await finalizeLiveChessboardMountAsync();
+        const resumeMoveTimerMs =
+          typeof snap.moveTimerElapsedMs === 'number' &&
+          Number.isFinite(snap.moveTimerElapsedMs)
+            ? Math.max(0, snap.moveTimerElapsedMs)
+            : 0;
+        await finalizeLiveChessboardMountAsync(resumeMoveTimerMs);
         return true;
       } catch (err) {
         console.error('tryResumeLiveTrifangxFromSnapshot:', err);
@@ -15136,8 +15192,9 @@
 
       // Destroy preview board and create game board
       if (board) {
+        disconnectTrifangxImgDragObserver();
+        tearDownRightClickHandlers();
         board.destroy();
-        // Reset right-click handler flag so handlers can be reattached
         const boardEl = document.getElementById('board');
         if (boardEl) {
           boardEl._rightClickHandlersInitialized = false;
