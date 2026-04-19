@@ -693,10 +693,23 @@ def start_engine():
             return jsonify({
                 "error": "Server is at maximum concurrent games. Please try again shortly.",
             }), 503
+        n_existing = len(GAMES)
         gid = str(uuid.uuid4())
+        # Serialize with /move's inline path: both use _GAMES_LOCK then _INLINE_ENGINE_LOCK
+        # (RLock), so starting a new session cannot reset module globals mid-search for an
+        # already-active solo game. When other games exist, capture → reset → capture builds
+        # the new game's start snapshot, then we restore globals so the in-flight session
+        # keeps a consistent board on the shared inline path.
+        with _INLINE_ENGINE_LOCK:
+            if n_existing == 0:
+                reset_engine_state()
+                snap = _capture_engine_state_to_dict()
+            else:
+                saved = _capture_engine_state_to_dict()
+                reset_engine_state()
+                snap = _capture_engine_state_to_dict()
+                _restore_engine_state_from_dict(saved)
         engine_running = True
-        reset_engine_state()
-        snap = _capture_engine_state_to_dict()
         GAMES[gid] = {'active_since': time.time(), 'snapshot': snap}
     return jsonify({"message": "Engine started and state reset", "game_id": gid})
 

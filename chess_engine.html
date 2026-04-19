@@ -5662,7 +5662,9 @@
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
-    
+    /** Shared by live board handlers (buildLiveChessboardOptions) and finalize document listener. */
+    let premoveJustSet = false;
+
     // Shop system - unlock tracking
     const defaultUnlocked = {
       boards: ['classic'],
@@ -6960,6 +6962,10 @@
     const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
     const ENGINE_GAME_ID_KEY = 'trifangx_engine_game_id';
+    /** Persisted mid-game state so a full reload (?txlive=1) can resume without /stop. */
+    const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
+    /** URL flag for an in-progress engine game (mirrors replayIndex for history). */
+    const TRIFANGX_LIVE_URL_PARAM = 'txlive';
 
     function getEngineGameId() {
       try {
@@ -7158,11 +7164,111 @@
         }
       } catch (e3) {}
       clearEngineTabSession();
+      clearTrifangxLiveUrlAndSnapshot();
+    }
+
+    function trifangxLivePlayActiveInUrl() {
+      try {
+        return new URL(window.location.href).searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function setTrifangxLivePlayUrl() {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set(TRIFANGX_LIVE_URL_PARAM, '1');
+        window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+      } catch (e) {}
+    }
+
+    function clearTrifangxLiveUrlAndSnapshot() {
+      try {
+        sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+      } catch (e) {}
+      try {
+        const u = new URL(window.location.href);
+        if (u.searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
+          u.searchParams.delete(TRIFANGX_LIVE_URL_PARAM);
+          window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+        }
+      } catch (e2) {}
+    }
+
+    function pagehideNavigationIsReload() {
+      try {
+        const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'reload') return true;
+      } catch (e) {}
+      try {
+        const p = performance.navigation;
+        if (p && p.type === 1) return true;
+      } catch (e2) {}
+      return false;
+    }
+
+    function persistTrifangxLiveSnapshot() {
+      try {
+        if (!game || gameOver) return;
+        const gid = getEngineGameId();
+        if (!gid) return;
+        if (!trifangxLivePlayActiveInUrl()) return;
+        const tcEl = document.getElementById('time-control');
+        const snap = {
+          v: 1,
+          game_id: gid,
+          moves: game.history(),
+          playerColor: playerColor,
+          timeLimited: !!timeLimited,
+          increment: increment != null ? increment : 0,
+          whiteTime: whiteTime != null ? whiteTime : 0,
+          blackTime: blackTime != null ? blackTime : 0,
+          blindfoldMode: !!blindfoldMode,
+          showHistoryInBlindfold: !!showHistoryInBlindfold,
+          moveClockTimes: moveClockTimes.slice(),
+          moveHistory: moveHistory.slice(),
+          lastMoveSquares: {
+            from: lastMoveSquares && lastMoveSquares.from != null ? lastMoveSquares.from : null,
+            to: lastMoveSquares && lastMoveSquares.to != null ? lastMoveSquares.to : null,
+          },
+          capturedPieces: {
+            white: (capturedPieces && capturedPieces.white) ? capturedPieces.white.slice() : [],
+            black: (capturedPieces && capturedPieces.black) ? capturedPieces.black.slice() : [],
+          },
+          currentMoveIndex: typeof currentMoveIndex === 'number' ? currentMoveIndex : -1,
+          lastLiveMoveDisplayText: typeof lastLiveMoveDisplayText !== 'undefined' ? lastLiveMoveDisplayText : 'None',
+          currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
+          timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
+          premoves: Array.isArray(premoves) ? premoves.slice() : [],
+        };
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch (e) {}
+    }
+
+    function touchLiveGameSnapshot() {
+      persistTrifangxLiveSnapshot();
     }
 
     window.addEventListener('pagehide', function (ev) {
       if (ev.persisted) return;
-      releaseEngineOccupancyOnPageExit();
+      let skipRelease = false;
+      try {
+        if (pagehideNavigationIsReload() && trifangxLivePlayActiveInUrl()) {
+          let isLockHolder = false;
+          try {
+            isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
+          } catch (e) {}
+          const gid = getEngineGameId();
+          if (isLockHolder && gid) {
+            persistTrifangxLiveSnapshot();
+            skipRelease = true;
+          }
+        }
+      } catch (e2) {}
+      if (!skipRelease) {
+        releaseEngineOccupancyOnPageExit();
+      }
     });
 
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
@@ -7175,6 +7281,7 @@
         /* still refresh occupancy so UI can recover */
       }
       clearEngineTabSession();
+      clearTrifangxLiveUrlAndSnapshot();
       await checkEngineStatus();
     }
 
@@ -8528,51 +8635,6 @@
 
         // Engine personality loading removed
 
-        // Initialize game object for preview board
-        game = new Chess();
-        gameOver = false;
-        playerColor = "white"; // Default for preview
-
-        // Create preview board with dragging enabled
-        board = Chessboard('board', {
-        draggable: false,
-        position: 'start',
-        orientation: 'white',
-        snapSpeed: 50,
-        snapbackSpeed: 50,
-        appearSpeed: 0,
-        moveSpeed: 100,
-        trashSpeed: 50,
-        pieceTheme: pieceThemes[currentPieceStyle]
-      });
-        applyMoveEffect(currentMoveEffect);
-
-        // Reset right-click handler flag
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false;
-        }
-        
-      // Ensure arrow overlay exists
-      ensureArrowOverlay();
-      
-      // Initialize right-click handlers after board is created
-      setTimeout(() => {
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false; // Reset flag
-        }
-        ensureArrowOverlay(); // Ensure again after a delay
-        initRightClickHandlers();
-      }, 100);
-        
-        console.log('Preview board created with config:', {
-          draggable: false
-        });
-        
-        // Show the board container
-        document.getElementById('board-timers-container').style.display = 'flex';
-
         // On page load just check status — don't send stop/start which would boot
         // an active player.  The actual start is deferred until the user clicks "Start Game".
         checkEngineStatus();
@@ -8587,6 +8649,58 @@
             window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
           }
         }
+
+        let liveResumed = false;
+        if (!isHistoryReplayMode && urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
+          liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+        }
+
+        if (!liveResumed && !isHistoryReplayMode) {
+          // Initialize game object for preview board
+          game = new Chess();
+          gameOver = false;
+          playerColor = "white"; // Default for preview
+
+          // Create preview board with dragging enabled
+          board = Chessboard('board', {
+            draggable: false,
+            position: 'start',
+            orientation: 'white',
+            snapSpeed: 50,
+            snapbackSpeed: 50,
+            appearSpeed: 0,
+            moveSpeed: 100,
+            trashSpeed: 50,
+            pieceTheme: pieceThemes[currentPieceStyle]
+          });
+          applyMoveEffect(currentMoveEffect);
+
+          // Reset right-click handler flag
+          const boardEl = document.getElementById('board');
+          if (boardEl) {
+            boardEl._rightClickHandlersInitialized = false;
+          }
+
+          // Ensure arrow overlay exists
+          ensureArrowOverlay();
+
+          // Initialize right-click handlers after board is created
+          setTimeout(() => {
+            const bel = document.getElementById('board');
+            if (bel) {
+              bel._rightClickHandlersInitialized = false; // Reset flag
+            }
+            ensureArrowOverlay(); // Ensure again after a delay
+            initRightClickHandlers();
+          }, 100);
+
+          console.log('Preview board created with config:', {
+            draggable: false
+          });
+        }
+
+        // Show the board container
+        document.getElementById('board-timers-container').style.display = 'flex';
 
         // Load sound settings
         const savedSound = localStorage.getItem('soundEnabled');
@@ -11488,12 +11602,14 @@
       startTimer();
       
       // Restart engine (rematch — same player, no need to re-check occupancy)
-      sendEngineCommand("start").then((data) => {
+        sendEngineCommand("start").then((data) => {
         if (data && data.game_id) {
           setEngineGameId(data.game_id);
         }
         markEngineLockHeldByThisTab();
         startHeartbeat();
+        setTrifangxLivePlayUrl();
+        touchLiveGameSnapshot();
         if (playerColor === "black") {
           engineMove();
         }
@@ -14301,166 +14417,10 @@
       container.appendChild(playerSlot);
     }
 
-    async function startGame() {
-      stopPregameStatusPolling();
-
-      // Check if user is logged in
-      if (!isLoggedIn || !currentSessionId) {
-        showNotification('Please login to play', 'error');
-        showLoginPage();
-        return;
-      }
-
-      // Check engine occupancy before proceeding (server at max concurrent games)
-      const busy = await checkEngineStatus();
-      if (busy) {
-        showNotification('The engine is at maximum concurrent games. Try again in a moment.', 'error');
-        return;
-      }
-
-      // Acquire a game slot before leaving pregame. /status can disagree with /start (e.g. race or
-      // timing). 503 = max concurrent games; 409 is reserved for legacy conflicts. Show the waiting-room
-      // banner while #choose-side is still visible when start fails for capacity.
-      let startData;
-      try {
-        startData = await sendEngineCommand('start');
-      } catch (startErr) {
-        const code = startErr && startErr.statusCode;
-        if (code === 503) {
-          _lastStatusOccupied = true;
-          applyEngineOccupancyWaitingRoomUi(true);
-          showNotification(
-            'The engine is at maximum concurrent games. Try again in a moment.',
-            'error'
-          );
-        } else if (code === 409) {
-          _lastStatusOccupied = true;
-          applyEngineOccupancyWaitingRoomUi(true);
-          showNotification(
-            'A game is already in progress (including while the engine is thinking). Please wait for it to finish.',
-            'error'
-          );
-        } else {
-          showNotification('Could not reach the game server. Please try again.', 'error');
-        }
-        return;
-      }
-      if (startData && startData.game_id) {
-        setEngineGameId(startData.game_id);
-      }
-      markEngineLockHeldByThisTab();
-      startHeartbeat();
-
-      const pgTools = document.getElementById('chess-pregame-tools');
-      if (pgTools) pgTools.style.display = 'none';
-      closeShop();
-      closeSettings();
-      const achModalEl = document.getElementById('all-achievements-modal');
-      if (achModalEl) achModalEl.classList.remove('show');
-
-      if (isHistoryReplayMode) {
-        isHistoryReplayMode = false;
-        replayModeBackup = null;
-        const banHr = document.getElementById('history-replay-banner');
-        if (banHr) banHr.style.display = 'none';
-      }
-      
-      gameOver = false;
-      
-      // Clear right-click highlights and arrows when starting new game
-      try {
-        if (typeof clearRightClickHighlights === 'function') {
-          clearRightClickHighlights();
-        }
-        if (typeof clearArrows === 'function') {
-          clearArrows();
-        }
-      } catch (e) {
-        console.log('Error clearing highlights/arrows:', e);
-      }
-
-      const side = document.getElementById("color-select").value;
-      const timeOption = document.getElementById("time-control").value;
-      blindfoldMode = document.getElementById("blindfold-mode").checked;
-      showHistoryInBlindfold = document.getElementById("show-history").checked;
-      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
-      
-      // Track current game settings for achievements
-      currentTimeControl = timeOption;
-      
-      // Track games as white/black
-      if (playerColor === 'white') {
-        lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
-      } else {
-        lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
-      }
-      saveLifetimeStats();
-      
-      const [base, inc] =
-        timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
-
-      timeLimited = timeOption !== "none";
-      increment = inc || 0;
-      whiteTime = base ? base * 1000 : 0;
-      blackTime = base ? base * 1000 : 0;
-
-      // Show or hide timers based on time control
-      const timersContainer = document.getElementById("timers-container");
-      if (timeLimited) {
-        timersContainer.style.display = "flex";
-      } else {
-        timersContainer.style.display = "none";
-      }
-
-      // Reset game (don't create new, just reset existing)
-      if (!game) {
-        game = new Chess();
-      } else {
-        game.reset();
-      }
-      moveHistory = [];
-      moveClockTimes = [];
-      currentMoveIndex = -1;
-      capturedPieces = { white: [], black: [] };
-      lastMoveSquares = { from: null, to: null };
-      gameStartTime = new Date();
-      resetGameStats();
-      premoves = []; // Clear any premoves
-      selectedSquare = null; // Clear any selection
-      
-      // Hide the options panel with fade effect
-      const choosePanel = document.getElementById("choose-side");
-      choosePanel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-      choosePanel.style.opacity = "0";
-      choosePanel.style.transform = "scale(0.95)";
-      setTimeout(() => {
-        choosePanel.style.display = "none";
-        if (typeof updateChessPregameToolsVisibility === 'function') {
-          updateChessPregameToolsVisibility();
-        }
-      }, 300);
-      
-      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
-
-      updateLastMove(null, "00:00.00", 0, 0);
-      updateTurnDisplay();
-
-      // Destroy preview board and create game board
-      if (board) {
-        board.destroy();
-        // Reset right-click handler flag so handlers can be reattached
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false;
-        }
-      }
-      
-      // Ensure arrow overlay exists (it may have been removed by board.destroy())
-      ensureArrowOverlay();
-      
-      board = Chessboard("board", {
+    function buildLiveChessboardOptions(initialPosition) {
+      return {
         draggable: true,
-        position: "start",
+        position: initialPosition || "start",
         orientation: playerColor,
         snapSpeed: 50,
         snapbackSpeed: 50,
@@ -14706,8 +14666,11 @@
           }
         },
         pieceTheme: pieceThemes[currentPieceStyle],
-      });
+      };
+    }
 
+    async function finalizeLiveChessboardMountAsync() {
+      premoveJustSet = false;
       // Ensure arrow overlay exists
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
@@ -14784,7 +14747,7 @@
       }, 100);
 
       // Cancel premoves and clear highlights on mousedown/touchstart outside of pieces/board
-      let premoveJustSet = false;
+      premoveJustSet = false;
       $(document).on('mousedown touchstart', function(e) {
           // Check if the click is on the board or a piece
           const $target = $(e.target);
@@ -14875,7 +14838,8 @@
       
       // Initialize stats
       updateGameStats();
-      
+      updateOpeningDisplay();
+
       // Handle blindfold mode (typed moves; clocks stay available when timed)
       if (blindfoldMode) {
         document.getElementById("move-input-container").style.display = "block";
@@ -14889,12 +14853,350 @@
         document.getElementById("move-input-container").style.display = "none";
       }
       syncBlindfoldGameShellUi();
-      
+
+      if (typeof updateNotationDisplay === 'function') {
+        updateNotationDisplay();
+      }
+
       startTimer();
-      
-      if (playerColor === "black") {
+
+      const engineToMove =
+        (playerColor === 'white' && game.turn() === 'b') ||
+        (playerColor === 'black' && game.turn() === 'w');
+      if (engineToMove) {
         await engineMove();
       }
+
+      touchLiveGameSnapshot();
+    }
+
+    async function clearFailedLiveResume() {
+      stopHeartbeat();
+      const gid = getEngineGameId();
+      try {
+        if (gid) await sendEngineCommand('stop', { game_id: gid });
+      } catch (e) {}
+      clearEngineTabSession();
+      clearTrifangxLiveUrlAndSnapshot();
+      await checkEngineStatus();
+    }
+
+    /**
+     * After reload (?txlive=1 + snapshot), restore client state and reconnect heartbeat.
+     * Returns false if not resuming (caller should build the preview board).
+     */
+    async function tryResumeLiveTrifangxFromSnapshot() {
+      try {
+        if (!isLoggedIn || !currentSessionId) {
+          clearTrifangxLiveUrlAndSnapshot();
+          return false;
+        }
+        let snap = null;
+        try {
+          const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+          snap = raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          snap = null;
+        }
+        if (!snap || snap.v !== 1 || !snap.game_id || !Array.isArray(snap.moves)) {
+          clearEngineTabSession();
+          clearTrifangxLiveUrlAndSnapshot();
+          return false;
+        }
+
+        setEngineGameId(snap.game_id);
+        try {
+          const hr = await fetch(`${ENGINE_BASE}/heartbeat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ game_id: snap.game_id }),
+          });
+          if (!hr.ok) {
+            await clearFailedLiveResume();
+            return false;
+          }
+        } catch (e2) {
+          await clearFailedLiveResume();
+          return false;
+        }
+
+        markEngineLockHeldByThisTab();
+        startHeartbeat();
+        stopPregameStatusPolling();
+
+        const pgTools = document.getElementById('chess-pregame-tools');
+        if (pgTools) pgTools.style.display = 'none';
+
+        playerColor = snap.playerColor === 'black' ? 'black' : 'white';
+        timeLimited = !!snap.timeLimited;
+        increment = snap.increment != null ? Number(snap.increment) : 0;
+        whiteTime = snap.whiteTime != null ? snap.whiteTime : 0;
+        blackTime = snap.blackTime != null ? snap.blackTime : 0;
+        blindfoldMode = !!snap.blindfoldMode;
+        showHistoryInBlindfold = !!snap.showHistoryInBlindfold;
+        const bfCb = document.getElementById('blindfold-mode');
+        if (bfCb) bfCb.checked = blindfoldMode;
+        const shCb = document.getElementById('show-history');
+        if (shCb) shCb.checked = showHistoryInBlindfold;
+        if (snap.timeControlOption) {
+          const tcSel = document.getElementById('time-control');
+          if (tcSel) tcSel.value = snap.timeControlOption;
+        }
+        if (typeof snap.currentTimeControl !== 'undefined' && snap.currentTimeControl !== null) {
+          currentTimeControl = snap.currentTimeControl;
+        }
+
+        moveClockTimes = Array.isArray(snap.moveClockTimes) ? snap.moveClockTimes.slice() : [];
+        moveHistory = Array.isArray(snap.moveHistory) ? snap.moveHistory.slice() : [];
+        lastMoveSquares =
+          snap.lastMoveSquares && typeof snap.lastMoveSquares === 'object'
+            ? {
+                from: snap.lastMoveSquares.from != null ? snap.lastMoveSquares.from : null,
+                to: snap.lastMoveSquares.to != null ? snap.lastMoveSquares.to : null,
+              }
+            : { from: null, to: null };
+        capturedPieces =
+          snap.capturedPieces && snap.capturedPieces.white
+            ? {
+                white: (snap.capturedPieces.white || []).slice(),
+                black: (snap.capturedPieces.black || []).slice(),
+              }
+            : { white: [], black: [] };
+        currentMoveIndex = typeof snap.currentMoveIndex === 'number' ? snap.currentMoveIndex : -1;
+        lastLiveMoveDisplayText =
+          typeof snap.lastLiveMoveDisplayText === 'string' ? snap.lastLiveMoveDisplayText : 'None';
+        premoves = Array.isArray(snap.premoves) ? snap.premoves.slice() : [];
+        gameOver = false;
+        selectedSquare = null;
+        gameStartTime = new Date();
+
+        game = new Chess();
+        game.reset();
+        for (const san of snap.moves) {
+          const ok = game.move(san, { sloppy: true });
+          if (!ok) {
+            console.warn('Live resume: could not replay move', san);
+            await clearFailedLiveResume();
+            return false;
+          }
+        }
+
+        if (moveHistory.length !== game.history().length) {
+          const c = new Chess();
+          moveHistory = [];
+          for (const san of game.history()) {
+            const mv = c.move(san, { sloppy: true });
+            if (!mv) break;
+            moveHistory.push(c.fen());
+          }
+        }
+
+        const choosePanel = document.getElementById('choose-side');
+        if (choosePanel) {
+          choosePanel.style.display = 'none';
+          choosePanel.style.opacity = '1';
+          choosePanel.style.transform = '';
+        }
+        updateChessPregameToolsVisibility();
+
+        const timersContainer = document.getElementById('timers-container');
+        if (timersContainer) {
+          timersContainer.style.display = timeLimited ? 'flex' : 'none';
+        }
+        if (timeLimited) {
+          const wt = document.getElementById('white-total');
+          const bt = document.getElementById('black-total');
+          if (wt) wt.textContent = formatTime(whiteTime);
+          if (bt) bt.textContent = formatTime(blackTime);
+          if (typeof setupTimerDisplayOrder === 'function') setupTimerDisplayOrder();
+        }
+
+        document.getElementById('move-timer-container').innerHTML =
+          'Time for this move: <span id="timer">00:00.00</span>';
+        const lm = document.getElementById('last-move');
+        if (lm) lm.textContent = lastLiveMoveDisplayText;
+
+        if (board) {
+          board.destroy();
+          const bel = document.getElementById('board');
+          if (bel) bel._rightClickHandlersInitialized = false;
+        }
+
+        document.getElementById('board-timers-container').style.display = 'flex';
+
+        ensureArrowOverlay();
+        board = Chessboard('board', buildLiveChessboardOptions(game.fen()));
+        if (lastMoveSquares && lastMoveSquares.from && lastMoveSquares.to) {
+          highlightLastMove(lastMoveSquares.from, lastMoveSquares.to);
+        }
+        highlightCheck();
+
+        await finalizeLiveChessboardMountAsync();
+        return true;
+      } catch (err) {
+        console.error('tryResumeLiveTrifangxFromSnapshot:', err);
+        await clearFailedLiveResume();
+        return false;
+      }
+    }
+
+    async function startGame() {
+      stopPregameStatusPolling();
+
+      // Check if user is logged in
+      if (!isLoggedIn || !currentSessionId) {
+        showNotification('Please login to play', 'error');
+        showLoginPage();
+        return;
+      }
+
+      // Acquire a game slot via /start only — no extra /status round-trip. The server enforces
+      // MAX_CONCURRENT_GAMES; 503 here shows the same waiting-room UX as /status would.
+
+      // Acquire a game slot before leaving pregame. /status can disagree with /start (e.g. race or
+      // timing). 503 = max concurrent games; 409 is reserved for legacy conflicts. Show the waiting-room
+      // banner while #choose-side is still visible when start fails for capacity.
+      let startData;
+      try {
+        startData = await sendEngineCommand('start');
+      } catch (startErr) {
+        const code = startErr && startErr.statusCode;
+        if (code === 503) {
+          _lastStatusOccupied = true;
+          applyEngineOccupancyWaitingRoomUi(true);
+          showNotification(
+            'The engine is at maximum concurrent games. Try again in a moment.',
+            'error'
+          );
+        } else if (code === 409) {
+          _lastStatusOccupied = true;
+          applyEngineOccupancyWaitingRoomUi(true);
+          showNotification(
+            'A game is already in progress (including while the engine is thinking). Please wait for it to finish.',
+            'error'
+          );
+        } else {
+          showNotification('Could not reach the game server. Please try again.', 'error');
+        }
+        return;
+      }
+      if (startData && startData.game_id) {
+        setEngineGameId(startData.game_id);
+      }
+      markEngineLockHeldByThisTab();
+      startHeartbeat();
+      setTrifangxLivePlayUrl();
+
+      const pgTools = document.getElementById('chess-pregame-tools');
+      if (pgTools) pgTools.style.display = 'none';
+      closeShop();
+      closeSettings();
+      const achModalEl = document.getElementById('all-achievements-modal');
+      if (achModalEl) achModalEl.classList.remove('show');
+
+      if (isHistoryReplayMode) {
+        isHistoryReplayMode = false;
+        replayModeBackup = null;
+        const banHr = document.getElementById('history-replay-banner');
+        if (banHr) banHr.style.display = 'none';
+      }
+      
+      gameOver = false;
+      
+      // Clear right-click highlights and arrows when starting new game
+      try {
+        if (typeof clearRightClickHighlights === 'function') {
+          clearRightClickHighlights();
+        }
+        if (typeof clearArrows === 'function') {
+          clearArrows();
+        }
+      } catch (e) {
+        console.log('Error clearing highlights/arrows:', e);
+      }
+
+      const side = document.getElementById("color-select").value;
+      const timeOption = document.getElementById("time-control").value;
+      blindfoldMode = document.getElementById("blindfold-mode").checked;
+      showHistoryInBlindfold = document.getElementById("show-history").checked;
+      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
+      
+      // Track current game settings for achievements
+      currentTimeControl = timeOption;
+      
+      // Track games as white/black
+      if (playerColor === 'white') {
+        lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
+      } else {
+        lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
+      }
+      saveLifetimeStats();
+      
+      const [base, inc] =
+        timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
+
+      timeLimited = timeOption !== "none";
+      increment = inc || 0;
+      whiteTime = base ? base * 1000 : 0;
+      blackTime = base ? base * 1000 : 0;
+
+      // Show or hide timers based on time control
+      const timersContainer = document.getElementById("timers-container");
+      if (timeLimited) {
+        timersContainer.style.display = "flex";
+      } else {
+        timersContainer.style.display = "none";
+      }
+
+      // Reset game (don't create new, just reset existing)
+      if (!game) {
+        game = new Chess();
+      } else {
+        game.reset();
+      }
+      moveHistory = [];
+      moveClockTimes = [];
+      currentMoveIndex = -1;
+      capturedPieces = { white: [], black: [] };
+      lastMoveSquares = { from: null, to: null };
+      gameStartTime = new Date();
+      resetGameStats();
+      premoves = []; // Clear any premoves
+      selectedSquare = null; // Clear any selection
+      
+      // Hide the options panel with fade effect
+      const choosePanel = document.getElementById("choose-side");
+      choosePanel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+      choosePanel.style.opacity = "0";
+      choosePanel.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        choosePanel.style.display = "none";
+        if (typeof updateChessPregameToolsVisibility === 'function') {
+          updateChessPregameToolsVisibility();
+        }
+      }, 300);
+      
+      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
+
+      updateLastMove(null, "00:00.00", 0, 0);
+      updateTurnDisplay();
+
+      // Destroy preview board and create game board
+      if (board) {
+        board.destroy();
+        // Reset right-click handler flag so handlers can be reattached
+        const boardEl = document.getElementById('board');
+        if (boardEl) {
+          boardEl._rightClickHandlersInitialized = false;
+        }
+      }
+      
+      // Ensure arrow overlay exists (it may have been removed by board.destroy())
+      ensureArrowOverlay();
+
+      board = Chessboard("board", buildLiveChessboardOptions());
+
+      await finalizeLiveChessboardMountAsync();
     }
 
     // Check for insufficient material (draw condition)
@@ -15150,6 +15452,7 @@
       updateTurnDisplay();
       updateOpeningDisplay();
       updateGameStats();
+      touchLiveGameSnapshot();
 
       // Check for draw conditions
       if (checkDrawConditions()) {
@@ -15345,7 +15648,8 @@
         updateTurnDisplay();
         updateOpeningDisplay();
         updateGameStats();
-        
+        touchLiveGameSnapshot();
+
         // Re-apply premove highlights if there are any (shouldn't be, but just in case)
         if (premoves.length > 0) {
           updatePremoveVisual();
@@ -15442,12 +15746,13 @@
             updateTurnDisplay();
             updateOpeningDisplay();
             updateGameStats();
-            
+            touchLiveGameSnapshot();
+
             // Check for draw conditions after premove
             if (checkDrawConditions()) {
               return; // Draw handling is done in checkDrawConditions
             }
-            
+
             if (game.in_checkmate()) {
               const moveContainer = document.getElementById("move-timer-container");
               moveContainer.innerHTML = 'CHECKMATE! <span style="color:#2ECC71;">You Win!</span>';
@@ -15456,7 +15761,7 @@
               gameOver = true;
               recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
               clearPremove();
-              
+
               // Update statistics and achievements
               playerStats.wins++;
               savePlayerStats();
@@ -15495,6 +15800,7 @@
           }
         }
 
+        touchLiveGameSnapshot();
         startTimer(); // Start move timer for player
       } catch (err) {
         // Replaced alert() with UI message
@@ -15551,6 +15857,7 @@
       updateTurnDisplay();
       updateOpeningDisplay();
       updateGameStats();
+      touchLiveGameSnapshot();
 
       if (game.in_checkmate()) {
         const moveContainer = document.getElementById("move-timer-container");
@@ -15559,7 +15866,7 @@
         celebrateCheckmate(true);
         gameOver = true;
         recordGameToCloudHistory(game.turn() === 'w' ? '0-1' : '1-0');
-        
+
         // Update statistics and achievements
         playerStats.wins++;
         savePlayerStats();
