@@ -6962,10 +6962,12 @@
     const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
     const ENGINE_GAME_ID_KEY = 'trifangx_engine_game_id';
-    /** Persisted mid-game state so a full reload (?txlive=1) can resume without /stop. */
+    /** Persisted mid-game state so reload can resume without /stop (used on `trifangx_live.html` or ?txlive=1). */
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
-    /** URL flag for an in-progress engine game (mirrors replayIndex for history). */
+    /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
+    /** Set after /start while still on the lobby URL so snapshots persist before redirect to the live page. */
+    const TRIFANGX_LIVE_NAV_PENDING_KEY = 'trifangx_live_nav_pending';
 
     function getEngineGameId() {
       try {
@@ -7167,26 +7169,51 @@
       clearTrifangxLiveUrlAndSnapshot();
     }
 
-    function trifangxLivePlayActiveInUrl() {
+    function isTrifangxLiveDedicatedPage() {
       try {
-        return new URL(window.location.href).searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1';
+        const p = (window.location.pathname || '').toLowerCase();
+        return /(^|\/)trifangx_live\.html$/.test(p) || p.endsWith('/trifangx_live');
       } catch (e) {
         return false;
       }
     }
 
+    /** True while a live engine session should persist across reload (dedicated page, ?txlive=1, or mid-start redirect). */
+    function trifangxLivePlayActiveInUrl() {
+      if (isTrifangxLiveDedicatedPage()) return true;
+      try {
+        if (new URL(window.location.href).searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
+          return true;
+        }
+      } catch (e) {}
+      try {
+        return sessionStorage.getItem(TRIFANGX_LIVE_NAV_PENDING_KEY) === '1';
+      } catch (e2) {
+        return false;
+      }
+    }
+
     function setTrifangxLivePlayUrl() {
+      if (isTrifangxLiveDedicatedPage()) {
+        return;
+      }
+      try {
+        sessionStorage.setItem(TRIFANGX_LIVE_NAV_PENDING_KEY, '1');
+      } catch (e) {}
       try {
         const u = new URL(window.location.href);
         u.searchParams.set(TRIFANGX_LIVE_URL_PARAM, '1');
         window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
-      } catch (e) {}
+      } catch (e2) {}
     }
 
     function clearTrifangxLiveUrlAndSnapshot() {
       try {
         sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
       } catch (e) {}
+      try {
+        sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
+      } catch (e1) {}
       try {
         const u = new URL(window.location.href);
         if (u.searchParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
@@ -8610,11 +8637,35 @@
         }
 
         let liveResumed = false;
-        if (!isHistoryReplayMode && urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1') {
+        if (isTrifangxLiveDedicatedPage()) {
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
+          } catch (eNav) {}
+        }
+        if (
+          !isHistoryReplayMode &&
+          (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
+        ) {
           liveResumed = await tryResumeLiveTrifangxFromSnapshot();
         }
 
-        if (!liveResumed && !isHistoryReplayMode) {
+        if (isTrifangxLiveDedicatedPage() && !liveResumed) {
+          const no = document.createElement('div');
+          no.id = 'trifangx-live-empty';
+          no.setAttribute('role', 'status');
+          no.style.cssText =
+            'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
+          no.innerHTML =
+            '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
+            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
+            '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
+          const btc = document.getElementById('board-timers-container');
+          if (btc && btc.parentNode) {
+            btc.parentNode.insertBefore(no, btc);
+          } else {
+            document.body.insertBefore(no, document.body.firstChild);
+          }
+        } else if (!liveResumed && !isHistoryReplayMode) {
           // Initialize game object for preview board
           game = new Chess();
           gameOver = false;
@@ -8658,8 +8709,9 @@
           });
         }
 
-        // Show the board container
-        document.getElementById('board-timers-container').style.display = 'flex';
+        if (!(isTrifangxLiveDedicatedPage() && !liveResumed)) {
+          document.getElementById('board-timers-container').style.display = 'flex';
+        }
 
         // Load sound settings
         const savedSound = localStorage.getItem('soundEnabled');
@@ -14883,8 +14935,8 @@
     }
 
     /**
-     * After reload (?txlive=1 + snapshot), restore client state and reconnect heartbeat.
-     * Returns false if not resuming (caller should build the preview board).
+     * After reload on `trifangx_live.html` (or legacy ?txlive=1), restore from snapshot and reconnect heartbeat.
+     * Returns false if not resuming (caller should build the preview board or empty-state on the live page).
      */
     async function tryResumeLiveTrifangxFromSnapshot() {
       try {
@@ -15207,6 +15259,16 @@
       board = Chessboard("board", buildLiveChessboardOptions());
 
       await finalizeLiveChessboardMountAsync();
+
+      if (!isTrifangxLiveDedicatedPage()) {
+        try {
+          persistTrifangxLiveSnapshot();
+        } catch (eSnap) {}
+        try {
+          window.location.replace(new URL('trifangx_live.html', window.location.href).href);
+        } catch (eNav) {}
+        return;
+      }
     }
 
     // Check for insufficient material (draw condition)
