@@ -1654,7 +1654,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     /**
-     * Chess lobby link from trifangx_live.html: release the engine (live pagehide never does).
+     * "Chess Engine" nav from trifangx_live.html: release the engine (live pagehide never does).
      */
     function leaveLiveForChessLobby(ev) {
       if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
