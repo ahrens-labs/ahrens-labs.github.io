@@ -1551,6 +1551,24 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     }
 
+    /**
+     * True when the main engine game UI is active (past the side chooser), not preview.
+     * On trifangx_live.html, #choose-side is hidden only via CSS — do not rely on its inline style.display.
+     */
+    function isTrifangxGameUiActive() {
+      try {
+        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
+          return !!(typeof game !== 'undefined' && game && !gameOver && getEngineGameId());
+        }
+      } catch (e0) {}
+      try {
+        const cs = document.getElementById('choose-side');
+        return !!(cs && cs.style.display === 'none');
+      } catch (e) {
+        return false;
+      }
+    }
+
     function trifangxAccountReturnFilename() {
       return isTrifangxLiveDedicatedPage() ? 'trifangx_live.html' : 'chess_engine.html';
     }
@@ -1853,7 +1871,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         board.destroy();
         
         // Check if game is active or preview mode
-        const isGameStarted = document.getElementById("choose-side").style.display === "none";
+        const isGameStarted = isTrifangxGameUiActive();
         
         if (isGameStarted && game && !gameOver) {
           // Game is active - recreate with full handlers
@@ -2799,7 +2817,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (board) {
           const pos = board.position();
           board.destroy();
-          const isGame = document.getElementById('choose-side') && document.getElementById('choose-side').style.display === 'none';
+          const isGame = isTrifangxGameUiActive();
           if (isGame && game && !gameOver) recreateBoard();
           else {
             board = Chessboard('board', { draggable: false, position: pos, orientation: 'white', pieceTheme: pieceThemes[v] });
@@ -4137,7 +4155,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
       h.boardMousedownHandler = function (e) {
         if (e.button === 2) {
-          const isGameStarted = document.getElementById('choose-side').style.display === 'none';
+          const isGameStarted = isTrifangxGameUiActive();
           if (!isGameStarted) {
             return;
           }
@@ -4178,7 +4196,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
                 drawArrows();
               }, 10);
             } else if (square === rightClickStartSquare) {
-              const isGameStarted = document.getElementById('choose-side').style.display === 'none';
+              const isGameStarted = isTrifangxGameUiActive();
               if (isGameStarted) {
                 toggleSquareHighlight(square);
               }
