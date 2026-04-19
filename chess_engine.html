@@ -6968,6 +6968,8 @@
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set after /start while still on the lobby URL so snapshots persist before redirect to the live page. */
     const TRIFANGX_LIVE_NAV_PENDING_KEY = 'trifangx_live_nav_pending';
+    /** Set only immediately before `location.replace(trifangx_live.html)` so pagehide does not /stop or wipe the snapshot. */
+    const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
 
     function getEngineGameId() {
       try {
@@ -7213,6 +7215,7 @@
       } catch (e) {}
       try {
         sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
+        sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
       } catch (e1) {}
       try {
         const u = new URL(window.location.href);
@@ -7295,6 +7298,20 @@
           } catch (e) {}
           const gid = getEngineGameId();
           if (isLockHolder && gid) {
+            persistTrifangxLiveSnapshot();
+            skipRelease = true;
+          }
+        }
+        if (
+          !skipRelease &&
+          sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1'
+        ) {
+          let isLockHolder2 = false;
+          try {
+            isLockHolder2 = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
+          } catch (e3) {}
+          const gid2 = getEngineGameId();
+          if (isLockHolder2 && gid2) {
             persistTrifangxLiveSnapshot();
             skipRelease = true;
           }
@@ -8640,6 +8657,7 @@
         if (isTrifangxLiveDedicatedPage()) {
           try {
             sessionStorage.removeItem(TRIFANGX_LIVE_NAV_PENDING_KEY);
+            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
           } catch (eNav) {}
         }
         if (
@@ -15265,8 +15283,15 @@
           persistTrifangxLiveSnapshot();
         } catch (eSnap) {}
         try {
+          sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
+        } catch (eHand) {}
+        try {
           window.location.replace(new URL('trifangx_live.html', window.location.href).href);
-        } catch (eNav) {}
+        } catch (eNav) {
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+          } catch (eClr) {}
+        }
         return;
       }
     }
