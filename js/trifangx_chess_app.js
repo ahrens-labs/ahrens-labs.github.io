@@ -478,6 +478,32 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         }
       };
     }
+
+    /** Restore achievement / in-game counters after a live reload (best-effort merge). */
+    function applyGameStatsFromLiveSnapshot(saved) {
+      if (!saved || typeof saved !== 'object') {
+        resetGameStats();
+        return;
+      }
+      try {
+        resetGameStats();
+        if (saved.dailyStats && typeof saved.dailyStats === 'object') {
+          gameStats.dailyStats = Object.assign({}, gameStats.dailyStats, saved.dailyStats);
+          if (!Array.isArray(gameStats.dailyStats.uniqueSquaresVisitedToday)) {
+            gameStats.dailyStats.uniqueSquaresVisitedToday = [];
+          }
+        }
+        for (const key of Object.keys(saved)) {
+          if (key === 'dailyStats') continue;
+          if (Object.prototype.hasOwnProperty.call(gameStats, key) && saved[key] !== undefined) {
+            gameStats[key] = saved[key];
+          }
+        }
+        if (gameStats.shortestWin === null || gameStats.shortestWin === undefined) {
+          gameStats.shortestWin = Infinity;
+        }
+      } catch (e) {}
+    }
     
     function trackWinStats(moveCount, checkmatePiece = null) {
       gameStats._isWinGameEnd = true;
@@ -1330,7 +1356,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     const ENGINE_LOCK_SESSION_KEY = 'trifangx_engine_lock_holder';
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
     const ENGINE_GAME_ID_KEY = 'trifangx_engine_game_id';
-    /** Persisted mid-game state so reload can resume without /stop (used on `trifangx_live.html` or ?txlive=1). */
+    /** Persisted mid-game state for reload (trifangx_live.html or ?txlive=1): game_id, FEN, moves, clocks, gameStats. */
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
@@ -1629,10 +1655,16 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (!gid) return;
         if (!trifangxLivePlayActiveInUrl()) return;
         const tcEl = document.getElementById('time-control');
+        let gameStatsClone = null;
+        try {
+          gameStatsClone = JSON.parse(JSON.stringify(gameStats));
+        } catch (eGs) {}
         const snap = {
-          v: 1,
+          v: 2,
           game_id: gid,
+          fen: game.fen(),
           moves: game.history(),
+          gameStats: gameStatsClone,
           playerColor: playerColor,
           timeLimited: !!timeLimited,
           increment: increment != null ? increment : 0,
@@ -9352,27 +9384,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       touchLiveGameSnapshot();
     }
 
-    async function clearFailedLiveResume() {
-      stopHeartbeat();
-      const gid = getEngineGameId();
-      try {
-        if (gid) await sendEngineCommand('stop', { game_id: gid });
-      } catch (e) {}
-      clearEngineTabSession();
-      clearTrifangxLiveUrlAndSnapshot();
-      await checkEngineStatus();
-    }
-
     /**
-     * After reload on `trifangx_live.html` (or legacy ?txlive=1), restore from snapshot and reconnect heartbeat.
-     * Returns false if not resuming (caller should build the preview board or empty-state on the live page).
+     * After reload on `trifangx_live.html` (or legacy ?txlive=1), restore from session snapshot.
+     * Does not call /stop or clear the snapshot on heartbeat or replay errors — reload is a normal refresh.
      */
     async function tryResumeLiveTrifangxFromSnapshot() {
       try {
-        if (!isLoggedIn || !currentSessionId) {
-          clearTrifangxLiveUrlAndSnapshot();
-          return false;
-        }
         let snap = null;
         try {
           const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
@@ -9380,27 +9397,25 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         } catch (e) {
           snap = null;
         }
-        if (!snap || snap.v !== 1 || !snap.game_id || !Array.isArray(snap.moves)) {
-          clearEngineTabSession();
-          clearTrifangxLiveUrlAndSnapshot();
+        const gid = snap && typeof snap.game_id === 'string' ? snap.game_id.trim() : '';
+        const rawMoves = snap && Array.isArray(snap.moves) ? snap.moves : [];
+        const fen =
+          snap && typeof snap.fen === 'string' && snap.fen.trim().length > 0 ? snap.fen.trim() : '';
+        if (!snap || !gid) {
+          return false;
+        }
+        if (rawMoves.length === 0 && !fen) {
           return false;
         }
 
-        setEngineGameId(snap.game_id);
+        setEngineGameId(gid);
         try {
-          const hr = await fetch(`${ENGINE_BASE}/heartbeat`, {
+          fetch(`${ENGINE_BASE}/heartbeat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: snap.game_id }),
-          });
-          if (!hr.ok) {
-            await clearFailedLiveResume();
-            return false;
-          }
-        } catch (e2) {
-          await clearFailedLiveResume();
-          return false;
-        }
+            body: JSON.stringify({ game_id: gid }),
+          }).catch(function () {});
+        } catch (eHb) {}
 
         markEngineLockHeldByThisTab();
         startHeartbeat();
@@ -9444,7 +9459,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
                 black: (snap.capturedPieces.black || []).slice(),
               }
             : { white: [], black: [] };
-        // Always follow the live tip after reload; a saved scrub index would desync board vs game.
         currentMoveIndex = -1;
         lastLiveMoveDisplayText =
           typeof snap.lastLiveMoveDisplayText === 'string' ? snap.lastLiveMoveDisplayText : 'None';
@@ -9455,12 +9469,24 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         game = new Chess();
         game.reset();
-        for (const san of snap.moves) {
-          const ok = game.move(san, { sloppy: true });
-          if (!ok) {
-            console.warn('Live resume: could not replay move', san);
-            await clearFailedLiveResume();
-            return false;
+        let replayOk = true;
+        for (const san of rawMoves) {
+          if (!game.move(san, { sloppy: true })) {
+            replayOk = false;
+            console.warn('Live resume: move replay failed at', san);
+            break;
+          }
+        }
+        if (!replayOk) {
+          game.reset();
+          if (fen) {
+            try {
+              if (!game.load(fen)) {
+                console.warn('Live resume: FEN load returned false');
+              }
+            } catch (eFen) {
+              console.warn('Live resume: FEN load error', eFen);
+            }
           }
         }
 
@@ -9473,6 +9499,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             moveHistory.push(c.fen());
           }
         }
+
+        applyGameStatsFromLiveSnapshot(snap.gameStats);
 
         const choosePanel = document.getElementById('choose-side');
         if (choosePanel) {
@@ -9516,6 +9544,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         }
         highlightCheck();
 
+        if (typeof updateGameStats === 'function') updateGameStats();
+        if (typeof updateNotationDisplay === 'function') updateNotationDisplay();
+
         const resumeMoveTimerMs =
           typeof snap.moveTimerElapsedMs === 'number' &&
           Number.isFinite(snap.moveTimerElapsedMs)
@@ -9525,7 +9556,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         return true;
       } catch (err) {
         console.error('tryResumeLiveTrifangxFromSnapshot:', err);
-        await clearFailedLiveResume();
         return false;
       }
     }
