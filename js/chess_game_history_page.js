@@ -1,6 +1,6 @@
 /**
  * Standalone game history page (chess_engine/game_history/).
- * Loads cloud chess data, lists/filter/favorite/export; "Play on board" goes to chess_engine.html?replayIndex=
+ * Loads cloud chess data, lists/filter/favorite/export; "Play on board" goes to trifangx_live.html?replayIndex=
  */
 (function () {
   'use strict';
@@ -500,7 +500,7 @@
   }
 
   function playGameHistoryRecordAt(index) {
-    window.location.href = '../../chess_engine.html?replayIndex=' + encodeURIComponent(String(index));
+    window.location.href = '../../trifangx_live.html?replayIndex=' + encodeURIComponent(String(index));
   }
 
   function ghGameHistoryRowKeydown(ev, index) {

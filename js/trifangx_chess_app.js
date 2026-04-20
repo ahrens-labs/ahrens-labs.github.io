@@ -3104,7 +3104,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         
         // Check for URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        
+
+        /** Game history "Play on board" (?replayIndex=N) — applied after the Chessboard exists (see below). */
+        let pendingReplayIndex = null;
+        const replayIdxRawEarly = urlParams.get('replayIndex');
+        if (replayIdxRawEarly !== null && replayIdxRawEarly !== '') {
+          const idxEarly = parseInt(replayIdxRawEarly, 10);
+          if (!isNaN(idxEarly) && idxEarly >= 0) pendingReplayIndex = idxEarly;
+        }
+
         // Check for email verification token in URL
         const verifyToken = urlParams.get('verify');
         if (verifyToken) {
@@ -3252,17 +3260,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         // Engine personality loading removed
 
-        const replayIdxRaw = urlParams.get('replayIndex');
-        if (replayIdxRaw !== null && replayIdxRaw !== '') {
-          const idx = parseInt(replayIdxRaw, 10);
-          if (!isNaN(idx) && idx >= 0) {
-            playGameHistoryRecordAt(idx);
-            const u = new URL(window.location.href);
-            u.searchParams.delete('replayIndex');
-            window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
-          }
-        }
-
         let liveResumed = false;
         if (isTrifangxLiveDedicatedPage()) {
           try {
@@ -3270,6 +3267,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           } catch (eNav) {}
         }
         if (
+          pendingReplayIndex === null &&
           !isHistoryReplayMode &&
           (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
         ) {
@@ -3286,7 +3284,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           })
           .catch(function () {});
 
-        if (isTrifangxLiveDedicatedPage() && !liveResumed) {
+        if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
           const no = document.createElement('div');
           no.id = 'trifangx-live-empty';
           no.setAttribute('role', 'status');
@@ -3302,8 +3300,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           } else {
             document.body.insertBefore(no, document.body.firstChild);
           }
-        } else if (!liveResumed && !isHistoryReplayMode) {
-          // Initialize game object for preview board
+        } else if (
+          !liveResumed &&
+          (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
+        ) {
+          // Initialize game object for preview board (or before ?replayIndex= applyHistory replay)
           game = new Chess();
           gameOver = false;
           playerColor = "white"; // Default for preview
@@ -3344,6 +3345,17 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           console.log('Preview board created with config:', {
             draggable: false
           });
+        }
+
+        if (pendingReplayIndex !== null) {
+          const idxToReplay = pendingReplayIndex;
+          pendingReplayIndex = null;
+          playGameHistoryRecordAt(idxToReplay);
+          try {
+            const u = new URL(window.location.href);
+            u.searchParams.delete('replayIndex');
+            window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+          } catch (eRp) {}
         }
 
         if (!(isTrifangxLiveDedicatedPage() && !liveResumed)) {
