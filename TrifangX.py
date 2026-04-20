@@ -351,6 +351,8 @@ MAX_IN_FLIGHT_MOVE_JOBS = max(24, MAX_CONCURRENT_GAMES * 6)
 _MOVE_BG_SEM = threading.Semaphore(MAX_IN_FLIGHT_MOVE_JOBS)
 # At most one in-flight async /move job per game_id so overlapping POSTs cannot corrupt GAMES or stdout.
 _PENDING_MOVE_JOB_BY_GAME = {}  # game_id -> job_id
+# Post-reset snapshot for new games when /start cannot take _INLINE_ENGINE_LOCK (another game searching inline).
+_FRESH_START_SNAPSHOT_TEMPLATE = None
 
 ENGINE_STATE_KEYS = (
     'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
@@ -405,6 +407,31 @@ def _restore_engine_state_from_dict(d):
             g[key] = copy.deepcopy(val)
     g['stop_event'] = threading.Event()
     g['timer_thread'] = None
+
+
+def _set_fresh_start_snapshot_template(snap):
+    """Cache a canonical start position for /start when the inline lock is busy."""
+    global _FRESH_START_SNAPSHOT_TEMPLATE
+    _FRESH_START_SNAPSHOT_TEMPLATE = copy.deepcopy(snap)
+
+
+def _new_game_snapshot_when_inline_lock_busy():
+    """
+    New game snapshot without taking _INLINE_ENGINE_LOCK (another game's inline /move may hold it).
+    """
+    global _FRESH_START_SNAPSHOT_TEMPLATE
+    if _FRESH_START_SNAPSHOT_TEMPLATE is None:
+        with _INLINE_ENGINE_LOCK:
+            saved = _capture_engine_state_to_dict()
+            reset_engine_state()
+            snap0 = _capture_engine_state_to_dict()
+            _restore_engine_state_from_dict(saved)
+            _set_fresh_start_snapshot_template(snap0)
+    out = copy.deepcopy(_FRESH_START_SNAPSHOT_TEMPLATE)
+    out['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
+    out['SCORING_VERSION'] = SCORING_VERSION
+    out['engine_running'] = True
+    return out
 
 
 def _prune_stale_games():
@@ -704,20 +731,29 @@ def start_engine():
             }), 503
         n_existing = len(GAMES)
         gid = str(uuid.uuid4())
-        # Serialize with /move's inline path: both use _GAMES_LOCK then _INLINE_ENGINE_LOCK
-        # (RLock), so starting a new session cannot reset module globals mid-search for an
-        # already-active solo game. When other games exist, capture → reset → capture builds
-        # the new game's start snapshot, then we restore globals so the in-flight session
-        # keeps a consistent board on the shared inline path.
+    # Do not hold _GAMES_LOCK while waiting on _INLINE_ENGINE_LOCK — /move must update GAMES after search.
+    if n_existing == 0:
         with _INLINE_ENGINE_LOCK:
-            if n_existing == 0:
-                reset_engine_state()
-                snap = _capture_engine_state_to_dict()
-            else:
-                saved = _capture_engine_state_to_dict()
+            reset_engine_state()
+            snap = _capture_engine_state_to_dict()
+        _set_fresh_start_snapshot_template(snap)
+    else:
+        if _INLINE_ENGINE_LOCK.acquire(blocking=False):
+            try:
+                saved = _capture_engine_state_from_dict()
                 reset_engine_state()
                 snap = _capture_engine_state_to_dict()
                 _restore_engine_state_from_dict(saved)
+            finally:
+                _INLINE_ENGINE_LOCK.release()
+            _set_fresh_start_snapshot_template(snap)
+        else:
+            snap = _new_game_snapshot_when_inline_lock_busy()
+    with _GAMES_LOCK:
+        if len(GAMES) >= MAX_CONCURRENT_GAMES:
+            return jsonify({
+                "error": "Server is at maximum concurrent games. Please try again shortly.",
+            }), 503
         engine_running = True
         GAMES[gid] = {'active_since': time.time(), 'snapshot': snap}
     return jsonify({"message": "Engine started and state reset", "game_id": gid})
