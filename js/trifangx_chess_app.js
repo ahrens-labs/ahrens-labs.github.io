@@ -1412,9 +1412,19 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     /** Last successful active_games / max_games from /status (for display when a poll fails). */
     let _lastActiveGames = null;
     let _lastMaxGames = null;
+    /** True when this account already has max per-user engine sessions (server my_slots_full). */
+    let _lastMySlotsFull = false;
     let _pregameStatusPollInterval = null;
 
-    function updateEngineCapacityDisplay(active, max) {
+    function getTrifangxEngineAccountUsername() {
+      try {
+        return (localStorage.getItem('ahrenslabs_username') || '').trim();
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function updateEngineCapacityDisplay(active, max, myActive, myMax) {
       const valEl = document.getElementById('engine-capacity-value');
       const row = document.getElementById('engine-capacity-row');
       if (!valEl) return;
@@ -1425,28 +1435,40 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (row) row.title = 'Waiting for server status…';
         return;
       }
-      valEl.textContent = a + ' / ' + m;
+      const myA = myActive == null ? NaN : Number(myActive);
+      const myM = myMax == null ? NaN : Number(myMax);
+      let suffix = '';
+      if (Number.isFinite(myA) && Number.isFinite(myM) && myM >= 1) {
+        suffix = ' · yours ' + myA + '/' + myM;
+      }
+      valEl.textContent = a + ' / ' + m + suffix;
       if (row) {
-        row.title = a >= m ? 'All slots in use — Start Game is disabled until a slot frees up.' : '';
+        const globalFull = a >= m;
+        const mineFull = Number.isFinite(myA) && Number.isFinite(myM) && myM >= 1 && myA >= myM;
+        row.title =
+          (globalFull ? 'All server slots in use — wait for a slot to free up. ' : '') +
+          (mineFull ? 'You already have ' + myM + ' active games — stop one to start another.' : '');
       }
     }
 
     function applyEngineOccupancyWaitingRoomUi(busy) {
       const btn = document.getElementById('start-game-btn');
       const banner = document.getElementById('engine-busy-banner');
-      if (btn) btn.disabled = busy;
-      if (banner) banner.style.display = busy ? 'block' : 'none';
-      // While busy, auto-poll every 15 s so the banner disappears without a manual refresh.
-      if (busy && !_statusPollInterval) {
+      const blockStart = busy || _lastMySlotsFull;
+      if (btn) btn.disabled = blockStart;
+      if (banner) banner.style.display = blockStart ? 'block' : 'none';
+      // While global slots are full or this account hit its cap, auto-poll so the banner clears without a manual refresh.
+      const needStatusPoll = busy || _lastMySlotsFull;
+      if (needStatusPoll && !_statusPollInterval) {
         _statusPollInterval = setInterval(() => {
-          checkEngineStatus().then(stillBusy => {
-            if (!stillBusy) {
+          checkEngineStatus().then(() => {
+            if (!_lastStatusOccupied && !_lastMySlotsFull) {
               clearInterval(_statusPollInterval);
               _statusPollInterval = null;
             }
           });
         }, 15000);
-      } else if (!busy && _statusPollInterval) {
+      } else if (!needStatusPoll && _statusPollInterval) {
         clearInterval(_statusPollInterval);
         _statusPollInterval = null;
       }
@@ -1472,22 +1494,43 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function checkEngineStatus() {
-      return fetch(`${ENGINE_BASE}/status`)
+      const acc = getTrifangxEngineAccountUsername();
+      const statusUrl =
+        acc.length > 0
+          ? `${ENGINE_BASE}/status?account=${encodeURIComponent(acc)}`
+          : `${ENGINE_BASE}/status`;
+      return fetch(statusUrl)
         .then(r => r.json())
         .then(data => {
           const occ = data && data.occupied;
           const busy = occ === true || occ === 'true' || occ === 1;
           _lastStatusOccupied = busy;
+          const myFull = data && (data.my_slots_full === true || data.my_slots_full === 'true' || data.my_slots_full === 1);
+          _lastMySlotsFull = !!myFull;
           const ag = data && data.active_games;
           const mg = data && data.max_games;
           const aN = ag == null ? NaN : Number(ag);
           const mN = mg == null ? NaN : Number(mg);
+          const myAg = data && data.my_active_games;
+          const myMg = data && data.my_max_games;
+          const myAN = myAg == null ? NaN : Number(myAg);
+          const myMN = myMg == null ? NaN : Number(myMg);
           if (Number.isFinite(aN) && Number.isFinite(mN) && mN >= 1) {
             _lastActiveGames = aN;
             _lastMaxGames = mN;
-            updateEngineCapacityDisplay(aN, mN);
+            updateEngineCapacityDisplay(
+              aN,
+              mN,
+              Number.isFinite(myAN) ? myAN : null,
+              Number.isFinite(myMN) ? myMN : null
+            );
           } else if (_lastActiveGames != null && _lastMaxGames != null) {
-            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
+            updateEngineCapacityDisplay(
+              _lastActiveGames,
+              _lastMaxGames,
+              Number.isFinite(myAN) ? myAN : null,
+              Number.isFinite(myMN) ? myMN : null
+            );
           }
           applyEngineOccupancyWaitingRoomUi(busy);
           if (typeof ensurePregameStatusPolling === 'function' && typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
@@ -1497,9 +1540,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         })
         .catch(() => {
           if (_lastActiveGames != null && _lastMaxGames != null) {
-            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
+            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames, null, null);
           } else {
-            updateEngineCapacityDisplay(null, null);
+            updateEngineCapacityDisplay(null, null, null, null);
           }
           applyEngineOccupancyWaitingRoomUi(_lastStatusOccupied);
           return _lastStatusOccupied;
@@ -1511,9 +1554,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       _heartbeatInterval = setInterval(() => {
         const gid = getEngineGameId();
         if (!gid) return;
+        const uname = getTrifangxEngineAccountUsername();
+        const hb = { game_id: gid };
+        if (uname) hb.username = uname;
         fetch(`${ENGINE_BASE}/heartbeat`, { method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ game_id: gid }) })
+          body: JSON.stringify(hb) })
           .catch(() => {}); // silent — just keeps the lock alive
       }, 30000);
     }
@@ -1549,7 +1595,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
       const gid = getEngineGameId();
       const url = ENGINE_BASE + '/stop';
-      const body = JSON.stringify(gid ? { game_id: gid } : {});
+      const stopPayload = gid ? { game_id: gid } : {};
+      const unameStop = getTrifangxEngineAccountUsername();
+      if (unameStop) stopPayload.username = unameStop;
+      const body = JSON.stringify(stopPayload);
       try {
         fetch(url, {
           method: 'POST',
@@ -1874,7 +1923,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       stopHeartbeat();
       const gid = getEngineGameId();
       try {
-        await sendEngineCommand('stop', gid ? { game_id: gid } : {});
+        await sendEngineCommand('stop', (function () {
+          const o = gid ? { game_id: gid } : {};
+          const u = getTrifangxEngineAccountUsername();
+          if (u) o.username = u;
+          return o;
+        })());
       } catch (e) {
         /* still refresh occupancy so UI can recover */
       }
@@ -6230,7 +6284,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       startTimer();
       
       // Restart engine (rematch — same player, no need to re-check occupancy)
-        sendEngineCommand("start").then((data) => {
+        sendEngineCommand('start', { username: getTrifangxEngineAccountUsername() }).then((data) => {
         if (data && data.game_id) {
           setEngineGameId(data.game_id);
         }
@@ -9560,10 +9614,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         setEngineGameId(gid);
         try {
+          const hbBody = { game_id: gid };
+          const uHb = getTrifangxEngineAccountUsername();
+          if (uHb) hbBody.username = uHb;
           fetch(`${ENGINE_BASE}/heartbeat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ game_id: gid }),
+            body: JSON.stringify(hbBody),
           }).catch(function () {});
         } catch (eHb) {}
 
@@ -9732,7 +9789,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       // banner while #choose-side is still visible when start fails for capacity.
       let startData;
       try {
-        startData = await sendEngineCommand('start');
+        startData = await sendEngineCommand('start', {
+          username: getTrifangxEngineAccountUsername(),
+        });
       } catch (startErr) {
         const code = startErr && startErr.statusCode;
         if (code === 503) {
@@ -9740,6 +9799,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           applyEngineOccupancyWaitingRoomUi(true);
           showNotification(
             'The engine is at maximum concurrent games. Try again in a moment.',
+            'error'
+          );
+        } else if (code === 403) {
+          _lastMySlotsFull = true;
+          applyEngineOccupancyWaitingRoomUi(_lastStatusOccupied);
+          showNotification(
+            (startErr && startErr.message) ||
+              'You already have the maximum number of active games. Close or finish one first.',
             'error'
           );
         } else if (code === 409) {
@@ -9757,6 +9824,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (startData && startData.game_id) {
         setEngineGameId(startData.game_id);
       }
+      _lastMySlotsFull = false;
       markEngineLockHeldByThisTab();
       startHeartbeat();
       setTrifangxLivePlayUrl();
@@ -10275,15 +10343,18 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const gid = getEngineGameId();
           const MOVE_POLL_MS = 40;
           const MOVE_MAX_WAIT_MS = 180000;
+          const moveBody = {
+            game_id: gid,
+            move: lastMove,
+            color: game.turn() === "w" ? "black" : "white",
+          };
+          const uMv = getTrifangxEngineAccountUsername();
+          if (uMv) moveBody.username = uMv;
           const response = await fetch(`${ENGINE_BASE}/move`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             signal: signal,
-            body: JSON.stringify({
-              game_id: gid,
-              move: lastMove,
-              color: game.turn() === "w" ? "black" : "white",
-            }),
+            body: JSON.stringify(moveBody),
           });
 
           if (!response.ok) {

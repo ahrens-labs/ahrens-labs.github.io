@@ -335,6 +335,7 @@ _GAMES_LOCK = threading.RLock()
 GAMES = {}
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
+MAX_ACTIVE_GAMES_PER_ACCOUNT = 3
 MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
 _MOVE_POOL = None
 _INLINE_ENGINE_LOCK = threading.Lock()  # single-game and inline fallback (serialized)
@@ -678,6 +679,14 @@ def _account_username_from_payload(data):
     return 'Player'
 
 
+def _normalize_account_key(raw):
+    """Normalized key for per-account limits (must match client `ahrenslabs_username`, case-insensitive)."""
+    if raw is None:
+        return ''
+    s = str(raw).strip().lower()
+    return s[:80] if s else ''
+
+
 # King position tracking - eliminates expensive find_king() board scans
 white_king_row = 0
 white_king_col = 4
@@ -699,14 +708,27 @@ CORS(app, resources={r"/*": {
 def engine_status():
     """Return whether the server is at max concurrent games (waiting-room banner)."""
     _prune_stale_games()
+    account_key = _normalize_account_key(
+        request.args.get('account') or request.args.get('username') or ''
+    )
     with _GAMES_LOCK:
         n = len(GAMES)
+        my_n = (
+            sum(1 for info in GAMES.values() if (info.get('account') or '') == account_key)
+            if account_key
+            else None
+        )
     at_capacity = n >= MAX_CONCURRENT_GAMES
-    return jsonify({
+    out = {
         "occupied": at_capacity,
         "active_games": n,
         "max_games": MAX_CONCURRENT_GAMES,
-    })
+    }
+    if account_key:
+        out["my_active_games"] = my_n
+        out["my_max_games"] = MAX_ACTIVE_GAMES_PER_ACCOUNT
+        out["my_slots_full"] = my_n >= MAX_ACTIVE_GAMES_PER_ACCOUNT
+    return jsonify(out)
 
 
 @app.route('/heartbeat', methods=['POST'])
@@ -719,6 +741,13 @@ def heartbeat():
     with _GAMES_LOCK:
         if gid not in GAMES:
             return jsonify({"ok": False, "error": "Unknown or expired game_id"}), 400
+        owner = (GAMES[gid].get('account') or '')
+        if owner:
+            claimed = _normalize_account_key(data.get('username') or data.get('account'))
+            if not claimed:
+                return jsonify({"ok": False, "error": "username required for this game"}), 400
+            if claimed != owner:
+                return jsonify({"ok": False, "error": "Access denied"}), 403
         GAMES[gid]['active_since'] = time.time()
     return jsonify({"ok": True})
 
@@ -726,12 +755,26 @@ def heartbeat():
 @app.route('/start', methods=['POST'])
 def start_engine():
     global engine_running
+    data_start = request.get_json() or {}
+    account_key = _normalize_account_key(
+        data_start.get('username') or data_start.get('account') or ''
+    )
+    if not account_key:
+        return jsonify({"error": "username is required to start a game"}), 400
     _prune_stale_games()
     with _GAMES_LOCK:
         if len(GAMES) >= MAX_CONCURRENT_GAMES:
             return jsonify({
                 "error": "Server is at maximum concurrent games. Please try again shortly.",
             }), 503
+        my_active = sum(1 for info in GAMES.values() if (info.get('account') or '') == account_key)
+        if my_active >= MAX_ACTIVE_GAMES_PER_ACCOUNT:
+            return jsonify({
+                "error": (
+                    f"You already have {MAX_ACTIVE_GAMES_PER_ACCOUNT} active games on this server. "
+                    "Close or finish one (or wait for a session to expire) before starting another."
+                ),
+            }), 403
         n_existing = len(GAMES)
         gid = str(uuid.uuid4())
     # Do not hold _GAMES_LOCK while waiting on _INLINE_ENGINE_LOCK — /move must update GAMES after search.
@@ -758,7 +801,11 @@ def start_engine():
                 "error": "Server is at maximum concurrent games. Please try again shortly.",
             }), 503
         engine_running = True
-        GAMES[gid] = {'active_since': time.time(), 'snapshot': snap}
+        GAMES[gid] = {
+            'active_since': time.time(),
+            'snapshot': snap,
+            'account': account_key,
+        }
     return jsonify({"message": "Engine started and state reset", "game_id": gid})
 
 
@@ -770,7 +817,16 @@ def stop_engine():
     if not gid or not isinstance(gid, str):
         return jsonify({"error": "game_id required"}), 400
     with _GAMES_LOCK:
-        GAMES.pop(gid, None)
+        info = GAMES.get(gid)
+        if info is not None:
+            owner = (info.get('account') or '')
+            if owner:
+                claimed = _normalize_account_key(data.get('username') or data.get('account'))
+                if not claimed:
+                    return jsonify({"error": "username is required to stop this game"}), 400
+                if claimed != owner:
+                    return jsonify({"error": "Access denied"}), 403
+            GAMES.pop(gid, None)
         remaining = len(GAMES)
     with _MOVE_JOBS_LOCK:
         pend_jid = _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
@@ -1029,6 +1085,13 @@ def get_move():
     with _GAMES_LOCK:
         if gid not in GAMES:
             return jsonify({'error': 'Unknown or expired game_id'}), 400
+        owner = (GAMES[gid].get('account') or '')
+        if owner:
+            claimed = _normalize_account_key(data.get('username') or data.get('account'))
+            if not claimed:
+                return jsonify({'error': 'username required for this game'}), 400
+            if claimed != owner:
+                return jsonify({'error': 'Access denied'}), 403
         multiple_games = len(GAMES) > 1
         force_pool_move = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
         # Multi-game + dedicated subprocess: worker holds state; no snapshot copy for /move.
