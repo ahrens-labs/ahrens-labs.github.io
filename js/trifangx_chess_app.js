@@ -1736,10 +1736,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           persistTrifangxLiveSnapshot();
         }
 
-        // Dedicated live: reload keeps the same tab session — skip /stop so the game can resume.
-        // Tab close or navigate away is not a reload — release the server slot so the game ends.
+        // Dedicated live: never run automatic release while this tab holds a game. Reload detection
+        // (performance.navigation / Navigation Timing) is unreliable during pagehide — a false negative
+        // POSTs /stop and clears sessionStorage, so tryResume sees no snapshot ("No active live game").
+        // Leaving via the Chess Engine link still calls releaseEngineOccupancyOnPageExit() explicitly.
+        // Orphan server slots after a hard tab close are reclaimed via heartbeat TTL on the host.
         if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
-          skipRelease = pagehideNavigationIsReload();
+          skipRelease = true;
         } else if (
           !isTrifangxLiveDedicatedPage() &&
           pagehideNavigationIsReload() &&
