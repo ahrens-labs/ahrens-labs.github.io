@@ -1761,8 +1761,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     });
 
-    /** When returning to a lobby tab, refresh /status so active game count matches the server (other tab closed, etc.). */
+    /**
+     * When switching back to this tab after it was in the background, refresh /status so the active-game
+     * count matches the server. We only react after a real hidden→visible transition (not the initial
+     * load or a full reload) so we never race tryResumeLiveTrifangxFromSnapshot or trigger extra work on F5.
+     */
     let _engineStatusRefreshOnFocusTs = 0;
+    let _trifangxDocEverHidden = false;
     function refreshEngineStatusIfLobbyVisible() {
       if (!document.getElementById('engine-capacity-value')) return;
       const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
@@ -1777,10 +1782,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         .catch(function () {});
     }
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState !== 'visible') return;
-      refreshEngineStatusIfLobbyVisible();
+      if (document.visibilityState === 'hidden') {
+        _trifangxDocEverHidden = true;
+        return;
+      }
+      if (document.visibilityState === 'visible' && _trifangxDocEverHidden) {
+        refreshEngineStatusIfLobbyVisible();
+      }
     });
-    window.addEventListener('focus', refreshEngineStatusIfLobbyVisible);
 
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
     async function releaseEngineOnGameEnd() {
@@ -3111,10 +3120,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         // Engine personality loading removed
 
-        // On page load just check status — don't send stop/start which would boot
-        // an active player.  The actual start is deferred until the user clicks "Start Game".
-        checkEngineStatus();
-
         const replayIdxRaw = urlParams.get('replayIndex');
         if (replayIdxRaw !== null && replayIdxRaw !== '') {
           const idx = parseInt(replayIdxRaw, 10);
@@ -3138,6 +3143,16 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         ) {
           liveResumed = await tryResumeLiveTrifangxFromSnapshot();
         }
+
+        // Poll /status after any live resume attempt so this does not run before tryResume (reload-safe).
+        // Does not call stop/start; Start Game still acquires the slot.
+        checkEngineStatus()
+          .then(function () {
+            if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+              ensurePregameStatusPolling();
+            }
+          })
+          .catch(function () {});
 
         if (isTrifangxLiveDedicatedPage() && !liveResumed) {
           const no = document.createElement('div');
