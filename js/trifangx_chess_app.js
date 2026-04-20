@@ -1640,18 +1640,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       } catch (e2) {}
     }
 
-    function pagehideNavigationIsReload() {
-      try {
-        const nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-        if (nav && nav.type === 'reload') return true;
-      } catch (e) {}
-      try {
-        const p = performance.navigation;
-        if (p && p.type === 1) return true;
-      } catch (e2) {}
-      return false;
-    }
-
     function noteTrifangxReloadIntent() {
       try {
         sessionStorage.setItem(TRIFANGX_RELOAD_INTENT_KEY, '1');
@@ -1670,12 +1658,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     /**
-     * True if this pagehide is almost certainly a same-document reload (F5, Ctrl+R, location.reload, …)
+     * True if this pagehide is almost certainly a same-document reload (F5, Ctrl+R, Navigation API, …)
      * rather than closing the tab or navigating away. Used only for trifangx_live automatic release.
+     *
+     * Do not use PerformanceNavigationTiming.type here: that describes how *this document was loaded*,
+     * not whether *this* unload is a reload. After one F5 it stays "reload" for the whole session, so
+     * tab close would wrongly skip /stop and leave the server slot occupied.
      */
     function trifangxPagehideMeansReload() {
-      if (consumeTrifangxReloadIntent()) return true;
-      return pagehideNavigationIsReload();
+      return consumeTrifangxReloadIntent();
     }
 
     /** Install hooks as early as possible so toolbar refresh is covered where supported. */
@@ -1804,13 +1795,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         // Dedicated live: skip /stop + session clear only for same-tab reload so tryResume still works.
         // Tab close (no reload signals) runs release so the server slot frees immediately.
-        // Signals: Navigation API navigate(reload), F5/Ctrl+R, Location#reload, pagehideNavigationIsReload().
+        // Signals: Navigation API navigate(reload), F5/Ctrl+R, Location#reload — not navigation timing type.
         // Chess Engine nav still calls releaseEngineOccupancyOnPageExit() before leaving.
         if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
           skipRelease = trifangxPagehideMeansReload();
         } else if (
           !isTrifangxLiveDedicatedPage() &&
-          pagehideNavigationIsReload() &&
+          trifangxPagehideMeansReload() &&
           trifangxLivePlayActiveInUrl() &&
           isLockHolder &&
           gid
