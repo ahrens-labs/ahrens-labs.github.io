@@ -21,8 +21,9 @@ import requests
 # -----------------------------------------------------------------------------
 # Performance switches (server-friendly defaults)
 # -----------------------------------------------------------------------------
-# TRIFANGX_ASYNC_MOVE_SINGLE=1 — with only one game, still use 202 + thread (for debugging);
-# default is synchronous /move (200) for the lowest latency when alone.
+# TRIFANGX_SYNC_MOVE_SINGLE=1 — with only one game, use synchronous /move (200) for lowest latency
+# on trusted setups. Default is 202 + thread + /move_result poll so the POST returns immediately
+# and reloads during engine think do not leave uWSGI writing a huge body to a closed socket (SIGPIPE).
 # TRIFANGX_DISABLE_DEDICATED_WORKERS=1 — disable per-game subprocess workers; all moves serialize
 # in-process (for debugging or platforms where fork workers fail).
 # Creating a `multiprocessing.Pool` inside each `/move` request is extremely slow
@@ -967,8 +968,8 @@ def get_move():
             'error': 'Too many engine calculations in flight. Please retry in a moment.',
         }), 503
 
-    # Solo default: answer in this request (no thread + no client poll). Multi-game stays async for WSGI.
-    if not multiple_games and os.environ.get('TRIFANGX_ASYNC_MOVE_SINGLE') != '1':
+    # Single-game default: same 202 + thread as multi-game (short POST; client polls). Optional sync 200.
+    if not multiple_games and os.environ.get('TRIFANGX_SYNC_MOVE_SINGLE') == '1':
         try:
             out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
             if err_text:
