@@ -1761,6 +1761,27 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     });
 
+    /** When returning to a lobby tab, refresh /status so active game count matches the server (other tab closed, etc.). */
+    let _engineStatusRefreshOnFocusTs = 0;
+    function refreshEngineStatusIfLobbyVisible() {
+      if (!document.getElementById('engine-capacity-value')) return;
+      const now = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+      if (now - _engineStatusRefreshOnFocusTs < 800) return;
+      _engineStatusRefreshOnFocusTs = now;
+      checkEngineStatus()
+        .then(function () {
+          if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+            ensurePregameStatusPolling();
+          }
+        })
+        .catch(function () {});
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible') return;
+      refreshEngineStatusIfLobbyVisible();
+    });
+    window.addEventListener('focus', refreshEngineStatusIfLobbyVisible);
+
     /** Tell the Python engine to stop as soon as the game ends (don't wait for rematch modal). */
     async function releaseEngineOnGameEnd() {
       stopHeartbeat();
@@ -2012,7 +2033,19 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const lp = document.getElementById('login-page');
       if (lp && lp.style.display !== 'none') return false;
       const cs = document.getElementById('choose-side');
-      return !!(cs && cs.style.display === 'block');
+      if (!cs) return false;
+      try {
+        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
+          return false;
+        }
+      } catch (e) {}
+      if (cs.style.display === 'none') return false;
+      try {
+        return window.getComputedStyle(cs).display !== 'none';
+      } catch (e2) {
+        const d = cs.style.display;
+        return d === 'block' || d === 'flex' || d === '';
+      }
     }
 
     function updateChessPregameToolsVisibility() {

@@ -740,7 +740,7 @@ def start_engine():
     else:
         if _INLINE_ENGINE_LOCK.acquire(blocking=False):
             try:
-                saved = _capture_engine_state_from_dict()
+                saved = _capture_engine_state_to_dict()
                 reset_engine_state()
                 snap = _capture_engine_state_to_dict()
                 _restore_engine_state_from_dict(saved)
