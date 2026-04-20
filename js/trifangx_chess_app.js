@@ -1364,6 +1364,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
+    /** Same-tab reload intent so pagehide can tell reload (keep server game + snapshot) from tab close (POST /stop). */
+    const TRIFANGX_RELOAD_INTENT_KEY = 'trifangx_reload_intent';
 
     function getEngineGameId() {
       try {
@@ -1650,6 +1652,70 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return false;
     }
 
+    function noteTrifangxReloadIntent() {
+      try {
+        sessionStorage.setItem(TRIFANGX_RELOAD_INTENT_KEY, '1');
+      } catch (e) {}
+    }
+
+    /** Consume one-shot reload flag (keyboard / Navigation API / location.reload). */
+    function consumeTrifangxReloadIntent() {
+      try {
+        const v = sessionStorage.getItem(TRIFANGX_RELOAD_INTENT_KEY);
+        sessionStorage.removeItem(TRIFANGX_RELOAD_INTENT_KEY);
+        return v === '1';
+      } catch (e2) {
+        return false;
+      }
+    }
+
+    /**
+     * True if this pagehide is almost certainly a same-document reload (F5, Ctrl+R, location.reload, …)
+     * rather than closing the tab or navigating away. Used only for trifangx_live automatic release.
+     */
+    function trifangxPagehideMeansReload() {
+      if (consumeTrifangxReloadIntent()) return true;
+      return pagehideNavigationIsReload();
+    }
+
+    /** Install hooks as early as possible so toolbar refresh is covered where supported. */
+    function setupTrifangxReloadIntentHooks() {
+      try {
+        const nav = window.navigation;
+        if (nav && typeof nav.addEventListener === 'function') {
+          nav.addEventListener(
+            'navigate',
+            function (e) {
+              try {
+                if (e && e.navigationType === 'reload') noteTrifangxReloadIntent();
+              } catch (err) {}
+            },
+            true
+          );
+        }
+      } catch (e1) {}
+      try {
+        window.addEventListener(
+          'keydown',
+          function (e) {
+            if (!e) return;
+            if (e.key === 'F5' || e.key === 'F3') noteTrifangxReloadIntent();
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R')) noteTrifangxReloadIntent();
+          },
+          true
+        );
+      } catch (e2) {}
+      try {
+        const origReload = Location.prototype.reload;
+        Location.prototype.reload = function () {
+          noteTrifangxReloadIntent();
+          return origReload.apply(this, arguments);
+        };
+      } catch (e3) {}
+    }
+
+    setupTrifangxReloadIntentHooks();
+
     function persistTrifangxLiveSnapshot() {
       try {
         if (!game || gameOver) return;
@@ -1736,13 +1802,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           persistTrifangxLiveSnapshot();
         }
 
-        // Dedicated live: never run automatic release while this tab holds a game. Reload detection
-        // (performance.navigation / Navigation Timing) is unreliable during pagehide — a false negative
-        // POSTs /stop and clears sessionStorage, so tryResume sees no snapshot ("No active live game").
-        // Leaving via the Chess Engine link still calls releaseEngineOccupancyOnPageExit() explicitly.
-        // Orphan server slots after a hard tab close are reclaimed via heartbeat TTL on the host.
+        // Dedicated live: skip /stop + session clear only for same-tab reload so tryResume still works.
+        // Tab close (no reload signals) runs release so the server slot frees immediately.
+        // Signals: Navigation API navigate(reload), F5/Ctrl+R, Location#reload, pagehideNavigationIsReload().
+        // Chess Engine nav still calls releaseEngineOccupancyOnPageExit() before leaving.
         if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
-          skipRelease = true;
+          skipRelease = trifangxPagehideMeansReload();
         } else if (
           !isTrifangxLiveDedicatedPage() &&
           pagehideNavigationIsReload() &&
