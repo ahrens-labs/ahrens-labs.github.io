@@ -12,9 +12,16 @@ from flask_cors import CORS
 from multiprocessing import Pool
 import copy
 import os
+import signal
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import requests
+
+# Reduce broken-pipe noise when clients disconnect during long engine responses (reload, tab close).
+try:
+    signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+except (AttributeError, OSError, ValueError):
+    pass
 
 # -----------------------------------------------------------------------------
 # Performance switches (server-friendly defaults)
@@ -342,6 +349,8 @@ _MOVE_JOBS_LOCK = threading.Lock()
 MOVE_JOBS = {}  # job_id -> {'status': 'pending'|'done'|'error', 'created': float, 'move': str|None, 'error': str|None}
 MAX_IN_FLIGHT_MOVE_JOBS = max(24, MAX_CONCURRENT_GAMES * 6)
 _MOVE_BG_SEM = threading.Semaphore(MAX_IN_FLIGHT_MOVE_JOBS)
+# At most one in-flight async /move job per game_id so overlapping POSTs cannot corrupt GAMES or stdout.
+_PENDING_MOVE_JOB_BY_GAME = {}  # game_id -> job_id
 
 ENGINE_STATE_KEYS = (
     'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
@@ -929,6 +938,8 @@ def _run_move_job(job_id, gid, snap, move_notation, color):
     with _MOVE_JOBS_LOCK:
         rec = MOVE_JOBS.get(job_id)
         if not rec:
+            if _PENDING_MOVE_JOB_BY_GAME.get(gid) == job_id:
+                _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
             return
         if err_text:
             rec['status'] = 'error'
@@ -936,6 +947,8 @@ def _run_move_job(job_id, gid, snap, move_notation, color):
         else:
             rec['status'] = 'done'
             rec['move'] = out_move
+        if _PENDING_MOVE_JOB_BY_GAME.get(gid) == job_id:
+            _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
 
 
 @app.route('/move', methods=['POST'])
@@ -957,7 +970,8 @@ def get_move():
         elif multiple_games:
             snap = copy.deepcopy(GAMES[gid]['snapshot'])
         else:
-            snap = GAMES[gid]['snapshot']
+            # Deep copy so a second overlapping /move cannot share the same dict while the first job runs.
+            snap = copy.deepcopy(GAMES[gid]['snapshot'])
     move_notation = data.get('move')
     color = data.get('color', 'white')
 
@@ -981,12 +995,36 @@ def get_move():
 
     job_id = str(uuid.uuid4())
     with _MOVE_JOBS_LOCK:
+        prev_jid = _PENDING_MOVE_JOB_BY_GAME.get(gid)
+        if prev_jid:
+            prev_rec = MOVE_JOBS.get(prev_jid)
+            if prev_rec and prev_rec.get('status') == 'pending':
+                try:
+                    _MOVE_BG_SEM.release()
+                except ValueError:
+                    pass
+                if prev_rec.get('player_move') == move_notation and prev_rec.get('reply_color') == color:
+                    return jsonify({
+                        'job_id': prev_jid,
+                        'status': 'pending',
+                        'poll': '/move_result/' + prev_jid,
+                        'dedup': True,
+                    }), 202
+                return jsonify({
+                    'error': (
+                        'Engine is still calculating your previous move; wait for it to finish '
+                        'before sending another.'
+                    ),
+                }), 409
         MOVE_JOBS[job_id] = {
             'status': 'pending',
             'created': time.time(),
             'move': None,
             'error': None,
+            'player_move': move_notation,
+            'reply_color': color,
         }
+        _PENDING_MOVE_JOB_BY_GAME[gid] = job_id
     try:
         t = threading.Thread(
             target=_run_move_job,
@@ -998,6 +1036,8 @@ def get_move():
         _MOVE_BG_SEM.release()
         with _MOVE_JOBS_LOCK:
             MOVE_JOBS.pop(job_id, None)
+            if _PENDING_MOVE_JOB_BY_GAME.get(gid) == job_id:
+                _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
         return jsonify({'error': 'Failed to start engine job'}), 500
 
     return jsonify({

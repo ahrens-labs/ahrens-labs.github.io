@@ -7,6 +7,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     let playerColor = "white";
     let timerStart = 0;
     let timerInterval = null;
+    /** Abort in-flight /move + /move_result polling when the tab navigates away (fewer broken pipes on the server). */
+    let engineMoveAbortController = null;
     let whiteTime, blackTime, increment;
     let timeLimited = false;
     let gameOver = false;
@@ -1717,6 +1719,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
     window.addEventListener('pagehide', function (ev) {
       if (ev.persisted) return;
+      try {
+        if (engineMoveAbortController) {
+          engineMoveAbortController.abort();
+        }
+      } catch (eAbort) {}
       let skipRelease = false;
       try {
         let isLockHolder = false;
@@ -10114,65 +10121,93 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return null;
     }
 
+    /** One engine HTTP+poll sequence at a time so overlapping POSTs cannot desync board vs server. */
+    let _engineMoveNetChain = Promise.resolve();
+    function runExclusiveEngineNet(fn) {
+      const run = () => Promise.resolve().then(fn);
+      const next = _engineMoveNetChain.then(run, run);
+      _engineMoveNetChain = next.then(
+        function () {},
+        function () {}
+      );
+      return next;
+    }
+
     async function engineMove() {
       console.log('=== engineMove START ===');
       console.log('Game over status:', gameOver);
       console.log('Current position:', game.fen());
+      const localAbort = new AbortController();
+      engineMoveAbortController = localAbort;
+      const signal = localAbort.signal;
       try {
-        const lastMove = game.history().slice(-1)[0];
-        console.log('Last move:', lastMove, 'Game turn:', game.turn());
-        console.log('Sending request to engine...');
-        const gid = getEngineGameId();
-        const MOVE_POLL_MS = 40;
-        const MOVE_MAX_WAIT_MS = 180000;
-        const response = await fetch(`${ENGINE_BASE}/move`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            game_id: gid,
-            move: lastMove,
-            color: game.turn() === "w" ? "black" : "white",
-          }),
+        const data = await runExclusiveEngineNet(async () => {
+          const lastMove = game.history().slice(-1)[0];
+          console.log('Last move:', lastMove, 'Game turn:', game.turn());
+          console.log('Sending request to engine...');
+          const gid = getEngineGameId();
+          const MOVE_POLL_MS = 40;
+          const MOVE_MAX_WAIT_MS = 180000;
+          const response = await fetch(`${ENGINE_BASE}/move`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: signal,
+            body: JSON.stringify({
+              game_id: gid,
+              move: lastMove,
+              color: game.turn() === "w" ? "black" : "white",
+            }),
+          });
+
+          if (!response.ok) {
+            let detail = '';
+            try {
+              const errBody = await response.json();
+              if (errBody && typeof errBody.error === 'string') detail = errBody.error.trim();
+            } catch (eJson) {}
+            if (response.status === 409) {
+              const busyErr = new Error(
+                detail || 'Engine is still busy with your last move; try again in a moment.'
+              );
+              busyErr.engineMoveConflict = true;
+              throw busyErr;
+            }
+            const msg =
+              response.status === 503
+                ? "Engine busy (too many concurrent searches); try again shortly."
+                : detail || `HTTP error! status: ${response.status}`;
+            throw new Error(msg);
+          }
+
+          const startData = await response.json();
+          let out;
+          if (response.status === 202 && startData.job_id) {
+            const deadline = Date.now() + MOVE_MAX_WAIT_MS;
+            while (Date.now() < deadline) {
+              const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, {
+                method: "GET",
+                signal: signal,
+              });
+              const d = await pr.json().catch(() => ({}));
+              if (d.status === "done" && d.move) {
+                out = { move: d.move };
+                break;
+              }
+              if (d.status === "error" || (pr.status >= 400 && d.error)) {
+                throw new Error(d.error || `Engine error (HTTP ${pr.status})`);
+              }
+              if (d.status === "gone" || (pr.status === 404 && d.status === "gone")) {
+                throw new Error(d.error || "Move job expired or unknown.");
+              }
+              await new Promise((r) => setTimeout(r, MOVE_POLL_MS));
+            }
+            if (!out) {
+              throw new Error("Engine move timed out while waiting for result.");
+            }
+            return out;
+          }
+          return startData;
         });
-
-        if (!response.ok) {
-          let detail = '';
-          try {
-            const errBody = await response.json();
-            if (errBody && typeof errBody.error === 'string') detail = errBody.error.trim();
-          } catch (eJson) {}
-          const msg =
-            response.status === 503
-              ? "Engine busy (too many concurrent searches); try again shortly."
-              : detail || `HTTP error! status: ${response.status}`;
-          throw new Error(msg);
-        }
-
-        const startData = await response.json();
-        let data;
-        if (response.status === 202 && startData.job_id) {
-          const deadline = Date.now() + MOVE_MAX_WAIT_MS;
-          while (Date.now() < deadline) {
-            const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, { method: "GET" });
-            const d = await pr.json().catch(() => ({}));
-            if (d.status === "done" && d.move) {
-              data = { move: d.move };
-              break;
-            }
-            if (d.status === "error" || (pr.status >= 400 && d.error)) {
-              throw new Error(d.error || `Engine error (HTTP ${pr.status})`);
-            }
-            if (d.status === "gone" || (pr.status === 404 && d.status === "gone")) {
-              throw new Error(d.error || "Move job expired or unknown.");
-            }
-            await new Promise((r) => setTimeout(r, MOVE_POLL_MS));
-          }
-          if (!data) {
-            throw new Error("Engine move timed out while waiting for result.");
-          }
-        } else {
-          data = startData;
-        }
         console.log('Engine response:', data);
         if (!data.move) {
           console.log('ERROR: No move returned from engine');
@@ -10366,6 +10401,17 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         touchLiveGameSnapshot();
         startTimer(); // Start move timer for player
       } catch (err) {
+        if (err && err.name === 'AbortError') {
+          console.log('Engine fetch aborted (tab navigation).');
+          return;
+        }
+        if (err && err.engineMoveConflict) {
+          console.warn('engineMove:', err.message);
+          if (typeof showNotification === 'function') {
+            showNotification(err.message, 'error');
+          }
+          return;
+        }
         // Replaced alert() with UI message
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
@@ -10375,6 +10421,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         releaseEngineOnGameEnd();
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
+      } finally {
+        try {
+          if (engineMoveAbortController === localAbort) {
+            engineMoveAbortController = null;
+          }
+        } catch (eFin) {}
       }
     }
     function submitMove() {
