@@ -1187,7 +1187,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="weekInputWrapper" class="hidden">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
-                                <input id="inputWeek" type="week" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
@@ -1247,6 +1247,12 @@
                                 <option value="weekly">Weekly</option>
                                 <option value="custom">Custom weekdays</option>
                             </select>
+                            <div id="weekDueOnlyWrapper" class="mt-3 hidden">
+                                <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                    <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
+                                    Due at end of week (no time block)
+                                </label>
+                            </div>
                             <div id="repeatDaysWrapper" class="mt-3 hidden">
                                 <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Repeat on</div>
                                 <div class="grid grid-cols-7 gap-2">
@@ -1673,6 +1679,7 @@
                 : null;
             const repeatRule = normalizeRepeatRule(task.repeatRule || { type: task.repeatType, days: task.repeatDays });
             const repeatGroupId = repeatRule.type === 'none' ? null : (task.repeatGroupId || null);
+            const weekDueOnly = Boolean(task.weekDueOnly);
             return {
                 id: task.id || generateId(),
                 title: String(task.title || task.name || 'Untitled Assignment'),
@@ -1698,7 +1705,8 @@
                 splitPercent: normalizedSplitPercent,
                 repeatGroupId,
                 repeatWeekKey: repeatGroupId ? (task.repeatWeekKey || normalizedWeek) : null,
-                repeatRule
+                repeatRule,
+                weekDueOnly
             };
         }
 
@@ -4508,6 +4516,8 @@
 
         function updateScheduleInputs() {
             const scheduleType = document.getElementById('inputScheduleType')?.value || 'date';
+            const repeatType = document.getElementById('inputRepeatType')?.value || 'none';
+            const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && repeatType === 'weekly';
             const weekWrapper = document.getElementById('weekInputWrapper');
             const eventDateWrapper = document.getElementById('eventDateWrapper');
             const startTimeWrapper = document.getElementById('startTimeWrapper');
@@ -4544,6 +4554,23 @@
                 dueDateInput.disabled = false;
                 dueTimeInput.disabled = false;
             }
+
+            if(weekDueOnly) {
+                if(scheduleType !== 'week') {
+                    const scheduleTypeInput = document.getElementById('inputScheduleType');
+                    if(scheduleTypeInput) scheduleTypeInput.value = 'week';
+                    updateScheduleInputs();
+                    return;
+                }
+                if(!weekInput.value) weekInput.value = getCurrentWeekKey();
+                const { endStr } = getWeekBoundsFromWeekKey(weekInput.value);
+                dueDateInput.value = endStr;
+                dueDateInput.disabled = true;
+                dueTimeInput.value = '';
+                dueTimeInput.disabled = true;
+                timeInput.value = '';
+                dateInput.value = '';
+            }
         }
 
         function getCheckedDays(selector) {
@@ -4564,12 +4591,22 @@
         function updateRepeatInputs() {
             const type = document.getElementById('inputRepeatType')?.value || 'none';
             const wrapper = document.getElementById('repeatDaysWrapper');
+            const weekDueOnlyWrapper = document.getElementById('weekDueOnlyWrapper');
+            const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked);
             if(!wrapper) return;
-            if(type === 'custom' || type === 'weekly') {
+            if(weekDueOnlyWrapper) {
+                if(type === 'weekly') {
+                    weekDueOnlyWrapper.classList.remove('hidden');
+                } else {
+                    weekDueOnlyWrapper.classList.add('hidden');
+                }
+            }
+            if(type === 'custom' || (type === 'weekly' && !weekDueOnly)) {
                 wrapper.classList.remove('hidden');
             } else {
                 wrapper.classList.add('hidden');
             }
+            updateScheduleInputs();
         }
 
         function updateBlockedRepeatInputs() {
@@ -4625,6 +4662,7 @@
             document.getElementById('inputColor').value = '#06b6d4';
             document.getElementById('inputNotes').value = '';
             document.getElementById('inputRepeatType').value = 'none';
+            document.getElementById('inputWeekDueOnly').checked = false;
             setCheckedDays('.repeat-day', []);
             document.getElementById('colorSyncLabel').innerText = 'Subject color';
             document.getElementById('modalHeading').innerText = 'New Assignment';
@@ -4635,9 +4673,16 @@
 
         function buildRepeatRuleFromForm() {
             const type = document.getElementById('inputRepeatType')?.value || 'none';
+            const weekDueOnly = Boolean(document.getElementById('inputWeekDueOnly')?.checked) && type === 'weekly';
             let days = getCheckedDays('.repeat-day');
             if(type === 'daily') {
                 days = [0, 1, 2, 3, 4, 5, 6];
+            }
+            if(weekDueOnly) {
+                return {
+                    rule: normalizeRepeatRule({ type: 'weekly', days: [0] }),
+                    weekDueOnly: true
+                };
             }
             if(type === 'weekly' && days.length === 0) {
                 const fallbackDate = document.getElementById('inputDate')?.value || document.getElementById('inputDueDate')?.value || '';
@@ -4650,7 +4695,7 @@
             if((rule.type === 'custom' || rule.type === 'weekly') && rule.days.length === 0) {
                 return { error: 'Select at least one weekday for repeats.' };
             }
-            return { rule };
+            return { rule, weekDueOnly: false };
         }
 
         function getRepeatStartWeekKey({ scheduleType, date, dueDate, week }) {
@@ -4658,6 +4703,12 @@
             if(date) return getWeekKeyFromDateStr(date);
             if(dueDate) return getWeekKeyFromDateStr(dueDate);
             return getCurrentWeekKey();
+        }
+
+        function getWeekEndDateFromWeekKey(weekKey) {
+            if(!weekKey) return null;
+            const { endStr } = getWeekBoundsFromWeekKey(weekKey);
+            return endStr || null;
         }
 
         function pickRepeatTemplate(groupTasks = []) {
@@ -4680,21 +4731,23 @@
             let added = 0;
             dates.forEach(dateStr => {
                 if(isRepeatDateSkipped(groupId, dateStr)) return;
-                if(existingDates.has(dateStr)) return;
+                if(!templateTask.weekDueOnly && existingDates.has(dateStr)) return;
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
-                    scheduleType: 'date',
-                    date: dateStr,
-                    dueDate: dateStr,
+                    scheduleType: templateTask.weekDueOnly ? 'week' : 'date',
+                    date: templateTask.weekDueOnly ? null : dateStr,
+                    dueDate: templateTask.weekDueOnly ? getWeekEndDateFromWeekKey(weekKey) : dateStr,
                     week: weekKey,
-                    time: templateTask.time || null,
-                    timeSource: templateTask.time ? 'user' : null,
+                    time: templateTask.weekDueOnly ? null : (templateTask.time || null),
+                    timeSource: templateTask.weekDueOnly ? null : (templateTask.time ? 'user' : null),
                     completed: false,
                     completedDate: null,
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
-                    repeatRule: rule
+                    repeatRule: rule,
+                    dueTime: templateTask.weekDueOnly ? null : templateTask.dueTime,
+                    weekDueOnly: Boolean(templateTask.weekDueOnly)
                 });
                 tasks.push(occurrence);
                 added++;
@@ -4749,11 +4802,11 @@
             const title = document.getElementById('inputTitle').value.trim();
             const subject = (document.getElementById('inputSubject').value || 'General').trim();
             const color = document.getElementById('inputColor').value;
-            const scheduleType = document.getElementById('inputScheduleType').value;
+            const scheduleTypeRaw = document.getElementById('inputScheduleType').value;
             const date = document.getElementById('inputDate').value;
-            const dueDate = document.getElementById('inputDueDate').value || null;
-            const week = document.getElementById('inputWeek').value;
-            const dueTime = document.getElementById('inputDueTime').value || null;
+            const dueDateRaw = document.getElementById('inputDueDate').value || null;
+            const weekRaw = document.getElementById('inputWeek').value;
+            const dueTimeRaw = document.getElementById('inputDueTime').value || null;
             const mustBeAfter = [...getDependencyList('after')];
             const mustBeBefore = [...getDependencyList('before')];
             
@@ -4767,6 +4820,19 @@
                 showNotification("Task name too long (max 100 characters)", 'error');
                 return;
             }
+            const repeatBuild = buildRepeatRuleFromForm();
+            if(repeatBuild.error) {
+                showNotification(repeatBuild.error, 'error');
+                return;
+            }
+            const repeatRule = repeatBuild.rule;
+            const weekDueOnly = Boolean(repeatBuild.weekDueOnly);
+
+            const scheduleType = weekDueOnly ? 'week' : scheduleTypeRaw;
+            const week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
+            const dueDate = weekDueOnly ? getWeekEndDateFromWeekKey(week) : dueDateRaw;
+            const dueTime = weekDueOnly ? null : dueTimeRaw;
+
             if(scheduleType === 'week' && !week) {
                 showNotification("Please choose a target week", 'error');
                 return;
@@ -4780,17 +4846,10 @@
                 return;
             }
 
-            const repeatBuild = buildRepeatRuleFromForm();
-            if(repeatBuild.error) {
-                showNotification(repeatBuild.error, 'error');
-                return;
-            }
-            const repeatRule = repeatBuild.rule;
-
             // Update Global Subject Color Map
             subjectColors[subject] = color;
 
-            const inputTimeValue = scheduleType === 'date' ? (document.getElementById('inputTime').value || null) : null;
+            const inputTimeValue = (scheduleType === 'date' && !weekDueOnly) ? (document.getElementById('inputTime').value || null) : null;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
             const preserveAutoSource = Boolean(existingTask && existingTask.timeSource === 'auto' && existingTask.time === inputTimeValue);
 
@@ -4816,7 +4875,8 @@
                 notes: document.getElementById('inputNotes').value.substring(0, 500),
                 completed: editingId ? (tasks.find(t => t.id === editingId)?.completed || false) : false,
                 completedDate: editingId ? (tasks.find(t => t.id === editingId)?.completedDate) : null,
-                repeatRule
+                repeatRule,
+                weekDueOnly
             };
             const normalizedTaskData = normalizeTask(baseTaskData);
             normalizedTaskData.mustBeAfter = (normalizedTaskData.mustBeAfter || []).filter(id => id !== normalizedTaskData.id);
@@ -4879,6 +4939,12 @@
                             ...t,
                             title,
                             subject,
+                            scheduleType: weekDueOnly ? 'week' : t.scheduleType,
+                            date: weekDueOnly ? null : t.date,
+                            dueDate: weekDueOnly ? getWeekEndDateFromWeekKey(t.repeatWeekKey || t.week || startWeekKey) : t.dueDate,
+                            week: t.repeatWeekKey || t.week || startWeekKey,
+                            time: weekDueOnly ? null : t.time,
+                            timeSource: weekDueOnly ? null : t.timeSource,
                             priority: normalizedTaskData.priority,
                             difficulty: normalizedTaskData.difficulty,
                             duration: normalizedTaskData.duration,
@@ -4887,9 +4953,10 @@
                             dueTime: normalizedTaskData.dueTime,
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
-                            repeatRule
+                            repeatRule,
+                            weekDueOnly
                         };
-                        if(inputTimeValue) {
+                        if(!weekDueOnly && inputTimeValue) {
                             updated.time = inputTimeValue;
                             updated.timeSource = 'user';
                         }
@@ -4927,7 +4994,7 @@
                         'Due Date Is In The Past',
                         'This due date has already passed. Save anyway?',
                         'Continue',
-                        finishSave
+                        proceedSave
                     );
                     return;
                 }
@@ -4966,6 +5033,7 @@
             document.getElementById('inputNotes').value = t.notes || '';
             const repeatRule = normalizeRepeatRule(t.repeatRule || {});
             document.getElementById('inputRepeatType').value = repeatRule.type || 'none';
+            document.getElementById('inputWeekDueOnly').checked = Boolean(t.weekDueOnly) && repeatRule.type === 'weekly';
             setCheckedDays('.repeat-day', repeatRule.days || []);
             updateRepeatInputs();
             populateDependencySelects(t.mustBeAfter || [], t.mustBeBefore || []);
@@ -5554,6 +5622,7 @@
             if(eligibleDates.length === 0) return { assigned: 0, timeBlocked: 0 };
 
             const candidates = tasks.filter(t => {
+                if(t.weekDueOnly) return false;
                 if(t.completed || t.date) return false;
                 if(t.week === weekKey) return true;
                 if(includeFlexible && !t.week) return true;
@@ -5582,6 +5651,7 @@
 
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
             const isTargetedForWeek = (task) => {
+                if(task.weekDueOnly) return false;
                 if(task.completed) return false;
                 const dueDate = getTaskDueDate(task);
                 if(task.week === weekKey) return true;
@@ -5632,8 +5702,8 @@
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12) {
-            const unscheduled = tasks.filter(t => !t.completed && !t.date && t.scheduleType !== 'date');
-            const noTime = tasks.filter(t => !t.completed && t.date && !t.time);
+            const unscheduled = tasks.filter(t => !t.completed && !t.weekDueOnly && !t.date && t.scheduleType !== 'date');
+            const noTime = tasks.filter(t => !t.completed && !t.weekDueOnly && t.date && !t.time);
             if(unscheduled.length === 0 && noTime.length === 0) return;
             const weekKeys = new Set();
             const todayStr = getDateStrLocal();
