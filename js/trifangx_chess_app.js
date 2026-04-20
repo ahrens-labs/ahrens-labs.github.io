@@ -1707,7 +1707,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     /**
-     * "Chess Engine" nav from trifangx_live.html: release the engine (live pagehide never does).
+     * "Chess Engine" nav from trifangx_live.html: release the engine (pagehide skips /stop only on reload).
      */
     function leaveLiveForChessLobby(ev) {
       if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
@@ -1736,9 +1736,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           persistTrifangxLiveSnapshot();
         }
 
-        // Dedicated live URL is only the in-game board — reload is the same view; never /stop from pagehide.
+        // Dedicated live: reload keeps the same tab session — skip /stop so the game can resume.
+        // Tab close or navigate away is not a reload — release the server slot so the game ends.
         if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
-          skipRelease = true;
+          skipRelease = pagehideNavigationIsReload();
         } else if (
           !isTrifangxLiveDedicatedPage() &&
           pagehideNavigationIsReload() &&
