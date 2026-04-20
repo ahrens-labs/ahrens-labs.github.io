@@ -1424,7 +1424,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     }
 
-    function updateEngineCapacityDisplay(active, max, myActive, myMax) {
+    function updateEngineCapacityDisplay(active, max) {
       const valEl = document.getElementById('engine-capacity-value');
       const row = document.getElementById('engine-capacity-row');
       if (!valEl) return;
@@ -1435,28 +1435,42 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (row) row.title = 'Waiting for server status…';
         return;
       }
-      const myA = myActive == null ? NaN : Number(myActive);
-      const myM = myMax == null ? NaN : Number(myMax);
-      let suffix = '';
-      if (Number.isFinite(myA) && Number.isFinite(myM) && myM >= 1) {
-        suffix = ' · yours ' + myA + '/' + myM;
-      }
-      valEl.textContent = a + ' / ' + m + suffix;
+      valEl.textContent = a + ' / ' + m;
       if (row) {
-        const globalFull = a >= m;
-        const mineFull = Number.isFinite(myA) && Number.isFinite(myM) && myM >= 1 && myA >= myM;
         row.title =
-          (globalFull ? 'All server slots in use — wait for a slot to free up. ' : '') +
-          (mineFull ? 'You already have ' + myM + ' active games — stop one to start another.' : '');
+          a >= m
+            ? 'All server slots in use — wait for a slot to free up.'
+            : 'Concurrent games allowed across all players on this server.';
       }
     }
 
     function applyEngineOccupancyWaitingRoomUi(busy) {
       const btn = document.getElementById('start-game-btn');
       const banner = document.getElementById('engine-busy-banner');
+      const bannerContent = document.getElementById('engine-busy-banner-content');
       const blockStart = busy || _lastMySlotsFull;
       if (btn) btn.disabled = blockStart;
       if (banner) banner.style.display = blockStart ? 'block' : 'none';
+      if (bannerContent) {
+        if (blockStart) {
+          const parts = [];
+          if (_lastMySlotsFull) {
+            parts.push(
+              '<strong>You have reached your limit of active games.</strong><br>' +
+                '<span style="font-size:0.85rem;">You can have up to 3 games in progress at once. Finish or leave a game before starting another.</span>'
+            );
+          }
+          if (busy) {
+            parts.push(
+              '<strong>All engine game slots are in use.</strong><br>' +
+                '<span style="font-size:0.85rem;">Several games can run at once; when one ends a slot frees up. Try again in a moment.</span>'
+            );
+          }
+          bannerContent.innerHTML = parts.join('<br><br>');
+        } else {
+          bannerContent.innerHTML = '';
+        }
+      }
       // While global slots are full or this account hit its cap, auto-poll so the banner clears without a manual refresh.
       const needStatusPoll = busy || _lastMySlotsFull;
       if (needStatusPoll && !_statusPollInterval) {
@@ -1511,26 +1525,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const mg = data && data.max_games;
           const aN = ag == null ? NaN : Number(ag);
           const mN = mg == null ? NaN : Number(mg);
-          const myAg = data && data.my_active_games;
-          const myMg = data && data.my_max_games;
-          const myAN = myAg == null ? NaN : Number(myAg);
-          const myMN = myMg == null ? NaN : Number(myMg);
           if (Number.isFinite(aN) && Number.isFinite(mN) && mN >= 1) {
             _lastActiveGames = aN;
             _lastMaxGames = mN;
-            updateEngineCapacityDisplay(
-              aN,
-              mN,
-              Number.isFinite(myAN) ? myAN : null,
-              Number.isFinite(myMN) ? myMN : null
-            );
+            updateEngineCapacityDisplay(aN, mN);
           } else if (_lastActiveGames != null && _lastMaxGames != null) {
-            updateEngineCapacityDisplay(
-              _lastActiveGames,
-              _lastMaxGames,
-              Number.isFinite(myAN) ? myAN : null,
-              Number.isFinite(myMN) ? myMN : null
-            );
+            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
           }
           applyEngineOccupancyWaitingRoomUi(busy);
           if (typeof ensurePregameStatusPolling === 'function' && typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
@@ -1540,9 +1540,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         })
         .catch(() => {
           if (_lastActiveGames != null && _lastMaxGames != null) {
-            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames, null, null);
+            updateEngineCapacityDisplay(_lastActiveGames, _lastMaxGames);
           } else {
-            updateEngineCapacityDisplay(null, null, null, null);
+            updateEngineCapacityDisplay(null, null);
           }
           applyEngineOccupancyWaitingRoomUi(_lastStatusOccupied);
           return _lastStatusOccupied;
@@ -8665,7 +8665,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       
       // Persist reset to cloud immediately (avoid losing reset if tab closes during debounce)
       if (typeof saveChessDataToCloud === 'function') {
-        saveChessDataToCloud(true).catch(function (e) {
+        saveChessDataToCloud(true, { replaceGameHistory: true }).catch(function (e) {
           console.error('Immediate cloud save after reset failed:', e);
         });
       }
@@ -10934,19 +10934,22 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     });
 
     // Save chess data to cloud (debounced; use immediate after full reset)
-    async function saveChessDataToCloud(immediate) {
+    async function saveChessDataToCloud(immediate, opts) {
       if (!isLoggedIn || !currentSessionId) return;
-      
+      const replaceGameHistory = opts && opts.replaceGameHistory === true;
+
       clearTimeout(saveTimeout);
       const doSave = async () => {
         try {
+          const payload = { ...cloudChessData };
+          if (replaceGameHistory) payload.replaceGameHistory = true;
           const response = await fetch(`${API_BASE_URL}/api/chess/sync`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${currentSessionId}`
             },
-            body: JSON.stringify(cloudChessData)
+            body: JSON.stringify(payload)
           });
           
           if (response.ok) {

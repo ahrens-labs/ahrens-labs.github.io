@@ -1256,6 +1256,66 @@ async function verifyStoredPassword(plain, stored) {
   return false;
 }
 
+/** Matches client `gameHistoryRecordIsFavorite` in js/trifangx_chess_app.js */
+function chessGameHistoryRecordIsFavorite(rec) {
+  return !!(rec && rec.favorite === true);
+}
+
+/** Matches client `trimGameHistoryToCap`: keep all favorites plus up to 50 non-favorites (in list order). */
+function trimChessGameHistoryMerged(items) {
+  if (!Array.isArray(items)) return [];
+  let nonFavKept = 0;
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const r = items[i];
+    if (!r) continue;
+    if (chessGameHistoryRecordIsFavorite(r)) {
+      out.push(r);
+    } else if (nonFavKept < 50) {
+      out.push(r);
+      nonFavKept++;
+    }
+  }
+  return out;
+}
+
+/**
+ * Union server + client game history by record id so concurrent tabs (multiple live games)
+ * cannot overwrite each other's completed games on sync.
+ */
+function mergeChessGameHistoryForSync(prev, incoming) {
+  const prevArr = Array.isArray(prev) ? prev : [];
+  const incArr = Array.isArray(incoming) ? incoming : [];
+  const byKey = new Map();
+
+  function keyFor(r) {
+    if (!r || typeof r !== 'object') return null;
+    if (typeof r.id === 'string' && r.id.trim()) return r.id.trim();
+    const sa = r.savedAt != null ? String(r.savedAt) : '';
+    const h0 =
+      Array.isArray(r.historySan) && r.historySan.length ? String(r.historySan[0]) : '';
+    if (sa) return `legacy:${sa}:${h0}`;
+    return null;
+  }
+
+  for (const r of prevArr) {
+    const k = keyFor(r);
+    if (k) byKey.set(k, r);
+  }
+  for (const r of incArr) {
+    const k = keyFor(r);
+    if (k) byKey.set(k, r);
+  }
+
+  const arr = Array.from(byKey.values());
+  arr.sort((a, b) => {
+    const ta = Date.parse(a.savedAt) || 0;
+    const tb = Date.parse(b.savedAt) || 0;
+    return tb - ta;
+  });
+  return trimChessGameHistoryMerged(arr);
+}
+
 // Durable Object: UserAccount
 export class UserAccount {
   constructor(state, env) {
@@ -1620,10 +1680,26 @@ export class UserAccount {
     // Update chess game data
     if (!userData.games) userData.games = {};
     if (!userData.games.chess) userData.games.chess = {};
-    
+
+    const replaceHistory =
+      chessData.replaceGameHistory === true || chessData.replaceGameHistory === 'true';
+    const restIncoming = { ...chessData };
+    delete restIncoming.replaceGameHistory;
+
+    const prevChess = userData.games.chess;
+    let mergedHistory;
+    if (replaceHistory && Array.isArray(restIncoming.gameHistory)) {
+      mergedHistory = trimChessGameHistoryMerged(restIncoming.gameHistory);
+    } else if (Array.isArray(restIncoming.gameHistory)) {
+      mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, restIncoming.gameHistory);
+    } else {
+      mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
+    }
+
     userData.games.chess = {
-      ...userData.games.chess,
-      ...chessData,
+      ...prevChess,
+      ...restIncoming,
+      gameHistory: mergedHistory,
       lastUpdated: Date.now()
     };
     
