@@ -1154,8 +1154,9 @@
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
                                 <div class="relative">
                                     <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400/60 text-sm"></i>
-                                    <input id="inputSubject" type="text" autocomplete="off" oninput="handleSubjectInput(this.value)" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="Math">
+                                    <input id="inputSubject" type="text" autocomplete="off" list="subjectSuggestions" oninput="handleSubjectInput(this.value)" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="Math">
                                 </div>
+                                <datalist id="subjectSuggestions"></datalist>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Color</label>
