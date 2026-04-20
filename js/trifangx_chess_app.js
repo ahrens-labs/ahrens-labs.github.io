@@ -7,6 +7,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     let playerColor = "white";
     let timerStart = 0;
     let timerInterval = null;
+    /** Abort in-flight /move + /move_result polling when the tab navigates away (reduces server broken-pipe noise). */
+    let engineMoveAbortController = null;
     let whiteTime, blackTime, increment;
     let timeLimited = false;
     let gameOver = false;
@@ -1717,6 +1719,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
     window.addEventListener('pagehide', function (ev) {
       if (ev.persisted) return;
+      try {
+        if (engineMoveAbortController) {
+          engineMoveAbortController.abort();
+        }
+      } catch (eAbort) {}
       let skipRelease = false;
       try {
         let isLockHolder = false;
@@ -10118,6 +10125,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       console.log('=== engineMove START ===');
       console.log('Game over status:', gameOver);
       console.log('Current position:', game.fen());
+      const localAbort = new AbortController();
+      engineMoveAbortController = localAbort;
+      const signal = localAbort.signal;
       try {
         const lastMove = game.history().slice(-1)[0];
         console.log('Last move:', lastMove, 'Game turn:', game.turn());
@@ -10128,6 +10138,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         const response = await fetch(`${ENGINE_BASE}/move`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: signal,
           body: JSON.stringify({
             game_id: gid,
             move: lastMove,
@@ -10153,7 +10164,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (response.status === 202 && startData.job_id) {
           const deadline = Date.now() + MOVE_MAX_WAIT_MS;
           while (Date.now() < deadline) {
-            const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, { method: "GET" });
+            const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, {
+              method: "GET",
+              signal: signal,
+            });
             const d = await pr.json().catch(() => ({}));
             if (d.status === "done" && d.move) {
               data = { move: d.move };
@@ -10366,6 +10380,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         touchLiveGameSnapshot();
         startTimer(); // Start move timer for player
       } catch (err) {
+        if (err && err.name === 'AbortError') {
+          console.log('Engine fetch aborted (tab navigation).');
+          return;
+        }
         // Replaced alert() with UI message
         const moveContainer = document.getElementById("move-timer-container");
         moveContainer.innerHTML = `CONNECTION ERROR: <span style="color:red;">${err.message || 'Could not reach engine.'}</span>`;
@@ -10375,6 +10393,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         releaseEngineOnGameEnd();
         // Show rematch modal for connection errors
         setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
+      } finally {
+        try {
+          if (engineMoveAbortController === localAbort) {
+            engineMoveAbortController = null;
+          }
+        } catch (eFin) {}
       }
     }
     function submitMove() {

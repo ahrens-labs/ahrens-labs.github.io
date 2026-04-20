@@ -12,11 +12,16 @@ from flask_cors import CORS
 from multiprocessing import Pool
 import copy
 import os
+import signal
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import requests
 
-    # CPU count logged at startup (removed print for performance)
+# Avoid noisy SIGPIPE / broken-pipe in uWSGI logs when clients disconnect mid-response (reload, tab close).
+try:
+    signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+except (AttributeError, OSError, ValueError):
+    pass
 
 # -----------------------------------------------------------------------------
 # Performance switches (server-friendly defaults)
@@ -3109,13 +3114,13 @@ def check_passed_pawn(board, row, col, color):
         else:
             return False, False
 def print_moves(last_move, number_of_moves, game_moves):
-    """PGN-style full line from SAN list (pairs: move_no. white black). last_move/number_of_moves kept for callers."""
+    """PGN-style line: N. white N... black (last_move/number_of_moves kept for callers)."""
     opening_moves = ""
     for i in range(0, len(game_moves), 2):
         move_no = i // 2 + 1
         opening_moves += str(move_no) + '. ' + game_moves[i]
         if i + 1 < len(game_moves):
-            opening_moves += ' ' + game_moves[i + 1] + ' '
+            opening_moves += ' ' + str(move_no) + '...' + game_moves[i + 1] + ' '
         else:
             opening_moves += ' '
     opening_moves = opening_moves.strip()
@@ -4723,7 +4728,7 @@ def best_move_function(board, bots, en_passant):
                                     output = print_moves('b', number_of_moves, game_moves)
                                     print(output.rstrip(' '), end='')
                                     next_move = print_piece_move(board, piece, row, col, row-1, col-1, 'P', 'b')
-                                    print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
+                                    print(' ' + str((len(game_moves) + 1) // 2) + '...' + next_move + '#')
                                     return next_move
                                     #sys.exit()
                                 elif bad_checkmate:
@@ -4818,7 +4823,7 @@ def best_move_function(board, bots, en_passant):
                                     output = print_moves('b', number_of_moves, game_moves)
                                     print(output.rstrip(' '), end='')
                                     next_move = print_piece_move(board, piece, row, col, row-1, col+1, 'P', 'b')
-                                    print(' ' + str(number_of_moves+1) + '. ' + next_move + '#')
+                                    print(' ' + str((len(game_moves) + 1) // 2) + '...' + next_move + '#')
                                     return next_move
                                     #sys.exit()
                                 elif bad_checkmate:
@@ -7934,7 +7939,7 @@ def best_move_black(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(str(number_of_moves) + '...', end='')
+                print(str(white_move_count + 1) + '. ', end='')
             print('0-0')
         elif best_move == '0-0-0':
             en_passant = 'false'
@@ -7948,7 +7953,7 @@ def best_move_black(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(str(number_of_moves) + '...', end='')
+                print(str(white_move_count + 1) + '. ', end='')
             print('0-0-0')
         if blind != 'y':
             print(previous_score)
