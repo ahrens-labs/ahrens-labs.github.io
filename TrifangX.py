@@ -661,6 +661,9 @@ def _dedicated_worker_move(gid, move_notation, color):
                 GAMES[gid]['active_since'] = time.time()
     if not raw_mv:
         return None, 'Engine failed to generate move'
+    with _GAMES_LOCK:
+        if gid not in GAMES:
+            return None, 'Game ended'
     return _normalize_engine_move_for_json(raw_mv), None
 
 
@@ -769,6 +772,13 @@ def stop_engine():
     with _GAMES_LOCK:
         GAMES.pop(gid, None)
         remaining = len(GAMES)
+    with _MOVE_JOBS_LOCK:
+        pend_jid = _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
+        if pend_jid:
+            rec = MOVE_JOBS.get(pend_jid)
+            if rec and rec.get('status') == 'pending':
+                rec['status'] = 'error'
+                rec['error'] = 'Game ended'
     _shutdown_dedicated_worker(gid)
     engine_running = remaining > 0
     return jsonify({"message": "Engine stopped and game released"})
@@ -891,6 +901,25 @@ def _worker_move(bundle):
     return _capture_engine_state_to_dict(), return_move
 
 
+def _pool_worker_move_commit(gid, snap, move_notation, color, pool):
+    """Run _worker_move in the fork pool and commit snapshot if the game is still active."""
+    if snap is None:
+        with _GAMES_LOCK:
+            if gid not in GAMES:
+                return None, 'Unknown or expired game_id'
+            snap = copy.deepcopy(GAMES[gid]['snapshot'])
+    new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
+    with _GAMES_LOCK:
+        if gid in GAMES:
+            GAMES[gid]['snapshot'] = new_snap
+            GAMES[gid]['active_since'] = time.time()
+        else:
+            return None, 'Game ended'
+    if not return_move:
+        return None, 'Engine failed to generate move'
+    return _normalize_engine_move_for_json(return_move), None
+
+
 def _normalize_engine_move_for_json(return_move):
     if return_move == '0-0':
         return 'O-O'
@@ -902,40 +931,41 @@ def _normalize_engine_move_for_json(return_move):
 def _execute_move_core(gid, snap, move_notation, color):
     """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
 
-    One active game: in-process (warm LRU, lowest latency).
-    Multiple games: one dedicated subprocess per game_id (parallel search; state stays in the child).
-    TRIFANGX_DISABLE_DEDICATED_WORKERS=1 forces in-process only (serialized).
-    TRIFANGX_FORCE_MOVE_POOL=1 uses the old fork pool instead of dedicated workers (debug only).
+    Single active game (n<=1): prefer the fork pool when available so search does not hold
+    _INLINE_ENGINE_LOCK — otherwise /stop during engine think blocks the next /start until search ends.
+    Multiple games: one dedicated subprocess per game_id when enabled; pool fallback before inline.
+    TRIFANGX_DISABLE_MOVE_POOL=1 or unavailable pool forces in-process path under _INLINE_ENGINE_LOCK.
+    TRIFANGX_DISABLE_DEDICATED_WORKERS=1 forces in-process only for multi-game.
+    TRIFANGX_FORCE_MOVE_POOL=1 requires fork pool (fails if pool cannot start).
     """
     try:
         with _GAMES_LOCK:
             n = len(GAMES)
         force_pool = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
-        if force_pool:
-            pool = _ensure_move_pool()
-            if pool is None:
-                force_pool = False
-        if force_pool:
-            if snap is None:
-                with _GAMES_LOCK:
-                    if gid not in GAMES:
-                        return None, 'Unknown or expired game_id'
-                    snap = copy.deepcopy(GAMES[gid]['snapshot'])
-            new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
-            with _GAMES_LOCK:
-                if gid in GAMES:
-                    GAMES[gid]['snapshot'] = new_snap
-                    GAMES[gid]['active_since'] = time.time()
-            if not return_move:
-                return None, 'Engine failed to generate move'
-            return _normalize_engine_move_for_json(return_move), None
+        pool = _ensure_move_pool() if os.environ.get('TRIFANGX_DISABLE_MOVE_POOL') != '1' else None
+        if force_pool and pool is None:
+            force_pool = False
+
+        if pool is not None and (force_pool or n <= 1):
+            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
+            if err is None:
+                return out, None
+            print(f'TrifangX: fork pool move failed ({err}); {"no fallback" if force_pool else "falling back"}')
+            if force_pool:
+                return None, err
 
         use_dedicated = n > 1 and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
         if use_dedicated:
             out, err = _dedicated_worker_move(gid, move_notation, color)
             if err is None:
                 return out, None
-            print(f'dedicated worker: {err}; falling back to inline')
+            print(f'dedicated worker: {err}; falling back to fork pool or inline')
+
+        if pool is not None and n > 1:
+            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
+            if err is None:
+                return out, None
+            print(f'TrifangX: fork pool move after dedicated failed ({err}); falling back to inline')
 
         with _GAMES_LOCK:
             if gid not in GAMES:
@@ -950,6 +980,8 @@ def _execute_move_core(gid, snap, move_notation, color):
             if gid in GAMES:
                 GAMES[gid]['snapshot'] = new_snap
                 GAMES[gid]['active_since'] = time.time()
+            else:
+                return None, 'Game ended'
         if not return_move:
             return None, 'Engine failed to generate move'
         return _normalize_engine_move_for_json(return_move), None
