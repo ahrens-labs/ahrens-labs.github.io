@@ -3108,33 +3108,18 @@ def check_passed_pawn(board, row, col, color):
         else:
             return False, False
 def print_moves(last_move, number_of_moves, game_moves):
+    """PGN-style full line from SAN list (pairs: move_no. white black). last_move/number_of_moves kept for callers."""
     opening_moves = ""
-    move_number = 0
-    if last_move == 'b':
-        for number in range(len(game_moves) // 2):
-            if move_number < len(game_moves):
-                opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-                move_number += 1
-                if move_number < len(game_moves):
-                    opening_moves += game_moves[move_number] + ' '
-                    move_number += 1
-            else:
-                break
-    else:
-        for number in range(len(game_moves) // 2 + 1):
-            if number == len(game_moves) // 2:
-                opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-                break
-            if move_number < len(game_moves):
-                opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-                move_number += 1
-                if move_number < len(game_moves):
-                    opening_moves += game_moves[move_number] + ' '
-                    move_number += 1
-            else:
-                break
-    print(opening_moves.strip())
-    return opening_moves.strip()
+    for i in range(0, len(game_moves), 2):
+        move_no = i // 2 + 1
+        opening_moves += str(move_no) + '. ' + game_moves[i]
+        if i + 1 < len(game_moves):
+            opening_moves += ' ' + game_moves[i + 1] + ' '
+        else:
+            opening_moves += ' '
+    opening_moves = opening_moves.strip()
+    print(opening_moves)
+    return opening_moves
 
 
 
@@ -4467,6 +4452,7 @@ def best_move_function(board, bots, en_passant):
     global king_move
     global number_of_moves
     global black_move_count
+    global game_moves
     global draws
     global wins
     global fifty_move_rule
@@ -5038,7 +5024,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(str(black_move_count+1) + '. ', end='')
+                    print(str((len(game_moves) + 1) // 2) + '...', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             elif best_piece == 'en_passant_plus':
@@ -5048,7 +5034,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(str(black_move_count+1) + '. ', end='')
+                    print(str((len(game_moves) + 1) // 2) + '...', end='')
                 move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 print(move_played)
             else:
@@ -5060,7 +5046,7 @@ def best_move_function(board, bots, en_passant):
                 if blind != 'y':
                     print_board(board)
                     print()
-                    print(str(black_move_count+1) + '. ', end='')
+                    print(str((len(game_moves) + 1) // 2) + '...', end='')
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
@@ -5069,7 +5055,7 @@ def best_move_function(board, bots, en_passant):
                     if blind != 'y':
                         print_board(board)
                         print()
-                        print(str(black_move_count+1) + '. ', end='')
+                        print(str((len(game_moves) + 1) // 2) + '...', end='')
                     if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                         if piece in WHITE_PIECES:
                             move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q' + '+'
@@ -5143,7 +5129,7 @@ def best_move_function(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(str(number_of_moves+1) + '. ', end='')
+                print(str((len(game_moves) + 1) // 2) + '...', end='')
             print('0-0')
         elif best_move == '0-0-0':
             en_passant = 'false'
@@ -5157,7 +5143,7 @@ def best_move_function(board, bots, en_passant):
             if blind != 'y':
                 print_board(board)
                 print()
-                print(str(number_of_moves+1) + '. ', end='')
+                print(str((len(game_moves) + 1) // 2) + '...', end='')
             print('0-0-0')
         if blind != 'y':
             print(previous_score)

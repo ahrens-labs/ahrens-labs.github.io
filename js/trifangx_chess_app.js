@@ -1687,12 +1687,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
           timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
           premoves: Array.isArray(premoves) ? premoves.slice() : [],
+          // timerStart = performance.now() - resume can be negative after reload; still valid.
           moveTimerElapsedMs:
             timerInterval != null &&
             typeof performance !== 'undefined' &&
             typeof timerStart === 'number' &&
-            timerStart > 0
-              ? Math.max(0, performance.now() - timerStart)
+            Number.isFinite(timerStart)
+              ? Math.max(0, Math.round(performance.now() - timerStart))
               : 0,
         };
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
@@ -9373,12 +9374,27 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           ? resumeMoveTimerMs
           : undefined;
       startTimer(resumeMs);
+      touchLiveGameSnapshot();
 
       const engineToMove =
         (playerColor === 'white' && game.turn() === 'b') ||
         (playerColor === 'black' && game.turn() === 'w');
       if (engineToMove) {
-        await engineMove();
+        if (typeof window !== 'undefined' && isTrifangxLiveDedicatedPage()) {
+          setTimeout(function () {
+            void engineMove()
+              .then(function () {
+                try {
+                  touchLiveGameSnapshot();
+                } catch (e1) {}
+              })
+              .catch(function (err) {
+                console.error('engineMove after live resume:', err);
+              });
+          }, 0);
+        } else {
+          await engineMove();
+        }
       }
 
       touchLiveGameSnapshot();
