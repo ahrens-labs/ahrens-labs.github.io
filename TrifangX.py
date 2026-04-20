@@ -12,16 +12,9 @@ from flask_cors import CORS
 from multiprocessing import Pool
 import copy
 import os
-import signal
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import requests
-
-# Avoid noisy SIGPIPE / broken-pipe in uWSGI logs when clients disconnect mid-response (reload, tab close).
-try:
-    signal.signal(signal.SIGPIPE, signal.SIG_IGN)
-except (AttributeError, OSError, ValueError):
-    pass
 
 # -----------------------------------------------------------------------------
 # Performance switches (server-friendly defaults)
