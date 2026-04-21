@@ -1250,7 +1250,7 @@
                             <div id="weekDueOnlyWrapper" class="mt-3 hidden">
                                 <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                     <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
-                                    Due at end of week (no time block)
+                                    Due Friday (end of week, no time block)
                                 </label>
                             </div>
                             <div id="repeatDaysWrapper" class="mt-3 hidden">
@@ -1651,7 +1651,11 @@
             const normalizedPriority = ['Low', 'Medium', 'High'].includes(task.priority) ? task.priority : 'Medium';
             const normalizedDifficulty = ['Easy', 'Medium', 'Hard'].includes(task.difficulty) ? task.difficulty : 'Medium';
             const normalizedEventDate = task.eventDate || task.date || null;
-            const normalizedDueDate = task.dueDate || task.due || normalizedEventDate || null;
+            const normalizedDueDateBase = task.dueDate || task.due || normalizedEventDate || null;
+            const weekDueOnly = Boolean(task.weekDueOnly);
+            const normalizedDueDate = weekDueOnly
+                ? getWeekEndDateFromWeekKey(task.week || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null))
+                : normalizedDueDateBase;
             const normalizedWeek = task.week || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null);
             const normalizedTime = task.time || null;
             const normalizedSplitGroupId = task.splitGroupId || null;
@@ -1679,7 +1683,6 @@
                 : null;
             const repeatRule = normalizeRepeatRule(task.repeatRule || { type: task.repeatType, days: task.repeatDays });
             const repeatGroupId = repeatRule.type === 'none' ? null : (task.repeatGroupId || null);
-            const weekDueOnly = Boolean(task.weekDueOnly);
             return {
                 id: task.id || generateId(),
                 title: String(task.title || task.name || 'Untitled Assignment'),
@@ -4680,7 +4683,7 @@
             }
             if(weekDueOnly) {
                 return {
-                    rule: normalizeRepeatRule({ type: 'weekly', days: [0] }),
+                    rule: normalizeRepeatRule({ type: 'weekly', days: [5] }),
                     weekDueOnly: true
                 };
             }
@@ -4707,8 +4710,10 @@
 
         function getWeekEndDateFromWeekKey(weekKey) {
             if(!weekKey) return null;
-            const { endStr } = getWeekBoundsFromWeekKey(weekKey);
-            return endStr || null;
+            const { start } = getWeekBoundsFromWeekKey(weekKey);
+            const friday = new Date(start);
+            friday.setDate(start.getDate() + 4);
+            return getDateStrLocal(friday);
         }
 
         function pickRepeatTemplate(groupTasks = []) {
