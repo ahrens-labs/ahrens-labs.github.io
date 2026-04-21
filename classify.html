@@ -1683,6 +1683,11 @@
                 : null;
             const repeatRule = normalizeRepeatRule(task.repeatRule || { type: task.repeatType, days: task.repeatDays });
             const repeatGroupId = repeatRule.type === 'none' ? null : (task.repeatGroupId || null);
+            const repeatNoAutoTime = Boolean(task.repeatNoAutoTime) || (
+                !Object.prototype.hasOwnProperty.call(task || {}, 'repeatNoAutoTime') &&
+                repeatRule.type === 'daily' &&
+                !normalizedTime
+            );
             return {
                 id: task.id || generateId(),
                 title: String(task.title || task.name || 'Untitled Assignment'),
@@ -1709,7 +1714,8 @@
                 repeatGroupId,
                 repeatWeekKey: repeatGroupId ? (task.repeatWeekKey || normalizedWeek) : null,
                 repeatRule,
-                weekDueOnly
+                weekDueOnly,
+                repeatNoAutoTime
             };
         }
 
@@ -4753,7 +4759,8 @@
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
                     dueTime: templateTask.weekDueOnly ? null : templateTask.dueTime,
-                    weekDueOnly: Boolean(templateTask.weekDueOnly)
+                    weekDueOnly: Boolean(templateTask.weekDueOnly),
+                    repeatNoAutoTime: Boolean(templateTask.repeatNoAutoTime)
                 });
                 tasks.push(occurrence);
                 added++;
@@ -4856,6 +4863,7 @@
             subjectColors[subject] = color;
 
             const inputTimeValue = (scheduleType === 'date' && !weekDueOnly) ? (document.getElementById('inputTime').value || null) : null;
+            const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
             const preserveAutoSource = Boolean(existingTask && existingTask.timeSource === 'auto' && existingTask.time === inputTimeValue);
 
@@ -4882,7 +4890,8 @@
                 completed: editingId ? (tasks.find(t => t.id === editingId)?.completed || false) : false,
                 completedDate: editingId ? (tasks.find(t => t.id === editingId)?.completedDate) : null,
                 repeatRule,
-                weekDueOnly
+                weekDueOnly,
+                repeatNoAutoTime
             };
             const normalizedTaskData = normalizeTask(baseTaskData);
             normalizedTaskData.mustBeAfter = (normalizedTaskData.mustBeAfter || []).filter(id => id !== normalizedTaskData.id);
@@ -4960,7 +4969,8 @@
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
                             repeatRule,
-                            weekDueOnly
+                            weekDueOnly,
+                            repeatNoAutoTime
                         };
                         if(!weekDueOnly && inputTimeValue) {
                             updated.time = inputTimeValue;
@@ -5707,7 +5717,7 @@
 
         function ensureAllEventsScheduled(weeksAhead = 12) {
             const unscheduled = tasks.filter(t => !t.completed && !t.date && t.scheduleType !== 'date');
-            const noTime = tasks.filter(t => !t.completed && t.date && !t.time);
+            const noTime = tasks.filter(t => !t.completed && t.date && !t.time && !t.repeatNoAutoTime);
             if(unscheduled.length === 0 && noTime.length === 0) return;
             const weekKeys = new Set();
             const todayStr = getDateStrLocal();
@@ -5860,7 +5870,7 @@
 
             const attemptSchedule = () => {
                 const floatingCandidates = weekTasks
-                    .filter(t => !t.time && (!t.date || t.date >= todayStr));
+                    .filter(t => !t.time && !t.repeatNoAutoTime && (!t.date || t.date >= todayStr));
                 const depOrdered = orderTasksByDependencies(floatingCandidates);
                 const floating = [...depOrdered.ordered].sort(compareTasksForPacking);
                 let passChanges = 0;
@@ -6223,6 +6233,7 @@
                     !t.completed &&
                     t.date &&
                     t.date >= todayStr &&
+                    !t.repeatNoAutoTime &&
                     (t.timeSource === 'auto' || !t.time)
                 );
                 if(variable.length === 0) return { solved: true, unresolved: [] };
