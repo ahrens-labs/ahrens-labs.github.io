@@ -1250,7 +1250,7 @@
                             <div id="weekDueOnlyWrapper" class="mt-3 hidden">
                                 <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                     <input id="inputWeekDueOnly" type="checkbox" onchange="updateRepeatInputs()">
-                                    Due Friday (end of week, no time block)
+                                    Due Friday (end of week)
                                 </label>
                             </div>
                             <div id="repeatDaysWrapper" class="mt-3 hidden">
@@ -4731,6 +4731,7 @@
             const rule = normalizeRepeatRule(repeatRule || templateTask.repeatRule || {});
             if(rule.type === 'none' || rule.days.length === 0) return 0;
             const existing = tasks.filter(t => t.repeatGroupId === groupId && t.repeatWeekKey === weekKey);
+            if(templateTask.weekDueOnly && existing.length > 0) return 0;
             const existingDates = new Set(existing.map(t => t.date));
             const dates = getRepeatDatesForWeek(weekKey, rule);
             let added = 0;
@@ -5627,7 +5628,6 @@
             if(eligibleDates.length === 0) return { assigned: 0, timeBlocked: 0 };
 
             const candidates = tasks.filter(t => {
-                if(t.weekDueOnly) return false;
                 if(t.completed || t.date) return false;
                 if(t.week === weekKey) return true;
                 if(includeFlexible && !t.week) return true;
@@ -5656,7 +5656,6 @@
 
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
             const isTargetedForWeek = (task) => {
-                if(task.weekDueOnly) return false;
                 if(task.completed) return false;
                 const dueDate = getTaskDueDate(task);
                 if(task.week === weekKey) return true;
@@ -5707,8 +5706,8 @@
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12) {
-            const unscheduled = tasks.filter(t => !t.completed && !t.weekDueOnly && !t.date && t.scheduleType !== 'date');
-            const noTime = tasks.filter(t => !t.completed && !t.weekDueOnly && t.date && !t.time);
+            const unscheduled = tasks.filter(t => !t.completed && !t.date && t.scheduleType !== 'date');
+            const noTime = tasks.filter(t => !t.completed && t.date && !t.time);
             if(unscheduled.length === 0 && noTime.length === 0) return;
             const weekKeys = new Set();
             const todayStr = getDateStrLocal();
