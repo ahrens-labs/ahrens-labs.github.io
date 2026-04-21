@@ -1457,6 +1457,7 @@
         function buildClassifyCloudPayload() {
             return {
                 tasks: Array.isArray(tasks) ? tasks : [],
+                completionHistory: Array.isArray(completionHistory) ? completionHistory : [],
                 blockedTimes: Array.isArray(blockedTimes) ? blockedTimes : [],
                 scheduleRules: normalizeScheduleRules(scheduleRules),
                 vacations: Array.isArray(vacationRanges) ? vacationRanges : [],
@@ -1469,6 +1470,9 @@
 
         function applyClassifyCloudPayload(payload = {}) {
             tasks = Array.isArray(payload.tasks) ? payload.tasks.filter(Boolean).map(normalizeTask) : [];
+            completionHistory = Array.isArray(payload.completionHistory)
+                ? payload.completionHistory.filter(Boolean).map(normalizeCompletionEntry)
+                : [];
             blockedTimes = Array.isArray(payload.blockedTimes) ? normalizeBlockedTimes(payload.blockedTimes) : [];
             scheduleRules = normalizeScheduleRules(payload.scheduleRules);
             vacationRanges = normalizeVacationRanges(payload.vacations);
@@ -1531,11 +1535,15 @@
 
         // State
         const storedTasks = safeJsonParse(plannerGet('plannerTasksV2'), []);
+        const storedCompletionHistory = safeJsonParse(plannerGet('plannerCompletionHistoryV1'), []);
         const storedBlockedTimes = safeJsonParse(plannerGet('plannerBlockedTimesV1'), []);
         const storedScheduleRules = safeJsonParse(plannerGet('plannerScheduleRulesV1'), null);
         const storedVacations = safeJsonParse(plannerGet('plannerVacationsV1'), []);
         const storedRepeatSkips = safeJsonParse(plannerGet('plannerRepeatSkipsV1'), {});
         let tasks = Array.isArray(storedTasks) ? storedTasks.filter(Boolean).map(normalizeTask) : [];
+        let completionHistory = Array.isArray(storedCompletionHistory)
+            ? storedCompletionHistory.filter(Boolean).map(normalizeCompletionEntry)
+            : [];
         let blockedTimes = Array.isArray(storedBlockedTimes) ? storedBlockedTimes : [];
         let scheduleRules = normalizeScheduleRules(storedScheduleRules);
         let vacationRanges = normalizeVacationRanges(storedVacations);
@@ -1717,6 +1725,52 @@
                 weekDueOnly,
                 repeatNoAutoTime
             };
+        }
+
+        function normalizeCompletionEntry(entry = {}) {
+            const actualMinutes = Number.isFinite(Number(entry.actualMinutes))
+                ? Math.max(1, Math.round(Number(entry.actualMinutes)))
+                : null;
+            const duration = Number.isFinite(Number(entry.duration))
+                ? Math.max(1, Math.round(Number(entry.duration)))
+                : null;
+            const completedDateRaw = String(entry.completedDate || '').trim();
+            const completedDate = /^\d{4}-\d{2}-\d{2}$/.test(completedDateRaw) ? completedDateRaw : null;
+            return {
+                id: String(entry.id || generateId()),
+                sourceTaskId: entry.sourceTaskId ? String(entry.sourceTaskId) : null,
+                title: String(entry.title || 'Untitled Assignment'),
+                subject: String(entry.subject || 'General'),
+                duration,
+                actualMinutes,
+                dueDate: entry.dueDate ? String(entry.dueDate) : null,
+                completedDate,
+                capturedAt: entry.capturedAt || new Date().toISOString()
+            };
+        }
+
+        function getActualTimeAnalyticsRows() {
+            const liveRows = (tasks || [])
+                .filter(t => t.completed && Number(t.actualMinutes) >= 2)
+                .map(t => ({
+                    title: t.title,
+                    subject: t.subject,
+                    duration: Number(t.duration),
+                    actualMinutes: Number(t.actualMinutes),
+                    dueDate: getTaskDueDate(t),
+                    completedDate: t.completedDate || null
+                }));
+            const archivedRows = (completionHistory || [])
+                .filter(e => Number(e.actualMinutes) >= 2)
+                .map(e => ({
+                    title: e.title,
+                    subject: e.subject,
+                    duration: Number(e.duration),
+                    actualMinutes: Number(e.actualMinutes),
+                    dueDate: e.dueDate || null,
+                    completedDate: e.completedDate || null
+                }));
+            return [...liveRows, ...archivedRows];
         }
 
         function getDateStrLocal(date = new Date()) {
@@ -2357,6 +2411,7 @@
         function saveData() {
             pruneExpiredScheduleItems();
             plannerSet('plannerTasksV2', JSON.stringify(tasks));
+            plannerSet('plannerCompletionHistoryV1', JSON.stringify(completionHistory));
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
             plannerSet('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
@@ -2441,8 +2496,23 @@
 
         function clearCompleted(confirmed = false) {
             if(confirmed) {
-                const completedCount = tasks.filter(t => t.completed).length;
-                const removedIds = tasks.filter(t => t.completed).map(t => t.id);
+                const completedTasks = tasks.filter(t => t.completed);
+                const completedCount = completedTasks.length;
+                const removedIds = completedTasks.map(t => t.id);
+                const archived = completedTasks
+                    .filter(t => Number(t.actualMinutes) >= 2)
+                    .map(t => normalizeCompletionEntry({
+                        sourceTaskId: t.id,
+                        title: t.title,
+                        subject: t.subject,
+                        duration: t.duration,
+                        actualMinutes: t.actualMinutes,
+                        dueDate: getTaskDueDate(t),
+                        completedDate: t.completedDate
+                    }));
+                if(archived.length > 0) {
+                    completionHistory.push(...archived);
+                }
                 tasks = tasks.filter(t => !t.completed);
                 removeDependencyReferences(removedIds);
                 syncAllTaskDependencies();
@@ -2466,7 +2536,7 @@
         }
 
         function resetActualTimeData() {
-            const count = tasks.filter(t => Number(t.actualMinutes) > 0).length;
+            const count = tasks.filter(t => Number(t.actualMinutes) > 0).length + completionHistory.filter(e => Number(e.actualMinutes) > 0).length;
             if(count === 0) {
                 showNotification('No actual time data to reset', 'info');
                 return;
@@ -2477,6 +2547,7 @@
                 'Reset',
                 () => {
                     tasks = tasks.map(t => ({ ...t, actualMinutes: null }));
+                    completionHistory = [];
                     saveData();
                     showNotification('Actual time data reset', 'success');
                 }
@@ -2486,9 +2557,26 @@
         function renderActualTimesList() {
             const listEl = document.getElementById('actualTimesList');
             if(!listEl) return;
-            const rows = tasks
+            const liveRows = tasks
                 .filter(t => t.completed && Number(t.actualMinutes) >= 2 && Number(t.duration) > 0)
-                .sort((a, b) => (getTaskDueDate(a) || '9999-12-31').localeCompare(getTaskDueDate(b) || '9999-12-31'));
+                .map(t => ({
+                    key: `task:${t.id}`,
+                    title: t.title,
+                    duration: t.duration,
+                    actualMinutes: t.actualMinutes,
+                    dueDate: getTaskDueDate(t)
+                }));
+            const archivedRows = completionHistory
+                .filter(e => Number(e.actualMinutes) >= 2 && Number(e.duration) > 0)
+                .map(e => ({
+                    key: `history:${e.id}`,
+                    title: e.title,
+                    duration: e.duration,
+                    actualMinutes: e.actualMinutes,
+                    dueDate: e.dueDate || null
+                }));
+            const rows = [...liveRows, ...archivedRows]
+                .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'));
             if(rows.length === 0) {
                 listEl.innerHTML = '<div class="text-sm text-slate-500 dark:text-slate-400 italic">No actual time entries yet.</div>';
                 return;
@@ -2499,7 +2587,7 @@
                         <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">${t.title}</div>
                         <div class="text-xs text-slate-500 dark:text-slate-400">Est: ${t.duration} min • Actual: ${t.actualMinutes} min</div>
                     </div>
-                    <button onclick="clearActualTimeForTask('${t.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-semibold">Remove</button>
+                    <button onclick="clearActualTimeForTask('${t.key}')" class="text-rose-500 hover:text-rose-600 text-xs font-semibold">Remove</button>
                 </div>
             `).join('');
         }
@@ -2528,7 +2616,25 @@
         }
 
         function clearActualTimeForTask(taskId) {
-            const task = tasks.find(t => t.id === taskId);
+            if(String(taskId).startsWith('history:')) {
+                const historyId = String(taskId).slice('history:'.length);
+                const row = completionHistory.find(e => e.id === historyId);
+                if(!row) return;
+                confirmAction(
+                    'Remove Actual Time?',
+                    `Remove actual time data for "${row.title}"?`,
+                    'Remove',
+                    () => {
+                        completionHistory = completionHistory.filter(e => e.id !== historyId);
+                        saveData();
+                        renderActualTimesList();
+                        showNotification('Actual time removed', 'success');
+                    }
+                );
+                return;
+            }
+            const realTaskId = String(taskId).startsWith('task:') ? String(taskId).slice('task:'.length) : String(taskId);
+            const task = tasks.find(t => t.id === realTaskId);
             if(!task) return;
             confirmAction(
                 'Remove Actual Time?',
@@ -5254,7 +5360,7 @@
             document.getElementById('filterHard').innerText = hardTasks;
 
             // Avg Actual Time
-            const completedWithActual = tasks.filter(t => t.completed && Number(t.actualMinutes) >= 2);
+            const completedWithActual = getActualTimeAnalyticsRows();
             const avgActual = completedWithActual.length > 0
                 ? Math.round(completedWithActual.reduce((sum, t) => sum + Number(t.actualMinutes), 0) / completedWithActual.length)
                 : 0;
@@ -6409,6 +6515,7 @@
         function exportTasks() {
             const exportData = {
                 tasks: tasks,
+                completionHistory: completionHistory,
                 colors: subjectColors,
                 exportDate: new Date().toISOString(),
                 version: '2.0'
@@ -6454,6 +6561,12 @@
                                 // Merge colors
                                 if(data.colors) {
                                     subjectColors = { ...subjectColors, ...data.colors };
+                                }
+                                if(data.completionHistory && Array.isArray(data.completionHistory)) {
+                                    completionHistory = [
+                                        ...completionHistory,
+                                        ...data.completionHistory.map(normalizeCompletionEntry)
+                                    ];
                                 }
                                 saveData();
                                 showNotification(`Imported ${data.tasks.length} tasks!`, 'success');
