@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahrens Labs — About TrifangX</title>
+    <meta name="description" content="TrifangX is Ahrens Labs' chess engine: what it is, how you play it in the browser, and how the pieces fit together.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="js/script.js"></script>
+
+    <style>
+        .tx-hero {
+            width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            padding: 4rem 2rem 3rem;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 45%, #0c4a6e 100%);
+            color: #e2e8f0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.35);
+        }
+        .tx-hero h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin: 0 0 0.75rem;
+            letter-spacing: 0.06em;
+            color: #f8fafc;
+        }
+        .tx-hero-sub {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            max-width: 640px;
+            margin: 0 auto 1.5rem;
+            line-height: 1.55;
+        }
+        .tx-tag {
+            display: inline-block;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #38bdf8;
+            margin-bottom: 0.85rem;
+            font-weight: 600;
+        }
+        .tx-page {
+            max-width: 900px;
+            margin: 2rem auto 0;
+            padding: 0 1.5rem 3rem;
+        }
+        .tx-panel {
+            background: #fff;
+            border-radius: 16px;
+            padding: 1.6rem 1.75rem;
+            margin-bottom: 1.35rem;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .tx-panel h3 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.15rem;
+            color: #0f172a;
+            margin: 0 0 0.65rem;
+        }
+        .tx-panel p,
+        .tx-panel li {
+            color: #475569;
+            line-height: 1.65;
+            font-size: 0.98rem;
+            margin: 0.4rem 0;
+        }
+        .tx-panel ul {
+            margin: 0.5rem 0 0;
+            padding-left: 1.25rem;
+        }
+        .tx-panel li {
+            margin: 0.35rem 0;
+        }
+        .tx-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        .tx-actions a.button {
+            text-decoration: none;
+        }
+        @media (max-width: 640px) {
+            .tx-hero h2 { font-size: 1.75rem; }
+            .tx-hero { padding: 2.75rem 1.1rem 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="account.html">Account</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="tx-hero">
+                <div class="tx-tag">Coding Lab</div>
+                <h2>TrifangX</h2>
+                <p class="tx-hero-sub">
+                    A custom chess engine you can play in the browser—written and tuned by Caleb Ahrens as an Ahrens Labs project.
+                </p>
+            </section>
+
+            <section class="tx-page">
+                <article class="tx-panel">
+                    <h3>What it is</h3>
+                    <p>
+                        TrifangX is a computer opponent for full chess. It knows the rules, generates legal moves, and chooses replies
+                        by searching ahead in the position and comparing how good different lines look according to its evaluation logic.
+                    </p>
+                    <p>
+                        The version on this site is meant to be fun and challenging for human players, whether you are practicing openings
+                        or trying to survive the middlegame.
+                    </p>
+                </article>
+
+                <article class="tx-panel">
+                    <h3>How you play it here</h3>
+                    <p>
+                        The board and clocks run in your browser on Ahrens Labs. When it is the engine’s turn, your move is sent to a
+                        hosted Python service that runs the actual TrifangX search and returns the engine’s move.
+                    </p>
+                    <ul>
+                        <li>Open <strong>Chess Engine</strong> from the site menu to pick sides, time control, and options, then start a game.</li>
+                        <li>With an account, you can keep <strong>game history</strong> and replay past games against TrifangX.</li>
+                        <li>If many people are playing at once, the server may queue work briefly so everyone gets a fair turn—your page will wait and then show the engine move when it is ready.</li>
+                    </ul>
+                </article>
+
+                <article class="tx-panel">
+                    <h3>How the engine “thinks” (in plain terms)</h3>
+                    <p>
+                        Like most chess programs, TrifangX builds a tree of possible continuations from the current board. It estimates
+                        who is better in each resulting position using material, king safety, pawn structure, and many other heuristics,
+                        then prefers lines that improve its score within the time and depth it can afford.
+                    </p>
+                    <p>
+                        Opening knowledge, endgame instincts, and special-case rules (castling, promotions, repetition, and so on) are
+                        all folded into the same program so play stays coherent from move one to checkmate or draw.
+                    </p>
+                </article>
+
+                <article class="tx-panel">
+                    <h3>Source code</h3>
+                    <p>
+                        Engine and server code live in the Ahrens Labs chess engine repository on GitHub—useful if you want to read the
+                        implementation, run it locally, or experiment with ideas of your own.
+                    </p>
+                    <div class="tx-actions">
+                        <a href="chess_engine.html" class="button lab-button-coding">Play against TrifangX</a>
+                        <a href="https://github.com/ahrens-labs/chessengine" class="button button-secondary" rel="noopener noreferrer">View on GitHub</a>
+                        <a href="coding-lab.html" class="button button-secondary">← Back to Coding Lab</a>
+                    </div>
+                </article>
+            </section>
+        </main>
+
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+</body>
+</html>
