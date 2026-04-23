@@ -1,17 +1,27 @@
 // Ahrens Labs Unified Account System
 const AHRENS_API_URL = 'https://chess-accounts.matthewahrens.workers.dev';
 
-// List of pages that require login
-const PROTECTED_PAGES = [
-    'chess_engine.html',
-    'dungeon_game.html',
-    'classify.html'
+// List of page basenames that require login
+const PROTECTED_PAGE_BASENAMES = [
+    'chess_engine',
+    'dungeon_game',
+    'classify'
 ];
 
 // Check if current page requires login
 function requiresLogin() {
-    const currentPage = window.location.pathname.split('/').pop();
-    return PROTECTED_PAGES.includes(currentPage);
+    const currentPage = window.location.pathname.split('/').pop() || '';
+    const normalizedPage = currentPage.toLowerCase().replace(/\.html$/, '');
+    return PROTECTED_PAGE_BASENAMES.includes(normalizedPage);
+}
+
+function getCurrentPageReturnTarget() {
+    const currentPage = window.location.pathname.split('/').pop() || '';
+    const normalizedPage = currentPage.toLowerCase().replace(/\.html$/, '');
+    if (PROTECTED_PAGE_BASENAMES.includes(normalizedPage)) {
+        return `${normalizedPage}.html`;
+    }
+    return currentPage;
 }
 
 // Check login status on page load
@@ -48,7 +58,7 @@ async function checkLoginStatus() {
         // Header elements not found, but still check if protected page
         if (!sessionId && requiresLogin()) {
             console.log('Not logged in on protected page (no header), redirecting...');
-            const currentPage = window.location.pathname.split('/').pop();
+            const currentPage = getCurrentPageReturnTarget();
             window.location.href = `account.html?return=${currentPage}`;
         }
         return;
@@ -63,7 +73,7 @@ async function checkLoginStatus() {
         // Redirect to login if on a protected page
         if (requiresLogin()) {
             console.log('Not logged in on protected page, redirecting...');
-            const currentPage = window.location.pathname.split('/').pop();
+            const currentPage = getCurrentPageReturnTarget();
             window.location.href = `account.html?return=${currentPage}`;
         }
         return;
@@ -97,7 +107,7 @@ async function checkLoginStatus() {
             // Redirect to login if on a protected page
             if (requiresLogin()) {
                 console.log('Invalid session on protected page, redirecting...');
-                const currentPage = window.location.pathname.split('/').pop();
+                const currentPage = getCurrentPageReturnTarget();
                 window.location.href = `account.html?return=${currentPage}`;
             }
         }
@@ -107,7 +117,7 @@ async function checkLoginStatus() {
         // On error, redirect if on protected page
         if (requiresLogin()) {
             console.log('Error checking auth on protected page, redirecting...');
-            const currentPage = window.location.pathname.split('/').pop();
+            const currentPage = getCurrentPageReturnTarget();
             window.location.href = `account.html?return=${currentPage}`;
         }
     }
