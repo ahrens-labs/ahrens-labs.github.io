@@ -4371,13 +4371,34 @@
 
             const spawned = advanceRepeatSeriesIfReady();
             pruneRepeatFutureWeeks();
-            if(spawned > 0) ensureAllEventsScheduled();
+            reAutoScheduleAfterCompletion(task, spawned > 0);
             saveData();
             closeTimeModal();
             enforceBreakAfterCompletion(task);
             setTimeout(() => {
                 showBreakReminder(task);
             }, 200);
+        }
+
+        function reAutoScheduleAfterCompletion(completedTask, hasSpawnedRepeats = false) {
+            ensureAllEventsScheduled();
+            const weeksToRebuild = new Set([getCurrentWeekKey()]);
+
+            if(completedTask && completedTask.date) {
+                weeksToRebuild.add(getWeekKeyFromDateStr(completedTask.date));
+            }
+
+            if(hasSpawnedRepeats) {
+                const todayStr = getDateStrLocal();
+                tasks.filter(t => !t.completed && t.date && t.date >= todayStr).forEach(t => {
+                    weeksToRebuild.add(getWeekKeyFromDateStr(t.date));
+                });
+            }
+
+            weeksToRebuild.forEach(weekKey => {
+                if(!weekKey) return;
+                autoBlockWeekTimes(false, weekKey, true, true);
+            });
         }
 
         // Keyboard Shortcuts
