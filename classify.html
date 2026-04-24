@@ -1959,41 +1959,11 @@
             // Low priority should still follow higher-priority work, but not be pushed to day end.
             return 0;
         }
-        function getCandidateDatesWithinDue(task, candidates) {
-            const dueDate = getTaskDueDate(task);
-            if(!dueDate) return candidates;
-            return (candidates || []).filter(d => d <= dueDate);
-        }
-        function getLatestNonLowEndForDate(dateStr) {
-            let latest = -1;
-            (tasks || []).forEach(t => {
-                if(!t || t.completed) return;
-                if(t.date !== dateStr || !t.time) return;
-                if(getPriorityRank(t.priority) >= 2) return;
-                const end = timeToMin(t.time) + (parseInt(t.duration, 10) || 30);
-                const breakCfg = getBreakConfigAfterTask(t, dateStr);
-                const endWithBreak = end + (Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0);
-                if(endWithBreak > latest) latest = endWithBreak;
-            });
-            return latest;
-        }
         function shouldDeferToLaterDay(task, day, candidates) {
-            const rank = getPriorityRank(task?.priority);
-            if(rank < 2) return false;
-            const dueCandidates = getCandidateDatesWithinDue(task, candidates || []);
-            const index = dueCandidates.indexOf(day);
-            if(index === -1) return false;
-            if(dueCandidates.length <= 1) return false;
-            return index < (dueCandidates.length - 1);
+            return false;
         }
         function shouldPreferLaterDate(task, candidateDate, candidates) {
-            const rank = getPriorityRank(task?.priority);
-            if(rank < 2) return false;
-            const dueCandidates = getCandidateDatesWithinDue(task, candidates || []);
-            if(dueCandidates.length <= 1) return false;
-            const index = dueCandidates.indexOf(candidateDate);
-            if(index === -1) return false;
-            return index < (dueCandidates.length - 1);
+            return false;
         }
         function compareTasksForScheduling(a, b) {
             const aAfter = new Set(a?.mustBeAfter || []);
@@ -6012,13 +5982,6 @@
                 let constrainedStart = startMin;
                 let constrainedMaxEnd = Math.min(targetDayEnd, targetDueLimit);
                 const breakMin = 0;
-                if(getPriorityRank(task?.priority) >= 2) {
-                    const latestNonLowEnd = getLatestNonLowEndForDate(targetDate);
-                    if(latestNonLowEnd >= 0) {
-                        constrainedStart = Math.max(constrainedStart, latestNonLowEnd);
-                    }
-                }
-
                 const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
                 const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
 
