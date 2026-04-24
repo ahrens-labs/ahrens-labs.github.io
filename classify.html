@@ -2341,6 +2341,88 @@
             }) || null;
         }
 
+        function pickOverlapLoser(taskA, taskB) {
+            const aUserLocked = taskA?.timeSource === 'user';
+            const bUserLocked = taskB?.timeSource === 'user';
+            if(aUserLocked && !bUserLocked) return taskB;
+            if(bUserLocked && !aUserLocked) return taskA;
+
+            const priorityDiff = getPriorityRank(taskA?.priority) - getPriorityRank(taskB?.priority);
+            if(priorityDiff < 0) return taskB;
+            if(priorityDiff > 0) return taskA;
+
+            const aStart = timeToMin(taskA?.time || '00:00');
+            const bStart = timeToMin(taskB?.time || '00:00');
+            if(aStart < bStart) return taskB;
+            if(bStart < aStart) return taskA;
+
+            const aDuration = parseInt(taskA?.duration, 10) || 30;
+            const bDuration = parseInt(taskB?.duration, 10) || 30;
+            if(aDuration < bDuration) return taskB;
+            if(bDuration < aDuration) return taskA;
+
+            return (String(taskA?.id || '') > String(taskB?.id || '')) ? taskA : taskB;
+        }
+
+        function enforceNoOverlappingTimes(startDate = null, endDate = null) {
+            const inRange = (dateStr) => {
+                if(!dateStr) return false;
+                if(startDate && dateStr < startDate) return false;
+                if(endDate && dateStr > endDate) return false;
+                return true;
+            };
+
+            let cleared = 0;
+            const dates = Array.from(new Set(
+                (tasks || [])
+                    .filter(t => t && !t.completed && t.date && t.time && inRange(t.date))
+                    .map(t => t.date)
+            )).sort((a, b) => a.localeCompare(b));
+
+            dates.forEach(dateStr => {
+                let changed = true;
+                while(changed) {
+                    changed = false;
+                    const dayTasks = (tasks || [])
+                        .filter(t => t && !t.completed && t.date === dateStr && t.time)
+                        .sort((a, b) => {
+                            const aStart = timeToMin(a.time);
+                            const bStart = timeToMin(b.time);
+                            if(aStart !== bStart) return aStart - bStart;
+                            const aUser = a.timeSource === 'user' ? 0 : 1;
+                            const bUser = b.timeSource === 'user' ? 0 : 1;
+                            if(aUser !== bUser) return aUser - bUser;
+                            return String(a.id || '').localeCompare(String(b.id || ''));
+                        });
+
+                    for(let i = 0; i < dayTasks.length; i++) {
+                        const first = dayTasks[i];
+                        const firstStart = timeToMin(first.time);
+                        const firstEnd = firstStart + (parseInt(first.duration, 10) || 30);
+                        for(let j = i + 1; j < dayTasks.length; j++) {
+                            const second = dayTasks[j];
+                            const secondStart = timeToMin(second.time);
+                            const secondEnd = secondStart + (parseInt(second.duration, 10) || 30);
+                            if(!isTimeRangeOverlapping(firstStart, firstEnd, secondStart, secondEnd)) {
+                                continue;
+                            }
+                            const loser = pickOverlapLoser(first, second);
+                            if(loser) {
+                                loser.time = null;
+                                loser.timeSource = null;
+                                cleared++;
+                                changed = true;
+                            }
+                            break;
+                        }
+                        if(changed) break;
+                    }
+                }
+            });
+
+            return cleared;
+        }
+
         function linkify(text) {
             if(!text) return '';
             const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -2380,6 +2462,7 @@
         // --- Data Management ---
         function saveData() {
             pruneExpiredScheduleItems();
+            enforceNoOverlappingTimes();
             plannerSet('plannerTasksV2', JSON.stringify(tasks));
             plannerSet('plannerCompletionHistoryV1', JSON.stringify(completionHistory));
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
@@ -4424,6 +4507,18 @@
                 showNotification('Vacation day: tasks cannot be scheduled on this date.', 'error');
                 return;
             }
+            if(timeStr) {
+                const conflict = findSchedulingConflict(
+                    dateStr,
+                    timeStr,
+                    parseInt(task.duration, 10) || 30,
+                    task.id
+                );
+                if(conflict) {
+                    showNotification(`Time conflict with "${conflict.title}". Choose another slot.`, 'error');
+                    return;
+                }
+            }
             task.date = dateStr;
             task.week = getWeekKeyFromDateStr(dateStr);
             task.scheduleType = 'date';
@@ -4994,6 +5089,19 @@
             normalizedTaskData.mustBeAfter = (normalizedTaskData.mustBeAfter || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeBefore = (normalizedTaskData.mustBeBefore || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeAfter = normalizedTaskData.mustBeAfter.filter(id => !normalizedTaskData.mustBeBefore.includes(id));
+
+            if(normalizedTaskData.date && normalizedTaskData.time) {
+                const conflict = findSchedulingConflict(
+                    normalizedTaskData.date,
+                    normalizedTaskData.time,
+                    parseInt(normalizedTaskData.duration, 10) || 30,
+                    normalizedTaskData.id
+                );
+                if(conflict) {
+                    showNotification(`Time conflict with "${conflict.title}". Pick a different start time.`, 'error');
+                    return;
+                }
+            }
 
             const proceedSave = () => {
                 if(repeatRule.type === 'none') {
@@ -6463,6 +6571,11 @@
                 backtrackResult = solveWithBacktracking();
             }
 
+            const overlapClears = enforceNoOverlappingTimes(startStr, endStr);
+            if(overlapClears > 0) {
+                updated += overlapClears;
+            }
+
             const depOrdered = round.depOrdered;
 
             if(depOrdered.hasCycle && showToast) {
@@ -6480,6 +6593,9 @@
                     'OK',
                     () => {}
                 );
+            }
+            if(overlapClears > 0 && showToast) {
+                showNotification(`Cleared ${overlapClears} overlapping time slot${overlapClears === 1 ? '' : 's'}`, 'info');
             }
 
             if(updated > 0) {
@@ -6552,8 +6668,15 @@
                                         ...data.completionHistory.map(normalizeCompletionEntry)
                                     ];
                                 }
+                                const clearedOverlaps = enforceNoOverlappingTimes();
+                                if(clearedOverlaps > 0) {
+                                    ensureAllEventsScheduled();
+                                }
                                 saveData();
-                                showNotification(`Imported ${data.tasks.length} tasks!`, 'success');
+                                const overlapSuffix = clearedOverlaps > 0
+                                    ? ` Cleared ${clearedOverlaps} overlapping time slot${clearedOverlaps === 1 ? '' : 's'}.`
+                                    : '';
+                                showNotification(`Imported ${data.tasks.length} tasks!${overlapSuffix}`, 'success');
                                 }
                             );
                         } else {
