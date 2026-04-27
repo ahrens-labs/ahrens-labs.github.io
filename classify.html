@@ -1676,6 +1676,23 @@
                 const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
                 normalizedTimeSource = inferredScheduleType === 'date' ? 'user' : 'auto';
             }
+            let normalizedAssignmentMode = ['FIXED', 'ADJUSTABLE'].includes(task.assignmentMode)
+                ? task.assignmentMode
+                : null;
+            if(!normalizedAssignmentMode) {
+                normalizedAssignmentMode = (normalizedTimeSource === 'user' && normalizedEventDate && normalizedTime)
+                    ? 'FIXED'
+                    : 'ADJUSTABLE';
+            }
+            if(normalizedAssignmentMode === 'FIXED' && !(normalizedEventDate && normalizedTime)) {
+                normalizedAssignmentMode = 'ADJUSTABLE';
+            }
+            if(normalizedAssignmentMode !== 'FIXED') {
+                normalizedAssignmentMode = 'ADJUSTABLE';
+                if(normalizedTimeSource === 'user') normalizedTimeSource = normalizedTime ? 'auto' : null;
+            } else {
+                normalizedTimeSource = normalizedTime ? 'user' : null;
+            }
             const mustBeBefore = Array.from(new Set(
                 (Array.isArray(task.mustBeBefore) ? task.mustBeBefore : (Array.isArray(task.mustBeBeforeIds) ? task.mustBeBeforeIds : []))
                     .map(x => String(x || '').trim())
@@ -1704,6 +1721,7 @@
                 dueDate: normalizedDueDate,
                 week: normalizedWeek,
                 scheduleType: task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible')),
+                assignmentMode: normalizedAssignmentMode,
                 time: normalizedTime,
                 timeSource: normalizedTimeSource,
                 dueTime: task.dueTime || null,
@@ -1725,6 +1743,14 @@
                 weekDueOnly,
                 repeatNoAutoTime
             };
+        }
+
+        function getTaskAssignmentMode(task) {
+            return task?.assignmentMode === 'FIXED' ? 'FIXED' : 'ADJUSTABLE';
+        }
+
+        function isFixedTask(task) {
+            return getTaskAssignmentMode(task) === 'FIXED';
         }
 
         function normalizeCompletionEntry(entry = {}) {
@@ -2342,8 +2368,8 @@
         }
 
         function pickOverlapLoser(taskA, taskB) {
-            const aUserLocked = taskA?.timeSource === 'user';
-            const bUserLocked = taskB?.timeSource === 'user';
+            const aUserLocked = isFixedTask(taskA);
+            const bUserLocked = isFixedTask(taskB);
             if(aUserLocked && !bUserLocked) return taskB;
             if(bUserLocked && !aUserLocked) return taskA;
 
@@ -2389,8 +2415,8 @@
                             const aStart = timeToMin(a.time);
                             const bStart = timeToMin(b.time);
                             if(aStart !== bStart) return aStart - bStart;
-                            const aUser = a.timeSource === 'user' ? 0 : 1;
-                            const bUser = b.timeSource === 'user' ? 0 : 1;
+                            const aUser = isFixedTask(a) ? 0 : 1;
+                            const bUser = isFixedTask(b) ? 0 : 1;
                             if(aUser !== bUser) return aUser - bUser;
                             return String(a.id || '').localeCompare(String(b.id || ''));
                         });
@@ -2410,6 +2436,7 @@
                             if(loser) {
                                 loser.time = null;
                                 loser.timeSource = null;
+                                loser.assignmentMode = 'ADJUSTABLE';
                                 cleared++;
                                 changed = true;
                             }
@@ -2753,7 +2780,7 @@
             const fixedScheduleSlots = fixed.map(t => {
                 let start = timeToMin(t.time);
                 let duration = parseInt(t.duration) || 60; 
-                return { start, end: start + duration, task: t, type: 'fixed' };
+                return { start, end: start + duration, task: t, type: isFixedTask(t) ? 'fixed' : 'auto' };
             });
             const busySlots = fixedScheduleSlots.map(slot => buildBusySlotForTask(slot.task, slot.start, slot.end, dateStr));
             busySlots.push(...getBlockedSlotsForDate(dateStr));
@@ -3187,6 +3214,10 @@
                 const startDateLabel = t.date ? formatDateLabel(t.date) : '';
                 const startTimeLabel = t.time ? minToTime(timeToMin(t.time)) : '';
                 const notesHtml = t.notes ? `<div class="mt-2 text-xs text-slate-500 dark:text-slate-400 pl-3 border-l-2 border-slate-200 dark:border-slate-700 break-words">${linkify(t.notes)}</div>` : '';
+                const mode = getTaskAssignmentMode(t);
+                const modeBadgeClass = mode === 'FIXED'
+                    ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300';
 
                 return `
                 <div class="group flex items-start gap-4 p-4 border-b border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${t.completed ? 'opacity-60' : 'bg-white dark:bg-dark-surface'}" style="border-left: 8px solid ${color};">
@@ -3201,6 +3232,7 @@
                             <span class="text-sm font-bold ${t.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}">${t.title}</span>
                             ${t.priority === 'High' ? '<span class="text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">HIGH</span>' : ''}
                             ${isLate ? '<span class="text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded">LATE</span>' : ''}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${mode}</span>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1 flex-wrap">
                             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white" style="background:${color}22; box-shadow: inset 0 0 0 1px ${color}55;">
@@ -4249,6 +4281,7 @@
                 if(t.timeSource === 'auto') {
                     t.time = null;
                     t.timeSource = null;
+                    t.assignmentMode = 'ADJUSTABLE';
                     hadAutoShift = true;
                 } else {
                     hadUserConflict = true;
@@ -4524,9 +4557,11 @@
             task.scheduleType = 'date';
             if(timeStr) {
                 task.time = timeStr;
+                task.assignmentMode = 'FIXED';
                 task.timeSource = 'user';
             } else {
                 task.time = null;
+                task.assignmentMode = 'ADJUSTABLE';
                 task.timeSource = null;
             }
             saveData();
@@ -4613,7 +4648,9 @@
                     const t = item.task;
                     const color = getTaskColor(t);
                     const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
-                    const modeLabel = item.type === 'auto' ? 'Auto' : item.type === 'fixed' ? 'Fixed' : 'Overflow';
+                    const modeLabel = item.type === 'overflow'
+                        ? 'Overflow'
+                        : getTaskAssignmentMode(t);
                     const dueLabel = formatDueLabel(t, false);
                     const timeValue = item.type === 'overflow' ? '' : minToInputTime(item.start);
                     return `
@@ -4936,15 +4973,17 @@
             dates.forEach(dateStr => {
                 if(isRepeatDateSkipped(groupId, dateStr)) return;
                 if(!templateTask.weekDueOnly && existingDates.has(dateStr)) return;
+                const templateIsFixed = isFixedTask(templateTask);
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
                     scheduleType: templateTask.weekDueOnly ? 'week' : 'date',
+                    assignmentMode: templateTask.weekDueOnly ? 'ADJUSTABLE' : (templateIsFixed ? 'FIXED' : 'ADJUSTABLE'),
                     date: templateTask.weekDueOnly ? null : dateStr,
                     dueDate: templateTask.weekDueOnly ? getWeekEndDateFromWeekKey(weekKey) : dateStr,
                     week: weekKey,
-                    time: templateTask.weekDueOnly ? null : (templateTask.time || null),
-                    timeSource: templateTask.weekDueOnly ? null : (templateTask.time ? 'user' : null),
+                    time: templateTask.weekDueOnly ? null : (templateIsFixed ? (templateTask.time || null) : null),
+                    timeSource: templateTask.weekDueOnly ? null : (templateIsFixed && templateTask.time ? 'user' : null),
                     completed: false,
                     completedDate: null,
                     repeatGroupId: groupId,
@@ -5058,6 +5097,14 @@
             const repeatNoAutoTime = !weekDueOnly && repeatRule.type === 'daily' && !inputTimeValue;
             const existingTask = editingId ? tasks.find(t => t.id === editingId) : null;
             const preserveAutoSource = Boolean(existingTask && existingTask.timeSource === 'auto' && existingTask.time === inputTimeValue);
+            const preserveAdjustableAuto = Boolean(
+                existingTask &&
+                getTaskAssignmentMode(existingTask) === 'ADJUSTABLE' &&
+                existingTask.timeSource === 'auto' &&
+                existingTask.time === inputTimeValue
+            );
+            const isFixedInput = scheduleType === 'date' && !weekDueOnly && Boolean(date) && Boolean(inputTimeValue) && !preserveAdjustableAuto;
+            const assignmentMode = isFixedInput ? 'FIXED' : 'ADJUSTABLE';
 
             const baseTaskData = {
                 id: editingId || generateId(),
@@ -5069,8 +5116,9 @@
                     ? week
                     : (dueDate ? getWeekKeyFromDateStr(dueDate) : ((scheduleType === 'date' && date) ? getWeekKeyFromDateStr(date) : null)),
                 scheduleType: scheduleType,
+                assignmentMode,
                 time: inputTimeValue,
-                timeSource: inputTimeValue ? (preserveAutoSource ? 'auto' : 'user') : null,
+                timeSource: inputTimeValue ? (assignmentMode === 'FIXED' ? 'user' : (preserveAutoSource ? 'auto' : 'auto')) : null,
                 dueTime: dueTime,
                 duration: document.getElementById('inputDuration').value || null,
                 priority: document.getElementById('inputPriority').value,
@@ -5160,11 +5208,12 @@
                             title,
                             subject,
                             scheduleType: weekDueOnly ? 'week' : t.scheduleType,
+                            assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
                             date: weekDueOnly ? null : t.date,
                             dueDate: weekDueOnly ? getWeekEndDateFromWeekKey(t.repeatWeekKey || t.week || startWeekKey) : t.dueDate,
                             week: t.repeatWeekKey || t.week || startWeekKey,
                             time: weekDueOnly ? null : t.time,
-                            timeSource: weekDueOnly ? null : t.timeSource,
+                            timeSource: weekDueOnly ? null : (inputTimeValue ? (isFixedInput ? 'user' : 'auto') : null),
                             priority: normalizedTaskData.priority,
                             difficulty: normalizedTaskData.difficulty,
                             duration: normalizedTaskData.duration,
@@ -5179,7 +5228,6 @@
                         };
                         if(!weekDueOnly && inputTimeValue) {
                             updated.time = inputTimeValue;
-                            updated.timeSource = 'user';
                         }
                         return updated;
                     });
@@ -5301,6 +5349,7 @@
                 task.time = null;
                 task.timeSource = null;
                 task.date = null;
+                task.assignmentMode = 'ADJUSTABLE';
 
                 const currentWeek = getCurrentWeekKey();
                 const dueWeek = dueDate ? getWeekKeyFromDateStr(dueDate) : null;
@@ -5827,7 +5876,7 @@
             if(!Number.isFinite(duration) || duration < minMinutes) return false;
             if(task.date || task.time) return false;
             if(task.scheduleType === 'date') return false;
-            if(task.timeSource === 'user') return false;
+            if(isFixedTask(task)) return false;
             if(task.repeatGroupId || (task.repeatRule && task.repeatRule.type !== 'none')) return false;
             if((task.mustBeAfter && task.mustBeAfter.length) || (task.mustBeBefore && task.mustBeBefore.length)) return false;
             if(task.splitGroupId || Number(task.splitPercent)) return false;
@@ -5885,9 +5934,7 @@
             let preserved = 0;
 
             targets.forEach(task => {
-                const hasUserDayLock = task.scheduleType === 'date' && Boolean(task.date);
-                const hasUserTimeLock = task.timeSource === 'user' && Boolean(task.time) && Boolean(task.date);
-                const keepUserPlacement = hasUserDayLock || hasUserTimeLock;
+                const keepUserPlacement = isFixedTask(task) && Boolean(task.date) && Boolean(task.time);
 
                 if(keepUserPlacement) {
                     if(task.date && task.date >= todayStr) {
@@ -5900,6 +5947,7 @@
                 // Full week replan: clear non-user placement and let day-packing rebuild it.
                 task.time = null;
                 task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
                 task.date = eligibleDates[0];
                 task.week = weekKey;
                 assigned++;
@@ -6048,7 +6096,7 @@
                 return best;
             };
             const getTaskCandidateDates = (task) => {
-                const hasUserLockedDate = task.scheduleType === 'date' && Boolean(task.date);
+                const hasUserLockedDate = isFixedTask(task) && Boolean(task.date);
                 const preferredDate = (task.date && processDates.includes(task.date)) ? task.date : processDates[0];
                 const out = new Set();
                 if(hasUserLockedDate) {
@@ -6096,7 +6144,7 @@
                 for(const refId of afterRefs) {
                     const refTask = tasks.find(t => t.id === refId);
                     if(!refTask || refTask.completed || !refTask.date) continue;
-                    const refDateLocked = refTask.scheduleType === 'date' && Boolean(refTask.date);
+                    const refDateLocked = isFixedTask(refTask) && Boolean(refTask.date);
                     if(refDateLocked && targetDate < refTask.date) return null;
                     if(targetDate === refTask.date && refTask.time) {
                         const refStart = timeToMin(refTask.time);
@@ -6107,7 +6155,7 @@
                 for(const refId of beforeRefs) {
                     const refTask = tasks.find(t => t.id === refId);
                     if(!refTask || refTask.completed || !refTask.date) continue;
-                    const refDateLocked = refTask.scheduleType === 'date' && Boolean(refTask.date);
+                    const refDateLocked = isFixedTask(refTask) && Boolean(refTask.date);
                     if(refDateLocked && targetDate > refTask.date) return null;
                     if(targetDate === refTask.date && refTask.time) {
                         const refStart = timeToMin(refTask.time);
@@ -6133,7 +6181,7 @@
             };
 
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
-                    const hasUserLockedDate = task.scheduleType === 'date' && Boolean(task.date);
+                    const hasUserLockedDate = isFixedTask(task) && Boolean(task.date);
                     let placed = null;
                     for(const candidateDate of (dateList || [])) {
                         if(!candidateDate || candidateDate < todayStr) continue;
@@ -6218,6 +6266,7 @@
                     const finalDate = hasUserLockedDate ? task.date : placed.date;
                     const taskChanged = task.time !== nextTime || task.date !== finalDate || task.timeSource !== 'auto';
                     task.time = nextTime;
+                    task.assignmentMode = 'ADJUSTABLE';
                     task.timeSource = 'auto';
                     task.date = finalDate;
                     placed.busy.push(buildBusySlotForTask(task, placed.slot.start, placed.slot.end, finalDate));
@@ -6329,6 +6378,7 @@
 
                         const nextTime = minToInputTime(gap.start);
                         task.time = nextTime;
+                        task.assignmentMode = 'ADJUSTABLE';
                         task.timeSource = 'auto';
                         task.date = day;
                         busyByDate[day] = (busyByDate[day] || []).concat(
@@ -6365,11 +6415,13 @@
                 const tryResetAuto = (task, fallbackTask = null) => {
                     if(task && task.timeSource === 'auto' && !task.completed && task.time) {
                         task.time = null;
+                        task.assignmentMode = 'ADJUSTABLE';
                         resetCount++;
                         return true;
                     }
                     if(fallbackTask && fallbackTask.timeSource === 'auto' && !fallbackTask.completed && fallbackTask.time) {
                         fallbackTask.time = null;
+                        fallbackTask.assignmentMode = 'ADJUSTABLE';
                         resetCount++;
                         return true;
                     }
@@ -6561,6 +6613,7 @@
                     if(t.date !== slot.date || t.time !== newTime || t.timeSource !== 'auto') updated++;
                     t.date = slot.date;
                     t.time = newTime;
+                    t.assignmentMode = 'ADJUSTABLE';
                     t.timeSource = 'auto';
                 });
                 return { solved: true, unresolved: [] };
