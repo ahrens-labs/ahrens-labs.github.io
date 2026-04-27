@@ -4546,14 +4546,25 @@
                 return;
             }
             if(timeStr) {
-                const conflict = findSchedulingConflict(
+                let conflict = findSchedulingConflict(
                     dateStr,
                     timeStr,
                     parseInt(task.duration, 10) || 30,
                     task.id
                 );
+                while(conflict && !isFixedTask(conflict)) {
+                    conflict.time = null;
+                    conflict.timeSource = null;
+                    conflict.assignmentMode = 'ADJUSTABLE';
+                    conflict = findSchedulingConflict(
+                        dateStr,
+                        timeStr,
+                        parseInt(task.duration, 10) || 30,
+                        task.id
+                    );
+                }
                 if(conflict && isFixedTask(task)) {
-                    showNotification(`Time conflict with "${conflict.title}". Choose another slot.`, 'error');
+                    showNotification(`Time conflict with fixed assignment "${conflict.title}". Choose another slot.`, 'error');
                     return;
                 }
             }
@@ -5144,14 +5155,25 @@
             normalizedTaskData.mustBeAfter = normalizedTaskData.mustBeAfter.filter(id => !normalizedTaskData.mustBeBefore.includes(id));
 
             if(isFixedTask(normalizedTaskData) && normalizedTaskData.date && normalizedTaskData.time) {
-                const conflict = findSchedulingConflict(
+                let conflict = findSchedulingConflict(
                     normalizedTaskData.date,
                     normalizedTaskData.time,
                     parseInt(normalizedTaskData.duration, 10) || 30,
                     normalizedTaskData.id
                 );
+                while(conflict && !isFixedTask(conflict)) {
+                    conflict.time = null;
+                    conflict.timeSource = null;
+                    conflict.assignmentMode = 'ADJUSTABLE';
+                    conflict = findSchedulingConflict(
+                        normalizedTaskData.date,
+                        normalizedTaskData.time,
+                        parseInt(normalizedTaskData.duration, 10) || 30,
+                        normalizedTaskData.id
+                    );
+                }
                 if(conflict) {
-                    showNotification(`Time conflict with "${conflict.title}". Pick a different start time.`, 'error');
+                    showNotification(`Time conflict with fixed assignment "${conflict.title}". Pick a different start time.`, 'error');
                     return;
                 }
             }
