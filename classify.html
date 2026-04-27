@@ -1749,6 +1749,10 @@
             return task?.assignmentMode === 'FIXED' ? 'FIXED' : 'ADJUSTABLE';
         }
 
+        function getTaskAssignmentModeLabel(task) {
+            return getTaskAssignmentMode(task) === 'FIXED' ? 'Fixed' : 'Adjustable';
+        }
+
         function isFixedTask(task) {
             return getTaskAssignmentMode(task) === 'FIXED';
         }
@@ -3215,6 +3219,7 @@
                 const startTimeLabel = t.time ? minToTime(timeToMin(t.time)) : '';
                 const notesHtml = t.notes ? `<div class="mt-2 text-xs text-slate-500 dark:text-slate-400 pl-3 border-l-2 border-slate-200 dark:border-slate-700 break-words">${linkify(t.notes)}</div>` : '';
                 const mode = getTaskAssignmentMode(t);
+                const modeLabel = getTaskAssignmentModeLabel(t);
                 const modeBadgeClass = mode === 'FIXED'
                     ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
                     : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300';
@@ -3232,7 +3237,7 @@
                             <span class="text-sm font-bold ${t.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}">${t.title}</span>
                             ${t.priority === 'High' ? '<span class="text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">HIGH</span>' : ''}
                             ${isLate ? '<span class="text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 px-1.5 py-0.5 rounded">LATE</span>' : ''}
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${mode}</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${modeLabel}</span>
                         </div>
                         <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1 flex-wrap">
                             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white" style="background:${color}22; box-shadow: inset 0 0 0 1px ${color}55;">
@@ -4547,7 +4552,7 @@
                     parseInt(task.duration, 10) || 30,
                     task.id
                 );
-                if(conflict) {
+                if(conflict && isFixedTask(task)) {
                     showNotification(`Time conflict with "${conflict.title}". Choose another slot.`, 'error');
                     return;
                 }
@@ -4650,7 +4655,7 @@
                     const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
                     const modeLabel = item.type === 'overflow'
                         ? 'Overflow'
-                        : getTaskAssignmentMode(t);
+                        : getTaskAssignmentModeLabel(t);
                     const dueLabel = formatDueLabel(t, false);
                     const timeValue = item.type === 'overflow' ? '' : minToInputTime(item.start);
                     return `
@@ -5138,7 +5143,7 @@
             normalizedTaskData.mustBeBefore = (normalizedTaskData.mustBeBefore || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeAfter = normalizedTaskData.mustBeAfter.filter(id => !normalizedTaskData.mustBeBefore.includes(id));
 
-            if(normalizedTaskData.date && normalizedTaskData.time) {
+            if(isFixedTask(normalizedTaskData) && normalizedTaskData.date && normalizedTaskData.time) {
                 const conflict = findSchedulingConflict(
                     normalizedTaskData.date,
                     normalizedTaskData.time,
