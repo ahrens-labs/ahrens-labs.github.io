@@ -4774,9 +4774,9 @@
                 const t = item.task;
                 const color = getTaskColor(t);
                 const modeLabel = getTaskAssignmentModeLabel(t);
-                return `<div class="absolute left-[88px] right-2 rounded border border-cyan-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/85 shadow-sm px-2 py-1 overflow-hidden" style="top:${top}px;height:${height}px;border-left:6px solid ${color};">
-                    <div class="text-[11px] font-semibold text-slate-800 dark:text-slate-100 truncate">${t.title}</div>
-                    <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${minToTime(item.start)} · ${parseInt(t.duration, 10) || 30}m · ${modeLabel}</div>
+                return `<div class="absolute left-[88px] right-2 rounded border border-black/15 shadow-sm px-2 py-1 overflow-hidden" style="top:${top}px;height:${height}px;background:${color};">
+                    <div class="text-[11px] font-semibold text-white truncate">${t.title}</div>
+                    <div class="text-[10px] text-white/90 truncate">${minToTime(item.start)} · ${parseInt(t.duration, 10) || 30}m · ${modeLabel}</div>
                 </div>`;
             }).join('');
 
