@@ -4747,8 +4747,8 @@
             const startMin = timeToMin(daySchedule.start);
             const endMin = timeToMin(daySchedule.end);
             const totalMinutes = Math.max(60, endMin - startMin);
-            const pxPerMin = 1.15;
-            const timelineHeight = Math.max(480, Math.round(totalMinutes * pxPerMin));
+            const pxPerMin = 1.7;
+            const timelineHeight = Math.max(760, Math.round(totalMinutes * pxPerMin));
             const hourMarks = [];
             const firstHour = Math.floor(startMin / 60);
             const lastHour = Math.ceil(endMin / 60);
