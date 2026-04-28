@@ -1567,6 +1567,7 @@
         let currentCalendarDate = new Date();
         let calendarViewMode = plannerGet('calendarViewMode') || 'month';
         let confettiCtx;
+        let dayNowLineTimer = null;
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
@@ -4741,80 +4742,121 @@
             const unscheduled = tasks
                 .filter(t => !t.completed && !t.time && t.date === dateStr)
                 .sort(compareTasksForScheduling);
-            const scheduledTasksOnly = schedule.filter(item => item.type !== 'break').map(item => item.task);
-            const plannedMinutes = scheduledTasksOnly.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
-            const deepBlocks = scheduledTasksOnly.filter(t => (parseInt(t.duration, 10) || 30) >= 45).length;
-            const urgentCount = scheduledTasksOnly.filter(t => {
-                const due = getTaskDueDate(t);
-                return t.priority === 'High' || (due && due <= dateStr);
-            }).length;
 
-            const scheduledHtml = schedule.map((item, idx) => {
+            const daySchedule = getScheduleForDate(dateStr);
+            const startMin = timeToMin(daySchedule.start);
+            const endMin = timeToMin(daySchedule.end);
+            const totalMinutes = Math.max(60, endMin - startMin);
+            const pxPerMin = 1.15;
+            const timelineHeight = Math.max(480, Math.round(totalMinutes * pxPerMin));
+            const hourMarks = [];
+            const firstHour = Math.floor(startMin / 60);
+            const lastHour = Math.ceil(endMin / 60);
+            for(let h = firstHour; h <= lastHour; h++) {
+                const markMin = h * 60;
+                if(markMin < startMin || markMin > endMin) continue;
+                hourMarks.push({
+                    top: Math.round((markMin - startMin) * pxPerMin),
+                    label: minToTime(markMin)
+                });
+            }
+
+            const timelineItems = schedule.map(item => {
+                const itemStart = Math.max(startMin, item.start);
+                const itemEnd = Math.min(endMin, item.end);
+                const top = Math.round((itemStart - startMin) * pxPerMin);
+                const height = Math.max(24, Math.round((itemEnd - itemStart) * pxPerMin));
                 if(item.type === 'break') {
-                    const minutes = Math.max(1, Math.round(item.end - item.start));
-                    return `<div class="rounded-lg border border-emerald-200/60 dark:border-emerald-700/50 p-3 bg-emerald-50/70 dark:bg-emerald-900/20 text-sm text-emerald-700 dark:text-emerald-300"><span class="font-semibold">${item.label || 'Break'}</span> · ${minutes}m</div>`;
+                    return `<div class="absolute left-[88px] right-2 rounded border border-emerald-300/70 dark:border-emerald-700/60 bg-emerald-100/70 dark:bg-emerald-900/30 px-2 py-1 text-[11px] text-emerald-800 dark:text-emerald-200 overflow-hidden" style="top:${top}px;height:${height}px;">
+                        ${item.label || 'Break'}
+                    </div>`;
                 }
                 const t = item.task;
                 const color = getTaskColor(t);
                 const modeLabel = getTaskAssignmentModeLabel(t);
-                const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
-                const dueDate = getTaskDueDate(t);
-                const dueState = dueDate && dueDate < dateStr
-                    ? 'Overdue'
-                    : (dueDate === dateStr ? 'Due today' : (dueDate ? `Due ${formatDateLabel(dueDate)}` : 'No due date'));
-                const priorityState = t.priority || 'Medium';
-                const energy = item.type === 'overflow'
-                    ? 'Catch-up'
-                    : (item.start < 720 ? 'Prime'
-                        : (item.start < 960 ? 'Maintain' : 'Light'));
-                return `
-                    <div class="rounded-lg border border-cyan-100 dark:border-slate-700 p-3 bg-white/70 dark:bg-slate-800/70">
-                        <div class="flex items-center justify-between gap-2 mb-1">
-                            <span class="text-xs font-bold text-cyan-700 dark:text-cyan-300">#${idx + 1} · ${timeLabel}</span>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${modeLabel}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">${energy}</span>
-                            </div>
-                        </div>
-                        <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${t.title}</div>
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                            <span class="w-2 h-2 rounded-full" style="background:${color}"></span>
-                            <span>${t.subject}</span>
-                            <span>${parseInt(t.duration, 10) || 30}m</span>
-                            <span class="text-rose-600 dark:text-rose-400">${dueState}</span>
-                            <span class="text-amber-600 dark:text-amber-400">${priorityState}</span>
-                        </div>
-                    </div>
-                `;
+                return `<div class="absolute left-[88px] right-2 rounded border border-cyan-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/85 shadow-sm px-2 py-1 overflow-hidden" style="top:${top}px;height:${height}px;border-left:6px solid ${color};">
+                    <div class="text-[11px] font-semibold text-slate-800 dark:text-slate-100 truncate">${t.title}</div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${minToTime(item.start)} · ${parseInt(t.duration, 10) || 30}m · ${modeLabel}</div>
+                </div>`;
             }).join('');
+
+            const nowLineTop = (() => {
+                if(dateStr !== getDateStrLocal()) return null;
+                const now = new Date();
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                if(nowMin < startMin || nowMin > endMin) return null;
+                return Math.round((nowMin - startMin) * pxPerMin);
+            })();
+
+            const nowLineHtml = nowLineTop === null
+                ? ''
+                : `<div id="dayNowLine" class="absolute left-[88px] right-2 pointer-events-none" style="top:${nowLineTop}px;">
+                        <div class="absolute -left-2 -top-1.5 w-3 h-3 rounded-full bg-rose-500"></div>
+                        <div class="h-0.5 bg-rose-500 w-full"></div>
+                   </div>`;
+
+            const hourHtml = hourMarks.map(mark => `
+                <div class="absolute left-0 right-0" style="top:${mark.top}px;">
+                    <div class="absolute left-0 w-[78px] text-[10px] text-slate-500 dark:text-slate-400 text-right pr-2 -translate-y-1/2">${mark.label}</div>
+                    <div class="absolute left-[88px] right-2 border-t border-slate-200/80 dark:border-slate-700/80 -translate-y-1/2"></div>
+                </div>
+            `).join('');
 
             const unscheduledHtml = unscheduled.length > 0
                 ? `<div class="rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/20 p-3">
-                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2">Runway Queue (Needs Time Today)</div>
-                        <div class="space-y-1">${unscheduled.map(t => `<div class="text-sm text-slate-700 dark:text-slate-200">- ${t.title} <span class="text-xs text-slate-500 dark:text-slate-400">(${t.priority || 'Medium'}, ${formatDueLabel(t, false)})</span></div>`).join('')}</div>
+                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2">Needs Time Today</div>
+                        <div class="space-y-1">${unscheduled.map(t => `<div class="text-sm text-slate-700 dark:text-slate-200">- ${t.title}</div>`).join('')}</div>
                    </div>`
                 : '';
 
-            const statsPanel = `
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="rounded-lg border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
-                        <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Planned Minutes</div>
-                        <div class="text-xl font-bold text-slate-800 dark:text-slate-100">${plannedMinutes}</div>
-                    </div>
-                    <div class="rounded-lg border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
-                        <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Deep Blocks</div>
-                        <div class="text-xl font-bold text-slate-800 dark:text-slate-100">${deepBlocks}</div>
-                    </div>
-                    <div class="rounded-lg border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
-                        <div class="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Urgent Today</div>
-                        <div class="text-xl font-bold text-rose-600 dark:text-rose-400">${urgentCount}</div>
+            dayGrid.innerHTML = `
+                <div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-3">
+                    <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Day Timeline (${minToTime(startMin)} - ${minToTime(endMin)})</div>
+                    <div class="relative overflow-y-auto pr-1" style="max-height: 72vh;">
+                        <div class="relative" style="height:${timelineHeight}px;">
+                            ${hourHtml}
+                            ${timelineItems}
+                            ${nowLineHtml}
+                        </div>
                     </div>
                 </div>
+                ${unscheduledHtml}
             `;
 
-            dayGrid.innerHTML = scheduledHtml || unscheduledHtml
-                ? `${statsPanel}${scheduledHtml}${unscheduledHtml}`
-                : `<div class="text-sm text-slate-400 dark:text-slate-500 italic">No assignments planned for this day.</div>`;
+            updateDayNowLine(dateStr, startMin, endMin, pxPerMin);
+        }
+
+        function updateDayNowLine(dateStr, startMin, endMin, pxPerMin) {
+            const line = document.getElementById('dayNowLine');
+            if(!line) return;
+            if(dateStr !== getDateStrLocal()) {
+                line.style.display = 'none';
+                return;
+            }
+            const now = new Date();
+            const nowMin = now.getHours() * 60 + now.getMinutes();
+            if(nowMin < startMin || nowMin > endMin) {
+                line.style.display = 'none';
+                return;
+            }
+            line.style.display = 'block';
+            const top = Math.round((nowMin - startMin) * pxPerMin);
+            line.style.top = `${top}px`;
+        }
+
+        function startDayNowLineTimer() {
+            if(dayNowLineTimer) clearInterval(dayNowLineTimer);
+            dayNowLineTimer = setInterval(() => {
+                if(calendarViewMode !== 'day') return;
+                renderDayCalendar();
+            }, 60000);
+        }
+
+        function stopDayNowLineTimer() {
+            if(dayNowLineTimer) {
+                clearInterval(dayNowLineTimer);
+                dayNowLineTimer = null;
+            }
         }
 
         function renderAgendaCalendar() {
@@ -4927,6 +4969,7 @@
             agendaBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'agenda');
 
             if(calendarViewMode === 'week') {
+                stopDayNowLineTimer();
                 const { startStr, endStr } = getWeekBounds(currentCalendarDate);
                 const startLabel = new Date(`${startStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const endLabel = new Date(`${endStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -4944,7 +4987,9 @@
                 dayView.classList.remove('hidden');
                 agendaView.classList.add('hidden');
                 renderDayCalendar();
+                startDayNowLineTimer();
             } else if(calendarViewMode === 'agenda') {
+                stopDayNowLineTimer();
                 const { startStr, endStr } = getWeekBounds(currentCalendarDate);
                 const startLabel = new Date(`${startStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const endLabel = new Date(`${endStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -4955,6 +5000,7 @@
                 agendaView.classList.remove('hidden');
                 renderAgendaCalendar();
             } else {
+                stopDayNowLineTimer();
                 const year = currentCalendarDate.getFullYear();
                 const month = currentCalendarDate.getMonth();
                 header.textContent = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
