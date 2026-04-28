@@ -1325,6 +1325,15 @@
                             <div id="inputMustBeforeList" class="mt-2 space-y-1.5"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose one, click Add, and repeat.</p>
                         </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Different Day Than</label>
+                            <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                <select id="inputDifferentDaySelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"></select>
+                                <button type="button" onclick="addDependency('differentDay')" class="h-11 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">Add</button>
+                            </div>
+                            <div id="inputDifferentDayList" class="mt-2 space-y-1.5"></div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Keeps both assignments on separate dates.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1718,6 +1727,11 @@
                     .map(x => String(x || '').trim())
                     .filter(Boolean)
             ));
+            const mustBeDifferentDay = Array.from(new Set(
+                (Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [])
+                    .map(x => String(x || '').trim())
+                    .filter(Boolean)
+            ));
             const actualMinutes = Number.isFinite(Number(task.actualMinutes))
                 ? Math.max(1, Math.round(Number(task.actualMinutes)))
                 : null;
@@ -1747,6 +1761,7 @@
                 color: task.color || null,
                 mustBeBefore,
                 mustBeAfter,
+                mustBeDifferentDay,
                 notes: String(task.notes || '').substring(0, 500),
                 completed: Boolean(task.completed),
                 completedDate: task.completedDate || null,
@@ -2527,9 +2542,11 @@
             const taskIds = new Set((tasks || []).map(t => t?.id).filter(Boolean));
             const outgoing = new Map();
             const incoming = new Map();
+            const differentDay = new Map();
             (tasks || []).forEach(t => {
                 outgoing.set(t.id, new Set());
                 incoming.set(t.id, new Set());
+                differentDay.set(t.id, new Set());
             });
 
             const addEdge = (fromId, toId) => {
@@ -2544,12 +2561,50 @@
                 const after = Array.isArray(t.mustBeAfter) ? t.mustBeAfter : [];
                 before.forEach(toId => addEdge(t.id, toId));
                 after.forEach(fromId => addEdge(fromId, t.id));
+                const diff = Array.isArray(t.mustBeDifferentDay) ? t.mustBeDifferentDay : [];
+                diff.forEach(otherId => {
+                    if(!otherId || otherId === t.id) return;
+                    if(!taskIds.has(otherId)) return;
+                    differentDay.get(t.id)?.add(otherId);
+                    differentDay.get(otherId)?.add(t.id);
+                });
+            });
+
+            // Transitive closure for before/after relationships.
+            const closure = new Map();
+            const getReachable = (id, stack = new Set()) => {
+                if(closure.has(id)) return closure.get(id);
+                if(stack.has(id)) return new Set();
+                stack.add(id);
+                const out = new Set();
+                for(const nextId of Array.from(outgoing.get(id) || [])) {
+                    out.add(nextId);
+                    const nested = getReachable(nextId, stack);
+                    nested.forEach(x => out.add(x));
+                }
+                stack.delete(id);
+                out.delete(id);
+                closure.set(id, out);
+                return out;
+            };
+            Array.from(taskIds).forEach(id => {
+                const reach = getReachable(id);
+                outgoing.set(id, new Set(reach));
+            });
+
+            incoming.clear();
+            Array.from(taskIds).forEach(id => incoming.set(id, new Set()));
+            outgoing.forEach((targets, fromId) => {
+                targets.forEach(toId => {
+                    incoming.get(toId)?.add(fromId);
+                });
             });
 
             tasks = (tasks || []).map(t => ({
                 ...t,
                 mustBeBefore: Array.from(outgoing.get(t.id) || []),
-                mustBeAfter: Array.from(incoming.get(t.id) || [])
+                mustBeAfter: Array.from(incoming.get(t.id) || []),
+                mustBeDifferentDay: Array.from(differentDay.get(t.id) || [])
             }));
         }
 
@@ -2559,26 +2614,31 @@
             const validIds = new Set((tasks || []).map(t => t.id));
             const beforeSet = new Set((current.mustBeBefore || []).filter(id => id && id !== taskId && validIds.has(id)));
             const afterSet = new Set((current.mustBeAfter || []).filter(id => id && id !== taskId && validIds.has(id) && !beforeSet.has(id)));
+            const differentDaySet = new Set((current.mustBeDifferentDay || []).filter(id => id && id !== taskId && validIds.has(id) && !beforeSet.has(id) && !afterSet.has(id)));
 
             tasks = (tasks || []).map(t => {
                 const ownBefore = Array.isArray(t.mustBeBefore) ? t.mustBeBefore.filter(id => id !== taskId) : [];
                 const ownAfter = Array.isArray(t.mustBeAfter) ? t.mustBeAfter.filter(id => id !== taskId) : [];
+                const ownDifferentDay = Array.isArray(t.mustBeDifferentDay) ? t.mustBeDifferentDay.filter(id => id !== taskId) : [];
 
                 if(t.id === taskId) {
                     return {
                         ...t,
                         mustBeBefore: Array.from(beforeSet),
-                        mustBeAfter: Array.from(afterSet)
+                        mustBeAfter: Array.from(afterSet),
+                        mustBeDifferentDay: Array.from(differentDaySet)
                     };
                 }
 
                 if(beforeSet.has(t.id)) ownAfter.push(taskId);
                 if(afterSet.has(t.id)) ownBefore.push(taskId);
+                if(differentDaySet.has(t.id)) ownDifferentDay.push(taskId);
 
                 return {
                     ...t,
                     mustBeBefore: Array.from(new Set(ownBefore)),
-                    mustBeAfter: Array.from(new Set(ownAfter))
+                    mustBeAfter: Array.from(new Set(ownAfter)),
+                    mustBeDifferentDay: Array.from(new Set(ownDifferentDay))
                 };
             });
         }
@@ -2589,7 +2649,8 @@
             tasks = tasks.map(t => {
                 const before = Array.isArray(t.mustBeBefore) ? t.mustBeBefore.filter(id => !removed.has(id)) : [];
                 const after = Array.isArray(t.mustBeAfter) ? t.mustBeAfter.filter(id => !removed.has(id)) : [];
-                return { ...t, mustBeBefore: before, mustBeAfter: after };
+                const differentDay = Array.isArray(t.mustBeDifferentDay) ? t.mustBeDifferentDay.filter(id => !removed.has(id)) : [];
+                return { ...t, mustBeBefore: before, mustBeAfter: after, mustBeDifferentDay: differentDay };
             });
         }
 
@@ -2832,6 +2893,7 @@
                 }
                 const afterRefs = Array.isArray(t.mustBeAfter) ? t.mustBeAfter : [];
                 const beforeRefs = Array.isArray(t.mustBeBefore) ? t.mustBeBefore : [];
+                const differentDayRefs = Array.isArray(t.mustBeDifferentDay) ? t.mustBeDifferentDay : [];
 
                 for(const refId of afterRefs) {
                     const refTask = tasks.find(x => x.id === refId);
@@ -2854,6 +2916,14 @@
                     }
                     if(refTask.date === dateStr && refTask.time) {
                         maxEnd = Math.min(maxEnd, timeToMin(refTask.time) - 5);
+                    }
+                }
+                for(const refId of differentDayRefs) {
+                    const refTask = tasks.find(x => x.id === refId);
+                    if(!refTask || refTask.completed) continue;
+                    if(refTask.date === dateStr) {
+                        maxEnd = -1;
+                        break;
                     }
                 }
                 if(autoStartForTask + duration > maxEnd) {
@@ -3350,7 +3420,7 @@
             document.getElementById('taskSort')?.addEventListener('change', renderTaskList);
         }
 
-        let dependencyDraft = { after: [], before: [] };
+        let dependencyDraft = { after: [], before: [], differentDay: [] };
 
         function buildDependencyChoices(subjectName = '', currentTaskId = null) {
             const byDueDate = (t) => getTaskDueDate(t) || '9999-12-31';
@@ -3379,17 +3449,25 @@
         }
 
         function getDependencyList(type) {
-            return type === 'before' ? dependencyDraft.before : dependencyDraft.after;
+            if(type === 'before') return dependencyDraft.before;
+            if(type === 'differentDay') return dependencyDraft.differentDay;
+            return dependencyDraft.after;
         }
 
         function setDependencyList(type, values = []) {
             const cleaned = Array.from(new Set((values || []).filter(Boolean)));
             if(type === 'before') dependencyDraft.before = cleaned;
+            else if(type === 'differentDay') dependencyDraft.differentDay = cleaned;
             else dependencyDraft.after = cleaned;
         }
 
         function renderDependencyList(type) {
-            const listEl = document.getElementById(type === 'before' ? 'inputMustBeforeList' : 'inputMustAfterList');
+            const listMap = {
+                before: 'inputMustBeforeList',
+                after: 'inputMustAfterList',
+                differentDay: 'inputDifferentDayList'
+            };
+            const listEl = document.getElementById(listMap[type] || 'inputMustAfterList');
             if(!listEl) return;
             const ids = getDependencyList(type);
             if(ids.length === 0) {
@@ -3414,13 +3492,16 @@
             const currentId = editingId;
             const choices = buildDependencyChoices(subject, currentId);
             const toOptions = (type) => {
-                const otherType = type === 'before' ? 'after' : 'before';
                 const ids = new Set(getDependencyList(type));
-                const otherIds = new Set(getDependencyList(otherType));
+                const blocked = new Set([
+                    ...getDependencyList('before'),
+                    ...getDependencyList('after'),
+                    ...getDependencyList('differentDay')
+                ]);
                 const options = [`<option value="">Select assignment...</option>`];
                 choices.forEach(t => {
                     if(ids.has(t.id)) return;
-                    if(otherIds.has(t.id)) return;
+                    if(blocked.has(t.id) && !ids.has(t.id)) return;
                     const isSame = subject && String(t.subject || '').trim().toLowerCase() === String(subject).trim().toLowerCase();
                     options.push(`<option value="${escapeHtml(t.id)}">${escapeHtml(dependencyOptionLabel(t, isSame))}</option>`);
                 });
@@ -3429,12 +3510,19 @@
 
             const afterSelect = document.getElementById('inputMustAfterSelect');
             const beforeSelect = document.getElementById('inputMustBeforeSelect');
+            const differentDaySelect = document.getElementById('inputDifferentDaySelect');
             if(afterSelect) afterSelect.innerHTML = toOptions('after');
             if(beforeSelect) beforeSelect.innerHTML = toOptions('before');
+            if(differentDaySelect) differentDaySelect.innerHTML = toOptions('differentDay');
         }
 
         function addDependency(type) {
-            const selectId = type === 'before' ? 'inputMustBeforeSelect' : 'inputMustAfterSelect';
+            const selectMap = {
+                before: 'inputMustBeforeSelect',
+                after: 'inputMustAfterSelect',
+                differentDay: 'inputDifferentDaySelect'
+            };
+            const selectId = selectMap[type] || 'inputMustAfterSelect';
             const select = document.getElementById(selectId);
             if(!select) return;
             const id = select.value;
@@ -3452,12 +3540,14 @@
             renderDependencyList(type);
         }
 
-        function populateDependencySelects(selectedAfter = [], selectedBefore = []) {
+        function populateDependencySelects(selectedAfter = [], selectedBefore = [], selectedDifferentDay = []) {
             setDependencyList('after', selectedAfter);
             setDependencyList('before', selectedBefore);
+            setDependencyList('differentDay', selectedDifferentDay);
             syncDependencyDropdownOptions();
             renderDependencyList('after');
             renderDependencyList('before');
+            renderDependencyList('differentDay');
         }
 
         // Notification Toast
@@ -5192,7 +5282,7 @@
             document.getElementById('modalHeading').innerText = 'New Assignment';
             updateScheduleInputs();
             updateRepeatInputs();
-            populateDependencySelects([], []);
+            populateDependencySelects([], [], []);
         }
 
         function buildRepeatRuleFromForm() {
@@ -5339,6 +5429,7 @@
             const dueTimeRaw = document.getElementById('inputDueTime').value || null;
             const mustBeAfter = [...getDependencyList('after')];
             const mustBeBefore = [...getDependencyList('before')];
+            const mustBeDifferentDay = [...getDependencyList('differentDay')];
             
             // Validation
             if(!title) { 
@@ -5373,6 +5464,10 @@
             }
             if(mustBeAfter.some(id => mustBeBefore.includes(id))) {
                 showNotification('An assignment cannot be both "before" and "after" the same item', 'error');
+                return;
+            }
+            if(mustBeDifferentDay.some(id => mustBeBefore.includes(id) || mustBeAfter.includes(id))) {
+                showNotification('An assignment cannot be both ordered and "different day" against the same item', 'error');
                 return;
             }
 
@@ -5412,6 +5507,7 @@
                 color: color, 
                 mustBeBefore,
                 mustBeAfter,
+                mustBeDifferentDay,
                 notes: document.getElementById('inputNotes').value.substring(0, 500),
                 completed: editingId ? (tasks.find(t => t.id === editingId)?.completed || false) : false,
                 completedDate: editingId ? (tasks.find(t => t.id === editingId)?.completedDate) : null,
@@ -5423,6 +5519,9 @@
             normalizedTaskData.mustBeAfter = (normalizedTaskData.mustBeAfter || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeBefore = (normalizedTaskData.mustBeBefore || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeAfter = normalizedTaskData.mustBeAfter.filter(id => !normalizedTaskData.mustBeBefore.includes(id));
+            normalizedTaskData.mustBeDifferentDay = (normalizedTaskData.mustBeDifferentDay || [])
+                .filter(id => id !== normalizedTaskData.id)
+                .filter(id => !normalizedTaskData.mustBeBefore.includes(id) && !normalizedTaskData.mustBeAfter.includes(id));
 
             if(isFixedTask(normalizedTaskData) && normalizedTaskData.date && normalizedTaskData.time) {
                 let conflict = findSchedulingConflict(
@@ -5519,6 +5618,7 @@
                             dueTime: normalizedTaskData.dueTime,
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
+                            mustBeDifferentDay: normalizedTaskData.mustBeDifferentDay,
                             repeatRule,
                             weekDueOnly,
                             repeatNoAutoTime
@@ -5602,7 +5702,7 @@
             document.getElementById('inputWeekDueOnly').checked = Boolean(t.weekDueOnly) && repeatRule.type === 'weekly';
             setCheckedDays('.repeat-day', repeatRule.days || []);
             updateRepeatInputs();
-            populateDependencySelects(t.mustBeAfter || [], t.mustBeBefore || []);
+            populateDependencySelects(t.mustBeAfter || [], t.mustBeBefore || [], t.mustBeDifferentDay || []);
             syncSubjectColor(t.subject);
             updateScheduleInputs();
 
@@ -6452,6 +6552,7 @@
                 const breakMin = 0;
                 const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
                 const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
+                const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
 
                 for(const refId of afterRefs) {
                     const refTask = tasks.find(t => t.id === refId);
@@ -6473,6 +6574,11 @@
                         const refStart = timeToMin(refTask.time);
                         constrainedMaxEnd = Math.min(constrainedMaxEnd, refStart - 5);
                     }
+                }
+                for(const refId of differentDayRefs) {
+                    const refTask = tasks.find(t => t.id === refId);
+                    if(!refTask || refTask.completed) continue;
+                    if(refTask.date === targetDate) return null;
                 }
                 if(constrainedStart + duration > constrainedMaxEnd) return null;
 
@@ -6866,6 +6972,17 @@
                                 if(!isBeforeWithBreak(date, start, duration, ref.date, ref.start, breakMin)) {
                                     valid = false;
                                     break;
+                                }
+                            }
+                            if(valid) {
+                                const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
+                                for(const refId of differentDayRefs) {
+                                    const ref = assigned.get(refId) || fixedById.get(refId);
+                                    if(!ref) continue;
+                                    if(ref.date === date) {
+                                        valid = false;
+                                        break;
+                                    }
                                 }
                             }
                             if(valid) options.push({ date, start, duration });
