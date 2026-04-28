@@ -551,12 +551,14 @@
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h2 class="text-3xl font-display font-bold text-slate-900 dark:text-white">Calendar</h2>
-                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Switch between month overview and detailed weekly timeline with times.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Use month, week, day, and agenda layouts to plan at different levels.</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-cyan-100 dark:border-slate-700 p-1.5 shadow-sm w-fit">
                             <div class="flex items-center bg-cyan-50 dark:bg-slate-800 rounded-lg p-1">
                                 <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="px-3 h-8 rounded-md text-xs font-semibold bg-cyan-600 text-white">Month</button>
                                 <button id="weekViewBtn" onclick="setCalendarViewMode('week')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Week</button>
+                                <button id="dayViewBtn" onclick="setCalendarViewMode('day')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Day</button>
+                                <button id="agendaViewBtn" onclick="setCalendarViewMode('agenda')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Week Agenda</button>
                             </div>
                             <button onclick="changeCalendarPeriod(-1)" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-cyan-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
                                 <i class="fa-solid fa-chevron-left"></i>
@@ -594,6 +596,18 @@
                 <div id="weekCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
                     <div id="weekCalendarGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <!-- Week cards injected via JS -->
+                    </div>
+                </div>
+
+                <div id="dayCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
+                    <div id="dayCalendarGrid" class="space-y-3">
+                        <!-- Day timeline injected via JS -->
+                    </div>
+                </div>
+
+                <div id="agendaCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
+                    <div id="agendaWeekList" class="space-y-4">
+                        <!-- Weekly agenda injected via JS -->
                     </div>
                 </div>
             </div>
@@ -4507,13 +4521,18 @@
 
         // --- Calendar Logic ---
         function setCalendarViewMode(mode) {
-            calendarViewMode = mode === 'week' ? 'week' : 'month';
+            const validModes = new Set(['month', 'week', 'day', 'agenda']);
+            calendarViewMode = validModes.has(mode) ? mode : 'month';
             plannerSet('calendarViewMode', calendarViewMode);
             renderCalendar();
         }
 
         function changeCalendarPeriod(offset) {
             if(calendarViewMode === 'week') {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() + (offset * 7));
+            } else if(calendarViewMode === 'day') {
+                currentCalendarDate.setDate(currentCalendarDate.getDate() + offset);
+            } else if(calendarViewMode === 'agenda') {
                 currentCalendarDate.setDate(currentCalendarDate.getDate() + (offset * 7));
             } else {
                 currentCalendarDate.setMonth(currentCalendarDate.getMonth() + offset);
@@ -4708,11 +4727,123 @@
             }
         }
 
+        function renderDayCalendar() {
+            const dayGrid = document.getElementById('dayCalendarGrid');
+            if(!dayGrid) return;
+            const dateStr = getDateStrLocal(currentCalendarDate);
+            const isVacation = isDateInVacation(dateStr);
+            if(isVacation) {
+                dayGrid.innerHTML = `<div class="rounded-xl border border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30 p-4 text-amber-800 dark:text-amber-200 font-semibold">Vacation day: no assignments scheduled.</div>`;
+                return;
+            }
+
+            const schedule = injectBreakItems(getSmartSchedule(dateStr), dateStr);
+            const unscheduled = tasks
+                .filter(t => !t.completed && !t.time && t.date === dateStr)
+                .sort(compareTasksForScheduling);
+
+            const scheduledHtml = schedule.map(item => {
+                if(item.type === 'break') {
+                    const minutes = Math.max(1, Math.round(item.end - item.start));
+                    return `<div class="rounded-lg border border-emerald-200/60 dark:border-emerald-700/50 p-3 bg-emerald-50/70 dark:bg-emerald-900/20 text-sm text-emerald-700 dark:text-emerald-300"><span class="font-semibold">${item.label || 'Break'}</span> · ${minutes}m</div>`;
+                }
+                const t = item.task;
+                const color = getTaskColor(t);
+                const modeLabel = getTaskAssignmentModeLabel(t);
+                const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
+                return `
+                    <div class="rounded-lg border border-cyan-100 dark:border-slate-700 p-3 bg-white/70 dark:bg-slate-800/70">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-xs font-bold text-cyan-700 dark:text-cyan-300">${timeLabel}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${modeLabel}</span>
+                        </div>
+                        <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${t.title}</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                            <span class="w-2 h-2 rounded-full" style="background:${color}"></span>
+                            <span>${t.subject}</span>
+                            <span>${parseInt(t.duration, 10) || 30}m</span>
+                            <span class="text-rose-600 dark:text-rose-400">Due ${formatDueLabel(t, false)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const unscheduledHtml = unscheduled.length > 0
+                ? `<div class="rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/20 p-3">
+                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2">Needs Time Today</div>
+                        <div class="space-y-1">${unscheduled.map(t => `<div class="text-sm text-slate-700 dark:text-slate-200">- ${t.title}</div>`).join('')}</div>
+                   </div>`
+                : '';
+
+            dayGrid.innerHTML = scheduledHtml || unscheduledHtml
+                ? `${scheduledHtml}${unscheduledHtml}`
+                : `<div class="text-sm text-slate-400 dark:text-slate-500 italic">No assignments planned for this day.</div>`;
+        }
+
+        function renderAgendaCalendar() {
+            const agendaList = document.getElementById('agendaWeekList');
+            if(!agendaList) return;
+            const { start } = getWeekBounds(currentCalendarDate);
+            const weekDates = Array.from({ length: 7 }).map((_, i) => {
+                const d = new Date(start);
+                d.setDate(start.getDate() + i);
+                return getDateStrLocal(d);
+            });
+
+            const sections = weekDates.map(dateStr => {
+                const isVacation = isDateInVacation(dateStr);
+                const dayDate = new Date(`${dateStr}T00:00:00`);
+                const label = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                if(isVacation) {
+                    return `<div class="rounded-xl border border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30 p-3">
+                        <div class="text-sm font-semibold text-amber-800 dark:text-amber-200">${label}</div>
+                        <div class="text-xs text-amber-700 dark:text-amber-300 mt-1">Vacation day</div>
+                    </div>`;
+                }
+
+                const schedule = injectBreakItems(getSmartSchedule(dateStr), dateStr)
+                    .filter(item => item.type !== 'break');
+                if(schedule.length === 0) {
+                    return `<div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
+                        <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${label}</div>
+                        <div class="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">No assignments</div>
+                    </div>`;
+                }
+
+                const items = schedule.map(item => {
+                    const t = item.task;
+                    const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
+                    const modeLabel = getTaskAssignmentModeLabel(t);
+                    return `<div class="flex items-center justify-between gap-3 text-sm py-1 border-b last:border-b-0 border-slate-100 dark:border-slate-700">
+                        <div class="min-w-0">
+                            <div class="font-medium text-slate-800 dark:text-slate-100 truncate">${t.title}</div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400">${t.subject} · ${parseInt(t.duration, 10) || 30}m</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-xs font-semibold text-cyan-700 dark:text-cyan-300">${timeLabel}</div>
+                            <div class="text-[10px] text-slate-500 dark:text-slate-400">${modeLabel}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                return `<div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
+                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">${label}</div>
+                    ${items}
+                </div>`;
+            }).join('');
+
+            agendaList.innerHTML = sections;
+        }
+
         function renderCalendar() {
             const monthView = document.getElementById('monthCalendarView');
             const weekView = document.getElementById('weekCalendarView');
+            const dayView = document.getElementById('dayCalendarView');
+            const agendaView = document.getElementById('agendaCalendarView');
             const monthBtn = document.getElementById('monthViewBtn');
             const weekBtn = document.getElementById('weekViewBtn');
+            const dayBtn = document.getElementById('dayViewBtn');
+            const agendaBtn = document.getElementById('agendaViewBtn');
             const header = document.getElementById('calendarMonthYear');
 
             monthBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'month');
@@ -4723,6 +4854,14 @@
             weekBtn.classList.toggle('text-white', calendarViewMode === 'week');
             weekBtn.classList.toggle('text-slate-700', calendarViewMode !== 'week');
             weekBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'week');
+            dayBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'day');
+            dayBtn.classList.toggle('text-white', calendarViewMode === 'day');
+            dayBtn.classList.toggle('text-slate-700', calendarViewMode !== 'day');
+            dayBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'day');
+            agendaBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'agenda');
+            agendaBtn.classList.toggle('text-white', calendarViewMode === 'agenda');
+            agendaBtn.classList.toggle('text-slate-700', calendarViewMode !== 'agenda');
+            agendaBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'agenda');
 
             if(calendarViewMode === 'week') {
                 const { startStr, endStr } = getWeekBounds(currentCalendarDate);
@@ -4731,12 +4870,34 @@
                 header.textContent = `${startLabel} - ${endLabel}`;
                 monthView.classList.add('hidden');
                 weekView.classList.remove('hidden');
+                dayView.classList.add('hidden');
+                agendaView.classList.add('hidden');
                 renderWeekCalendar();
+            } else if(calendarViewMode === 'day') {
+                const label = currentCalendarDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                header.textContent = label;
+                monthView.classList.add('hidden');
+                weekView.classList.add('hidden');
+                dayView.classList.remove('hidden');
+                agendaView.classList.add('hidden');
+                renderDayCalendar();
+            } else if(calendarViewMode === 'agenda') {
+                const { startStr, endStr } = getWeekBounds(currentCalendarDate);
+                const startLabel = new Date(`${startStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const endLabel = new Date(`${endStr}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                header.textContent = `${startLabel} - ${endLabel} Agenda`;
+                monthView.classList.add('hidden');
+                weekView.classList.add('hidden');
+                dayView.classList.add('hidden');
+                agendaView.classList.remove('hidden');
+                renderAgendaCalendar();
             } else {
                 const year = currentCalendarDate.getFullYear();
                 const month = currentCalendarDate.getMonth();
                 header.textContent = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
                 weekView.classList.add('hidden');
+                dayView.classList.add('hidden');
+                agendaView.classList.add('hidden');
                 monthView.classList.remove('hidden');
                 renderMonthCalendar();
             }
