@@ -5961,7 +5961,8 @@
             let preserved = 0;
 
             targets.forEach(task => {
-                const hasAssignedDate = Boolean(task.date) && task.date >= todayStr;
+                const isTargetWeekTask = task.scheduleType === 'week';
+                const hasAssignedDate = !isTargetWeekTask && Boolean(task.date) && task.date >= todayStr;
                 const keepUserPlacement = isFixedTask(task) && hasAssignedDate && Boolean(task.time);
 
                 if(keepUserPlacement) {
@@ -6134,8 +6135,11 @@
                 return best;
             };
             const getTaskCandidateDates = (task) => {
-                const hasUserLockedDate = Boolean(task?.date);
-                const preferredDate = (task.date && processDates.includes(task.date)) ? task.date : processDates[0];
+                const isTargetWeekTask = task?.scheduleType === 'week';
+                const hasUserLockedDate = Boolean(task?.date) && !isTargetWeekTask;
+                const preferredDate = (!isTargetWeekTask && task.date && processDates.includes(task.date))
+                    ? task.date
+                    : processDates[0];
                 const out = new Set();
                 if(hasUserLockedDate) {
                     if(task.date && task.date >= todayStr) out.add(task.date);
@@ -6219,7 +6223,7 @@
             };
 
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
-                    const hasUserLockedDate = Boolean(task?.date);
+                    const hasUserLockedDate = Boolean(task?.date) && task?.scheduleType !== 'week';
                     let placed = null;
                     for(const candidateDate of (dateList || [])) {
                         if(!candidateDate || candidateDate < todayStr) continue;
