@@ -2614,7 +2614,7 @@
             const validIds = new Set((tasks || []).map(t => t.id));
             const beforeSet = new Set((current.mustBeBefore || []).filter(id => id && id !== taskId && validIds.has(id)));
             const afterSet = new Set((current.mustBeAfter || []).filter(id => id && id !== taskId && validIds.has(id) && !beforeSet.has(id)));
-            const differentDaySet = new Set((current.mustBeDifferentDay || []).filter(id => id && id !== taskId && validIds.has(id) && !beforeSet.has(id) && !afterSet.has(id)));
+            const differentDaySet = new Set((current.mustBeDifferentDay || []).filter(id => id && id !== taskId && validIds.has(id)));
 
             tasks = (tasks || []).map(t => {
                 const ownBefore = Array.isArray(t.mustBeBefore) ? t.mustBeBefore.filter(id => id !== taskId) : [];
@@ -3493,11 +3493,9 @@
             const choices = buildDependencyChoices(subject, currentId);
             const toOptions = (type) => {
                 const ids = new Set(getDependencyList(type));
-                const blocked = new Set([
-                    ...getDependencyList('before'),
-                    ...getDependencyList('after'),
-                    ...getDependencyList('differentDay')
-                ]);
+                const blocked = type === 'differentDay'
+                    ? new Set()
+                    : new Set(type === 'before' ? getDependencyList('after') : getDependencyList('before'));
                 const options = [`<option value="">Select assignment...</option>`];
                 choices.forEach(t => {
                     if(ids.has(t.id)) return;
@@ -5466,11 +5464,6 @@
                 showNotification('An assignment cannot be both "before" and "after" the same item', 'error');
                 return;
             }
-            if(mustBeDifferentDay.some(id => mustBeBefore.includes(id) || mustBeAfter.includes(id))) {
-                showNotification('An assignment cannot be both ordered and "different day" against the same item', 'error');
-                return;
-            }
-
             // Update Global Subject Color Map
             subjectColors[subject] = color;
 
@@ -5520,8 +5513,7 @@
             normalizedTaskData.mustBeBefore = (normalizedTaskData.mustBeBefore || []).filter(id => id !== normalizedTaskData.id);
             normalizedTaskData.mustBeAfter = normalizedTaskData.mustBeAfter.filter(id => !normalizedTaskData.mustBeBefore.includes(id));
             normalizedTaskData.mustBeDifferentDay = (normalizedTaskData.mustBeDifferentDay || [])
-                .filter(id => id !== normalizedTaskData.id)
-                .filter(id => !normalizedTaskData.mustBeBefore.includes(id) && !normalizedTaskData.mustBeAfter.includes(id));
+                .filter(id => id !== normalizedTaskData.id);
 
             if(isFixedTask(normalizedTaskData) && normalizedTaskData.date && normalizedTaskData.time) {
                 let conflict = findSchedulingConflict(
