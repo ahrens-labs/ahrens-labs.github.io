@@ -347,11 +347,15 @@ MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
 MAX_ACTIVE_GAMES_PER_ACCOUNT = 3
 MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
 _MOVE_POOL = None
+_MOVE_POOL_LOCK = threading.Lock()
 _INLINE_ENGINE_LOCK = threading.Lock()  # single-game and inline fallback (serialized)
+_GAME_MOVE_LOCKS = {}
+_GAME_MOVE_LOCKS_LOCK = threading.Lock()
 # When len(GAMES)>1: one dedicated subprocess per game_id holds engine globals; moves are cheap IPC.
 _DEDICATED_WORKERS = {}  # gid -> {'proc', 'conn', 'lock'}
 _DEDICATED_WORKERS_LOCK = threading.Lock()
 _MP_CTX = None
+_MP_CTX_LOCK = threading.Lock()
 
 # Async move jobs: single-threaded WSGI would otherwise block the whole worker on pool.apply().
 # POST /move enqueues work and returns 202 + job_id; GET /move_result/<job_id> returns the move when ready.
@@ -363,6 +367,7 @@ _MOVE_BG_SEM = threading.Semaphore(MAX_IN_FLIGHT_MOVE_JOBS)
 _PENDING_MOVE_JOB_BY_GAME = {}  # game_id -> job_id
 # Post-reset snapshot for new games when /start cannot take _INLINE_ENGINE_LOCK (another game searching inline).
 _FRESH_START_SNAPSHOT_TEMPLATE = None
+_FRESH_START_SNAPSHOT_LOCK = threading.Lock()
 
 ENGINE_STATE_KEYS = (
     'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
@@ -441,7 +446,8 @@ def _copy_engine_snapshot(snap):
 def _set_fresh_start_snapshot_template(snap):
     """Cache a canonical start position for /start when the inline lock is busy."""
     global _FRESH_START_SNAPSHOT_TEMPLATE
-    _FRESH_START_SNAPSHOT_TEMPLATE = _copy_engine_snapshot(snap)
+    with _FRESH_START_SNAPSHOT_LOCK:
+        _FRESH_START_SNAPSHOT_TEMPLATE = _copy_engine_snapshot(snap)
 
 
 def _new_game_snapshot_when_inline_lock_busy():
@@ -449,14 +455,17 @@ def _new_game_snapshot_when_inline_lock_busy():
     New game snapshot without taking _INLINE_ENGINE_LOCK (another game's inline /move may hold it).
     """
     global _FRESH_START_SNAPSHOT_TEMPLATE
-    if _FRESH_START_SNAPSHOT_TEMPLATE is None:
+    with _FRESH_START_SNAPSHOT_LOCK:
+        template = _copy_engine_snapshot(_FRESH_START_SNAPSHOT_TEMPLATE)
+    if template is None:
         with _INLINE_ENGINE_LOCK:
             saved = _capture_engine_state_to_dict()
             reset_engine_state()
             snap0 = _capture_engine_state_to_dict()
             _restore_engine_state_from_dict(saved)
-            _set_fresh_start_snapshot_template(snap0)
-    out = _copy_engine_snapshot(_FRESH_START_SNAPSHOT_TEMPLATE)
+        _set_fresh_start_snapshot_template(snap0)
+        template = _copy_engine_snapshot(snap0)
+    out = _copy_engine_snapshot(template)
     out['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
     out['SCORING_VERSION'] = SCORING_VERSION
     out['engine_running'] = True
@@ -474,17 +483,19 @@ def _prune_stale_games():
             GAMES.pop(gid, None)
     for gid in stale:
         _shutdown_dedicated_worker(gid)
+        _drop_game_move_lock(gid)
 
 
 def _shutdown_move_pool():
     global _MOVE_POOL
-    try:
-        if _MOVE_POOL is not None:
-            _MOVE_POOL.terminate()
-            _MOVE_POOL.join()
-    except Exception:
-        pass
-    _MOVE_POOL = None
+    with _MOVE_POOL_LOCK:
+        try:
+            if _MOVE_POOL is not None:
+                _MOVE_POOL.terminate()
+                _MOVE_POOL.join()
+        except Exception:
+            pass
+        _MOVE_POOL = None
 
 
 atexit.register(_shutdown_move_pool)
@@ -493,16 +504,17 @@ atexit.register(_shutdown_move_pool)
 def _ensure_move_pool():
     """Lazy fork-pool so different games' /move calls can run on different CPU cores (Linux)."""
     global _MOVE_POOL
-    if _MOVE_POOL is not None:
+    with _MOVE_POOL_LOCK:
+        if _MOVE_POOL is not None:
+            return _MOVE_POOL
+        if os.environ.get('TRIFANGX_DISABLE_MOVE_POOL') == '1':
+            return None
+        try:
+            ctx = multiprocessing.get_context('fork')
+            _MOVE_POOL = ctx.Pool(processes=MOVE_POOL_PROCESSES)
+        except (ValueError, OSError, AttributeError):
+            _MOVE_POOL = None
         return _MOVE_POOL
-    if os.environ.get('TRIFANGX_DISABLE_MOVE_POOL') == '1':
-        return None
-    try:
-        ctx = multiprocessing.get_context('fork')
-        _MOVE_POOL = ctx.Pool(processes=MOVE_POOL_PROCESSES)
-    except (ValueError, OSError, AttributeError):
-        _MOVE_POOL = None
-    return _MOVE_POOL
 
 
 def _restart_move_pool_after_modifier_change():
@@ -512,13 +524,14 @@ def _restart_move_pool_after_modifier_change():
 
 def _get_mp_ctx():
     global _MP_CTX
-    if _MP_CTX is not None:
+    with _MP_CTX_LOCK:
+        if _MP_CTX is not None:
+            return _MP_CTX
+        try:
+            _MP_CTX = multiprocessing.get_context('fork')
+        except ValueError:
+            _MP_CTX = multiprocessing.get_context()
         return _MP_CTX
-    try:
-        _MP_CTX = multiprocessing.get_context('fork')
-    except ValueError:
-        _MP_CTX = multiprocessing.get_context()
-    return _MP_CTX
 
 
 def _shutdown_dedicated_worker(gid):
@@ -528,25 +541,28 @@ def _shutdown_dedicated_worker(gid):
     if not rec:
         return
     conn, proc = rec['conn'], rec['proc']
-    try:
-        if proc.is_alive():
+    lock = rec.get('lock')
+    guard = lock if lock is not None else contextlib.nullcontext()
+    with guard:
+        try:
+            if proc.is_alive():
+                try:
+                    conn.send({'cmd': 'shutdown'})
+                except Exception:
+                    pass
+                proc.join(timeout=3.0)
+                if proc.is_alive():
+                    proc.terminate()
+                    proc.join(timeout=2.0)
+        except Exception:
             try:
-                conn.send({'cmd': 'shutdown'})
+                proc.terminate()
             except Exception:
                 pass
-            proc.join(timeout=3.0)
-            if proc.is_alive():
-                proc.terminate()
-                proc.join(timeout=2.0)
-    except Exception:
         try:
-            proc.terminate()
+            conn.close()
         except Exception:
             pass
-    try:
-        conn.close()
-    except Exception:
-        pass
 
 
 def _shutdown_all_dedicated_workers():
@@ -557,6 +573,20 @@ def _shutdown_all_dedicated_workers():
 
 
 atexit.register(_shutdown_all_dedicated_workers)
+
+
+def _get_game_move_lock(gid):
+    with _GAME_MOVE_LOCKS_LOCK:
+        lock = _GAME_MOVE_LOCKS.get(gid)
+        if lock is None:
+            lock = threading.Lock()
+            _GAME_MOVE_LOCKS[gid] = lock
+        return lock
+
+
+def _drop_game_move_lock(gid):
+    with _GAME_MOVE_LOCKS_LOCK:
+        _GAME_MOVE_LOCKS.pop(gid, None)
 
 
 def _game_worker_entry(conn, initial_snap):
@@ -617,7 +647,7 @@ def _ensure_dedicated_worker(gid):
         snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     ctx = _get_mp_ctx()
     parent_conn, child_conn = ctx.Pipe(duplex=True)
-    lock = threading.Lock()
+    lock = threading.RLock()
     proc = ctx.Process(target=_game_worker_entry, args=(child_conn, snap), daemon=True)
     try:
         proc.start()
@@ -828,6 +858,14 @@ def start_engine():
             return jsonify({
                 "error": "Server is at maximum concurrent games. Please try again shortly.",
             }), 503
+        my_active = sum(1 for info in GAMES.values() if (info.get('account') or '') == account_key)
+        if my_active >= MAX_ACTIVE_GAMES_PER_ACCOUNT:
+            return jsonify({
+                "error": (
+                    f"You already have {MAX_ACTIVE_GAMES_PER_ACCOUNT} active games on this server. "
+                    "Close or finish one (or wait for a session to expire) before starting another."
+                ),
+            }), 403
         engine_running = True
         GAMES[gid] = {
             'active_since': time.time(),
@@ -864,6 +902,7 @@ def stop_engine():
                 rec['status'] = 'error'
                 rec['error'] = 'Game ended'
     _shutdown_dedicated_worker(gid)
+    _drop_game_move_lock(gid)
     engine_running = remaining > 0
     return jsonify({"message": "Engine stopped and game released"})
 
@@ -1028,6 +1067,13 @@ def _execute_move_core(gid, snap, move_notation, color):
     TRIFANGX_DISABLE_DEDICATED_WORKERS=1 forces in-process only for multi-game.
     TRIFANGX_FORCE_MOVE_POOL=1 requires fork pool (fails if pool cannot start).
     """
+    move_lock = _get_game_move_lock(gid)
+    with move_lock:
+        return _execute_move_core_locked(gid, snap, move_notation, color)
+
+
+def _execute_move_core_locked(gid, snap, move_notation, color):
+    """Implementation for _execute_move_core; caller holds this game's move lock."""
     try:
         with _GAMES_LOCK:
             n = len(GAMES)
