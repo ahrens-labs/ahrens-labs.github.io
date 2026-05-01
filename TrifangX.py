@@ -39,6 +39,7 @@ ENABLE_MULTIPROCESSING = False
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = False
 SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
+_DEVNULL = None
 
 # Pre-compile regex for performance
 MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
@@ -62,6 +63,13 @@ WHITE_NR = frozenset({'N', 'R'})
 # Pre-compute board indices (avoid creating lists repeatedly)
 BOARD_ROWS = tuple(range(8))
 BOARD_COLS = tuple(range(8))
+KNIGHT_DELTAS = ((1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1))
+KING_DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+ROOK_DELTAS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+BISHOP_DELTAS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
+QUEEN_DELTAS = ROOK_DELTAS + BISHOP_DELTAS
+WHITE_PAWN_CAPTURE_DELTAS = ((1, 1), (1, -1))
+BLACK_PAWN_CAPTURE_DELTAS = ((-1, 1), (-1, -1))
 
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
@@ -227,10 +235,13 @@ def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current
 
 @contextlib.contextmanager
 def _engine_stdout_context():
+    global _DEVNULL
     if DEBUG_LOGS or not SUPPRESS_ENGINE_STDOUT:
         yield
         return
-    with open(os.devnull, 'w') as devnull, contextlib.redirect_stdout(devnull):
+    if _DEVNULL is None or _DEVNULL.closed:
+        _DEVNULL = open(os.devnull, 'w')
+    with contextlib.redirect_stdout(_DEVNULL):
         yield
 
 def clean_move(move):
@@ -499,6 +510,19 @@ def _shutdown_move_pool():
 
 
 atexit.register(_shutdown_move_pool)
+
+
+def _close_devnull():
+    global _DEVNULL
+    try:
+        if _DEVNULL is not None:
+            _DEVNULL.close()
+    except Exception:
+        pass
+    _DEVNULL = None
+
+
+atexit.register(_close_devnull)
 
 
 def _ensure_move_pool():
@@ -1435,7 +1459,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
         if piece == 'P' and to_row == 0:
             board[to_row][to_col] = 'q'
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             current_score = -0.25
@@ -1533,7 +1557,10 @@ from functools import lru_cache
 
 def board_to_hash(board):
     """Convert board to hashable tuple for caching"""
-    return tuple(tuple(row) for row in board)
+    return (
+        tuple(board[0]), tuple(board[1]), tuple(board[2]), tuple(board[3]),
+        tuple(board[4]), tuple(board[5]), tuple(board[6]), tuple(board[7])
+    )
 
 # -----------------------------------------------------------------------------
 # Engine caches
@@ -1694,7 +1721,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             board[to_row][to_col] = 'Q'
         # Removed print_piece_move for performance in parallel processing
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             current_score = 0.25
@@ -2027,7 +2054,7 @@ def _score_uncached(board, turn, castled, castled_white):
 
         if turn == 'b':
             if piece in {'N', 'B', 'R', 'Q'}:
-                directions = [(1, 1), (1, -1)]
+                directions = WHITE_PAWN_CAPTURE_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2042,7 +2069,7 @@ def _score_uncached(board, turn, castled, castled_white):
                             if is_protected(board, row, col, 'w'):
                                 score += 10 * SCORING_MODIFIERS["material"]
             if piece in {'R', 'Q'}:
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2053,7 +2080,7 @@ def _score_uncached(board, turn, castled, castled_white):
                         elif piece == 'R' and board[new_row][new_col] == 'n':
                             if is_protected(board, row, col, 'w'):
                                 score += 13 * SCORING_MODIFIERS["material"]
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -2070,7 +2097,7 @@ def _score_uncached(board, turn, castled, castled_white):
                         else:
                             break
             if piece == 'Q':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -2086,7 +2113,7 @@ def _score_uncached(board, turn, castled, castled_white):
 
         elif turn == 'w':
             if piece in {'n', 'b', 'r', 'q'}:
-                directions = [(-1, 1), (-1, -1)]
+                directions = BLACK_PAWN_CAPTURE_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2101,7 +2128,7 @@ def _score_uncached(board, turn, castled, castled_white):
                             if is_protected(board, row, col, 'b'):
                                 score -= 10 * SCORING_MODIFIERS["material"]
             if piece in {'r', 'q'}:
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2112,7 +2139,7 @@ def _score_uncached(board, turn, castled, castled_white):
                         elif piece == 'r' and board[new_row][new_col] == 'N':
                             if is_protected(board, row, col, 'b'):
                                 score -= 13 * SCORING_MODIFIERS["material"]
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 for direction in directions:
                   for i in range(1, 8):
                       new_row = row + i * direction[0]
@@ -2129,7 +2156,7 @@ def _score_uncached(board, turn, castled, castled_white):
                       else:
                           break
             if piece == 'q':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    directions = ROOK_DELTAS
                     for direction in directions:
                         for i in range(1, 8):
                             new_row = row + i * direction[0]
@@ -2191,7 +2218,7 @@ def find_king(board, king_color):
 
 def check_defenders_lower(board, row, col):
     defenders = 0
-    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    directions = ROOK_DELTAS
     for direction in directions:
         for i in range(1, 8):
             new_row = row + i * direction[0]
@@ -2205,7 +2232,7 @@ def check_defenders_lower(board, row, col):
             else:
                 break
 
-    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+    directions = BISHOP_DELTAS
     for direction in directions:
         for i in range(1, 8):
             new_row = row + i * direction[0]
@@ -2219,7 +2246,7 @@ def check_defenders_lower(board, row, col):
             else:
                 break
 
-    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+    directions = KNIGHT_DELTAS
     for direction in directions:
         new_row = row + direction[0]
         new_col = col + direction[1]
@@ -2235,7 +2262,7 @@ def check_defenders_lower(board, row, col):
         if 0 <= new_row < 8 and 0 <= new_col < 8:
             if board[new_row][new_col] == 'p':
                 defenders += 1
-    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    directions = QUEEN_DELTAS
     for direction in directions:
         new_row = row + direction[0]
         new_col = col + direction[1]
@@ -2247,7 +2274,7 @@ def check_defenders_lower(board, row, col):
 
 def check_defenders_upper(board, row, col):
     defenders = 0
-    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    directions = ROOK_DELTAS
     for direction in directions:
         for i in range(1, 8):
             new_row = row + i * direction[0]
@@ -2261,7 +2288,7 @@ def check_defenders_upper(board, row, col):
             else:
                 break
 
-    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+    directions = BISHOP_DELTAS
     for direction in directions:
         for i in range(1, 8):
             new_row = row + i * direction[0]
@@ -2275,7 +2302,7 @@ def check_defenders_upper(board, row, col):
             else:
                 break
 
-    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+    directions = KNIGHT_DELTAS
     for direction in directions:
         new_row = row + direction[0]
         new_col = col + direction[1]
@@ -2291,7 +2318,7 @@ def check_defenders_upper(board, row, col):
         if 0 <= new_row < 8 and 0 <= new_col < 8:
             if board[new_row][new_col] == 'P':
                 defenders += 1
-    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    directions = QUEEN_DELTAS
     for direction in directions:
         new_row = row + direction[0]
         new_col = col + direction[1]
@@ -2586,7 +2613,7 @@ def score_king(board, row, col, color, stats):
             if stats["black_bishops"] + stats["black_knights"] + stats["black_rooks"] + stats["black_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score += (7-distance)/2# * SCORING_MODIFIERS["piece_activity_b"]
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
                 new_col = col + direction[1]
@@ -2622,7 +2649,7 @@ def score_king(board, row, col, color, stats):
             if stats["white_bishops"] + stats["white_knights"] + stats["white_rooks"] + stats["white_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score -= (7-distance)/2# * SCORING_MODIFIERS["piece_activity_w"]
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
                 new_col = col + direction[1]
@@ -2663,7 +2690,7 @@ def score_queen(board, row, col, color, stats):
               score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
             if open_file(board, col, 'w'):
               score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             queen_squares = 0
             for direction in directions:
                 for i in range(1, 8):
@@ -2680,7 +2707,7 @@ def score_queen(board, row, col, color, stats):
             if stats["black_pieces"] == 2 and stats["white_pieces"] == 1:
                 if is_king_in_check(board, stats["white_king_row"], stats["white_king_col"], 'w'):
                     score -= 10
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2703,7 +2730,7 @@ def score_queen(board, row, col, color, stats):
               score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
             if open_file(board, col, 'b'):
               score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             bad_queen_squares = 0
             for direction in directions:
                 for i in range(1, 8):
@@ -2720,7 +2747,7 @@ def score_queen(board, row, col, color, stats):
             if stats["white_pieces"] == 2 and stats["black_pieces"] == 1:
                 if is_king_in_check(board, stats["black_king_row"], stats["black_king_col"], 'b'):
                     score += 10
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2791,7 +2818,7 @@ def score_rook(board, row, col, color, stats):
                 stats["rook_7th_rank"] = True
             if not is_pinned_to_king(board, row, col, 'b'):
                 rook_squares = 0
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -2841,7 +2868,7 @@ def score_rook(board, row, col, color, stats):
                 stats["rook_7th_rank_black"] = True
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_rook_squares = 0
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -2883,7 +2910,7 @@ def score_knight(board, row, col, color, stats):
             score += 0.2# * SCORING_MODIFIERS["centralization_b"]
             if row in [3, 2]:
                 score += 0.3# * SCORING_MODIFIERS["attack_b"]
-        directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+        directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -2900,7 +2927,7 @@ def score_knight(board, row, col, color, stats):
                 score += 0.5# * SCORING_MODIFIERS["centralization_b"]
             if not is_pinned_to_king(board, row, col, 'b'):
                 knight_squares = 0
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2923,7 +2950,7 @@ def score_knight(board, row, col, color, stats):
             score -= 0.2# * SCORING_MODIFIERS["centralization_w"]
             if row in [4, 5]:
                 score -= 0.3# * SCORING_MODIFIERS["attack_w"]
-        directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+        directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -2940,7 +2967,7 @@ def score_knight(board, row, col, color, stats):
                 score -= 0.4# * SCORING_MODIFIERS["defense_w"]
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_knight_squares = 0
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 for direction in directions:
                     new_row = row + direction[0]
                     new_col = col + direction[1]
@@ -2971,7 +2998,7 @@ def score_bishop(board, row, col, color, stats):
                       score -= 0.3# * SCORING_MODIFIERS["piece_activity_b"]
             if not is_pinned_to_king(board, row, col, 'b'):
                 bishop_squares = 0
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -3001,7 +3028,7 @@ def score_bishop(board, row, col, color, stats):
                       score += 0.3# * SCORING_MODIFIERS["piece_activity_w"]
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_bishop_squares = 0
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
                         new_row = row + i * direction[0]
@@ -3391,7 +3418,7 @@ def is_checkmate(board, player):
         opponent_pieces = BLACK_PIECES
 
     # Try king moves first (8 directions)
-    king_dirs = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+    king_dirs = QUEEN_DELTAS
     for dr, dc in king_dirs:
         r, c = king_row + dr, king_col + dc
         if 0 <= r < 8 and 0 <= c < 8:
@@ -3472,7 +3499,7 @@ def is_checkmate(board, player):
                             board[row-1][col+1] = captured_piece
 
                 elif piece == 'n':
-                    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                    directions = KNIGHT_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         new_row = row + direction[0]
@@ -3490,7 +3517,7 @@ def is_checkmate(board, player):
                                 board[new_row][new_col] = captured_piece
 
                 elif piece == 'b':
-                    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = BISHOP_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3515,7 +3542,7 @@ def is_checkmate(board, player):
                                 break
 
                 elif piece == 'r':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    directions = ROOK_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3540,7 +3567,7 @@ def is_checkmate(board, player):
                                 break
 
                 elif piece == 'q':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3566,7 +3593,7 @@ def is_checkmate(board, player):
 
                 elif piece == 'k':
                     # OPTIMIZATION: Fixed order - no shuffle needed
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     for direction in directions:
                         new_row = row + direction[0]
                         new_col = col + direction[1]
@@ -3639,7 +3666,7 @@ def is_checkmate(board, player):
                             board[row+1][col+1] = captured_piece
 
                 elif piece == 'N':
-                    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                    directions = KNIGHT_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         new_row = row + direction[0]
@@ -3657,7 +3684,7 @@ def is_checkmate(board, player):
                                 board[new_row][new_col] = captured_piece
 
                 elif piece == 'B':
-                    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = BISHOP_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3682,7 +3709,7 @@ def is_checkmate(board, player):
                                 break
 
                 elif piece == 'R':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    directions = ROOK_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3707,7 +3734,7 @@ def is_checkmate(board, player):
                                 break
 
                 elif piece == 'Q':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -3733,7 +3760,7 @@ def is_checkmate(board, player):
 
                 elif piece == 'K':
                     # OPTIMIZATION: Fixed order - no shuffle needed
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     for direction in directions:
                         new_row = row + direction[0]
                         new_col = col + direction[1]
@@ -3757,8 +3784,6 @@ def is_checkmate(board, player):
 
 def is_king_in_check(board, king_row, king_col, player):
     """Optimized: Check only pieces that can attack the king, not all 64 squares."""
-    opponent_pieces = BLACK_PIECES if player == 'w' else WHITE_PIECES
-
     # Check pawn attacks first (fastest, most common)
     if player == 'b':  # Black king, check white pawns
         if king_row > 0:
@@ -3774,29 +3799,24 @@ def is_king_in_check(board, king_row, king_col, player):
                 return True
 
     # Check knight attacks (8 possible squares)
-    knight_moves = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
     knight_piece = 'N' if player == 'b' else 'n'
-    for dr, dc in knight_moves:
+    for dr, dc in KNIGHT_DELTAS:
         r, c = king_row + dr, king_col + dc
         if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == knight_piece:
             return True
 
     # Check king attacks (8 adjacent squares)
     king_piece = 'K' if player == 'b' else 'k'
-    for dr in (-1, 0, 1):
-        for dc in (-1, 0, 1):
-            if dr == 0 and dc == 0:
-                continue
-            r, c = king_row + dr, king_col + dc
-            if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == king_piece:
-                return True
+    for dr, dc in KING_DELTAS:
+        r, c = king_row + dr, king_col + dc
+        if 0 <= r < 8 and 0 <= c < 8 and board[r][c] == king_piece:
+            return True
 
     # Check sliding pieces (rooks, bishops, queens) along rays to king
     # Diagonals (bishops/queens)
-    diag_dirs = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
     bishop_piece = 'B' if player == 'b' else 'b'
     queen_piece = 'Q' if player == 'b' else 'q'
-    for dr, dc in diag_dirs:
+    for dr, dc in BISHOP_DELTAS:
         for i in range(1, 8):
             r, c = king_row + i * dr, king_col + i * dc
             if not (0 <= r < 8 and 0 <= c < 8):
@@ -3809,9 +3829,8 @@ def is_king_in_check(board, king_row, king_col, player):
             break  # Blocked by another piece
 
     # Orthogonal (rooks/queens)
-    ortho_dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     rook_piece = 'R' if player == 'b' else 'r'
-    for dr, dc in ortho_dirs:
+    for dr, dc in ROOK_DELTAS:
         for i in range(1, 8):
             r, c = king_row + i * dr, king_col + i * dc
             if not (0 <= r < 8 and 0 <= c < 8):
@@ -3830,6 +3849,8 @@ def is_king_in_check(board, king_row, king_col, player):
 _is_king_in_check_uncached = is_king_in_check
 def is_king_in_check(board, king_row, king_col, player):
     """Cached wrapper for optimized is_king_in_check."""
+    if king_row is None or king_col is None or king_row < 0 or king_col < 0:
+        return False
     return _is_king_in_check_cached(board_to_hash(board), king_row, king_col, player)
 
 def is_pinned_to_king(board, row, col, player):
@@ -4067,7 +4088,7 @@ def is_draw(board):
 def is_protected_piece(board, row, col, piece):
     """Legacy function - checks if piece type exists on path to square"""
     if piece in {'r', 'q', 'R', 'Q'}:
-        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        directions = ROOK_DELTAS
         for direction in directions:
             for i in range(1, 8):
                 new_row = row + i * direction[0]
@@ -4080,7 +4101,7 @@ def is_protected_piece(board, row, col, piece):
                 else:
                     break
     if piece in {'b', 'q', 'B', 'Q'}:
-        directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+        directions = BISHOP_DELTAS
         for direction in directions:
             for i in range(1, 8):
                 new_row = row + i * direction[0]
@@ -4093,7 +4114,7 @@ def is_protected_piece(board, row, col, piece):
                 else:
                     break
     elif piece in {'n', 'N'}:
-        directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+        directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -4202,7 +4223,7 @@ def get_move_disambiguation(board, best_piece, best_row, best_col, target_row, t
 
 def is_protected_pawn(board, row, col, piece):
     if piece == 'p':
-        directions = [(1, 1), (1, -1)]
+        directions = WHITE_PAWN_CAPTURE_DELTAS
         for direction in directions:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -4210,7 +4231,7 @@ def is_protected_pawn(board, row, col, piece):
                 if board[new_row][new_col] == piece:
                     return True
     elif piece == 'P':
-        directions = [(-1, 1), (-1, -1)]
+        directions = BLACK_PAWN_CAPTURE_DELTAS
         for direction in directions:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -4296,7 +4317,7 @@ def is_pawn_capture(move):
 def convert_move(board, to_row, to_col, piece, color):
     if color == 'b':
         if piece == 'n':
-            directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+            directions = KNIGHT_DELTAS
             for direction in directions:
                 new_row = to_row + direction[0]
                 new_col = to_col + direction[1]
@@ -4304,7 +4325,7 @@ def convert_move(board, to_row, to_col, piece, color):
                     if board[new_row][new_col] == 'n':
                         return new_row, new_col
         elif piece == 'b':
-            directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = BISHOP_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4317,7 +4338,7 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'r':
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            directions = ROOK_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4330,7 +4351,7 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'q':
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4351,7 +4372,7 @@ def convert_move(board, to_row, to_col, piece, color):
             else:
                 return to_row+1, to_col
         elif piece == 'k':
-              directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+              directions = QUEEN_DELTAS
               for direction in directions:
                   new_row = to_row + direction[0]
                   new_col = to_col + direction[1]
@@ -4360,7 +4381,7 @@ def convert_move(board, to_row, to_col, piece, color):
                           return new_row, new_col
     elif color == 'w':
         if piece == 'n':
-            directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+            directions = KNIGHT_DELTAS
             for direction in directions:
                 new_row = to_row + direction[0]
                 new_col = to_col + direction[1]
@@ -4369,7 +4390,7 @@ def convert_move(board, to_row, to_col, piece, color):
                         print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
-            directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = BISHOP_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4382,7 +4403,7 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'r':
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            directions = ROOK_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4395,7 +4416,7 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'q':
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+            directions = QUEEN_DELTAS
             for direction in directions:
                 for i in range(1, 8):
                     new_row = to_row + i * direction[0]
@@ -4416,7 +4437,7 @@ def convert_move(board, to_row, to_col, piece, color):
             else:
                 return to_row-1, to_col
         elif piece == 'k':
-              directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+              directions = QUEEN_DELTAS
               for direction in directions:
                   new_row = to_row + direction[0]
                   new_col = to_col + direction[1]
@@ -5087,7 +5108,7 @@ def best_move_function(board, bots, en_passant):
 
 
                 elif piece == 'n':
-                    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                    directions = KNIGHT_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         new_row = row + direction[0]
@@ -5102,7 +5123,7 @@ def best_move_function(board, bots, en_passant):
 
 
                 elif piece == 'b':
-                    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = BISHOP_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -5124,7 +5145,7 @@ def best_move_function(board, bots, en_passant):
                                 break
 
                 elif piece == 'r':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    directions = ROOK_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -5146,7 +5167,7 @@ def best_move_function(board, bots, en_passant):
                                 break
 
                 elif piece == 'q':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -5399,7 +5420,7 @@ def best_move_function(board, bots, en_passant):
             print(output)
         is_draw(board)
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             print('Draw by Repetition')
@@ -5612,7 +5633,7 @@ def best_move_player(board):
                         checkmate = False
 
             elif piece == 'N':
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -5623,7 +5644,7 @@ def best_move_player(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'N'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = 0.25
@@ -5682,7 +5703,7 @@ def best_move_player(board):
                             position_history[pos_hash] -= 1
 
             elif piece == 'B':
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -5694,7 +5715,7 @@ def best_move_player(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'B'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -5760,7 +5781,7 @@ def best_move_player(board):
                             break
 
             elif piece == 'R':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -5772,7 +5793,7 @@ def best_move_player(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'R'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -5847,7 +5868,7 @@ def best_move_player(board):
                             break
 
             elif piece == 'Q':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -5859,7 +5880,7 @@ def best_move_player(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'Q'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -5924,7 +5945,7 @@ def best_move_player(board):
                             break
 
             elif piece == 'K':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -5935,7 +5956,7 @@ def best_move_player(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'K'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = 0.25
@@ -6000,7 +6021,7 @@ def best_move_player(board):
         best_row, best_col, target_row, target_col, best_piece = best_move
         captured_piece = board[target_row][target_col]
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             draw = True
@@ -6094,7 +6115,7 @@ def best_move2(board):
                         board[row-1][col+1] = captured_piece
 
             elif piece == 'n':
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -6105,7 +6126,7 @@ def best_move2(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'n'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = -0.25
@@ -6129,7 +6150,7 @@ def best_move2(board):
 
 
             elif piece == 'b':
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -6141,7 +6162,7 @@ def best_move2(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'b'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -6170,7 +6191,7 @@ def best_move2(board):
                             break
 
             elif piece == 'r':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -6182,7 +6203,7 @@ def best_move2(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'r'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -6211,7 +6232,7 @@ def best_move2(board):
                             break
 
             elif piece == 'q':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -6223,7 +6244,7 @@ def best_move2(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'q'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -6252,7 +6273,7 @@ def best_move2(board):
                             break
 
             elif piece == 'k':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -6263,7 +6284,7 @@ def best_move2(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'k'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = -0.25
@@ -6294,7 +6315,7 @@ def best_move2(board):
         board[best_row2][best_col2] = '0'
         board[target_row2][target_col2] = best_piece2
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             draw = True
@@ -6574,7 +6595,7 @@ def best_move_black(board, bots, en_passant):
 
                 # White Bishops
                 elif piece == 'B':
-                    for dr, dc in [(1,1), (1,-1), (-1,1), (-1,-1)]:
+                    for dr, dc in BISHOP_DELTAS:
                         for dist in range(1, 8):
                             new_row, new_col = row + dr*dist, col + dc*dist
                             if 0 <= new_row < 8 and 0 <= new_col < 8:
@@ -6595,7 +6616,7 @@ def best_move_black(board, bots, en_passant):
 
                 # White Rooks
                 elif piece == 'R':
-                    for dr, dc in [(1,0), (-1,0), (0,1), (0,-1)]:
+                    for dr, dc in ROOK_DELTAS:
                         for dist in range(1, 8):
                             new_row, new_col = row + dr*dist, col + dc*dist
                             if 0 <= new_row < 8 and 0 <= new_col < 8:
@@ -6616,7 +6637,7 @@ def best_move_black(board, bots, en_passant):
 
                 # White Queen
                 elif piece == 'Q':
-                    for dr, dc in [(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)]:
+                    for dr, dc in QUEEN_DELTAS:
                         for dist in range(1, 8):
                             new_row, new_col = row + dr*dist, col + dc*dist
                             if 0 <= new_row < 8 and 0 <= new_col < 8:
@@ -7240,7 +7261,7 @@ def best_move_black(board, bots, en_passant):
 
 
                 elif piece == 'N':
-                    directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                    directions = KNIGHT_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         new_row = row + direction[0]
@@ -7255,7 +7276,7 @@ def best_move_black(board, bots, en_passant):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'N'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -7364,7 +7385,7 @@ def best_move_black(board, bots, en_passant):
                                 position_history[pos_hash] -= 1
 
                 elif piece == 'B':
-                    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = BISHOP_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -7380,7 +7401,7 @@ def best_move_black(board, bots, en_passant):
                                     board[row][col] = '0'
                                     board[new_row][new_col] = 'B'
                                     # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                    pos_hash = tuple(tuple(row) for row in board)
+                                    pos_hash = board_to_hash(board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
                                         current_score = 0.25
@@ -7496,7 +7517,7 @@ def best_move_black(board, bots, en_passant):
                                 break
 
                 elif piece == 'R':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    directions = ROOK_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -7512,7 +7533,7 @@ def best_move_black(board, bots, en_passant):
                                     board[row][col] = '0'
                                     board[new_row][new_col] = 'R'
                                     # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                    pos_hash = tuple(tuple(row) for row in board)
+                                    pos_hash = board_to_hash(board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
                                         current_score = 0.25
@@ -7628,7 +7649,7 @@ def best_move_black(board, bots, en_passant):
                                 break
 
                 elif piece == 'Q':
-                    directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                    directions = QUEEN_DELTAS
                     # OPTIMIZATION: Fixed order - no shuffle needed
                     for direction in directions:
                         for i in range(1, 8):
@@ -7644,7 +7665,7 @@ def best_move_black(board, bots, en_passant):
                                     board[row][col] = '0'
                                     board[new_row][new_col] = 'Q'
                                     # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                    pos_hash = tuple(tuple(row) for row in board)
+                                    pos_hash = board_to_hash(board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
                                         current_score = 0.25
@@ -7776,7 +7797,7 @@ def best_move_black(board, bots, en_passant):
                                     board[row][col] = '0'
                                     board[new_row][new_col] = 'K'
                                     # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                    pos_hash = tuple(tuple(row) for row in board)
+                                    pos_hash = board_to_hash(board)
                                     position_history[pos_hash] += 1
                                     if position_history[pos_hash] >= 3:
                                         current_score = 0.25
@@ -8204,7 +8225,7 @@ def best_move_black(board, bots, en_passant):
             print(output)
         is_draw(board)
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             print('Draw by Repetition')
@@ -8404,7 +8425,7 @@ def best_move_player_black(board):
                         checkmate = False
 
             elif piece == 'n':
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -8415,7 +8436,7 @@ def best_move_player_black(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'n'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = -0.25
@@ -8472,7 +8493,7 @@ def best_move_player_black(board):
                             position_history[pos_hash] -= 1
 
             elif piece == 'b':
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8484,7 +8505,7 @@ def best_move_player_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'b'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -8547,7 +8568,7 @@ def best_move_player_black(board):
                             break
 
             elif piece == 'r':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8559,7 +8580,7 @@ def best_move_player_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'r'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -8632,7 +8653,7 @@ def best_move_player_black(board):
                             break
 
             elif piece == 'q':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8644,7 +8665,7 @@ def best_move_player_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'q'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = -0.25
@@ -8707,7 +8728,7 @@ def best_move_player_black(board):
                             break
 
             elif piece == 'k':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -8718,7 +8739,7 @@ def best_move_player_black(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'k'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = -0.25
@@ -8781,7 +8802,7 @@ def best_move_player_black(board):
         best_row, best_col, target_row, target_col, best_piece = best_move
         captured_piece = board[target_row][target_col]
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             draw = True
@@ -8870,7 +8891,7 @@ def best_move2_black(board):
                         board[row+1][col+1] = captured_piece
 
             elif piece == 'N':
-                directions = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
+                directions = KNIGHT_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -8881,7 +8902,7 @@ def best_move2_black(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'N'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = 0.25
@@ -8903,7 +8924,7 @@ def best_move2_black(board):
                             position_history[pos_hash] -= 1
 
             elif piece == 'B':
-                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = BISHOP_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8915,7 +8936,7 @@ def best_move2_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'B'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -8943,7 +8964,7 @@ def best_move2_black(board):
                             break
 
             elif piece == 'R':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                directions = ROOK_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8955,7 +8976,7 @@ def best_move2_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'R'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -8983,7 +9004,7 @@ def best_move2_black(board):
                             break
 
             elif piece == 'Q':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     for i in range(1, 8):
@@ -8995,7 +9016,7 @@ def best_move2_black(board):
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'Q'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                                pos_hash = tuple(tuple(row) for row in board)
+                                pos_hash = board_to_hash(board)
                                 position_history[pos_hash] += 1
                                 if position_history[pos_hash] >= 3:
                                     current_score = 0.25
@@ -9023,7 +9044,7 @@ def best_move2_black(board):
                             break
 
             elif piece == 'K':
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+                directions = QUEEN_DELTAS
                 # OPTIMIZATION: Fixed order - no shuffle needed
                 for direction in directions:
                     new_row = row + direction[0]
@@ -9034,7 +9055,7 @@ def best_move2_black(board):
                             board[row][col] = '0'
                             board[new_row][new_col] = 'K'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-                            pos_hash = tuple(tuple(row) for row in board)
+                            pos_hash = board_to_hash(board)
                             position_history[pos_hash] += 1
                             if position_history[pos_hash] >= 3:
                                 current_score = 0.25
@@ -9062,7 +9083,7 @@ def best_move2_black(board):
         best_row2, best_col2, target_row2, target_col2, best_piece2 = best_move
         captured_piece2 = board[target_row2][target_col2]
         # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = tuple(tuple(row) for row in board)
+        pos_hash = board_to_hash(board)
         position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             draw = True
