@@ -10,9 +10,9 @@ import re
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from multiprocessing import Pool
-import copy
 import os
 import signal
+import contextlib
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import requests
@@ -38,6 +38,7 @@ ENABLE_MULTIPROCESSING = False
 
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = False
+SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
 
 # Pre-compile regex for performance
 MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
@@ -224,6 +225,14 @@ def log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current
     print_board(board_after_third_move)
     print("=" * 52)
 
+@contextlib.contextmanager
+def _engine_stdout_context():
+    if DEBUG_LOGS or not SUPPRESS_ENGINE_STDOUT:
+        yield
+        return
+    with open(os.devnull, 'w') as devnull, contextlib.redirect_stdout(devnull):
+        yield
+
 def clean_move(move):
     return MOVE_CLEAN_REGEX.sub('', move).replace('O-O-O', '0-0-0').replace('O-O', '0-0')
 
@@ -383,7 +392,7 @@ def _capture_engine_state_to_dict():
         elif key == 'SCORING_MODIFIERS':
             out[key] = dict(v)
         else:
-            out[key] = copy.deepcopy(v)
+            out[key] = v
     return out
 
 
@@ -405,15 +414,34 @@ def _restore_engine_state_from_dict(d):
         elif key == 'SCORING_MODIFIERS':
             g[key] = dict(val)
         else:
-            g[key] = copy.deepcopy(val)
+            g[key] = val
     g['stop_event'] = threading.Event()
     g['timer_thread'] = None
+
+
+def _copy_engine_snapshot(snap):
+    """Copy a game snapshot without generic deepcopy overhead."""
+    if snap is None:
+        return None
+    out = {}
+    for key, val in snap.items():
+        if key == 'position_history':
+            out[key] = dict(val)
+        elif key == 'board':
+            out[key] = fast_copy_board(val)
+        elif key == 'game_moves':
+            out[key] = list(val)
+        elif key in {'scores', 'SCORING_MODIFIERS'}:
+            out[key] = dict(val)
+        else:
+            out[key] = val
+    return out
 
 
 def _set_fresh_start_snapshot_template(snap):
     """Cache a canonical start position for /start when the inline lock is busy."""
     global _FRESH_START_SNAPSHOT_TEMPLATE
-    _FRESH_START_SNAPSHOT_TEMPLATE = copy.deepcopy(snap)
+    _FRESH_START_SNAPSHOT_TEMPLATE = _copy_engine_snapshot(snap)
 
 
 def _new_game_snapshot_when_inline_lock_busy():
@@ -428,7 +456,7 @@ def _new_game_snapshot_when_inline_lock_busy():
             snap0 = _capture_engine_state_to_dict()
             _restore_engine_state_from_dict(saved)
             _set_fresh_start_snapshot_template(snap0)
-    out = copy.deepcopy(_FRESH_START_SNAPSHOT_TEMPLATE)
+    out = _copy_engine_snapshot(_FRESH_START_SNAPSHOT_TEMPLATE)
     out['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
     out['SCORING_VERSION'] = SCORING_VERSION
     out['engine_running'] = True
@@ -586,7 +614,7 @@ def _ensure_dedicated_worker(gid):
     with _GAMES_LOCK:
         if gid not in GAMES:
             return None, None
-        snap = copy.deepcopy(GAMES[gid]['snapshot'])
+        snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     ctx = _get_mp_ctx()
     parent_conn, child_conn = ctx.Pipe(duplex=True)
     lock = threading.Lock()
@@ -915,36 +943,42 @@ def reset_engine_state():
 
 def _compute_engine_move_reply(move_notation, color):
     """Run one engine reply using current module globals (board, etc.)."""
-    notation_move = None
-    if move_notation:
-        notation_move = move_notation.strip()
-        if len(clean_move(move_notation)) == 4 and move_notation != '0-0-0':
-            move_notation = convert_to_long_algebraic(clean_move(move_notation), board, color[0])
-    return_move = None
-    if color == 'white':
+    with _engine_stdout_context():
+        notation_move = None
         if move_notation:
-            if move_notation in {'0-0', 'O-O'}:
-                players_turn_white(board, '0-0', '0-0')
-            elif move_notation in {'0-0-0', 'O-O-O'}:
-                players_turn_white(board, '0-0-0', '0-0-0')
-            else:
-                next_move = move_notation.strip()
-                players_turn_white(board, next_move, notation_move)
-        return_move = best_move_black(board, 'false', 'false')
-        if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
-            return_move = convert_long_move(return_move)
-    else:
-        if move_notation:
-            if move_notation in {'0-0', 'O-O'}:
-                players_turn(board, '0-0', '0-0')
-            elif move_notation in {'0-0-0', 'O-O-O'}:
-                players_turn(board, '0-0-0', '0-0-0')
-            else:
-                next_move = move_notation.strip()
-                players_turn(board, next_move, notation_move)
-        return_move = best_move_function(board, 'false', 'false')
-        if return_move and len(clean_move(return_move)) == 5 and return_move not in {'0-0-0', '0-0'}:
-            return_move = convert_long_move(return_move)
+            notation_move = move_notation.strip()
+            cleaned_move = clean_move(move_notation)
+            if len(cleaned_move) == 4 and move_notation != '0-0-0':
+                move_notation = convert_to_long_algebraic(cleaned_move, board, color[0])
+        return_move = None
+        if color == 'white':
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn_white(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn_white(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn_white(board, next_move, notation_move)
+            return_move = best_move_black(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
+        else:
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn(board, next_move, notation_move)
+            return_move = best_move_function(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
     return return_move
 
 
@@ -963,7 +997,7 @@ def _pool_worker_move_commit(gid, snap, move_notation, color, pool):
         with _GAMES_LOCK:
             if gid not in GAMES:
                 return None, 'Unknown or expired game_id'
-            snap = copy.deepcopy(GAMES[gid]['snapshot'])
+            snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
     with _GAMES_LOCK:
         if gid in GAMES:
@@ -1027,7 +1061,7 @@ def _execute_move_core(gid, snap, move_notation, color):
             if gid not in GAMES:
                 return None, 'Unknown or expired game_id'
             if snap is None:
-                snap = copy.deepcopy(GAMES[gid]['snapshot'])
+                snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
         with _INLINE_ENGINE_LOCK:
             _restore_engine_state_from_dict(snap)
             return_move = _compute_engine_move_reply(move_notation, color)
@@ -1099,10 +1133,10 @@ def get_move():
         if multiple_games and not force_pool_move and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1':
             snap = None
         elif multiple_games:
-            snap = copy.deepcopy(GAMES[gid]['snapshot'])
+            snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
         else:
             # Deep copy so a second overlapping /move cannot share the same dict while the first job runs.
-            snap = copy.deepcopy(GAMES[gid]['snapshot'])
+            snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     move_notation = data.get('move')
     color = data.get('color', 'white')
 
@@ -1263,7 +1297,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     stalemate = False
     scoring_time = 0
     if piece == '0-0':
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         board[7][7] = '0'
         board[7][5] = 'r'
         board[7][6] = 'k'
@@ -1276,7 +1310,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return -1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
@@ -1284,7 +1318,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 current_score = score(board, 'w')
@@ -1306,7 +1340,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             return 10000, scoring_time
             # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         board[7][0] = '0'
         board[7][3] = 'r'
         board[7][2] = 'k'
@@ -1319,7 +1353,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return -1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
@@ -1327,7 +1361,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 current_score = score(board, 'w')
@@ -1349,7 +1383,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             # #sys.exit() # Removed #sys.exit()
 
     else:
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         board[from_row][from_col] = '0'
         board[to_row][to_col] = piece
         if piece == 'P' and to_row == 0:
@@ -1383,7 +1417,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         bad_checkmate = True
                         return -1000, scoring_time
                     if not checkmate and not bad_checkmate and not stalemate:
-                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w')
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
                         board[best_row][best_col] = '0'
                         board[target_row][target_col] = best_piece
                         if target_row == 7 and best_piece == 'P':
@@ -1393,7 +1427,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                             checkmate2 = True
                         if not checkmate2:
-                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b')
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
                             board[best_row2][best_col2] = '0'
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 0 and best_piece2 == 'p':
@@ -1516,7 +1550,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
     stalemate = False
     scoring_time = 0
     if piece == '0-0':
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         # Removed print for performance in parallel processing
         board[0][7] = '0'
         board[0][5] = 'R'
@@ -1529,7 +1563,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -1538,7 +1572,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
@@ -1561,7 +1595,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             return -10000, scoring_time
             # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         # Removed print for performance in parallel processing
         board[0][0] = '0'
         board[0][3] = 'R'
@@ -1574,7 +1608,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             bad_checkmate = True
             return 1000, scoring_time
         if not checkmate and not bad_checkmate:
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
             board[best_row][best_col] = '0'
             board[target_row][target_col] = best_piece
             if target_row == 0 and best_piece == 'p':
@@ -1583,7 +1617,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                 checkmate2 = True
             if not checkmate2:
-                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
                 board[best_row2][best_col2] = '0'
                 board[target_row2][target_col2] = best_piece2
                 if target_row2 == 7 and best_piece2 == 'P':
@@ -1607,7 +1641,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             # #sys.exit() # Removed #sys.exit()
 
     else:
-        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w')
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         board[from_row][from_col] = '0'
         board[to_row][to_col] = piece
         if piece == 'P' and to_row == 7:
@@ -1644,7 +1678,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         bad_checkmate = True
                         return 1000, scoring_time
                     if not checkmate and not bad_checkmate and not stalemate:
-                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b')
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
                         board[best_row][best_col] = '0'
                         board[target_row][target_col] = best_piece
                         if target_row == 0 and best_piece == 'p':
@@ -1653,7 +1687,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                             checkmate2 = True
                         if not checkmate2:
-                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w')
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
                             board[best_row2][best_col2] = '0'
                             board[target_row2][target_col2] = best_piece2
                             if target_row2 == 7 and best_piece2 == 'P':
