@@ -1787,6 +1787,72 @@
             return getTaskAssignmentMode(task) === 'FIXED';
         }
 
+        function isTaskScheduledBefore(first, second, minGap = 5) {
+            if(!first?.date || !first?.time || !second?.date || !second?.time) return false;
+            if(first.date < second.date) return true;
+            if(first.date > second.date) return false;
+            const firstEnd = timeToMin(first.time) + (parseInt(first.duration, 10) || 30);
+            const secondStart = timeToMin(second.time);
+            return firstEnd + minGap <= secondStart;
+        }
+
+        function clearTaskScheduledTime(task) {
+            if(!task || !task.time) return false;
+            task.time = null;
+            task.timeSource = null;
+            task.assignmentMode = 'ADJUSTABLE';
+            return true;
+        }
+
+        function enforceDependencyOrder(startDate = null, endDate = null) {
+            const inRange = (dateStr) => {
+                if(!dateStr) return false;
+                if(startDate && dateStr < startDate) return false;
+                if(endDate && dateStr > endDate) return false;
+                return true;
+            };
+            const byId = new Map((tasks || []).filter(t => t?.id && !t.completed).map(t => [t.id, t]));
+            let cleared = 0;
+            let changed = true;
+
+            while(changed) {
+                changed = false;
+                for(const task of (tasks || [])) {
+                    if(!task || task.completed || !task.time || !inRange(task.date)) continue;
+
+                    const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
+                    for(const refId of afterRefs) {
+                        const ref = byId.get(refId);
+                        if(!ref || ref.completed || !ref.date || !ref.time) continue;
+                        if(!isTaskScheduledBefore(ref, task)) {
+                            if(clearTaskScheduledTime(task)) {
+                                cleared++;
+                                changed = true;
+                            }
+                            break;
+                        }
+                    }
+                    if(changed) break;
+
+                    const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
+                    for(const refId of beforeRefs) {
+                        const ref = byId.get(refId);
+                        if(!ref || ref.completed || !ref.date || !ref.time) continue;
+                        if(!isTaskScheduledBefore(task, ref)) {
+                            if(clearTaskScheduledTime(task)) {
+                                cleared++;
+                                changed = true;
+                            }
+                            break;
+                        }
+                    }
+                    if(changed) break;
+                }
+            }
+
+            return cleared;
+        }
+
         function normalizeCompletionEntry(entry = {}) {
             const actualMinutes = Number.isFinite(Number(entry.actualMinutes))
                 ? Math.max(1, Math.round(Number(entry.actualMinutes)))
@@ -2524,6 +2590,7 @@
         function saveData() {
             pruneExpiredScheduleItems();
             enforceNoOverlappingTimes();
+            enforceDependencyOrder();
             plannerSet('plannerTasksV2', JSON.stringify(tasks));
             plannerSet('plannerCompletionHistoryV1', JSON.stringify(completionHistory));
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
@@ -6808,12 +6875,7 @@
             };
 
             const isBeforeTask = (first, second) => {
-                if(!first?.date || !first?.time || !second?.date || !second?.time) return false;
-                if(first.date < second.date) return true;
-                if(first.date > second.date) return false;
-                const firstEnd = timeToMin(first.time) + (parseInt(first.duration, 10) || 30);
-                const secondStart = timeToMin(second.time);
-                return firstEnd + 5 <= secondStart;
+                return isTaskScheduledBefore(first, second);
             };
 
             const clearDependencyViolations = () => {
@@ -6824,14 +6886,12 @@
 
                 const tryResetAuto = (task, fallbackTask = null) => {
                     if(task && task.timeSource === 'auto' && !task.completed && task.time) {
-                        task.time = null;
-                        task.assignmentMode = 'ADJUSTABLE';
+                        clearTaskScheduledTime(task);
                         resetCount++;
                         return true;
                     }
                     if(fallbackTask && fallbackTask.timeSource === 'auto' && !fallbackTask.completed && fallbackTask.time) {
-                        fallbackTask.time = null;
-                        fallbackTask.assignmentMode = 'ADJUSTABLE';
+                        clearTaskScheduledTime(fallbackTask);
                         resetCount++;
                         return true;
                     }
@@ -6904,6 +6964,15 @@
 
                 const baseBusy = {};
                 const fixedById = new Map();
+                const scheduledById = new Map();
+                tasks.forEach(t => {
+                    if(!t || t.completed || varIds.has(t.id) || !t.date || !t.time) return;
+                    scheduledById.set(t.id, {
+                        date: t.date,
+                        start: timeToMin(t.time),
+                        duration: parseInt(t.duration, 10) || 30
+                    });
+                });
                 processDates.forEach(d => {
                     const fixed = weekTasks.filter(t => t.time && !varIds.has(t.id) && t.date === d);
                     baseBusy[d] = [
@@ -6914,7 +6983,7 @@
                         }),
                         ...getBlockedSlotsForDate(d)
                     ].sort((a, b) => a.start - b.start);
-                    fixed.forEach(t => fixedById.set(t.id, { date: t.date, start: timeToMin(t.time), duration: parseInt(t.duration, 10) || 30 }));
+                    fixed.forEach(t => fixedById.set(t.id, scheduledById.get(t.id)));
                 });
 
                 const assigned = new Map();
@@ -6949,7 +7018,7 @@
                             let valid = true;
                             const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
                             for(const refId of afterRefs) {
-                                const ref = assigned.get(refId) || fixedById.get(refId);
+                                const ref = assigned.get(refId) || fixedById.get(refId) || scheduledById.get(refId);
                                 if(!ref) continue;
                                 if(!isBeforeWithBreak(ref.date, ref.start, ref.duration, date, start, breakMin)) {
                                     valid = false;
@@ -6959,7 +7028,7 @@
                             if(!valid) return;
                             const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
                             for(const refId of beforeRefs) {
-                                const ref = assigned.get(refId) || fixedById.get(refId);
+                                const ref = assigned.get(refId) || fixedById.get(refId) || scheduledById.get(refId);
                                 if(!ref) continue;
                                 if(!isBeforeWithBreak(date, start, duration, ref.date, ref.start, breakMin)) {
                                     valid = false;
@@ -6969,7 +7038,7 @@
                             if(valid) {
                                 const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
                                 for(const refId of differentDayRefs) {
-                                    const ref = assigned.get(refId) || fixedById.get(refId);
+                                    const ref = assigned.get(refId) || fixedById.get(refId) || scheduledById.get(refId);
                                     if(!ref) continue;
                                     if(ref.date === date) {
                                         valid = false;
@@ -7049,6 +7118,15 @@
             if(overlapClears > 0) {
                 updated += overlapClears;
             }
+            const dependencyClears = enforceDependencyOrder(startStr, endStr);
+            if(dependencyClears > 0) {
+                updated += dependencyClears;
+                backtrackResult = solveWithBacktracking();
+            }
+            const finalDependencyClears = enforceDependencyOrder(startStr, endStr);
+            if(finalDependencyClears > 0) {
+                updated += finalDependencyClears;
+            }
 
             const depOrdered = round.depOrdered;
 
@@ -7070,6 +7148,9 @@
             }
             if(overlapClears > 0 && showToast) {
                 showNotification(`Cleared ${overlapClears} overlapping time slot${overlapClears === 1 ? '' : 's'}`, 'info');
+            }
+            if((dependencyClears + finalDependencyClears) > 0 && showToast) {
+                showNotification('Cleared invalid before/after placements and rebuilt the schedule where possible.', 'info');
             }
 
             if(updated > 0) {
