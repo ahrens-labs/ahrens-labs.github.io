@@ -1036,24 +1036,27 @@
                 <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Date</label>
-                        <input id="overrideDateInput" type="date" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
+                        <input id="overrideDateInput" type="date" onchange="refreshOverrideCurrentTimesPreview()" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Start</label>
-                        <input id="overrideStartInput" type="time" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Day Start">
+                        <input id="overrideStartInput" type="time" onchange="ensureOverrideInputsFilledFromSelectedDate()" onblur="ensureOverrideInputsFilledFromSelectedDate()" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Day Start">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">End</label>
-                        <input id="overrideEndInput" type="time" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Day End">
+                        <input id="overrideEndInput" type="time" onchange="ensureOverrideInputsFilledFromSelectedDate()" onblur="ensureOverrideInputsFilledFromSelectedDate()" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Day End">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Lunch Start</label>
-                        <input id="overrideLunchStartInput" type="time" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Lunch Start">
+                        <input id="overrideLunchStartInput" type="time" onchange="ensureOverrideInputsFilledFromSelectedDate()" onblur="ensureOverrideInputsFilledFromSelectedDate()" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Lunch Start">
                     </div>
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Lunch End</label>
-                        <input id="overrideLunchEndInput" type="time" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Lunch End">
+                        <input id="overrideLunchEndInput" type="time" onchange="ensureOverrideInputsFilledFromSelectedDate()" onblur="ensureOverrideInputsFilledFromSelectedDate()" class="h-10 w-full px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" title="Lunch End">
                     </div>
+                </div>
+                <div id="overrideCurrentTimesPreview" class="mt-3 text-xs text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-900/60 border border-slate-200/70 dark:border-slate-700/70 rounded-lg px-3 py-2">
+                    Select a date to see current schedule times for that day.
                 </div>
                 <div class="mt-3">
                     <button onclick="addScheduleDateOverride()" class="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">Save Date Override</button>
@@ -4034,6 +4037,55 @@
             `).join('');
         }
 
+        function refreshOverrideCurrentTimesPreview() {
+            const date = document.getElementById('overrideDateInput')?.value || '';
+            const previewEl = document.getElementById('overrideCurrentTimesPreview');
+            const startInput = document.getElementById('overrideStartInput');
+            const endInput = document.getElementById('overrideEndInput');
+            const lunchStartInput = document.getElementById('overrideLunchStartInput');
+            const lunchEndInput = document.getElementById('overrideLunchEndInput');
+            if(!previewEl) return;
+            if(!date) {
+                previewEl.textContent = 'Select a date to see current schedule times for that day.';
+                return;
+            }
+            const rules = normalizeScheduleRules(scheduleRules);
+            const existingOverride = (rules.dateOverrides || []).find(o => o.date === date);
+            const currentSchedule = getScheduleForDate(date);
+            const sourceLabel = existingOverride ? 'existing override' : 'defaults';
+            const currentStart = minToTime(timeToMin(currentSchedule.start));
+            const currentEnd = minToTime(timeToMin(currentSchedule.end));
+            const currentLunchStart = minToTime(timeToMin(currentSchedule.lunchStart));
+            const currentLunchEnd = minToTime(timeToMin(currentSchedule.lunchEnd));
+            if(startInput) startInput.value = currentStart || '';
+            if(endInput) endInput.value = currentEnd || '';
+            if(lunchStartInput) lunchStartInput.value = currentLunchStart || '';
+            if(lunchEndInput) lunchEndInput.value = currentLunchEnd || '';
+            previewEl.innerHTML = `
+                <span class="font-semibold text-slate-800 dark:text-slate-100">Current (${sourceLabel}) for ${formatDateLabel(date)}:</span>
+                <span class="ml-2">Day ${currentStart}-${currentEnd}</span>
+                <span class="ml-2">Lunch ${currentLunchStart}-${currentLunchEnd}</span>
+            `;
+        }
+
+        function ensureOverrideInputsFilledFromSelectedDate() {
+            const date = document.getElementById('overrideDateInput')?.value || '';
+            if(!date) return;
+            const currentSchedule = getScheduleForDate(date);
+            const currentStart = minToTime(timeToMin(currentSchedule.start));
+            const currentEnd = minToTime(timeToMin(currentSchedule.end));
+            const currentLunchStart = minToTime(timeToMin(currentSchedule.lunchStart));
+            const currentLunchEnd = minToTime(timeToMin(currentSchedule.lunchEnd));
+            const startInput = document.getElementById('overrideStartInput');
+            const endInput = document.getElementById('overrideEndInput');
+            const lunchStartInput = document.getElementById('overrideLunchStartInput');
+            const lunchEndInput = document.getElementById('overrideLunchEndInput');
+            if(startInput && !startInput.value) startInput.value = currentStart || '';
+            if(endInput && !endInput.value) endInput.value = currentEnd || '';
+            if(lunchStartInput && !lunchStartInput.value) lunchStartInput.value = currentLunchStart || '';
+            if(lunchEndInput && !lunchEndInput.value) lunchEndInput.value = currentLunchEnd || '';
+        }
+
         function renderBreakRulesList() {
             const listEl = document.getElementById('breakRulesList');
             if(!listEl) return;
@@ -4083,6 +4135,7 @@
             if(defaultBreakLabelInput) defaultBreakLabelInput.value = defaults.defaultBreakLabel || 'Break';
             const overrideDateInput = document.getElementById('overrideDateInput');
             if(overrideDateInput && !overrideDateInput.value) overrideDateInput.value = getDateStrLocal();
+            refreshOverrideCurrentTimesPreview();
             renderBlockedTimesList();
             renderVacationList();
             renderScheduleOverridesList();
@@ -4164,12 +4217,14 @@
             });
             plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
+            refreshOverrideCurrentTimesPreview();
             reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
             ensureAllEventsScheduled();
             showNotification('Default schedule saved and week auto-updated', 'success');
         }
 
         function addScheduleDateOverride() {
+            ensureOverrideInputsFilledFromSelectedDate();
             const date = document.getElementById('overrideDateInput')?.value || '';
             const start = normalizeClockValue(document.getElementById('overrideStartInput')?.value, '');
             const end = normalizeClockValue(document.getElementById('overrideEndInput')?.value, '');
@@ -4188,6 +4243,7 @@
             });
             plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
+            refreshOverrideCurrentTimesPreview();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(normalized.date)], true);
             ensureAllEventsScheduled();
             showNotification('Date override saved and week auto-updated', 'success');
@@ -4200,6 +4256,7 @@
             });
             plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
+            refreshOverrideCurrentTimesPreview();
             reAutoScheduleWeeks([getWeekKeyFromDateStr(dateStr)], true);
             ensureAllEventsScheduled();
             showNotification('Date override removed and week auto-updated', 'success');
