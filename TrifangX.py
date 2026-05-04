@@ -357,13 +357,15 @@ GAMES = {}
 GAME_LOCK_TTL = 3600  # seconds before a silent-abandoned game is auto-removed
 MAX_CONCURRENT_GAMES = min(8, max(2, (os.cpu_count() or 2) * 2))
 MAX_ACTIVE_GAMES_PER_ACCOUNT = 3
-MOVE_POOL_PROCESSES = min(4, max(2, os.cpu_count() or 2))
+MOVE_POOL_PROCESSES = min(8, max(2, os.cpu_count() or 2))
 _MOVE_POOL = None
 _MOVE_POOL_LOCK = threading.Lock()
 _INLINE_ENGINE_LOCK = threading.Lock()  # single-game and inline fallback (serialized)
 _GAME_MOVE_LOCKS = {}
 _GAME_MOVE_LOCKS_LOCK = threading.Lock()
-# When len(GAMES)>1: one dedicated subprocess per game_id holds engine globals; moves are cheap IPC.
+# One dedicated subprocess per game_id (when enabled) holds engine globals; moves are cheap IPC.
+# Tried for every active game so adding a second session does not move game 1 from the fork pool
+# onto a dedicated worker mid-flight, and concurrent games do not share pool workers.
 _DEDICATED_WORKERS = {}  # gid -> {'proc', 'conn', 'lock'}
 _DEDICATED_WORKERS_LOCK = threading.Lock()
 _MP_CTX = None
@@ -897,6 +899,15 @@ def start_engine():
             'snapshot': snap,
             'account': account_key,
         }
+    if os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1':
+
+        def _warm_dedicated_worker():
+            try:
+                _ensure_dedicated_worker(gid)
+            except Exception:
+                pass
+
+        threading.Thread(target=_warm_dedicated_worker, daemon=True).start()
     return jsonify({"message": "Engine started and state reset", "game_id": gid})
 
 
@@ -1085,12 +1096,12 @@ def _normalize_engine_move_for_json(return_move):
 def _execute_move_core(gid, snap, move_notation, color):
     """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
 
-    Single active game (n<=1): prefer the fork pool when available so search does not hold
-    _INLINE_ENGINE_LOCK — otherwise /stop during engine think blocks the next /start until search ends.
-    Multiple games: one dedicated subprocess per game_id when enabled; pool fallback before inline.
-    TRIFANGX_DISABLE_MOVE_POOL=1 or unavailable pool forces in-process path under _INLINE_ENGINE_LOCK.
-    TRIFANGX_DISABLE_DEDICATED_WORKERS=1 forces in-process only for multi-game.
-    TRIFANGX_FORCE_MOVE_POOL=1 requires fork pool (fails if pool cannot start).
+    Prefer one dedicated subprocess per game_id when enabled (any number of games) so each search
+    runs in its own process and concurrent games do not share fork-pool workers or switch paths
+    when a second game starts. Fork pool is fallback after dedicated failure; TRIFANGX_FORCE_MOVE_POOL=1
+    uses only the pool (no dedicated). TRIFANGX_DISABLE_MOVE_POOL=1 or unavailable pool skips pool.
+    TRIFANGX_DISABLE_DEDICATED_WORKERS=1 skips dedicated (pool then inline). Inline path holds
+    _INLINE_ENGINE_LOCK so /stop during engine think can block the next /start until search ends.
     """
     move_lock = _get_game_move_lock(gid)
     with move_lock:
@@ -1107,26 +1118,26 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
         if force_pool and pool is None:
             force_pool = False
 
-        if pool is not None and (force_pool or n <= 1):
+        # Force fork-pool only (debug / tuning): never try dedicated first.
+        if pool is not None and force_pool:
             out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
             if err is None:
                 return out, None
-            print(f'TrifangX: fork pool move failed ({err}); {"no fallback" if force_pool else "falling back"}')
-            if force_pool:
-                return None, err
+            print(f'TrifangX: fork pool move failed ({err}); no fallback per TRIFANGX_FORCE_MOVE_POOL')
+            return None, err
 
-        use_dedicated = n > 1 and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
+        use_dedicated = os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
         if use_dedicated:
             out, err = _dedicated_worker_move(gid, move_notation, color)
             if err is None:
                 return out, None
             print(f'dedicated worker: {err}; falling back to fork pool or inline')
 
-        if pool is not None and n > 1:
+        if pool is not None:
             out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
             if err is None:
                 return out, None
-            print(f'TrifangX: fork pool move after dedicated failed ({err}); falling back to inline')
+            print(f'TrifangX: fork pool move failed ({err}); falling back to inline')
 
         with _GAMES_LOCK:
             if gid not in GAMES:
@@ -1199,9 +1210,10 @@ def get_move():
                 return jsonify({'error': 'Access denied'}), 403
         multiple_games = len(GAMES) > 1
         force_pool_move = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
-        # Multi-game + dedicated subprocess: worker holds state; no snapshot copy for /move.
-        # Multi-game + pool or inline fallback: need a deep copy when not using shallow single-game ref.
-        if multiple_games and not force_pool_move and os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1':
+        dedicated_ok = os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
+        # Dedicated worker holds canonical state in the child process — skip snapshot copy on /move
+        # whenever we may use that path (single or multi game), so concurrent games do less work.
+        if dedicated_ok and not force_pool_move:
             snap = None
         elif multiple_games:
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
