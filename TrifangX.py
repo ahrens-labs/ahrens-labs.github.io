@@ -37,25 +37,6 @@ except (AttributeError, OSError, ValueError):
 # If you move to a dedicated VM with real multi-core CPU, you can flip this on.
 ENABLE_MULTIPROCESSING = False
 
-
-def _env_int_bounded(name, default, lo, hi):
-    """Parse int from environment with sane bounds (used for LRU cache sizing)."""
-    try:
-        v = int(os.environ.get(name, str(default)))
-        if v < lo:
-            return lo
-        if v > hi:
-            return hi
-        return v
-    except (TypeError, ValueError):
-        return default
-
-
-# LRU cache sizes for `score` / `is_king_in_check` memoization (same logic, fewer repeat evals).
-# Override with TRIFANGX_SCORE_CACHE_MAX / TRIFANGX_CHECK_CACHE_MAX if you have RAM to spare.
-_SCORE_CACHE_MAX = _env_int_bounded("TRIFANGX_SCORE_CACHE_MAX", 400_000, 10_000, 5_000_000)
-_CHECK_CACHE_MAX = _env_int_bounded("TRIFANGX_CHECK_CACHE_MAX", 600_000, 10_000, 8_000_000)
-
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
 DEBUG_LOGS = False
 SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
@@ -1575,8 +1556,11 @@ SCORING_MODIFIERS = {
 # Position cache for memoization - avoid re-evaluating same positions
 
 def board_to_hash(board):
-    """Convert board to hashable tuple for caching (immutable snapshot of the 8 ranks)."""
-    return tuple(map(tuple, board))
+    """Convert board to hashable tuple for caching"""
+    return (
+        tuple(board[0]), tuple(board[1]), tuple(board[2]), tuple(board[3]),
+        tuple(board[4]), tuple(board[5]), tuple(board[6]), tuple(board[7])
+    )
 
 # -----------------------------------------------------------------------------
 # Engine caches
@@ -1588,7 +1572,7 @@ def board_to_hash(board):
 # when game state or SCORING_MODIFIERS change.
 SCORING_VERSION = 0
 
-@lru_cache(maxsize=_SCORE_CACHE_MAX)
+@lru_cache(maxsize=200_000)
 def _score_cached(board_hash, turn, castled, castled_white, scoring_version):
     # IMPORTANT: many helper functions (eg `is_checkmate`) simulate moves by
     # mutating `board`. Our cache key uses an immutable tuple-of-tuples, but we
@@ -1602,10 +1586,10 @@ def _clear_engine_caches():
 
 # Cache for repeated "is king in check?" calls.
 # This is safe because it depends only on board + king square + side.
-@lru_cache(maxsize=_CHECK_CACHE_MAX)
+@lru_cache(maxsize=300_000)
 def _is_king_in_check_cached(board_hash, king_row, king_col, player):
-    # `board_hash` is already an immutable snapshot; the check routine is read-only on `board`.
-    return _is_king_in_check_uncached(board_hash, king_row, king_col, player)
+    board = [list(r) for r in board_hash]
+    return _is_king_in_check_uncached(board, king_row, king_col, player)
 
 def evaluate_chunks_black(chunk):
     # Optimized: removed excessive printing for performance
