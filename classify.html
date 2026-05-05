@@ -2043,6 +2043,11 @@
         }
         function minToTime(m) { const h = Math.floor(m/60); const min = m%60; return `${h%12||12}:${String(min).padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
         function getTaskDueDate(t) { return t?.dueDate || t?.date || null; }
+        function getTaskDifferentDayConstraintDate(task) {
+            if(!task) return null;
+            if(task.completed && task.completedDate) return task.completedDate;
+            return task.date || null;
+        }
         function formatDateLabel(dateStr) {
             if(!dateStr) return '';
             const d = new Date(`${dateStr}T00:00:00`);
@@ -2990,8 +2995,9 @@
                 }
                 for(const refId of differentDayRefs) {
                     const refTask = tasks.find(x => x.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(refTask.date === dateStr) {
+                    if(!refTask) continue;
+                    const refConstraintDate = getTaskDifferentDayConstraintDate(refTask);
+                    if(refConstraintDate === dateStr) {
                         maxEnd = -1;
                         break;
                     }
@@ -5666,6 +5672,7 @@
             const proceedSave = () => {
                 if(repeatRule.type === 'none') {
                     const previousTask = editingId ? tasks.find(t => t.id === editingId) : null;
+                    const isCreatingNewTask = !editingId;
                     if(existingTask?.repeatGroupId) {
                         tasks = tasks.map(t => t.id === editingId
                             ? { ...normalizedTaskData, repeatGroupId: null, repeatWeekKey: null, repeatRule: normalizeRepeatRule({ type: 'none' }) }
@@ -5695,8 +5702,17 @@
                     impactedWeeks.forEach(weekKey => {
                         planWeek(weekKey, false);
                     });
+                    if(isCreatingNewTask) {
+                        const targetWeek = normalizedTaskData.date
+                            ? getWeekKeyFromDateStr(normalizedTaskData.date)
+                            : normalizedTaskData.week;
+                        if(targetWeek) {
+                            autoPlanWeekInternal(targetWeek, { showToast: false, persist: false, switchToCalendar: false });
+                        }
+                    }
 
                     saveData();
+                    if(isCreatingNewTask) syncClassifyDataToCloud();
                     clearForm();
                     closeModal();
                     return;
@@ -6482,15 +6498,33 @@
             return { assigned, preserved, rebuilt };
         }
 
-        function autoPlanWeek() {
-            const currentWeekKey = getCurrentWeekKey();
-            const { assigned, preserved, rebuilt } = replanWeekFromScratch(currentWeekKey, true);
-            saveData();
-            setCalendarViewMode('week');
-            switchTab('calendar');
+        function autoPlanWeekInternal(weekKey = getCurrentWeekKey(), options = {}) {
+            const {
+                showToast = false,
+                persist = false,
+                switchToCalendar = false
+            } = options || {};
+            const targetWeekKey = weekKey || getCurrentWeekKey();
+            const { assigned, preserved, rebuilt } = replanWeekFromScratch(targetWeekKey, true);
+            if(persist) saveData();
+            if(switchToCalendar) {
+                setCalendarViewMode('week');
+                switchTab('calendar');
+            }
             const assignmentsLabel = assigned === 1 ? 'task' : 'tasks';
             const lockedLabel = preserved === 1 ? 'user-locked placement' : 'user-locked placements';
-            showNotification(`Replanned ${currentWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
+            if(showToast) {
+                showNotification(`Replanned ${targetWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
+            }
+            return { assigned, preserved, rebuilt, weekKey: targetWeekKey };
+        }
+
+        function autoPlanWeek() {
+            autoPlanWeekInternal(getCurrentWeekKey(), {
+                showToast: true,
+                persist: true,
+                switchToCalendar: true
+            });
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12) {
@@ -6693,8 +6727,9 @@
                 }
                 for(const refId of differentDayRefs) {
                     const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask || refTask.completed) continue;
-                    if(refTask.date === targetDate) return null;
+                    if(!refTask) continue;
+                    const refConstraintDate = getTaskDifferentDayConstraintDate(refTask);
+                    if(refConstraintDate === targetDate) return null;
                 }
                 if(constrainedStart + duration > constrainedMaxEnd) return null;
 
@@ -7096,8 +7131,10 @@
                                 const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
                                 for(const refId of differentDayRefs) {
                                     const ref = assigned.get(refId) || fixedById.get(refId) || scheduledById.get(refId);
-                                    if(!ref) continue;
-                                    if(ref.date === date) {
+                                    const refTask = tasks.find(t => t.id === refId);
+                                    const refConstraintDate = ref?.date || getTaskDifferentDayConstraintDate(refTask);
+                                    if(!refConstraintDate) continue;
+                                    if(refConstraintDate === date) {
                                         valid = false;
                                         break;
                                     }
