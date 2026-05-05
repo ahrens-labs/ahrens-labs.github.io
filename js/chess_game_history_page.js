@@ -128,16 +128,53 @@
   }
 
   function choosePgnExportAction() {
-    const choice = window.prompt(
-      'Export PGN options:\nD = Download .pgn file\nC = Copy PGN to clipboard\n\nType D or C:',
-      'D'
-    );
-    if (choice == null) return null;
-    const normalized = String(choice).trim().toLowerCase();
-    if (normalized === 'd' || normalized === 'download') return 'download';
-    if (normalized === 'c' || normalized === 'copy') return 'copy';
-    alert('Please choose D (download) or C (copy).');
-    return null;
+    return new Promise(function (resolve) {
+      const existing = document.getElementById('pgn-export-action-modal');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'pgn-export-action-modal';
+      overlay.style.cssText =
+        'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:999999;';
+
+      const modal = document.createElement('div');
+      modal.style.cssText =
+        'width:min(92vw,420px);background:#fff;border-radius:12px;padding:20px;box-shadow:0 16px 40px rgba(0,0,0,0.28);font-family:Inter,Arial,sans-serif;';
+      modal.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;">' +
+        '<h3 style="margin:0;font-size:1.1rem;color:#1f2937;">Export PGN</h3>' +
+        '<button type="button" id="pgn-export-close-btn" style="border:none;background:transparent;font-size:1.1rem;cursor:pointer;color:#6b7280;">X</button>' +
+        '</div>' +
+        '<p style="margin:0 0 14px 0;color:#374151;font-size:0.95rem;">Choose how you want to export this PGN.</p>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+        '<button type="button" id="pgn-export-download-btn" style="flex:1 1 160px;padding:10px 12px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;">Download PGN</button>' +
+        '<button type="button" id="pgn-export-copy-btn" style="flex:1 1 160px;padding:10px 12px;border:none;border-radius:8px;background:#059669;color:#fff;font-weight:600;cursor:pointer;">Copy PGN</button>' +
+        '<button type="button" id="pgn-export-cancel-btn" style="flex:1 1 100%;padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-weight:600;cursor:pointer;">Cancel</button>' +
+        '</div>';
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      function done(action) {
+        overlay.remove();
+        resolve(action);
+      }
+
+      overlay.addEventListener('click', function (ev) {
+        if (ev.target === overlay) done(null);
+      });
+      modal.querySelector('#pgn-export-download-btn').addEventListener('click', function () {
+        done('download');
+      });
+      modal.querySelector('#pgn-export-copy-btn').addEventListener('click', function () {
+        done('copy');
+      });
+      modal.querySelector('#pgn-export-cancel-btn').addEventListener('click', function () {
+        done(null);
+      });
+      modal.querySelector('#pgn-export-close-btn').addEventListener('click', function () {
+        done(null);
+      });
+    });
   }
 
   function gameHistoryRecordIsFavorite(rec) {
