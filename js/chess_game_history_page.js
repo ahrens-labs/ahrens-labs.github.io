@@ -103,6 +103,43 @@
     window.URL.revokeObjectURL(url);
   }
 
+  async function copyPgnToClipboard(pgn) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(pgn);
+      return true;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = pgn;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      ok = false;
+    }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function choosePgnExportAction() {
+    const choice = window.prompt(
+      'Export PGN options:\nD = Download .pgn file\nC = Copy PGN to clipboard\n\nType D or C:',
+      'D'
+    );
+    if (choice == null) return null;
+    const normalized = String(choice).trim().toLowerCase();
+    if (normalized === 'd' || normalized === 'download') return 'download';
+    if (normalized === 'c' || normalized === 'copy') return 'copy';
+    alert('Please choose D (download) or C (copy).');
+    return null;
+  }
+
   function gameHistoryRecordIsFavorite(rec) {
     return !!(rec && rec.favorite === true);
   }
@@ -475,7 +512,7 @@
     refreshGameHistoryModal();
   }
 
-  function exportGameHistoryRecordAt(index) {
+  async function exportGameHistoryRecordAt(index) {
     const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
     const rec = items[index];
     if (!rec) {
@@ -496,7 +533,18 @@
     const datePart =
       (rec.savedAt || '').slice(0, 10).replace(/-/g, '.') ||
       new Date().toISOString().split('T')[0].replace(/-/g, '.');
-    downloadPgnString(pgn, 'chess_game_' + slug + '_' + datePart);
+    const action = choosePgnExportAction();
+    if (!action) return;
+    if (action === 'download') {
+      downloadPgnString(pgn, 'chess_game_' + slug + '_' + datePart);
+      return;
+    }
+    const copied = await copyPgnToClipboard(pgn);
+    if (copied) {
+      alert('PGN copied to clipboard.');
+    } else {
+      alert('Could not copy PGN to clipboard. Please try download instead.');
+    }
   }
 
   function playGameHistoryRecordAt(index) {
