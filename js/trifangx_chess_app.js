@@ -1405,6 +1405,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     let _heartbeatInterval = null;
+    /** Set after we show "session ended" so heartbeat/move do not spam the user. */
+    let _staleEngineSessionHandled = false;
 
     let _statusPollInterval = null;
     /** Last successful /status occupied value — kept on fetch errors so the waiting-room “board lock” does not flicker off between polls. */
@@ -1549,18 +1551,71 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         });
     }
 
+    function resetStaleEngineSessionFlag() {
+      _staleEngineSessionHandled = false;
+    }
+
+    /**
+     * Server no longer has this game_id (other tab closed, /stop, or TTL prune).
+     * Stop network churn and make it obvious the user should start again from the lobby.
+     */
+    function handleTrifangxStaleEngineSession(source) {
+      if (_staleEngineSessionHandled) return;
+      _staleEngineSessionHandled = true;
+      try {
+        stopHeartbeat();
+        if (_statusPollInterval) {
+          clearInterval(_statusPollInterval);
+          _statusPollInterval = null;
+        }
+        stopPregameStatusPolling();
+      } catch (e) {}
+      clearEngineTabSession();
+      clearTrifangxLiveUrlAndSnapshot();
+      try {
+        gameOver = true;
+      } catch (eG) {}
+      const mc = document.getElementById('move-timer-container');
+      if (mc) {
+        mc.innerHTML =
+          '<span style="color:#c0392b;">Engine session ended.</span> ' +
+          '<span style="font-size:0.9rem;">If you closed another tab with this game, or it timed out, start again from the chess lobby.</span>';
+      }
+      if (typeof showNotification === 'function') {
+        showNotification(
+          'This engine game is no longer active (closed in another tab or expired). Return to the lobby to play again.',
+          'error'
+        );
+      }
+      checkEngineStatus().catch(function () {});
+    }
+
     function startHeartbeat() {
       stopHeartbeat();
       _heartbeatInterval = setInterval(() => {
         const gid = getEngineGameId();
-        if (!gid) return;
+        if (!gid || _staleEngineSessionHandled) return;
         const uname = getTrifangxEngineAccountUsername();
         const hb = { game_id: gid };
         if (uname) hb.username = uname;
         fetch(`${ENGINE_BASE}/heartbeat`, { method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(hb) })
-          .catch(() => {}); // silent — just keeps the lock alive
+          .then(function (r) {
+            if (!r || r.ok) return null;
+            return r.json().catch(function () { return {}; });
+          })
+          .then(function (j) {
+            if (!j) return;
+            const err = (j && typeof j.error === 'string' && j.error) || '';
+            if (
+              err.indexOf('Unknown or expired game_id') !== -1 ||
+              err.indexOf('game_id required') !== -1
+            ) {
+              handleTrifangxStaleEngineSession('heartbeat');
+            }
+          })
+          .catch(function () {});
       }, 30000);
     }
 
@@ -6334,6 +6389,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
     function startRematch() {
       closeRematchModal();
+      resetStaleEngineSessionFlag();
       if (isHistoryReplayMode) {
         isHistoryReplayMode = false;
         replayModeBackup = null;
@@ -9729,13 +9785,32 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const hbBody = { game_id: gid };
           const uHb = getTrifangxEngineAccountUsername();
           if (uHb) hbBody.username = uHb;
-          fetch(`${ENGINE_BASE}/heartbeat`, {
+          const hbResp = await fetch(`${ENGINE_BASE}/heartbeat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(hbBody),
-          }).catch(function () {});
+          });
+          if (!hbResp.ok) {
+            let hbErr = '';
+            try {
+              const hj = await hbResp.json();
+              hbErr = (hj && hj.error) || '';
+            } catch (eJ) {}
+            if (
+              hbResp.status === 400 &&
+              (hbErr.indexOf('Unknown or expired game_id') !== -1 ||
+                hbErr.indexOf('game_id required') !== -1)
+            ) {
+              clearEngineGameId();
+              try {
+                sessionStorage.removeItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+              } catch (eSnap) {}
+              return false;
+            }
+          }
         } catch (eHb) {}
 
+        resetStaleEngineSessionFlag();
         markEngineLockHeldByThisTab();
         startHeartbeat();
         stopPregameStatusPolling();
@@ -9899,6 +9974,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       // Acquire a game slot before leaving pregame. /status can disagree with /start (e.g. race or
       // timing). 503 = max concurrent games; 409 is reserved for legacy conflicts. Show the waiting-room
       // banner while #choose-side is still visible when start fails for capacity.
+      resetStaleEngineSessionFlag();
       let startData;
       try {
         startData = await sendEngineCommand('start', {
@@ -10720,6 +10796,20 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           if (typeof showNotification === 'function') {
             showNotification(err.message, 'error');
           }
+          return;
+        }
+        const msg = err && err.message ? String(err.message) : '';
+        if (
+          msg.indexOf('Unknown or expired game_id') !== -1 ||
+          msg.indexOf('Game ended') !== -1
+        ) {
+          handleTrifangxStaleEngineSession('move');
+          setTimeout(function () {
+            showRematchModal(
+              'Session ended',
+              'This game is no longer on the server (often because another tab was closed). Start a new game from the lobby?'
+            );
+          }, 500);
           return;
         }
         // Replaced alert() with UI message

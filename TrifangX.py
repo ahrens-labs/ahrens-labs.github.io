@@ -489,6 +489,7 @@ def _new_game_snapshot_when_inline_lock_busy():
 
 
 def _prune_stale_games():
+    global engine_running
     now = time.time()
     stale = []
     with _GAMES_LOCK:
@@ -497,9 +498,19 @@ def _prune_stale_games():
                 stale.append(gid)
         for gid in stale:
             GAMES.pop(gid, None)
+        remaining_after = len(GAMES)
     for gid in stale:
+        with _MOVE_JOBS_LOCK:
+            pend_jid = _PENDING_MOVE_JOB_BY_GAME.pop(gid, None)
+            if pend_jid:
+                rec = MOVE_JOBS.get(pend_jid)
+                if rec and rec.get('status') == 'pending':
+                    rec['status'] = 'error'
+                    rec['error'] = 'Game ended'
         _shutdown_dedicated_worker(gid)
         _drop_game_move_lock(gid)
+    if stale:
+        engine_running = remaining_after > 0
 
 
 def _shutdown_move_pool():
