@@ -781,6 +781,9 @@ black_king_row = 7
 black_king_col = 4
 
 board = initialize_board()
+# Seed the fresh-start snapshot template at boot so /start can clone a new game
+# without ever needing to wait on _INLINE_ENGINE_LOCK while another game thinks.
+_set_fresh_start_snapshot_template(_capture_engine_state_to_dict())
 
 # --- Flask App Initialization (ONLY ONCE) ---
 app = Flask(__name__)
