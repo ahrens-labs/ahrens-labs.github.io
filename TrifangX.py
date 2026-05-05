@@ -71,6 +71,8 @@ BISHOP_DELTAS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 QUEEN_DELTAS = ROOK_DELTAS + BISHOP_DELTAS
 WHITE_PAWN_CAPTURE_DELTAS = ((1, 1), (1, -1))
 BLACK_PAWN_CAPTURE_DELTAS = ((-1, 1), (-1, -1))
+WHITE_PROMOTION_PIECES = ('Q', 'R', 'B', 'N')
+BLACK_PROMOTION_PIECES = ('q', 'r', 'b', 'n')
 
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
@@ -6095,52 +6097,51 @@ def best_move2(board):
 
                     elif direction == 2 and row < 7 and board[row-1][col] == '0':
                         board[row][col] = '0'
-                        board[row-1][col] = 'p'
-                        if row-1 == 0:
-                            board[row-1][col] = 'q'
-                        if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            current_score = score(board, 'w')
-                            score_time += 0
-                            if current_score > previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row-1, col, 'p')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row-1, col, 'p'))
+                        promotion_choices = BLACK_PROMOTION_PIECES if row - 1 == 0 else ('p',)
+                        for promoted_piece in promotion_choices:
+                            board[row-1][col] = promoted_piece
+                            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
+                                current_score = score(board, 'w')
+                                score_time += 0
+                                if current_score > previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row-1, col, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row-1, col, promoted_piece))
                         board[row][col] = 'p'
                         board[row-1][col] = '0'
 
                     elif direction == 3 and row < 7 and col > 0 and board[row-1][col-1] in WHITE_PIECES:
                         captured_piece = board[row-1][col-1]
                         board[row][col] = '0'
-                        board[row-1][col-1] = 'p'
-                        if row-1 == 0:
-                            board[row-1][col-1] = 'q'
-                        if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            current_score = score(board, 'w')
-                            score_time += 0
-                            if current_score > previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row-1, col-1, 'p')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row-1, col-1, 'p'))
+                        promotion_choices = BLACK_PROMOTION_PIECES if row - 1 == 0 else ('p',)
+                        for promoted_piece in promotion_choices:
+                            board[row-1][col-1] = promoted_piece
+                            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
+                                current_score = score(board, 'w')
+                                score_time += 0
+                                if current_score > previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row-1, col-1, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row-1, col-1, promoted_piece))
                         board[row][col] = 'p'
                         board[row-1][col-1] = captured_piece
 
                     elif direction == 4 and row > 0 and col < 7 and board[row-1][col+1] in WHITE_PIECES:
                         captured_piece = board[row-1][col+1]
                         board[row][col] = '0'
-                        board[row-1][col+1] = 'p'
-                        if row-1 == 0:
-                            board[row-1][col+1] = 'q'
-                            promotion = True
-                        if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                            current_score = score(board, 'w')
-                            score_time += 0
-                            if current_score > previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row-1, col+1, 'p')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row-1, col+1, 'p'))
+                        promotion_choices = BLACK_PROMOTION_PIECES if row - 1 == 0 else ('p',)
+                        for promoted_piece in promotion_choices:
+                            board[row-1][col+1] = promoted_piece
+                            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
+                                current_score = score(board, 'w')
+                                score_time += 0
+                                if current_score > previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row-1, col+1, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row-1, col+1, promoted_piece))
                         board[row][col] = 'p'
                         board[row-1][col+1] = captured_piece
 
@@ -8874,49 +8875,48 @@ def best_move2_black(board):
 
                     elif direction == 2 and row < 7 and board[row+1][col] == '0':
                         board[row][col] = '0'
-                        board[row+1][col] = 'P'
-                        if row+1 == 7:
-                            board[row+1][col] = 'Q'
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            current_score = score(board, 'b')
-                            if current_score < previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row+1, col, 'P')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row+1, col, 'P'))
+                        promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                        for promoted_piece in promotion_choices:
+                            board[row+1][col] = promoted_piece
+                            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                                current_score = score(board, 'b')
+                                if current_score < previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row+1, col, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row+1, col, promoted_piece))
                         board[row][col] = 'P'
                         board[row+1][col] = '0'
 
                     elif direction == 3 and row < 7 and col > 0 and board[row+1][col-1] in BLACK_PIECES:
                         captured_piece = board[row+1][col-1]
                         board[row][col] = '0'
-                        board[row+1][col-1] = 'P'
-                        if row+1 == 7:
-                            board[row+1][col-1] = 'Q'
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            current_score = score(board, 'b')
-                            if current_score < previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row+1, col-1, 'P')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row+1, col-1, 'P'))
+                        promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                        for promoted_piece in promotion_choices:
+                            board[row+1][col-1] = promoted_piece
+                            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                                current_score = score(board, 'b')
+                                if current_score < previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row+1, col-1, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row+1, col-1, promoted_piece))
                         board[row][col] = 'P'
                         board[row+1][col-1] = captured_piece
 
                     elif direction == 4 and row < 7 and col < 7 and board[row+1][col+1] in BLACK_PIECES:
                         captured_piece = board[row+1][col+1]
                         board[row][col] = '0'
-                        board[row+1][col+1] = 'P'
-                        if row+1 == 7:
-                            board[row+1][col+1] = 'Q'
-                            promotion = True
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            current_score = score(board, 'b')
-                            if current_score < previous_score:
-                                previous_score = current_score
-                                best_moves = [(row, col, row+1, col+1, 'P')]
-                            elif current_score == previous_score:
-                                best_moves.append((row, col, row+1, col+1, 'P'))
+                        promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                        for promoted_piece in promotion_choices:
+                            board[row+1][col+1] = promoted_piece
+                            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                                current_score = score(board, 'b')
+                                if current_score < previous_score:
+                                    previous_score = current_score
+                                    best_moves = [(row, col, row+1, col+1, promoted_piece)]
+                                elif current_score == previous_score:
+                                    best_moves.append((row, col, row+1, col+1, promoted_piece))
                         board[row][col] = 'P'
                         board[row+1][col+1] = captured_piece
 
