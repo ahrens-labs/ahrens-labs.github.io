@@ -4464,6 +4464,36 @@ def extract_moves(pgn_str):
     return re.findall(pattern, pgn_str)
 
 
+def _promotion_piece_from_notation(move_notation, is_white_piece):
+    """
+    Parse promotion choice from SAN/UCI text.
+    Supports:
+      - SAN: e8=Q, exd8=N, ... (+/# suffix ignored)
+      - UCI: e7e8q, e2e1n
+    Returns engine-piece letter with correct case, defaulting to queen.
+    """
+    default_piece = 'Q' if is_white_piece else 'q'
+    if not move_notation:
+        return default_piece
+    raw = str(move_notation).strip()
+    if not raw:
+        return default_piece
+
+    # SAN style "...=Q" (may include check/mate suffix)
+    m = re.search(r'=\s*([QRBNqrbn])', raw)
+    if m:
+        p = m.group(1).upper()
+        return p if is_white_piece else p.lower()
+
+    # UCI style "...q" (exactly from-to + promotion piece)
+    uci = re.search(r'^[a-h][1-8][a-h][1-8]([qrbnQRBN])$', raw)
+    if uci:
+        p = uci.group(1).upper()
+        return p if is_white_piece else p.lower()
+
+    return default_piece
+
+
 def players_turn(board, next_move, notation_move):
     global number_of_moves, white_king_row, white_king_col, white_move_count
     blind = 'flase'
@@ -4561,14 +4591,8 @@ def players_turn(board, next_move, notation_move):
 
             if piece == 'P' and to_row == 7:
                 board[from_row][from_col] = '0'
-                # Check for underpromotion (=R, =B, =N instead of =Q)
-                promotion_piece = 'Q'  # Default to queen
-                if '=R' in next_move or '=r' in next_move:
-                    promotion_piece = 'R'
-                elif '=B' in next_move or '=b' in next_move:
-                    promotion_piece = 'B'
-                elif '=N' in next_move or '=n' in next_move:
-                    promotion_piece = 'N'
+                # Parse promotion from original notation (cleaned move text loses "=X").
+                promotion_piece = _promotion_piece_from_notation(original_move_notation, True)
                 board[to_row][to_col] = promotion_piece
             else:
                 board[from_row][from_col] = '0'
@@ -4683,14 +4707,8 @@ def players_turn_white(board, next_move, notation_move):
 
             if piece == 'p' and to_row == 0:
                 board[from_row][from_col] = '0'
-                # Check for underpromotion (=r, =b, =n instead of =q)
-                promotion_piece = 'q'  # Default to queen
-                if '=R' in next_move or '=r' in next_move:
-                    promotion_piece = 'r'
-                elif '=B' in next_move or '=b' in next_move:
-                    promotion_piece = 'b'
-                elif '=N' in next_move or '=n' in next_move:
-                    promotion_piece = 'n'
+                # Parse promotion from original notation (cleaned move text loses "=X").
+                promotion_piece = _promotion_piece_from_notation(original_move_notation, False)
                 board[to_row][to_col] = promotion_piece
             else:
                 board[from_row][from_col] = '0'
