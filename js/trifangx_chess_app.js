@@ -6039,7 +6039,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '.');
       const pgn = buildPgnStringForRecord(result);
       const slug = slugForPgnFilename(getChessPgnPlayerName());
-      const action = choosePgnExportAction();
+      const action = await choosePgnExportAction();
       if (!action) return;
       if (action === 'download') {
         downloadPgnString(pgn, 'chess_game_' + slug + '_' + dateStr);

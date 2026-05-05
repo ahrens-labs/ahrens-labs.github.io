@@ -585,7 +585,7 @@
     const datePart =
       (rec.savedAt || '').slice(0, 10).replace(/-/g, '.') ||
       new Date().toISOString().split('T')[0].replace(/-/g, '.');
-    const action = choosePgnExportAction();
+    const action = await choosePgnExportAction();
     if (!action) return;
     if (action === 'download') {
       downloadPgnString(pgn, 'chess_game_' + slug + '_' + datePart);
