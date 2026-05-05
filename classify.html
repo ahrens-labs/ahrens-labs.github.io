@@ -3140,6 +3140,9 @@
                                 </div>
                                 <div class="flex items-center gap-2">
                                     ${t.time ? `<button onclick="markTaskMissed('${t.id}')" class="text-slate-300 hover:text-amber-500 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right text-sm"></i></button>` : ''}
+                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Duplicate">
+                                        <i class="fa-regular fa-copy text-sm"></i>
+                                    </button>
                                     <button onclick="deleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors" title="Delete">
                                         <i class="fa-solid fa-trash text-sm"></i>
                                     </button>
@@ -3412,6 +3415,7 @@
                     </div>
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
                         ${(!t.completed && t.time && t.date) ? `<button onclick="markTaskMissed('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-600 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right"></i></button>` : ''}
+                        <button onclick="duplicateTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-400 hover:text-indigo-600 transition-colors" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
                         <button onclick="editTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-600 transition-colors"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="deleteTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
                     </div>
@@ -4859,6 +4863,7 @@
                     return `
                         <div class="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md text-white mb-1 shadow-sm cursor-grab active:cursor-grabbing" style="background:${color}" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')">
                             <button class="flex-1 truncate text-left hover:opacity-85" onclick="editTask('${t.id}')" title="Edit">${t.title}</button>
+                            <button class="text-white/80 hover:text-white" onclick="duplicateTask('${t.id}')" title="Duplicate"><i class="fa-regular fa-copy text-[10px]"></i></button>
                             <button class="text-white/80 hover:text-white" onclick="deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
                         </div>`;
                 }).join('');
@@ -4915,6 +4920,9 @@
                                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${modeLabel}</span>
                                     <button onclick="toggleComplete('${t.id}')" class="text-slate-300 hover:text-emerald-500 transition-colors" title="Mark complete">
                                         <i class="fa-regular fa-circle text-sm"></i>
+                                    </button>
+                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Duplicate">
+                                        <i class="fa-regular fa-copy text-[11px]"></i>
                                     </button>
                                     <button onclick="deleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors" title="Delete">
                                         <i class="fa-solid fa-trash text-[11px]"></i>
@@ -5967,6 +5975,51 @@
                     }
                 );
             }
+        }
+
+        function duplicateTask(id) {
+            const sourceTask = tasks.find(t => t.id === id);
+            if(!sourceTask) return;
+            const duplicatedTask = normalizeTask({
+                ...sourceTask,
+                id: generateId(),
+                completed: false,
+                completedDate: null,
+                actualMinutes: null,
+                repeatGroupId: null,
+                repeatWeekKey: null,
+                repeatRule: normalizeRepeatRule({ type: 'none' })
+            });
+
+            if(isFixedTask(duplicatedTask) && duplicatedTask.date && duplicatedTask.time) {
+                const conflict = findSchedulingConflict(
+                    duplicatedTask.date,
+                    duplicatedTask.time,
+                    parseInt(duplicatedTask.duration, 10) || 30,
+                    duplicatedTask.id
+                );
+                if(conflict) {
+                    duplicatedTask.time = null;
+                    duplicatedTask.timeSource = null;
+                    duplicatedTask.assignmentMode = 'ADJUSTABLE';
+                }
+            }
+
+            tasks.push(duplicatedTask);
+            applyReciprocalDependenciesForTask(duplicatedTask.id);
+            syncAllTaskDependencies();
+            ensureAllEventsScheduled();
+
+            const targetWeekKey = duplicatedTask.date
+                ? getWeekKeyFromDateStr(duplicatedTask.date)
+                : duplicatedTask.week;
+            if(targetWeekKey) {
+                autoPlanWeekInternal(targetWeekKey, { showToast: false, persist: false, switchToCalendar: false });
+            }
+
+            saveData();
+            syncClassifyDataToCloud();
+            showNotification('Assignment duplicated', 'success');
         }
 
         function triggerConfetti() {
