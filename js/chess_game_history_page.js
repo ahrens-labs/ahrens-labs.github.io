@@ -127,6 +127,21 @@
     return ok;
   }
 
+  function showPgnExportStatus(message, isError) {
+    const existing = document.getElementById('pgn-export-status-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'pgn-export-status-toast';
+    toast.textContent = message;
+    toast.style.cssText =
+      'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:10px 14px;border-radius:8px;z-index:999999;font-family:Inter,Arial,sans-serif;font-size:0.92rem;font-weight:600;color:#fff;box-shadow:0 10px 26px rgba(0,0,0,0.24);' +
+      (isError ? 'background:#b91c1c;' : 'background:#047857;');
+    document.body.appendChild(toast);
+    window.setTimeout(function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 2200);
+  }
+
   function choosePgnExportAction() {
     return new Promise(function (resolve) {
       const existing = document.getElementById('pgn-export-action-modal');
@@ -540,7 +555,7 @@
     const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
     const rec = items[index];
     if (!rec) {
-      alert('Game not found');
+      showPgnExportStatus('Game not found.', true);
       return;
     }
     rec.favorite = !gameHistoryRecordIsFavorite(rec);
@@ -553,7 +568,7 @@
     const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
     const rec = items[index];
     if (!rec) {
-      alert('Game not found');
+      showPgnExportStatus('Game not found.', true);
       return;
     }
     let pgn = '';
@@ -563,7 +578,7 @@
       pgn = applyUsernameToLegacyPgnString(rec.pgn, rec.playerColor);
     }
     if (!pgn) {
-      alert('Game not found');
+      showPgnExportStatus('PGN not available for this game.', true);
       return;
     }
     const slug = slugForPgnFilename(getChessPgnPlayerName());
@@ -578,9 +593,9 @@
     }
     const copied = await copyPgnToClipboard(pgn);
     if (copied) {
-      alert('PGN copied to clipboard.');
+      showPgnExportStatus('PGN copied to clipboard.', false);
     } else {
-      alert('Could not copy PGN to clipboard. Please try download instead.');
+      showPgnExportStatus('Could not copy PGN. Please use Download PGN.', true);
     }
   }
 
