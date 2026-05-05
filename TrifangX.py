@@ -447,13 +447,13 @@ def _copy_engine_snapshot(snap):
     out = {}
     for key, val in snap.items():
         if key == 'position_history':
-            out[key] = dict(val)
+            out[key] = dict(val) if val is not None else {}
         elif key == 'board':
             out[key] = fast_copy_board(val)
         elif key == 'game_moves':
-            out[key] = list(val)
+            out[key] = list(val) if val is not None else []
         elif key in {'scores', 'SCORING_MODIFIERS'}:
-            out[key] = dict(val)
+            out[key] = dict(val) if val is not None else {}
         else:
             out[key] = val
     return out
@@ -781,9 +781,6 @@ black_king_row = 7
 black_king_col = 4
 
 board = initialize_board()
-# Seed the fresh-start snapshot template at boot so /start can clone a new game
-# without ever needing to wait on _INLINE_ENGINE_LOCK while another game thinks.
-_set_fresh_start_snapshot_template(_capture_engine_state_to_dict())
 
 # --- Flask App Initialization (ONLY ONCE) ---
 app = Flask(__name__)
@@ -1588,6 +1585,11 @@ def board_to_hash(board):
 # We include `castled` flags and a scoring version so cache entries remain valid
 # when game state or SCORING_MODIFIERS change.
 SCORING_VERSION = 0
+
+# Pre-seed new-game snapshot for /start when _INLINE_ENGINE_LOCK is busy. Must run after
+# SCORING_* exist: an earlier capture left None for those keys and _copy_engine_snapshot
+# called dict(None), crashing import and preventing the server from starting.
+_set_fresh_start_snapshot_template(_capture_engine_state_to_dict())
 
 @lru_cache(maxsize=200_000)
 def _score_cached(board_hash, turn, castled, castled_white, scoring_version):
