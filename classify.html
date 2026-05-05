@@ -4071,11 +4071,7 @@
             if(endInput) endInput.value = currentEnd || '';
             if(lunchStartInput) lunchStartInput.value = currentLunchStart || '';
             if(lunchEndInput) lunchEndInput.value = currentLunchEnd || '';
-            previewEl.innerHTML = `
-                <span class="font-semibold text-slate-800 dark:text-slate-100">Current (${sourceLabel}) for ${formatDateLabel(date)}:</span>
-                <span class="ml-2">Day ${currentStart}-${currentEnd}</span>
-                <span class="ml-2">Lunch ${currentLunchStart}-${currentLunchEnd}</span>
-            `;
+            previewEl.textContent = `Loaded current ${sourceLabel} times for ${formatDateLabel(date)} into the fields above.`;
         }
 
         function ensureOverrideInputsFilledFromSelectedDate() {
@@ -5710,16 +5706,8 @@
                     addImpactedWeek(getWeekKeyFromDateStr(normalizedTaskData.date));
                     addImpactedWeek(getWeekKeyFromDateStr(previousTask?.date));
                     impactedWeeks.forEach(weekKey => {
-                        planWeek(weekKey, false);
+                        autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
                     });
-                    if(isCreatingNewTask) {
-                        const targetWeek = normalizedTaskData.date
-                            ? getWeekKeyFromDateStr(normalizedTaskData.date)
-                            : normalizedTaskData.week;
-                        if(targetWeek) {
-                            autoPlanWeekInternal(targetWeek, { showToast: false, persist: false, switchToCalendar: false });
-                        }
-                    }
 
                     saveData();
                     if(isCreatingNewTask) syncClassifyDataToCloud();
@@ -5791,6 +5779,17 @@
                 pruneRepeatFutureWeeks();
                 syncAllTaskDependencies();
                 ensureAllEventsScheduled();
+                const recurringWeeks = new Set();
+                tasks
+                    .filter(t => !t.completed && t.repeatGroupId === groupId)
+                    .forEach(t => {
+                        if(t.week) recurringWeeks.add(t.week);
+                        if(t.date) recurringWeeks.add(getWeekKeyFromDateStr(t.date));
+                    });
+                recurringWeeks.forEach(weekKey => {
+                    if(!weekKey) return;
+                    autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
+                });
                 saveData();
                 clearForm();
                 closeModal();
