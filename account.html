@@ -784,7 +784,11 @@
                     localStorage.setItem('ahrenslabs_userId', data.userId);
                     localStorage.setItem('ahrenslabs_email', email);
                     
-                    showNotification('Account created successfully! 🎉', 'success', 3000);
+                    showNotification(
+                        data.message || 'Account created successfully! 🎉',
+                        'success',
+                        data.message ? 5000 : 3000
+                    );
                     
                     // Redirect to return URL or home
                     const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';

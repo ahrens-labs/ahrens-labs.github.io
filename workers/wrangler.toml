@@ -22,6 +22,16 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
+# Outbound email via Cloudflare Email Service (domain must be onboarded in dashboard → Email Sending).
+[[send_email]]
+name = "EMAIL"
+remote = true
+
 [vars]
-# Environment variables can go here
+# Must be an address on a domain onboarded for Email Sending in Cloudflare (same account as this Worker).
+VERIFICATION_FROM_EMAIL = "noreply@example.com"
+# Origin used in the verification link (no trailing slash).
+VERIFICATION_LINK_BASE = "https://ahrens-labs.github.io"
+# Path that handles ?verify= & email= (e.g. account.html or /chess_engine.html).
+VERIFICATION_LANDING_PATH = "/account.html"
 # JWT_SECRET will be set via wrangler secret put

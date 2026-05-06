@@ -176,9 +176,9 @@ async function handleSignup(request, env, corsHeaders) {
   });
   await userAccount.fetch(setTokenReq);
 
-  // Send verification email
+  // Send verification email (Cloudflare Email Service when EMAIL binding is configured)
   try {
-    await sendVerificationEmail(normalizedEmail, username, verificationToken);
+    await sendVerificationEmail(env, normalizedEmail, username, verificationToken);
   } catch (error) {
     console.error('Failed to send verification email:', error);
     // Continue with signup even if email fails
@@ -201,7 +201,7 @@ async function handleSignup(request, env, corsHeaders) {
     userId,
     username,
     email: normalizedEmail,
-    message: 'Account created successfully!'
+    message: 'Account created! Check your email for a link to confirm your address.'
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1080,55 +1080,63 @@ function generateVerificationToken() {
   return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 }
 
-// Send verification email using MailChannels
-async function sendVerificationEmail(email, username, token) {
-  const verificationUrl = `https://ahrens-labs.github.io/chess_engine.html?verify=${token}&email=${encodeURIComponent(email)}`;
-  
-  const emailData = {
-    personalizations: [{
-      to: [{ email: email, name: username }]
-    }],
-    from: {
-      email: "noreply@chess.ahrens-labs.workers.dev",
-      name: "Ahrens Labs Chess"
-    },
-    subject: "Verify your Chess Engine account",
-    content: [{
-      type: "text/html",
-      value: `
+// Confirmation / verification email via Cloudflare Email Service (Workers send_email binding).
+function buildVerificationUrl(env, email, token) {
+  const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+  const path = env.VERIFICATION_LANDING_PATH || '/account.html';
+  const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+  const q = new URLSearchParams({ verify: token, email });
+  return `${base}${pathWithLeadingSlash}?${q.toString()}`;
+}
+
+async function sendVerificationEmail(env, email, username, token) {
+  if (!env.EMAIL) {
+    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
+  }
+  const from = env.VERIFICATION_FROM_EMAIL;
+  if (!from || from === 'noreply@example.com') {
+    throw new Error('Set VERIFICATION_FROM_EMAIL in wrangler [vars] to a sender on your onboarded domain.');
+  }
+
+  const verificationUrl = buildVerificationUrl(env, email, token);
+  const safeName = String(username).replace(/[<>]/g, '');
+  const subject = 'Confirm your Ahrens Labs account';
+  const html = `
         <html>
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2c3e50;">Welcome to Ahrens Labs Chess Engine!</h2>
-            <p>Hi ${username},</p>
-            <p>Thank you for signing up! Please verify your email address by clicking the button below:</p>
+            <h2 style="color: #2c3e50;">Welcome to Ahrens Labs!</h2>
+            <p>Hi ${safeName},</p>
+            <p>Thanks for creating an account. Confirm your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" 
+              <a href="${verificationUrl}"
                  style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                Verify Email Address
+                Confirm email address
               </a>
             </div>
             <p>Or copy and paste this link into your browser:</p>
             <p style="color: #7f8c8d; word-break: break-all;">${verificationUrl}</p>
             <p style="margin-top: 30px; color: #7f8c8d; font-size: 0.9em;">
-              If you didn't create this account, you can safely ignore this email.
+              If you did not create this account, you can ignore this email.
             </p>
           </body>
         </html>
-      `
-    }]
-  };
+      `;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    'Thanks for creating an Ahrens Labs account.',
+    `Confirm your email by opening this link: ${verificationUrl}`,
+    '',
+    'If you did not create this account, you can ignore this email.',
+  ].join('\n');
 
-  const response = await fetch('https://api.mailchannels.net/tx/v1/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(emailData)
+  await env.EMAIL.send({
+    from,
+    to: email,
+    subject,
+    html,
+    text,
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to send email: ${response.statusText}`);
-  }
 }
 
 // Handle email verification
