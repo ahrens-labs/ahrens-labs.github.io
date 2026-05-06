@@ -1796,7 +1796,6 @@
 
         function hasUserLockedCalendarDate(task) {
             if(!task?.date || task.scheduleType === 'week') return false;
-            if(isPlannerEventTask(task) && !isFixedTask(task)) return false;
             return true;
         }
 
@@ -6554,7 +6553,7 @@
                 }
 
                 // Adjustable tasks with an assigned date stay on that date; only their time is rebuilt.
-                if(hasAssignedDate && !(isPlannerEventTask(task) && !isFixedTask(task))) {
+                if(hasAssignedDate) {
                     task.week = getWeekKeyFromDateStr(task.date);
                     task.time = null;
                     task.timeSource = null;
@@ -6567,15 +6566,7 @@
                 task.time = null;
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
-                let pool = eligibleDates.length > 0 ? eligibleDates : weekDates.filter(d => d >= todayStr);
-                if(isPlannerEventTask(task)) {
-                    const due = getTaskDueDate(task);
-                    if(due) {
-                        const capped = pool.filter(d => d <= due);
-                        if(capped.length > 0) pool = capped;
-                    }
-                }
-                task.date = pool[0];
+                task.date = eligibleDates[0];
                 task.week = weekKey;
                 assigned++;
             });
@@ -6748,14 +6739,6 @@
                     ? task.date
                     : processDates[0];
                 const out = new Set();
-                if(isPlannerEventTask(task) && !isFixedTask(task)) {
-                    const due = getTaskDueDate(task);
-                    processDates
-                        .filter(d => d >= todayStr && !isDateInVacation(d) && (!due || d <= due))
-                        .sort((a, b) => a.localeCompare(b))
-                        .forEach(d => out.add(d));
-                    return Array.from(out);
-                }
                 if(hasUserLockedDate) {
                     if(task.date && task.date >= todayStr) out.add(task.date);
                 } else {
@@ -6765,7 +6748,7 @@
                         .sort((a, b) => a.localeCompare(b))
                         .forEach(d => out.add(d));
                 }
-                if(allowDateShift && !hasUserLockedDate && !isPlannerEventTask(task)) {
+                if(allowDateShift && !hasUserLockedDate) {
                     const lastWeekday = processDates[processDates.length - 1] || todayStr;
                     const taskDue = getTaskDueDate(task);
                     const hardEnd = taskDue && taskDue >= todayStr
