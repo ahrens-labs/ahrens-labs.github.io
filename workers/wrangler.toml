@@ -22,17 +22,22 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
-# Outbound email: same as Dashboard → chess-accounts worker → Bindings → Email Service named EMAIL.
-# Code uses env.EMAIL.send(). Keep this block in wrangler.toml so `wrangler deploy` does not drop the binding.
-# 1) Email Sending: onboard a real zone (DNS on Cloudflare); From address cannot be @*.workers.dev.
-# 2) SENDER_EMAIL must match [[send_email]] allowed_sender_addresses (onboarded domain in Email Sending).
-[[send_email]]
-name = "EMAIL"
-allowed_sender_addresses = ["matt@ahrenslabs.com"]
-remote = true
+# Outbound email (pick one):
+#
+# A) Workers FREE — Resend (recommended): verify your domain at resend.com, then:
+#    wrangler secret put RESEND_API_KEY
+#    SENDER_EMAIL below must be an address/domain you verified in Resend.
+#
+# B) Cloudflare Email Service — requires Workers PAID plan + dashboard Email Sending onboarding.
+#    Uncomment [[send_email]]; SENDER_EMAIL must match allowed_sender_addresses and your onboarded zone.
+#
+# [[send_email]]
+# name = "EMAIL"
+# allowed_sender_addresses = ["matt@ahrenslabs.com"]
+# remote = true
 
 [vars]
-# Plaintext Worker variable; same value can be set in the dashboard instead of here.
+# Verified sender (Resend or, if using paid Email Service, your onboarded domain).
 SENDER_EMAIL = "matt@ahrenslabs.com"
 # Origin used in the verification link (no trailing slash).
 VERIFICATION_LINK_BASE = "https://ahrens-labs.github.io"

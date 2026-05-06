@@ -75,6 +75,7 @@ export default {
           userId,
           emailService: {
             bindingPresent: Boolean(env.EMAIL),
+            resendConfigured: Boolean(env.RESEND_API_KEY),
             senderEnvConfigured: Boolean(sender),
           },
           ...debugData
@@ -1093,34 +1094,83 @@ function generateVerificationToken() {
   return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 }
 
-// Confirmation email via Cloudflare Workers SEND_EMAIL binding only (env.EMAIL.send — no HTTP email API).
-async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
-  if (!env.EMAIL) {
-    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
+// Outbound mail: prefer Resend (Workers Free). Else Cloudflare Email Service (requires Workers Paid + [[send_email]]).
+async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
+  const key = env.RESEND_API_KEY;
+  if (!key || typeof key !== 'string') {
+    throw new Error('RESEND_API_KEY is not set');
   }
-  const fromAddr = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
-  if (!fromAddr) {
-    throw new Error('Set SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
-  }
-  try {
-    const result = await env.EMAIL.send({
-      from: { email: fromAddr, name: 'Ahrens Labs' },
-      to,
+  const from = `Ahrens Labs <${fromAddr}>`;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
       subject,
       html,
       text,
-    });
-    console.log('EmailService send ok', { messageId: result?.messageId, subject, to });
-    return result;
-  } catch (err) {
-    console.error('EmailService send failed', {
-      code: err?.code,
-      message: err?.message,
-      subject,
-      to,
-    });
-    throw err;
+    }),
+  });
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
   }
+  if (!res.ok) {
+    const msg = (data && (data.message || data.name)) || raw || res.statusText;
+    console.error('Resend send failed', res.status, msg);
+    throw new Error(typeof msg === 'string' ? msg : `Resend HTTP ${res.status}`);
+  }
+  console.log('Resend send ok', { id: data?.id, subject, to });
+  return data;
+}
+
+async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
+  const fromAddr = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+  if (!fromAddr) {
+    throw new Error('Set SENDER_EMAIL to a verified sender (Resend or Cloudflare Email Service domain).');
+  }
+
+  if (env.EMAIL) {
+    try {
+      const result = await env.EMAIL.send({
+        from: { email: fromAddr, name: 'Ahrens Labs' },
+        to,
+        subject,
+        html,
+        text,
+      });
+      console.log('EmailService send ok', { messageId: result?.messageId, subject, to });
+      return result;
+    } catch (err) {
+      console.error('EmailService send failed', {
+        code: err?.code,
+        message: err?.message,
+        subject,
+        to,
+      });
+      if (env.RESEND_API_KEY) {
+        console.log('Falling back to Resend after EmailService error');
+        return await sendViaResend(env, { fromAddr, to, subject, html, text });
+      }
+      throw err;
+    }
+  }
+
+  if (env.RESEND_API_KEY) {
+    return await sendViaResend(env, { fromAddr, to, subject, html, text });
+  }
+
+  throw new Error(
+    'No email transport: run `wrangler secret put RESEND_API_KEY` (https://resend.com — works on Workers Free), ' +
+      'or upgrade to Workers Paid and add [[send_email]] for Cloudflare Email Service.'
+  );
 }
 
 function buildVerificationUrl(env, email, token) {
