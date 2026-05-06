@@ -410,9 +410,10 @@
         </div>
         
         <div class="account-tabs">
-            <button class="account-tab active" onclick="switchTab('login')">Login</button>
-            <button class="account-tab" onclick="switchTab('signup')">Sign Up</button>
-            <button class="account-tab" id="password-tab" onclick="switchTab('password')" style="display: none;">Change Password</button>
+            <button type="button" class="account-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+            <button type="button" class="account-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+            <button type="button" class="account-tab" id="tab-forgot" onclick="switchTab('forgot')">Forgot password</button>
+            <button type="button" class="account-tab" id="password-tab" onclick="switchTab('password')" style="display: none;">Change Password</button>
         </div>
         
         <!-- Login Form -->
@@ -429,6 +430,9 @@
                 </div>
             </div>
             <button type="submit" class="form-button">Login</button>
+            <p style="text-align: center; margin-top: 16px; margin-bottom: 0;">
+                <a href="#" onclick="switchTab('forgot'); return false;" style="color: #3b82f6; font-weight: 600; text-decoration: none;">Forgot your password?</a>
+            </p>
         </form>
         
         <!-- Signup Form -->
@@ -457,6 +461,39 @@
                 </div>
             </div>
             <button type="submit" class="form-button">Create Account</button>
+        </form>
+
+        <!-- Forgot password (email link) -->
+        <form id="forgot-password-form" class="account-form" autocomplete="off" onsubmit="handleForgotPasswordSubmit(event)">
+            <p style="color: #64748b; font-size: 0.95em; line-height: 1.5; margin-top: 0;">Enter the email on your account. If it exists, we will send a link to reset your password.</p>
+            <div class="form-group">
+                <label for="forgot-email">Email</label>
+                <input type="email" id="forgot-email" name="account-forgot-mail" required autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@example.com">
+            </div>
+            <button type="submit" class="form-button">Send reset link</button>
+        </form>
+
+        <!-- Reset password (from email link; ?reset=&email=) -->
+        <form id="reset-password-form" class="account-form" autocomplete="off" onsubmit="handleResetPasswordSubmit(event)">
+            <p style="color: #64748b; font-size: 0.95em; line-height: 1.5; margin-top: 0;">Choose a new password for <strong id="reset-email-display"></strong>.</p>
+            <input type="hidden" id="reset-token-store" value="">
+            <input type="hidden" id="reset-email-store" value="">
+            <div class="form-group">
+                <label for="reset-new-password">New password</label>
+                <div class="password-input-wrap">
+                    <input type="password" id="reset-new-password" name="account-reset-secret" required minlength="6" autocomplete="new-password" autocapitalize="none" autocorrect="off">
+                    <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('reset-new-password', this)">Show</button>
+                </div>
+                <small style="color: #94a3b8; font-size: 0.8em; margin-top: 4px; display: block;">At least 6 characters</small>
+            </div>
+            <div class="form-group">
+                <label for="reset-confirm-password">Confirm new password</label>
+                <div class="password-input-wrap">
+                    <input type="password" id="reset-confirm-password" name="account-reset-secret2" required minlength="6" autocomplete="new-password" autocapitalize="none" autocorrect="off">
+                    <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('reset-confirm-password', this)">Show</button>
+                </div>
+            </div>
+            <button type="submit" class="form-button">Update password</button>
         </form>
 
         <!-- Change Password Form -->
@@ -558,6 +595,35 @@
             });
         }
 
+        function showResetPasswordFromEmail(token, email) {
+            const tabsBar = document.querySelector('.account-tabs');
+            if (tabsBar) tabsBar.style.display = 'none';
+            document.querySelectorAll('.account-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.account-form').forEach(f => f.classList.remove('active'));
+            const rf = document.getElementById('reset-password-form');
+            if (rf) rf.classList.add('active');
+            const ts = document.getElementById('reset-token-store');
+            const es = document.getElementById('reset-email-store');
+            if (ts) ts.value = token;
+            if (es) es.value = email;
+            const disp = document.getElementById('reset-email-display');
+            if (disp) disp.textContent = email || '';
+            const sessionBar = document.getElementById('account-session-bar');
+            if (sessionBar) sessionBar.style.display = 'none';
+            const headerAuth = document.getElementById('header-auth-buttons');
+            if (headerAuth) headerAuth.style.display = 'flex';
+            const dangerZone = document.getElementById('account-danger-zone');
+            if (dangerZone) dangerZone.style.display = 'none';
+            const passwordTab = document.getElementById('password-tab');
+            if (passwordTab) passwordTab.style.display = 'none';
+            const loginTabEl = document.getElementById('tab-login');
+            const signupTabEl = document.getElementById('tab-signup');
+            const forgotTabEl = document.getElementById('tab-forgot');
+            if (loginTabEl) loginTabEl.style.display = 'none';
+            if (signupTabEl) signupTabEl.style.display = 'none';
+            if (forgotTabEl) forgotTabEl.style.display = 'none';
+        }
+
         // Check if already logged in
         window.addEventListener('DOMContentLoaded', async () => {
             setupDeleteAccountModal();
@@ -565,6 +631,15 @@
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             const urlParams = new URLSearchParams(window.location.search);
             const manageMode = urlParams.get('manage') === '1';
+
+            const resetTok = urlParams.get('reset');
+            const resetMail = urlParams.get('email');
+            if (resetTok && resetMail) {
+                showResetPasswordFromEmail(resetTok, normalizeEmail(resetMail));
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return;
+            }
+
             if (sessionId) {
                 // Check if session is still valid
                 try {
@@ -595,6 +670,10 @@
                 await verifyEmail(verifyToken, email);
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
+
+            if (urlParams.get('forgot') === '1') {
+                switchTab('forgot');
+            }
         });
 
         function openDeleteAccountModal() {
@@ -616,18 +695,27 @@
         }
         
         function switchTab(tab) {
-            const tabs = document.querySelectorAll('.account-tab');
-            const forms = document.querySelectorAll('.account-form');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            forms.forEach(f => f.classList.remove('active'));
-            
+            const tabsBar = document.querySelector('.account-tabs');
+            if (tabsBar) tabsBar.style.display = '';
+            document.querySelectorAll('.account-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.account-form').forEach(f => f.classList.remove('active'));
+
+            const loginTabEl = document.getElementById('tab-login');
+            const signupTabEl = document.getElementById('tab-signup');
+            const forgotTabEl = document.getElementById('tab-forgot');
+            if (loginTabEl) loginTabEl.style.display = '';
+            if (signupTabEl) signupTabEl.style.display = '';
+            if (forgotTabEl) forgotTabEl.style.display = '';
+
             if (tab === 'login') {
-                tabs[0].classList.add('active');
+                if (loginTabEl) loginTabEl.classList.add('active');
                 document.getElementById('login-form').classList.add('active');
             } else if (tab === 'signup') {
-                tabs[1].classList.add('active');
+                if (signupTabEl) signupTabEl.classList.add('active');
                 document.getElementById('signup-form').classList.add('active');
+            } else if (tab === 'forgot') {
+                if (forgotTabEl) forgotTabEl.classList.add('active');
+                document.getElementById('forgot-password-form').classList.add('active');
             } else {
                 const passwordTab = document.getElementById('password-tab');
                 if (passwordTab) passwordTab.classList.add('active');
@@ -637,9 +725,11 @@
 
         function setPasswordTabVisibility(isLoggedIn) {
             const passwordTab = document.getElementById('password-tab');
+            const forgotTab = document.getElementById('tab-forgot');
             const sessionBar = document.getElementById('account-session-bar');
             const headerAuth = document.getElementById('header-auth-buttons');
             if (passwordTab) passwordTab.style.display = isLoggedIn ? 'block' : 'none';
+            if (forgotTab) forgotTab.style.display = isLoggedIn ? 'none' : '';
             if (sessionBar) {
                 sessionBar.style.display = isLoggedIn ? 'flex' : 'none';
                 if (isLoggedIn) {
@@ -666,11 +756,12 @@
         }
 
         function setAuthTabsVisibility(show) {
-            const tabs = document.querySelectorAll('.account-tab');
-            const loginTab = tabs[0];
-            const signupTab = tabs[1];
+            const loginTab = document.getElementById('tab-login');
+            const signupTab = document.getElementById('tab-signup');
+            const forgotTab = document.getElementById('tab-forgot');
             if (loginTab) loginTab.style.display = show ? 'block' : 'none';
             if (signupTab) signupTab.style.display = show ? 'block' : 'none';
+            if (forgotTab) forgotTab.style.display = show ? 'block' : 'none';
             const loginForm = document.getElementById('login-form');
             const signupForm = document.getElementById('signup-form');
             if (loginForm) loginForm.style.display = show ? '' : 'none';
@@ -701,6 +792,90 @@
             return !blockedDomains.has(domain);
         }
         
+        async function handleForgotPasswordSubmit(event) {
+            event.preventDefault();
+            const email = normalizeEmail(document.getElementById('forgot-email').value);
+            if (!isLikelyRealEmail(email)) {
+                showNotification('Please enter a valid email address', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch {
+                    data = null;
+                }
+                showNotification(
+                    (data && data.message) ? data.message : 'If an account exists for that email, check your inbox.',
+                    'success',
+                    6500
+                );
+                switchTab('login');
+            } catch (err) {
+                console.error('Forgot password error:', err);
+                showNotification('Could not send reset email. Try again.', 'error');
+            }
+        }
+
+        async function handleResetPasswordSubmit(event) {
+            event.preventDefault();
+            const token = document.getElementById('reset-token-store').value;
+            const email = document.getElementById('reset-email-store').value;
+            const p1 = document.getElementById('reset-new-password').value;
+            const p2 = document.getElementById('reset-confirm-password').value;
+            if (!token || !email) {
+                showNotification('Invalid reset link. Request a new one from Forgot password.', 'error');
+                return;
+            }
+            if (p1 !== p2) {
+                showNotification('Passwords do not match', 'error');
+                return;
+            }
+            if (p1.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, token, newPassword: p1 })
+                });
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch {
+                    data = null;
+                }
+                if (response.ok && data && data.success) {
+                    showNotification(data.message || 'Password updated. You can log in now.', 'success', 5000);
+                    document.getElementById('reset-new-password').value = '';
+                    document.getElementById('reset-confirm-password').value = '';
+                    document.getElementById('reset-password-form').classList.remove('active');
+                    const tabsBar = document.querySelector('.account-tabs');
+                    if (tabsBar) tabsBar.style.display = '';
+                    const loginTabEl = document.getElementById('tab-login');
+                    const signupTabEl = document.getElementById('tab-signup');
+                    const forgotTabEl = document.getElementById('tab-forgot');
+                    if (loginTabEl) loginTabEl.style.display = '';
+                    if (signupTabEl) signupTabEl.style.display = '';
+                    if (forgotTabEl) forgotTabEl.style.display = '';
+                    switchTab('login');
+                } else {
+                    showNotification((data && data.error) ? data.error : 'Could not reset password', 'error');
+                }
+            } catch (err) {
+                console.error('Reset password error:', err);
+                showNotification('Could not reset password. Try again.', 'error');
+            }
+        }
+
         async function handleLogin(event) {
             event.preventDefault();
             

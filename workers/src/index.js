@@ -35,6 +35,10 @@ export default {
         return handleDeleteAccount(request, env, corsHeaders);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders);
+      } else if (path === '/api/forgot-password' && request.method === 'POST') {
+        return handleForgotPassword(request, env, corsHeaders);
+      } else if (path === '/api/reset-password' && request.method === 'POST') {
+        return handleResetPassword(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
         return handleChessSync(request, env, corsHeaders);
       } else if (path === '/api/chess/load' && request.method === 'GET') {
@@ -1080,7 +1084,7 @@ function generateVerificationToken() {
   return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 }
 
-// Confirmation / verification email via Cloudflare Email Service (Workers send_email binding).
+// Confirmation email via Cloudflare Workers SEND_EMAIL binding only (env.EMAIL.send — no HTTP email API).
 function buildVerificationUrl(env, email, token) {
   const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
   const path = env.VERIFICATION_LANDING_PATH || '/account.html';
@@ -1093,9 +1097,9 @@ async function sendVerificationEmail(env, email, username, token) {
   if (!env.EMAIL) {
     throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
   }
-  const from = env.VERIFICATION_FROM_EMAIL;
-  if (!from || from === 'noreply@example.com') {
-    throw new Error('Set VERIFICATION_FROM_EMAIL in wrangler [vars] to a sender on your onboarded domain.');
+  const from = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+  if (!from) {
+    throw new Error('Set plaintext var SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
   }
 
   const verificationUrl = buildVerificationUrl(env, email, token);
@@ -1137,6 +1141,176 @@ async function sendVerificationEmail(env, email, username, token) {
     html,
     text,
   });
+}
+
+function generatePasswordResetToken() {
+  return `pwreset_${Date.now()}_${Math.random().toString(36).substr(2, 24)}`;
+}
+
+function buildPasswordResetUrl(env, email, token) {
+  const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+  const path = env.VERIFICATION_LANDING_PATH || '/account.html';
+  const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
+  const q = new URLSearchParams({ reset: token, email });
+  return `${base}${pathWithLeadingSlash}?${q.toString()}`;
+}
+
+async function sendPasswordResetEmail(env, email, username, token) {
+  if (!env.EMAIL) {
+    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
+  }
+  const from = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+  if (!from) {
+    throw new Error('Set plaintext var SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
+  }
+
+  const resetUrl = buildPasswordResetUrl(env, email, token);
+  const safeName = String(username).replace(/[<>]/g, '');
+  const subject = 'Reset your Ahrens Labs password';
+  const html = `
+        <html>
+          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2c3e50;">Password reset</h2>
+            <p>Hi ${safeName},</p>
+            <p>We received a request to reset the password for your Ahrens Labs account. Click the button below to choose a new password. This link expires in one hour.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}"
+                 style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Reset password
+              </a>
+            </div>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="color: #7f8c8d; word-break: break-all;">${resetUrl}</p>
+            <p style="margin-top: 30px; color: #7f8c8d; font-size: 0.9em;">
+              If you did not request this, you can ignore this email; your password will stay the same.
+            </p>
+          </body>
+        </html>
+      `;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    'We received a request to reset your Ahrens Labs password.',
+    `Open this link to choose a new password (expires in one hour): ${resetUrl}`,
+    '',
+    'If you did not request this, ignore this email.',
+  ].join('\n');
+
+  await env.EMAIL.send({
+    from,
+    to: email,
+    subject,
+    html,
+    text,
+  });
+}
+
+const FORGOT_PASSWORD_OK_MESSAGE =
+  'If an account exists for that email, you will receive a reset link shortly.';
+
+async function handleForgotPassword(request, env, corsHeaders) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const normalizedEmail = normalizeEmail(body.email);
+  const genericResponse = () =>
+    new Response(
+      JSON.stringify({ success: true, message: FORGOT_PASSWORD_OK_MESSAGE }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  if (!normalizedEmail || !isLikelyRealEmail(normalizedEmail)) {
+    return genericResponse();
+  }
+
+  const userId = generateUserId(normalizedEmail);
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const getDataRes = await userAccount.fetch(getDataReq);
+  const userData = await getDataRes.json();
+
+  if (!userData || typeof userData !== 'object') {
+    return genericResponse();
+  }
+
+  const storedEmail = normalizeEmail(userData.email || '');
+  if (storedEmail !== normalizedEmail) {
+    return genericResponse();
+  }
+
+  const token = generatePasswordResetToken();
+  const setReq = new Request('http://do/setPasswordResetToken', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+  await userAccount.fetch(setReq);
+
+  const username = userData.username || 'there';
+  try {
+    await sendPasswordResetEmail(env, normalizedEmail, username, token);
+  } catch (e) {
+    console.error('Forgot password email failed:', e);
+  }
+
+  return genericResponse();
+}
+
+async function handleResetPassword(request, env, corsHeaders) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { email, token, newPassword } = body;
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail || !token || typeof token !== 'string' || newPassword == null || typeof newPassword !== 'string') {
+    return new Response(JSON.stringify({ error: 'Missing email, token, or new password' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (String(newPassword).length < 6) {
+    return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = generateUserId(normalizedEmail);
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const resetReq = new Request('http://do/resetPasswordWithToken', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+  const resetRes = await userAccount.fetch(resetReq);
+  const result = await resetRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Could not reset password' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: 'Password updated. You can log in with your new password.',
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 // Handle email verification
@@ -1372,6 +1546,18 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/setPasswordResetToken' && request.method === 'POST') {
+        const { token } = await request.json();
+        await this.setPasswordResetToken(token);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/resetPasswordWithToken' && request.method === 'POST') {
+        const { token, newPassword } = await request.json();
+        const result = await this.resetPasswordWithToken(token, newPassword);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/changePassword' && request.method === 'POST') {
         const { currentPassword, newPassword } = await request.json();
         const result = await this.changePassword(currentPassword, newPassword);
@@ -1588,8 +1774,14 @@ export class UserAccount {
       return null;
     }
 
-    // Return user data without password hash
-    const { passwordHash, ...safeData } = userData;
+    const {
+      passwordHash,
+      verificationToken,
+      verificationTokenExpiry,
+      passwordResetToken,
+      passwordResetTokenExpiry,
+      ...safeData
+    } = userData;
     return {
       userId: this.state.id.toString(),
       ...safeData
@@ -1648,6 +1840,38 @@ export class UserAccount {
     return { success: true };
   }
 
+  async setPasswordResetToken(token) {
+    const userData = await this.storage.get('userData');
+    if (userData) {
+      userData.passwordResetToken = token;
+      userData.passwordResetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      await this.storage.put('userData', userData);
+    }
+  }
+
+  async resetPasswordWithToken(token, newPassword) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'Invalid or expired reset link' };
+    }
+    if (!newPassword || String(newPassword).length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+    if (!userData.passwordResetToken || userData.passwordResetToken !== token) {
+      return { success: false, error: 'Invalid or expired reset link' };
+    }
+    if (Date.now() > userData.passwordResetTokenExpiry) {
+      return { success: false, error: 'Reset link has expired. Request a new one.' };
+    }
+
+    userData.passwordHash = await hashPasswordSecure(newPassword);
+    userData.passwordResetToken = null;
+    userData.passwordResetTokenExpiry = null;
+    userData.passwordUpdatedAt = Date.now();
+    await this.storage.put('userData', userData);
+    return { success: true };
+  }
+
   async changePassword(currentPassword, newPassword) {
     const userData = await this.storage.get('userData');
     if (!userData) {
@@ -1664,6 +1888,8 @@ export class UserAccount {
 
     userData.passwordHash = await hashPasswordSecure(newPassword);
     userData.passwordUpdatedAt = Date.now();
+    userData.passwordResetToken = null;
+    userData.passwordResetTokenExpiry = null;
     await this.storage.put('userData', userData);
     return { success: true };
   }
