@@ -1790,6 +1790,16 @@
             return getTaskAssignmentMode(task) === 'FIXED';
         }
 
+        function isPlannerEventTask(task) {
+            return Boolean(task && !task.completed && task.scheduleType === 'date' && !task.weekDueOnly);
+        }
+
+        function hasUserLockedCalendarDate(task) {
+            if(!task?.date || task.scheduleType === 'week') return false;
+            if(isPlannerEventTask(task) && !isFixedTask(task)) return false;
+            return true;
+        }
+
         function isTaskScheduledBefore(first, second, minGap = 5) {
             if(!first?.date || !first?.time || !second?.date || !second?.time) return false;
             if(first.date < second.date) return true;
@@ -2082,10 +2092,14 @@
             const priorityMap = { High: 0, Medium: 1, Low: 2 };
             return priorityMap[priority] ?? 3;
         }
-        function getSlotOptionsForPriority(busySlots, startMin, endMin, duration, breakMin, priority) {
+        function getSlotOptionsForPriority(busySlots, startMin, endMin, duration, breakMin, priority, task = null) {
             const rank = getPriorityRank(priority);
             const candidateLimit = rank >= 2 ? ((busySlots?.length || 0) + 2) * 2 : 8;
-            return findCandidateOpenSlots(busySlots, startMin, endMin, duration, breakMin, candidateLimit);
+            let options = findCandidateOpenSlots(busySlots, startMin, endMin, duration, breakMin, candidateLimit);
+            if(isPlannerEventTask(task) && !isFixedTask(task) && options.length > 1) {
+                options = [options[0]];
+            }
+            return options;
         }
         function selectSlotIndexForPriority(options, task) {
             if(!options || options.length === 0) return -1;
@@ -2108,6 +2122,10 @@
                 if(aAfter.has(b.id) || bBefore.has(a.id)) return 1;
                 if(aBefore.has(b.id) || bAfter.has(a.id)) return -1;
             }
+
+            const aEvent = isPlannerEventTask(a);
+            const bEvent = isPlannerEventTask(b);
+            if(aEvent !== bEvent) return aEvent ? -1 : 1;
 
             const priorityDiff = getPriorityRank(a.priority) - getPriorityRank(b.priority);
             if(priorityDiff !== 0) return priorityDiff;
@@ -2133,6 +2151,9 @@
                 if(aAfter.has(b.id) || bBefore.has(a.id)) return 1;
                 if(aBefore.has(b.id) || bAfter.has(a.id)) return -1;
             }
+            const aEvent = isPlannerEventTask(a);
+            const bEvent = isPlannerEventTask(b);
+            if(aEvent !== bEvent) return aEvent ? -1 : 1;
             const priorityDiff = getPriorityRank(a.priority) - getPriorityRank(b.priority);
             if(priorityDiff !== 0) return priorityDiff;
             const dueA = getTaskDueDate(a) || '9999-12-31';
@@ -2605,6 +2626,7 @@
             plannerSet('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
+            queueClassifyCloudSync();
             renderAll();
         }
 
@@ -3013,7 +3035,8 @@
                     Math.min(preferredAutoEnd, maxEnd),
                     duration,
                     breakMin,
-                    t?.priority
+                    t?.priority,
+                    t
                 );
 
                 if(preferredOptions.length > 0) {
@@ -3030,7 +3053,8 @@
                         maxEnd,
                         duration,
                         breakMin,
-                        t?.priority
+                        t?.priority,
+                        t
                     );
                     if(fallbackOptions.length > 0) {
                         const slotIndex = selectSlotIndexForPriority(fallbackOptions, t);
@@ -4192,7 +4216,7 @@
                     console.error(`Auto-schedule failed for ${weekKey}:`, error);
                 }
             });
-            renderAll();
+            saveData();
             return changed;
         }
 
@@ -6498,7 +6522,7 @@
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
-            const eligibleDates = weekDates.filter(d => d >= todayStr);
+            const eligibleDates = weekDates.filter(d => d >= todayStr && !isDateInVacation(d));
             if(eligibleDates.length === 0) return { assigned: 0, preserved: 0, rebuilt: 0 };
 
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
@@ -6530,7 +6554,7 @@
                 }
 
                 // Adjustable tasks with an assigned date stay on that date; only their time is rebuilt.
-                if(hasAssignedDate) {
+                if(hasAssignedDate && !(isPlannerEventTask(task) && !isFixedTask(task))) {
                     task.week = getWeekKeyFromDateStr(task.date);
                     task.time = null;
                     task.timeSource = null;
@@ -6543,7 +6567,15 @@
                 task.time = null;
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
-                task.date = eligibleDates[0];
+                let pool = eligibleDates.length > 0 ? eligibleDates : weekDates.filter(d => d >= todayStr);
+                if(isPlannerEventTask(task)) {
+                    const due = getTaskDueDate(task);
+                    if(due) {
+                        const capped = pool.filter(d => d <= due);
+                        if(capped.length > 0) pool = capped;
+                    }
+                }
+                task.date = pool[0];
                 task.week = weekKey;
                 assigned++;
             });
@@ -6610,6 +6642,7 @@
                 if(!weekKey) return;
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
+            saveData();
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
@@ -6710,11 +6743,19 @@
             };
             const getTaskCandidateDates = (task) => {
                 const isTargetWeekTask = task?.scheduleType === 'week';
-                const hasUserLockedDate = Boolean(task?.date) && !isTargetWeekTask;
+                const hasUserLockedDate = hasUserLockedCalendarDate(task);
                 const preferredDate = (!isTargetWeekTask && task.date && processDates.includes(task.date))
                     ? task.date
                     : processDates[0];
                 const out = new Set();
+                if(isPlannerEventTask(task) && !isFixedTask(task)) {
+                    const due = getTaskDueDate(task);
+                    processDates
+                        .filter(d => d >= todayStr && !isDateInVacation(d) && (!due || d <= due))
+                        .sort((a, b) => a.localeCompare(b))
+                        .forEach(d => out.add(d));
+                    return Array.from(out);
+                }
                 if(hasUserLockedDate) {
                     if(task.date && task.date >= todayStr) out.add(task.date);
                 } else {
@@ -6724,7 +6765,7 @@
                         .sort((a, b) => a.localeCompare(b))
                         .forEach(d => out.add(d));
                 }
-                if(allowDateShift && !hasUserLockedDate) {
+                if(allowDateShift && !hasUserLockedDate && !isPlannerEventTask(task)) {
                     const lastWeekday = processDates[processDates.length - 1] || todayStr;
                     const taskDue = getTaskDueDate(task);
                     const hardEnd = taskDue && taskDue >= todayStr
@@ -6793,7 +6834,8 @@
                     constrainedMaxEnd,
                     duration,
                     breakMin,
-                    task?.priority
+                    task?.priority,
+                    task
                 );
                 if(options.length > 0) {
                     const slotIndex = selectSlotIndexForPriority(options, task);
@@ -6804,7 +6846,7 @@
             };
 
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
-                    const hasUserLockedDate = Boolean(task?.date) && task?.scheduleType !== 'week';
+                    const hasUserLockedDate = hasUserLockedCalendarDate(task);
                     let placed = null;
                     for(const candidateDate of (dateList || [])) {
                         if(!candidateDate || candidateDate < todayStr) continue;
@@ -7151,13 +7193,14 @@
                                     return buildBusySlotForTask(task, x.start, x.start + x.duration, date);
                                 })
                         ).sort((a, b) => a.start - b.start);
-                        const starts = findCandidateOpenSlots(
+                        const starts = getSlotOptionsForPriority(
                             busy,
                             getDateStartMin(date),
                             maxEnd,
                             duration,
                             breakMin,
-                            12
+                            task?.priority,
+                            task
                         );
                         starts.forEach(candidate => {
                             const start = candidate.start;
@@ -7207,20 +7250,27 @@
                     for(const task of pending) {
                         const options = enumerateOptions(task);
                         if(options.length === 0) return false;
-                        if(
-                            !bestOptions ||
-                            options.length < bestOptions.length ||
-                            (options.length === bestOptions.length &&
-                                (
-                                    getPriorityRank(task.priority) < getPriorityRank(bestTask.priority) ||
-                                    (
-                                        getPriorityRank(task.priority) === getPriorityRank(bestTask.priority) &&
-                                        (parseInt(task.duration, 10) || 30) > (parseInt(bestTask.duration, 10) || 30)
-                                    )
-                                ))
-                        ) {
+                        if(!bestOptions || options.length < bestOptions.length) {
                             bestTask = task;
                             bestOptions = options;
+                        } else if(options.length === bestOptions.length) {
+                            const taskEvent = isPlannerEventTask(task);
+                            const bestEvent = isPlannerEventTask(bestTask);
+                            if(taskEvent && !bestEvent) {
+                                bestTask = task;
+                                bestOptions = options;
+                            } else if(taskEvent === bestEvent) {
+                                if(getPriorityRank(task.priority) < getPriorityRank(bestTask.priority)) {
+                                    bestTask = task;
+                                    bestOptions = options;
+                                } else if(
+                                    getPriorityRank(task.priority) === getPriorityRank(bestTask.priority) &&
+                                    (parseInt(task.duration, 10) || 30) > (parseInt(bestTask.duration, 10) || 30)
+                                ) {
+                                    bestTask = task;
+                                    bestOptions = options;
+                                }
+                            }
                         }
                     }
                     const nextPending = pending.filter(t => t.id !== bestTask.id);
