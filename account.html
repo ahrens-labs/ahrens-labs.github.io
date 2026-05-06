@@ -740,7 +740,22 @@
                 }
             }
             if (headerAuth) {
-                headerAuth.style.display = isLoggedIn ? 'none' : 'flex';
+                headerAuth.style.display = 'flex';
+                const hLogin = document.getElementById('header-login-btn');
+                const hSignup = document.getElementById('header-signup-btn');
+                const hUser = document.getElementById('header-username');
+                if (isLoggedIn) {
+                    if (hLogin) hLogin.style.display = 'none';
+                    if (hSignup) hSignup.style.display = 'none';
+                    if (hUser) {
+                        hUser.style.display = 'inline-block';
+                        hUser.textContent = localStorage.getItem('ahrenslabs_username') || 'Signed in';
+                    }
+                } else {
+                    if (hLogin) hLogin.style.display = '';
+                    if (hSignup) hSignup.style.display = '';
+                    if (hUser) hUser.style.display = 'none';
+                }
             }
             const dangerZone = document.getElementById('account-danger-zone');
             if (dangerZone) {

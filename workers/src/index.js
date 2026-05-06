@@ -68,10 +68,15 @@ export default {
         const debugReq = new Request('http://do/debug', { method: 'GET' });
         const debugRes = await userAccount.fetch(debugReq);
         const debugData = await debugRes.json();
+        const sender = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
         
         return new Response(JSON.stringify({
           email: testEmail,
           userId,
+          emailService: {
+            bindingPresent: Boolean(env.EMAIL),
+            senderEnvConfigured: Boolean(sender),
+          },
           ...debugData
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -180,11 +185,12 @@ async function handleSignup(request, env, corsHeaders) {
   });
   await userAccount.fetch(setTokenReq);
 
-  // Send verification email (Cloudflare Email Service when EMAIL binding is configured)
+  let verificationEmailSent = false;
   try {
     await sendVerificationEmail(env, normalizedEmail, username, verificationToken);
+    verificationEmailSent = true;
   } catch (error) {
-    console.error('Failed to send verification email:', error);
+    console.error('Failed to send verification email:', error?.code || error?.name, error?.message || error);
     // Continue with signup even if email fails
   }
 
@@ -205,7 +211,10 @@ async function handleSignup(request, env, corsHeaders) {
     userId,
     username,
     email: normalizedEmail,
-    message: 'Account created! Check your email for a link to confirm your address.'
+    verificationEmailSent,
+    message: verificationEmailSent
+      ? 'Account created! Check your email for a link to confirm your address.'
+      : 'Account created, but we could not send the confirmation email. Check Worker logs (Email Service / SENDER_EMAIL) or try Forgot password after signing in.',
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1085,6 +1094,35 @@ function generateVerificationToken() {
 }
 
 // Confirmation email via Cloudflare Workers SEND_EMAIL binding only (env.EMAIL.send — no HTTP email API).
+async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
+  if (!env.EMAIL) {
+    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
+  }
+  const fromAddr = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+  if (!fromAddr) {
+    throw new Error('Set SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
+  }
+  try {
+    const result = await env.EMAIL.send({
+      from: { email: fromAddr, name: 'Ahrens Labs' },
+      to,
+      subject,
+      html,
+      text,
+    });
+    console.log('EmailService send ok', { messageId: result?.messageId, subject, to });
+    return result;
+  } catch (err) {
+    console.error('EmailService send failed', {
+      code: err?.code,
+      message: err?.message,
+      subject,
+      to,
+    });
+    throw err;
+  }
+}
+
 function buildVerificationUrl(env, email, token) {
   const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
   const path = env.VERIFICATION_LANDING_PATH || '/account.html';
@@ -1094,14 +1132,6 @@ function buildVerificationUrl(env, email, token) {
 }
 
 async function sendVerificationEmail(env, email, username, token) {
-  if (!env.EMAIL) {
-    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
-  }
-  const from = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
-  if (!from) {
-    throw new Error('Set plaintext var SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
-  }
-
   const verificationUrl = buildVerificationUrl(env, email, token);
   const safeName = String(username).replace(/[<>]/g, '');
   const subject = 'Confirm your Ahrens Labs account';
@@ -1134,13 +1164,7 @@ async function sendVerificationEmail(env, email, username, token) {
     'If you did not create this account, you can ignore this email.',
   ].join('\n');
 
-  await env.EMAIL.send({
-    from,
-    to: email,
-    subject,
-    html,
-    text,
-  });
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
 }
 
 function generatePasswordResetToken() {
@@ -1156,14 +1180,6 @@ function buildPasswordResetUrl(env, email, token) {
 }
 
 async function sendPasswordResetEmail(env, email, username, token) {
-  if (!env.EMAIL) {
-    throw new Error('Missing EMAIL send binding; add [[send_email]] to wrangler.toml and deploy.');
-  }
-  const from = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
-  if (!from) {
-    throw new Error('Set plaintext var SENDER_EMAIL (or VERIFICATION_FROM_EMAIL) and allow it in [[send_email]] allowed_sender_addresses.');
-  }
-
   const resetUrl = buildPasswordResetUrl(env, email, token);
   const safeName = String(username).replace(/[<>]/g, '');
   const subject = 'Reset your Ahrens Labs password';
@@ -1196,13 +1212,7 @@ async function sendPasswordResetEmail(env, email, username, token) {
     'If you did not request this, ignore this email.',
   ].join('\n');
 
-  await env.EMAIL.send({
-    from,
-    to: email,
-    subject,
-    html,
-    text,
-  });
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
 }
 
 const FORGOT_PASSWORD_OK_MESSAGE =
@@ -1254,7 +1264,7 @@ async function handleForgotPassword(request, env, corsHeaders) {
   try {
     await sendPasswordResetEmail(env, normalizedEmail, username, token);
   } catch (e) {
-    console.error('Forgot password email failed:', e);
+    console.error('Forgot password email failed:', e?.code || e?.name, e?.message || e);
   }
 
   return genericResponse();

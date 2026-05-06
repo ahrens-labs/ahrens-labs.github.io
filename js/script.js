@@ -54,8 +54,8 @@ async function checkLoginStatus() {
     const signupBtn = document.getElementById('header-signup-btn');
     const usernameSpan = document.getElementById('header-username');
     
-    if (!loginBtn || !signupBtn || !usernameSpan) {
-        // Header elements not found, but still check if protected page
+    if (!loginBtn || !signupBtn) {
+        // Header buttons not found, but still check if protected page
         if (!sessionId && requiresLogin()) {
             console.log('Not logged in on protected page (no header), redirecting...');
             const currentPage = getCurrentPageReturnTarget();
@@ -68,7 +68,7 @@ async function checkLoginStatus() {
         // Not logged in
         loginBtn.style.display = 'block';
         signupBtn.style.display = 'block';
-        usernameSpan.style.display = 'none';
+        if (usernameSpan) usernameSpan.style.display = 'none';
         
         // Redirect to login if on a protected page
         if (requiresLogin()) {
@@ -88,11 +88,13 @@ async function checkLoginStatus() {
         });
         
         if (response.ok) {
-            // Logged in: hide login/signup; show username only (logout lives on account page)
+            // Logged in: hide login/signup; show username when present (logout lives on account page)
             loginBtn.style.display = 'none';
             signupBtn.style.display = 'none';
-            usernameSpan.style.display = 'block';
-            usernameSpan.textContent = username;
+            if (usernameSpan) {
+                usernameSpan.style.display = 'inline-block';
+                usernameSpan.textContent = username || 'Signed in';
+            }
             return;
         } else {
             // Invalid session
@@ -102,7 +104,7 @@ async function checkLoginStatus() {
             
             loginBtn.style.display = 'block';
             signupBtn.style.display = 'block';
-            usernameSpan.style.display = 'none';
+            if (usernameSpan) usernameSpan.style.display = 'none';
             
             // Redirect to login if on a protected page
             if (requiresLogin()) {
