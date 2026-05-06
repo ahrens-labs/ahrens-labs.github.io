@@ -1,6 +1,12 @@
+# chess-accounts — deploy: cd workers && npx wrangler deploy
+# Email: same pattern as sports-digest — Cloudflare Email Sending domain onboarded; SENDER_EMAIL on that domain.
+# Do not set allowed_destination_addresses here (unlike sports-digest): this worker must mail arbitrary user addresses
+# (signup verify, password reset). Sports-digest only emails RECIPIENT_EMAIL so it can lock destinations.
+# Workers Free: Cloudflare Email Sending may be unavailable; use wrangler secret put RESEND_API_KEY (see src/index.js).
+
 name = "chess-accounts"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2025-05-01"
 
 [durable_objects]
 bindings = [
@@ -22,22 +28,12 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
-# Outbound email (pick one):
-#
-# A) Workers FREE — Resend (recommended): verify your domain at resend.com, then:
-#    wrangler secret put RESEND_API_KEY
-#    SENDER_EMAIL below must be an address/domain you verified in Resend.
-#
-# B) Cloudflare Email Service — requires Workers PAID plan + dashboard Email Sending onboarding.
-#    Uncomment [[send_email]]; SENDER_EMAIL must match allowed_sender_addresses and your onboarded zone.
-#
-# [[send_email]]
-# name = "EMAIL"
-# allowed_sender_addresses = ["matt@ahrenslabs.com"]
-# remote = true
+[[send_email]]
+name = "EMAIL"
+remote = true
 
 [vars]
-# Verified sender (Resend or, if using paid Email Service, your onboarded domain).
+# Onboarded domain address (Cloudflare Email Sending) or Resend-verified address if using RESEND_API_KEY only.
 SENDER_EMAIL = "matt@ahrenslabs.com"
 # Origin used in the verification link (no trailing slash).
 VERIFICATION_LINK_BASE = "https://ahrens-labs.github.io"
