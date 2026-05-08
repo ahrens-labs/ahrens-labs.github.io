@@ -1138,7 +1138,7 @@ function summarizeEmailSendError(err) {
     E_SENDER_DOMAIN_NOT_AVAILABLE:
       'Domain is not onboarded to Cloudflare Email Sending for this zone.',
     E_RECIPIENT_NOT_ALLOWED:
-      'Recipient blocked by Worker allowlist — remove allowed_destination_addresses for transactional mail or add the address.',
+      'This Worker’s EMAIL binding still has a recipient allowlist (allowed_destination_addresses or destination_address). In this repo, [[send_email]] must list only name + remote — then run wrangler deploy. If it persists, open Workers → chess-accounts → Settings and remove any recipient restriction on the Email binding. Optional: set RESEND_API_KEY to bypass Cloudflare for sends.',
     E_RECIPIENT_SUPPRESSED:
       'That recipient is suppressed (bounce/spam) at the email provider.',
     E_RATE_LIMIT_EXCEEDED: 'Email rate limit exceeded; retry later.',

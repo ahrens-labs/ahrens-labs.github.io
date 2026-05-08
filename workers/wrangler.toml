@@ -32,6 +32,8 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
+# Must NOT use allowed_destination_addresses or destination_address here (unlike sports-digest).
+# Those options restrict "To:" and cause E_RECIPIENT_NOT_ALLOWED for real users. Redeploy after any dashboard edit.
 [[send_email]]
 name = "EMAIL"
 remote = true
