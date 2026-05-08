@@ -188,6 +188,10 @@
         .notification.warning {
             border-left: 4px solid #f39c12;
         }
+
+        .notification.info {
+            border-left: 4px solid #3498db;
+        }
         
         @keyframes slideIn {
             from {
@@ -832,8 +836,10 @@
                     data = null;
                 }
                 showNotification(
-                    (data && data.message) ? data.message : 'If an account exists for that email, check your inbox.',
-                    'success',
+                    (data && data.message)
+                        ? data.message
+                        : 'If an account exists for that email, you will receive a reset link shortly.',
+                    'info',
                     6500
                 );
                 switchTab('login');
@@ -988,25 +994,22 @@
                     localStorage.setItem('ahrenslabs_userId', data.userId);
                     localStorage.setItem('ahrenslabs_email', email);
                     
-                    if (data.verificationEmailSent === false) {
+                    if (data.verificationEmailSent === true) {
                         showNotification(
                             data.message
-                                || 'Account created, but the confirmation email was not sent. Check spam or try Forgot password after signing in.',
-                            'warning',
-                            9000
-                        );
-                    } else if (data.verificationEmailSent === true) {
-                        showNotification(
-                            data.message
-                                || 'Account created! Confirmation email sent — check your inbox and spam folder.',
+                                || 'Account created! The mail provider accepted a confirmation message — check your inbox and spam folder.',
                             'success',
                             6500
                         );
                     } else {
                         showNotification(
-                            data.message || 'Account created successfully! 🎉',
-                            'success',
-                            data.message ? 5000 : 3000
+                            data.verificationEmailSent === false
+                                ? (data.message
+                                    || 'Account created, but the confirmation email was not accepted by the mail provider. Check SENDER_EMAIL, Email binding, and Worker logs.')
+                                : (data.message
+                                    || 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration or try Forgot password after signing in.'),
+                            'warning',
+                            9000
                         );
                     }
                     

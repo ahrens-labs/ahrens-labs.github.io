@@ -1129,8 +1129,13 @@ async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
     console.error('Resend send failed', res.status, msg);
     throw new Error(typeof msg === 'string' ? msg : `Resend HTTP ${res.status}`);
   }
-  console.log('Resend send ok', { id: data?.id, subject, to });
-  return data;
+  const resendId = data && typeof data.id === 'string' ? data.id.trim() : '';
+  if (!resendId) {
+    console.error('Resend response missing id', raw);
+    throw new Error('Resend accepted the request but returned no message id');
+  }
+  console.log('Resend send ok', { id: resendId, subject, to });
+  return { provider: 'resend', messageId: resendId };
 }
 
 async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
@@ -1149,8 +1154,13 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
         html,
         text,
       });
-      console.log('EmailService send ok', { messageId: result?.messageId, subject, to });
-      return result;
+      const messageId =
+        result && typeof result.messageId === 'string' ? result.messageId.trim() : '';
+      if (!messageId) {
+        throw new Error('Email Service returned no messageId after send');
+      }
+      console.log('EmailService send ok', { messageId, subject, to });
+      return { provider: 'cloudflare', messageId };
     } catch (err) {
       console.error('EmailService send failed', {
         code: err?.code,
@@ -1318,6 +1328,8 @@ async function handleForgotPassword(request, env, corsHeaders) {
     await sendPasswordResetEmail(env, normalizedEmail, username, token);
   } catch (e) {
     console.error('Forgot password email failed:', e?.code || e?.name, e?.message || e);
+    const clearReq = new Request('http://do/clearPasswordResetToken', { method: 'POST' });
+    await userAccount.fetch(clearReq);
   }
 
   return genericResponse();
@@ -1677,6 +1689,11 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/clearPasswordResetToken' && request.method === 'POST') {
+        await this.clearPasswordResetToken();
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/resetPasswordWithToken' && request.method === 'POST') {
         const { token, newPassword } = await request.json();
         const result = await this.resetPasswordWithToken(token, newPassword);
@@ -1970,6 +1987,15 @@ export class UserAccount {
     if (userData) {
       userData.passwordResetToken = token;
       userData.passwordResetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      await this.storage.put('userData', userData);
+    }
+  }
+
+  async clearPasswordResetToken() {
+    const userData = await this.storage.get('userData');
+    if (userData) {
+      userData.passwordResetToken = null;
+      userData.passwordResetTokenExpiry = null;
       await this.storage.put('userData', userData);
     }
   }

@@ -11362,24 +11362,23 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
           
-          if (data.verificationEmailSent === false) {
+          if (data.verificationEmailSent === true) {
             showNotification(
               data.message
-                || 'Account created, but the confirmation email was not sent. Check spam or use Forgot password on the account page.',
-              'warning',
-              9000
-            );
-          } else if (data.verificationEmailSent === true) {
-            showNotification(
-              data.message
-                || 'Account created! Confirmation email sent — check your inbox and spam folder.',
+                || 'Account created! The mail provider accepted a confirmation message — check your inbox and spam folder.',
               'success',
               6500
             );
-          } else if (data.message) {
-            showNotification(data.message, 'success', 5000);
           } else {
-            showNotification('Account created successfully!', 'success');
+            showNotification(
+              data.verificationEmailSent === false
+                ? (data.message
+                    || 'Account created, but the confirmation email was not accepted by the mail provider.')
+                : (data.message
+                    || 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration.'),
+              'warning',
+              9000
+            );
           }
           
           // Sync current localStorage data to account
