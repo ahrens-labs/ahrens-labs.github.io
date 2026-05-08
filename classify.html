@@ -1514,7 +1514,7 @@
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return false;
             try {
-                const response = await fetch(`${AHRENS_API_URL}/api/classify/load`, {
+                const response = await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/load`, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${sessionId}` }
                 });
@@ -1546,7 +1546,7 @@
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return;
             try {
-                await fetch(`${AHRENS_API_URL}/api/classify/sync`, {
+                await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

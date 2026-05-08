@@ -5,7 +5,10 @@
 (function () {
   'use strict';
 
-  const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+  const API_BASE_URL =
+    typeof window !== 'undefined' && window.AHRENS_LABS_API_BASE
+      ? window.AHRENS_LABS_API_BASE
+      : 'https://chess-accounts.matthewahrens.workers.dev';
 
   /** Matches shop time control labels in chess_engine.html */
   const GH_TIME_CONTROLS = [

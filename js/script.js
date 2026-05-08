@@ -1,5 +1,14 @@
 // Ahrens Labs Unified Account System
-const AHRENS_API_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+// Override before this file loads: <script>window.AHRENS_LABS_API_BASE='https://chess-accounts.YOUR_SUBDOMAIN.workers.dev';</script>
+(function () {
+    if (typeof window === 'undefined') return;
+    if (!window.AHRENS_LABS_API_BASE) {
+        window.AHRENS_LABS_API_BASE = 'https://chess-accounts.matthewahrens.workers.dev';
+    }
+    window.AHRENS_API_URL = window.AHRENS_LABS_API_BASE;
+})();
+
+const AHRENS_API_URL = window.AHRENS_LABS_API_BASE;
 
 // List of page basenames that require login
 const PROTECTED_PAGE_BASENAMES = [

@@ -493,7 +493,8 @@
         initTheme();
         // CLOUD SAVE SYSTEM
         // ===============================================
-        const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+        const API_BASE_URL =
+            window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
         let currentSaveSlot = null;
         let isLoggedIn = false;
         let sessionId = null;

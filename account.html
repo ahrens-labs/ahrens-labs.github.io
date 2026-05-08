@@ -565,7 +565,8 @@
     </div>
 
     <script>
-        const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+        const API_BASE_URL =
+            window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
         function togglePasswordVisibility(inputId, button) {
             const input = document.getElementById(inputId);
@@ -838,7 +839,16 @@
                 switchTab('login');
             } catch (err) {
                 console.error('Forgot password error:', err);
-                showNotification('Could not send reset email. Try again.', 'error');
+                const isNetwork =
+                    (err && err.name === 'TypeError') ||
+                    /failed to fetch|networkerror|load failed|name not resolved/i.test(String(err && err.message));
+                showNotification(
+                    isNetwork
+                        ? 'Could not reach the account server. Check your connection, then confirm Workers → chess-accounts shows the same URL as window.AHRENS_LABS_API_BASE in js/script.js (deploy output: https://chess-accounts.<subdomain>.workers.dev).'
+                        : 'Could not send reset email. Try again.',
+                    'error',
+                    isNetwork ? 9000 : 4000
+                );
             }
         }
 

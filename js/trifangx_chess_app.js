@@ -10926,7 +10926,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     // ================================
     // CLOUD STORAGE SYSTEM
     // ================================
-    const API_BASE_URL = 'https://chess-accounts.matthewahrens.workers.dev';
+    const API_BASE_URL =
+      typeof window !== 'undefined' && window.AHRENS_LABS_API_BASE
+        ? window.AHRENS_LABS_API_BASE
+        : 'https://chess-accounts.matthewahrens.workers.dev';
 
     // Cloud data object - replaces ALL localStorage
     let cloudChessData = null;

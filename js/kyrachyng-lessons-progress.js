@@ -5,9 +5,11 @@
 (function (global) {
     var STORAGE_KEY = 'kyrachyngLessonsCompleted';
     var ORDER = ['lesson1', 'lesson2', 'lesson3'];
-    var API_BASE = (typeof global.AHRENS_API_URL === 'string' && global.AHRENS_API_URL)
-        ? global.AHRENS_API_URL
-        : 'https://chess-accounts.matthewahrens.workers.dev';
+    var API_BASE = (typeof global.AHRENS_LABS_API_BASE === 'string' && global.AHRENS_LABS_API_BASE)
+        ? global.AHRENS_LABS_API_BASE
+        : ((typeof global.AHRENS_API_URL === 'string' && global.AHRENS_API_URL)
+            ? global.AHRENS_API_URL
+            : 'https://chess-accounts.matthewahrens.workers.dev');
     var completedCache = null;
     var initialized = false;
     var initPromise = null;
