@@ -11370,15 +11370,19 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               6500
             );
           } else {
-            showNotification(
-              data.verificationEmailSent === false
-                ? (data.message
-                    || 'Account created, but the confirmation email was not accepted by the mail provider.')
-                : (data.message
-                    || 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration.'),
-              'warning',
-              9000
-            );
+            const codeTag =
+              data.emailSendError && data.emailSendError.code
+                ? ` [${data.emailSendError.code}]`
+                : '';
+            const body =
+              data.message
+              || (data.verificationEmailSent === false
+                ? 'Account created, but the confirmation email was not accepted by the mail provider.'
+                : 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration.');
+            if (data.emailSendError) {
+              console.warn('Signup emailSendError', data.emailSendError);
+            }
+            showNotification(body + codeTag, 'warning', 12000);
           }
           
           // Sync current localStorage data to account

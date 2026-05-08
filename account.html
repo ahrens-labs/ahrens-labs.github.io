@@ -1002,15 +1002,19 @@
                             6500
                         );
                     } else {
-                        showNotification(
-                            data.verificationEmailSent === false
-                                ? (data.message
-                                    || 'Account created, but the confirmation email was not accepted by the mail provider. Check SENDER_EMAIL, Email binding, and Worker logs.')
-                                : (data.message
-                                    || 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration or try Forgot password after signing in.'),
-                            'warning',
-                            9000
-                        );
+                        const codeTag =
+                            data.emailSendError && data.emailSendError.code
+                                ? ` [${data.emailSendError.code}]`
+                                : '';
+                        const body =
+                            data.message
+                            || (data.verificationEmailSent === false
+                                ? 'Account created, but the confirmation email was not accepted by the mail provider. Check SENDER_EMAIL, Email binding, and Worker logs.'
+                                : 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration or try Forgot password after signing in.');
+                        if (data.emailSendError) {
+                            console.warn('Signup emailSendError', data.emailSendError);
+                        }
+                        showNotification(body + codeTag, 'warning', 12000);
                     }
                     
                     // Redirect to return URL or home

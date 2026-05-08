@@ -79,6 +79,12 @@ export default {
             bindingPresent: Boolean(env.EMAIL),
             resendConfigured: Boolean(env.RESEND_API_KEY),
             senderEnvConfigured: Boolean(sender),
+            senderEmail: sender || null,
+          },
+          emailHelp: {
+            signupShowsWhy: 'On failed signup mail, JSON includes emailSendError { code, message, hint }.',
+            checkLogs: 'Workers → chess-accounts → Logs (grep EmailService send failed).',
+            codesDoc: 'https://developers.cloudflare.com/email-service/api/send-emails/workers-api/#error-codes',
           },
           ...debugData
         }), {
@@ -189,11 +195,18 @@ async function handleSignup(request, env, corsHeaders) {
   await userAccount.fetch(setTokenReq);
 
   let verificationEmailSent = false;
+  let emailSendError = null;
   try {
     await sendVerificationEmail(env, normalizedEmail, username, verificationToken);
     verificationEmailSent = true;
   } catch (error) {
-    console.error('Failed to send verification email:', error?.code || error?.name, error?.message || error);
+    emailSendError = summarizeEmailSendError(error);
+    console.error(
+      'Failed to send verification email:',
+      emailSendError.code,
+      emailSendError.message,
+      emailSendError.hint || ''
+    );
     // Continue with signup even if email fails
   }
 
@@ -208,6 +221,12 @@ async function handleSignup(request, env, corsHeaders) {
   });
   await session.fetch(sessionReq);
 
+  const failMsg = emailSendError?.hint
+    ? `Account created, but email was not sent: ${emailSendError.hint}`
+    : (emailSendError?.message
+      ? `Account created, but email was not sent (${emailSendError.code || 'error'}).`
+      : 'Account created, but we could not send the confirmation email. Check Worker logs (Email Service / SENDER_EMAIL) or try Forgot password after signing in.');
+
   return new Response(JSON.stringify({ 
     success: true, 
     sessionId,
@@ -215,9 +234,10 @@ async function handleSignup(request, env, corsHeaders) {
     username,
     email: normalizedEmail,
     verificationEmailSent,
+    emailSendError,
     message: verificationEmailSent
       ? 'Account created! Check your email for a link to confirm your address.'
-      : 'Account created, but we could not send the confirmation email. Check Worker logs (Email Service / SENDER_EMAIL) or try Forgot password after signing in.',
+      : failMsg,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1096,6 +1116,43 @@ function generateVerificationToken() {
   return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 }
 
+/** Cloudflare Email Service sometimes returns slightly different result shapes. */
+function extractCloudflareEmailMessageId(result) {
+  if (result == null) return '';
+  if (typeof result === 'string') return result.trim();
+  if (typeof result !== 'object') return '';
+  const candidates = [result.messageId, result.MessageId, result.id];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim()) return c.trim();
+  }
+  return '';
+}
+
+/** Safe to return to the client: helps explain E_SENDER_NOT_VERIFIED etc. */
+function summarizeEmailSendError(err) {
+  const code = typeof err?.code === 'string' ? err.code : null;
+  const rawMsg = typeof err?.message === 'string' ? err.message : String(err || 'Unknown error');
+  const hints = {
+    E_SENDER_NOT_VERIFIED:
+      'Cloudflare rejected the From address — complete Email Sending setup for your domain and use a verified sender (match SENDER_EMAIL in wrangler).',
+    E_SENDER_DOMAIN_NOT_AVAILABLE:
+      'Domain is not onboarded to Cloudflare Email Sending for this zone.',
+    E_RECIPIENT_NOT_ALLOWED:
+      'Recipient blocked by Worker allowlist — remove allowed_destination_addresses for transactional mail or add the address.',
+    E_RECIPIENT_SUPPRESSED:
+      'That recipient is suppressed (bounce/spam) at the email provider.',
+    E_RATE_LIMIT_EXCEEDED: 'Email rate limit exceeded; retry later.',
+    E_DAILY_LIMIT_EXCEEDED: 'Daily send quota exceeded on your Cloudflare plan.',
+    E_DELIVERY_FAILED: 'Handoff to recipient mail servers failed (not an app bug).',
+    E_VALIDATION_ERROR: 'Invalid to/from/subject payload.',
+    E_FIELD_MISSING: 'Missing to, from, or subject.',
+    E_NO_MESSAGE_ID:
+      'Email send returned no message id — check Workers runtime / upgrade wrangler; or set RESEND_API_KEY as fallback.',
+  };
+  const hint = (code && hints[code]) || null;
+  return { code, message: rawMsg, hint };
+}
+
 // Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
 async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
   const key = env.RESEND_API_KEY;
@@ -1154,10 +1211,11 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
         html,
         text,
       });
-      const messageId =
-        result && typeof result.messageId === 'string' ? result.messageId.trim() : '';
+      const messageId = extractCloudflareEmailMessageId(result);
       if (!messageId) {
-        throw new Error('Email Service returned no messageId after send');
+        const synthetic = new Error('Email Service returned no messageId after send');
+        synthetic.code = 'E_NO_MESSAGE_ID';
+        throw synthetic;
       }
       console.log('EmailService send ok', { messageId, subject, to });
       return { provider: 'cloudflare', messageId };
