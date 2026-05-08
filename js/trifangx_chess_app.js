@@ -2210,8 +2210,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     // In-UI notification (no alert)
-    function showNotification(message, type) {
+    function showNotification(message, type, durationMs) {
       type = type || 'info';
+      const ms = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 4000;
       const container = document.getElementById('notification-toast');
       if (!container) return;
       const el = document.createElement('div');
@@ -2222,7 +2223,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         el.style.opacity = '0';
         el.style.transform = 'translateY(-10px)';
         setTimeout(() => el.remove(), 300);
-      }, 4000);
+      }, ms);
     }
 
     function isChessPregamePhase() {
@@ -11358,8 +11359,21 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
           
-          // Show verification message if provided
-          if (data.message) {
+          if (data.verificationEmailSent === false) {
+            showNotification(
+              data.message
+                || 'Account created, but the confirmation email was not sent. Check spam or use Forgot password on the account page.',
+              'warning',
+              9000
+            );
+          } else if (data.verificationEmailSent === true) {
+            showNotification(
+              data.message
+                || 'Account created! Confirmation email sent — check your inbox and spam folder.',
+              'success',
+              6500
+            );
+          } else if (data.message) {
             showNotification(data.message, 'success', 5000);
           } else {
             showNotification('Account created successfully!', 'success');

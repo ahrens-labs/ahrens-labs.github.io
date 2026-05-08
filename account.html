@@ -184,6 +184,10 @@
         .notification.error {
             border-left: 4px solid #e74c3c;
         }
+
+        .notification.warning {
+            border-left: 4px solid #f39c12;
+        }
         
         @keyframes slideIn {
             from {
@@ -974,11 +978,27 @@
                     localStorage.setItem('ahrenslabs_userId', data.userId);
                     localStorage.setItem('ahrenslabs_email', email);
                     
-                    showNotification(
-                        data.message || 'Account created successfully! 🎉',
-                        'success',
-                        data.message ? 5000 : 3000
-                    );
+                    if (data.verificationEmailSent === false) {
+                        showNotification(
+                            data.message
+                                || 'Account created, but the confirmation email was not sent. Check spam or try Forgot password after signing in.',
+                            'warning',
+                            9000
+                        );
+                    } else if (data.verificationEmailSent === true) {
+                        showNotification(
+                            data.message
+                                || 'Account created! Confirmation email sent — check your inbox and spam folder.',
+                            'success',
+                            6500
+                        );
+                    } else {
+                        showNotification(
+                            data.message || 'Account created successfully! 🎉',
+                            'success',
+                            data.message ? 5000 : 3000
+                        );
+                    }
                     
                     // Redirect to return URL or home
                     const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';

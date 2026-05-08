@@ -67,7 +67,17 @@ async function signup(email, password, username) {
       isLoggedIn = true;
       localStorage.setItem('chessSessionId', currentSessionId);
       updateAccountUI(true, username);
-      showNotification('Account created successfully!', 'success');
+      if (data.verificationEmailSent === false) {
+        showNotification(
+          data.message || 'Account created, but the confirmation email was not sent.',
+          'error'
+        );
+      } else {
+        showNotification(
+          data.message || 'Account created successfully!',
+          'success'
+        );
+      }
       closeAccountModal();
       // Sync current localStorage data to account
       await syncLocalDataToAccount();
