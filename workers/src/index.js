@@ -1382,15 +1382,29 @@ async function handleForgotPassword(request, env, corsHeaders) {
   await userAccount.fetch(setReq);
 
   const username = userData.username || 'there';
+  let emailSendError = null;
   try {
     await sendPasswordResetEmail(env, normalizedEmail, username, token);
   } catch (e) {
-    console.error('Forgot password email failed:', e?.code || e?.name, e?.message || e);
+    emailSendError = summarizeEmailSendError(e);
+    console.error(
+      'Forgot password email failed:',
+      emailSendError.code,
+      emailSendError.message,
+      emailSendError.hint || ''
+    );
     const clearReq = new Request('http://do/clearPasswordResetToken', { method: 'POST' });
     await userAccount.fetch(clearReq);
   }
 
-  return genericResponse();
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: FORGOT_PASSWORD_OK_MESSAGE,
+      emailSendError,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 async function handleResetPassword(request, env, corsHeaders) {

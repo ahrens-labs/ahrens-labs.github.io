@@ -835,9 +835,16 @@
                 } catch {
                     data = null;
                 }
+                const codeTag =
+                    data && data.emailSendError && data.emailSendError.code
+                        ? ` [${data.emailSendError.code}]`
+                        : '';
+                if (data && data.emailSendError) {
+                    console.warn('Forgot-password emailSendError', data.emailSendError);
+                }
                 showNotification(
                     (data && data.message)
-                        ? data.message
+                        ? (data.message + codeTag)
                         : 'If an account exists for that email, you will receive a reset link shortly.',
                     'info',
                     6500
