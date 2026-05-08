@@ -835,20 +835,28 @@
                 } catch {
                     data = null;
                 }
-                const codeTag =
-                    data && data.emailSendError && data.emailSendError.code
-                        ? ` [${data.emailSendError.code}]`
-                        : '';
                 if (data && data.emailSendError) {
                     console.warn('Forgot-password emailSendError', data.emailSendError);
+                    const hint = data.emailSendError.hint || data.emailSendError.message || '';
+                    const code = data.emailSendError.code ? ` [${data.emailSendError.code}]` : '';
+                    showNotification(
+                        hint
+                            ? `Could not send reset email.${code} ${hint}`
+                            : ((data.message ||
+                                'If an account exists for that email, you will receive a reset link shortly.') +
+                                code),
+                        'warning',
+                        14000
+                    );
+                } else {
+                    showNotification(
+                        (data && data.message)
+                            ? `${data.message} If nothing arrives, use the exact email on your account (try signing in with username first), check spam, and confirm the site is using the live chess-accounts Worker URL.`
+                            : 'If an account exists for that email, you will receive a reset link shortly.',
+                        'info',
+                        9000
+                    );
                 }
-                showNotification(
-                    (data && data.message)
-                        ? (data.message + codeTag)
-                        : 'If an account exists for that email, you will receive a reset link shortly.',
-                    'info',
-                    6500
-                );
                 switchTab('login');
             } catch (err) {
                 console.error('Forgot password error:', err);

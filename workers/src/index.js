@@ -1366,11 +1366,19 @@ async function handleForgotPassword(request, env, corsHeaders) {
   const userData = await getDataRes.json();
 
   if (!userData || typeof userData !== 'object') {
+    console.log(
+      'Forgot password: no user in legacy email slot (wrong email, or account not on this Worker)',
+      { userId }
+    );
     return genericResponse();
   }
 
   const storedEmail = normalizeEmail(userData.email || '');
   if (storedEmail !== normalizedEmail) {
+    console.log('Forgot password: stored email does not match request', {
+      userId,
+      requestEmail: normalizedEmail,
+    });
     return genericResponse();
   }
 
