@@ -9,7 +9,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Test-Secret',
     };
 
     // Handle preflight requests
@@ -39,6 +39,8 @@ export default {
         return handleForgotPassword(request, env, corsHeaders);
       } else if (path === '/api/reset-password' && request.method === 'POST') {
         return handleResetPassword(request, env, corsHeaders);
+      } else if ((path === '/send-test' || path === '/api/send-test') && request.method === 'POST') {
+        return handleSendTest(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
         return handleChessSync(request, env, corsHeaders);
       } else if (path === '/api/chess/load' && request.method === 'GET') {
@@ -1094,7 +1096,7 @@ function generateVerificationToken() {
   return `verify_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
 }
 
-// Outbound mail: prefer Resend (Workers Free). Else Cloudflare Email Service (requires Workers Paid + [[send_email]]).
+// Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
 async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
   const key = env.RESEND_API_KEY;
   if (!key || typeof key !== 'string') {
@@ -1139,8 +1141,9 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
 
   if (env.EMAIL) {
     try {
+      // Plain string `from` matches typical Cloudflare Email Service examples (e.g. sports-digest style).
       const result = await env.EMAIL.send({
-        from: { email: fromAddr, name: 'Ahrens Labs' },
+        from: fromAddr,
         to,
         subject,
         html,
@@ -1371,6 +1374,68 @@ async function handleResetPassword(request, env, corsHeaders) {
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
+}
+
+function timingSafeEqualStrings(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let x = 0;
+  for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return x === 0;
+}
+
+/** Same idea as sports-digest send-test: isolate Worker email from signup logic. */
+async function handleSendTest(request, env, corsHeaders) {
+  const expected = env.TEST_SECRET;
+  if (!expected || typeof expected !== 'string') {
+    return new Response(
+      JSON.stringify({
+        error: 'Set TEST_SECRET: wrangler secret put TEST_SECRET (then redeploy if needed).',
+      }),
+      { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  const provided = request.headers.get('X-Test-Secret') || '';
+  if (!timingSafeEqualStrings(provided, expected)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const to = normalizeEmail(body.to);
+  if (!to) {
+    return new Response(
+      JSON.stringify({ error: 'Body must be JSON: { "to": "you@example.com" }' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    await dispatchTransactionalEmail(env, {
+      to,
+      subject: 'chess-accounts email test',
+      html: '<p>If you see this, outbound email from chess-accounts works.</p>',
+      text: 'If you see this, outbound email from chess-accounts works.',
+    });
+    return new Response(JSON.stringify({ success: true, to }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: err?.message || String(err),
+        code: err?.code || undefined,
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 }
 
 // Handle email verification

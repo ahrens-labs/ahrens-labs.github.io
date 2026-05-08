@@ -2,7 +2,10 @@
 # Email: same pattern as sports-digest — Cloudflare Email Sending domain onboarded; SENDER_EMAIL on that domain.
 # Do not set allowed_destination_addresses here (unlike sports-digest): this worker must mail arbitrary user addresses
 # (signup verify, password reset). Sports-digest only emails RECIPIENT_EMAIL so it can lock destinations.
-# Workers Free: Cloudflare Email Sending may be unavailable; use wrangler secret put RESEND_API_KEY (see src/index.js).
+# Debug send (like sports-digest): wrangler secret put TEST_SECRET
+#   curl -sS -X POST "https://<this-worker-host>/send-test" -H "Content-Type: application/json" \
+#     -H "X-Test-Secret: <secret>" -d '{"to":"your@email.com"}'
+# Optional: wrangler secret put RESEND_API_KEY if Cloudflare send fails and you want fallback (see src/index.js).
 
 name = "chess-accounts"
 main = "src/index.js"
