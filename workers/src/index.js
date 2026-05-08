@@ -80,6 +80,7 @@ export default {
             transactionalBinding: Boolean(env.EMAIL_TRANSACTIONAL),
             legacyEmailBinding: Boolean(env.EMAIL),
             resendConfigured: Boolean(env.RESEND_API_KEY),
+            transactionalEmailVia: String(env.TRANSACTIONAL_EMAIL_VIA || '').trim() || 'cloudflare_then_resend',
             senderEnvConfigured: Boolean(sender),
             senderEmail: sender || null,
           },
@@ -1140,7 +1141,7 @@ function summarizeEmailSendError(err) {
     E_SENDER_DOMAIN_NOT_AVAILABLE:
       'Domain is not onboarded to Cloudflare Email Sending for this zone.',
     E_RECIPIENT_NOT_ALLOWED:
-      'Recipient allowlist still applies to the send-email binding in use. Deploy latest wrangler.toml (binding EMAIL_TRANSACTIONAL, no allowlist). In the dashboard, remove allowed_destination_addresses / destination_address from any Email binding on chess-accounts. Optional: wrangler secret put RESEND_API_KEY.',
+      'Cloudflare is still restricting this recipient (dashboard or account allowlist). Fix the Send Email binding in the dashboard, or bypass Cloudflare: wrangler secret put RESEND_API_KEY then set TRANSACTIONAL_EMAIL_VIA = "resend" in [vars] (or Worker vars) and redeploy.',
     E_RECIPIENT_SUPPRESSED:
       'That recipient is suppressed (bounce/spam) at the email provider.',
     E_RATE_LIMIT_EXCEEDED: 'Email rate limit exceeded; retry later.',
@@ -1217,6 +1218,16 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
     );
   }
 
+  const via = String(env.TRANSACTIONAL_EMAIL_VIA || '').trim().toLowerCase();
+  if (via === 'resend') {
+    if (!env.RESEND_API_KEY || typeof env.RESEND_API_KEY !== 'string') {
+      throw new Error(
+        'TRANSACTIONAL_EMAIL_VIA=resend requires wrangler secret put RESEND_API_KEY (and SENDER_EMAIL verified in Resend).'
+      );
+    }
+    return await sendViaResend(env, { fromAddr, to, subject, html, text });
+  }
+
   const cfMail = getCloudflareEmailBinding(env);
   if (cfMail) {
     try {
@@ -1244,9 +1255,17 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
         subject,
         to,
       });
-      if (env.RESEND_API_KEY) {
-        console.log('Falling back to Resend after EmailService error');
+      if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
+        console.log('Falling back to Resend after EmailService error', err?.code || '');
         return await sendViaResend(env, { fromAddr, to, subject, html, text });
+      }
+      if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
+        const hint = new Error(
+          'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). Set wrangler secret RESEND_API_KEY and redeploy, ' +
+            'or add TRANSACTIONAL_EMAIL_VIA = "resend" in [vars] to send only via Resend.'
+        );
+        hint.code = err.code;
+        throw hint;
       }
       throw err;
     }

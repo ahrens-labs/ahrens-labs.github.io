@@ -6,7 +6,9 @@
 # Debug send (like sports-digest): wrangler secret put TEST_SECRET
 #   curl -sS -X POST "https://<this-worker-host>/send-test" -H "Content-Type: application/json" \
 #     -H "X-Test-Secret: <secret>" -d '{"to":"your@email.com"}'
-# Optional: wrangler secret put RESEND_API_KEY if Cloudflare send fails and you want fallback (see src/index.js).
+# If Cloudflare keeps returning E_RECIPIENT_NOT_ALLOWED, set TRANSACTIONAL_EMAIL_VIA = "resend" below and run:
+#   wrangler secret put RESEND_API_KEY
+# (SENDER_EMAIL must be a domain verified in Resend when using that mode.)
 
 name = "chess-accounts"
 main = "src/index.js"
@@ -34,13 +36,15 @@ new_sqlite_classes = ["UsernameRegistry"]
 
 # Use binding name EMAIL_TRANSACTIONAL (not "EMAIL") so a dashboard allowlist stuck on an old EMAIL binding does not apply.
 # Must NOT set allowed_destination_addresses or destination_address — those cause E_RECIPIENT_NOT_ALLOWED for arbitrary users.
+# Omit `remote = true` on deployed Workers (that flag is for wrangler dev hitting real Email Service). Add it back only for local dev if needed.
 [[send_email]]
 name = "EMAIL_TRANSACTIONAL"
-remote = true
 
 [vars]
 # Onboarded domain address (Cloudflare Email Sending) or Resend-verified address if using RESEND_API_KEY only.
 SENDER_EMAIL = "matt@ahrenslabs.com"
+# Set to "resend" to skip Cloudflare Email send entirely (needs RESEND_API_KEY). Fixes stubborn E_RECIPIENT_NOT_ALLOWED from account/dashboard allowlists.
+# TRANSACTIONAL_EMAIL_VIA = "resend"
 # Optional display name on the From header for Cloudflare Email Service (default "Ahrens Labs").
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Origin used in the verification link (no trailing slash).

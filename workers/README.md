@@ -41,8 +41,15 @@ wrangler dev
 
 ## Email: `E_RECIPIENT_NOT_ALLOWED`
 
-The send-email binding only allows certain **To** addresses (Wrangler `allowed_destination_addresses` / `destination_address`, or the dashboard equivalent). This project uses binding name **`EMAIL_TRANSACTIONAL`** with **no** allowlist so signup/forgot-password can reach any user.
+Cloudflare is rejecting the **To** address. Your `/api/debug` can show `transactionalBinding: true` while the **account or dashboard** still applies a recipient allowlist (not visible in our JSON).
 
-1. Pull latest `wrangler.toml` and redeploy: `npx wrangler deploy`.
-2. In the dashboard, open **chess-accounts** → Settings → **Send Email** bindings: remove allowlists from every binding, or delete an old restricted **`EMAIL`** binding if it was copied from sports-digest.
-3. Optional: `npx wrangler secret put RESEND_API_KEY` for Resend fallback when Cloudflare send fails.
+**Fastest fix — send only via Resend (skips Cloudflare send):**
+
+1. In [Resend](https://resend.com), verify the domain you use in `SENDER_EMAIL`.
+2. `cd workers && npx wrangler secret put RESEND_API_KEY`
+3. In `wrangler.toml` `[vars]`, set `TRANSACTIONAL_EMAIL_VIA = "resend"` (or add the same var in the Worker **Settings → Variables** UI).
+4. `npx wrangler deploy`
+
+**Or** try to clear Cloudflare’s allowlist: **Workers & Pages → chess-accounts → Settings** → every **Send Email** binding → remove **Allowed destination addresses** / **Destination address**, then redeploy this repo’s `wrangler.toml` (binding `EMAIL_TRANSACTIONAL` only, no allowlist fields).
+
+**Lighter fix:** only `RESEND_API_KEY` (no `TRANSACTIONAL_EMAIL_VIA`) — the Worker falls back to Resend after Cloudflare errors, including `E_RECIPIENT_NOT_ALLOWED`.
