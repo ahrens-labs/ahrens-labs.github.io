@@ -1200,12 +1200,23 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
   if (!fromAddr) {
     throw new Error('Set SENDER_EMAIL to a verified sender (Resend or Cloudflare Email Service domain).');
   }
+  if (
+    fromAddr.includes('YOUR_DOMAIN') ||
+    fromAddr === 'digest@example.com' ||
+    fromAddr === 'noreply@example.com'
+  ) {
+    throw new Error(
+      'Set SENDER_EMAIL in wrangler.toml (or dashboard) to a verified address on your Cloudflare Email Sending domain.'
+    );
+  }
 
   if (env.EMAIL) {
     try {
-      // Plain string `from` matches typical Cloudflare Email Service examples (e.g. sports-digest style).
+      // Same shape as sports-digest: structured `from` + env.EMAIL.send (binding from [[send_email]]).
+      // Unlike sports-digest, do not set allowed_destination_addresses here — signup/reset must reach arbitrary To addresses.
+      const fromName = String(env.TRANSACTIONAL_FROM_NAME || 'Ahrens Labs').trim() || 'Ahrens Labs';
       const result = await env.EMAIL.send({
-        from: fromAddr,
+        from: { email: fromAddr, name: fromName },
         to,
         subject,
         html,
