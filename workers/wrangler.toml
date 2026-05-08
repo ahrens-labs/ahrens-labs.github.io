@@ -1,7 +1,7 @@
 # chess-accounts — deploy: cd workers && npx wrangler deploy
 # Email: same pattern as sports-digest — Cloudflare Email Sending domain onboarded; SENDER_EMAIL on that domain.
 # Do not set allowed_destination_addresses here (unlike sports-digest's test inbox lock): this worker must mail arbitrary user addresses.
-# Cloudflare path uses the same integration as sports-digest: [[send_email]] → env.EMAIL.send({ from: { email, name }, to, subject, html, text }).
+# Cloudflare path: [[send_email]] name = EMAIL_TRANSACTIONAL → env.EMAIL_TRANSACTIONAL.send({ from: { email, name }, to, subject, html, text }).
 # (signup verify, password reset). Sports-digest only emails RECIPIENT_EMAIL so it can lock destinations.
 # Debug send (like sports-digest): wrangler secret put TEST_SECRET
 #   curl -sS -X POST "https://<this-worker-host>/send-test" -H "Content-Type: application/json" \
@@ -32,10 +32,10 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
-# Must NOT use allowed_destination_addresses or destination_address here (unlike sports-digest).
-# Those options restrict "To:" and cause E_RECIPIENT_NOT_ALLOWED for real users. Redeploy after any dashboard edit.
+# Use binding name EMAIL_TRANSACTIONAL (not "EMAIL") so a dashboard allowlist stuck on an old EMAIL binding does not apply.
+# Must NOT set allowed_destination_addresses or destination_address — those cause E_RECIPIENT_NOT_ALLOWED for arbitrary users.
 [[send_email]]
-name = "EMAIL"
+name = "EMAIL_TRANSACTIONAL"
 remote = true
 
 [vars]

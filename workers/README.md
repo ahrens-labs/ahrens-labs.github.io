@@ -41,9 +41,8 @@ wrangler dev
 
 ## Email: `E_RECIPIENT_NOT_ALLOWED`
 
-That error means the **EMAIL binding** on the deployed Worker only allows certain recipients (Wrangler `allowed_destination_addresses` / `destination_address`, or the same set in the dashboard). **Chess-accounts must send to arbitrary user addresses** (signup / forgot password).
+The send-email binding only allows certain **To** addresses (Wrangler `allowed_destination_addresses` / `destination_address`, or the dashboard equivalent). This project uses binding name **`EMAIL_TRANSACTIONAL`** with **no** allowlist so signup/forgot-password can reach any user.
 
-1. Confirm `wrangler.toml` has only `name` and `remote` under `[[send_email]]` (this repo does).
-2. Redeploy: `npx wrangler deploy`.
-3. If it still fails: **Cloudflare dashboard** → Workers & Pages → **chess-accounts** → Settings → bindings for **Send Email** — remove any recipient allowlist / single-destination lock.
-4. Optional: `npx wrangler secret put RESEND_API_KEY` so failed Cloudflare sends fall back to Resend.
+1. Pull latest `wrangler.toml` and redeploy: `npx wrangler deploy`.
+2. In the dashboard, open **chess-accounts** → Settings → **Send Email** bindings: remove allowlists from every binding, or delete an old restricted **`EMAIL`** binding if it was copied from sports-digest.
+3. Optional: `npx wrangler secret put RESEND_API_KEY` for Resend fallback when Cloudflare send fails.

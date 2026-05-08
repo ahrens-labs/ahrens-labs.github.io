@@ -76,7 +76,9 @@ export default {
           email: testEmail,
           userId,
           emailService: {
-            bindingPresent: Boolean(env.EMAIL),
+            bindingPresent: Boolean(getCloudflareEmailBinding(env)),
+            transactionalBinding: Boolean(env.EMAIL_TRANSACTIONAL),
+            legacyEmailBinding: Boolean(env.EMAIL),
             resendConfigured: Boolean(env.RESEND_API_KEY),
             senderEnvConfigured: Boolean(sender),
             senderEmail: sender || null,
@@ -1138,7 +1140,7 @@ function summarizeEmailSendError(err) {
     E_SENDER_DOMAIN_NOT_AVAILABLE:
       'Domain is not onboarded to Cloudflare Email Sending for this zone.',
     E_RECIPIENT_NOT_ALLOWED:
-      'This Worker’s EMAIL binding still has a recipient allowlist (allowed_destination_addresses or destination_address). In this repo, [[send_email]] must list only name + remote — then run wrangler deploy. If it persists, open Workers → chess-accounts → Settings and remove any recipient restriction on the Email binding. Optional: set RESEND_API_KEY to bypass Cloudflare for sends.',
+      'Recipient allowlist still applies to the send-email binding in use. Deploy latest wrangler.toml (binding EMAIL_TRANSACTIONAL, no allowlist). In the dashboard, remove allowed_destination_addresses / destination_address from any Email binding on chess-accounts. Optional: wrangler secret put RESEND_API_KEY.',
     E_RECIPIENT_SUPPRESSED:
       'That recipient is suppressed (bounce/spam) at the email provider.',
     E_RATE_LIMIT_EXCEEDED: 'Email rate limit exceeded; retry later.',
@@ -1195,6 +1197,11 @@ async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
   return { provider: 'resend', messageId: resendId };
 }
 
+/** Prefer EMAIL_TRANSACTIONAL so an old "EMAIL" binding with dashboard allowlist does not block arbitrary recipients. */
+function getCloudflareEmailBinding(env) {
+  return env.EMAIL_TRANSACTIONAL || env.EMAIL;
+}
+
 async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
   const fromAddr = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
   if (!fromAddr) {
@@ -1210,12 +1217,12 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
     );
   }
 
-  if (env.EMAIL) {
+  const cfMail = getCloudflareEmailBinding(env);
+  if (cfMail) {
     try {
-      // Same shape as sports-digest: structured `from` + env.EMAIL.send (binding from [[send_email]]).
-      // Unlike sports-digest, do not set allowed_destination_addresses here — signup/reset must reach arbitrary To addresses.
+      // Same shape as sports-digest: structured `from` + send() on [[send_email]] binding (see wrangler.toml).
       const fromName = String(env.TRANSACTIONAL_FROM_NAME || 'Ahrens Labs').trim() || 'Ahrens Labs';
-      const result = await env.EMAIL.send({
+      const result = await cfMail.send({
         from: { email: fromAddr, name: fromName },
         to,
         subject,
