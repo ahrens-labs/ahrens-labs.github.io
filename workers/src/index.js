@@ -1963,6 +1963,26 @@ async function assertAdminBroadcastSession(env, sessionId) {
   };
 }
 
+/** Normalize DurableObjectNamespace.list() shapes across runtime versions. */
+function parseDoNamespaceListPage(listResult) {
+  if (!listResult || typeof listResult !== 'object') {
+    return { objects: [], cursor: null };
+  }
+  let objects = listResult.objects;
+  if (!Array.isArray(objects) && Array.isArray(listResult.instances)) {
+    objects = listResult.instances;
+  }
+  if (!Array.isArray(objects)) {
+    objects = [];
+  }
+  const cursor =
+    listResult.cursor ??
+    listResult.nextCursor ??
+    listResult.nextContinuationToken ??
+    (typeof listResult.continuationToken === 'string' ? listResult.continuationToken : null);
+  return { objects, cursor: cursor != null && String(cursor).trim() ? String(cursor).trim() : null };
+}
+
 /** Resolve a stub from a DurableObjectNamespace.list() entry (prefers name when present). */
 function userAccountStubFromListEntry(env, obj) {
   if (!obj || typeof obj !== 'object') return null;
@@ -1978,7 +1998,15 @@ function userAccountStubFromListEntry(env, obj) {
     try {
       return env.USER_ACCOUNT.get(obj.id);
     } catch {
-      return null;
+      try {
+        const sid = typeof obj.id === 'string' ? obj.id.trim() : String(obj.id).trim();
+        if (sid && typeof env.USER_ACCOUNT.idFromString === 'function') {
+          const idObj = env.USER_ACCOUNT.idFromString(sid);
+          return env.USER_ACCOUNT.get(idObj);
+        }
+      } catch {
+        return null;
+      }
     }
   }
   return null;
@@ -1996,13 +2024,13 @@ async function listUserAccountStubsForBroadcast(env, pageSize, listCursor) {
         limit: pageSize,
         ...(listCursor ? { cursor: listCursor } : {}),
       });
-      const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
+      const { objects, cursor } = parseDoNamespaceListPage(listResult);
       const stubs = [];
       for (const obj of objects) {
         const st = userAccountStubFromListEntry(env, obj);
         if (st) stubs.push(st);
       }
-      return { stubs, nextListCursor: listResult.cursor || null, listError: null };
+      return { stubs, nextListCursor: cursor, listError: null };
     } catch (e) {
       return { stubs: [], nextListCursor: null, listError: e };
     }
@@ -2420,13 +2448,13 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
           limit: need,
           ...(state.do.cursor ? { cursor: state.do.cursor } : {}),
         });
-        const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
+        const { objects, cursor } = parseDoNamespaceListPage(listResult);
         for (const obj of objects) {
           if (stubs.length >= pageSize) break;
           pushStub(userAccountStubFromListEntry(env, obj));
         }
-        state.do.cursor = listResult.cursor || null;
-        if (!listResult.cursor) state.do.done = true;
+        state.do.cursor = cursor;
+        if (!cursor) state.do.done = true;
         continue;
       }
 
@@ -2602,35 +2630,70 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   );
 }
 
-/** Resolve profile for admin per-user actions (userId and/or email on file). */
+/**
+ * Stored inbox for an existing profile: trust signup-time data; do not block on disposable-domain list
+ * or isLikelyRealEmail (stricter than login), so legacy and unusual TLDs still work for admin tools.
+ */
+function isEmailOnFileForAdminProfile(email) {
+  const n = normalizeEmail(String(email || ''));
+  if (!n) return false;
+  if (!looksLikeEmailForLogin(n)) return false;
+  return hasReasonableEmailShape(n);
+}
+
+/**
+ * Resolve profile for admin per-user actions. Tries userId from the dashboard, then email→generateUserId,
+ * and requires row.email to match the supplied email when both are sent (avoids wrong stub).
+ */
 async function resolveAdminUserTarget(env, body) {
   const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
   const emailRaw = body.email != null ? String(body.email).trim() : '';
-  let userId = userIdRaw;
-  if (!userId && emailRaw) {
-    userId = generateUserId(normalizeEmail(emailRaw));
+  const emailNormWant = emailRaw ? normalizeEmail(emailRaw) : '';
+
+  const tryIds = [];
+  if (userIdRaw) tryIds.push(userIdRaw);
+  if (emailNormWant) {
+    const fromEmail = generateUserId(emailNormWant);
+    if (!tryIds.includes(fromEmail)) tryIds.push(fromEmail);
   }
-  if (!userId) {
+
+  if (!tryIds.length) {
     return { ok: false, error: 'Provide userId or email' };
   }
-  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
-  let row;
-  try {
-    const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
-    row = await dataRes.json();
-  } catch {
-    return { ok: false, error: 'Could not load account' };
+
+  let row = null;
+  let matchedUserId = '';
+
+  for (const uid of tryIds) {
+    try {
+      const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid));
+      const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+      const candidate = await dataRes.json();
+      if (!candidate || typeof candidate !== 'object') continue;
+      const rowEmail = candidate.email != null ? normalizeEmail(String(candidate.email)) : '';
+      if (emailNormWant && rowEmail && rowEmail !== emailNormWant) continue;
+      row = candidate;
+      matchedUserId = uid;
+      break;
+    } catch {
+      /* try next id */
+    }
   }
+
   if (!row || typeof row !== 'object') {
     return { ok: false, error: 'Account not found' };
   }
+
   const emailNorm = row.email != null ? normalizeEmail(String(row.email)) : '';
-  if (!emailNorm || !isLikelyRealEmail(emailNorm)) {
+  if (!emailNorm || !isEmailOnFileForAdminProfile(emailNorm)) {
     return { ok: false, error: 'No valid email on file' };
   }
+
+  const canonicalUserId = row.userId != null ? String(row.userId).trim() : matchedUserId;
+
   return {
     ok: true,
-    userId,
+    userId: canonicalUserId || matchedUserId,
     email: emailNorm,
     username: row.username != null ? String(row.username) : 'there',
   };

@@ -973,7 +973,9 @@
           if (!btn) return;
           const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
           const em = (btn.getAttribute('data-admin-email') || '').trim();
-          const payload = uid ? { userId: uid } : em ? { email: em } : {};
+          const payload = {};
+          if (uid) payload.userId = uid;
+          if (em) payload.email = em;
           if (!payload.userId && !payload.email) return;
           if (verify) {
             adminVerifyEmailForUser(payload);
@@ -1019,7 +1021,8 @@
               subject,
               text,
               ...(htmlRaw ? { html: htmlRaw } : {}),
-              ...(uid ? { userId: uid } : { email: em }),
+              ...(uid ? { userId: uid } : {}),
+              ...(em ? { email: em } : {}),
             };
             const res = await fetch(`${API_BASE_URL}/api/admin/send-custom-email-to-user`, {
               method: 'POST',
