@@ -283,7 +283,7 @@
         <div class="dash-card admin-broadcast-card" id="admin-resend-welcome-card">
           <h2>Welcome guide (admin)</h2>
           <p class="hint">
-            Sends the same <strong>welcome / info</strong> email as “Send info email again” on each eligible account (verified email and same rules as broadcast). Uses your normal transactional sender, not the broadcast From address. Each account gets its own separate message (one recipient per send, not one email to many).
+            Sends the same <strong>welcome / info</strong> email as “Send info email again” to <strong>every account that has an email on file</strong> (confirmed or not), subject to the same basic address checks as listing accounts for broadcast. Uses your normal transactional sender, not the broadcast From address. Each account gets its own separate message (one recipient per send, not one email to many).
           </p>
           <div class="row">
             <button type="button" class="btn btn-ghost" id="btn-admin-welcome-preview">Preview (count + email me sample)</button>
@@ -776,7 +776,7 @@
 
       document.getElementById('btn-admin-welcome-send')?.addEventListener('click', async () => {
         const st = document.getElementById('admin-welcome-status');
-        if (!window.confirm('Send the full welcome / info email to every eligible account?')) return;
+        if (!window.confirm('Send the full welcome / info email to every account with an email on file (including unverified)?')) return;
         const sessionId = getSessionId();
         if (!sessionId) {
           setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');

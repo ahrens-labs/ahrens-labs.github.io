@@ -2198,7 +2198,7 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   });
 }
 
-/** Same recipient rules as broadcast: valid email, confirmed (or legacy). Each send is one separate email to one recipient (no BCC / bulk To). */
+/** Every account with a deliverable-looking email on file (no verified-email requirement). Each send is one separate email to one recipient (no BCC / bulk To). */
 async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   let body = {};
   try {
@@ -2302,10 +2302,6 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
     }
     const to = normalizeEmail(row.email);
     if (!isLikelyRealEmail(to)) {
-      summary.skipped++;
-      continue;
-    }
-    if (!hasConfirmedEmailForProductMail(row)) {
       summary.skipped++;
       continue;
     }
