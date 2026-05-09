@@ -2885,8 +2885,12 @@ async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
   });
 }
 
+function verificationEmailOrigin(env) {
+  return String(env.VERIFICATION_LINK_BASE || env.PUBLIC_SITE_BASE || 'https://ahrenslabs.com').replace(/\/$/, '');
+}
+
 function buildVerificationUrl(env, email, token) {
-  const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+  const base = verificationEmailOrigin(env);
   const path = env.VERIFICATION_LANDING_PATH || '/account.html';
   const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
   const q = new URLSearchParams({ verify: token, email });
@@ -2934,8 +2938,9 @@ const CHESS_MILESTONE_WIN_THRESHOLDS = [1, 5, 10, 25, 50, 100, 250, 500];
 const CHESS_MILESTONE_GAME_THRESHOLDS = [10, 25, 50, 100, 250, 500, 1000];
 const CHESS_MILESTONE_POINT_THRESHOLDS = [1000, 5000, 10000, 20000, 50000, 100000];
 
+/** Public site URL for links in transactional email (same as marketing/welcome). */
 function sitePublicBase(env) {
-  return (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+  return siteMarketingBase(env);
 }
 
 /** Links in product/marketing emails (welcome, challenge emails). Defaults to ahrenslabs.com. */
@@ -3314,6 +3319,12 @@ async function sendAccountDeletedEmail(env, email, username) {
   if (!email) return;
   const safeName = String(username).replace(/[<>]/g, '');
   const base = sitePublicBase(env);
+  let siteHostname = 'ahrenslabs.com';
+  try {
+    siteHostname = new URL(`${base}/`).hostname.replace(/^www\./, '') || siteHostname;
+  } catch {
+    /* keep default */
+  }
   const subject = 'Your Ahrens Labs account was deleted';
   const html = `
     <html>
@@ -3322,7 +3333,7 @@ async function sendAccountDeletedEmail(env, email, username) {
         <p>Hi ${safeName},</p>
         <p>This confirms that your <strong>Ahrens Labs</strong> account and its cloud data have been permanently deleted as you requested.</p>
         <p>If you did not ask for this, contact support through the site and consider securing your email inbox.</p>
-        <p style="margin-top: 24px;"><a href="${base}/" style="color: #3498db;">ahrens-labs.github.io</a></p>
+        <p style="margin-top: 24px;"><a href="${base}/" style="color: #3498db;">${siteHostname}</a></p>
       </body>
     </html>`;
   const text = [
@@ -3574,7 +3585,7 @@ function generatePasswordResetToken() {
 }
 
 function buildPasswordResetUrl(env, email, token) {
-  const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+  const base = verificationEmailOrigin(env);
   const path = env.PASSWORD_RESET_LANDING_PATH || '/reset-password.html';
   const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
   const q = new URLSearchParams({ reset: token, email });
