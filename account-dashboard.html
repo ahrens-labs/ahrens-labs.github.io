@@ -184,6 +184,10 @@
           <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
           <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
           <p class="status" id="welcome-status"></p>
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). You can use this even if the scheduled digest is off.</p>
+          <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
+          <p class="status" id="digest-now-status"></p>
         </div>
 
         <div class="dash-card">
@@ -447,6 +451,29 @@
           setStatus(st, data.message || 'Sent.', 'ok');
         } else {
           setStatus(st, data.error || 'Could not send.', 'err');
+        }
+      });
+
+      document.getElementById('btn-email-challenges-now').addEventListener('click', async () => {
+        const st = document.getElementById('digest-now-status');
+        const btn = document.getElementById('btn-email-challenges-now');
+        const sessionId = getSessionId();
+        setStatus(st, 'Sending…', '');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/send-daily-challenges-now`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            const extra = data.utcDate ? ` — UTC day ${data.utcDate}` : '';
+            setStatus(st, (data.message || 'Sent.') + extra, 'ok');
+          } else {
+            setStatus(st, data.error || 'Could not send.', 'err');
+          }
+        } finally {
+          if (btn) btn.disabled = false;
         }
       });
     });

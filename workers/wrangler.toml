@@ -56,6 +56,8 @@ SENDER_EMAIL = "caleb@ahrenslabs.com"
 # TRANSACTIONAL_EMAIL_VIA = "resend"
 # Optional display name on the From header for Cloudflare Email Service (default "Ahrens Labs").
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
+# Public website for links in welcome/digest emails (no trailing slash).
+PUBLIC_SITE_BASE = "https://ahrenslabs.com"
 # Origin used in the verification link (no trailing slash).
 VERIFICATION_LINK_BASE = "https://ahrens-labs.github.io"
 # Path that handles ?verify=&email= (signup confirmation).

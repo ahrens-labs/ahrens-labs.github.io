@@ -42,6 +42,8 @@ export default {
         return handleEmailPreferences(request, env, corsHeaders);
       } else if (path === '/api/resend-welcome-email' && request.method === 'POST') {
         return handleResendWelcomeEmail(request, env, corsHeaders, executionCtx);
+      } else if (path === '/api/send-daily-challenges-now' && request.method === 'POST') {
+        return handleSendDailyChallengesNow(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -394,6 +396,118 @@ async function handleResendWelcomeEmail(request, env, corsHeaders, executionCtx)
   return new Response(JSON.stringify({ success: true, message: 'If email is working, the info message is on its way.' }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+async function handleSendDailyChallengesNow(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+
+  if (env.DAILY_DIGEST_KV) {
+    const cooldownKey = `instant-digest:${userId}`;
+    const hit = await env.DAILY_DIGEST_KV.get(cooldownKey);
+    if (hit) {
+      return new Response(
+        JSON.stringify({
+          error: 'Please wait a couple of minutes before requesting another send.',
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const row = await dataRes.json();
+
+  if (!row || typeof row !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const email = normalizeEmail(row.email || '');
+  const username = row.username || 'there';
+  if (!email || !isLikelyRealEmail(email)) {
+    return new Response(JSON.stringify({ error: 'No valid email on file' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const prefs = row.emailPreferences && typeof row.emailPreferences === 'object' ? row.emailPreferences : {};
+  let tz =
+    typeof prefs.digestTimeZone === 'string' && prefs.digestTimeZone.trim()
+      ? prefs.digestTimeZone.trim()
+      : DEFAULT_DIGEST_TIMEZONE;
+  if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
+
+  const now = new Date();
+  const utcDateStr = utcDateString(now);
+  const ids = getDailyChallengeIdsForUtcDate(utcDateStr);
+
+  try {
+    await sendDailyDigestEmail(
+      env,
+      { email, username },
+      utcDateStr,
+      ids,
+      tz,
+      { instant: true }
+    );
+    if (env.DAILY_DIGEST_KV) {
+      await env.DAILY_DIGEST_KV.put(`instant-digest:${userId}`, '1', { expirationTtl: 120 });
+    }
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    console.error('Send daily challenges now failed:', w.code, w.message, w.hint || '');
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: w.hint || w.message || 'Email could not be sent. Try again later.',
+      }),
+      {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: 'Check your inbox for today’s TrifangX daily challenges.',
+      utcDate: utcDateStr,
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
 }
 
 async function handleChangeUsername(request, env, corsHeaders) {
@@ -1712,6 +1826,11 @@ function sitePublicBase(env) {
   return (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
 }
 
+/** Links in product/marketing emails (welcome, digests). Defaults to ahrenslabs.com. */
+function siteMarketingBase(env) {
+  return String(env.PUBLIC_SITE_BASE || 'https://ahrenslabs.com').replace(/\/$/, '');
+}
+
 function chessStatsSnapshot(chessBlock) {
   const ps = chessBlock?.stats?.playerStats || {};
   const w = Math.max(0, Number(ps.wins) || 0);
@@ -1731,7 +1850,7 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
   }
   const notified = userData.milestonesEmailNotified;
   const safeName = String(userData.username || 'there').replace(/[<>]/g, '');
-  const base = sitePublicBase(env);
+  const base = siteMarketingBase(env);
   const chessUrl = `${base}/chess_engine.html`;
 
   const tryOne = async (key, subject, html, text) => {
@@ -1818,31 +1937,127 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
 
 async function sendWelcomeGuideEmail(env, email, username) {
   const safeName = String(username).replace(/[<>]/g, '');
-  const base = sitePublicBase(env);
-  const subject = 'Welcome to Ahrens Labs — what your account is for';
-  const html = `
-    <html>
-      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">Hi ${safeName},</h2>
-        <p><strong>Ahrens Labs</strong> (<a href="${base}/">${base}/</a>) is a collection of learning tools and games. Your account saves progress in the cloud so you can sign in from any device.</p>
-        <p><strong>What you can use with this account:</strong></p>
-        <ul style="line-height: 1.6;">
-          <li><strong>Chess engine</strong> — rated play, shop unlocks, achievements, and daily challenges (<a href="${base}/chess_engine.html">chess_engine.html</a>).</li>
-          <li><strong>Dungeon</strong> — saved runs tied to your profile.</li>
-          <li><strong>Classify</strong> — planner and schedule data synced to your account.</li>
-          <li><strong>Kyrachyng</strong> — lesson progress stored in the cloud.</li>
-        </ul>
-        <p>You will get a separate message to <strong>confirm your email</strong>. We may also email you about account security (for example password resets) and, if you opt in, chess daily-challenge digests and milestone updates.</p>
-        <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 24px;">If you did not create this account, you can ignore this email.</p>
-      </body>
-    </html>`;
+  const base = siteMarketingBase(env);
+  const subject = 'Welcome to Ahrens Labs — your hub for TrifangX, labs & more';
+  const preheader =
+    'Your account syncs chess progress, dungeon saves, Classify, and Kyrachyng across devices — all in one place.';
+  const chessUrl = `${base}/chess_engine.html`;
+  const dashUrl = `${base}/account-dashboard.html`;
+  const labsUrl = `${base}/labs.html`;
+  const classifyUrl = `${base}/classify.html`;
+  const dungeonUrl = `${base}/dungeon_game.html`;
+  const kyrachyngUrl = `${base}/kyrachyng-lessons.html`;
+  const homeUrl = `${base}/`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:#e8eef4;">
+  <div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#e8eef4;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(15,23,42,0.12);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1d4ed8 100%);padding:28px 32px;text-align:center;">
+              <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:0.02em;">Ahrens Labs</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;color:#c7d2fe;line-height:1.5;">Games, tools & learning — one sign-in everywhere</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+              <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeName},</p>
+              <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device.</p>
+              <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Explore everything from the site home — we’ve linked the highlights below.</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
+                <tr>
+                  <td align="center" style="padding:0 0 8px 0;">
+                    <a href="${chessUrl}" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">Play TrifangX (chess engine)</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:4px 0 0 0;">
+                    <a href="${dashUrl}" style="color:#2563eb;font-size:14px;font-weight:600;text-decoration:none;">Account dashboard →</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 12px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">What your account unlocks</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX chess</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Rated play against the engine, achievement points, a themed <strong>shop</strong> (boards, pieces, timers), and <strong>three fresh daily challenges</strong> every UTC day — same IDs for every player worldwide.</p>
+                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${chessUrl}" style="color:#2563eb;font-weight:600;">Open the chess lobby</a></p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="50%" valign="top" style="padding:0 8px 12px 0;">
+                    <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
+                      <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Dungeon</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Runs saved to your profile.</p>
+                      <p style="margin:8px 0 0 0;"><a href="${dungeonUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Play →</a></p>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:0 0 12px 8px;">
+                    <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
+                      <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Classify</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Planner data synced to the cloud.</p>
+                      <p style="margin:8px 0 0 0;"><a href="${classifyUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Open →</a></p>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" valign="top" style="padding:0 8px 0 0;">
+                    <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
+                      <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Kyrachyng</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Lesson progress follows you.</p>
+                      <p style="margin:8px 0 0 0;"><a href="${kyrachyngUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Lessons →</a></p>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:0 0 0 8px;">
+                    <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
+                      <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Labs hub</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">More experiments & projects.</p>
+                      <p style="margin:8px 0 0 0;"><a href="${labsUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Browse →</a></p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: daily TrifangX challenge digests and occasional chess milestone notes — turn digests on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
+              <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 28px 32px;background:#f1f5f9;border-top:1px solid #e2e8f0;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:12px;color:#64748b;line-height:1.5;">
+              © Ahrens Labs · <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
   const text = [
     `Hi ${safeName},`,
     '',
-    `Ahrens Labs (${base}/) hosts games and learning tools. Your account keeps chess progress, dungeon saves, Classify data, and Kyrachyng lessons in sync across devices.`,
+    preheader,
     '',
-    '- Chess engine: ' + `${base}/chess_engine.html`,
-    '- You will also receive a confirmation email to verify your address.',
+    `TrifangX (chess): ${chessUrl}`,
+    `Account dashboard: ${dashUrl}`,
+    `Labs: ${labsUrl}`,
+    `Dungeon: ${dungeonUrl}`,
+    `Classify: ${classifyUrl}`,
+    `Kyrachyng lessons: ${kyrachyngUrl}`,
+    '',
+    'You will also receive an email to confirm your address. Optional challenge digests and milestones can be managed in your dashboard.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
@@ -1890,46 +2105,98 @@ async function sendDailyDigestEmail(
   { email, username },
   utcDateStr,
   challengeIds,
-  digestTimeZoneLabel
+  digestTimeZoneLabel,
+  options = {}
 ) {
   if (!email || typeof email !== 'string') return;
+  const instant = options.instant === true;
   const safeName = String(username || 'there').replace(/[<>]/g, '');
-  const base = sitePublicBase(env);
+  const base = siteMarketingBase(env);
   const chessUrl = `${base}/chess_engine.html`;
+  const dashUrl = `${base}/account-dashboard.html`;
   const tzNote = digestTimeZoneLabel
-    ? `This send is timed for the start of your day (${digestTimeZoneLabel}).`
+    ? `Scheduled digests go out around midnight at the start of your calendar day (${digestTimeZoneLabel}).`
     : '';
-  const listHtml = challengeIds
-    .map((id) => {
+  const instantBanner = instant
+    ? `<tr><td style="padding:0 32px 16px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><p style="margin:0;padding:12px 16px;background:#fef3c7;border-radius:10px;border-left:4px solid #d97706;font-size:14px;line-height:1.5;color:#92400e;"><strong>On-demand send</strong> — you asked for today’s list from your account dashboard.</p></td></tr>`
+    : '';
+  const preheader = `Three TrifangX daily challenges for UTC ${utcDateStr} — same for every player.`;
+
+  const challengeBlocks = challengeIds
+    .map((id, i) => {
       const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
-      const label = hint ? `<code>${id}</code> — ${hint}` : `<code>${id}</code>`;
-      return `<li style="margin: 6px 0;">${label}</li>`;
+      const blurb = hint || 'See in-game for full requirements.';
+      return `<tr><td style="padding:0 0 12px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><tr><td style="width:48px;background:linear-gradient(180deg,#f59e0b,#d97706);color:#fff;font-size:18px;font-weight:800;text-align:center;vertical-align:middle;font-family:Georgia,serif;">${i + 1}</td><td style="padding:14px 16px;background:#ffffff;"><p style="margin:0 0 4px 0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#64748b;word-break:break-all;">${id}</p><p style="margin:0;font-size:14px;line-height:1.5;color:#334155;">${blurb}</p></td></tr></table></td></tr>`;
     })
     .join('');
-  const subject = `Chess daily challenges — ${utcDateStr} (UTC calendar)`;
-  const html = `
-    <html>
-      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">Chess daily challenges</h2>
-        <p>Hi ${safeName},</p>
-        <p>For the global UTC calendar day <strong>${utcDateStr}</strong>, today’s three daily challenge IDs (same for every player) are:</p>
-        <ul style="line-height: 1.5;">${listHtml}</ul>
-        <p>Open the engine to track progress: <a href="${chessUrl}" style="color: #3498db;">${chessUrl}</a></p>
-        <p style="color: #7f8c8d; font-size: 0.88em;">${tzNote} Challenge IDs always follow the UTC date shown above so they match the in-game list.</p>
-      </body>
-    </html>`;
+
+  const subject = instant
+    ? `Your TrifangX daily challenges — ${utcDateStr} (UTC day)`
+    : `TrifangX daily challenges — ${utcDateStr} (UTC day)`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#0f172a;">
+  <div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f172a;">
+    <tr>
+      <td align="center" style="padding:28px 14px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 40%,#b45309 100%);padding:26px 28px;text-align:left;">
+              <p style="margin:0 0 4px 0;font-family:Georgia,serif;font-size:20px;font-weight:700;color:#fef3c7;">Daily challenges</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#fde68a;opacity:0.95;line-height:1.45;">UTC calendar day <strong style="color:#fff;">${utcDateStr}</strong> · same three IDs for everyone</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 28px 8px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+              <p style="margin:0 0 8px 0;font-size:17px;font-weight:700;color:#0f172a;">Hi ${safeName},</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#475569;">Here are today’s rotating TrifangX achievements. Complete them in the chess engine to earn progress toward your dailies.</p>
+            </td>
+          </tr>
+          ${instantBanner}
+          <tr>
+            <td style="padding:8px 28px 8px 28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${challengeBlocks}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 28px 28px 28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" align="center">
+              <a href="${chessUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;">Open TrifangX</a>
+              <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Challenge IDs always use the <strong>UTC date</strong> above so they match the in-game list. Manage digests in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
+              ${tzNote ? `<p style="margin:12px 0 0 0;font-size:12px;color:#94a3b8;">${tzNote}</p>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px 22px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#64748b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+              <a href="${base}/" style="color:#64748b;text-decoration:none;">ahrenslabs.com</a> · TrifangX
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
   const text = [
     `Hi ${safeName},`,
     '',
-    `Chess daily challenges for UTC date ${utcDateStr} (global, same for everyone):`,
+    instant ? '(Sent on request from your account dashboard.)' : '(Scheduled digest.)',
+    '',
+    `TrifangX daily challenges for UTC date ${utcDateStr} (same for every player):`,
     formatDailyDigestLines(challengeIds),
     '',
-    `Open: ${chessUrl}`,
+    `Play: ${chessUrl}`,
+    `Dashboard: ${dashUrl}`,
     '',
     tzNote,
     '',
-    'You subscribed to this digest in account settings.',
-  ].join('\n');
+    instant ? '' : 'You subscribed to this digest in account settings.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
 }
