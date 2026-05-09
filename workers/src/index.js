@@ -1954,7 +1954,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
   const base = siteMarketingBase(env);
   const subject = 'Welcome to Ahrens Labs — your hub for TrifangX, labs & more';
   const preheader =
-    'Your account syncs chess progress, dungeon saves, Classify, and Kyrachyng across devices — all in one place.';
+    'Dice dungeons, chess with daily quests, a cloud-synced planner, language lessons, and more — one free account, every device.';
   const chessUrl = `${base}/chess_engine.html`;
   const dashUrl = `${base}/account-dashboard.html`;
   const labsUrl = `${base}/labs.html`;
@@ -1986,7 +1986,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
             <td style="padding:32px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
               <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeName},</p>
               <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device.</p>
-              <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Explore everything from the site home — we’ve linked the highlights below.</p>
+              <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Below is a quick tour of what you can play, build, and learn — all tied to the same login. Jump in anywhere; your saves and settings follow you.</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
                 <tr>
                   <td align="center" style="padding:0 0 8px 0;">
@@ -2004,7 +2004,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
                 <tr>
                   <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
                     <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX chess</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Rated play against the engine, achievement points, a themed <strong>shop</strong> (boards, pieces, timers), and <strong>three fresh daily challenges</strong> every UTC day — same IDs for every player worldwide.</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and chase <strong>three rotating daily challenges</strong> every UTC day — the same puzzles for everyone worldwide. Optional live-engine play and blindfold modes when you want to go deeper.</p>
                     <p style="margin:10px 0 0 0;font-size:14px;"><a href="${chessUrl}" style="color:#2563eb;font-weight:600;">Open the chess lobby</a></p>
                   </td>
                 </tr>
@@ -2014,14 +2014,14 @@ async function sendWelcomeGuideEmail(env, email, username) {
                   <td width="50%" valign="top" style="padding:0 8px 12px 0;">
                     <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
                       <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Dungeon</p>
-                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Runs saved to your profile.</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">A <strong>dice-rolling dungeon crawl</strong>: explore room by room, fight tactical combats (attacks, defense, items — with rolls that matter), loot gear, hit shops, and hunt achievements. Multiple <strong>save slots</strong> sync to your account so a good run survives a new browser or phone.</p>
                       <p style="margin:8px 0 0 0;"><a href="${dungeonUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Play →</a></p>
                     </div>
                   </td>
                   <td width="50%" valign="top" style="padding:0 0 12px 8px;">
                     <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
                       <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Classify</p>
-                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Planner data synced to the cloud.</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;"><strong>Class schedule &amp; planner</strong> for real semesters: lay out courses, blocks, and timelines in a polished UI. Signed-in users get <strong>cloud sync</strong> so your plan is backed up and ready on any device.</p>
                       <p style="margin:8px 0 0 0;"><a href="${classifyUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Open →</a></p>
                     </div>
                   </td>
@@ -2030,14 +2030,14 @@ async function sendWelcomeGuideEmail(env, email, username) {
                   <td width="50%" valign="top" style="padding:0 8px 0 0;">
                     <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
                       <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Kyrachyng</p>
-                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Lesson progress follows you.</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">A <strong>constructed-language</strong> course with a clear path: open lessons, learn the script and grammar, mark each complete to <strong>unlock the next</strong> — progress lives on your account like a saved game.</p>
                       <p style="margin:8px 0 0 0;"><a href="${kyrachyngUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Lessons →</a></p>
                     </div>
                   </td>
                   <td width="50%" valign="top" style="padding:0 0 0 8px;">
                     <div style="padding:14px 14px;border:1px solid #e2e8f0;border-radius:12px;height:100%;box-sizing:border-box;">
                       <p style="margin:0 0 4px 0;font-size:14px;font-weight:700;color:#0f172a;">Labs hub</p>
-                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">More experiments & projects.</p>
+                      <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">The <strong>showcase</strong> for everything else we ship: language toys, music tools, coding sandboxes, writing experiments, and side projects — a mix of quick demos and deeper tools, some account-powered and some jump-in instant.</p>
                       <p style="margin:8px 0 0 0;"><a href="${labsUrl}" style="color:#2563eb;font-size:13px;font-weight:600;">Browse →</a></p>
                     </div>
                   </td>
@@ -2064,10 +2064,10 @@ async function sendWelcomeGuideEmail(env, email, username) {
                   <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
                     <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon, Classify, Kyrachyng &amp; labs</p>
                     <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Dungeon</strong> — multiple save slots; run progress is stored on your profile so you can switch devices without losing a run.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Classify</strong> — planner-style data (courses, blocks, schedules) syncs to the cloud when you’re signed in.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Kyrachyng</strong> — lesson and alphabet progress through the constructed-language course is saved per account.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Labs hub</strong> — entry point for language, music, coding, robotics, writing, and other experiments; some tools use the account, others are browse-only.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Dungeon</strong> — push through a procedural-feeling dungeon where <strong>dice rolls</strong> drive exploration and combat. Face enemies, manage gear and inventory, retreat when the odds turn, and use shops between dives. Several <strong>save slots</strong> on your profile mean you can abandon a bad run or juggle multiple characters without losing progress when you change devices.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Classify</strong> — built for students who want one trustworthy place for <strong>courses, blocks, and weekly rhythm</strong>. Lay out the term visually; with an account, that layout syncs to the cloud so you’re never re-building your schedule from scratch on a new laptop.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Kyrachyng</strong> — learn a full <strong>invented language</strong> lesson by lesson: reading, writing, and structure unlock in order like a skill tree. Your completion state is stored per account so you can dip in on mobile or desktop and pick up the same glowing path.</li>
+                      <li style="margin:0;"><strong>Labs hub</strong> — the directory for our smaller and stranger ideas: quick browser toys, STEM-adjacent tools, creative coding, and prototypes. It’s the best place to discover something new after you’ve tried chess and the dungeon.</li>
                     </ul>
                   </td>
                 </tr>
@@ -2106,22 +2106,31 @@ async function sendWelcomeGuideEmail(env, email, username) {
     '',
     preheader,
     '',
-    '--- TrifangX ---',
-    `Chess engine: ${chessUrl}`,
-    'Cloud save: stats, lifetime stats, achievements, shop unlocks, optional game history.',
-    'Achievements award points (sidebar Total Points); shop spends points on boards, pieces, themes, timers.',
-    'Three daily challenges rotate at UTC midnight; optional digest from the dashboard.',
+    '--- TrifangX (chess) ---',
+    `Play: ${chessUrl}`,
+    'Full chess client vs a strong engine, with cloud stats, lifetime stats, hundreds of achievements, and a points shop for boards, pieces, themes, effects, and time controls.',
+    'Three daily challenges rotate at UTC midnight (same for every player); optional email digest from the dashboard. Blindfold and optional live-engine play available from the lobby.',
     '',
-    '--- Other products ---',
-    `Dungeon (saved runs): ${dungeonUrl}`,
-    `Classify (planner sync): ${classifyUrl}`,
-    `Kyrachyng (lessons): ${kyrachyngUrl}`,
-    `Labs hub: ${labsUrl}`,
+    '--- Dungeon ---',
+    `Play: ${dungeonUrl}`,
+    'Dice-driven dungeon crawl: explore rooms, fight using attack/defense/item choices (rolls matter), loot equipment, use shops, earn achievements. Multiple save slots sync to your account.',
+    '',
+    '--- Classify (planner) ---',
+    `Open: ${classifyUrl}`,
+    'Academic planner for courses, blocks, and schedules; cloud sync when signed in so your term layout is backed up across devices.',
+    '',
+    '--- Kyrachyng ---',
+    `Lessons: ${kyrachyngUrl}`,
+    'Constructed-language course: complete lessons in order to unlock the next; progress saved on your account.',
+    '',
+    '--- Labs ---',
+    `Browse: ${labsUrl}`,
+    'Hub for language, music, coding, writing, and experimental tools — some use your account, others work instantly in the browser.',
     '',
     '--- Account ---',
-    `Dashboard: ${dashUrl} — password, username, email prefs, TrifangX shortcuts, delete account.`,
+    `Dashboard: ${dashUrl} — password, username, email preferences (digest time zone, etc.), TrifangX shortcuts, account deletion.`,
     '',
-    'You will receive a separate email to confirm your address. Optional digests and milestones are in dashboard settings.',
+    'You will receive a separate email to confirm your address. Optional digests and milestone emails can be adjusted in dashboard settings.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
