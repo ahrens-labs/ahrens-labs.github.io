@@ -4,6 +4,7 @@ import {
   utcDateString,
   getDailyChallengeIdsForUtcDate,
   DAILY_CHALLENGE_DIGEST_BLURBS,
+  DAILY_CHALLENGE_CARD_INFO,
 } from './daily-challenge-picker.js';
 
 /** Default when user has not picked a timezone (US Central). */
@@ -2091,13 +2092,76 @@ async function sendAccountDeletedEmail(env, email, username) {
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
 }
 
+function escapeHtmlEmail(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function formatDailyDigestLines(challengeIds) {
   const lines = [];
   for (const id of challengeIds) {
-    const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
-    lines.push(hint ? `• ${id} — ${hint}` : `• ${id}`);
+    const c = DAILY_CHALLENGE_CARD_INFO[id];
+    if (c) {
+      lines.push(`• ${c.name} (${c.points} pts) — ${c.desc}`);
+    } else {
+      const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
+      lines.push(hint ? `• ${id} — ${hint}` : `• ${id}`);
+    }
   }
   return lines.join('\n');
+}
+
+/** Achievement-modal-style card (locked appearance: gray border like default .achievement-card). */
+function digestChallengeCardHtml(challengeId) {
+  const c = DAILY_CHALLENGE_CARD_INFO[challengeId];
+  const name = escapeHtmlEmail(c ? c.name : challengeId);
+  const desc = escapeHtmlEmail(
+    c ? c.desc : DAILY_CHALLENGE_DIGEST_BLURBS[challengeId] || 'Open TrifangX for full details.'
+  );
+  const pointsHtml =
+    c && typeof c.points === 'number'
+      ? `<div style="font-size:14.4px;color:#f39c12;font-weight:700;margin-top:8px;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;">${c.points} points</div>`
+      : '';
+  const idLine = `<div style="font-size:11px;color:#95a5a6;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:6px;word-break:break-all;">${escapeHtmlEmail(challengeId)}</div>`;
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:2px solid #e9ecef;border-radius:12px;background:#ffffff;overflow:hidden;">
+<tr><td style="padding:15px;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Apple Color Emoji,Segoe UI Emoji,sans-serif;">
+<div style="font-size:17.6px;font-weight:700;color:#2c3e50;line-height:1.25;margin:0 0 8px 0;">${name}</div>
+<div style="font-size:14.4px;color:#7f8c8d;line-height:1.45;margin:0;">${desc}</div>
+${pointsHtml}
+${idLine}
+<div style="font-size:13.6px;color:#3498db;font-weight:600;margin-top:10px;font-family:Inter,Segoe UI,Roboto,sans-serif;">Track progress in TrifangX (same as All Achievements)</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:8px;"><tr><td style="height:6px;background:#e9ecef;border-radius:3px;line-height:6px;font-size:0;">&nbsp;</td></tr></table>
+</td></tr></table>`;
+}
+
+function digestDailyChallengesSectionHtml(challengeIds) {
+  const raw = Array.isArray(challengeIds) ? challengeIds.filter((x) => typeof x === 'string' && x) : [];
+  const ids = raw.slice(0, 3);
+  while (ids.length < 3) ids.push(null);
+  const pads = ['0 6px 0 0', '0 6px', '0 0 0 6px'];
+  const cells = ids.map((id, idx) => {
+    const pad = pads[idx] || '0 6px';
+    if (!id) {
+      return `<td width="33.33%" valign="top" style="padding:${pad};">&nbsp;</td>`;
+    }
+    return `<td width="33.33%" valign="top" style="padding:${pad};">${digestChallengeCardHtml(id)}</td>`;
+  });
+  return `<tr>
+<td style="padding:8px 24px 4px 24px;text-align:center;border-bottom:3px solid #f39c12;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Apple Color Emoji,Segoe UI Emoji,sans-serif;">
+<h2 style="margin:0 0 5px 0;font-size:20.8px;font-weight:800;color:#e67e22;line-height:1.2;">🏆 Daily Challenges</h2>
+<div style="color:#d35400;font-style:italic;font-size:13.6px;line-height:1.4;padding-bottom:14px;">These reset and change every day at midnight!</div>
+</td>
+</tr>
+<tr>
+<td style="padding:12px 16px 8px 16px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr>${cells.join('')}</tr>
+</table>
+</td>
+</tr>`;
 }
 
 async function sendDailyDigestEmail(
@@ -2122,13 +2186,7 @@ async function sendDailyDigestEmail(
     : '';
   const preheader = `Three TrifangX daily challenges for UTC ${utcDateStr} — same for every player.`;
 
-  const challengeBlocks = challengeIds
-    .map((id, i) => {
-      const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
-      const blurb = hint || 'See in-game for full requirements.';
-      return `<tr><td style="padding:0 0 12px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><tr><td style="width:48px;background:linear-gradient(180deg,#f59e0b,#d97706);color:#fff;font-size:18px;font-weight:800;text-align:center;vertical-align:middle;font-family:Georgia,serif;">${i + 1}</td><td style="padding:14px 16px;background:#ffffff;"><p style="margin:0 0 4px 0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#64748b;word-break:break-all;">${id}</p><p style="margin:0;font-size:14px;line-height:1.5;color:#334155;">${blurb}</p></td></tr></table></td></tr>`;
-    })
-    .join('');
+  const dailySectionInner = digestDailyChallengesSectionHtml(challengeIds);
 
   const subject = instant
     ? `Your TrifangX daily challenges — ${utcDateStr} (UTC day)`
@@ -2157,8 +2215,8 @@ async function sendDailyDigestEmail(
           </tr>
           ${instantBanner}
           <tr>
-            <td style="padding:8px 28px 8px 28px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${challengeBlocks}</table>
+            <td style="padding:0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${dailySectionInner}</table>
             </td>
           </tr>
           <tr>
