@@ -669,6 +669,17 @@
             const loginTabEl = document.getElementById('tab-login');
             const signupTabEl = document.getElementById('tab-signup');
             const forgotTabEl = document.getElementById('tab-forgot');
+
+            if (tab === 'password') {
+                const passwordTab = document.getElementById('password-tab');
+                if (passwordTab) passwordTab.classList.add('active');
+                document.getElementById('password-form').classList.add('active');
+                if (loginTabEl) loginTabEl.style.display = 'none';
+                if (signupTabEl) signupTabEl.style.display = 'none';
+                if (forgotTabEl) forgotTabEl.style.display = 'none';
+                return;
+            }
+
             if (loginTabEl) loginTabEl.style.display = '';
             if (signupTabEl) signupTabEl.style.display = '';
             if (forgotTabEl) forgotTabEl.style.display = '';
@@ -682,20 +693,26 @@
             } else if (tab === 'forgot') {
                 if (forgotTabEl) forgotTabEl.classList.add('active');
                 document.getElementById('forgot-password-form').classList.add('active');
-            } else {
-                const passwordTab = document.getElementById('password-tab');
-                if (passwordTab) passwordTab.classList.add('active');
-                document.getElementById('password-form').classList.add('active');
             }
         }
 
         function setPasswordTabVisibility(isLoggedIn) {
             const passwordTab = document.getElementById('password-tab');
+            const loginTab = document.getElementById('tab-login');
+            const signupTab = document.getElementById('tab-signup');
             const forgotTab = document.getElementById('tab-forgot');
             const sessionBar = document.getElementById('account-session-bar');
             const headerAuth = document.getElementById('header-auth-buttons');
             if (passwordTab) passwordTab.style.display = isLoggedIn ? 'block' : 'none';
-            if (forgotTab) forgotTab.style.display = isLoggedIn ? 'none' : '';
+            if (isLoggedIn) {
+                if (loginTab) loginTab.style.display = 'none';
+                if (signupTab) signupTab.style.display = 'none';
+                if (forgotTab) forgotTab.style.display = 'none';
+            } else {
+                if (loginTab) loginTab.style.display = '';
+                if (signupTab) signupTab.style.display = '';
+                if (forgotTab) forgotTab.style.display = '';
+            }
             if (sessionBar) {
                 sessionBar.style.display = isLoggedIn ? 'flex' : 'none';
                 if (isLoggedIn) {
