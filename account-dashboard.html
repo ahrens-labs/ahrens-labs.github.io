@@ -191,6 +191,9 @@
 
         <div class="dash-card full-span">
           <h2>Email</h2>
+          <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
+            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, scheduled digests, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
+          </p>
           <p class="hint">
             Daily chess challenge digest is sent around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
             Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. Challenge IDs in the email match the in-game list (UTC calendar day).
@@ -256,6 +259,7 @@
             Send one separate message per account from <strong>caleb@ahrenslabs.com</strong>.
             Optional placeholders: <code>{{username}}</code>, <code>{{email}}</code>.
             Use only for announcements users reasonably expect; bulk marketing may require consent and unsubscribe.
+            <strong>Preview</strong> counts recipients and sends <em>you</em> one sample message (from <code>caleb@ahrenslabs.com</code>) with placeholders filled using your own username and email.
           </p>
           <div class="form-row">
             <label for="admin-bc-subject">Subject</label>
@@ -270,7 +274,7 @@
             <textarea id="admin-bc-html" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;min-height:80px;font-family:ui-monospace,monospace;font-size:0.85rem;" placeholder="Leave blank to auto-wrap plain text"></textarea>
           </div>
           <div class="row">
-            <button type="button" class="btn btn-ghost" id="btn-admin-bc-preview">Preview recipient count</button>
+            <button type="button" class="btn btn-ghost" id="btn-admin-bc-preview">Preview (count + email me)</button>
             <button type="button" class="btn btn-primary" id="btn-admin-bc-send">Send to all accounts</button>
           </div>
           <p class="status" id="admin-bc-status"></p>
@@ -377,7 +381,22 @@
       const cb = document.getElementById('email-digest-on');
       const tz = document.getElementById('email-tz');
       const ep = user.emailPreferences || {};
-      if (cb) cb.checked = !!ep.dailyChallengeEmails;
+      const needVerify = user.emailVerified === false;
+      const banner = document.getElementById('email-verify-banner');
+      if (banner) {
+        banner.style.display = needVerify ? 'block' : 'none';
+      }
+      if (cb) {
+        if (needVerify) {
+          cb.checked = false;
+          cb.disabled = true;
+        } else {
+          cb.disabled = false;
+          cb.checked = !!ep.dailyChallengeEmails;
+        }
+      }
+      const digestNowBtn = document.getElementById('btn-email-challenges-now');
+      if (digestNowBtn) digestNowBtn.disabled = needVerify;
       if (tz && ep.digestTimeZone) {
         const opt = Array.from(tz.options).find((o) => o.value === ep.digestTimeZone);
         if (opt) tz.value = ep.digestTimeZone;
@@ -593,9 +612,11 @@
           return;
         }
         const sessionId = getSessionId();
-        setStatus(st, 'Counting…', '');
+        setStatus(st, 'Working…', '');
         const emails = [];
         let cursor;
+        let previewEmailSent = false;
+        let previewEmailError = null;
         try {
           do {
             const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
@@ -609,6 +630,7 @@
                 text,
                 html: (document.getElementById('admin-bc-html')?.value || '').trim(),
                 dryRun: true,
+                sendPreviewCopy: !cursor,
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
@@ -617,10 +639,23 @@
               setStatus(st, data.error || 'Preview failed.', 'err');
               return;
             }
+            if (!cursor) {
+              previewEmailSent = !!data.previewEmailSent;
+              previewEmailError = data.previewEmailError || null;
+            }
             if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
             cursor = data.nextListCursor || null;
           } while (cursor);
-          setStatus(st, `Found ${emails.length} recipient(s) with a saved email.`, 'ok');
+          let msg = `Found ${emails.length} recipient(s) with a saved email.`;
+          if (previewEmailError) {
+            msg += ` Preview email failed: ${previewEmailError}`;
+            setStatus(st, msg, 'err');
+          } else if (previewEmailSent) {
+            msg += ' Check your inbox for the preview copy.';
+            setStatus(st, msg, 'ok');
+          } else {
+            setStatus(st, msg, 'ok');
+          }
         } catch (e) {
           console.error(e);
           setStatus(st, 'Preview failed.', 'err');

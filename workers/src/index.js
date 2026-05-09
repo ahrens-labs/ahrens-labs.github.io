@@ -166,7 +166,7 @@ async function handleSignup(request, env, corsHeaders, executionCtx) {
     return new Response(
       JSON.stringify({
         error:
-          'That email domain does not exist or is not set up to receive mail. Use a real inbox (Gmail, iCloud, Outlook, your school/work, etc.).',
+          'That email domain is not set up to receive mail (no working mail servers / MX records). Use a real inbox (Gmail, iCloud, Outlook, your school/work, etc.).',
       }),
       {
         status: 400,
@@ -256,7 +256,28 @@ async function handleSignup(request, env, corsHeaders, executionCtx) {
       emailSendError.message,
       emailSendError.hint || ''
     );
-    // Continue with signup even if email fails
+  }
+
+  if (!verificationEmailSent) {
+    const delReq = new Request('http://do/deleteAccount', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    await userAccount.fetch(delReq);
+    const releaseUsernameReq = new Request('http://do/release', {
+      method: 'POST',
+      body: JSON.stringify({ username: normalizedUsername, userId }),
+    });
+    await usernameRegistry.fetch(releaseUsernameReq);
+    const clientMsg =
+      emailSendError?.hint ||
+      emailSendError?.message ||
+      'We could not send a confirmation email to that address. Check for typos or try another inbox.';
+    return new Response(JSON.stringify({ error: clientMsg, emailSendError }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   const sendWelcome = () =>
@@ -274,31 +295,27 @@ async function handleSignup(request, env, corsHeaders, executionCtx) {
   const sessionId = generateSessionId();
   const sessionObjId = env.SESSION.idFromName(sessionId);
   const session = env.SESSION.get(sessionObjId);
-  
+
   const sessionReq = new Request('http://do/create', {
     method: 'POST',
-    body: JSON.stringify({ userId })
+    body: JSON.stringify({ userId }),
   });
   await session.fetch(sessionReq);
 
-  const failMsg = emailSendError?.hint
-    ? `Account created. Confirmation email not sent — ${emailSendError.hint}`
-    : (emailSendError?.message
-      ? `Account created. Confirmation email not sent${emailSendError.code ? ` [${emailSendError.code}]` : ''}.`
-      : 'Account created. Confirmation email not sent.');
-
-  return new Response(JSON.stringify({ 
-    success: true, 
-    sessionId,
-    userId,
-    username,
-    email: normalizedEmail,
-    verificationEmailSent,
-    emailSendError,
-    message: verificationEmailSent ? 'Confirmation email sent!' : failMsg,
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      sessionId,
+      userId,
+      username,
+      email: normalizedEmail,
+      verificationEmailSent: true,
+      message: 'Confirmation email sent!',
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
 }
 
 // Change password handler
@@ -486,6 +503,18 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+  if (row.emailVerified === false) {
+    return new Response(
+      JSON.stringify({
+        error:
+          'Confirm your email address first (link in your signup email). Then you can request challenge emails here.',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   const prefs = row.emailPreferences && typeof row.emailPreferences === 'object' ? row.emailPreferences : {};
@@ -1398,6 +1427,28 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
+  const getExistingReq = new Request('http://do/getData', { method: 'GET' });
+  const existingRes = await userAccount.fetch(getExistingReq);
+  const existingProfile = await existingRes.json();
+  if (!existingProfile || typeof existingProfile !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (hasEmails && body.dailyChallengeEmails === true && existingProfile.emailVerified === false) {
+    return new Response(
+      JSON.stringify({
+        error:
+          'Confirm your email address before turning on digest emails. Use the link in the message we sent when you signed up (or sign up again if it failed).',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const setPayload = {};
   if (hasEmails) setPayload.dailyChallengeEmails = body.dailyChallengeEmails;
   if (hasTz) setPayload.digestTimeZone = tzRaw;
@@ -1634,7 +1685,8 @@ function isLikelyRealEmail(email) {
 }
 
 /**
- * Reject domains with no DNS mail path (NXDOMAIN, only null MX, no A/AAAA).
+ * Reject domains with no deliverable MX (NXDOMAIN, null MX, or no MX at all).
+ * Does not fall back to A/AAAA — many parked domains have a website record but no mail.
  * Uses Cloudflare DNS-over-HTTPS; fails open on resolver errors so outages do not block signups.
  */
 async function verifySignupEmailDomain(domain) {
@@ -1653,37 +1705,25 @@ async function verifySignupEmailDomain(domain) {
     if (mxJson.Status !== 0) return true;
 
     const mxRecords = (mxJson.Answer || []).filter((a) => a.type === 15);
-    if (mxRecords.length > 0) {
-      const hasDeliverableMx = mxRecords.some((a) => {
-        const raw = String(a.data || '').trim();
-        if (raw === '0 .' || raw === '0.') return false;
-        const parts = raw.split(/\s+/).filter(Boolean);
-        if (parts.length >= 2 && parts[0] === '0' && parts[1] === '.') return false;
-        return true;
-      });
-      if (hasDeliverableMx) return true;
-      return false;
-    }
+    if (mxRecords.length === 0) return false;
 
-    const aRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=A`, { headers });
-    if (!aRes.ok) return true;
-    const aJson = await aRes.json();
-    if (aJson.Status === 3) return false;
-    if (aJson.Status !== 0) return true;
-    if ((aJson.Answer || []).some((a) => a.type === 1)) return true;
-
-    const aaaaRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=AAAA`, {
-      headers,
+    const hasDeliverableMx = mxRecords.some((a) => {
+      const raw = String(a.data || '').trim();
+      if (raw === '0 .' || raw === '0.') return false;
+      const parts = raw.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2 && parts[0] === '0' && parts[1] === '.') return false;
+      return true;
     });
-    if (!aaaaRes.ok) return true;
-    const aaaaJson = await aaaaRes.json();
-    if (aaaaJson.Status === 3) return false;
-    if (aaaaJson.Status !== 0) return true;
-    return (aaaaJson.Answer || []).some((a) => a.type === 28);
+    return hasDeliverableMx;
   } catch (e) {
     console.warn('verifySignupEmailDomain', d, e?.message || e);
     return true;
   }
+}
+
+/** Product / marketing email: only skip accounts that explicitly have not confirmed (new signups). Legacy rows may omit the flag. */
+function hasConfirmedEmailForProductMail(row) {
+  return row && row.emailVerified !== false;
 }
 
 function generateUserId(email) {
@@ -1914,7 +1954,11 @@ async function assertAdminBroadcastSession(env, sessionId) {
   if (em !== normalizeEmail(ADMIN_BROADCAST_ACCOUNT_EMAIL)) {
     return { ok: false, status: 403, error: 'Forbidden' };
   }
-  return { ok: true };
+  return {
+    ok: true,
+    adminEmail: em,
+    adminUsername: row && row.username ? String(row.username) : 'there',
+  };
 }
 
 async function handleAdminBroadcastEmail(request, env, corsHeaders) {
@@ -1949,8 +1993,12 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   }
 
   const dryRun = body.dryRun === true;
+  const sendPreviewCopy = body.sendPreviewCopy === true;
   const listCursor = typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
+
+  let previewEmailSent = false;
+  let previewEmailError = null;
 
   if (typeof env.USER_ACCOUNT.list !== 'function') {
     return new Response(
@@ -1985,6 +2033,45 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   const nextCursor = listResult.cursor || null;
   const hasMore = Boolean(nextCursor);
 
+  if (dryRun && sendPreviewCopy && !listCursor) {
+    const prevSubject = applyBroadcastTemplate(subjectTpl, {
+      username: gate.adminUsername,
+      email: gate.adminEmail,
+    });
+    const prevTextBody = applyBroadcastTemplate(textTpl, {
+      username: gate.adminUsername,
+      email: gate.adminEmail,
+    });
+    const prevHtmlRaw = htmlTpl.trim()
+      ? applyBroadcastTemplate(htmlTpl, {
+          username: gate.adminUsername,
+          email: gate.adminEmail,
+        })
+      : '';
+    const prevHtml = prevHtmlRaw.trim() ? prevHtmlRaw : plainTextToBroadcastHtml(prevTextBody);
+    const previewBannerText =
+      'This is a preview for the administrator only. {{username}} and {{email}} were filled with YOUR account so you can proofread. Each real recipient gets their own values.\n\n---\n\n';
+    const previewText = previewBannerText + prevTextBody;
+    const previewHtml =
+      `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
+      `<strong>Broadcast preview</strong> — only you were sent this copy. Placeholders use <strong>your</strong> username and email; each user would see their own.</div>` +
+      prevHtml;
+    try {
+      await dispatchTransactionalEmail(env, {
+        to: gate.adminEmail,
+        subject: `[Broadcast preview] ${prevSubject}`,
+        html: previewHtml,
+        text: previewText,
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      previewEmailSent = true;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      previewEmailError = w.hint || w.message || String(err?.message || err);
+    }
+  }
+
   const summary = {
     success: true,
     dryRun,
@@ -1996,6 +2083,8 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     dryRunEmails: [],
     nextListCursor: nextCursor,
     hasMore,
+    previewEmailSent,
+    previewEmailError,
   };
 
   for (const obj of objects) {
@@ -2019,6 +2108,10 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     }
     const to = normalizeEmail(row.email);
     if (!isLikelyRealEmail(to)) {
+      summary.skipped++;
+      continue;
+    }
+    if (!hasConfirmedEmailForProductMail(row)) {
       summary.skipped++;
       continue;
     }
@@ -2125,6 +2218,7 @@ function chessStatsSnapshot(chessBlock) {
 async function persistAndSendChessMilestones(env, storage, userData, prevSnap, nextSnap) {
   const email = normalizeEmail(userData.email || '');
   if (!email || !isLikelyRealEmail(email)) return;
+  if (userData.emailVerified === false) return;
 
   if (!userData.milestonesEmailNotified || typeof userData.milestonesEmailNotified !== 'object') {
     userData.milestonesEmailNotified = {};
@@ -2673,6 +2767,29 @@ async function handleScheduledCron(event, env) {
       try {
         const raw = await env.DAILY_DIGEST_KV.get(name, 'json');
         if (!raw || typeof raw.email !== 'string') continue;
+
+        const userIdFromKey = name.startsWith('sub:') ? name.slice(4) : '';
+        if (userIdFromKey) {
+          try {
+            const profileStub = env.USER_ACCOUNT.idFromName(userIdFromKey);
+            const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
+            const profile = await profRes.json();
+            if (!hasConfirmedEmailForProductMail(profile)) {
+              skipped++;
+              continue;
+            }
+            const liveEmail = normalizeEmail(profile.email || raw.email || '');
+            if (!liveEmail || !isLikelyRealEmail(liveEmail)) {
+              skipped++;
+              continue;
+            }
+            raw.email = liveEmail;
+            if (profile.username) raw.username = profile.username;
+          } catch {
+            skipped++;
+            continue;
+          }
+        }
 
         let tz = typeof raw.digestTimeZone === 'string' && raw.digestTimeZone.trim() ? raw.digestTimeZone.trim() : DEFAULT_DIGEST_TIMEZONE;
         if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
