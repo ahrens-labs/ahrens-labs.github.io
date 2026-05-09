@@ -34,6 +34,34 @@
     .btn-secondary { background: #e2e8f0; color: #1f2937; }
     .note { color: #64748b; font-size: 0.9rem; margin-top: 10px; }
     .status { min-height: 1.2em; margin-top: 12px; font-size: 0.9rem; }
+    .delete-final-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(15, 23, 42, 0.55);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .delete-final-overlay.show { display: flex; }
+    .delete-final-dialog {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px;
+      max-width: 420px;
+      width: 100%;
+      border: 2px solid #dc2626;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    }
+    .delete-final-dialog h2 {
+      margin: 0 0 10px 0;
+      font-size: 1.15rem;
+      color: #7f1d1d;
+    }
+    .delete-final-dialog p { margin: 0 0 18px 0; color: #334155; line-height: 1.5; }
+    .delete-final-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -57,6 +85,17 @@
     <p id="status" class="status" aria-live="polite"></p>
   </main>
 
+  <div id="delete-final-modal" class="delete-final-overlay" aria-hidden="true">
+    <div class="delete-final-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-final-title">
+      <h2 id="delete-final-title">Delete account permanently?</h2>
+      <p>This cannot be undone. Your account and all cloud data will be removed.</p>
+      <div class="delete-final-actions">
+        <button type="button" class="btn btn-secondary" id="delete-final-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-final-confirm">Delete permanently</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_BASE_URL =
       window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
@@ -68,20 +107,24 @@
       el.style.color = isError ? '#b91c1c' : '#065f46';
     }
 
-    async function deleteAccountNow() {
+    function showDeleteFinalModal() {
+      const m = document.getElementById('delete-final-modal');
+      if (!m) return;
+      m.classList.add('show');
+      m.setAttribute('aria-hidden', 'false');
+    }
+
+    function hideDeleteFinalModal() {
+      const m = document.getElementById('delete-final-modal');
+      if (!m) return;
+      m.classList.remove('show');
+      m.setAttribute('aria-hidden', 'true');
+    }
+
+    async function performDeleteAccount() {
       const sessionId = localStorage.getItem('ahrenslabs_sessionId');
       const password = document.getElementById('delete-password').value || '';
-      if (!sessionId) {
-        setStatus('Please log in first.', true);
-        window.location.href = 'account.html';
-        return;
-      }
-      if (!password) {
-        setStatus('Enter your password to continue.', true);
-        return;
-      }
-      if (!window.confirm('Delete your account permanently? This cannot be undone.')) return;
-
+      hideDeleteFinalModal();
       setStatus('Deleting account...', false);
       try {
         const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
@@ -114,9 +157,34 @@
       }
     }
 
+    function deleteAccountNow() {
+      const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+      const password = document.getElementById('delete-password').value || '';
+      if (!sessionId) {
+        setStatus('Please log in first.', true);
+        window.location.href = 'account.html';
+        return;
+      }
+      if (!password) {
+        setStatus('Enter your password to continue.', true);
+        return;
+      }
+      showDeleteFinalModal();
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('delete-btn');
-      if (btn) btn.addEventListener('click', () => { void deleteAccountNow(); });
+      if (btn) btn.addEventListener('click', () => { deleteAccountNow(); });
+      const cancel = document.getElementById('delete-final-cancel');
+      const confirm = document.getElementById('delete-final-confirm');
+      const overlay = document.getElementById('delete-final-modal');
+      if (cancel) cancel.addEventListener('click', hideDeleteFinalModal);
+      if (confirm) confirm.addEventListener('click', () => { void performDeleteAccount(); });
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) hideDeleteFinalModal();
+        });
+      }
     });
   </script>
 </body>

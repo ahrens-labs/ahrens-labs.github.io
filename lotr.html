@@ -52,6 +52,45 @@
             margin-bottom: 25px;
             text-align: center;
         }
+
+        .lotr-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(15, 23, 42, 0.5);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .lotr-modal-overlay.show { display: flex; }
+        .lotr-modal-dialog {
+            background: #fff;
+            border-radius: 12px;
+            padding: 22px 24px;
+            max-width: 380px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            border: 2px solid #0091e6;
+            font-family: 'Inter', sans-serif;
+        }
+        .lotr-modal-dialog p {
+            margin: 0 0 16px 0;
+            color: #2c3e50;
+            line-height: 1.45;
+        }
+        .lotr-modal-ok {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 8px;
+            background: #0091e6;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
@@ -97,6 +136,14 @@
                     <button id="restart-button" class="option-button" style="background-color: #27ae60;">Restart Quiz</button>
                 </div>
             </div>
+
+    <div id="lotr-quiz-modal" class="lotr-modal-overlay" aria-hidden="true">
+        <div class="lotr-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="lotr-quiz-modal-msg">
+            <p id="lotr-quiz-modal-msg">Please select an answer before proceeding.</p>
+            <button type="button" class="lotr-modal-ok" id="lotr-quiz-modal-ok">OK</button>
+        </div>
+    </div>
+
     <script>
         // Quiz Questions Data
         const quizQuestions = [
@@ -296,6 +343,27 @@
         const characterPercentagesDiv = document.getElementById('character-percentages');
         const restartButton = document.getElementById('restart-button');
 
+        function showLotrQuizModal(message) {
+            const overlay = document.getElementById('lotr-quiz-modal');
+            const msgEl = document.getElementById('lotr-quiz-modal-msg');
+            if (!overlay) return;
+            if (msgEl) msgEl.textContent = message || 'Please select an answer before proceeding.';
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+        }
+
+        function hideLotrQuizModal() {
+            const overlay = document.getElementById('lotr-quiz-modal');
+            if (!overlay) return;
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        document.getElementById('lotr-quiz-modal-ok')?.addEventListener('click', hideLotrQuizModal);
+        document.getElementById('lotr-quiz-modal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'lotr-quiz-modal') hideLotrQuizModal();
+        });
+
         // Event Listeners
         nextButton.addEventListener('click', () => {
             const selectedOption = document.querySelector('.option-button.selected');
@@ -308,7 +376,7 @@
                     gradeAnswers();
                 }
             } else {
-                alert('Please select an answer before proceeding!');
+                showLotrQuizModal('Please select an answer before proceeding.');
             }
         });
 

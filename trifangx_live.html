@@ -2845,6 +2845,44 @@
       display: block;
     }
 
+    /* Generic centered confirm (no native confirm() — e.g. leave game for history replay) */
+    .generic-confirm-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10012;
+      background: rgba(15, 23, 42, 0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .generic-confirm-overlay.show {
+      display: flex;
+    }
+    .generic-confirm-dialog {
+      background: white;
+      border-radius: 14px;
+      padding: 22px 24px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+      border: 2px solid #3498db;
+    }
+    .generic-confirm-dialog h3 {
+      margin: 0 0 10px 0;
+      font-size: 1.15rem;
+      color: #2c3e50;
+      font-family: "Inter", sans-serif;
+    }
+    .generic-confirm-dialog p {
+      margin: 0 0 18px 0;
+      color: #5a6c7d;
+      line-height: 1.5;
+      font-size: 0.95rem;
+      font-family: "Inter", sans-serif;
+    }
+
     .confirm-dialog {
       background: white;
       border-radius: 12px;
@@ -5453,6 +5491,17 @@
       <div class="confirm-buttons">
         <button class="confirm-no" onclick="closeConfirmModal()">Cancel</button>
         <button class="confirm-yes" onclick="confirmResign()">Resign</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="generic-confirm-modal" class="generic-confirm-overlay" aria-hidden="true">
+    <div class="generic-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="generic-confirm-title">
+      <h3 id="generic-confirm-title">Confirm</h3>
+      <p id="generic-confirm-message"></p>
+      <div class="confirm-buttons">
+        <button type="button" class="confirm-no" id="generic-confirm-cancel">Cancel</button>
+        <button type="button" class="confirm-yes" id="generic-confirm-ok">OK</button>
       </div>
     </div>
   </div>

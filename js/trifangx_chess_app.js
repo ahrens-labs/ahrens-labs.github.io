@@ -29,6 +29,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     let historyReplayFullSan = null;
     /** True once the user has actually stepped forward to the final move; prevents Right from mis-recovering on initial load. */
     let reachedReplayEnd = false;
+    /** Resolves when user dismisses #generic-confirm-modal (replay / leave game, etc.). */
+    let genericConfirmResolve = null;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -3180,6 +3182,21 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
  $(document).ready(async function() {
         console.log("The page has finished loading!");
 
+        (function bindGenericConfirmModal() {
+          const ok = document.getElementById('generic-confirm-ok');
+          const cancel = document.getElementById('generic-confirm-cancel');
+          const overlay = document.getElementById('generic-confirm-modal');
+          if (!ok || ok.dataset.trifangxBound) return;
+          ok.dataset.trifangxBound = '1';
+          ok.addEventListener('click', function () { closeGenericConfirmModal(true); });
+          if (cancel) cancel.addEventListener('click', function () { closeGenericConfirmModal(false); });
+          if (overlay) {
+            overlay.addEventListener('click', function (e) {
+              if (e.target === overlay) closeGenericConfirmModal(false);
+            });
+          }
+        })();
+
         if (window.TRIFANGX_DASHBOARD_EMBED) {
           window.addEventListener('message', function trifangxDashboardEmbedOnMessage(ev) {
             if (ev.origin !== window.location.origin) return;
@@ -3450,7 +3467,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (pendingReplayIndex !== null) {
           const idxToReplay = pendingReplayIndex;
           pendingReplayIndex = null;
-          playGameHistoryRecordAt(idxToReplay);
+          await playGameHistoryRecordAt(idxToReplay);
           try {
             const u = new URL(window.location.href);
             u.searchParams.delete('replayIndex');
@@ -6225,7 +6242,40 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       refreshSidebarForViewedPosition();
     }
 
-    function playGameHistoryRecordAt(index) {
+    function showGenericConfirmModal(title, message, okLabel, cancelLabel) {
+      return new Promise(function (resolve) {
+        const modal = document.getElementById('generic-confirm-modal');
+        if (!modal) {
+          resolve(false);
+          return;
+        }
+        genericConfirmResolve = resolve;
+        const h = document.getElementById('generic-confirm-title');
+        const p = document.getElementById('generic-confirm-message');
+        const okBtn = document.getElementById('generic-confirm-ok');
+        const cancelBtn = document.getElementById('generic-confirm-cancel');
+        if (h) h.textContent = title;
+        if (p) p.textContent = message;
+        if (okBtn) okBtn.textContent = okLabel || 'OK';
+        if (cancelBtn) cancelBtn.textContent = cancelLabel || 'Cancel';
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+      });
+    }
+
+    function closeGenericConfirmModal(result) {
+      const modal = document.getElementById('generic-confirm-modal');
+      if (modal) {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+      }
+      if (genericConfirmResolve) {
+        genericConfirmResolve(!!result);
+        genericConfirmResolve = null;
+      }
+    }
+
+    async function playGameHistoryRecordAt(index) {
       const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
       const rec = items[index];
       if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
@@ -6233,9 +6283,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         return;
       }
       if (!gameOver && game && game.history().length > 0) {
-        if (!window.confirm('Leave your current game?')) {
-          return;
-        }
+        const ok = await showGenericConfirmModal(
+          'Leave current game?',
+          'You have a game in progress. Open this saved game on the board anyway?',
+          'Continue',
+          'Cancel'
+        );
+        if (!ok) return;
       }
       replayModeBackup = snapshotLiveGameStateForReplay();
       isHistoryReplayMode = true;

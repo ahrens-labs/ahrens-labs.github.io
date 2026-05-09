@@ -309,8 +309,6 @@
         const spent = Math.max(0, Number(data.pointsSpent) || 0);
         const shopAvailable = Math.max(0, fromAch + cheat - spent);
         valEl.textContent = fromAch.toLocaleString();
-        let sub =
-          'Same number as “Total Points” in the TrifangX sidebar (sum of achievement point values).';
         if (cheat > 0 || spent > 0) {
           sub +=
             ' Shop: ' +
