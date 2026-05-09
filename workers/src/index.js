@@ -1961,6 +1961,54 @@ async function assertAdminBroadcastSession(env, sessionId) {
   };
 }
 
+/**
+ * Enumerate UserAccount stubs for admin broadcast. Prefers DurableObjectNamespace.list() when the
+ * runtime exposes it; otherwise pages through UsernameRegistry (`username:*` → userId), which
+ * covers all accounts that have a reserved username (including after backfill on login).
+ */
+async function listUserAccountStubsForBroadcast(env, pageSize, listCursor) {
+  if (typeof env.USER_ACCOUNT.list === 'function') {
+    try {
+      const listResult = await env.USER_ACCOUNT.list({
+        limit: pageSize,
+        ...(listCursor ? { cursor: listCursor } : {}),
+      });
+      const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
+      const stubs = [];
+      for (const obj of objects) {
+        if (obj && obj.id) stubs.push(env.USER_ACCOUNT.get(obj.id));
+      }
+      return { stubs, nextListCursor: listResult.cursor || null, listError: null };
+    } catch (e) {
+      return { stubs: [], nextListCursor: null, listError: e };
+    }
+  }
+
+  const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+  try {
+    const res = await registry.fetch(
+      new Request('http://do/listUserIdsPage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: pageSize,
+          ...(listCursor ? { startAfter: listCursor } : {}),
+        }),
+      })
+    );
+    const data = await res.json().catch(() => ({}));
+    const userIds = Array.isArray(data.userIds) ? data.userIds : [];
+    const stubs = [];
+    for (const uid of userIds) {
+      if (!uid) continue;
+      stubs.push(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+    }
+    return { stubs, nextListCursor: data.nextListCursor || null, listError: null };
+  } catch (e) {
+    return { stubs: [], nextListCursor: null, listError: e };
+  }
+}
+
 async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   let body;
   try {
@@ -2000,28 +2048,15 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   let previewEmailSent = false;
   let previewEmailError = null;
 
-  if (typeof env.USER_ACCOUNT.list !== 'function') {
+  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
+    env,
+    pageSize,
+    listCursor
+  );
+  if (listError) {
+    console.error('broadcast account list failed', listError?.message || listError);
     return new Response(
-      JSON.stringify({
-        error: 'Durable Object list() is not available in this runtime; upgrade wrangler compatibility / Workers runtime.',
-      }),
-      {
-        status: 501,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  let listResult;
-  try {
-    listResult = await env.USER_ACCOUNT.list({
-      limit: pageSize,
-      ...(listCursor ? { cursor: listCursor } : {}),
-    });
-  } catch (e) {
-    console.error('USER_ACCOUNT.list failed', e?.message || e);
-    return new Response(
-      JSON.stringify({ error: 'Could not list user accounts: ' + (e?.message || String(e)) }),
+      JSON.stringify({ error: 'Could not list user accounts: ' + (listError?.message || String(listError)) }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2029,8 +2064,6 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     );
   }
 
-  const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
-  const nextCursor = listResult.cursor || null;
   const hasMore = Boolean(nextCursor);
 
   if (dryRun && sendPreviewCopy && !listCursor) {
@@ -2087,13 +2120,12 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     previewEmailError,
   };
 
-  for (const obj of objects) {
+  for (const stub of stubs) {
     summary.processedObjects++;
-    if (!obj || !obj.id) {
+    if (!stub) {
       summary.skipped++;
       continue;
     }
-    const stub = env.USER_ACCOUNT.get(obj.id);
     let row;
     try {
       const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
@@ -4077,6 +4109,29 @@ export class UsernameRegistry {
       return new Response(JSON.stringify(result), {
         status: result.success ? 200 : (result.status || 400),
         headers: { 'Content-Type': 'application/json' }
+      });
+    } else if (path === '/listUserIdsPage' && request.method === 'POST') {
+      let body = {};
+      try {
+        body = await request.json();
+      } catch {
+        body = {};
+      }
+      const limit = Math.min(100, Math.max(1, parseInt(String(body.limit || 35), 10) || 35));
+      const startAfter =
+        typeof body.startAfter === 'string' && body.startAfter.trim() ? body.startAfter.trim() : undefined;
+      const listOpts = { prefix: 'username:', limit };
+      if (startAfter) listOpts.startAfter = startAfter;
+      const map = await this.storage.list(listOpts);
+      const userIds = [];
+      let lastKey = null;
+      for (const [key, val] of map) {
+        lastKey = key;
+        if (val && typeof val === 'object' && val.userId) userIds.push(String(val.userId));
+      }
+      const nextListCursor = map.size === limit && lastKey != null ? lastKey : null;
+      return new Response(JSON.stringify({ userIds, nextListCursor }), {
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
