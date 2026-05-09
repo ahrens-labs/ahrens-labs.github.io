@@ -45,9 +45,46 @@
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
     .full-span { grid-column: 1 / -1; }
+    .trifangx-dashboard-embed-frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      z-index: 10000;
+      pointer-events: none;
+      background: transparent;
+    }
+    .dash-trifangx-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+    .dash-action-tile {
+      flex: 1;
+      min-width: 148px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .dash-action-tile:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+      transform: translateY(-1px);
+    }
+    .dash-action-tile:active { transform: translateY(0); }
+    .dash-action-tile .dash-action-title { font-weight: 600; font-size: 0.95rem; color: #0f172a; }
+    .dash-action-tile .dash-action-sub { font-size: 0.8rem; color: #64748b; line-height: 1.35; }
   </style>
 </head>
 <body>
+  <iframe id="trifangx-dashboard-embed" class="trifangx-dashboard-embed-frame" title="TrifangX" src="chess_engine.html?dashboardEmbed=1"></iframe>
   <div class="wrapper">
     <header>
       <div class="header-content">
@@ -151,16 +188,21 @@
 
         <div class="dash-card">
           <h2>Chess store &amp; TrifangX</h2>
-          <p class="hint">Spend points on boards, pieces, and more. Settings and achievements open in the chess engine.</p>
-          <p style="margin:0 0 10px 0;">
-            <a class="btn btn-primary" href="chess_engine.html?open=shop" style="text-decoration:none;display:inline-block;">Open chess store</a>
-          </p>
-          <p style="margin:0 0 10px 0;">
-            <a class="btn btn-ghost" href="chess_engine.html?open=settings" style="text-decoration:none;display:inline-block;">TrifangX settings</a>
-          </p>
-          <p style="margin:0;">
-            <a class="btn btn-ghost" href="chess_engine.html?open=achievements" style="text-decoration:none;display:inline-block;">Achievements</a>
-          </p>
+          <p class="hint">Spend points on boards, pieces, and more. Open the store, settings, or achievements here without leaving this page.</p>
+          <div class="dash-trifangx-actions" role="group" aria-label="TrifangX shortcuts">
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-shop">
+              <span class="dash-action-title">Chess store</span>
+              <span class="dash-action-sub">Boards, pieces, themes, and time controls</span>
+            </button>
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-settings">
+              <span class="dash-action-title">TrifangX settings</span>
+              <span class="dash-action-sub">Apply what you own and reset progress</span>
+            </button>
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-achievements">
+              <span class="dash-action-title">Achievements</span>
+              <span class="dash-action-sub">Full list and daily challenges</span>
+            </button>
+          </div>
         </div>
 
         <div class="dash-card">
@@ -236,6 +278,64 @@
       const user = await requireUser();
       if (!user) return;
       applyUserToForm(user);
+
+      const trifangxIframe = document.getElementById('trifangx-dashboard-embed');
+      let trifangxEmbedReady = false;
+      let trifangxEmbedLoadFailed = false;
+      let trifangxPendingOpen = null;
+
+      function setTrifangxIframeInteractive(on) {
+        if (!trifangxIframe) return;
+        trifangxIframe.style.pointerEvents = on ? 'auto' : 'none';
+      }
+
+      function openTrifangxInEmbed(target) {
+        if (trifangxEmbedLoadFailed) {
+          window.location.href =
+            'chess_engine.html?open=' + encodeURIComponent(target);
+          return;
+        }
+        if (!trifangxIframe || !trifangxIframe.contentWindow) return;
+        if (!trifangxEmbedReady) {
+          trifangxPendingOpen = target;
+          return;
+        }
+        trifangxPendingOpen = null;
+        trifangxIframe.contentWindow.postMessage(
+          { source: 'ahrens-dashboard', type: 'trifangx-open', target },
+          window.location.origin
+        );
+        setTrifangxIframeInteractive(true);
+      }
+
+      window.addEventListener('message', (ev) => {
+        if (ev.origin !== window.location.origin) return;
+        const d = ev.data;
+        if (!d || d.source !== 'trifangx-embed') return;
+        if (d.type === 'ready') {
+          trifangxEmbedReady = true;
+          if (d.loadFailed) trifangxEmbedLoadFailed = true;
+          if (trifangxPendingOpen && !trifangxEmbedLoadFailed) {
+            const t = trifangxPendingOpen;
+            trifangxPendingOpen = null;
+            openTrifangxInEmbed(t);
+          } else if (trifangxPendingOpen && trifangxEmbedLoadFailed) {
+            const t = trifangxPendingOpen;
+            trifangxPendingOpen = null;
+            window.location.href =
+              'chess_engine.html?open=' + encodeURIComponent(t);
+          }
+        } else if (d.type === 'modal-closed') {
+          setTrifangxIframeInteractive(false);
+        }
+      });
+
+      const shopBtn = document.getElementById('dash-open-trifangx-shop');
+      const settingsBtn = document.getElementById('dash-open-trifangx-settings');
+      const achBtn = document.getElementById('dash-open-trifangx-achievements');
+      if (shopBtn) shopBtn.addEventListener('click', () => openTrifangxInEmbed('shop'));
+      if (settingsBtn) settingsBtn.addEventListener('click', () => openTrifangxInEmbed('settings'));
+      if (achBtn) achBtn.addEventListener('click', () => openTrifangxInEmbed('achievements'));
 
       document.getElementById('dash-logout').addEventListener('click', (e) => {
         e.preventDefault();

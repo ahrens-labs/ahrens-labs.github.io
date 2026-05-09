@@ -2207,6 +2207,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (modal) {
         modal.classList.remove('show');
       }
+      notifyTrifangxDashboardEmbedModalClosed();
     }
 
     // In-UI notification (no alert)
@@ -2268,12 +2269,32 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function requireChessPregameForNonStatsModal() {
+      try {
+        if (window.TRIFANGX_DASHBOARD_EMBED) return true;
+      } catch (e) {}
       if (isHistoryReplayMode) return true;
       if (!isChessPregamePhase()) {
         showNotification('Use the menu above before you start a game.', 'error');
         return false;
       }
       return true;
+    }
+
+    function notifyTrifangxDashboardEmbedModalClosed() {
+      try {
+        if (!window.TRIFANGX_DASHBOARD_EMBED || window.parent === window) return;
+        window.parent.postMessage(
+          { source: 'trifangx-embed', type: 'modal-closed' },
+          window.location.origin
+        );
+      } catch (e) {}
+    }
+
+    function closeTrifangxMainModalsSilent() {
+      ['shop-modal', 'settings-modal', 'all-achievements-modal'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('show');
+      });
     }
 
     // Shop purchase confirmation (pending purchase state)
@@ -2917,6 +2938,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     function closeSettings() {
       const modal = document.getElementById('settings-modal');
       if (modal) modal.classList.remove('show');
+      notifyTrifangxDashboardEmbedModalClosed();
     }
 
     function updateSettingsDropdowns() {
@@ -3157,6 +3179,20 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
  $(document).ready(async function() {
         console.log("The page has finished loading!");
+
+        if (window.TRIFANGX_DASHBOARD_EMBED) {
+          window.addEventListener('message', function trifangxDashboardEmbedOnMessage(ev) {
+            if (ev.origin !== window.location.origin) return;
+            const d = ev.data;
+            if (!d || d.source !== 'ahrens-dashboard' || d.type !== 'trifangx-open') return;
+            closeTrifangxMainModalsSilent();
+            if (d.target === 'shop' && typeof showShop === 'function') showShop();
+            else if (d.target === 'settings' && typeof showSettings === 'function') showSettings();
+            else if (d.target === 'achievements' && typeof showAllAchievements === 'function') {
+              showAllAchievements(false);
+            }
+          });
+        }
         
         // Check for URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -3186,6 +3222,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         const loaded = await loadChessDataFromCloud();
         if (!loaded) {
           console.log("Failed to load data, redirect should happen...");
+          if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
+            try {
+              window.parent.postMessage(
+                { source: 'trifangx-embed', type: 'ready', loadFailed: true },
+                window.location.origin
+              );
+            } catch (eRf) {}
+          }
           return; // loadChessDataFromCloud will handle redirect
         }
         
@@ -3438,6 +3482,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         updatePlayerStatsDisplay();
         updateAchievementsDisplay();
         updateTotalPoints();
+
+        if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
+          try {
+            window.parent.postMessage(
+              { source: 'trifangx-embed', type: 'ready' },
+              window.location.origin
+            );
+          } catch (eReady) {}
+        }
     });
 
         $(document).keydown(function(e) {
@@ -8505,7 +8558,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function closeAllAchievements() {
-      document.getElementById('all-achievements-modal').classList.remove('show');
+      const modal = document.getElementById('all-achievements-modal');
+      if (modal) modal.classList.remove('show');
+      notifyTrifangxDashboardEmbedModalClosed();
     }
     
     // Reset confirmation state
@@ -10932,7 +10987,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     
     // Load chess data from cloud
     async function loadChessDataFromCloud() {
-      currentSessionId = localStorage.getItem('ahrenslabs_sessionId');
+      currentSessionId =
+        localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
       if (!currentSessionId) {
         console.log('No session ID found, redirecting to login...');
         setTimeout(() => {
