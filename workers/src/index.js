@@ -56,6 +56,8 @@ export default {
         return handleAdminBroadcastEmail(request, env, corsHeaders);
       } else if (path === '/api/admin/resend-welcome-bulk' && request.method === 'POST') {
         return handleAdminResendWelcomeBulk(request, env, corsHeaders);
+      } else if (path === '/api/admin/list-accounts' && request.method === 'POST') {
+        return handleAdminListAccounts(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -2326,6 +2328,102 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   return new Response(JSON.stringify(summary), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Admin: page through all user accounts (same enumeration as broadcast) and return directory fields only.
+ * Response rows omit passwords, tokens, and game payloads — only userId, username, email, emailVerified.
+ */
+async function handleAdminListAccounts(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const listCursor =
+    typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
+  const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
+
+  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
+    env,
+    pageSize,
+    listCursor
+  );
+  if (listError) {
+    console.error('admin list-accounts failed', listError?.message || listError);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Could not list user accounts: ' + (listError?.message || String(listError)),
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const accounts = [];
+  let skippedMissingData = 0;
+
+  for (const stub of stubs) {
+    if (!stub) {
+      skippedMissingData++;
+      continue;
+    }
+    let row;
+    try {
+      const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+      row = await dataRes.json();
+    } catch {
+      skippedMissingData++;
+      continue;
+    }
+    if (!row || typeof row !== 'object') {
+      skippedMissingData++;
+      continue;
+    }
+
+    const emailRaw = row.email != null ? String(row.email) : '';
+    const emailNorm = emailRaw ? normalizeEmail(emailRaw) : '';
+    let ev = null;
+    if (row.emailVerified === true) ev = true;
+    else if (row.emailVerified === false) ev = false;
+
+    accounts.push({
+      userId: row.userId != null ? String(row.userId) : '',
+      username: row.username != null ? String(row.username) : '',
+      email: emailNorm,
+      emailVerified: ev,
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      accounts,
+      nextListCursor: nextCursor || null,
+      hasMore: Boolean(nextCursor),
+      pageStubCount: stubs.length,
+      skippedMissingData,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 function buildVerificationUrl(env, email, token) {

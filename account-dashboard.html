@@ -117,6 +117,58 @@
       background: linear-gradient(180deg, #fffbeb 0%, #ffffff 48%);
     }
     .admin-broadcast-card textarea { min-height: 120px; font-family: inherit; }
+    .admin-accounts-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .admin-accounts-filter-wrap { flex: 1; min-width: 180px; }
+    .admin-accounts-filter-wrap input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
+    .admin-accounts-meta {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin: 0 0 10px 0;
+      line-height: 1.4;
+    }
+    .admin-accounts-table-wrap {
+      overflow: auto;
+      max-height: min(480px, 55vh);
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fafafa;
+    }
+    .admin-accounts-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    .admin-accounts-table th,
+    .admin-accounts-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .admin-accounts-table th {
+      position: sticky;
+      top: 0;
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #334155;
+      z-index: 1;
+    }
+    .admin-accounts-table tbody tr:hover { background: #f8fafc; }
+    .admin-accounts-table .col-email { word-break: break-all; }
+    .admin-accounts-table .col-id { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #475569; }
     .dash-modal-backdrop {
       position: fixed;
       inset: 0;
@@ -293,6 +345,38 @@
               <span class="dash-action-sub">Full list and daily challenges</span>
             </button>
           </div>
+        </div>
+
+        <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
+          <h2>All accounts (admin)</h2>
+          <p class="hint">
+            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong> using the same account scan as broadcast (paginated). Filter applies to rows already loaded. Export CSV includes every loaded row.
+          </p>
+          <div class="admin-accounts-toolbar">
+            <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
+            <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
+            <button type="button" class="btn btn-ghost" id="btn-admin-accounts-csv">Copy CSV</button>
+            <div class="admin-accounts-filter-wrap">
+              <input type="search" id="admin-accounts-filter" autocomplete="off" placeholder="Filter by email, username, or user id…" aria-label="Filter loaded accounts">
+            </div>
+          </div>
+          <p class="admin-accounts-meta" id="admin-accounts-meta">Not loaded yet.</p>
+          <div class="admin-accounts-table-wrap">
+            <table class="admin-accounts-table">
+              <thead>
+                <tr>
+                  <th scope="col">Username</th>
+                  <th scope="col">Email</th>
+                  <th scope="col">Verified</th>
+                  <th scope="col">User id</th>
+                </tr>
+              </thead>
+              <tbody id="admin-accounts-tbody">
+                <tr><td colspan="4" style="color:#94a3b8;">Click “Load from beginning”.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="status" id="admin-accounts-status"></p>
         </div>
 
         <div class="dash-card admin-broadcast-card" id="admin-broadcast-card">
@@ -546,6 +630,147 @@
         if (abc) abc.style.display = 'block';
         const awc = document.getElementById('admin-resend-welcome-card');
         if (awc) awc.style.display = 'block';
+        const aac = document.getElementById('admin-accounts-card');
+        if (aac) aac.style.display = 'block';
+
+        let adminAccountsAccum = [];
+        let adminListNextCursor = null;
+        let adminListHasMore = false;
+
+        function escHtml(s) {
+          return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
+        }
+
+        function verifiedLabel(ev) {
+          if (ev === true) return 'Yes';
+          if (ev === false) return 'No';
+          return 'Legacy';
+        }
+
+        function renderAdminAccountsTable() {
+          const tbody = document.getElementById('admin-accounts-tbody');
+          const meta = document.getElementById('admin-accounts-meta');
+          const filterEl = document.getElementById('admin-accounts-filter');
+          const moreBtn = document.getElementById('btn-admin-accounts-more');
+          if (!tbody || !meta) return;
+          const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
+          const rows = !q
+            ? adminAccountsAccum.slice()
+            : adminAccountsAccum.filter((a) => {
+                const em = (a.email || '').toLowerCase();
+                const un = (a.username || '').toLowerCase();
+                const id = (a.userId || '').toLowerCase();
+                return em.includes(q) || un.includes(q) || id.includes(q);
+              });
+          rows.sort((a, b) =>
+            (a.email || '').localeCompare(b.email || '', undefined, { sensitivity: 'base' })
+          );
+          if (!rows.length) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" style="color:#94a3b8;">' +
+              (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
+              '</td></tr>';
+          } else {
+            tbody.innerHTML = rows
+              .map(
+                (a) =>
+                  `<tr><td>${escHtml(a.username || '—')}</td><td class="col-email">${escHtml(a.email || '—')}</td><td>${escHtml(verifiedLabel(a.emailVerified))}</td><td class="col-id">${escHtml(a.userId || '')}</td></tr>`
+              )
+              .join('');
+          }
+          const filtNote = q ? ` · ${rows.length} match filter` : '';
+          meta.textContent =
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'}${filtNote}` +
+            (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
+          if (moreBtn) moreBtn.disabled = !adminListHasMore;
+        }
+
+        async function adminAccountsFetchPage(reset) {
+          const st = document.getElementById('admin-accounts-status');
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            setStatus(st, 'Not signed in.', 'err');
+            return;
+          }
+          if (reset) {
+            adminAccountsAccum = [];
+            adminListNextCursor = null;
+            adminListHasMore = false;
+            renderAdminAccountsTable();
+          }
+          const cursorForReq = reset ? undefined : adminListNextCursor;
+          if (!reset && !cursorForReq) {
+            setStatus(st, 'Nothing more to load.', 'err');
+            return;
+          }
+          setStatus(st, 'Loading…', '');
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/list-accounts`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                ...(cursorForReq ? { listCursor: cursorForReq } : {}),
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            const batch = Array.isArray(data.accounts) ? data.accounts : [];
+            adminAccountsAccum = adminAccountsAccum.concat(batch);
+            adminListNextCursor = data.nextListCursor || null;
+            adminListHasMore = !!data.hasMore;
+            const skipped = Number(data.skippedMissingData) || 0;
+            renderAdminAccountsTable();
+            let msg = `Loaded ${batch.length} in this page (${adminAccountsAccum.length} total).`;
+            if (skipped) msg += ` ${skipped} stub(s) had no profile data.`;
+            setStatus(st, msg, 'ok');
+          } catch (e) {
+            console.error(e);
+            setStatus(st, e?.message ? `Failed: ${e.message}` : 'Failed (network).', 'err');
+          }
+        }
+
+        document.getElementById('btn-admin-accounts-refresh')?.addEventListener('click', () => {
+          adminAccountsFetchPage(true);
+        });
+        document.getElementById('btn-admin-accounts-more')?.addEventListener('click', () => {
+          adminAccountsFetchPage(false);
+        });
+        document.getElementById('admin-accounts-filter')?.addEventListener('input', () => {
+          renderAdminAccountsTable();
+        });
+        document.getElementById('btn-admin-accounts-csv')?.addEventListener('click', async () => {
+          const st = document.getElementById('admin-accounts-status');
+          if (!adminAccountsAccum.length) {
+            setStatus(st, 'Load accounts first.', 'err');
+            return;
+          }
+          const escCsv = (v) => {
+            const s = String(v ?? '');
+            if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+          };
+          const lines = ['username,email,email_verified,user_id'];
+          for (const a of adminAccountsAccum) {
+            const vLabel = a.emailVerified === true ? 'yes' : a.emailVerified === false ? 'no' : 'legacy';
+            lines.push([escCsv(a.username), escCsv(a.email), vLabel, escCsv(a.userId)].join(','));
+          }
+          const text = lines.join('\r\n');
+          try {
+            await navigator.clipboard.writeText(text);
+            setStatus(st, `Copied CSV (${adminAccountsAccum.length} rows) to clipboard.`, 'ok');
+          } catch {
+            setStatus(st, 'Clipboard was blocked — check site permissions.', 'err');
+          }
+        });
       }
 
       const trifangxIframe = document.getElementById('trifangx-dashboard-embed');
