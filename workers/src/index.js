@@ -15,7 +15,7 @@ const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
 const ADMIN_BROADCAST_ACCOUNT_EMAIL = 'calebahrens2011@gmail.com';
 /** From header for those messages (must be verified in Resend / Cloudflare Email Sending). */
 const ADMIN_BROADCAST_FROM_EMAIL = 'caleb@ahrenslabs.com';
-const ADMIN_BROADCAST_FROM_NAME = 'Caleb Ahrens';
+const ADMIN_BROADCAST_FROM_NAME = 'Ahrens Labs';
 
 export default {
   async fetch(request, env, executionCtx) {
@@ -1990,7 +1990,31 @@ async function listUserAccountStubsForBroadcast(env, pageSize, listCursor) {
         }),
       })
     );
-    const data = await res.json().catch(() => ({}));
+    const txt = await res.text();
+    if (!res.ok) {
+      return {
+        stubs: [],
+        nextListCursor: null,
+        listError: new Error(`Username registry list failed (${res.status}): ${txt.slice(0, 280)}`),
+      };
+    }
+    let data = {};
+    try {
+      data = txt ? JSON.parse(txt) : {};
+    } catch (parseErr) {
+      return {
+        stubs: [],
+        nextListCursor: null,
+        listError: new Error(`Username registry returned invalid JSON: ${txt.slice(0, 200)}`),
+      };
+    }
+    if (data.error && typeof data.error === 'string') {
+      return {
+        stubs: [],
+        nextListCursor: null,
+        listError: new Error(data.error),
+      };
+    }
     const userIds = Array.isArray(data.userIds) ? data.userIds : [];
     const stubs = [];
     for (const uid of userIds) {
@@ -2174,11 +2198,12 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   });
 }
 
-/** Same recipient rules as broadcast: valid email, confirmed (or legacy). Sends standard welcome guide from transactional sender. */
+/** Same recipient rules as broadcast: valid email, confirmed (or legacy). Each send is one separate email to one recipient (no BCC / bulk To). */
 async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   let body = {};
   try {
-    body = await request.json();
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
@@ -2204,24 +2229,7 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   let previewWelcomeSent = false;
   let previewWelcomeError = null;
 
-  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
-    env,
-    pageSize,
-    listCursor
-  );
-  if (listError) {
-    console.error('admin resend-welcome list failed', listError?.message || listError);
-    return new Response(
-      JSON.stringify({ error: 'Could not list user accounts: ' + (listError?.message || String(listError)) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  const hasMore = Boolean(nextCursor);
-
+  // Send preview first so a sample reaches the admin even if listing many accounts is slow or hits limits.
   if (dryRun && sendPreviewCopy && !listCursor) {
     try {
       await sendWelcomeGuideEmail(env, gate.adminEmail, gate.adminUsername, {
@@ -2232,8 +2240,32 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
     } catch (err) {
       const w = summarizeEmailSendError(err);
       previewWelcomeError = w.hint || w.message || String(err?.message || err);
+      console.error('admin welcome preview send failed', previewWelcomeError);
     }
   }
+
+  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
+    env,
+    pageSize,
+    listCursor
+  );
+  if (listError) {
+    console.error('admin resend-welcome list failed', listError?.message || listError);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Could not list user accounts: ' + (listError?.message || String(listError)),
+        previewWelcomeSent,
+        previewWelcomeError,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const hasMore = Boolean(nextCursor);
 
   const summary = {
     success: true,
@@ -2286,6 +2318,7 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
     }
 
     try {
+      // One Cloudflare / Resend API call per account — single recipient per message.
       await sendWelcomeGuideEmail(env, to, username);
       summary.sent++;
     } catch (err) {
@@ -4280,28 +4313,38 @@ export class UsernameRegistry {
         headers: { 'Content-Type': 'application/json' }
       });
     } else if (path === '/listUserIdsPage' && request.method === 'POST') {
-      let body = {};
       try {
-        body = await request.json();
-      } catch {
-        body = {};
+        let body = {};
+        try {
+          const raw = await request.text();
+          if (raw && String(raw).trim()) body = JSON.parse(raw);
+        } catch {
+          body = {};
+        }
+        const limit = Math.min(100, Math.max(1, parseInt(String(body.limit || 35), 10) || 35));
+        const startAfter =
+          typeof body.startAfter === 'string' && body.startAfter.trim() ? body.startAfter.trim() : undefined;
+        const listOpts = { prefix: 'username:', limit };
+        if (startAfter) listOpts.startAfter = startAfter;
+        const map = await this.storage.list(listOpts);
+        const userIds = [];
+        let lastKey = null;
+        let count = 0;
+        for (const [key, val] of map) {
+          count++;
+          lastKey = key;
+          if (val && typeof val === 'object' && val.userId) userIds.push(String(val.userId));
+        }
+        const nextListCursor = count === limit && lastKey != null ? lastKey : null;
+        return new Response(JSON.stringify({ userIds, nextListCursor }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e?.message || String(e), userIds: [], nextListCursor: null }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
-      const limit = Math.min(100, Math.max(1, parseInt(String(body.limit || 35), 10) || 35));
-      const startAfter =
-        typeof body.startAfter === 'string' && body.startAfter.trim() ? body.startAfter.trim() : undefined;
-      const listOpts = { prefix: 'username:', limit };
-      if (startAfter) listOpts.startAfter = startAfter;
-      const map = await this.storage.list(listOpts);
-      const userIds = [];
-      let lastKey = null;
-      for (const [key, val] of map) {
-        lastKey = key;
-        if (val && typeof val === 'object' && val.userId) userIds.push(String(val.userId));
-      }
-      const nextListCursor = map.size === limit && lastKey != null ? lastKey : null;
-      return new Response(JSON.stringify({ userIds, nextListCursor }), {
-        headers: { 'Content-Type': 'application/json' },
-      });
     }
 
     return new Response('UsernameRegistry DO', { status: 200 });

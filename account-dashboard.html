@@ -283,7 +283,7 @@
         <div class="dash-card admin-broadcast-card" id="admin-resend-welcome-card">
           <h2>Welcome guide (admin)</h2>
           <p class="hint">
-            Sends the same <strong>welcome / info</strong> email as “Send info email again” on each eligible account (verified email and same rules as broadcast). Uses your normal transactional sender, not the broadcast From address.
+            Sends the same <strong>welcome / info</strong> email as “Send info email again” on each eligible account (verified email and same rules as broadcast). Uses your normal transactional sender, not the broadcast From address. Each account gets its own separate message (one recipient per send, not one email to many).
           </p>
           <div class="row">
             <button type="button" class="btn btn-ghost" id="btn-admin-welcome-preview">Preview (count + email me sample)</button>
@@ -324,6 +324,28 @@
       el.classList.remove('ok', 'err');
       if (kind === 'ok') el.classList.add('ok');
       if (kind === 'err') el.classList.add('err');
+    }
+
+    async function readApiJsonResponse(res) {
+      const text = await res.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { _unparsedBody: text };
+        }
+      }
+      return { ok: res.ok, status: res.status, data };
+    }
+
+    function formatApiFailure(status, data) {
+      if (data && typeof data.error === 'string' && data.error.trim()) return data.error;
+      if (data && typeof data._unparsedBody === 'string') {
+        const snip = data._unparsedBody.replace(/\s+/g, ' ').trim().slice(0, 280);
+        return snip ? `HTTP ${status}: ${snip}` : `HTTP ${status} (empty body)`;
+      }
+      return `HTTP ${status}`;
     }
 
     async function requireUser() {
@@ -626,13 +648,23 @@
           return;
         }
         const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
         setStatus(st, 'Working…', '');
         const emails = [];
         let cursor;
         let previewEmailSent = false;
         let previewEmailError = null;
+        const MAX_PAGES = 500;
+        let page = 0;
         try {
           do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              return;
+            }
             const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
               method: 'POST',
               headers: {
@@ -648,9 +680,12 @@
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              setStatus(st, data.error || 'Preview failed.', 'err');
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok) {
+              let msg = formatApiFailure(status, data);
+              if (data.previewEmailError != null) msg += ` Preview: ${data.previewEmailError}`;
+              else if (data.previewEmailSent) msg += ' (Preview send was attempted.)';
+              setStatus(st, msg, 'err');
               return;
             }
             if (!cursor) {
@@ -672,20 +707,30 @@
           }
         } catch (e) {
           console.error(e);
-          setStatus(st, 'Preview failed.', 'err');
+          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
         }
       });
 
       document.getElementById('btn-admin-welcome-preview')?.addEventListener('click', async () => {
         const st = document.getElementById('admin-welcome-status');
         const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
         setStatus(st, 'Working…', '');
         const emails = [];
         let cursor;
         let previewWelcomeSent = false;
         let previewWelcomeError = null;
+        const MAX_PAGES = 500;
+        let page = 0;
         try {
           do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              return;
+            }
             const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
               method: 'POST',
               headers: {
@@ -698,9 +743,12 @@
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              setStatus(st, data.error || 'Preview failed.', 'err');
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok) {
+              let msg = formatApiFailure(status, data);
+              if (data.previewWelcomeError != null) msg += ` Sample send: ${data.previewWelcomeError}`;
+              else if (data.previewWelcomeSent) msg += ' (Sample send was attempted.)';
+              setStatus(st, msg, 'err');
               return;
             }
             if (!cursor) {
@@ -722,7 +770,7 @@
           }
         } catch (e) {
           console.error(e);
-          setStatus(st, 'Preview failed.', 'err');
+          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
         }
       });
 
@@ -730,6 +778,10 @@
         const st = document.getElementById('admin-welcome-status');
         if (!window.confirm('Send the full welcome / info email to every eligible account?')) return;
         const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
         const btn = document.getElementById('btn-admin-welcome-send');
         const prev = btn ? btn.textContent : '';
         if (btn) {
@@ -740,8 +792,14 @@
         const failures = [];
         let cursor;
         setStatus(st, 'Starting…', '');
+        const MAX_PAGES = 500;
+        let page = 0;
         try {
           do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} batches (safety limit). Sent so far: ${sent}.`, 'err');
+              return;
+            }
             const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
               method: 'POST',
               headers: {
@@ -752,9 +810,9 @@
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.success) {
-              setStatus(st, data.error || 'Send failed.', 'err');
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
             sent += data.sent || 0;
@@ -768,7 +826,7 @@
           if (failures.length) console.warn('Welcome bulk failures', failures);
         } catch (e) {
           console.error(e);
-          setStatus(st, 'Send failed.', 'err');
+          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
         } finally {
           if (btn) {
             btn.disabled = false;
@@ -788,6 +846,10 @@
         }
         if (!window.confirm('Send this message as individual emails from caleb@ahrenslabs.com to every account?')) return;
         const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
         const btn = document.getElementById('btn-admin-bc-send');
         const prev = btn ? btn.textContent : '';
         if (btn) {
@@ -798,8 +860,14 @@
         const failures = [];
         let cursor;
         setStatus(st, 'Starting…', '');
+        const MAX_PAGES = 500;
+        let page = 0;
         try {
           do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} batches (safety limit). Sent so far: ${sent}.`, 'err');
+              return;
+            }
             const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
               method: 'POST',
               headers: {
@@ -813,9 +881,9 @@
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || !data.success) {
-              setStatus(st, data.error || 'Send failed.', 'err');
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
             sent += data.sent || 0;
@@ -829,7 +897,7 @@
           if (failures.length) console.warn('Broadcast failures', failures);
         } catch (e) {
           console.error(e);
-          setStatus(st, 'Send failed.', 'err');
+          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
         } finally {
           if (btn) {
             btn.disabled = false;
