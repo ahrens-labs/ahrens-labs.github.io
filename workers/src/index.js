@@ -6,6 +6,7 @@ import {
   DAILY_CHALLENGE_DIGEST_BLURBS,
   DAILY_CHALLENGE_CARD_INFO,
 } from './daily-challenge-picker.js';
+import { DISPOSABLE_EMAIL_DOMAINS } from './disposable-email-domains.js';
 
 /** Default when user has not picked a timezone (US Central). */
 const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
@@ -157,6 +158,21 @@ async function handleSignup(request, env, corsHeaders, executionCtx) {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  const signupDomain = normalizedEmail.slice(normalizedEmail.indexOf('@') + 1);
+  const domainOk = await verifySignupEmailDomain(signupDomain);
+  if (!domainOk) {
+    return new Response(
+      JSON.stringify({
+        error:
+          'That email domain does not exist or is not set up to receive mail. Use a real inbox (Gmail, iCloud, Outlook, your school/work, etc.).',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   // Get user account DO
@@ -1583,24 +1599,91 @@ function looksLikeEmailForLogin(raw) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(n);
 }
 
+function hasReasonableEmailShape(normalized) {
+  const at = normalized.indexOf('@');
+  if (at < 1) return false;
+  const local = normalized.slice(0, at);
+  const domain = normalized.slice(at + 1);
+  if (!domain.includes('.')) return false;
+  if (local.length > 64 || domain.length > 253) return false;
+  if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+  if (domain.startsWith('.') || domain.endsWith('.') || domain.includes('..')) return false;
+  if (
+    domain.endsWith('.local') ||
+    domain.endsWith('.test') ||
+    domain.endsWith('.invalid') ||
+    domain.endsWith('.localhost')
+  ) {
+    return false;
+  }
+  for (const label of domain.split('.')) {
+    if (!label || label.length > 63) return false;
+    if (label.startsWith('-') || label.endsWith('-')) return false;
+  }
+  return true;
+}
+
 function isLikelyRealEmail(email) {
   const normalized = normalizeEmail(email);
   if (!normalized) return false;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
   if (!emailRegex.test(normalized)) return false;
+  if (!hasReasonableEmailShape(normalized)) return false;
   const domain = normalized.split('@')[1] || '';
-  const blockedDomains = new Set([
-    'example.com',
-    'example.org',
-    'example.net',
-    'test.com',
-    'invalid.com',
-    'mailinator.com',
-    'tempmail.com',
-    '10minutemail.com',
-    'guerrillamail.com',
-  ]);
-  return !blockedDomains.has(domain);
+  return !DISPOSABLE_EMAIL_DOMAINS.has(domain);
+}
+
+/**
+ * Reject domains with no DNS mail path (NXDOMAIN, only null MX, no A/AAAA).
+ * Uses Cloudflare DNS-over-HTTPS; fails open on resolver errors so outages do not block signups.
+ */
+async function verifySignupEmailDomain(domain) {
+  const d = String(domain || '').trim().toLowerCase();
+  if (!d || !d.includes('.')) return false;
+
+  const headers = { Accept: 'application/dns-json' };
+
+  try {
+    const mxRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=MX`, {
+      headers,
+    });
+    if (!mxRes.ok) return true;
+    const mxJson = await mxRes.json();
+    if (mxJson.Status === 3) return false;
+    if (mxJson.Status !== 0) return true;
+
+    const mxRecords = (mxJson.Answer || []).filter((a) => a.type === 15);
+    if (mxRecords.length > 0) {
+      const hasDeliverableMx = mxRecords.some((a) => {
+        const raw = String(a.data || '').trim();
+        if (raw === '0 .' || raw === '0.') return false;
+        const parts = raw.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2 && parts[0] === '0' && parts[1] === '.') return false;
+        return true;
+      });
+      if (hasDeliverableMx) return true;
+      return false;
+    }
+
+    const aRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=A`, { headers });
+    if (!aRes.ok) return true;
+    const aJson = await aRes.json();
+    if (aJson.Status === 3) return false;
+    if (aJson.Status !== 0) return true;
+    if ((aJson.Answer || []).some((a) => a.type === 1)) return true;
+
+    const aaaaRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(d)}&type=AAAA`, {
+      headers,
+    });
+    if (!aaaaRes.ok) return true;
+    const aaaaJson = await aaaaRes.json();
+    if (aaaaJson.Status === 3) return false;
+    if (aaaaJson.Status !== 0) return true;
+    return (aaaaJson.Answer || []).some((a) => a.type === 28);
+  } catch (e) {
+    console.warn('verifySignupEmailDomain', d, e?.message || e);
+    return true;
+  }
 }
 
 function generateUserId(email) {
