@@ -10,6 +10,12 @@ import {
 /** Default when user has not picked a timezone (US Central). */
 const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
 
+/** Only this logged-in account may POST /api/admin/broadcast-email */
+const ADMIN_BROADCAST_ACCOUNT_EMAIL = 'calebahrens2011@gmail.com';
+/** From header for those messages (must be verified in Resend / Cloudflare Email Sending). */
+const ADMIN_BROADCAST_FROM_EMAIL = 'caleb@ahrenslabs.com';
+const ADMIN_BROADCAST_FROM_NAME = 'Caleb Ahrens';
+
 export default {
   async fetch(request, env, executionCtx) {
     const url = new URL(request.url);
@@ -45,6 +51,8 @@ export default {
         return handleResendWelcomeEmail(request, env, corsHeaders);
       } else if (path === '/api/send-daily-challenges-now' && request.method === 'POST') {
         return handleSendDailyChallengesNow(request, env, corsHeaders);
+      } else if (path === '/api/admin/broadcast-email' && request.method === 'POST') {
+        return handleAdminBroadcastEmail(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -1654,12 +1662,13 @@ function summarizeEmailSendError(err) {
 }
 
 // Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
-async function sendViaResend(env, { fromAddr, to, subject, html, text }) {
+async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text }) {
   const key = env.RESEND_API_KEY;
   if (!key || typeof key !== 'string') {
     throw new Error('RESEND_API_KEY is not set');
   }
-  const from = `Ahrens Labs <${fromAddr}>`;
+  const displayName = (fromName != null && String(fromName).trim()) || 'Ahrens Labs';
+  const from = `${displayName} <${fromAddr}>`;
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -1700,15 +1709,21 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
-async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
-  const fromAddr = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+async function dispatchTransactionalEmail(env, { to, subject, html, text, fromAddr: fromOverride, fromName: fromNameOverride }) {
+  const envFrom = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
+  const fromAddr = String(fromOverride || envFrom).trim();
+  const fromName =
+    fromNameOverride != null && String(fromNameOverride).trim()
+      ? String(fromNameOverride).trim()
+      : String(env.TRANSACTIONAL_FROM_NAME || 'Ahrens Labs').trim() || 'Ahrens Labs';
   if (!fromAddr) {
     throw new Error('Set SENDER_EMAIL to a verified sender (Resend or Cloudflare Email Service domain).');
   }
   if (
-    fromAddr.includes('YOUR_DOMAIN') ||
-    fromAddr === 'digest@example.com' ||
-    fromAddr === 'noreply@example.com'
+    !fromOverride &&
+    (fromAddr.includes('YOUR_DOMAIN') ||
+      fromAddr === 'digest@example.com' ||
+      fromAddr === 'noreply@example.com')
   ) {
     throw new Error(
       'Set SENDER_EMAIL in wrangler.toml (or dashboard) to a verified address on your Cloudflare Email Sending domain.'
@@ -1722,14 +1737,13 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
         'TRANSACTIONAL_EMAIL_VIA=resend requires wrangler secret put RESEND_API_KEY (and SENDER_EMAIL verified in Resend).'
       );
     }
-    return await sendViaResend(env, { fromAddr, to, subject, html, text });
+    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
   }
 
   const cfMail = getCloudflareEmailBinding(env);
   if (cfMail) {
     try {
       // Same shape as sports-digest: structured `from` + send() on [[send_email]] binding (see wrangler.toml).
-      const fromName = String(env.TRANSACTIONAL_FROM_NAME || 'Ahrens Labs').trim() || 'Ahrens Labs';
       const result = await cfMail.send({
         from: { email: fromAddr, name: fromName },
         to,
@@ -1754,7 +1768,7 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
       });
       if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
         console.log('Falling back to Resend after EmailService error', err?.code || '');
-        return await sendViaResend(env, { fromAddr, to, subject, html, text });
+        return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
       }
       if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
         const hint = new Error(
@@ -1769,13 +1783,193 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text }) {
   }
 
   if (env.RESEND_API_KEY) {
-    return await sendViaResend(env, { fromAddr, to, subject, html, text });
+    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
   }
 
   throw new Error(
     'No email transport: run `wrangler secret put RESEND_API_KEY` (https://resend.com — works on Workers Free), ' +
       'or upgrade to Workers Paid and add [[send_email]] for Cloudflare Email Service.'
   );
+}
+
+function applyBroadcastTemplate(str, { username, email }) {
+  if (str == null) return '';
+  const u = username != null ? String(username) : '';
+  const e = email != null ? String(email) : '';
+  return String(str)
+    .replace(/\{\{username\}\}/g, u || 'there')
+    .replace(/\{\{email\}\}/g, e);
+}
+
+function plainTextToBroadcastHtml(text) {
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  return `<!DOCTYPE html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55;padding:20px;color:#1e293b;">${esc(
+    text
+  ).replace(/\r\n/g, '\n').split('\n').join('<br/>')}</body></html>`;
+}
+
+async function assertAdminBroadcastSession(env, sessionId) {
+  if (!sessionId) {
+    return { ok: false, status: 401, error: 'Not authenticated' };
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const userRes = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const userResult = await userRes.json();
+  const userId = userResult.userId;
+  if (!userId) {
+    return { ok: false, status: 401, error: 'Invalid session' };
+  }
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+  const row = await dataRes.json();
+  const em = row && row.email ? normalizeEmail(row.email) : '';
+  if (em !== normalizeEmail(ADMIN_BROADCAST_ACCOUNT_EMAIL)) {
+    return { ok: false, status: 403, error: 'Forbidden' };
+  }
+  return { ok: true };
+}
+
+async function handleAdminBroadcastEmail(request, env, corsHeaders) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const subjectTpl = body.subject != null ? String(body.subject).trim() : '';
+  const textTpl = body.text != null ? String(body.text).trim() : '';
+  const htmlTpl = body.html != null ? String(body.html) : '';
+
+  if (!subjectTpl || !textTpl) {
+    return new Response(JSON.stringify({ error: 'subject and text are required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const dryRun = body.dryRun === true;
+  const listCursor = typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
+  const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
+
+  if (typeof env.USER_ACCOUNT.list !== 'function') {
+    return new Response(
+      JSON.stringify({
+        error: 'Durable Object list() is not available in this runtime; upgrade wrangler compatibility / Workers runtime.',
+      }),
+      {
+        status: 501,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  let listResult;
+  try {
+    listResult = await env.USER_ACCOUNT.list({
+      limit: pageSize,
+      ...(listCursor ? { cursor: listCursor } : {}),
+    });
+  } catch (e) {
+    console.error('USER_ACCOUNT.list failed', e?.message || e);
+    return new Response(
+      JSON.stringify({ error: 'Could not list user accounts: ' + (e?.message || String(e)) }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
+  const nextCursor = listResult.cursor || null;
+  const hasMore = Boolean(nextCursor);
+
+  const summary = {
+    success: true,
+    dryRun,
+    from: ADMIN_BROADCAST_FROM_EMAIL,
+    processedObjects: 0,
+    sent: 0,
+    skipped: 0,
+    failed: [],
+    dryRunEmails: [],
+    nextListCursor: nextCursor,
+    hasMore,
+  };
+
+  for (const obj of objects) {
+    summary.processedObjects++;
+    if (!obj || !obj.id) {
+      summary.skipped++;
+      continue;
+    }
+    const stub = env.USER_ACCOUNT.get(obj.id);
+    let row;
+    try {
+      const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+      row = await dataRes.json();
+    } catch (e) {
+      summary.skipped++;
+      continue;
+    }
+    if (!row || !row.email) {
+      summary.skipped++;
+      continue;
+    }
+    const to = normalizeEmail(row.email);
+    if (!isLikelyRealEmail(to)) {
+      summary.skipped++;
+      continue;
+    }
+
+    const username = row.username || 'there';
+    const subject = applyBroadcastTemplate(subjectTpl, { username, email: to });
+    const text = applyBroadcastTemplate(textTpl, { username, email: to });
+    const htmlRaw = htmlTpl.trim() ? applyBroadcastTemplate(htmlTpl, { username, email: to }) : '';
+    const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
+
+    if (dryRun) {
+      summary.dryRunEmails.push(to);
+      continue;
+    }
+
+    try {
+      await dispatchTransactionalEmail(env, {
+        to,
+        subject,
+        html,
+        text,
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      summary.sent++;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      summary.failed.push({ email: to, error: w.hint || w.message });
+    }
+  }
+
+  return new Response(JSON.stringify(summary), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 function buildVerificationUrl(env, email, token) {

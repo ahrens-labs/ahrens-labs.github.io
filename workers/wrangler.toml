@@ -1,5 +1,6 @@
 # chess-accounts — deploy: cd workers && npx wrangler deploy
 # Email: same pattern as sports-digest — Cloudflare Email Sending domain onboarded; SENDER_EMAIL on that domain.
+# Admin broadcast (/api/admin/broadcast-email) sends from caleb@ahrenslabs.com — that address must be verified with your provider too.
 # Do not set allowed_destination_addresses here (unlike sports-digest's test inbox lock): this worker must mail arbitrary user addresses.
 # Cloudflare path: [[send_email]] name = EMAIL_TRANSACTIONAL → env.EMAIL_TRANSACTIONAL.send({ from: { email, name }, to, subject, html, text }).
 # (signup verify, password reset). Sports-digest only emails RECIPIENT_EMAIL so it can lock destinations.

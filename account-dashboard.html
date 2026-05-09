@@ -111,6 +111,12 @@
       color: #a16207;
       line-height: 1.4;
     }
+    .admin-broadcast-card {
+      display: none;
+      border-left: 4px solid #b45309;
+      background: linear-gradient(180deg, #fffbeb 0%, #ffffff 48%);
+    }
+    .admin-broadcast-card textarea { min-height: 120px; font-family: inherit; }
   </style>
 </head>
 <body>
@@ -244,6 +250,32 @@
           </div>
         </div>
 
+        <div class="dash-card admin-broadcast-card" id="admin-broadcast-card">
+          <h2>Broadcast email (admin)</h2>
+          <p class="hint">
+            Send one separate message per account from <strong>caleb@ahrenslabs.com</strong>.
+            Optional placeholders: <code>{{username}}</code>, <code>{{email}}</code>.
+            Use only for announcements users reasonably expect; bulk marketing may require consent and unsubscribe.
+          </p>
+          <div class="form-row">
+            <label for="admin-bc-subject">Subject</label>
+            <input id="admin-bc-subject" type="text" autocomplete="off" placeholder="Subject line">
+          </div>
+          <div class="form-row">
+            <label for="admin-bc-text">Plain text body</label>
+            <textarea id="admin-bc-text" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" placeholder="Hi {{username}}, ..."></textarea>
+          </div>
+          <div class="form-row">
+            <label for="admin-bc-html">HTML body (optional)</label>
+            <textarea id="admin-bc-html" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;min-height:80px;font-family:ui-monospace,monospace;font-size:0.85rem;" placeholder="Leave blank to auto-wrap plain text"></textarea>
+          </div>
+          <div class="row">
+            <button type="button" class="btn btn-ghost" id="btn-admin-bc-preview">Preview recipient count</button>
+            <button type="button" class="btn btn-primary" id="btn-admin-bc-send">Send to all accounts</button>
+          </div>
+          <p class="status" id="admin-bc-status"></p>
+        </div>
+
         <div class="dash-card">
           <h2>Delete account</h2>
           <p class="hint">Permanently removes your cloud data. You will receive a confirmation email after deletion.</p>
@@ -260,6 +292,11 @@
   <script>
     const API_BASE_URL =
       window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+
+    const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
+    function isAdminBroadcastAccount(email) {
+      return (email || '').trim().toLowerCase() === ADMIN_BROADCAST_EMAIL;
+    }
 
     function getSessionId() {
       return localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
@@ -355,6 +392,11 @@
       if (!user) return;
       applyUserToForm(user);
       loadTrifangxPointsForDashboard();
+
+      if (isAdminBroadcastAccount(user.email)) {
+        const abc = document.getElementById('admin-broadcast-card');
+        if (abc) abc.style.display = 'block';
+      }
 
       const trifangxIframe = document.getElementById('trifangx-dashboard-embed');
       let trifangxEmbedReady = false;
@@ -538,6 +580,110 @@
           if (btn) {
             btn.disabled = false;
             btn.textContent = WELCOME_BTN_LABEL;
+          }
+        }
+      });
+
+      document.getElementById('btn-admin-bc-preview')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-bc-status');
+        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
+        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
+        if (!subject || !text) {
+          setStatus(st, 'Enter subject and plain text first.', 'err');
+          return;
+        }
+        const sessionId = getSessionId();
+        setStatus(st, 'Counting…', '');
+        const emails = [];
+        let cursor;
+        try {
+          do {
+            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                subject,
+                text,
+                html: (document.getElementById('admin-bc-html')?.value || '').trim(),
+                dryRun: true,
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(st, data.error || 'Preview failed.', 'err');
+              return;
+            }
+            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            cursor = data.nextListCursor || null;
+          } while (cursor);
+          setStatus(st, `Found ${emails.length} recipient(s) with a saved email.`, 'ok');
+        } catch (e) {
+          console.error(e);
+          setStatus(st, 'Preview failed.', 'err');
+        }
+      });
+
+      document.getElementById('btn-admin-bc-send')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-bc-status');
+        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
+        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
+        const htmlRaw = (document.getElementById('admin-bc-html')?.value || '').trim();
+        if (!subject || !text) {
+          setStatus(st, 'Enter subject and plain text.', 'err');
+          return;
+        }
+        if (!window.confirm('Send this message as individual emails from caleb@ahrenslabs.com to every account?')) return;
+        const sessionId = getSessionId();
+        const btn = document.getElementById('btn-admin-bc-send');
+        const prev = btn ? btn.textContent : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+        }
+        let sent = 0;
+        const failures = [];
+        let cursor;
+        setStatus(st, 'Starting…', '');
+        try {
+          do {
+            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                subject,
+                text,
+                ...(htmlRaw ? { html: htmlRaw } : {}),
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+              setStatus(st, data.error || 'Send failed.', 'err');
+              return;
+            }
+            sent += data.sent || 0;
+            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
+            cursor = data.nextListCursor || null;
+            setStatus(st, `Sent ${sent}…${cursor ? ' next batch' : ''}`, '');
+          } while (cursor);
+          let msg = `Done. Sent ${sent} email(s).`;
+          if (failures.length) msg += ` ${failures.length} failed (see console).`;
+          setStatus(st, msg, failures.length ? 'err' : 'ok');
+          if (failures.length) console.warn('Broadcast failures', failures);
+        } catch (e) {
+          console.error(e);
+          setStatus(st, 'Send failed.', 'err');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prev || 'Send to all accounts';
           }
         }
       });
