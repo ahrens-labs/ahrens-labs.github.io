@@ -211,13 +211,13 @@
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
-          <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
-          <p class="status" id="welcome-status"></p>
-          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
           <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). You can use this even if the scheduled digest is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
+          <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
+          <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
+          <p class="status" id="welcome-status"></p>
         </div>
 
         <div class="dash-card">
@@ -309,9 +309,11 @@
         const spent = Math.max(0, Number(data.pointsSpent) || 0);
         const shopAvailable = Math.max(0, fromAch + cheat - spent);
         valEl.textContent = fromAch.toLocaleString();
+        let sub =
+          'Career total from achievements.';
         if (cheat > 0 || spent > 0) {
           sub +=
-            ' Shop: ' +
+            ' Shop balance: ' +
             shopAvailable.toLocaleString() +
             ' pts to spend';
           if (spent > 0) sub += ' (' + spent.toLocaleString() + ' spent on unlocks)';
@@ -511,27 +513,45 @@
         }
       });
 
+      const WELCOME_BTN_LABEL = 'Send info email again';
       document.getElementById('btn-resend-welcome').addEventListener('click', async () => {
         const st = document.getElementById('welcome-status');
+        const btn = document.getElementById('btn-resend-welcome');
         const sessionId = getSessionId();
-        const res = await fetch(`${API_BASE_URL}/api/resend-welcome-email`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${sessionId}` },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) {
-          setStatus(st, data.message || 'Sent.', 'ok');
-        } else {
-          setStatus(st, data.error || 'Could not send.', 'err');
+        setStatus(st, '', '');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending...';
+        }
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/resend-welcome-email`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            setStatus(st, data.message || 'Sent.', 'ok');
+          } else {
+            setStatus(st, data.error || 'Could not send.', 'err');
+          }
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = WELCOME_BTN_LABEL;
+          }
         }
       });
 
+      const DIGEST_NOW_BTN_LABEL = 'Email daily challenges now';
       document.getElementById('btn-email-challenges-now').addEventListener('click', async () => {
         const st = document.getElementById('digest-now-status');
         const btn = document.getElementById('btn-email-challenges-now');
         const sessionId = getSessionId();
-        setStatus(st, 'Sending…', '');
-        if (btn) btn.disabled = true;
+        setStatus(st, '', '');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending...';
+        }
         try {
           const res = await fetch(`${API_BASE_URL}/api/send-daily-challenges-now`, {
             method: 'POST',
@@ -545,7 +565,10 @@
             setStatus(st, data.error || 'Could not send.', 'err');
           }
         } finally {
-          if (btn) btn.disabled = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = DIGEST_NOW_BTN_LABEL;
+          }
         }
       });
     });
