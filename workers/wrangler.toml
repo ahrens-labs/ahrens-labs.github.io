@@ -49,6 +49,8 @@ SENDER_EMAIL = "matt@ahrenslabs.com"
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Origin used in the verification link (no trailing slash).
 VERIFICATION_LINK_BASE = "https://ahrens-labs.github.io"
-# Path that handles ?verify= & email= (e.g. account.html or /chess_engine.html).
+# Path that handles ?verify=&email= (signup confirmation).
 VERIFICATION_LANDING_PATH = "/account.html"
+# Path that handles ?reset=&email= (password reset from email).
+PASSWORD_RESET_LANDING_PATH = "/reset-password.html"
 # JWT_SECRET will be set via wrangler secret put

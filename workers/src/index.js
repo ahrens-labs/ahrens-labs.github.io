@@ -1331,7 +1331,7 @@ function generatePasswordResetToken() {
 
 function buildPasswordResetUrl(env, email, token) {
   const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
-  const path = env.VERIFICATION_LANDING_PATH || '/account.html';
+  const path = env.PASSWORD_RESET_LANDING_PATH || '/reset-password.html';
   const pathWithLeadingSlash = path.startsWith('/') ? path : `/${path}`;
   const q = new URLSearchParams({ reset: token, email });
   return `${base}${pathWithLeadingSlash}?${q.toString()}`;
