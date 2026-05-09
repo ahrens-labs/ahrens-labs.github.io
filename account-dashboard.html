@@ -889,7 +889,9 @@
           btn.disabled = true;
           btn.textContent = 'Sending…';
         }
-        let sent = 0;
+        let totalSent = 0;
+        let totalSkipped = 0;
+        let totalProcessed = 0;
         const failures = [];
         let cursor;
         setStatus(st, 'Starting…', '');
@@ -898,7 +900,11 @@
         try {
           do {
             if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} batches (safety limit). Sent so far: ${sent}.`, 'err');
+              setStatus(
+                st,
+                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
+                'err'
+              );
               return;
             }
             const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
@@ -916,15 +922,28 @@
               setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
-            sent += data.sent || 0;
+            const batchSent = Number(data.sent) || 0;
+            const batchSkipped = Number(data.skipped) || 0;
+            const batchProcessed = Number(data.processedObjects) || 0;
+            totalSent += batchSent;
+            totalSkipped += batchSkipped;
+            totalProcessed += batchProcessed;
             if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
             cursor = data.nextListCursor || null;
-            setStatus(st, `Sent ${sent}…${cursor ? ' next batch' : ''}`, '');
+            setStatus(
+              st,
+              cursor
+                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
+                : `Finishing… (${totalSent} sent in completed batches)`,
+              ''
+            );
           } while (cursor);
-          let msg = `Done. Sent ${sent} welcome email(s).`;
-          if (failures.length) msg += ` ${failures.length} failed (see console).`;
-          setStatus(st, msg, failures.length ? 'err' : 'ok');
-          if (failures.length) console.warn('Welcome bulk failures', failures);
+          const failN = failures.length;
+          let msg = `Finished. ${totalSent} welcome email${totalSent === 1 ? '' : 's'} sent successfully.`;
+          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (no usable address on file).`;
+          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
+          setStatus(st, msg, failN ? 'err' : 'ok');
+          if (failN) console.warn('Welcome bulk failures', failures);
         } catch (e) {
           console.error(e);
           setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
@@ -963,7 +982,9 @@
           btn.disabled = true;
           btn.textContent = 'Sending…';
         }
-        let sent = 0;
+        let totalSent = 0;
+        let totalSkipped = 0;
+        let totalProcessed = 0;
         const failures = [];
         let cursor;
         setStatus(st, 'Starting…', '');
@@ -972,7 +993,11 @@
         try {
           do {
             if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} batches (safety limit). Sent so far: ${sent}.`, 'err');
+              setStatus(
+                st,
+                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
+                'err'
+              );
               return;
             }
             const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
@@ -993,15 +1018,28 @@
               setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
-            sent += data.sent || 0;
+            const batchSent = Number(data.sent) || 0;
+            const batchSkipped = Number(data.skipped) || 0;
+            const batchProcessed = Number(data.processedObjects) || 0;
+            totalSent += batchSent;
+            totalSkipped += batchSkipped;
+            totalProcessed += batchProcessed;
             if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
             cursor = data.nextListCursor || null;
-            setStatus(st, `Sent ${sent}…${cursor ? ' next batch' : ''}`, '');
+            setStatus(
+              st,
+              cursor
+                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
+                : `Finishing… (${totalSent} sent in completed batches)`,
+              ''
+            );
           } while (cursor);
-          let msg = `Done. Sent ${sent} email(s).`;
-          if (failures.length) msg += ` ${failures.length} failed (see console).`;
-          setStatus(st, msg, failures.length ? 'err' : 'ok');
-          if (failures.length) console.warn('Broadcast failures', failures);
+          const failN = failures.length;
+          let msg = `Finished. ${totalSent} broadcast email${totalSent === 1 ? '' : 's'} sent successfully.`;
+          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (ineligible or no verified address).`;
+          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
+          setStatus(st, msg, failN ? 'err' : 'ok');
+          if (failN) console.warn('Broadcast failures', failures);
         } catch (e) {
           console.error(e);
           setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
