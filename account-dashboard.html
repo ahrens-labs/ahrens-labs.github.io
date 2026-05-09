@@ -224,7 +224,7 @@
           <h2>Chess store &amp; TrifangX</h2>
           <p class="hint">Spend points on boards, pieces, and more. Open the store, settings, or achievements here without leaving this page.</p>
           <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
-            <p class="dash-trifangx-points-label">Your TrifangX points</p>
+            <p class="dash-trifangx-points-label">Total points (achievements)</p>
             <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
             <p class="dash-trifangx-points-sub" id="dash-trifangx-points-sub">Loading from your cloud save…</p>
           </div>
@@ -307,19 +307,20 @@
         const fromAch = Math.max(0, Number(data.points) || 0);
         const cheat = Math.max(0, Number(data.cheatPoints) || 0);
         const spent = Math.max(0, Number(data.pointsSpent) || 0);
-        const totalEarned = fromAch + cheat;
-        const spendable = Math.max(0, totalEarned - spent);
-        valEl.textContent = totalEarned.toLocaleString();
-        if (spent > 0 && spendable !== totalEarned) {
-          subEl.textContent =
-            spendable.toLocaleString() +
-            ' available in the shop · ' +
-            spent.toLocaleString() +
-            ' pts spent on unlocks';
-        } else {
-          subEl.textContent =
-            'Total earned from achievements and bonuses (matches your cloud save)';
+        const shopAvailable = Math.max(0, fromAch + cheat - spent);
+        valEl.textContent = fromAch.toLocaleString();
+        let sub =
+          'Same number as “Total Points” in the TrifangX sidebar (sum of achievement point values).';
+        if (cheat > 0 || spent > 0) {
+          sub +=
+            ' Shop: ' +
+            shopAvailable.toLocaleString() +
+            ' pts to spend';
+          if (spent > 0) sub += ' (' + spent.toLocaleString() + ' spent on unlocks)';
+          if (cheat > 0) sub += '. Bonus pts: ' + cheat.toLocaleString() + '.';
+          else sub += '.';
         }
+        subEl.textContent = sub;
       } catch (e) {
         valEl.textContent = '—';
         subEl.textContent =

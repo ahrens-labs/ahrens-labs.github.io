@@ -6702,9 +6702,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
   try {
       const saved = localStorage.getItem('achievements');
     const parsed = saved ? JSON.parse(saved) : [];
-    
-    // Safety check: if parsed data isn't an array, reset to empty array
-    achievements = Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      achievements = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      achievements = Object.keys(parsed).filter((k) => parsed[k]);
+    } else {
+      achievements = [];
+    }
   } catch (e) {
     console.error("Failed to parse achievements:", e);
     achievements = []; // Fallback on error
@@ -8032,6 +8036,18 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const pointsEl = document.getElementById('total-achievement-points');
       if (pointsEl) {
         pointsEl.textContent = totalPoints.toLocaleString();
+      }
+      if (
+        typeof dataLoaded !== 'undefined' &&
+        dataLoaded &&
+        typeof cloudChessData !== 'undefined' &&
+        cloudChessData &&
+        (cloudChessData.points || 0) !== totalPoints
+      ) {
+        cloudChessData.points = totalPoints;
+        if (typeof saveChessDataToCloud === 'function') {
+          saveChessDataToCloud(false);
+        }
       }
     }
 

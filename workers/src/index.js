@@ -1912,27 +1912,40 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
     }
   }
 
+  /** Avoid many point-milestone emails when stored points were 0 but achievements already reflected a high total (one-time sync repair). */
+  const suppressPointMilestoneBurst =
+    prevSnap.points === 0 && nextSnap.points >= 1000;
+  let pointMilestoneNotifiedDirty = false;
   for (const t of CHESS_MILESTONE_POINT_THRESHOLDS) {
     if (prevSnap.points < t && nextSnap.points >= t) {
       const key = `chess_points_${t}`;
-      await tryOne(
-        key,
-        `Chess milestone: ${t.toLocaleString()} points`,
-        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      if (notified[key]) continue;
+      if (suppressPointMilestoneBurst) {
+        notified[key] = Date.now();
+        pointMilestoneNotifiedDirty = true;
+      } else {
+        await tryOne(
+          key,
+          `Chess milestone: ${t.toLocaleString()} points`,
+          `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #2c3e50;">${t.toLocaleString()} points</h2>
           <p>Hi ${safeName}, you crossed <strong>${t.toLocaleString()} career points</strong> in the chess engine.</p>
           <p>Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.</p>
           <p><a href="${chessUrl}" style="color: #3498db;">Open the chess engine</a></p>
         </body></html>`,
-        [
-          `Hi ${safeName},`,
-          '',
-          `You reached ${t} career points in the chess engine.`,
-          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.`,
-          chessUrl,
-        ].join('\n')
-      );
+          [
+            `Hi ${safeName},`,
+            '',
+            `You reached ${t} career points in the chess engine.`,
+            `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.`,
+            chessUrl,
+          ].join('\n')
+        );
+      }
     }
+  }
+  if (pointMilestoneNotifiedDirty) {
+    await storage.put('userData', userData);
   }
 }
 
@@ -2030,6 +2043,48 @@ async function sendWelcomeGuideEmail(env, email, username) {
                   </td>
                 </tr>
               </table>
+              <p style="margin:28px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More detail — what an account actually does</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX (chess engine)</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, ratings-style stats, and <strong>lifetime stats</strong> (captures, openings, streaks) stay tied to your login.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — hundreds of goals across games played, wins, tactics, blindfold, time controls, and more. Points from unlocked achievements power the sidebar <strong>Total Points</strong> and unlock point-gated feats.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Shop</strong> — spend points on boards, piece sets, highlights, arrows, page themes, checkmate effects, and faster clocks. Purchases sync with your account.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Daily challenges</strong> — three special achievements rotate every <strong>UTC calendar day</strong> (the same three for every player worldwide). Optional email digest lists them at your local midnight.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Game history</strong> — recent games can be stored in the cloud for replay and stats (within fair-use limits).</li>
+                      <li style="margin:0;"><strong>Modes</strong> — standard and blindfold play, multiple time controls, and optional live-engine play when available from the lobby.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon, Classify, Kyrachyng &amp; labs</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Dungeon</strong> — multiple save slots; run progress is stored on your profile so you can switch devices without losing a run.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Classify</strong> — planner-style data (courses, blocks, schedules) syncs to the cloud when you’re signed in.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Kyrachyng</strong> — lesson and alphabet progress through the constructed-language course is saved per account.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Labs hub</strong> — entry point for language, music, coding, robotics, writing, and other experiments; some tools use the account, others are browse-only.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard &amp; security</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;">Change <strong>password</strong>, <strong>username</strong> (with password confirmation), and <strong>email preferences</strong> (daily TrifangX digest time zone, resend welcome, on-demand challenge email).</li>
+                      <li style="margin:0 0 8px 0;">Open <strong>TrifangX shop, settings, and achievements</strong> in-page without losing your place on the dashboard.</li>
+                      <li style="margin:0;">Request <strong>account deletion</strong> when you want all cloud data removed; you’ll get a confirmation email.</li>
+                    </ul>
+                    <p style="margin:12px 0 0 0;font-size:14px;line-height:1.55;color:#475569;">Everything above uses the <strong>same email and password</strong> you just created — no extra accounts per product.</p>
+                  </td>
+                </tr>
+              </table>
               <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: daily TrifangX challenge digests and occasional chess milestone notes — turn digests on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
@@ -2051,14 +2106,22 @@ async function sendWelcomeGuideEmail(env, email, username) {
     '',
     preheader,
     '',
-    `TrifangX (chess): ${chessUrl}`,
-    `Account dashboard: ${dashUrl}`,
-    `Labs: ${labsUrl}`,
-    `Dungeon: ${dungeonUrl}`,
-    `Classify: ${classifyUrl}`,
-    `Kyrachyng lessons: ${kyrachyngUrl}`,
+    '--- TrifangX ---',
+    `Chess engine: ${chessUrl}`,
+    'Cloud save: stats, lifetime stats, achievements, shop unlocks, optional game history.',
+    'Achievements award points (sidebar Total Points); shop spends points on boards, pieces, themes, timers.',
+    'Three daily challenges rotate at UTC midnight; optional digest from the dashboard.',
     '',
-    'You will also receive an email to confirm your address. Optional challenge digests and milestones can be managed in your dashboard.',
+    '--- Other products ---',
+    `Dungeon (saved runs): ${dungeonUrl}`,
+    `Classify (planner sync): ${classifyUrl}`,
+    `Kyrachyng (lessons): ${kyrachyngUrl}`,
+    `Labs hub: ${labsUrl}`,
+    '',
+    '--- Account ---',
+    `Dashboard: ${dashUrl} — password, username, email prefs, TrifangX shortcuts, delete account.`,
+    '',
+    'You will receive a separate email to confirm your address. Optional digests and milestones are in dashboard settings.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
