@@ -1957,6 +1957,27 @@ async function assertAdminBroadcastSession(env, sessionId) {
   };
 }
 
+/** Resolve a stub from a DurableObjectNamespace.list() entry (prefers name when present). */
+function userAccountStubFromListEntry(env, obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const name = obj.name != null ? String(obj.name).trim() : '';
+  if (name && typeof env.USER_ACCOUNT.getByName === 'function') {
+    try {
+      return env.USER_ACCOUNT.getByName(name);
+    } catch {
+      /* fall through to id */
+    }
+  }
+  if (obj.id != null) {
+    try {
+      return env.USER_ACCOUNT.get(obj.id);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Enumerate UserAccount stubs for admin broadcast. Prefers DurableObjectNamespace.list() when the
  * runtime exposes it; otherwise pages through UsernameRegistry (`username:*` → userId), which
@@ -1972,7 +1993,8 @@ async function listUserAccountStubsForBroadcast(env, pageSize, listCursor) {
       const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
       const stubs = [];
       for (const obj of objects) {
-        if (obj && obj.id) stubs.push(env.USER_ACCOUNT.get(obj.id));
+        const st = userAccountStubFromListEntry(env, obj);
+        if (st) stubs.push(st);
       }
       return { stubs, nextListCursor: listResult.cursor || null, listError: null };
     } catch (e) {
@@ -2330,6 +2352,154 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   });
 }
 
+/** Cursor for admin account directory: union of DO list, username registry, and digest KV `sub:` keys. */
+function parseAdminAccountListCursor(raw) {
+  const fresh = () => ({
+    v: 2,
+    do: { done: false, cursor: null },
+    reg: { done: false, cursor: null },
+    kv: { done: false, cursor: null },
+  });
+  if (!raw || !String(raw).trim()) return fresh();
+  const s = String(raw).trim();
+  try {
+    const j = JSON.parse(s);
+    if (j && j.v === 2 && j.do && j.reg && j.kv) return j;
+  } catch {
+    /* legacy: opaque DO list cursor from older deploys */
+  }
+  return {
+    v: 2,
+    do: { done: false, cursor: s },
+    reg: { done: false, cursor: null },
+    kv: { done: false, cursor: null },
+  };
+}
+
+/**
+ * Admin-only: enumerate UserAccount stubs from (1) DurableObjectNamespace.list, then (2) username
+ * registry, then (3) DAILY_DIGEST_KV `sub:*` subscriber keys — so accounts missing from one source
+ * still appear. Dedupes stubs within each response by Durable Object id string.
+ */
+async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) {
+  const state = parseAdminAccountListCursor(listCursorInput);
+  if (typeof env.USER_ACCOUNT.list !== 'function') {
+    state.do.done = true;
+  }
+
+  const stubs = [];
+  const seenStubIds = new Set();
+
+  function pushStub(st) {
+    if (!st) return;
+    let idStr = '';
+    try {
+      idStr = st.id != null && typeof st.id.toString === 'function' ? st.id.toString() : '';
+    } catch {
+      idStr = '';
+    }
+    if (idStr) {
+      if (seenStubIds.has(idStr)) return;
+      seenStubIds.add(idStr);
+    }
+    stubs.push(st);
+  }
+
+  try {
+    while (stubs.length < pageSize) {
+      const need = pageSize - stubs.length;
+
+      if (!state.do.done && typeof env.USER_ACCOUNT.list === 'function') {
+        const listResult = await env.USER_ACCOUNT.list({
+          limit: need,
+          ...(state.do.cursor ? { cursor: state.do.cursor } : {}),
+        });
+        const objects = Array.isArray(listResult.objects) ? listResult.objects : [];
+        for (const obj of objects) {
+          if (stubs.length >= pageSize) break;
+          pushStub(userAccountStubFromListEntry(env, obj));
+        }
+        state.do.cursor = listResult.cursor || null;
+        if (!listResult.cursor) state.do.done = true;
+        continue;
+      }
+
+      if (!state.reg.done) {
+        if (!env.USERNAME_REGISTRY) {
+          state.reg.done = true;
+          continue;
+        }
+        const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+        const res = await registry.fetch(
+          new Request('http://do/listUserIdsPage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              limit: Math.min(100, need),
+              ...(state.reg.cursor ? { startAfter: state.reg.cursor } : {}),
+            }),
+          })
+        );
+        const txt = await res.text();
+        if (!res.ok) {
+          state.reg.done = true;
+          continue;
+        }
+        let data = {};
+        try {
+          data = txt ? JSON.parse(txt) : {};
+        } catch {
+          state.reg.done = true;
+          continue;
+        }
+        if (data.error && typeof data.error === 'string') {
+          state.reg.done = true;
+          continue;
+        }
+        const userIds = Array.isArray(data.userIds) ? data.userIds : [];
+        for (const uid of userIds) {
+          if (stubs.length >= pageSize) break;
+          if (!uid) continue;
+          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(String(uid))));
+        }
+        state.reg.cursor = data.nextListCursor || null;
+        if (!data.nextListCursor) state.reg.done = true;
+        continue;
+      }
+
+      if (!state.kv.done && env.DAILY_DIGEST_KV) {
+        const listKv = await env.DAILY_DIGEST_KV.list({
+          prefix: 'sub:',
+          limit: Math.min(1000, need),
+          ...(state.kv.cursor ? { cursor: state.kv.cursor } : {}),
+        });
+        for (const { name } of listKv.keys) {
+          if (stubs.length >= pageSize) break;
+          const uid = name.startsWith('sub:') ? name.slice(4) : '';
+          if (!uid) continue;
+          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+        }
+        if (listKv.list_complete) {
+          state.kv.done = true;
+          state.kv.cursor = null;
+        } else {
+          state.kv.cursor = listKv.cursor || null;
+        }
+        continue;
+      }
+
+      state.kv.done = true;
+      break;
+    }
+
+    const allDone = state.do.done && state.reg.done && state.kv.done;
+    const nextListCursor = allDone ? null : JSON.stringify(state);
+    return { stubs, nextListCursor, listError: null };
+  } catch (e) {
+    return { stubs: [], nextListCursor: null, listError: e };
+  }
+}
+
 /**
  * Admin: page through all user accounts (same enumeration as broadcast) and return directory fields only.
  * Response rows omit passwords, tokens, and game payloads — only userId, username, email, emailVerified.
@@ -2359,7 +2529,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
 
-  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
+  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsAdminUnified(
     env,
     pageSize,
     listCursor

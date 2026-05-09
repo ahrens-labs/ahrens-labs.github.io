@@ -350,7 +350,7 @@
         <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
           <h2>All accounts (admin)</h2>
           <p class="hint">
-            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong> using the same account scan as broadcast (paginated). Filter applies to rows already loaded. Export CSV includes every loaded row.
+            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong>. Each page merges accounts from <strong>cloud profiles</strong> (Durable Object list), the <strong>username registry</strong>, and <strong>digest email subscribers</strong> (<code>sub:</code> in KV) so rows missing from one source still appear. Use <strong>Load next page</strong> until you see “end of list”. Filter applies to loaded rows only. CSV exports all loaded rows (deduped by user id).
           </p>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
@@ -724,7 +724,16 @@
               return;
             }
             const batch = Array.isArray(data.accounts) ? data.accounts : [];
-            adminAccountsAccum = adminAccountsAccum.concat(batch);
+            const byUid = new Map();
+            for (const a of adminAccountsAccum) {
+              const k = (a.userId || a.email || '').trim();
+              if (k) byUid.set(k, a);
+            }
+            for (const a of batch) {
+              const k = (a.userId || a.email || '').trim();
+              if (k) byUid.set(k, a);
+            }
+            adminAccountsAccum = Array.from(byUid.values());
             adminListNextCursor = data.nextListCursor || null;
             adminListHasMore = !!data.hasMore;
             const skipped = Number(data.skippedMissingData) || 0;
