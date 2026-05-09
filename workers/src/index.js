@@ -2697,6 +2697,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 </tr>
               </table>
               <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: <strong>daily TrifangX challenge roundup</strong> and occasional chess milestone notes — turn those on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
+              <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? <strong>All feedback can and should</strong> be sent to <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
           </tr>
@@ -2743,6 +2744,8 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     'Change password or username, set time zone and toggles for the daily challenge email, resend this welcome guide, trigger on-demand challenge emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
     '',
     'You will receive a separate email to confirm your address. Optional daily challenge emails and chess milestone mail can be adjusted in dashboard settings.',
+    '',
+    'All feedback can and should be sent to caleb@ahrenslabs.com.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
