@@ -37,7 +37,7 @@ export default {
     try {
       // Route requests
       if (path === '/api/signup' && request.method === 'POST') {
-        return handleSignup(request, env, corsHeaders, executionCtx);
+        return handleSignup(request, env, corsHeaders);
       } else if (path === '/api/login' && request.method === 'POST') {
         return handleLogin(request, env, corsHeaders);
       } else if (path === '/api/logout' && request.method === 'POST') {
@@ -61,7 +61,7 @@ export default {
       } else if (path === '/api/delete-account' && request.method === 'POST') {
         return handleDeleteAccount(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/verify' && request.method === 'GET') {
-        return handleVerifyEmail(request, env, corsHeaders);
+        return handleVerifyEmail(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/forgot-password' && request.method === 'POST') {
         return handleForgotPassword(request, env, corsHeaders);
       } else if (path === '/api/reset-password' && request.method === 'POST') {
@@ -141,7 +141,7 @@ export default {
 };
 
 // Signup handler
-async function handleSignup(request, env, corsHeaders, executionCtx) {
+async function handleSignup(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
   const normalizedEmail = normalizeEmail(email);
   const normalizedUsername = normalizeUsernameForIndex(username);
@@ -280,37 +280,15 @@ async function handleSignup(request, env, corsHeaders, executionCtx) {
     });
   }
 
-  const sendWelcome = () =>
-    sendWelcomeGuideEmail(env, normalizedEmail, username).catch((err) => {
-      const w = summarizeEmailSendError(err);
-      console.error('Welcome guide email failed:', w.code, w.message, w.hint || '');
-    });
-  if (executionCtx && typeof executionCtx.waitUntil === 'function') {
-    executionCtx.waitUntil(sendWelcome());
-  } else {
-    await sendWelcome();
-  }
-
-  // Create session
-  const sessionId = generateSessionId();
-  const sessionObjId = env.SESSION.idFromName(sessionId);
-  const session = env.SESSION.get(sessionObjId);
-
-  const sessionReq = new Request('http://do/create', {
-    method: 'POST',
-    body: JSON.stringify({ userId }),
-  });
-  await session.fetch(sessionReq);
-
   return new Response(
     JSON.stringify({
       success: true,
-      sessionId,
+      needsEmailVerification: true,
       userId,
       username,
       email: normalizedEmail,
-      verificationEmailSent: true,
-      message: 'Confirmation email sent!',
+      message:
+        'Check your email and open the confirmation link to finish setting up your account. You can sign in only after you confirm.',
     }),
     {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -888,6 +866,20 @@ async function handleLogin(request, env, corsHeaders) {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  if (preUserData.emailVerified === false) {
+    return new Response(
+      JSON.stringify({
+        error:
+          'Confirm your email first — open the link we sent when you signed up. Then you can sign in here.',
+        code: 'EMAIL_NOT_VERIFIED',
+      }),
+      {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 
   if (preUserData.username && String(preUserData.username).trim() !== '') {
@@ -2197,7 +2189,7 @@ async function sendVerificationEmail(env, email, username, token) {
           <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #2c3e50;">Welcome to Ahrens Labs!</h2>
             <p>Hi ${safeName},</p>
-            <p>Thanks for creating an account. Confirm your email address by clicking the button below:</p>
+            <p>Thanks for creating an account. <strong>Confirm your email address</strong> using the button below — you can sign in only after you confirm.</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${verificationUrl}"
                  style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
@@ -2216,7 +2208,8 @@ async function sendVerificationEmail(env, email, username, token) {
     `Hi ${safeName},`,
     '',
     'Thanks for creating an Ahrens Labs account.',
-    `Confirm your email by opening this link: ${verificationUrl}`,
+    'Open this link to confirm your email (required before you can sign in):',
+    verificationUrl,
     '',
     'If you did not create this account, you can ignore this email.',
   ].join('\n');
@@ -3092,11 +3085,12 @@ async function handleSendTest(request, env, corsHeaders) {
   }
 }
 
-// Handle email verification
-async function handleVerifyEmail(request, env, corsHeaders) {
+// Handle email verification — completes signup: marks verified, opens a session, sends welcome on first verify.
+async function handleVerifyEmail(request, env, corsHeaders, executionCtx) {
   const url = new URL(request.url);
-  const token = url.searchParams.get('token');
-  const email = url.searchParams.get('email');
+  const token = url.searchParams.get('token') || url.searchParams.get('verify');
+  const emailRaw = url.searchParams.get('email');
+  const email = normalizeEmail(emailRaw);
 
   if (!token || !email) {
     return new Response(JSON.stringify({ error: 'Missing verification token or email' }), {
@@ -3111,27 +3105,66 @@ async function handleVerifyEmail(request, env, corsHeaders) {
 
   const verifyReq = new Request('http://do/verifyEmail', {
     method: 'POST',
-    body: JSON.stringify({ token })
+    body: JSON.stringify({ token }),
   });
 
   const verifyRes = await userAccount.fetch(verifyReq);
   const result = await verifyRes.json();
 
-  if (result.success) {
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: 'Email verified successfully!'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } else {
-    return new Response(JSON.stringify({ 
-      error: result.error || 'Invalid or expired verification token'
-    }), {
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Invalid or expired verification token' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const userRow = await dataRes.json();
+  if (!userRow || typeof userRow !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found after verification' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = generateSessionId();
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const sessionReq = new Request('http://do/create', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+  await session.fetch(sessionReq);
+
+  if (!result.alreadyVerified) {
+    const uname = userRow.username || 'there';
+    const welcome = () =>
+      sendWelcomeGuideEmail(env, email, uname).catch((err) => {
+        const w = summarizeEmailSendError(err);
+        console.error('Welcome guide email failed:', w.code, w.message, w.hint || '');
+      });
+    if (executionCtx && typeof executionCtx.waitUntil === 'function') {
+      executionCtx.waitUntil(welcome());
+    } else {
+      await welcome();
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      message: result.alreadyVerified ? 'Email was already confirmed. You are signed in.' : 'Email verified successfully!',
+      sessionId,
+      userId,
+      username: userRow.username || 'Player',
+      email,
+      alreadyVerified: !!result.alreadyVerified,
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
 }
 
 // Password storage: PBKDF2-HMAC-SHA256 with unique random salt per user (not encryption;
@@ -3632,7 +3665,7 @@ export class UserAccount {
     }
 
     if (userData.emailVerified) {
-      return { success: true, message: 'Email already verified' };
+      return { success: true, alreadyVerified: true };
     }
 
     if (userData.verificationToken !== token) {
@@ -3649,7 +3682,7 @@ export class UserAccount {
     userData.verificationTokenExpiry = null;
     await this.storage.put('userData', userData);
 
-    return { success: true };
+    return { success: true, alreadyVerified: false };
   }
 
   async setPasswordResetToken(token) {

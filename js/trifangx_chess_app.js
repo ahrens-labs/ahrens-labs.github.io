@@ -11494,6 +11494,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         
         const data = await response.json();
         
+        if (data.success && data.needsEmailVerification) {
+          showNotification(
+            data.message || 'Check your email and open the confirmation link. Then you can sign in.',
+            'success',
+            7000
+          );
+          return false;
+        }
         if (data.success) {
           currentSessionId = data.sessionId;
           currentUserId = data.userId;
@@ -11502,26 +11510,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
-          
-          if (data.verificationEmailSent === true) {
-            showNotification(data.message || 'Confirmation email sent!', 'success', 4500);
-          } else {
-            const codeTag =
-              data.emailSendError && data.emailSendError.code
-                ? ` [${data.emailSendError.code}]`
-                : '';
-            const body =
-              data.message || 'Account created. Confirmation email not sent.';
-            if (data.emailSendError) {
-              console.warn('Signup emailSendError', data.emailSendError);
-            }
-            showNotification(body + codeTag, 'warning', 9000);
-          }
-          
-          // Sync current localStorage data to account
+          showNotification(data.message || 'Account created.', 'success', 4500);
           await syncLocalDataToAccount();
           updateHeaderAuthButtons();
-          // Apply theme after signup
           const savedTheme = localStorage.getItem('pageTheme') || 'light';
           applyPageTheme(savedTheme);
           return true;
@@ -11572,7 +11563,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           applyPageTheme(savedTheme);
           return true;
         } else {
-          showNotification(data.error || 'Login failed', 'error');
+          const msg =
+            data.code === 'EMAIL_NOT_VERIFIED'
+              ? data.error ||
+                'Confirm your email using the link we sent, then sign in.'
+              : data.error || 'Login failed';
+          showNotification(msg, 'error');
           return false;
         }
       } catch (error) {
@@ -11771,14 +11767,33 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     // Verify email
     async function verifyEmail(token, email) {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/verify?token=${token}&email=${email}`, {
-          method: 'GET'
+        const em = String(email || '')
+          .trim()
+          .toLowerCase();
+        const q = new URLSearchParams({ token, email: em });
+        const response = await fetch(`${API_BASE_URL}/api/verify?${q.toString()}`, {
+          method: 'GET',
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
-          showNotification('Email verified successfully! 🎉', 'success', 5000);
+          if (data.sessionId) {
+            currentSessionId = data.sessionId;
+            currentUserId = data.userId;
+            isLoggedIn = true;
+            localStorage.setItem('chessSessionId', currentSessionId);
+            localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
+            if (data.username) {
+              localStorage.setItem('accountUsername', data.username);
+              updateAccountUI(true, data.username);
+            }
+            await loadUserDataFromAccount();
+            updateHeaderAuthButtons();
+            const savedTheme = localStorage.getItem('pageTheme') || 'light';
+            applyPageTheme(savedTheme);
+          }
+          showNotification(data.message || 'Email verified successfully! 🎉', 'success', 5000);
           localStorage.removeItem('pendingVerificationEmail');
         } else {
           showNotification(data.error || 'Email verification failed', 'error');

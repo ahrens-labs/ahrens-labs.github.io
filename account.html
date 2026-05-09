@@ -693,7 +693,8 @@
                     localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
                     localStorage.setItem('ahrenslabs_username', data.username);
                     localStorage.setItem('ahrenslabs_userId', data.userId);
-                    
+                    if (data.email) localStorage.setItem('ahrenslabs_email', normalizeEmail(data.email));
+
                     showNotification('Login successful! 🎉', 'success');
                     
                     // Redirect to return URL or home
@@ -702,7 +703,12 @@
                         window.location.href = returnUrl;
                     }, 1000);
                 } else {
-                    showNotification(data.error || 'Login failed', 'error');
+                    const msg =
+                        data.code === 'EMAIL_NOT_VERIFIED'
+                            ? data.error ||
+                              'Confirm your email using the link we sent, then try signing in again.'
+                            : data.error || 'Login failed';
+                    showNotification(msg, 'error');
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -738,35 +744,10 @@
                 
                 const data = await response.json();
                 
-                if (data.success) {
-                    localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
-                    localStorage.setItem('ahrenslabs_username', data.username);
-                    localStorage.setItem('ahrenslabs_userId', data.userId);
-                    localStorage.setItem('ahrenslabs_email', email);
-                    
-                    if (data.verificationEmailSent === true) {
-                        showNotification(data.message || 'Confirmation email sent!', 'success', 4500);
-                    } else {
-                        const codeTag =
-                            data.emailSendError && data.emailSendError.code
-                                ? ` [${data.emailSendError.code}]`
-                                : '';
-                        const body =
-                            data.message
-                            || (data.verificationEmailSent === false
-                                ? 'Account created. Confirmation email not sent.'
-                                : 'Account created. Confirmation email not sent.');
-                        if (data.emailSendError) {
-                            console.warn('Signup emailSendError', data.emailSendError);
-                        }
-                        showNotification(body + codeTag, 'warning', 9000);
-                    }
-                    
-                    // Redirect to return URL or home
-                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'account-dashboard.html';
-                    setTimeout(() => {
-                        window.location.href = returnUrl;
-                    }, 2000);
+                if (data.success && data.needsEmailVerification) {
+                    showNotification(data.message || 'Check your email to confirm your account.', 'success', 7000);
+                    switchTab('login');
+                    document.getElementById('login-username').value = username;
                 } else {
                     showNotification(data.error || 'Signup failed', 'error');
                 }
@@ -778,12 +759,27 @@
 
         async function verifyEmail(token, email) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/verify?token=${token}&email=${email}`);
+                const em = normalizeEmail(email);
+                const q = new URLSearchParams({ token, email: em });
+                const response = await fetch(`${API_BASE_URL}/api/verify?${q.toString()}`);
                 const data = await response.json();
                 
                 if (data.success) {
-                    localStorage.setItem('ahrenslabs_email', normalizeEmail(email));
-                    showNotification('Email verified successfully! 🎉', 'success', 5000);
+                    if (data.sessionId) {
+                        localStorage.setItem('ahrenslabs_sessionId', data.sessionId);
+                        localStorage.setItem('ahrenslabs_username', data.username || '');
+                        localStorage.setItem('ahrenslabs_userId', data.userId || '');
+                        localStorage.setItem('ahrenslabs_email', data.email || em);
+                    } else {
+                        localStorage.setItem('ahrenslabs_email', data.email || em);
+                    }
+                    showNotification(data.message || 'Email verified successfully! 🎉', 'success', 5000);
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'account-dashboard.html';
+                    if (data.sessionId) {
+                        setTimeout(() => {
+                            window.location.href = returnUrl;
+                        }, 1200);
+                    }
                 } else {
                     showNotification(data.error || 'Email verification failed', 'error');
                 }

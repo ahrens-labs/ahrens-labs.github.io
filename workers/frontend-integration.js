@@ -64,28 +64,21 @@ async function signup(email, password, username) {
     
     const data = await response.json();
     
+    if (data.success && data.needsEmailVerification) {
+      showNotification(
+        data.message || 'Check your email and open the confirmation link. Then sign in.',
+        'success'
+      );
+      return false;
+    }
     if (data.success) {
       currentSessionId = data.sessionId;
       currentUserId = data.userId;
       isLoggedIn = true;
       localStorage.setItem('chessSessionId', currentSessionId);
       updateAccountUI(true, username);
-      if (data.verificationEmailSent === true) {
-        showNotification(data.message || 'Confirmation email sent!', 'success');
-      } else {
-        const codeTag =
-          data.emailSendError && data.emailSendError.code
-            ? ` [${data.emailSendError.code}]`
-            : '';
-        const body =
-          data.message || 'Account created. Confirmation email not sent.';
-        if (data.emailSendError) {
-          console.warn('Signup emailSendError', data.emailSendError);
-        }
-        showNotification(body + codeTag, 'warning');
-      }
+      showNotification(data.message || 'Account created.', 'success');
       closeAccountModal();
-      // Sync current localStorage data to account
       await syncLocalDataToAccount();
       return true;
     } else {
@@ -127,7 +120,12 @@ async function login(password, username) {
       await loadUserDataFromAccount();
       return true;
     } else {
-      showNotification(data.error || 'Login failed', 'error');
+      const msg =
+        data.code === 'EMAIL_NOT_VERIFIED'
+          ? data.error ||
+            'Confirm your email using the link we sent, then sign in.'
+          : data.error || 'Login failed';
+      showNotification(msg, 'error');
       return false;
     }
   } catch (error) {
