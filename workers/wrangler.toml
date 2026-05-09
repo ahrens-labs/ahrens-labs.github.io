@@ -14,6 +14,15 @@ name = "chess-accounts"
 main = "src/index.js"
 compatibility_date = "2025-05-01"
 
+# Daily chess challenge digest subscribers (Cron → email). Binding name must match env.DAILY_DIGEST_KV in code.
+[[kv_namespaces]]
+binding = "DAILY_DIGEST_KV"
+id = "64db75c8a01b42229806b59cb30cae80"
+
+# Daily digest send at UTC midnight (same instant as 00:00 UTC / “12:00 AM” on the UTC clock).
+[triggers]
+crons = ["0 0 * * *"]
+
 [durable_objects]
 bindings = [
   { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },

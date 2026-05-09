@@ -525,17 +525,20 @@
             <button type="submit" class="form-button">Update Password</button>
         </form>
 
+        <div id="email-preferences-section" style="display: none; margin-top: 28px; padding-top: 24px; border-top: 1px solid #ecf0f1;">
+            <h3 style="margin: 0 0 12px 0; font-size: 1.05em; color: #2c3e50;">Email</h3>
+            <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-weight: 500; color: #334155;">
+                <input type="checkbox" id="pref-daily-digest-email" style="margin-top: 4px; width: 18px; height: 18px; flex-shrink: 0;">
+                <span style="line-height: 1.45;">Send me a daily email with the chess engine’s daily challenge picks (scheduled at <strong>12:00 AM UTC</strong> each day).</span>
+            </label>
+            <p style="color: #64748b; font-size: 0.86em; margin: 12px 0 0 32px; line-height: 1.45; max-width: 42rem;">
+                The chess app picks dailies using your device’s local date; this email uses the UTC calendar day at send time, so near time zones boundaries the three challenges might differ until your local date matches.
+            </p>
+            <p id="pref-daily-digest-status" style="font-size: 0.82em; color: #64748b; margin: 10px 0 0 32px; min-height: 1.2em;" aria-live="polite"></p>
+        </div>
+
         <div id="account-danger-zone" class="account-danger-zone" style="display: none;">
-            <h3 class="account-danger-title">Delete account</h3>
-            <p class="account-danger-text">This permanently removes your account and all cloud data (chess progress, dungeon saves, Classify, Kyrachyng lessons). This cannot be undone.</p>
-            <div class="form-group">
-                <label for="delete-account-password">Type your password to confirm</label>
-                <div class="password-input-wrap">
-                    <input type="password" id="delete-account-password" name="account-delete-confirm" autocomplete="off" autocapitalize="none" autocorrect="off">
-                    <button type="button" class="password-toggle-btn" aria-pressed="false" aria-label="Show password" onclick="togglePasswordVisibility('delete-account-password', this)">Show</button>
-                </div>
-            </div>
-            <button type="button" class="account-delete-btn" id="delete-account-btn" onclick="handleDeleteAccount()">Delete my account permanently</button>
+            <a href="delete-account.html" style="color: #dc2626; font-weight: 700; text-decoration: underline;">delete account</a>
         </div>
         
         <div class="back-link">
@@ -548,19 +551,6 @@
     <footer>
         <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
     </footer>
-
-    <div id="delete-account-modal" class="account-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" aria-describedby="delete-modal-desc">
-        <div class="account-modal-panel" role="document">
-            <h2 id="delete-modal-title" class="account-modal-title">Delete your account?</h2>
-            <p id="delete-modal-desc" class="account-modal-body">
-                This will permanently remove your account and all cloud data: chess progress, dungeon saves, Classify planner data, and Kyrachyng lesson progress. You will not be able to recover it.
-            </p>
-            <div class="account-modal-actions">
-                <button type="button" class="account-modal-btn account-modal-btn-cancel" id="delete-modal-cancel">Cancel</button>
-                <button type="button" class="account-modal-btn account-modal-btn-danger" id="delete-modal-confirm">Yes, delete permanently</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         const API_BASE_URL =
@@ -576,32 +566,8 @@
             button.setAttribute('aria-label', showPlain ? 'Hide password' : 'Show password');
         }
         
-        function setupDeleteAccountModal() {
-            const deleteModal = document.getElementById('delete-account-modal');
-            const deleteModalCancel = document.getElementById('delete-modal-cancel');
-            const deleteModalConfirm = document.getElementById('delete-modal-confirm');
-            if (deleteModalCancel) {
-                deleteModalCancel.addEventListener('click', closeDeleteAccountModal);
-            }
-            if (deleteModalConfirm) {
-                deleteModalConfirm.addEventListener('click', () => { void executeConfirmedAccountDeletion(); });
-            }
-            if (deleteModal) {
-                deleteModal.addEventListener('click', (e) => {
-                    if (e.target === deleteModal) closeDeleteAccountModal();
-                });
-            }
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && deleteModal && deleteModal.classList.contains('is-open')) {
-                    closeDeleteAccountModal();
-                }
-            });
-        }
-
         // Check if already logged in
         window.addEventListener('DOMContentLoaded', async () => {
-            setupDeleteAccountModal();
-
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             const urlParams = new URLSearchParams(window.location.search);
             const manageMode = urlParams.get('manage') === '1';
@@ -616,9 +582,11 @@
                     });
                     
                     if (response.ok) {
+                        const userData = await response.json();
                         setPasswordTabVisibility(true);
                         setAuthTabsVisibility(false);
                         switchTab('password');
+                        applyEmailPrefsFromUser(userData);
                         return;
                     }
                 } catch (error) {
@@ -642,24 +610,6 @@
             }
         });
 
-        function openDeleteAccountModal() {
-            const deleteModal = document.getElementById('delete-account-modal');
-            if (!deleteModal) return;
-            deleteModal.classList.add('is-open');
-            document.body.style.overflow = 'hidden';
-            const confirmBtn = document.getElementById('delete-modal-confirm');
-            if (confirmBtn) confirmBtn.focus();
-        }
-
-        function closeDeleteAccountModal() {
-            const deleteModal = document.getElementById('delete-account-modal');
-            if (!deleteModal) return;
-            deleteModal.classList.remove('is-open');
-            document.body.style.overflow = '';
-            const trigger = document.getElementById('delete-account-btn');
-            if (trigger) trigger.focus();
-        }
-        
         function switchTab(tab) {
             const tabsBar = document.querySelector('.account-tabs');
             if (tabsBar) tabsBar.style.display = '';
@@ -740,13 +690,17 @@
                     if (hUser) hUser.style.display = 'none';
                 }
             }
+            const prefSection = document.getElementById('email-preferences-section');
+            if (prefSection) {
+                prefSection.style.display = isLoggedIn ? 'block' : 'none';
+                if (!isLoggedIn) {
+                    const st = document.getElementById('pref-daily-digest-status');
+                    if (st) st.textContent = '';
+                }
+            }
             const dangerZone = document.getElementById('account-danger-zone');
             if (dangerZone) {
                 dangerZone.style.display = isLoggedIn ? 'block' : 'none';
-                if (!isLoggedIn) {
-                    const delPwd = document.getElementById('delete-account-password');
-                    if (delPwd) delPwd.value = '';
-                }
             }
             if (!isLoggedIn) {
                 switchTab('login');
@@ -768,6 +722,57 @@
 
         function normalizeEmail(email) {
             return String(email || '').trim().toLowerCase();
+        }
+
+        function applyEmailPrefsFromUser(userData) {
+            const cb = document.getElementById('pref-daily-digest-email');
+            if (!cb) return;
+            const on = !!(userData && userData.emailPreferences && userData.emailPreferences.dailyChallengeEmails);
+            cb.checked = on;
+            if (!cb.dataset.ahrensEmailPrefBound) {
+                cb.dataset.ahrensEmailPrefBound = '1';
+                cb.addEventListener('change', () => saveDailyChallengeEmailPref(cb.checked));
+            }
+        }
+
+        async function saveDailyChallengeEmailPref(enabled) {
+            const statusEl = document.getElementById('pref-daily-digest-status');
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) {
+                if (statusEl) statusEl.textContent = 'Sign in again to save email settings.';
+                return;
+            }
+            if (statusEl) statusEl.textContent = 'Saving…';
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/email-preferences`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionId}`,
+                    },
+                    body: JSON.stringify({ dailyChallengeEmails: !!enabled }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (statusEl) statusEl.textContent = data.error || 'Could not save preference.';
+                    return;
+                }
+                if (statusEl) {
+                    let msg = data.success
+                        ? (enabled ? 'You are subscribed to the daily chess digest.' : 'Daily chess digest emails are off.')
+                        : '';
+                    if (data.warning) {
+                        msg = (msg ? msg + ' ' : '') + data.warning;
+                    }
+                    statusEl.textContent = msg;
+                }
+                if (data.warning) {
+                    console.warn(data.warning);
+                }
+            } catch (e) {
+                console.error(e);
+                if (statusEl) statusEl.textContent = 'Network error; try again.';
+            }
         }
 
         function isLikelyRealEmail(email) {
@@ -1007,66 +1012,6 @@
             }
         }
 
-        function handleDeleteAccount() {
-            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            if (!sessionId) {
-                showNotification('Please log in first', 'error');
-                return;
-            }
-            const password = document.getElementById('delete-account-password').value;
-            if (!password) {
-                showNotification('Enter your password to delete your account', 'error');
-                return;
-            }
-            openDeleteAccountModal();
-        }
-
-        async function executeConfirmedAccountDeletion() {
-            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-            const password = document.getElementById('delete-account-password').value;
-            if (!sessionId || !password) {
-                closeDeleteAccountModal();
-                showNotification('Session or password missing. Try again.', 'error');
-                return;
-            }
-            closeDeleteAccountModal();
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/delete-account`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionId}`
-                    },
-                    body: JSON.stringify({ password })
-                });
-                let data = null;
-                let rawText = '';
-                try {
-                    rawText = await response.text();
-                    data = rawText ? JSON.parse(rawText) : null;
-                } catch (e) {
-                    data = null;
-                }
-                if (response.ok && data && data.success) {
-                    localStorage.removeItem('ahrenslabs_sessionId');
-                    localStorage.removeItem('ahrenslabs_username');
-                    localStorage.removeItem('ahrenslabs_userId');
-                    showNotification('Your account has been deleted.', 'success', 2500);
-                    setTimeout(() => { window.location.href = 'index.html'; }, 800);
-                } else {
-                    const message = data?.error
-                        || (response.status === 404
-                            ? 'Delete account not on the server yet (404). Deploy the chess-accounts Worker: cd workers && npm run deploy'
-                            : null)
-                        || 'Could not delete account';
-                    showNotification(message, 'error');
-                }
-            } catch (error) {
-                console.error('Delete account error:', error);
-                showNotification('Could not delete account. Please try again.', 'error');
-            }
-        }
-        
         async function verifyEmail(token, email) {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/verify?token=${token}&email=${email}`);

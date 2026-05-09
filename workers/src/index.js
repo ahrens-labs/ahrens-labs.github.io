@@ -1,7 +1,13 @@
 // Cloudflare Workers entry point for Chess Engine Accounts
 
+import {
+  utcDateString,
+  getDailyChallengeIdsForUtcDate,
+  DAILY_CHALLENGE_DIGEST_BLURBS,
+} from './daily-challenge-picker.js';
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, executionCtx) {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -20,7 +26,7 @@ export default {
     try {
       // Route requests
       if (path === '/api/signup' && request.method === 'POST') {
-        return handleSignup(request, env, corsHeaders);
+        return handleSignup(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/login' && request.method === 'POST') {
         return handleLogin(request, env, corsHeaders);
       } else if (path === '/api/logout' && request.method === 'POST') {
@@ -29,10 +35,12 @@ export default {
         return handleSync(request, env, corsHeaders);
       } else if (path === '/api/user' && request.method === 'GET') {
         return handleGetUser(request, env, corsHeaders);
+      } else if (path === '/api/email-preferences' && request.method === 'POST') {
+        return handleEmailPreferences(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
         return handleChangePassword(request, env, corsHeaders);
       } else if (path === '/api/delete-account' && request.method === 'POST') {
-        return handleDeleteAccount(request, env, corsHeaders);
+        return handleDeleteAccount(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/verify' && request.method === 'GET') {
         return handleVerifyEmail(request, env, corsHeaders);
       } else if (path === '/api/forgot-password' && request.method === 'POST') {
@@ -107,10 +115,14 @@ export default {
       });
     }
   },
+
+  async scheduled(event, env) {
+    return handleScheduledCron(event, env);
+  },
 };
 
 // Signup handler
-async function handleSignup(request, env, corsHeaders) {
+async function handleSignup(request, env, corsHeaders, executionCtx) {
   const { email, password, username } = await request.json();
   const normalizedEmail = normalizeEmail(email);
   const normalizedUsername = normalizeUsernameForIndex(username);
@@ -213,6 +225,17 @@ async function handleSignup(request, env, corsHeaders) {
     // Continue with signup even if email fails
   }
 
+  const sendWelcome = () =>
+    sendWelcomeGuideEmail(env, normalizedEmail, username).catch((err) => {
+      const w = summarizeEmailSendError(err);
+      console.error('Welcome guide email failed:', w.code, w.message, w.hint || '');
+    });
+  if (executionCtx && typeof executionCtx.waitUntil === 'function') {
+    executionCtx.waitUntil(sendWelcome());
+  } else {
+    await sendWelcome();
+  }
+
   // Create session
   const sessionId = generateSessionId();
   const sessionObjId = env.SESSION.idFromName(sessionId);
@@ -306,7 +329,7 @@ async function handleChangePassword(request, env, corsHeaders) {
 }
 
 // Delete account (requires session + current password; destroys session)
-async function handleDeleteAccount(request, env, corsHeaders) {
+async function handleDeleteAccount(request, env, corsHeaders, executionCtx) {
   const sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
@@ -353,6 +376,8 @@ async function handleDeleteAccount(request, env, corsHeaders) {
   const userDataRes = await userAccount.fetch(userDataReq);
   const userData = await userDataRes.json();
   const usernameForRelease = normalizeUsernameForIndex(userData?.username);
+  const emailForDeletionNotice = normalizeEmail(userData?.email || '');
+  const displayNameForDeletionNotice = userData?.username || 'there';
 
   const delReq = new Request('http://do/deleteAccount', {
     method: 'POST',
@@ -367,6 +392,25 @@ async function handleDeleteAccount(request, env, corsHeaders) {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+  }
+
+  if (env.DAILY_DIGEST_KV) {
+    try {
+      await env.DAILY_DIGEST_KV.delete(`sub:${userResult.userId}`);
+    } catch (e) {
+      console.error('delete digest KV key failed', e?.message || e);
+    }
+  }
+
+  const notifyDeleted = () =>
+    sendAccountDeletedEmail(env, emailForDeletionNotice, displayNameForDeletionNotice).catch((err) => {
+      const w = summarizeEmailSendError(err);
+      console.error('Account deleted email failed:', w.code, w.message, w.hint || '');
+    });
+  if (emailForDeletionNotice && executionCtx && typeof executionCtx.waitUntil === 'function') {
+    executionCtx.waitUntil(notifyDeleted());
+  } else if (emailForDeletionNotice) {
+    await notifyDeleted();
   }
 
   if (usernameForRelease) {
@@ -999,6 +1043,121 @@ async function handleKyrachyngProgressLoad(request, env, corsHeaders) {
   });
 }
 
+async function handleEmailPreferences(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (typeof body.dailyChallengeEmails !== 'boolean') {
+    return new Response(JSON.stringify({ error: 'Body must include dailyChallengeEmails: true/false' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const userRow = await dataRes.json();
+
+  if (!userRow || typeof userRow !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const setReq = new Request('http://do/setEmailPreferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dailyChallengeEmails: body.dailyChallengeEmails }),
+  });
+  const setRes = await userAccount.fetch(setReq);
+  const setResult = await setRes.json();
+
+  if (!setResult.success) {
+    return new Response(JSON.stringify({ error: setResult.error || 'Could not save preferences' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const email = normalizeEmail(userRow.email || '');
+  const username = userRow.username || 'there';
+
+  if (env.DAILY_DIGEST_KV) {
+    const key = `sub:${userId}`;
+    try {
+      if (body.dailyChallengeEmails) {
+        await env.DAILY_DIGEST_KV.put(key, JSON.stringify({ email, username }));
+      } else {
+        await env.DAILY_DIGEST_KV.delete(key);
+      }
+    } catch (e) {
+      console.error('email-preferences KV update failed:', e?.message || e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Could not update digest subscription storage. Try again later.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  } else if (body.dailyChallengeEmails) {
+    console.warn('email-preferences: DAILY_DIGEST_KV is not bound; digest emails will not be delivered');
+  }
+
+  let warning;
+  if (!env.DAILY_DIGEST_KV && body.dailyChallengeEmails) {
+    warning =
+      'Digest list storage is not configured on this Worker; opt-in saved but automated emails require DAILY_DIGEST_KV.';
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      emailPreferences: setResult.emailPreferences || { dailyChallengeEmails: body.dailyChallengeEmails },
+      ...(warning ? { warning } : {}),
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
+}
+
 // Get user data handler
 async function handleGetUser(request, env, corsHeaders) {
   const sessionId = parseBearerToken(request.headers.get('Authorization'));
@@ -1321,6 +1480,253 @@ async function sendVerificationEmail(env, email, username, token) {
   ].join('\n');
 
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+}
+
+const CHESS_MILESTONE_WIN_THRESHOLDS = [1, 5, 10, 25, 50, 100, 250, 500];
+const CHESS_MILESTONE_GAME_THRESHOLDS = [10, 25, 50, 100, 250, 500, 1000];
+const CHESS_MILESTONE_POINT_THRESHOLDS = [1000, 5000, 10000, 20000, 50000, 100000];
+
+function sitePublicBase(env) {
+  return (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
+}
+
+function chessStatsSnapshot(chessBlock) {
+  const ps = chessBlock?.stats?.playerStats || {};
+  const w = Math.max(0, Number(ps.wins) || 0);
+  const l = Math.max(0, Number(ps.losses) || 0);
+  const dr = Math.max(0, Number(ps.draws) || 0);
+  const games = w + l + dr;
+  const points = Math.max(0, Number(chessBlock?.points) || 0);
+  return { wins: w, losses: l, draws: dr, games, points };
+}
+
+async function persistAndSendChessMilestones(env, storage, userData, prevSnap, nextSnap) {
+  const email = normalizeEmail(userData.email || '');
+  if (!email || !isLikelyRealEmail(email)) return;
+
+  if (!userData.milestonesEmailNotified || typeof userData.milestonesEmailNotified !== 'object') {
+    userData.milestonesEmailNotified = {};
+  }
+  const notified = userData.milestonesEmailNotified;
+  const safeName = String(userData.username || 'there').replace(/[<>]/g, '');
+  const base = sitePublicBase(env);
+  const chessUrl = `${base}/chess_engine.html`;
+
+  const tryOne = async (key, subject, html, text) => {
+    if (notified[key]) return;
+    try {
+      await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+      notified[key] = Date.now();
+      await storage.put('userData', userData);
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      console.error('Chess milestone email failed', key, w.code, w.message);
+    }
+  };
+
+  for (const t of CHESS_MILESTONE_WIN_THRESHOLDS) {
+    if (prevSnap.wins < t && nextSnap.wins >= t) {
+      const key = `chess_wins_${t}`;
+      await tryOne(
+        key,
+        `Chess milestone: ${t} career wins`,
+        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2c3e50;">Nice work, ${safeName}!</h2>
+          <p>You reached <strong>${t} wins</strong> in the Ahrens Labs chess engine.</p>
+          <p>Total record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D — ${nextSnap.points.toLocaleString()} points.</p>
+          <p><a href="${chessUrl}" style="color: #3498db;">Open the chess engine</a></p>
+        </body></html>`,
+        [
+          `Hi ${safeName},`,
+          '',
+          `You reached ${t} career wins in the Ahrens Labs chess engine.`,
+          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D, ${nextSnap.points} points.`,
+          `Play: ${chessUrl}`,
+        ].join('\n')
+      );
+    }
+  }
+
+  for (const t of CHESS_MILESTONE_GAME_THRESHOLDS) {
+    if (prevSnap.games < t && nextSnap.games >= t) {
+      const key = `chess_games_${t}`;
+      await tryOne(
+        key,
+        `Chess milestone: ${t} games played`,
+        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2c3e50;">Milestone: ${t} games</h2>
+          <p>Hi ${safeName}, you have played <strong>${t} games</strong> against the engine.</p>
+          <p>Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D — ${nextSnap.points.toLocaleString()} points.</p>
+          <p><a href="${chessUrl}" style="color: #3498db;">Keep playing</a></p>
+        </body></html>`,
+        [
+          `Hi ${safeName},`,
+          '',
+          `You reached ${t} games played against the chess engine.`,
+          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D, ${nextSnap.points} points.`,
+          chessUrl,
+        ].join('\n')
+      );
+    }
+  }
+
+  for (const t of CHESS_MILESTONE_POINT_THRESHOLDS) {
+    if (prevSnap.points < t && nextSnap.points >= t) {
+      const key = `chess_points_${t}`;
+      await tryOne(
+        key,
+        `Chess milestone: ${t.toLocaleString()} points`,
+        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2c3e50;">${t.toLocaleString()} points</h2>
+          <p>Hi ${safeName}, you crossed <strong>${t.toLocaleString()} career points</strong> in the chess engine.</p>
+          <p>Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.</p>
+          <p><a href="${chessUrl}" style="color: #3498db;">Open the chess engine</a></p>
+        </body></html>`,
+        [
+          `Hi ${safeName},`,
+          '',
+          `You reached ${t} career points in the chess engine.`,
+          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.`,
+          chessUrl,
+        ].join('\n')
+      );
+    }
+  }
+}
+
+async function sendWelcomeGuideEmail(env, email, username) {
+  const safeName = String(username).replace(/[<>]/g, '');
+  const base = sitePublicBase(env);
+  const subject = 'Welcome to Ahrens Labs — what your account is for';
+  const html = `
+    <html>
+      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50;">Hi ${safeName},</h2>
+        <p><strong>Ahrens Labs</strong> (<a href="${base}/">${base}/</a>) is a collection of learning tools and games. Your account saves progress in the cloud so you can sign in from any device.</p>
+        <p><strong>What you can use with this account:</strong></p>
+        <ul style="line-height: 1.6;">
+          <li><strong>Chess engine</strong> — rated play, shop unlocks, achievements, and daily challenges (<a href="${base}/chess_engine.html">chess_engine.html</a>).</li>
+          <li><strong>Dungeon</strong> — saved runs tied to your profile.</li>
+          <li><strong>Classify</strong> — planner and schedule data synced to your account.</li>
+          <li><strong>Kyrachyng</strong> — lesson progress stored in the cloud.</li>
+        </ul>
+        <p>You will get a separate message to <strong>confirm your email</strong>. We may also email you about account security (for example password resets) and, if you opt in, chess daily-challenge digests and milestone updates.</p>
+        <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 24px;">If you did not create this account, you can ignore this email.</p>
+      </body>
+    </html>`;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    `Ahrens Labs (${base}/) hosts games and learning tools. Your account keeps chess progress, dungeon saves, Classify data, and Kyrachyng lessons in sync across devices.`,
+    '',
+    '- Chess engine: ' + `${base}/chess_engine.html`,
+    '- You will also receive a confirmation email to verify your address.',
+    '',
+    'If you did not sign up, ignore this message.',
+  ].join('\n');
+
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+}
+
+async function sendAccountDeletedEmail(env, email, username) {
+  if (!email) return;
+  const safeName = String(username).replace(/[<>]/g, '');
+  const base = sitePublicBase(env);
+  const subject = 'Your Ahrens Labs account was deleted';
+  const html = `
+    <html>
+      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50;">Account removed</h2>
+        <p>Hi ${safeName},</p>
+        <p>This confirms that your <strong>Ahrens Labs</strong> account and its cloud data have been permanently deleted as you requested.</p>
+        <p>If you did not ask for this, contact support through the site and consider securing your email inbox.</p>
+        <p style="margin-top: 24px;"><a href="${base}/" style="color: #3498db;">ahrens-labs.github.io</a></p>
+      </body>
+    </html>`;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    'Your Ahrens Labs account and associated cloud data have been permanently deleted.',
+    'If you did not request this, secure your inbox and reach out via the website.',
+    base + '/',
+  ].join('\n');
+
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+}
+
+function formatDailyDigestLines(challengeIds) {
+  const lines = [];
+  for (const id of challengeIds) {
+    const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
+    lines.push(hint ? `• ${id} — ${hint}` : `• ${id}`);
+  }
+  return lines.join('\n');
+}
+
+async function sendDailyDigestEmail(env, { email, username }, utcDateStr, challengeIds) {
+  if (!email || typeof email !== 'string') return;
+  const safeName = String(username || 'there').replace(/[<>]/g, '');
+  const base = sitePublicBase(env);
+  const chessUrl = `${base}/chess_engine.html`;
+  const listHtml = challengeIds
+    .map((id) => {
+      const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
+      const label = hint ? `<code>${id}</code> — ${hint}` : `<code>${id}</code>`;
+      return `<li style="margin: 6px 0;">${label}</li>`;
+    })
+    .join('');
+  const subject = `Chess daily challenges — ${utcDateStr} (UTC)`;
+  const html = `
+    <html>
+      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50;">Today’s chess challenges (UTC)</h2>
+        <p>Hi ${safeName},</p>
+        <p>For <strong>${utcDateStr}</strong> (UTC calendar day), your three deterministic daily challenge IDs are:</p>
+        <ul style="line-height: 1.5;">${listHtml}</ul>
+        <p>Open the engine to track progress: <a href="${chessUrl}" style="color: #3498db;">${chessUrl}</a></p>
+        <p style="color: #7f8c8d; font-size: 0.88em;">You asked for this digest on your account. In-app dailies use your device’s local date; they usually match when your local day is the same as this UTC day.</p>
+      </body>
+    </html>`;
+  const text = [
+    `Hi ${safeName},`,
+    '',
+    `Chess daily challenges for ${utcDateStr} (UTC):`,
+    formatDailyDigestLines(challengeIds),
+    '',
+    `Open: ${chessUrl}`,
+    '',
+    'You subscribed to this digest in account settings.',
+  ].join('\n');
+
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+}
+
+async function handleScheduledCron(event, env) {
+  if (!env.DAILY_DIGEST_KV) {
+    console.log('scheduled: DAILY_DIGEST_KV not bound, skipping digest');
+    return;
+  }
+  const dateString = utcDateString(new Date());
+  const ids = getDailyChallengeIdsForUtcDate(dateString);
+  let cursor;
+  let sent = 0;
+  let failed = 0;
+  do {
+    const list = await env.DAILY_DIGEST_KV.list({ prefix: 'sub:', cursor });
+    for (const { name } of list.keys) {
+      try {
+        const raw = await env.DAILY_DIGEST_KV.get(name, 'json');
+        if (!raw || typeof raw.email !== 'string') continue;
+        await sendDailyDigestEmail(env, raw, dateString, ids);
+        sent++;
+      } catch (e) {
+        failed++;
+        console.error('Digest send failed', name, e?.message || e);
+      }
+    }
+    cursor = list.list_complete ? undefined : list.cursor;
+  } while (cursor);
+  console.log('Daily digest cron', { dateString, sent, failed, cron: event.cron });
 }
 
 function generatePasswordResetToken() {
@@ -1820,6 +2226,12 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/setEmailPreferences' && request.method === 'POST') {
+        const body = await request.json();
+        const result = await this.setEmailPreferences(body);
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/deleteAccount' && request.method === 'POST') {
         const { password } = await request.json();
         const result = await this.deleteAccount(password);
@@ -1936,6 +2348,7 @@ export class UserAccount {
       createdAt: Date.now(),
       emailVerified: false,
       verificationToken: null,
+      emailPreferences: { dailyChallengeEmails: false },
       games: {
         chess: {
           achievements: {},
@@ -2036,11 +2449,18 @@ export class UserAccount {
       verificationTokenExpiry,
       passwordResetToken,
       passwordResetTokenExpiry,
+      milestonesEmailNotified,
       ...safeData
     } = userData;
+    const epRaw = safeData.emailPreferences;
+    const emailPreferences =
+      epRaw && typeof epRaw === 'object'
+        ? { dailyChallengeEmails: false, ...epRaw }
+        : { dailyChallengeEmails: false };
     return {
       userId: this.state.id.toString(),
-      ...safeData
+      ...safeData,
+      emailPreferences,
     };
   }
 
@@ -2137,6 +2557,21 @@ export class UserAccount {
     return { success: true };
   }
 
+  async setEmailPreferences(body) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!userData.emailPreferences || typeof userData.emailPreferences !== 'object') {
+      userData.emailPreferences = { dailyChallengeEmails: false };
+    }
+    if (body && typeof body.dailyChallengeEmails === 'boolean') {
+      userData.emailPreferences.dailyChallengeEmails = body.dailyChallengeEmails;
+    }
+    await this.storage.put('userData', userData);
+    return { success: true, emailPreferences: userData.emailPreferences };
+  }
+
   async changePassword(currentPassword, newPassword) {
     const userData = await this.storage.get('userData');
     if (!userData) {
@@ -2186,6 +2621,7 @@ export class UserAccount {
     delete restIncoming.replaceGameHistory;
 
     const prevChess = userData.games.chess;
+    const prevSnap = chessStatsSnapshot(prevChess || {});
     let mergedHistory;
     if (replaceHistory && Array.isArray(restIncoming.gameHistory)) {
       mergedHistory = trimChessGameHistoryMerged(restIncoming.gameHistory);
@@ -2203,6 +2639,9 @@ export class UserAccount {
     };
     
     await this.storage.put('userData', userData);
+
+    const nextSnap = chessStatsSnapshot(userData.games.chess);
+    await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
   }
 
   async getChessData() {

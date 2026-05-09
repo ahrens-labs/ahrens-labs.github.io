@@ -8882,12 +8882,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     // ========================================================================
     // DAILY CHALLENGES CONFIGURATION
     // ========================================================================
-    // Three challenges per calendar day are chosen deterministically (same for all players that day).
-    // This function lists IDs for fallback validation; IDs are also derived from achievements with isDaily: true.
+    // Three challenges per UTC calendar day are chosen deterministically (same for everybody).
+    // Keep this list aligned with workers/src/daily-challenge-picker.js.
     // ========================================================================
     function getAllDailyChallengeIds() {
-      // Keep a hardcoded fallback list, but ALSO derive IDs from the
-      // achievement definitions so new daily challenges can't be forgotten here.
       const fallbackIds = [
         // ORIGINAL DAILY CHALLENGES
         'daily_explorer',              // Visit 20 unique squares
@@ -8950,22 +8948,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         // 'daily_your_new_challenge',
       ];
 
-      try {
-        const all = (typeof getAllAchievementsList === 'function') ? getAllAchievementsList() : [];
-        const derivedIds = (Array.isArray(all) ? all : [])
-          .filter(a => a && a.isDaily === true && typeof a.id === 'string' && a.id.length > 0)
-          .map(a => a.id);
-
-        return Array.from(new Set([...fallbackIds, ...derivedIds]));
-      } catch (e) {
-        return fallbackIds;
-      }
+      return fallbackIds;
     }
     
     // ========================================================================
     // DAILY CHALLENGES — same three for every player on a calendar day
     // ========================================================================
-    // Picks use a deterministic shuffle (seeded PRNG) from the local date
+    // Picks use a deterministic shuffle (seeded PRNG) from a UTC date
     // string YYYY-MM-DD plus a fixed salt, so everyone sees the same dailies.
 
     const DAILY_CHALLENGE_PICK_SALT = 'ahrenslabs-chess-daily-v2';
@@ -9022,8 +9011,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         const ds = lifetimeStats.dailyStats;
         if (!ds) return [];
 
-        const today = new Date();
-        const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const now = new Date();
+        const dateString = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
 
         const validList = getAllDailyChallengeIds();
         const validSet = new Set(validList);
