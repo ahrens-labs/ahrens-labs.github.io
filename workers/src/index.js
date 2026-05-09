@@ -60,6 +60,10 @@ export default {
         return handleAdminListAccounts(request, env, corsHeaders);
       } else if (path === '/api/admin/verify-user-email' && request.method === 'POST') {
         return handleAdminVerifyUserEmail(request, env, corsHeaders);
+      } else if (path === '/api/admin/send-welcome-to-user' && request.method === 'POST') {
+        return handleAdminSendWelcomeToUser(request, env, corsHeaders);
+      } else if (path === '/api/admin/send-custom-email-to-user' && request.method === 'POST') {
+        return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -2598,6 +2602,40 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   );
 }
 
+/** Resolve profile for admin per-user actions (userId and/or email on file). */
+async function resolveAdminUserTarget(env, body) {
+  const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
+  const emailRaw = body.email != null ? String(body.email).trim() : '';
+  let userId = userIdRaw;
+  if (!userId && emailRaw) {
+    userId = generateUserId(normalizeEmail(emailRaw));
+  }
+  if (!userId) {
+    return { ok: false, error: 'Provide userId or email' };
+  }
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  let row;
+  try {
+    const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+    row = await dataRes.json();
+  } catch {
+    return { ok: false, error: 'Could not load account' };
+  }
+  if (!row || typeof row !== 'object') {
+    return { ok: false, error: 'Account not found' };
+  }
+  const emailNorm = row.email != null ? normalizeEmail(String(row.email)) : '';
+  if (!emailNorm || !isLikelyRealEmail(emailNorm)) {
+    return { ok: false, error: 'No valid email on file' };
+  }
+  return {
+    ok: true,
+    userId,
+    email: emailNorm,
+    username: row.username != null ? String(row.username) : 'there',
+  };
+}
+
 /**
  * Admin: mark an account’s email as verified without a token (clears pending verification fields).
  * Body: `{ "userId": "..." }` and/or `{ "email": "..." }` — if email is given, resolves userId via signup hash.
@@ -2623,20 +2661,15 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
     });
   }
 
-  const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
-  const emailRaw = body.email != null ? String(body.email).trim() : '';
-  let userId = userIdRaw;
-  if (!userId && emailRaw) {
-    userId = generateUserId(normalizeEmail(emailRaw));
-  }
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Provide userId or email' }), {
+  const resolved = await resolveAdminUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(resolved.userId));
   let result;
   try {
     const doRes = await userAccount.fetch(
@@ -2661,6 +2694,130 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
   }
 
   return new Response(JSON.stringify({ success: true, alreadyVerified: !!result.alreadyVerified }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Admin: send the standard welcome guide to one address; From caleb@ahrenslabs.com (broadcast sender). */
+async function handleAdminSendWelcomeToUser(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const resolved = await resolveAdminUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    await sendWelcomeGuideEmail(env, resolved.email, resolved.username, {
+      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+      fromName: ADMIN_BROADCAST_FROM_NAME,
+    });
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    return new Response(
+      JSON.stringify({ success: false, error: w.hint || w.message || String(err?.message || err) }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Admin: one-off message to one user; From caleb@ahrenslabs.com. Supports {{username}} and {{email}}. */
+async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const resolved = await resolveAdminUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const subjectTpl = body.subject != null ? String(body.subject).trim() : '';
+  const textTpl = body.text != null ? String(body.text).trim() : '';
+  const htmlTpl = body.html != null ? String(body.html) : '';
+
+  if (!subjectTpl || !textTpl) {
+    return new Response(JSON.stringify({ error: 'subject and text are required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const subject = applyBroadcastTemplate(subjectTpl, {
+    username: resolved.username,
+    email: resolved.email,
+  });
+  const text = applyBroadcastTemplate(textTpl, {
+    username: resolved.username,
+    email: resolved.email,
+  });
+  const htmlRaw = htmlTpl.trim()
+    ? applyBroadcastTemplate(htmlTpl, { username: resolved.username, email: resolved.email })
+    : '';
+  const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
+
+  try {
+    await dispatchTransactionalEmail(env, {
+      to: resolved.email,
+      subject,
+      html,
+      text,
+      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+      fromName: ADMIN_BROADCAST_FROM_NAME,
+    });
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    return new Response(
+      JSON.stringify({ success: false, error: w.hint || w.message || String(err?.message || err) }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }

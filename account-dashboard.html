@@ -140,25 +140,28 @@
       line-height: 1.4;
     }
     .admin-accounts-table-wrap {
-      overflow: auto;
-      max-height: min(480px, 55vh);
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: min(520px, 60vh);
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       background: #fafafa;
     }
-    .admin-accounts-table {
+    .admin-accounts-table.admin-accounts-compact {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.84rem;
+      font-size: 0.8rem;
+      table-layout: fixed;
     }
-    .admin-accounts-table th,
-    .admin-accounts-table td {
-      padding: 8px 10px;
+    .admin-accounts-table.admin-accounts-compact th,
+    .admin-accounts-table.admin-accounts-compact td {
+      padding: 6px 10px;
       text-align: left;
       border-bottom: 1px solid #e2e8f0;
-      vertical-align: top;
+      vertical-align: middle;
+      white-space: nowrap;
     }
-    .admin-accounts-table th {
+    .admin-accounts-table.admin-accounts-compact th {
       position: sticky;
       top: 0;
       background: #f1f5f9;
@@ -166,9 +169,67 @@
       color: #334155;
       z-index: 1;
     }
-    .admin-accounts-table tbody tr:hover { background: #f8fafc; }
-    .admin-accounts-table .col-email { word-break: break-all; }
-    .admin-accounts-table .col-id { font-family: ui-monospace, monospace; font-size: 0.78rem; color: #475569; }
+    .admin-accounts-table.admin-accounts-compact .c-email {
+      width: 30%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-user {
+      width: 16%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-ver { width: 7%; }
+    .admin-accounts-table.admin-accounts-compact .c-act {
+      width: 47%;
+      white-space: nowrap;
+    }
+    .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
+    .btn-admin-row {
+      padding: 4px 9px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-right: 5px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+    }
+    .btn-admin-row:hover { background: #f1f5f9; }
+    .btn-admin-row-primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+    .btn-admin-row-primary:hover { background: #1d4ed8; }
+    .btn-admin-row:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .dash-modal-panel-wide {
+      max-width: 520px;
+    }
+    .dash-modal-panel-wide .form-row { margin-bottom: 12px; }
+    .dash-modal-panel-wide .form-row label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: #334155;
+      margin-bottom: 5px;
+    }
+    .dash-modal-panel-wide .form-row input,
+    .dash-modal-panel-wide .form-row textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-family: inherit;
+    }
+    .dash-modal-panel-wide .form-row textarea { min-height: 88px; resize: vertical; }
     .dash-modal-backdrop {
       position: fixed;
       inset: 0;
@@ -350,17 +411,11 @@
         <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
           <h2>All accounts (admin)</h2>
           <p class="hint">
-            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong>. Each page merges accounts from <strong>cloud profiles</strong> (Durable Object list), the <strong>username registry</strong>, and <strong>digest email subscribers</strong> (<code>sub:</code> in KV) so rows missing from one source still appear.             Use <strong>Load next page</strong> until you see “end of list”. Filter applies to loaded rows only. CSV exports all loaded rows (deduped by user id).
-            You can <strong>mark an email as verified</strong> (no token) from a row or using the field below — same as if the user completed the confirmation link.
+            One line per account: <strong>email</strong>, <strong>username</strong>, <strong>verified</strong>, and actions.
+            <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
+            Listing merges <strong>cloud profiles</strong>, the <strong>username registry</strong>, and <strong>digest KV</strong> (<code>sub:</code>).
+            Use <strong>Load next page</strong> until “end of list”. CSV still includes internal user id.
           </p>
-          <div class="form-row" style="margin-bottom:14px;">
-            <label for="admin-verify-email-input">Mark verified (email or user id)</label>
-            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px;">
-              <input id="admin-verify-email-input" type="text" autocomplete="off" placeholder="user@example.com or internal user id" style="flex:1;min-width:220px;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.92rem;">
-              <button type="button" class="btn btn-primary" id="btn-admin-verify-email-submit">Mark email verified</button>
-            </div>
-            <p class="status" id="admin-verify-email-status" style="margin-top:10px;"></p>
-          </div>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
             <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
@@ -371,18 +426,17 @@
           </div>
           <p class="admin-accounts-meta" id="admin-accounts-meta">Not loaded yet.</p>
           <div class="admin-accounts-table-wrap">
-            <table class="admin-accounts-table">
+            <table class="admin-accounts-table admin-accounts-compact">
               <thead>
                 <tr>
-                  <th scope="col">Username</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Verified</th>
-                  <th scope="col">User id</th>
-                  <th scope="col">Actions</th>
+                  <th scope="col" class="c-email">Email</th>
+                  <th scope="col" class="c-user">Username</th>
+                  <th scope="col" class="c-ver">Verified</th>
+                  <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="5" style="color:#94a3b8;">Click “Load from beginning”.</td></tr>
+                <tr><td colspan="4" style="color:#94a3b8;">Click “Load from beginning”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -449,6 +503,39 @@
         <button type="button" class="btn btn-ghost" id="admin-bulk-confirm-cancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="admin-bulk-confirm-ok">Confirm</button>
       </div>
+    </div>
+  </div>
+
+  <div id="admin-custom-email-modal" class="dash-modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="admin-custom-email-title">
+    <div class="dash-modal-panel dash-modal-panel-wide" role="document">
+      <h2 id="admin-custom-email-title" class="dash-modal-title">Send custom email</h2>
+      <p style="margin:0 0 14px 0;font-size:0.82rem;color:#64748b;line-height:1.45;">
+        From <strong>caleb@ahrenslabs.com</strong>. Optional placeholders in subject/body:
+        <code>{{username}}</code>, <code>{{email}}</code>
+      </p>
+      <div class="form-row">
+        <label for="admin-custom-to">To</label>
+        <input id="admin-custom-to" type="text" readonly tabindex="-1" style="background:#f8fafc;color:#475569;">
+      </div>
+      <div class="form-row">
+        <label for="admin-custom-subject">Subject</label>
+        <input id="admin-custom-subject" type="text" autocomplete="off" placeholder="Subject line">
+      </div>
+      <div class="form-row">
+        <label for="admin-custom-text">Plain text</label>
+        <textarea id="admin-custom-text" placeholder="Hi {{username}}, …"></textarea>
+      </div>
+      <div class="form-row">
+        <label for="admin-custom-html">HTML (optional)</label>
+        <textarea id="admin-custom-html" style="min-height:64px;font-family:ui-monospace,monospace;font-size:0.8rem;" placeholder="Leave blank to wrap plain text"></textarea>
+      </div>
+      <input type="hidden" id="admin-custom-userid" value="">
+      <input type="hidden" id="admin-custom-email-store" value="">
+      <div class="dash-modal-actions">
+        <button type="button" class="btn btn-ghost" id="admin-custom-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="admin-custom-send">Send email</button>
+      </div>
+      <p class="status" id="admin-custom-send-status" style="margin-top:12px;"></p>
     </div>
   </div>
 
@@ -661,13 +748,13 @@
         }
 
         async function adminVerifyEmailForUser(payload) {
-          const vSt = document.getElementById('admin-verify-email-status');
+          const vSt = document.getElementById('admin-accounts-status');
           const sessionId = getSessionId();
           if (!sessionId) {
             setStatus(vSt, 'Not signed in.', 'err');
             return false;
           }
-          setStatus(vSt, 'Working…', '');
+          setStatus(vSt, 'Verifying…', '');
           try {
             const res = await fetch(`${API_BASE_URL}/api/admin/verify-user-email`, {
               method: 'POST',
@@ -684,7 +771,9 @@
             }
             setStatus(
               vSt,
-              data.alreadyVerified ? 'That account was already verified.' : 'Marked verified. User can enable digest email and sign-in flows treat them as confirmed.',
+              data.alreadyVerified
+                ? 'That account was already verified.'
+                : 'Marked verified (no token).',
               'ok'
             );
             const uid = (payload.userId || '').trim();
@@ -707,6 +796,62 @@
           }
         }
 
+        async function adminSendWelcomeToUser(payload) {
+          const rowSt = document.getElementById('admin-accounts-status');
+          const okModal = await showAdminBulkConfirmModal({
+            title: 'Send welcome email?',
+            description:
+              'Send the full welcome / info guide to this person only, from caleb@ahrenslabs.com (same From as broadcast).',
+            confirmLabel: 'Send welcome',
+          });
+          if (!okModal) return;
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            setStatus(rowSt, 'Not signed in.', 'err');
+            return;
+          }
+          setStatus(rowSt, 'Sending welcome…', '');
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/send-welcome-to-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(rowSt, formatApiFailure(status, data), 'err');
+              return;
+            }
+            setStatus(rowSt, 'Welcome email sent from caleb@ahrenslabs.com.', 'ok');
+          } catch (e) {
+            setStatus(rowSt, e?.message || 'Send failed.', 'err');
+          }
+        }
+
+        function openAdminCustomEmailModal(a) {
+          const modal = document.getElementById('admin-custom-email-modal');
+          if (!modal) return;
+          document.getElementById('admin-custom-to').value = a.email || '';
+          document.getElementById('admin-custom-userid').value = a.userId || '';
+          document.getElementById('admin-custom-email-store').value = a.email || '';
+          document.getElementById('admin-custom-subject').value = '';
+          document.getElementById('admin-custom-text').value = a.username
+            ? `Hi {{username}},\n\n`
+            : 'Hi {{username}},\n\n';
+          document.getElementById('admin-custom-html').value = '';
+          setStatus(document.getElementById('admin-custom-send-status'), '', '');
+          modal.hidden = false;
+          document.getElementById('admin-custom-subject').focus();
+        }
+
+        function closeAdminCustomEmailModal() {
+          const modal = document.getElementById('admin-custom-email-modal');
+          if (modal) modal.hidden = true;
+        }
+
         function renderAdminAccountsTable() {
           const tbody = document.getElementById('admin-accounts-tbody');
           const meta = document.getElementById('admin-accounts-meta');
@@ -727,7 +872,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="5" style="color:#94a3b8;">' +
+              '<tr><td colspan="4" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -735,12 +880,21 @@
               .map((a) => {
                 const uidAttr = escHtml(a.userId || '');
                 const emAttr = escHtml(a.email || '');
-                const actions =
+                const unAttr = escHtml(a.username || '');
+                const emTitle = escHtml(a.email || '');
+                const unTitle = escHtml(a.username || '');
+                const verifyBtn =
                   a.emailVerified === true
-                    ? '<td><span style="color:#94a3b8;font-size:0.82rem;">—</span></td>'
-                    : `<td><button type="button" class="btn btn-ghost admin-verify-email-row-btn" style="padding:6px 10px;font-size:0.8rem;" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Verify email</button></td>`;
+                    ? '<button type="button" class="btn-admin-row" disabled title="Already verified">Verify</button>'
+                    : `<button type="button" class="btn-admin-row admin-acct-verify" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Verify</button>`;
+                const welcomeBtn = `<button type="button" class="btn-admin-row btn-admin-row-primary admin-acct-welcome" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Welcome</button>`;
+                const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
                 return (
-                  `<tr><td>${escHtml(a.username || '—')}</td><td class="col-email">${escHtml(a.email || '—')}</td><td>${escHtml(verifiedLabel(a.emailVerified))}</td><td class="col-id">${escHtml(a.userId || '')}</td>${actions}</tr>`
+                  `<tr class="admin-acct-line">` +
+                  `<td class="c-email" title="${emTitle}">${escHtml(a.email || '—')}</td>` +
+                  `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
+                  `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
+                  `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}</td></tr>`
                 );
               })
               .join('');
@@ -811,24 +965,81 @@
           }
         }
 
-        document.getElementById('btn-admin-verify-email-submit')?.addEventListener('click', async () => {
-          const input = document.getElementById('admin-verify-email-input');
-          const raw = ((input && input.value) || '').trim();
-          if (!raw) {
-            setStatus(document.getElementById('admin-verify-email-status'), 'Enter an email or user id.', 'err');
-            return;
-          }
-          const payload = raw.includes('@') ? { email: raw } : { userId: raw };
-          await adminVerifyEmailForUser(payload);
-        });
         document.getElementById('admin-accounts-tbody')?.addEventListener('click', (e) => {
-          const btn = e.target && e.target.closest && e.target.closest('.admin-verify-email-row-btn');
+          const verify = e.target && e.target.closest && e.target.closest('.admin-acct-verify');
+          const welcome = e.target && e.target.closest && e.target.closest('.admin-acct-welcome');
+          const custom = e.target && e.target.closest && e.target.closest('.admin-acct-custom');
+          const btn = verify || welcome || custom;
           if (!btn) return;
           const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
           const em = (btn.getAttribute('data-admin-email') || '').trim();
           const payload = uid ? { userId: uid } : em ? { email: em } : {};
           if (!payload.userId && !payload.email) return;
-          adminVerifyEmailForUser(payload);
+          if (verify) {
+            adminVerifyEmailForUser(payload);
+            return;
+          }
+          if (welcome) {
+            adminSendWelcomeToUser(payload);
+            return;
+          }
+          if (custom) {
+            const un = btn.getAttribute('data-admin-username') || '';
+            openAdminCustomEmailModal({ userId: uid, email: em, username: un });
+          }
+        });
+
+        const adminCustomModal = document.getElementById('admin-custom-email-modal');
+        document.getElementById('admin-custom-cancel')?.addEventListener('click', () => {
+          closeAdminCustomEmailModal();
+        });
+        adminCustomModal?.addEventListener('click', (e) => {
+          if (e.target === adminCustomModal) closeAdminCustomEmailModal();
+        });
+        document.getElementById('admin-custom-send')?.addEventListener('click', async () => {
+          const st = document.getElementById('admin-custom-send-status');
+          const rowSt = document.getElementById('admin-accounts-status');
+          const subject = (document.getElementById('admin-custom-subject').value || '').trim();
+          const text = (document.getElementById('admin-custom-text').value || '').trim();
+          const htmlRaw = (document.getElementById('admin-custom-html').value || '').trim();
+          const uid = (document.getElementById('admin-custom-userid').value || '').trim();
+          const em = (document.getElementById('admin-custom-email-store').value || '').trim();
+          if (!subject || !text) {
+            setStatus(st, 'Subject and plain text are required.', 'err');
+            return;
+          }
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            setStatus(st, 'Not signed in.', 'err');
+            return;
+          }
+          setStatus(st, 'Sending…', '');
+          try {
+            const body = {
+              subject,
+              text,
+              ...(htmlRaw ? { html: htmlRaw } : {}),
+              ...(uid ? { userId: uid } : { email: em }),
+            };
+            const res = await fetch(`${API_BASE_URL}/api/admin/send-custom-email-to-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(body),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            setStatus(st, 'Sent from caleb@ahrenslabs.com.', 'ok');
+            setStatus(rowSt, 'Custom email sent.', 'ok');
+            closeAdminCustomEmailModal();
+          } catch (e) {
+            setStatus(st, e?.message || 'Send failed.', 'err');
+          }
         });
 
         document.getElementById('btn-admin-accounts-refresh')?.addEventListener('click', () => {
