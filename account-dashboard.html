@@ -81,6 +81,36 @@
     .dash-action-tile:active { transform: translateY(0); }
     .dash-action-tile .dash-action-title { font-weight: 600; font-size: 0.95rem; color: #0f172a; }
     .dash-action-tile .dash-action-sub { font-size: 0.8rem; color: #64748b; line-height: 1.35; }
+    .dash-trifangx-points-wrap {
+      margin: 0 0 18px 0;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #fde68a 100%);
+      border: 1px solid #fbbf24;
+      box-shadow: 0 2px 10px rgba(180, 83, 9, 0.08);
+    }
+    .dash-trifangx-points-label {
+      margin: 0 0 4px 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #92400e;
+    }
+    .dash-trifangx-points-value {
+      margin: 0;
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: #78350f;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.15;
+    }
+    .dash-trifangx-points-sub {
+      margin: 8px 0 0 0;
+      font-size: 0.82rem;
+      color: #a16207;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -193,6 +223,11 @@
         <div class="dash-card">
           <h2>Chess store &amp; TrifangX</h2>
           <p class="hint">Spend points on boards, pieces, and more. Open the store, settings, or achievements here without leaving this page.</p>
+          <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
+            <p class="dash-trifangx-points-label">Your TrifangX points</p>
+            <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
+            <p class="dash-trifangx-points-sub" id="dash-trifangx-points-sub">Loading from your cloud save…</p>
+          </div>
           <div class="dash-trifangx-actions" role="group" aria-label="TrifangX shortcuts">
             <button type="button" class="dash-action-tile" id="dash-open-trifangx-shop">
               <span class="dash-action-title">Chess store</span>
@@ -256,6 +291,42 @@
       return res.json();
     }
 
+    async function loadTrifangxPointsForDashboard() {
+      const sessionId = getSessionId();
+      const valEl = document.getElementById('dash-trifangx-points-value');
+      const subEl = document.getElementById('dash-trifangx-points-sub');
+      if (!sessionId || !valEl || !subEl) return;
+      valEl.textContent = '…';
+      subEl.textContent = 'Loading from your cloud save…';
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/chess/load`, {
+          headers: { 'Authorization': `Bearer ${sessionId}` },
+        });
+        if (!res.ok) throw new Error('load failed');
+        const data = await res.json();
+        const fromAch = Math.max(0, Number(data.points) || 0);
+        const cheat = Math.max(0, Number(data.cheatPoints) || 0);
+        const spent = Math.max(0, Number(data.pointsSpent) || 0);
+        const totalEarned = fromAch + cheat;
+        const spendable = Math.max(0, totalEarned - spent);
+        valEl.textContent = totalEarned.toLocaleString();
+        if (spent > 0 && spendable !== totalEarned) {
+          subEl.textContent =
+            spendable.toLocaleString() +
+            ' available in the shop · ' +
+            spent.toLocaleString() +
+            ' pts spent on unlocks';
+        } else {
+          subEl.textContent =
+            'Total earned from achievements and bonuses (matches your cloud save)';
+        }
+      } catch (e) {
+        valEl.textContent = '—';
+        subEl.textContent =
+          'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+      }
+    }
+
     function applyUserToForm(user) {
       const w = document.getElementById('dash-welcome');
       const uname = user.username || 'Player';
@@ -282,6 +353,7 @@
       const user = await requireUser();
       if (!user) return;
       applyUserToForm(user);
+      loadTrifangxPointsForDashboard();
 
       const trifangxIframe = document.getElementById('trifangx-dashboard-embed');
       let trifangxEmbedReady = false;
@@ -331,6 +403,7 @@
           }
         } else if (d.type === 'modal-closed') {
           setTrifangxIframeInteractive(false);
+          loadTrifangxPointsForDashboard();
         }
       });
 
