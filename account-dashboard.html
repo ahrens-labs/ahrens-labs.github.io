@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account dashboard - Ahrens Labs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <script src="js/script.js"></script>
+  <style>
+    .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
+    .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
+    .dash-sub { color: #64748b; margin: 0 0 28px 0; font-size: 0.98rem; }
+    .dash-grid { display: grid; gap: 20px; }
+    @media (min-width: 840px) { .dash-grid { grid-template-columns: 1fr 1fr; } }
+    .dash-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+      padding: 22px 22px 20px; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    .dash-card h2 { margin: 0 0 14px 0; font-size: 1.08rem; color: #0f172a; }
+    .dash-card p.hint { margin: 0 0 14px 0; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; font-weight: 600; font-size: 0.88rem; color: #334155; margin-bottom: 6px; }
+    .form-row input, .form-row select {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1;
+      border-radius: 10px; font-size: 0.95rem;
+    }
+    .btn {
+      display: inline-block; padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 0.92rem;
+      border: none; cursor: pointer; font-family: inherit;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-ghost { background: #f1f5f9; color: #0f172a; }
+    .btn-danger-outline { background: #fff; color: #b91c1c; border: 2px solid #fecaca; }
+    .status { font-size: 0.86rem; margin-top: 10px; min-height: 1.2em; color: #64748b; }
+    .status.ok { color: #047857; }
+    .status.err { color: #b91c1c; }
+    .dash-topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .dash-links a { color: #2563eb; font-weight: 600; text-decoration: none; margin-right: 14px; font-size: 0.92rem; }
+    .dash-links a:hover { text-decoration: underline; }
+    .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
+    .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+    .full-span { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <div class="header-content">
+        <a href="index.html" class="logo-link">
+          <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+        </a>
+        <h1>Ahrens Labs</h1>
+        <nav>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="labs.html">Labs &amp; Projects</a></li>
+            <li><a href="account-dashboard.html">Account</a></li>
+            <li><a href="chess_engine.html">Chess Engine</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main class="dash-wrap">
+      <div class="dash-topbar">
+        <div>
+          <h1>Account dashboard</h1>
+          <p class="dash-sub" id="dash-welcome">Loading…</p>
+        </div>
+        <div class="dash-links">
+          <a href="account.html?stay=1">Sign in as someone else</a>
+          <a href="#" id="dash-logout">Log out</a>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="dash-card">
+          <h2>Change password</h2>
+          <p class="hint">Use a strong password you do not reuse on other sites.</p>
+          <form id="form-password">
+            <div class="form-row">
+              <label for="pw-current">Current password</label>
+              <input id="pw-current" type="password" autocomplete="current-password" required>
+            </div>
+            <div class="form-row">
+              <label for="pw-new">New password</label>
+              <input id="pw-new" type="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="form-row">
+              <label for="pw-new2">Confirm new password</label>
+              <input id="pw-new2" type="password" autocomplete="new-password" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary">Update password</button>
+          </form>
+          <p class="status" id="pw-status"></p>
+        </div>
+
+        <div class="dash-card">
+          <h2>Change username</h2>
+          <p class="hint">Usernames are unique (case-insensitive). Your password confirms this change.</p>
+          <form id="form-username">
+            <div class="form-row">
+              <label for="uname-new">New username</label>
+              <input id="uname-new" type="text" autocomplete="username" required minlength="3">
+            </div>
+            <div class="form-row">
+              <label for="uname-password">Password</label>
+              <input id="uname-password" type="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Save username</button>
+          </form>
+          <p class="status" id="uname-status"></p>
+        </div>
+
+        <div class="dash-card full-span">
+          <h2>Email</h2>
+          <p class="hint">
+            Daily chess challenge digest is sent around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
+            Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. Challenge IDs in the email match the in-game list (UTC calendar day).
+          </p>
+          <div class="check-row">
+            <input type="checkbox" id="email-digest-on">
+            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily chess challenge digest</label>
+          </div>
+          <div class="form-row">
+            <label for="email-tz">Digest time zone (IANA)</label>
+            <select id="email-tz">
+              <option value="America/Chicago">US Central — America/Chicago (default)</option>
+              <option value="America/New_York">US Eastern — America/New_York</option>
+              <option value="America/Denver">US Mountain — America/Denver</option>
+              <option value="America/Los_Angeles">US Pacific — America/Los_Angeles</option>
+              <option value="America/Phoenix">US Arizona — America/Phoenix</option>
+              <option value="UTC">UTC</option>
+              <option value="Europe/London">UK — Europe/London</option>
+              <option value="Europe/Paris">Central Europe — Europe/Paris</option>
+              <option value="Asia/Tokyo">Japan — Asia/Tokyo</option>
+              <option value="Australia/Sydney">Australia — Australia/Sydney</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
+          <p class="status" id="email-pref-status"></p>
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
+          <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
+          <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
+          <p class="status" id="welcome-status"></p>
+        </div>
+
+        <div class="dash-card">
+          <h2>Chess store &amp; TrifangX</h2>
+          <p class="hint">Spend points on boards, pieces, and more. Settings and achievements open in the chess engine.</p>
+          <p style="margin:0 0 10px 0;">
+            <a class="btn btn-primary" href="chess_engine.html?open=shop" style="text-decoration:none;display:inline-block;">Open chess store</a>
+          </p>
+          <p style="margin:0 0 10px 0;">
+            <a class="btn btn-ghost" href="chess_engine.html?open=settings" style="text-decoration:none;display:inline-block;">TrifangX settings</a>
+          </p>
+          <p style="margin:0;">
+            <a class="btn btn-ghost" href="chess_engine.html?open=achievements" style="text-decoration:none;display:inline-block;">Achievements</a>
+          </p>
+        </div>
+
+        <div class="dash-card">
+          <h2>Delete account</h2>
+          <p class="hint">Permanently removes your cloud data. You will receive a confirmation email after deletion.</p>
+          <a class="btn btn-danger-outline" href="delete-account.html" style="text-decoration:none;display:inline-block;">Delete account…</a>
+        </div>
+      </div>
+    </main>
+    <div class="push"></div>
+  </div>
+  <footer>
+    <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+  </footer>
+
+  <script>
+    const API_BASE_URL =
+      window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+
+    function getSessionId() {
+      return localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
+    }
+
+    function setStatus(el, msg, kind) {
+      if (!el) return;
+      el.textContent = msg || '';
+      el.classList.remove('ok', 'err');
+      if (kind === 'ok') el.classList.add('ok');
+      if (kind === 'err') el.classList.add('err');
+    }
+
+    async function requireUser() {
+      const sessionId = getSessionId();
+      if (!sessionId) {
+        window.location.href = 'account.html';
+        return null;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/user`, {
+        headers: { 'Authorization': `Bearer ${sessionId}` },
+      });
+      if (!res.ok) {
+        localStorage.removeItem('ahrenslabs_sessionId');
+        localStorage.removeItem('chessSessionId');
+        window.location.href = 'account.html';
+        return null;
+      }
+      return res.json();
+    }
+
+    function applyUserToForm(user) {
+      const w = document.getElementById('dash-welcome');
+      const uname = user.username || 'Player';
+      const em = user.email || '';
+      if (w) w.textContent = `Signed in as ${uname}` + (em ? ` · ${em}` : '');
+
+      localStorage.setItem('ahrenslabs_username', uname);
+      if (em) localStorage.setItem('ahrenslabs_email', em);
+
+      const cb = document.getElementById('email-digest-on');
+      const tz = document.getElementById('email-tz');
+      const ep = user.emailPreferences || {};
+      if (cb) cb.checked = !!ep.dailyChallengeEmails;
+      if (tz && ep.digestTimeZone) {
+        const opt = Array.from(tz.options).find((o) => o.value === ep.digestTimeZone);
+        if (opt) tz.value = ep.digestTimeZone;
+      }
+
+      const un = document.getElementById('uname-new');
+      if (un) un.value = uname;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const user = await requireUser();
+      if (!user) return;
+      applyUserToForm(user);
+
+      document.getElementById('dash-logout').addEventListener('click', (e) => {
+        e.preventDefault();
+        const sessionId = getSessionId();
+        if (sessionId) {
+          fetch(`${API_BASE_URL}/api/logout`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${sessionId}` },
+          }).catch(() => {});
+        }
+        localStorage.removeItem('ahrenslabs_sessionId');
+        localStorage.removeItem('chessSessionId');
+        localStorage.removeItem('ahrenslabs_username');
+        localStorage.removeItem('ahrenslabs_userId');
+        window.location.href = 'account.html';
+      });
+
+      document.getElementById('form-password').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const st = document.getElementById('pw-status');
+        const cur = document.getElementById('pw-current').value;
+        const n1 = document.getElementById('pw-new').value;
+        const n2 = document.getElementById('pw-new2').value;
+        if (n1 !== n2) {
+          setStatus(st, 'New passwords do not match.', 'err');
+          return;
+        }
+        const sessionId = getSessionId();
+        const res = await fetch(`${API_BASE_URL}/api/change-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionId}`,
+          },
+          body: JSON.stringify({ currentPassword: cur, newPassword: n1 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          document.getElementById('pw-current').value = '';
+          document.getElementById('pw-new').value = '';
+          document.getElementById('pw-new2').value = '';
+          setStatus(st, 'Password updated.', 'ok');
+        } else {
+          setStatus(st, data.error || 'Could not update password.', 'err');
+        }
+      });
+
+      document.getElementById('form-username').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const st = document.getElementById('uname-status');
+        const sessionId = getSessionId();
+        const newUsername = document.getElementById('uname-new').value.trim();
+        const password = document.getElementById('uname-password').value;
+        const res = await fetch(`${API_BASE_URL}/api/change-username`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionId}`,
+          },
+          body: JSON.stringify({ newUsername, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          localStorage.setItem('ahrenslabs_username', data.username || newUsername);
+          document.getElementById('uname-password').value = '';
+          setStatus(st, 'Username updated.', 'ok');
+          const w = document.getElementById('dash-welcome');
+          const em = user.email || '';
+          if (w) w.textContent = `Signed in as ${data.username || newUsername}` + (em ? ` · ${em}` : '');
+        } else {
+          setStatus(st, data.error || 'Could not change username.', 'err');
+        }
+      });
+
+      document.getElementById('btn-save-email-prefs').addEventListener('click', async () => {
+        const st = document.getElementById('email-pref-status');
+        const sessionId = getSessionId();
+        const dailyChallengeEmails = document.getElementById('email-digest-on').checked;
+        const digestTimeZone = document.getElementById('email-tz').value;
+        const res = await fetch(`${API_BASE_URL}/api/email-preferences`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionId}`,
+          },
+          body: JSON.stringify({ dailyChallengeEmails, digestTimeZone }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          let msg = dailyChallengeEmails
+            ? 'Saved. You should get the digest around midnight in your selected time zone.'
+            : 'Saved. Daily digest is off.';
+          if (data.warning) msg += ' ' + data.warning;
+          setStatus(st, msg, 'ok');
+        } else {
+          setStatus(st, data.error || 'Could not save.', 'err');
+        }
+      });
+
+      document.getElementById('btn-resend-welcome').addEventListener('click', async () => {
+        const st = document.getElementById('welcome-status');
+        const sessionId = getSessionId();
+        const res = await fetch(`${API_BASE_URL}/api/resend-welcome-email`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${sessionId}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          setStatus(st, data.message || 'Sent.', 'ok');
+        } else {
+          setStatus(st, data.error || 'Could not send.', 'err');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

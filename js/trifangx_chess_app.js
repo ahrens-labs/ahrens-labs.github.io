@@ -11167,7 +11167,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     // Initialize account system
     function initAccountSystem() {
       // Check for existing session
-      const savedSession = localStorage.getItem('chessSessionId');
+      const savedSession =
+        localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
       if (savedSession) {
         currentSessionId = savedSession;
         checkSession();
@@ -11207,6 +11208,26 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       checkEngineStatus().then(() => {
         if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) ensurePregameStatusPolling();
       }).catch(() => {});
+      tryConsumeChessUrlOpenParam();
+    }
+
+    /** Deep links: chess_engine.html?open=shop|settings|achievements */
+    function tryConsumeChessUrlOpenParam() {
+      try {
+        const open = new URLSearchParams(window.location.search).get('open');
+        if (!open) return;
+        const u = new URL(window.location.href);
+        u.searchParams.delete('open');
+        window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+        const run = () => {
+          if (open === 'shop' && typeof showShop === 'function') showShop();
+          else if (open === 'settings' && typeof showSettings === 'function') showSettings();
+          else if (open === 'achievements' && typeof showAllAchievements === 'function') showAllAchievements(false);
+        };
+        setTimeout(run, 0);
+      } catch (e) {
+        console.warn('tryConsumeChessUrlOpenParam', e);
+      }
     }
     
     // Switch login page tab
@@ -11309,6 +11330,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const userData = await response.json();
           isLoggedIn = true;
           currentUserId = userData.userId || null;
+          if (currentSessionId) {
+            localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
+            localStorage.setItem('chessSessionId', currentSessionId);
+          }
           updateAccountUI(true, userData.username || userData.email);
           // Sync user data to localStorage
           syncUserDataToLocal(userData);
@@ -11348,6 +11373,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           currentUserId = data.userId;
           isLoggedIn = true;
           localStorage.setItem('chessSessionId', currentSessionId);
+          localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
           localStorage.setItem('accountUsername', username);
           updateAccountUI(true, username);
           
@@ -11405,6 +11431,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           currentUserId = data.userId;
           isLoggedIn = true;
           localStorage.setItem('chessSessionId', currentSessionId);
+          localStorage.setItem('ahrenslabs_sessionId', currentSessionId);
           // Save username from login response
           if (data.username) {
             localStorage.setItem('accountUsername', data.username);
@@ -11448,6 +11475,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       currentUserId = null;
       isLoggedIn = false;
       localStorage.removeItem('chessSessionId');
+      localStorage.removeItem('ahrenslabs_sessionId');
       localStorage.removeItem('accountUsername');
       updateAccountUI(false, null);
       updateHeaderAuthButtons();

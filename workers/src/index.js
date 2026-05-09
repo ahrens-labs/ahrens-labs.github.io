@@ -6,6 +6,9 @@ import {
   DAILY_CHALLENGE_DIGEST_BLURBS,
 } from './daily-challenge-picker.js';
 
+/** Default when user has not picked a timezone (US Central). */
+const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
+
 export default {
   async fetch(request, env, executionCtx) {
     const url = new URL(request.url);
@@ -37,6 +40,10 @@ export default {
         return handleGetUser(request, env, corsHeaders);
       } else if (path === '/api/email-preferences' && request.method === 'POST') {
         return handleEmailPreferences(request, env, corsHeaders);
+      } else if (path === '/api/resend-welcome-email' && request.method === 'POST') {
+        return handleResendWelcomeEmail(request, env, corsHeaders, executionCtx);
+      } else if (path === '/api/change-username' && request.method === 'POST') {
+        return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
         return handleChangePassword(request, env, corsHeaders);
       } else if (path === '/api/delete-account' && request.method === 'POST') {
@@ -324,6 +331,155 @@ async function handleChangePassword(request, env, corsHeaders) {
   }
 
   return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleResendWelcomeEmail(request, env, corsHeaders, executionCtx) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userAccountId = env.USER_ACCOUNT.idFromName(userResult.userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const dataRes = await userAccount.fetch(getDataReq);
+  const row = await dataRes.json();
+
+  if (!row || typeof row !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const email = normalizeEmail(row.email || '');
+  const username = row.username || 'there';
+  if (!email || !isLikelyRealEmail(email)) {
+    return new Response(JSON.stringify({ error: 'No valid email on file' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const run = () =>
+    sendWelcomeGuideEmail(env, email, username).catch((err) => {
+      const w = summarizeEmailSendError(err);
+      console.error('Resend welcome email failed:', w.code, w.message, w.hint || '');
+    });
+
+  if (executionCtx && typeof executionCtx.waitUntil === 'function') {
+    executionCtx.waitUntil(run());
+  } else {
+    await run();
+  }
+
+  return new Response(JSON.stringify({ success: true, message: 'If email is working, the info message is on its way.' }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function handleChangeUsername(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { newUsername, password } = body;
+  if (!password || typeof password !== 'string') {
+    return new Response(JSON.stringify({ error: 'Password is required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (newUsername == null || String(newUsername).trim() === '') {
+    return new Response(JSON.stringify({ error: 'New username is required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const changeReq = new Request('http://do/changeUsername', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newUsername: String(newUsername).trim(), password }),
+  });
+  const changeRes = await userAccount.fetch(changeReq);
+  const result = await changeRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Could not change username' }), {
+      status: changeRes.status === 409 ? 409 : 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (env.DAILY_DIGEST_KV) {
+    try {
+      const key = `sub:${userId}`;
+      const prev = await env.DAILY_DIGEST_KV.get(key, 'json');
+      if (prev && typeof prev === 'object' && typeof prev.email === 'string') {
+        await env.DAILY_DIGEST_KV.put(
+          key,
+          JSON.stringify({
+            ...prev,
+            username: result.username || String(newUsername).trim(),
+          })
+        );
+      }
+    } catch (e) {
+      console.error('digest KV username refresh failed:', e?.message || e);
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, username: result.username }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -1062,8 +1218,22 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     });
   }
 
-  if (typeof body.dailyChallengeEmails !== 'boolean') {
-    return new Response(JSON.stringify({ error: 'Body must include dailyChallengeEmails: true/false' }), {
+  const hasEmails = typeof body.dailyChallengeEmails === 'boolean';
+  const tzRaw = body.digestTimeZone != null ? String(body.digestTimeZone).trim() : '';
+  const hasTz = tzRaw !== '';
+
+  if (!hasEmails && !hasTz) {
+    return new Response(
+      JSON.stringify({ error: 'Send dailyChallengeEmails and/or digestTimeZone (IANA, e.g. America/Chicago)' }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  if (hasTz && !isValidIanaTimeZone(tzRaw)) {
+    return new Response(JSON.stringify({ error: 'Invalid digestTimeZone — use an IANA name like America/Chicago' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -1086,21 +1256,14 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
 
-  const getDataReq = new Request('http://do/getData', { method: 'GET' });
-  const dataRes = await userAccount.fetch(getDataReq);
-  const userRow = await dataRes.json();
-
-  if (!userRow || typeof userRow !== 'object') {
-    return new Response(JSON.stringify({ error: 'Account not found' }), {
-      status: 404,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  const setPayload = {};
+  if (hasEmails) setPayload.dailyChallengeEmails = body.dailyChallengeEmails;
+  if (hasTz) setPayload.digestTimeZone = tzRaw;
 
   const setReq = new Request('http://do/setEmailPreferences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dailyChallengeEmails: body.dailyChallengeEmails }),
+    body: JSON.stringify(setPayload),
   });
   const setRes = await userAccount.fetch(setReq);
   const setResult = await setRes.json();
@@ -1112,14 +1275,44 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     });
   }
 
-  const email = normalizeEmail(userRow.email || '');
-  const username = userRow.username || 'there';
+  const getDataReq = new Request('http://do/getData', { method: 'GET' });
+  const dataRes2 = await userAccount.fetch(getDataReq);
+  const fresh = await dataRes2.json();
+
+  if (!fresh || typeof fresh !== 'object') {
+    return new Response(JSON.stringify({ error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const prefs = fresh.emailPreferences || {};
+  const email = normalizeEmail(fresh.email || '');
+  const username = fresh.username || 'there';
+  const digestTz = prefs.digestTimeZone || DEFAULT_DIGEST_TIMEZONE;
 
   if (env.DAILY_DIGEST_KV) {
     const key = `sub:${userId}`;
     try {
-      if (body.dailyChallengeEmails) {
-        await env.DAILY_DIGEST_KV.put(key, JSON.stringify({ email, username }));
+      if (prefs.dailyChallengeEmails) {
+        let prev = null;
+        try {
+          prev = await env.DAILY_DIGEST_KV.get(key, 'json');
+        } catch {
+          prev = null;
+        }
+        await env.DAILY_DIGEST_KV.put(
+          key,
+          JSON.stringify({
+            email,
+            username,
+            digestTimeZone: digestTz,
+            lastDigestLocalYmd:
+              prev && typeof prev === 'object' && typeof prev.lastDigestLocalYmd === 'string'
+                ? prev.lastDigestLocalYmd
+                : undefined,
+          })
+        );
       } else {
         await env.DAILY_DIGEST_KV.delete(key);
       }
@@ -1136,12 +1329,12 @@ async function handleEmailPreferences(request, env, corsHeaders) {
         }
       );
     }
-  } else if (body.dailyChallengeEmails) {
+  } else if (prefs.dailyChallengeEmails) {
     console.warn('email-preferences: DAILY_DIGEST_KV is not bound; digest emails will not be delivered');
   }
 
   let warning;
-  if (!env.DAILY_DIGEST_KV && body.dailyChallengeEmails) {
+  if (!env.DAILY_DIGEST_KV && prefs.dailyChallengeEmails) {
     warning =
       'Digest list storage is not configured on this Worker; opt-in saved but automated emails require DAILY_DIGEST_KV.';
   }
@@ -1149,7 +1342,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   return new Response(
     JSON.stringify({
       success: true,
-      emailPreferences: setResult.emailPreferences || { dailyChallengeEmails: body.dailyChallengeEmails },
+      emailPreferences: prefs,
       ...(warning ? { warning } : {}),
     }),
     {
@@ -1224,6 +1417,35 @@ function normalizeUsernameForIndex(username) {
 function normalizeEmail(email) {
   if (email == null || typeof email !== 'string') return '';
   return email.trim().toLowerCase();
+}
+
+function isValidIanaTimeZone(timeZone) {
+  if (typeof timeZone !== 'string' || !timeZone.trim()) return false;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timeZone.trim() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hourInTimeZone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const h = parts.find((p) => p.type === 'hour');
+  return h ? parseInt(h.value, 10) : 0;
+}
+
+function ymdInTimeZone(date, timeZone) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
 /** For /api/login only: accept any plausible email so legacy accounts work (signup still uses isLikelyRealEmail). */
@@ -1663,11 +1885,20 @@ function formatDailyDigestLines(challengeIds) {
   return lines.join('\n');
 }
 
-async function sendDailyDigestEmail(env, { email, username }, utcDateStr, challengeIds) {
+async function sendDailyDigestEmail(
+  env,
+  { email, username },
+  utcDateStr,
+  challengeIds,
+  digestTimeZoneLabel
+) {
   if (!email || typeof email !== 'string') return;
   const safeName = String(username || 'there').replace(/[<>]/g, '');
   const base = sitePublicBase(env);
   const chessUrl = `${base}/chess_engine.html`;
+  const tzNote = digestTimeZoneLabel
+    ? `This send is timed for the start of your day (${digestTimeZoneLabel}).`
+    : '';
   const listHtml = challengeIds
     .map((id) => {
       const hint = DAILY_CHALLENGE_DIGEST_BLURBS[id];
@@ -1675,25 +1906,27 @@ async function sendDailyDigestEmail(env, { email, username }, utcDateStr, challe
       return `<li style="margin: 6px 0;">${label}</li>`;
     })
     .join('');
-  const subject = `Chess daily challenges — ${utcDateStr} (UTC)`;
+  const subject = `Chess daily challenges — ${utcDateStr} (UTC calendar)`;
   const html = `
     <html>
       <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">Today’s chess challenges (UTC)</h2>
+        <h2 style="color: #2c3e50;">Chess daily challenges</h2>
         <p>Hi ${safeName},</p>
-        <p>For <strong>${utcDateStr}</strong> (UTC calendar day), your three deterministic daily challenge IDs are:</p>
+        <p>For the global UTC calendar day <strong>${utcDateStr}</strong>, today’s three daily challenge IDs (same for every player) are:</p>
         <ul style="line-height: 1.5;">${listHtml}</ul>
         <p>Open the engine to track progress: <a href="${chessUrl}" style="color: #3498db;">${chessUrl}</a></p>
-        <p style="color: #7f8c8d; font-size: 0.88em;">You asked for this digest on your account. In-app dailies use your device’s local date; they usually match when your local day is the same as this UTC day.</p>
+        <p style="color: #7f8c8d; font-size: 0.88em;">${tzNote} Challenge IDs always follow the UTC date shown above so they match the in-game list.</p>
       </body>
     </html>`;
   const text = [
     `Hi ${safeName},`,
     '',
-    `Chess daily challenges for ${utcDateStr} (UTC):`,
+    `Chess daily challenges for UTC date ${utcDateStr} (global, same for everyone):`,
     formatDailyDigestLines(challengeIds),
     '',
     `Open: ${chessUrl}`,
+    '',
+    tzNote,
     '',
     'You subscribed to this digest in account settings.',
   ].join('\n');
@@ -1706,18 +1939,37 @@ async function handleScheduledCron(event, env) {
     console.log('scheduled: DAILY_DIGEST_KV not bound, skipping digest');
     return;
   }
-  const dateString = utcDateString(new Date());
-  const ids = getDailyChallengeIdsForUtcDate(dateString);
+  const now = new Date();
+  const utcDateStr = utcDateString(now);
+  const ids = getDailyChallengeIdsForUtcDate(utcDateStr);
   let cursor;
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
   do {
     const list = await env.DAILY_DIGEST_KV.list({ prefix: 'sub:', cursor });
     for (const { name } of list.keys) {
       try {
         const raw = await env.DAILY_DIGEST_KV.get(name, 'json');
         if (!raw || typeof raw.email !== 'string') continue;
-        await sendDailyDigestEmail(env, raw, dateString, ids);
+
+        let tz = typeof raw.digestTimeZone === 'string' && raw.digestTimeZone.trim() ? raw.digestTimeZone.trim() : DEFAULT_DIGEST_TIMEZONE;
+        if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
+
+        const localYmd = ymdInTimeZone(now, tz);
+        const hour = hourInTimeZone(now, tz);
+        if (hour !== 0) {
+          skipped++;
+          continue;
+        }
+        if (raw.lastDigestLocalYmd === localYmd) {
+          skipped++;
+          continue;
+        }
+
+        await sendDailyDigestEmail(env, raw, utcDateStr, ids, tz);
+        const next = { ...raw, digestTimeZone: tz, lastDigestLocalYmd: localYmd };
+        await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
         sent++;
       } catch (e) {
         failed++;
@@ -1726,7 +1978,7 @@ async function handleScheduledCron(event, env) {
     }
     cursor = list.list_complete ? undefined : list.cursor;
   } while (cursor);
-  console.log('Daily digest cron', { dateString, sent, failed, cron: event.cron });
+  console.log('Daily digest cron', { utcDateStr, sent, failed, skipped, cron: event.cron });
 }
 
 function generatePasswordResetToken() {
@@ -2232,6 +2484,13 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/changeUsername' && request.method === 'POST') {
+        const { newUsername, password } = await request.json();
+        const result = await this.changeUsername(newUsername, password);
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : result.status || 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/deleteAccount' && request.method === 'POST') {
         const { password } = await request.json();
         const result = await this.deleteAccount(password);
@@ -2348,7 +2607,7 @@ export class UserAccount {
       createdAt: Date.now(),
       emailVerified: false,
       verificationToken: null,
-      emailPreferences: { dailyChallengeEmails: false },
+      emailPreferences: { dailyChallengeEmails: false, digestTimeZone: DEFAULT_DIGEST_TIMEZONE },
       games: {
         chess: {
           achievements: {},
@@ -2455,8 +2714,15 @@ export class UserAccount {
     const epRaw = safeData.emailPreferences;
     const emailPreferences =
       epRaw && typeof epRaw === 'object'
-        ? { dailyChallengeEmails: false, ...epRaw }
-        : { dailyChallengeEmails: false };
+        ? {
+            dailyChallengeEmails: false,
+            digestTimeZone: DEFAULT_DIGEST_TIMEZONE,
+            ...epRaw,
+          }
+        : { dailyChallengeEmails: false, digestTimeZone: DEFAULT_DIGEST_TIMEZONE };
+    if (!emailPreferences.digestTimeZone || !isValidIanaTimeZone(String(emailPreferences.digestTimeZone))) {
+      emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
+    }
     return {
       userId: this.state.id.toString(),
       ...safeData,
@@ -2563,13 +2829,91 @@ export class UserAccount {
       return { success: false, error: 'User not found' };
     }
     if (!userData.emailPreferences || typeof userData.emailPreferences !== 'object') {
-      userData.emailPreferences = { dailyChallengeEmails: false };
+      userData.emailPreferences = { dailyChallengeEmails: false, digestTimeZone: DEFAULT_DIGEST_TIMEZONE };
+    } else if (
+      !userData.emailPreferences.digestTimeZone ||
+      !isValidIanaTimeZone(String(userData.emailPreferences.digestTimeZone))
+    ) {
+      userData.emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
     }
     if (body && typeof body.dailyChallengeEmails === 'boolean') {
       userData.emailPreferences.dailyChallengeEmails = body.dailyChallengeEmails;
     }
+    if (body && body.digestTimeZone != null && typeof body.digestTimeZone === 'string') {
+      const tz = body.digestTimeZone.trim();
+      if (!isValidIanaTimeZone(tz)) {
+        return { success: false, error: 'Invalid digestTimeZone' };
+      }
+      userData.emailPreferences.digestTimeZone = tz;
+    }
     await this.storage.put('userData', userData);
     return { success: true, emailPreferences: userData.emailPreferences };
+  }
+
+  async changeUsername(newUsernameDisplay, password) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'Account not found', status: 404 };
+    }
+    const ok = await verifyStoredPassword(password || '', userData.passwordHash);
+    if (!ok) {
+      return { success: false, error: 'Password is incorrect' };
+    }
+
+    const trimmed = String(newUsernameDisplay || '').trim();
+    if (trimmed.length < 3) {
+      return { success: false, error: 'Username must be at least 3 characters' };
+    }
+    if (trimmed.length > 40) {
+      return { success: false, error: 'Username is too long' };
+    }
+
+    const newKey = normalizeUsernameForIndex(trimmed);
+    const oldKey = normalizeUsernameForIndex(userData.username || '');
+    if (!newKey) {
+      return { success: false, error: 'Invalid username' };
+    }
+
+    const registryUserId = generateUserId(normalizeEmail(userData.email || ''));
+
+    if (newKey !== oldKey) {
+      const usernameRegistryId = this.env.USERNAME_REGISTRY.idFromName('global');
+      const usernameRegistry = this.env.USERNAME_REGISTRY.get(usernameRegistryId);
+      const reserveReq = new Request('http://do/reserve', {
+        method: 'POST',
+        body: JSON.stringify({ username: newKey, userId: registryUserId }),
+      });
+      const reserveRes = await usernameRegistry.fetch(reserveReq);
+      let reserveData = null;
+      try {
+        reserveData = await reserveRes.json();
+      } catch {
+        reserveData = null;
+      }
+      if (!reserveRes.ok || !reserveData?.success) {
+        return {
+          success: false,
+          error: reserveData?.error || 'Username is already taken',
+          status: reserveRes.status === 409 ? 409 : 400,
+        };
+      }
+
+      userData.username = trimmed;
+      await this.storage.put('userData', userData);
+
+      if (oldKey) {
+        const releaseReq = new Request('http://do/release', {
+          method: 'POST',
+          body: JSON.stringify({ username: oldKey, userId: registryUserId }),
+        });
+        await usernameRegistry.fetch(releaseReq);
+      }
+    } else {
+      userData.username = trimmed;
+      await this.storage.put('userData', userData);
+    }
+
+    return { success: true, username: userData.username };
   }
 
   async changePassword(currentPassword, newPassword) {

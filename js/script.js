@@ -37,22 +37,7 @@ function getCurrentPageReturnTarget() {
 window.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     
-    // If on account.html and already logged in, handle return URL
-    if (window.location.pathname.endsWith('account.html')) {
-        const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-        const urlParams = new URLSearchParams(window.location.search);
-        const manageMode = urlParams.get('manage') === '1';
-        if (sessionId) {
-            // Logged in: send to return target, or account management (header Account link has no ?manage=1)
-            if (!manageMode) {
-                const returnUrl = urlParams.get('return') || 'account.html?manage=1';
-                console.log('Already logged in on account page, redirecting to:', returnUrl);
-                setTimeout(() => {
-                    window.location.href = returnUrl;
-                }, 500);
-            }
-        }
-    }
+    // Legacy: script.js used to bounce logged-in users off account.html; account.html now redirects itself to the dashboard.
 });
 
 async function checkLoginStatus() {
