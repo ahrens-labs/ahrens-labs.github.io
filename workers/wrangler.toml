@@ -41,8 +41,8 @@ new_sqlite_classes = ["UsernameRegistry"]
 name = "EMAIL_TRANSACTIONAL"
 
 [vars]
-# Onboarded domain address (Cloudflare Email Sending) or Resend-verified address if using RESEND_API_KEY only.
-SENDER_EMAIL = "matt@ahrenslabs.com"
+# From address — must be allowed by Cloudflare Email Sending and/or Resend (same domain ok if root domain is verified).
+SENDER_EMAIL = "caleb@ahrenslabs.com"
 # Set to "resend" to skip Cloudflare Email send entirely (needs RESEND_API_KEY). Fixes stubborn E_RECIPIENT_NOT_ALLOWED from account/dashboard allowlists.
 # TRANSACTIONAL_EMAIL_VIA = "resend"
 # Optional display name on the From header for Cloudflare Email Service (default "Ahrens Labs").
