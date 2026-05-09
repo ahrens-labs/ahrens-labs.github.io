@@ -42,7 +42,7 @@ export default {
       } else if (path === '/api/email-preferences' && request.method === 'POST') {
         return handleEmailPreferences(request, env, corsHeaders);
       } else if (path === '/api/resend-welcome-email' && request.method === 'POST') {
-        return handleResendWelcomeEmail(request, env, corsHeaders, executionCtx);
+        return handleResendWelcomeEmail(request, env, corsHeaders);
       } else if (path === '/api/send-daily-challenges-now' && request.method === 'POST') {
         return handleSendDailyChallengesNow(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
@@ -338,7 +338,7 @@ async function handleChangePassword(request, env, corsHeaders) {
   });
 }
 
-async function handleResendWelcomeEmail(request, env, corsHeaders, executionCtx) {
+async function handleResendWelcomeEmail(request, env, corsHeaders) {
   const sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId) {
     return new Response(JSON.stringify({ error: 'Not authenticated' }), {
@@ -382,21 +382,24 @@ async function handleResendWelcomeEmail(request, env, corsHeaders, executionCtx)
     });
   }
 
-  const run = () =>
-    sendWelcomeGuideEmail(env, email, username).catch((err) => {
-      const w = summarizeEmailSendError(err);
-      console.error('Resend welcome email failed:', w.code, w.message, w.hint || '');
+  try {
+    await sendWelcomeGuideEmail(env, email, username);
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    console.error('Resend welcome email failed:', w.code, w.message, w.hint || '');
+    const clientMsg = w.hint || w.message || 'Could not send email.';
+    return new Response(JSON.stringify({ success: false, error: clientMsg }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-  if (executionCtx && typeof executionCtx.waitUntil === 'function') {
-    executionCtx.waitUntil(run());
-  } else {
-    await run();
   }
 
-  return new Response(JSON.stringify({ success: true, message: 'If email is working, the info message is on its way.' }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({ success: true, message: 'Check your inbox for your info email.' }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
 }
 
 async function handleSendDailyChallengesNow(request, env, corsHeaders) {

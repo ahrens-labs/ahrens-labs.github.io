@@ -530,7 +530,7 @@
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
-            setStatus(st, data.message || 'Sent.', 'ok');
+            setStatus(st, 'Check your inbox for your info email.', 'ok');
           } else {
             setStatus(st, data.error || 'Could not send.', 'err');
           }
