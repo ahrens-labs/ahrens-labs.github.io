@@ -11363,26 +11363,18 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           updateAccountUI(true, username);
           
           if (data.verificationEmailSent === true) {
-            showNotification(
-              data.message
-                || 'Account created! The mail provider accepted a confirmation message — check your inbox and spam folder.',
-              'success',
-              6500
-            );
+            showNotification(data.message || 'Confirmation email sent!', 'success', 4500);
           } else {
             const codeTag =
               data.emailSendError && data.emailSendError.code
                 ? ` [${data.emailSendError.code}]`
                 : '';
             const body =
-              data.message
-              || (data.verificationEmailSent === false
-                ? 'Account created, but the confirmation email was not accepted by the mail provider.'
-                : 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration.');
+              data.message || 'Account created. Confirmation email not sent.';
             if (data.emailSendError) {
               console.warn('Signup emailSendError', data.emailSendError);
             }
-            showNotification(body + codeTag, 'warning', 12000);
+            showNotification(body + codeTag, 'warning', 9000);
           }
           
           // Sync current localStorage data to account

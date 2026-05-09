@@ -71,25 +71,18 @@ async function signup(email, password, username) {
       localStorage.setItem('chessSessionId', currentSessionId);
       updateAccountUI(true, username);
       if (data.verificationEmailSent === true) {
-        showNotification(
-          data.message
-            || 'Account created! The mail provider accepted a confirmation message.',
-          'success'
-        );
+        showNotification(data.message || 'Confirmation email sent!', 'success');
       } else {
         const codeTag =
           data.emailSendError && data.emailSendError.code
             ? ` [${data.emailSendError.code}]`
             : '';
         const body =
-          data.message
-          || (data.verificationEmailSent === false
-            ? 'Account created, but the confirmation email was not accepted by the mail provider.'
-            : 'Account created, but we could not confirm the confirmation email was queued.');
+          data.message || 'Account created. Confirmation email not sent.';
         if (data.emailSendError) {
           console.warn('Signup emailSendError', data.emailSendError);
         }
-        showNotification(body + codeTag, 'warning', 12000);
+        showNotification(body + codeTag, 'warning');
       }
       closeAccountModal();
       // Sync current localStorage data to account

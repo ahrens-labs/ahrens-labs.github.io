@@ -225,10 +225,10 @@ async function handleSignup(request, env, corsHeaders) {
   await session.fetch(sessionReq);
 
   const failMsg = emailSendError?.hint
-    ? `Account created, but email was not sent: ${emailSendError.hint}`
+    ? `Account created. Confirmation email not sent — ${emailSendError.hint}`
     : (emailSendError?.message
-      ? `Account created, but email was not sent (${emailSendError.code || 'error'}).`
-      : 'Account created, but we could not send the confirmation email. Check Worker logs (Email Service / SENDER_EMAIL) or try Forgot password after signing in.');
+      ? `Account created. Confirmation email not sent${emailSendError.code ? ` [${emailSendError.code}]` : ''}.`
+      : 'Account created. Confirmation email not sent.');
 
   return new Response(JSON.stringify({ 
     success: true, 
@@ -238,9 +238,7 @@ async function handleSignup(request, env, corsHeaders) {
     email: normalizedEmail,
     verificationEmailSent,
     emailSendError,
-    message: verificationEmailSent
-      ? 'Account created! Check your email for a link to confirm your address.'
-      : failMsg,
+    message: verificationEmailSent ? 'Confirmation email sent!' : failMsg,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1373,8 +1371,7 @@ async function sendPasswordResetEmail(env, email, username, token) {
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
 }
 
-const FORGOT_PASSWORD_OK_MESSAGE =
-  'If an account exists for that email, you will receive a reset link shortly.';
+const FORGOT_PASSWORD_OK_MESSAGE = 'Email sent!';
 
 async function handleForgotPassword(request, env, corsHeaders) {
   let body;

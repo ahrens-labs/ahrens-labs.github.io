@@ -794,25 +794,10 @@
                 }
                 if (data && data.emailSendError) {
                     console.warn('Forgot-password emailSendError', data.emailSendError);
-                    const hint = data.emailSendError.hint || data.emailSendError.message || '';
                     const code = data.emailSendError.code ? ` [${data.emailSendError.code}]` : '';
-                    showNotification(
-                        hint
-                            ? `Could not send reset email.${code} ${hint}`
-                            : ((data.message ||
-                                'If an account exists for that email, you will receive a reset link shortly.') +
-                                code),
-                        'warning',
-                        14000
-                    );
+                    showNotification('Could not send email.' + code, 'warning', 7000);
                 } else {
-                    showNotification(
-                        (data && data.message)
-                            ? `${data.message} If nothing arrives, use the exact email on your account (try signing in with username first), check spam, and confirm the site is using the live chess-accounts Worker URL.`
-                            : 'If an account exists for that email, you will receive a reset link shortly.',
-                        'info',
-                        9000
-                    );
+                    showNotification((data && data.message) ? data.message : 'Email sent!', 'success', 4000);
                 }
                 switchTab('login');
             } catch (err) {
@@ -821,11 +806,9 @@
                     (err && err.name === 'TypeError') ||
                     /failed to fetch|networkerror|load failed|name not resolved/i.test(String(err && err.message));
                 showNotification(
-                    isNetwork
-                        ? 'Could not reach the account server. Check your connection, then confirm Workers → chess-accounts shows the same URL as window.AHRENS_LABS_API_BASE in js/script.js (deploy output: https://chess-accounts.<subdomain>.workers.dev).'
-                        : 'Could not send reset email. Try again.',
+                    isNetwork ? "Can't reach the account server." : 'Something went wrong. Try again.',
                     'error',
-                    isNetwork ? 9000 : 4000
+                    4500
                 );
             }
         }
@@ -914,12 +897,7 @@
                     localStorage.setItem('ahrenslabs_email', email);
                     
                     if (data.verificationEmailSent === true) {
-                        showNotification(
-                            data.message
-                                || 'Account created! The mail provider accepted a confirmation message — check your inbox and spam folder.',
-                            'success',
-                            6500
-                        );
+                        showNotification(data.message || 'Confirmation email sent!', 'success', 4500);
                     } else {
                         const codeTag =
                             data.emailSendError && data.emailSendError.code
@@ -928,12 +906,12 @@
                         const body =
                             data.message
                             || (data.verificationEmailSent === false
-                                ? 'Account created, but the confirmation email was not accepted by the mail provider. Check SENDER_EMAIL, Email binding, and Worker logs.'
-                                : 'Account created, but we could not confirm the confirmation email was queued. Check Worker email configuration or try Forgot password after signing in.');
+                                ? 'Account created. Confirmation email not sent.'
+                                : 'Account created. Confirmation email not sent.');
                         if (data.emailSendError) {
                             console.warn('Signup emailSendError', data.emailSendError);
                         }
-                        showNotification(body + codeTag, 'warning', 12000);
+                        showNotification(body + codeTag, 'warning', 9000);
                     }
                     
                     // Redirect to return URL or home
