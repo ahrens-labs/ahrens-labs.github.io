@@ -192,18 +192,18 @@
         <div class="dash-card full-span">
           <h2>Email</h2>
           <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
-            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, scheduled digests, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
+            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the nightly challenge email, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
           </p>
           <p class="hint">
-            Daily chess challenge digest is sent around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
-            Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. Challenge IDs in the email match the in-game list (UTC calendar day).
+            The <strong>nightly TrifangX challenge email</strong> goes out around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
+            Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. It lists the same three daily challenge IDs as in-game (UTC calendar day).
           </p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
-            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily chess challenge digest</label>
+            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the nightly TrifangX challenge roundup</label>
           </div>
           <div class="form-row">
-            <label for="email-tz">Digest time zone (IANA)</label>
+            <label for="email-tz">Time zone for that nightly email (IANA)</label>
             <select id="email-tz">
               <option value="America/Chicago">US Central — America/Chicago (default)</option>
               <option value="America/New_York">US Eastern — America/New_York</option>
@@ -220,7 +220,7 @@
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). You can use this even if the scheduled digest is off.</p>
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). Works even if the nightly roundup is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
@@ -278,6 +278,18 @@
             <button type="button" class="btn btn-primary" id="btn-admin-bc-send">Send to all accounts</button>
           </div>
           <p class="status" id="admin-bc-status"></p>
+        </div>
+
+        <div class="dash-card admin-broadcast-card" id="admin-resend-welcome-card">
+          <h2>Welcome guide (admin)</h2>
+          <p class="hint">
+            Sends the same <strong>welcome / info</strong> email as “Send info email again” on each eligible account (verified email and same rules as broadcast). Uses your normal transactional sender, not the broadcast From address.
+          </p>
+          <div class="row">
+            <button type="button" class="btn btn-ghost" id="btn-admin-welcome-preview">Preview (count + email me sample)</button>
+            <button type="button" class="btn btn-primary" id="btn-admin-welcome-send">Send welcome to all accounts</button>
+          </div>
+          <p class="status" id="admin-welcome-status"></p>
         </div>
 
         <div class="dash-card">
@@ -415,6 +427,8 @@
       if (isAdminBroadcastAccount(user.email)) {
         const abc = document.getElementById('admin-broadcast-card');
         if (abc) abc.style.display = 'block';
+        const awc = document.getElementById('admin-resend-welcome-card');
+        if (awc) awc.style.display = 'block';
       }
 
       const trifangxIframe = document.getElementById('trifangx-dashboard-embed');
@@ -565,8 +579,8 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           let msg = dailyChallengeEmails
-            ? 'Saved. You should get the digest around midnight in your selected time zone.'
-            : 'Saved. Daily digest is off.';
+            ? 'Saved. You should get the nightly challenge email around midnight in your selected time zone.'
+            : 'Saved. Nightly challenge email is off.';
           if (data.warning) msg += ' ' + data.warning;
           setStatus(st, msg, 'ok');
         } else {
@@ -659,6 +673,107 @@
         } catch (e) {
           console.error(e);
           setStatus(st, 'Preview failed.', 'err');
+        }
+      });
+
+      document.getElementById('btn-admin-welcome-preview')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-welcome-status');
+        const sessionId = getSessionId();
+        setStatus(st, 'Working…', '');
+        const emails = [];
+        let cursor;
+        let previewWelcomeSent = false;
+        let previewWelcomeError = null;
+        try {
+          do {
+            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                dryRun: true,
+                sendPreviewCopy: !cursor,
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(st, data.error || 'Preview failed.', 'err');
+              return;
+            }
+            if (!cursor) {
+              previewWelcomeSent = !!data.previewWelcomeSent;
+              previewWelcomeError = data.previewWelcomeError || null;
+            }
+            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            cursor = data.nextListCursor || null;
+          } while (cursor);
+          let msg = `Found ${emails.length} recipient(s) who would get the welcome guide.`;
+          if (previewWelcomeError) {
+            msg += ` Sample email failed: ${previewWelcomeError}`;
+            setStatus(st, msg, 'err');
+          } else if (previewWelcomeSent) {
+            msg += ' Check your inbox for the sample welcome email.';
+            setStatus(st, msg, 'ok');
+          } else {
+            setStatus(st, msg, 'ok');
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus(st, 'Preview failed.', 'err');
+        }
+      });
+
+      document.getElementById('btn-admin-welcome-send')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-welcome-status');
+        if (!window.confirm('Send the full welcome / info email to every eligible account?')) return;
+        const sessionId = getSessionId();
+        const btn = document.getElementById('btn-admin-welcome-send');
+        const prev = btn ? btn.textContent : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+        }
+        let sent = 0;
+        const failures = [];
+        let cursor;
+        setStatus(st, 'Starting…', '');
+        try {
+          do {
+            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+              setStatus(st, data.error || 'Send failed.', 'err');
+              return;
+            }
+            sent += data.sent || 0;
+            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
+            cursor = data.nextListCursor || null;
+            setStatus(st, `Sent ${sent}…${cursor ? ' next batch' : ''}`, '');
+          } while (cursor);
+          let msg = `Done. Sent ${sent} welcome email(s).`;
+          if (failures.length) msg += ` ${failures.length} failed (see console).`;
+          setStatus(st, msg, failures.length ? 'err' : 'ok');
+          if (failures.length) console.warn('Welcome bulk failures', failures);
+        } catch (e) {
+          console.error(e);
+          setStatus(st, 'Send failed.', 'err');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prev || 'Send welcome to all accounts';
+          }
         }
       });
 

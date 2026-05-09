@@ -54,6 +54,8 @@ export default {
         return handleSendDailyChallengesNow(request, env, corsHeaders);
       } else if (path === '/api/admin/broadcast-email' && request.method === 'POST') {
         return handleAdminBroadcastEmail(request, env, corsHeaders);
+      } else if (path === '/api/admin/resend-welcome-bulk' && request.method === 'POST') {
+        return handleAdminResendWelcomeBulk(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -1432,7 +1434,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     return new Response(
       JSON.stringify({
         error:
-          'Confirm your email address before turning on digest emails. Use the link in the message we sent when you signed up (or sign up again if it failed).',
+          'Confirm your email address before turning on nightly challenge emails. Use the link in the message we sent when you signed up (or sign up again if it failed).',
       }),
       {
         status: 400,
@@ -1506,7 +1508,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Could not update digest subscription storage. Try again later.',
+          error: 'Could not update challenge-email subscription storage. Try again later.',
         }),
         {
           status: 500,
@@ -1515,13 +1517,13 @@ async function handleEmailPreferences(request, env, corsHeaders) {
       );
     }
   } else if (prefs.dailyChallengeEmails) {
-    console.warn('email-preferences: DAILY_DIGEST_KV is not bound; digest emails will not be delivered');
+    console.warn('email-preferences: DAILY_DIGEST_KV is not bound; nightly challenge emails will not be delivered');
   }
 
   let warning;
   if (!env.DAILY_DIGEST_KV && prefs.dailyChallengeEmails) {
     warning =
-      'Digest list storage is not configured on this Worker; opt-in saved but automated emails require DAILY_DIGEST_KV.';
+      'Challenge-email list storage is not configured on this Worker; opt-in saved but scheduled sends require DAILY_DIGEST_KV.';
   }
 
   return new Response(
@@ -2172,6 +2174,128 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
   });
 }
 
+/** Same recipient rules as broadcast: valid email, confirmed (or legacy). Sends standard welcome guide from transactional sender. */
+async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const dryRun = body.dryRun === true;
+  const sendPreviewCopy = body.sendPreviewCopy === true;
+  const listCursor =
+    typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
+  const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
+
+  let previewWelcomeSent = false;
+  let previewWelcomeError = null;
+
+  const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
+    env,
+    pageSize,
+    listCursor
+  );
+  if (listError) {
+    console.error('admin resend-welcome list failed', listError?.message || listError);
+    return new Response(
+      JSON.stringify({ error: 'Could not list user accounts: ' + (listError?.message || String(listError)) }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const hasMore = Boolean(nextCursor);
+
+  if (dryRun && sendPreviewCopy && !listCursor) {
+    try {
+      await sendWelcomeGuideEmail(env, gate.adminEmail, gate.adminUsername);
+      previewWelcomeSent = true;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      previewWelcomeError = w.hint || w.message || String(err?.message || err);
+    }
+  }
+
+  const summary = {
+    success: true,
+    dryRun,
+    action: 'resend-welcome',
+    processedObjects: 0,
+    sent: 0,
+    skipped: 0,
+    failed: [],
+    dryRunEmails: [],
+    nextListCursor: nextCursor,
+    hasMore,
+    previewWelcomeSent,
+    previewWelcomeError,
+  };
+
+  for (const stub of stubs) {
+    summary.processedObjects++;
+    if (!stub) {
+      summary.skipped++;
+      continue;
+    }
+    let row;
+    try {
+      const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+      row = await dataRes.json();
+    } catch (e) {
+      summary.skipped++;
+      continue;
+    }
+    if (!row || !row.email) {
+      summary.skipped++;
+      continue;
+    }
+    const to = normalizeEmail(row.email);
+    if (!isLikelyRealEmail(to)) {
+      summary.skipped++;
+      continue;
+    }
+    if (!hasConfirmedEmailForProductMail(row)) {
+      summary.skipped++;
+      continue;
+    }
+
+    const username = row.username || 'there';
+
+    if (dryRun) {
+      summary.dryRunEmails.push(to);
+      continue;
+    }
+
+    try {
+      await sendWelcomeGuideEmail(env, to, username);
+      summary.sent++;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      summary.failed.push({ email: to, error: w.hint || w.message });
+    }
+  }
+
+  return new Response(JSON.stringify(summary), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 function buildVerificationUrl(env, email, token) {
   const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
   const path = env.VERIFICATION_LANDING_PATH || '/account.html';
@@ -2225,7 +2349,7 @@ function sitePublicBase(env) {
   return (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
 }
 
-/** Links in product/marketing emails (welcome, digests). Defaults to ahrenslabs.com. */
+/** Links in product/marketing emails (welcome, challenge emails). Defaults to ahrenslabs.com. */
 function siteMarketingBase(env) {
   return String(env.PUBLIC_SITE_BASE || 'https://ahrenslabs.com').replace(/\/$/, '');
 }
@@ -2523,7 +2647,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
                     <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard &amp; security</p>
                     <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
                       <li style="margin:0 0 8px 0;"><strong>Profile &amp; credentials</strong> — change <strong>password</strong> or <strong>username</strong> (username changes require your password), and see at a glance who you’re signed in as.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Email controls</strong> — choose your <strong>digest time zone</strong>, toggle the nightly TrifangX challenge email, <strong>resend this welcome guide</strong>, or fire a <strong>one-off “challenges right now”</strong> message without waiting for midnight.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Email controls</strong> — choose your <strong>time zone for the nightly email</strong>, turn on the <strong>nightly TrifangX challenge roundup</strong>, <strong>resend this welcome guide</strong>, or send <strong>today’s three challenges now</strong> without waiting for midnight.</li>
                       <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — launch the in-browser <strong>shop, settings, or achievements</strong> overlay from the dashboard; when you close a modal, your <strong>achievement point total</strong> refreshes from the cloud.</li>
                       <li style="margin:0;"><strong>Data removal</strong> — start <strong>account deletion</strong> when you want chess, dungeon, Classify, Kyrachyng, and other cloud data wiped; you’ll receive a confirmation email when the process finishes.</li>
                     </ul>
@@ -2531,7 +2655,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
                   </td>
                 </tr>
               </table>
-              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: daily TrifangX challenge digests and occasional chess milestone notes — turn digests on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
+              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: <strong>nightly TrifangX challenge roundup</strong> and occasional chess milestone notes — turn those on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
           </tr>
@@ -2555,7 +2679,7 @@ async function sendWelcomeGuideEmail(env, email, username) {
     '--- TrifangX (chess) ---',
     `Play: ${chessUrl}`,
     'Flagship chess vs a strong engine with full cloud save: wins/losses/draws, deep lifetime stats (captures, openings, streaks), hundreds of achievements, and a points shop for boards, piece sets, highlights, arrows, themes, checkmate effects, and time controls.',
-    'Three UTC daily challenges (same trio for every player worldwide); optional midnight digest and one-tap “email challenges now” from the dashboard. Board tools include legal-move hints, arrows, premoves, blindfold/mental board, optional live-engine play from the lobby, and cloud game history with replay when enabled.',
+    'Three UTC daily challenges (same trio for every player worldwide); optional nightly challenge email and one-tap “email challenges now” from the dashboard. Board tools include legal-move hints, arrows, premoves, blindfold/mental board, optional live-engine play from the lobby, and cloud game history with replay when enabled.',
     '',
     '--- Dungeon ---',
     `Play: ${dungeonUrl}`,
@@ -2575,9 +2699,9 @@ async function sendWelcomeGuideEmail(env, email, username) {
     '',
     '--- Account dashboard ---',
     `Open: ${dashUrl}`,
-    'Change password or username, set digest time zone and email toggles, resend this welcome guide, trigger on-demand challenge emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
+    'Change password or username, set time zone and toggles for the nightly challenge email, resend this welcome guide, trigger on-demand challenge emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
     '',
-    'You will receive a separate email to confirm your address. Optional digests and chess milestone mail can be adjusted in dashboard settings.',
+    'You will receive a separate email to confirm your address. Optional nightly challenge emails and chess milestone mail can be adjusted in dashboard settings.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
@@ -2694,7 +2818,7 @@ async function sendDailyDigestEmail(
   const chessUrl = `${base}/chess_engine.html`;
   const dashUrl = `${base}/account-dashboard.html`;
   const tzNote = digestTimeZoneLabel
-    ? `Scheduled digests go out around midnight at the start of your calendar day (${digestTimeZoneLabel}).`
+    ? `Your nightly TrifangX challenge email is scheduled around midnight at the start of your calendar day (${digestTimeZoneLabel}).`
     : '';
   const instantBanner = instant
     ? `<tr><td style="padding:0 40px 18px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><p style="margin:0;padding:14px 18px;background:#fef3c7;border-radius:10px;border-left:4px solid #d97706;font-size:14px;line-height:1.5;color:#92400e;"><strong>On-demand send</strong> — you asked for today’s list from your account dashboard.</p></td></tr>`
@@ -2737,7 +2861,7 @@ async function sendDailyDigestEmail(
           <tr>
             <td style="padding:10px 36px 32px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" align="center">
               <a href="${chessUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;">Open TrifangX</a>
-              <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Challenge IDs always use the <strong>UTC date</strong> above so they match the in-game list. Manage digests in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
+              <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Challenge IDs always use the <strong>UTC date</strong> above so they match the in-game list. Manage challenge emails in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
               ${tzNote ? `<p style="margin:12px 0 0 0;font-size:12px;color:#94a3b8;">${tzNote}</p>` : ''}
             </td>
           </tr>
@@ -2756,7 +2880,7 @@ async function sendDailyDigestEmail(
   const text = [
     `Hi ${safeName},`,
     '',
-    instant ? '(Sent on request from your account dashboard.)' : '(Scheduled digest.)',
+    instant ? '(Sent on request from your account dashboard.)' : '(Scheduled nightly TrifangX challenge email.)',
     '',
     `TrifangX daily challenges for UTC date ${utcDateStr} (same for every player):`,
     formatDailyDigestLines(challengeIds),
@@ -2766,7 +2890,7 @@ async function sendDailyDigestEmail(
     '',
     tzNote,
     '',
-    instant ? '' : 'You subscribed to this digest in account settings.',
+    instant ? '' : 'You turned on the nightly challenge email in account settings.',
   ]
     .filter(Boolean)
     .join('\n');
