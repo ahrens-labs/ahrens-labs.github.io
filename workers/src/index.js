@@ -58,6 +58,8 @@ export default {
         return handleAdminResendWelcomeBulk(request, env, corsHeaders);
       } else if (path === '/api/admin/list-accounts' && request.method === 'POST') {
         return handleAdminListAccounts(request, env, corsHeaders);
+      } else if (path === '/api/admin/verify-user-email' && request.method === 'POST') {
+        return handleAdminVerifyUserEmail(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
@@ -2596,6 +2598,73 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   );
 }
 
+/**
+ * Admin: mark an account’s email as verified without a token (clears pending verification fields).
+ * Body: `{ "userId": "..." }` and/or `{ "email": "..." }` — if email is given, resolves userId via signup hash.
+ */
+async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
+  const emailRaw = body.email != null ? String(body.email).trim() : '';
+  let userId = userIdRaw;
+  if (!userId && emailRaw) {
+    userId = generateUserId(normalizeEmail(emailRaw));
+  }
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Provide userId or email' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  let result;
+  try {
+    const doRes = await userAccount.fetch(
+      new Request('http://do/adminForceVerifyEmail', { method: 'POST', body: '{}' })
+    );
+    result = await doRes.json();
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ success: false, error: e?.message || 'Could not reach account storage' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!result || !result.success) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: (result && result.error) || 'Verification update failed',
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(JSON.stringify({ success: true, alreadyVerified: !!result.alreadyVerified }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 function buildVerificationUrl(env, email, token) {
   const base = (env.VERIFICATION_LINK_BASE || 'https://ahrens-labs.github.io').replace(/\/$/, '');
   const path = env.VERIFICATION_LANDING_PATH || '/account.html';
@@ -3794,6 +3863,12 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/adminForceVerifyEmail' && request.method === 'POST') {
+        const result = await this.adminForceVerifyEmail();
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/setPasswordResetToken' && request.method === 'POST') {
         const { token } = await request.json();
         await this.setPasswordResetToken(token);
@@ -4118,6 +4193,22 @@ export class UserAccount {
     userData.verificationTokenExpiry = null;
     await this.storage.put('userData', userData);
 
+    return { success: true, alreadyVerified: false };
+  }
+
+  /** Called only from the Worker after admin auth — same end state as successful token verification. */
+  async adminForceVerifyEmail() {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+    if (userData.emailVerified === true) {
+      return { success: true, alreadyVerified: true };
+    }
+    userData.emailVerified = true;
+    userData.verificationToken = null;
+    userData.verificationTokenExpiry = null;
+    await this.storage.put('userData', userData);
     return { success: true, alreadyVerified: false };
   }
 

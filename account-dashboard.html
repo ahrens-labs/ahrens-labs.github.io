@@ -350,8 +350,17 @@
         <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
           <h2>All accounts (admin)</h2>
           <p class="hint">
-            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong>. Each page merges accounts from <strong>cloud profiles</strong> (Durable Object list), the <strong>username registry</strong>, and <strong>digest email subscribers</strong> (<code>sub:</code> in KV) so rows missing from one source still appear. Use <strong>Load next page</strong> until you see “end of list”. Filter applies to loaded rows only. CSV exports all loaded rows (deduped by user id).
+            Lists <strong>username</strong>, <strong>email</strong>, verification status, and internal <strong>user id</strong>. Each page merges accounts from <strong>cloud profiles</strong> (Durable Object list), the <strong>username registry</strong>, and <strong>digest email subscribers</strong> (<code>sub:</code> in KV) so rows missing from one source still appear.             Use <strong>Load next page</strong> until you see “end of list”. Filter applies to loaded rows only. CSV exports all loaded rows (deduped by user id).
+            You can <strong>mark an email as verified</strong> (no token) from a row or using the field below — same as if the user completed the confirmation link.
           </p>
+          <div class="form-row" style="margin-bottom:14px;">
+            <label for="admin-verify-email-input">Mark verified (email or user id)</label>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px;">
+              <input id="admin-verify-email-input" type="text" autocomplete="off" placeholder="user@example.com or internal user id" style="flex:1;min-width:220px;box-sizing:border-box;padding:9px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.92rem;">
+              <button type="button" class="btn btn-primary" id="btn-admin-verify-email-submit">Mark email verified</button>
+            </div>
+            <p class="status" id="admin-verify-email-status" style="margin-top:10px;"></p>
+          </div>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
             <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
@@ -369,10 +378,11 @@
                   <th scope="col">Email</th>
                   <th scope="col">Verified</th>
                   <th scope="col">User id</th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="4" style="color:#94a3b8;">Click “Load from beginning”.</td></tr>
+                <tr><td colspan="5" style="color:#94a3b8;">Click “Load from beginning”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -650,6 +660,53 @@
           return 'Legacy';
         }
 
+        async function adminVerifyEmailForUser(payload) {
+          const vSt = document.getElementById('admin-verify-email-status');
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            setStatus(vSt, 'Not signed in.', 'err');
+            return false;
+          }
+          setStatus(vSt, 'Working…', '');
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/verify-user-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(vSt, formatApiFailure(status, data), 'err');
+              return false;
+            }
+            setStatus(
+              vSt,
+              data.alreadyVerified ? 'That account was already verified.' : 'Marked verified. User can enable digest email and sign-in flows treat them as confirmed.',
+              'ok'
+            );
+            const uid = (payload.userId || '').trim();
+            const em = (payload.email || '').trim().toLowerCase();
+            for (const acc of adminAccountsAccum) {
+              if (uid && acc.userId === uid) {
+                acc.emailVerified = true;
+                break;
+              }
+              if (em && (acc.email || '').trim().toLowerCase() === em) {
+                acc.emailVerified = true;
+                break;
+              }
+            }
+            renderAdminAccountsTable();
+            return true;
+          } catch (e) {
+            setStatus(vSt, e?.message || 'Network error.', 'err');
+            return false;
+          }
+        }
+
         function renderAdminAccountsTable() {
           const tbody = document.getElementById('admin-accounts-tbody');
           const meta = document.getElementById('admin-accounts-meta');
@@ -670,15 +727,22 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="4" style="color:#94a3b8;">' +
+              '<tr><td colspan="5" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
             tbody.innerHTML = rows
-              .map(
-                (a) =>
-                  `<tr><td>${escHtml(a.username || '—')}</td><td class="col-email">${escHtml(a.email || '—')}</td><td>${escHtml(verifiedLabel(a.emailVerified))}</td><td class="col-id">${escHtml(a.userId || '')}</td></tr>`
-              )
+              .map((a) => {
+                const uidAttr = escHtml(a.userId || '');
+                const emAttr = escHtml(a.email || '');
+                const actions =
+                  a.emailVerified === true
+                    ? '<td><span style="color:#94a3b8;font-size:0.82rem;">—</span></td>'
+                    : `<td><button type="button" class="btn btn-ghost admin-verify-email-row-btn" style="padding:6px 10px;font-size:0.8rem;" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Verify email</button></td>`;
+                return (
+                  `<tr><td>${escHtml(a.username || '—')}</td><td class="col-email">${escHtml(a.email || '—')}</td><td>${escHtml(verifiedLabel(a.emailVerified))}</td><td class="col-id">${escHtml(a.userId || '')}</td>${actions}</tr>`
+                );
+              })
               .join('');
           }
           const filtNote = q ? ` · ${rows.length} match filter` : '';
@@ -746,6 +810,26 @@
             setStatus(st, e?.message ? `Failed: ${e.message}` : 'Failed (network).', 'err');
           }
         }
+
+        document.getElementById('btn-admin-verify-email-submit')?.addEventListener('click', async () => {
+          const input = document.getElementById('admin-verify-email-input');
+          const raw = ((input && input.value) || '').trim();
+          if (!raw) {
+            setStatus(document.getElementById('admin-verify-email-status'), 'Enter an email or user id.', 'err');
+            return;
+          }
+          const payload = raw.includes('@') ? { email: raw } : { userId: raw };
+          await adminVerifyEmailForUser(payload);
+        });
+        document.getElementById('admin-accounts-tbody')?.addEventListener('click', (e) => {
+          const btn = e.target && e.target.closest && e.target.closest('.admin-verify-email-row-btn');
+          if (!btn) return;
+          const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
+          const em = (btn.getAttribute('data-admin-email') || '').trim();
+          const payload = uid ? { userId: uid } : em ? { email: em } : {};
+          if (!payload.userId && !payload.email) return;
+          adminVerifyEmailForUser(payload);
+        });
 
         document.getElementById('btn-admin-accounts-refresh')?.addEventListener('click', () => {
           adminAccountsFetchPage(true);
