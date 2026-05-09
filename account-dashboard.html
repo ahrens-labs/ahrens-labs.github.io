@@ -133,6 +133,27 @@
       border-radius: 10px;
       font-size: 0.9rem;
     }
+    .admin-accounts-verify-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .admin-accounts-verify-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .admin-accounts-verify-row input {
+      flex: 1;
+      min-width: 200px;
+      box-sizing: border-box;
+      padding: 9px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 0.9rem;
+    }
     .admin-accounts-meta {
       font-size: 0.82rem;
       color: #64748b;
@@ -423,6 +444,11 @@
             <div class="admin-accounts-filter-wrap">
               <input type="search" id="admin-accounts-filter" autocomplete="off" placeholder="Filter by email, username, or user id…" aria-label="Filter loaded accounts">
             </div>
+          </div>
+          <div class="admin-accounts-verify-row">
+            <label for="admin-verify-email-input" class="admin-accounts-verify-label">Mark verified</label>
+            <input type="text" id="admin-verify-email-input" autocomplete="off" placeholder="Type email or user id…" aria-label="Email or user id to mark verified">
+            <button type="button" class="btn btn-ghost" id="btn-admin-verify-email-submit">Mark email verified</button>
           </div>
           <p class="admin-accounts-meta" id="admin-accounts-meta">Not loaded yet.</p>
           <div class="admin-accounts-table-wrap">
@@ -1045,6 +1071,19 @@
           }
         });
 
+        async function submitAdminVerifyTyped() {
+          const inp = document.getElementById('admin-verify-email-input');
+          const raw = (inp?.value || '').trim();
+          const st = document.getElementById('admin-accounts-status');
+          if (!raw) {
+            setStatus(st, 'Enter an email or user id.', 'err');
+            return;
+          }
+          const payload = raw.includes('@') ? { email: raw } : { userId: raw };
+          const ok = await adminVerifyEmailForUser(payload);
+          if (ok && inp) inp.value = '';
+        }
+
         document.getElementById('btn-admin-accounts-refresh')?.addEventListener('click', () => {
           adminAccountsFetchPage(true);
         });
@@ -1053,6 +1092,15 @@
         });
         document.getElementById('admin-accounts-filter')?.addEventListener('input', () => {
           renderAdminAccountsTable();
+        });
+        document.getElementById('btn-admin-verify-email-submit')?.addEventListener('click', () => {
+          submitAdminVerifyTyped();
+        });
+        document.getElementById('admin-verify-email-input')?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitAdminVerifyTyped();
+          }
         });
         document.getElementById('btn-admin-accounts-csv')?.addEventListener('click', async () => {
           const st = document.getElementById('admin-accounts-status');
