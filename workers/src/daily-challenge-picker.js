@@ -122,7 +122,7 @@ export function getDailyChallengeIdsForUtcDate(dateString) {
 }
 
 /**
- * Display copy for nightly TrifangX challenge emails — keep in sync with getAllAchievementsList() Daily entries
+ * Display copy for daily TrifangX challenge emails — keep in sync with getAllAchievementsList() Daily entries
  * in js/trifangx_chess_app.js (name, desc, points).
  */
 export const DAILY_CHALLENGE_CARD_INFO = {

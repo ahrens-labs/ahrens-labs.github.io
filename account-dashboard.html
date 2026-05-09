@@ -192,18 +192,18 @@
         <div class="dash-card full-span">
           <h2>Email</h2>
           <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
-            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the nightly challenge email, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
+            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the daily challenge email, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
           </p>
           <p class="hint">
-            The <strong>nightly TrifangX challenge email</strong> goes out around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
+            The <strong>daily TrifangX challenge email</strong> goes out around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
             Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. It lists the same three daily challenge IDs as in-game (UTC calendar day).
           </p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
-            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the nightly TrifangX challenge roundup</label>
+            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
           </div>
           <div class="form-row">
-            <label for="email-tz">Time zone for that nightly email (IANA)</label>
+            <label for="email-tz">Time zone for that daily email (IANA)</label>
             <select id="email-tz">
               <option value="America/Chicago">US Central — America/Chicago (default)</option>
               <option value="America/New_York">US Eastern — America/New_York</option>
@@ -220,7 +220,7 @@
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). Works even if the nightly roundup is off.</p>
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). Works even if the daily roundup is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
@@ -579,8 +579,8 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           let msg = dailyChallengeEmails
-            ? 'Saved. You should get the nightly challenge email around midnight in your selected time zone.'
-            : 'Saved. Nightly challenge email is off.';
+            ? 'Saved. You should get the daily challenge email around midnight in your selected time zone.'
+            : 'Saved. Daily challenge email is off.';
           if (data.warning) msg += ' ' + data.warning;
           setStatus(st, msg, 'ok');
         } else {
