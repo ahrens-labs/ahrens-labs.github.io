@@ -2569,7 +2569,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 <tr>
                   <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
                     <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX chess</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and chase <strong>three rotating daily challenges</strong> every UTC day — the same puzzles for everyone worldwide. Optional live-engine play and blindfold modes when you want to go deeper.</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and chase <strong>three rotating daily challenges</strong> every UTC day — the same puzzles for everyone worldwide. From your account dashboard you can turn on the <strong>daily TrifangX challenge roundup</strong> (email at midnight in your chosen time zone) or fire off <strong>today’s three challenge IDs</strong> on demand. Optional live-engine play and blindfold modes when you want to go deeper.</p>
                     <p style="margin:10px 0 0 0;font-size:14px;"><a href="${chessUrl}" style="color:#2563eb;font-weight:600;">Open the chess lobby</a></p>
                   </td>
                 </tr>
@@ -2621,7 +2621,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                       <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, draws, and rating-style summaries stay on your profile. Deep <strong>lifetime stats</strong> track captures, openings, streaks, and long-horizon goals so you can see how your style evolves over hundreds of games.</li>
                       <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog of goals spanning tactics, speed, material, blindfold milestones, time controls, and quirky feats. Points feed your sidebar <strong>Total Points</strong> and unlock rarer achievements—giving both casual and grind-minded players something to chase.</li>
                       <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlight and arrow colors, page themes, move/checkmate flair, and extra time controls. Everything you buy is stored server-side so it follows you across machines.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Daily challenges</strong> — every <strong>UTC calendar day</strong> the world shares the same three rotating achievements (listed in-game and in optional email). They’re designed to nudge your playstyle and stack extra rewards on top of the main catalog.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup email</strong> — every <strong>UTC calendar day</strong> the world shares the same three rotating achievements (listed in-game). Opt in to the <strong>daily TrifangX challenge roundup</strong> so those IDs land in your inbox at the start of each calendar day in your dashboard time zone, or tap <strong>email today’s challenges now</strong> when you don’t want to wait. They’re designed to nudge your playstyle and stack extra rewards on top of the main catalog.</li>
                       <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, custom arrows and square highlights, premove queues, and optional blindfold/mental-board modes for serious training—or just a change of pace.</li>
                       <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — keep recent games in the cloud (within fair-use limits), reopen them on the board, and step through move-by-move when you want to learn from a win or loss.</li>
                       <li style="margin:0;"><strong>Modes &amp; match types</strong> — casual unrated engine sparring, clocked games with increments, and optional live-engine sessions from the lobby when available.</li>
@@ -2721,7 +2721,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '--- TrifangX (chess) ---',
     `Play: ${chessUrl}`,
     'Flagship chess vs a strong engine with full cloud save: wins/losses/draws, deep lifetime stats (captures, openings, streaks), hundreds of achievements, and a points shop for boards, piece sets, highlights, arrows, themes, checkmate effects, and time controls.',
-    'Three UTC daily challenges (same trio for every player worldwide); optional daily challenge email and one-tap “email challenges now” from the dashboard. Board tools include legal-move hints, arrows, premoves, blindfold/mental board, optional live-engine play from the lobby, and cloud game history with replay when enabled.',
+    'Three UTC daily challenges (same trio for every player worldwide). Optional daily TrifangX challenge roundup email (midnight in your dashboard time zone) plus one-tap “email today’s challenges now” without waiting for the digest. Board tools include legal-move hints, arrows, premoves, blindfold/mental board, optional live-engine play from the lobby, and cloud game history with replay when enabled.',
     '',
     '--- Dungeon ---',
     `Play: ${dungeonUrl}`,
@@ -2741,9 +2741,9 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '',
     '--- Account dashboard ---',
     `Open: ${dashUrl}`,
-    'Change password or username, set time zone and toggles for the daily challenge email, resend this welcome guide, trigger on-demand challenge emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
+    'Change password or username, set time zone and toggles for the daily TrifangX challenge roundup, resend this welcome guide, trigger on-demand “today’s challenges” emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
     '',
-    'You will receive a separate email to confirm your address. Optional daily challenge emails and chess milestone mail can be adjusted in dashboard settings.',
+    'You will receive a separate email to confirm your address. Optional daily TrifangX challenge roundup and chess milestone mail can be adjusted in dashboard settings.',
     '',
     'All feedback can and should be sent to caleb@ahrenslabs.com.',
     '',
