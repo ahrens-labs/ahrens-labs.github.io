@@ -3096,6 +3096,12 @@ def score_pawn(board, row, col, color, stats):
 
     light_square = is_light_square(row, col)
 
+    # A pawn on the final rank should already be represented as a promoted
+    # piece. Some simulated search branches can leave a stale pawn there while
+    # unwinding; do not run normal pawn-structure indexing off the board.
+    if (color == 'b' and row == 0) or (color == 'w' and row == 7):
+        return score
+
     if color == 'b':
         if stats["black_light_squared_bishop"] and not light_square:
             score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
