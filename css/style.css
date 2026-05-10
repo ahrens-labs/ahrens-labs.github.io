@@ -756,51 +756,91 @@ footer {
     main {
         padding: 1rem;
     }
-    /* Header login/signup: flow below nav (inline styles use position:absolute) */
+    /* Compact header: logo + title on one row; nav wraps in short rows; auth last */
+    header {
+        flex-direction: column;
+        justify-content: center;
+        align-items: stretch;
+        padding: 0.5rem 0.45rem 0.55rem;
+    }
+    .header-content {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr);
+        column-gap: 0.65rem;
+        row-gap: 0.35rem;
+        align-items: center;
+        margin-top: 0;
+        width: 100%;
+        max-width: 100%;
+        text-align: left;
+    }
+    .logo-link {
+        grid-column: 1;
+        grid-row: 1;
+        margin: 0;
+        justify-self: center;
+        align-self: center;
+    }
+    .header-logo {
+        width: 44px;
+        display: block;
+    }
+    .header-content h1 {
+        grid-column: 2;
+        grid-row: 1;
+        font-size: 1.15rem;
+        margin: 0;
+        line-height: 1.2;
+        text-align: left;
+    }
+    .header-content nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+    }
+    nav ul {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 6px;
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    nav ul li {
+        margin: 0;
+        width: auto;
+        max-width: none;
+    }
+    nav a {
+        display: inline-block;
+        padding: 0.3em 0.55em;
+        font-size: 0.78rem;
+        border-radius: 999px;
+    }
     #header-auth-buttons {
         position: static !important;
         top: auto !important;
         right: auto !important;
         left: auto !important;
+        grid-column: 1 / -1;
+        grid-row: 3;
         width: 100%;
         justify-content: center;
         flex-wrap: wrap;
-        margin-top: 0.65rem;
-        padding: 0 6px;
+        gap: 6px;
+        margin-top: 0.35rem;
+        padding: 0;
         box-sizing: border-box;
     }
-    header {
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 1.15em 0.85em 1.3em;
+    #header-auth-buttons button {
+        padding: 5px 11px !important;
+        font-size: 0.74rem !important;
     }
-    .header-content {
-        margin-top: 0;
-        gap: 8px;
-        width: 100%;
-        max-width: 100%;
-    }
-    .header-content h1 {
-        font-size: 1.65rem;
-    }
-    .header-logo {
-        width: 100px;
-    }
-    .logo-link {
-        margin-bottom: 5px;
-    }
-    nav ul {
-        gap: 6px;
-        max-width: 100%;
-        justify-content: center;
-    }
-    nav ul li {
-        margin: 0;
-    }
-    nav a {
-        padding: 0.5em 0.9em;
-        font-size: 0.92rem;
+    #header-auth-buttons span {
+        padding: 5px 8px !important;
+        font-size: 0.74rem !important;
     }
     .project-links .button {
         width: 100%;
@@ -811,27 +851,22 @@ footer {
     main {
         padding: 0.8rem;
     }
+    header {
+        padding: 0.45rem 0.4rem 0.5rem;
+    }
+    .header-content {
+        grid-template-columns: 40px minmax(0, 1fr);
+        column-gap: 0.5rem;
+    }
+    .header-logo {
+        width: 38px;
+    }
     .header-content h1 {
-        font-size: 1.45rem;
-    }
-    nav ul {
-        flex-direction: column;
-        gap: 0.45rem;
-        width: 100%;
-        align-items: center;
-    }
-    nav ul li {
-        margin: 0;
-        width: 100%;
-        max-width: 280px;
+        font-size: 1.05rem;
     }
     nav a {
-        display: block;
-        width: 100%;
-        text-align: center;
-        padding: 0.55em 0.85em;
-        font-size: 0.88rem;
-        box-sizing: border-box;
+        padding: 0.28em 0.5em;
+        font-size: 0.74rem;
     }
     .project-card {
         padding: 1rem;
