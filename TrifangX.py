@@ -71,8 +71,13 @@ BISHOP_DELTAS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 QUEEN_DELTAS = ROOK_DELTAS + BISHOP_DELTAS
 WHITE_PAWN_CAPTURE_DELTAS = ((1, 1), (1, -1))
 BLACK_PAWN_CAPTURE_DELTAS = ((-1, 1), (-1, -1))
-WHITE_PROMOTION_PIECES = ('Q', 'R', 'B', 'N')
-BLACK_PROMOTION_PIECES = ('q', 'r', 'b', 'n')
+# Engine only considers queen and knight promotions (rook/bishop omitted).
+WHITE_PROMOTION_PIECES = ('Q', 'N')
+BLACK_PROMOTION_PIECES = ('q', 'n')
+
+# Pawn promoted to wrong letter in PV helpers: treat any white/black piece on back rank as source.
+_WHITE_PROMO_MISMATCH = frozenset({'Q', 'R', 'B', 'N'})
+_BLACK_PROMO_MISMATCH = frozenset({'q', 'r', 'b', 'n'})
 
 def _is_white_promotion_piece(piece, target_row):
     return target_row == 7 and piece in WHITE_PROMOTION_PIECES
@@ -1508,8 +1513,12 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             # #sys.exit() # Removed #sys.exit()
 
     else:
-        if piece == 'p' and to_row == 0:
+        if piece in BLACK_PROMOTION_PIECES and to_row == 0:
+            placed = piece
+        elif piece == 'p' and to_row == 0:
             placed = 'q'
+        elif piece in WHITE_PROMOTION_PIECES and to_row == 7:
+            placed = piece
         elif piece == 'P' and to_row == 7:
             placed = 'Q'
         else:
@@ -1753,8 +1762,12 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             # #sys.exit() # Removed #sys.exit()
 
     else:
-        if piece == 'P' and to_row == 7:
+        if piece in WHITE_PROMOTION_PIECES and to_row == 7:
+            placed = piece
+        elif piece == 'P' and to_row == 7:
             placed = 'Q'
+        elif piece in BLACK_PROMOTION_PIECES and to_row == 0:
+            placed = piece
         elif piece == 'p' and to_row == 0:
             placed = 'q'
         else:
@@ -4524,12 +4537,15 @@ def _promotion_piece_from_notation(move_notation, is_white_piece):
     m = re.search(r'=\s*([QRBNqrbn])', raw)
     if m:
         p = m.group(1).upper()
+        # Engine only models Q/N promotions; rook/bishop from PGN map to queen.
+        p = 'N' if p == 'N' else 'Q'
         return p if is_white_piece else p.lower()
 
     # UCI style "...q" (exactly from-to + promotion piece)
     uci = re.search(r'^[a-h][1-8][a-h][1-8]([qrbnQRBN])$', raw)
     if uci:
         p = uci.group(1).upper()
+        p = 'N' if p == 'N' else 'Q'
         return p if is_white_piece else p.lower()
 
     return default_piece
@@ -4555,13 +4571,20 @@ def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, 
     """
     During static analysis / predicted lines: place the engine's reply on the board.
     `moved_piece_symbol` is the 5th field from best_move2 / best_move2_black (may already
-    be Q/R/B/N or q/r/b/n after promotion). Plain P/p on the back rank defaults to queen.
+    be Q/N or q/n after promotion). If that field is still P/p but the source square holds
+    a promoted piece, use the board piece so undo restores correctly.
     """
+    sym = moved_piece_symbol
+    actual = board[from_row][from_col]
+    if sym == 'P' and actual in _WHITE_PROMO_MISMATCH:
+        sym = actual
+    elif sym == 'p' and actual in _BLACK_PROMO_MISMATCH:
+        sym = actual
     board[from_row][from_col] = '0'
-    board[target_row][target_col] = moved_piece_symbol
-    if moved_piece_symbol == 'P' and target_row == 7:
+    board[target_row][target_col] = sym
+    if sym == 'P' and target_row == 7:
         board[target_row][target_col] = 'Q'
-    elif moved_piece_symbol == 'p' and target_row == 0:
+    elif sym == 'p' and target_row == 0:
         board[target_row][target_col] = 'q'
 
 
@@ -4574,7 +4597,9 @@ def _source_piece_before_move(moved_piece_symbol, target_row):
 
 
 def _undo_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol, captured_piece):
-    board[from_row][from_col] = _source_piece_before_move(moved_piece_symbol, target_row)
+    # Use the piece actually on the destination (handles P vs Q/N after promotion on source).
+    effective = board[target_row][target_col]
+    board[from_row][from_col] = _source_piece_before_move(effective, target_row)
     board[target_row][target_col] = captured_piece
 
 
