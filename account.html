@@ -535,7 +535,7 @@
                         headers: { 'Authorization': `Bearer ${sessionId}` },
                     });
                     if (response.ok) {
-                        window.location.replace('account-dashboard.html');
+                        window.location.replace('index.html');
                         return;
                     }
                 } catch (error) {
@@ -698,7 +698,7 @@
                     showNotification('Login successful! 🎉', 'success');
                     
                     // Redirect to return URL or home
-                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'account-dashboard.html';
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
                     setTimeout(() => {
                         window.location.href = returnUrl;
                     }, 1000);
@@ -774,7 +774,7 @@
                         localStorage.setItem('ahrenslabs_email', data.email || em);
                     }
                     showNotification(data.message || 'Email verified successfully! 🎉', 'success', 5000);
-                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'account-dashboard.html';
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
                     if (data.sessionId) {
                         setTimeout(() => {
                             window.location.href = returnUrl;

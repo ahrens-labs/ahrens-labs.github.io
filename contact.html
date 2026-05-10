@@ -3,15 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs - Contact</title> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <title>Contact — Ahrens Labs</title>
+    <meta name="description" content="Get in touch with Ahrens Labs. Questions, feedback, and support by email.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        .contact-page {
+            max-width: 640px;
+            margin: 2rem auto 3rem;
+            padding: 0 1.25rem;
+        }
+        .contact-page h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.65rem;
+            color: #0f172a;
+            margin: 0 0 0.75rem;
+            letter-spacing: 0.04em;
+        }
+        .contact-page > p {
+            color: #475569;
+            line-height: 1.65;
+            margin: 0 0 1.25rem;
+            font-size: 0.98rem;
+        }
+        .contact-email-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.75rem;
+        }
+        .contact-email-card p {
+            margin: 0 0 0.65rem;
+            font-size: 0.92rem;
+            color: #64748b;
+        }
+        .contact-email-card a.email-primary {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #2563eb;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        .contact-email-card a.email-primary:hover {
+            text-decoration: underline;
+        }
+        .contact-form-wrap h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #334155;
+            margin: 0 0 0.85rem;
+        }
+        .contact-form-wrap label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 0.35rem;
+        }
+        .contact-form-wrap input,
+        .contact-form-wrap textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.65rem 0.85rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .contact-form-wrap textarea {
+            min-height: 140px;
+            resize: vertical;
+        }
+        .contact-form-wrap button[type="submit"] {
+            display: inline-block;
+            padding: 0.75rem 1.35rem;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+        .contact-form-wrap button[type="submit"]:hover {
+            filter: brightness(1.05);
+        }
+        .contact-form-note {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            margin: 0.75rem 0 0;
+            line-height: 1.45;
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
-    <header>
+        <header>
             <div class="header-content">
                 <a href="index.html" class="logo-link">
                     <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
@@ -33,10 +125,38 @@
             </div>
         </header>
         <main>
-            <section class="contact-section">
-                <h2>You can contact us by seeing us in person.</h2>
-                <p>If you have any questions, we will be happy to answer them!</p>
-                </section>
+            <section class="contact-page">
+                <h2>Contact</h2>
+                <p>
+                    Have a question about TrifangX, your account, or anything on the site? Want to report a bug or share an idea?
+                    Send a message—we read everything that lands in the inbox below.
+                </p>
+                <div class="contact-email-card">
+                    <p>Email</p>
+                    <a class="email-primary" href="mailto:caleb@ahrenslabs.com">caleb@ahrenslabs.com</a>
+                </div>
+                <div class="contact-form-wrap">
+                    <h3>Write from your mail app</h3>
+                    <p style="margin:0 0 1rem;font-size:0.92rem;color:#64748b;line-height:1.55;">
+                        Fill in the form and tap send—your email app will open with the message addressed to Caleb. You can also copy the address above and write from any client.
+                    </p>
+                    <form id="contact-form" novalidate>
+                        <label for="contact-name">Your name (optional)</label>
+                        <input type="text" id="contact-name" name="name" autocomplete="name" maxlength="120">
+
+                        <label for="contact-email">Your email (so we can reply)</label>
+                        <input type="email" id="contact-email" name="reply-email" autocomplete="email" required maxlength="254">
+
+                        <label for="contact-message">Message</label>
+                        <textarea id="contact-message" name="message" required maxlength="8000" placeholder="What would you like to say?"></textarea>
+
+                        <button type="submit">Send email</button>
+                        <p class="contact-form-note">
+                            Messages go to <strong>caleb@ahrenslabs.com</strong>. If nothing opens, use the mail link in the box above.
+                        </p>
+                    </form>
+                </div>
+            </section>
         </main>
         <div class="push"></div>
     </div>
@@ -46,5 +166,31 @@
     </footer>
 
     <script src="js/script.js"></script>
+    <script>
+        (function () {
+            var form = document.getElementById('contact-form');
+            if (!form) return;
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var nameEl = document.getElementById('contact-name');
+                var emailEl = document.getElementById('contact-email');
+                var msgEl = document.getElementById('contact-message');
+                var name = nameEl && nameEl.value ? nameEl.value.trim() : '';
+                var reply = emailEl && emailEl.value ? emailEl.value.trim() : '';
+                var message = msgEl && msgEl.value ? msgEl.value.trim() : '';
+                if (!reply || !message) return;
+                var subj = 'Ahrens Labs contact';
+                if (name) subj += ': ' + name;
+                var body = '';
+                if (name) body += 'Name: ' + name + '\n';
+                body += 'Reply-to: ' + reply + '\n\n' + message;
+                window.location.href =
+                    'mailto:caleb@ahrenslabs.com?subject=' +
+                    encodeURIComponent(subj) +
+                    '&body=' +
+                    encodeURIComponent(body);
+            });
+        })();
+    </script>
 </body>
 </html>

@@ -37,7 +37,7 @@ function getCurrentPageReturnTarget() {
 window.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     
-    // Legacy: script.js used to bounce logged-in users off account.html; account.html now redirects itself to the dashboard.
+    // account.html redirects signed-in visitors to the home page by default (?stay=1 keeps the form visible).
 });
 
 async function checkLoginStatus() {
