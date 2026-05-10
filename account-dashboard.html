@@ -438,8 +438,8 @@
           <p class="hint">
             One line per account: <strong>email</strong>, <strong>username</strong>, <strong>verified</strong>, and actions.
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
-            Listing merges <strong>cloud profiles</strong>, the <strong>username registry</strong>, and <strong>email roundup subscribers</strong>.
-            Use <strong>Load next page</strong> until “end of list”. CSV still includes internal user id.
+            The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
+            Use <strong>Load next page</strong> until “end of list”. CSV includes a stable account id.
           </p>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
@@ -503,7 +503,7 @@
         <div class="dash-card admin-broadcast-card" id="admin-resend-welcome-card">
           <h2>Welcome guide (admin)</h2>
           <p class="hint">
-            Sends the same <strong>welcome / info</strong> email as “Send info email again” to <strong>every account that has an email on file</strong> (confirmed or not), subject to the same basic address checks as listing accounts for broadcast. Uses your normal transactional sender, not the broadcast From address. Each account gets its own separate message (one recipient per send, not one email to many).
+            Sends the same <strong>welcome / info</strong> email as “Send info email again” to <strong>every account that has an email on file</strong> (confirmed or not), using the same address checks as the account list above. Each person gets their own message.
           </p>
           <div class="row">
             <button type="button" class="btn btn-ghost" id="btn-admin-welcome-preview">Preview (count + email me sample)</button>

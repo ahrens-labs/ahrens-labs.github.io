@@ -2137,6 +2137,7 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
 
   const hasMore = Boolean(nextCursor);
 
+  // Preview is sent only to the authenticated admin (gate.adminEmail), never to recipients in the list.
   if (dryRun && sendPreviewCopy && !listCursor) {
     const prevSubject = applyBroadcastTemplate(subjectTpl, {
       username: gate.adminUsername,
@@ -2282,7 +2283,7 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   let previewWelcomeSent = false;
   let previewWelcomeError = null;
 
-  // Send preview first so a sample reaches the admin even if listing many accounts is slow or hits limits.
+  // Full welcome sample is emailed only to the authenticated admin (gate.adminEmail), not to listed accounts.
   if (dryRun && sendPreviewCopy && !listCursor) {
     try {
       await sendWelcomeGuideEmail(env, gate.adminEmail, gate.adminUsername, {
@@ -3062,7 +3063,7 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
 }
 
 /**
- * @param {object} [sendOptions] Optional overrides for admin preview (same From as broadcast so Cloudflare allowlists match).
+ * @param {object} [sendOptions] Optional From overrides (e.g. admin welcome preview uses broadcast sender).
  * @param {string} [sendOptions.fromAddr]
  * @param {string} [sendOptions.fromName]
  */
@@ -3165,9 +3166,92 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                   </td>
                 </tr>
               </table>
-              <p style="margin:28px 0 0 0;font-size:14px;line-height:1.65;color:#475569;">Use your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account dashboard</a> to update your password or username, manage email (optional daily TrifangX roundup, resend this guide), open TrifangX shortcuts, or delete your account. One sign-in covers chess, dungeon, Classify, Kyrachyng, and labs.</p>
-              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll send a message to <strong>confirm your address</strong> and for account security when needed. Optional TrifangX roundup and milestone mail — adjust anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a>.</p>
-              <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? <strong>All feedback can and should</strong> be sent to <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
+              <p style="margin:28px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More detail — TrifangX</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Chess engine &amp; account tie-in</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, draws, and summaries stay on your profile. <strong>Lifetime stats</strong> track captures, openings, streaks, and long-term goals across many games.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog spanning tactics, speed, material, blindfold milestones, time controls, and unusual feats. Points feed <strong>Total Points</strong> and unlock rarer goals.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlights, arrows, themes, move and checkmate flair, and time controls. Purchases stay on your profile across devices.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup</strong> — three rotating achievements refresh each day in TrifangX. In your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">dashboard</a>, turn on the <strong>daily challenge roundup</strong> (choose a time zone) or use <strong>email today’s challenges now</strong> anytime.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, arrows and highlights, premoves, and blindfold or mental-board modes for training or variety.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — reopen recent games from the cloud on the board and step through move-by-move.</li>
+                      <li style="margin:0;"><strong>Modes</strong> — casual engine sparring, clocked games with increments, and optional live-engine play from the lobby when you enable it.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More about each experience</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Exploration</strong> — rooms can bring combat, loot, merchants, or hazards; dice keep outcomes tense but readable.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Combat</strong> — attack lanes, defense, items, and retreat when health is low; gear matters.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Progression</strong> — achievements and stats reward repeat play; <strong>multiple save slots</strong> for different runs.</li>
+                      <li style="margin:0;"><strong>Cloud saves</strong> — slot data stays on your profile when you switch device or browser.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Classify planner</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Semester view</strong> — courses, weekly blocks, and recurring commitments in one place.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Built for real terms</strong> — midterms, projects, and shifting schedules—not only a generic grid.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Cloud backup</strong> — signed-in users sync to the server and recover after a reinstall.</li>
+                      <li style="margin:0;"><strong>Same account</strong> — academics in Classify, breaks in TrifangX or the dungeon without extra logins.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Kyrachyng</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Structured path</strong> — lessons build on each other with clear unlocks.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Reading &amp; writing</strong> — practice recognition and production, not only passive reading.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Saved progress</strong> — resume on any device.</li>
+                      <li style="margin:0;"><strong>For curious learners</strong> — conlangs, puzzles, or short daily study alongside games.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Labs hub</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Browse by card</strong> — clear entry points for each public experiment.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Quick or deep</strong> — five-minute toys and tools you can revisit for weeks.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Varied topics</strong> — language, audio, code, STEM demos, writing, humor.</li>
+                      <li style="margin:0;"><strong>Account when useful</strong> — persistence uses the same login where a lab needs it.</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
+                <tr>
+                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard</p>
+                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
+                      <li style="margin:0 0 8px 0;"><strong>Profile &amp; sign-in</strong> — change <strong>password</strong> or <strong>username</strong> (username changes need your current password).</li>
+                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — time zone for the roundup, toggle the <strong>daily challenge email</strong>, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
+                      <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — open <strong>shop, settings, or achievements</strong> straight from the dashboard.</li>
+                      <li style="margin:0;"><strong>Delete account</strong> — start removal when you want cloud data wiped; you get a confirmation email when it finishes.</li>
+                    </ul>
+                    <p style="margin:12px 0 0 0;font-size:14px;line-height:1.55;color:#475569;">One <strong>email and password</strong> for every product above.</p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll message you to <strong>confirm your address</strong> and for account security (for example password reset). Optional TrifangX roundup and milestone mail — change anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a>.</p>
+              <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? Email <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
           </tr>
@@ -3186,37 +3270,88 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const text = [
     `Hi ${safeName},`,
     '',
+    'Thanks for joining Ahrens Labs. Your free account stores progress in the cloud so you can pick up where you left off on any device.',
+    '',
     preheader,
     '',
-    '--- TrifangX (chess) ---',
-    `Play: ${chessUrl}`,
-    'Engine chess with cloud save, achievements, a points shop, and three daily challenges that refresh each day on your device. Optional daily roundup email or request today’s list from your dashboard.',
+    'Play TrifangX (chess):',
+    chessUrl,
     '',
-    '--- Dungeon ---',
-    `Play: ${dungeonUrl}`,
-    'Dice-driven dungeon crawl with cloud save slots.',
+    'Account dashboard:',
+    dashUrl,
     '',
-    '--- Classify (planner) ---',
-    `Open: ${classifyUrl}`,
-    'Class planner for real semesters; syncs when signed in.',
+    '--- What your account unlocks ---',
     '',
-    '--- Kyrachyng ---',
-    `Lessons: ${kyrachyngUrl}`,
-    'Structured language lessons; progress on your account.',
+    'TrifangX chess —',
+    'Spar with a strong engine, unlock hundreds of achievements, spend points in a cosmetic shop (boards, pieces, themes, effects), and complete three daily challenges that refresh each day on your device. From your account dashboard you can opt into a daily roundup email or request today’s list anytime.',
     '',
-    '--- Labs ---',
-    `Browse: ${labsUrl}`,
-    'Project gallery — toys and tools to try in the browser.',
+    'Dungeon —',
+    `A dice-driven dungeon crawl in the browser: combat, treasure, shops, and story beats. Tactical fights with directional attacks, defense, consumables, and retreat. Multiple cloud save slots so a run survives a new device or browser.`,
+    dungeonUrl,
     '',
-    '--- Account dashboard ---',
-    `Open: ${dashUrl}`,
-    'Password, username, email preferences, TrifangX shortcuts, account deletion.',
+    'Classify —',
+    `An advanced class planner for real academic terms: courses, weekly blocks, deadlines, and rhythm in one workspace. With your Ahrens Labs login, your planner syncs to the cloud.`,
+    classifyUrl,
     '',
-    'We will email you to confirm your address. Optional roundup and milestone mail — adjust in the dashboard.',
+    'Kyrachyng —',
+    `A constructed language you can learn step by step: writing, sounds, grammar, and vocabulary in sequence. Progress is saved on your account.`,
+    kyrachyngUrl,
     '',
-    'Feedback: caleb@ahrenslabs.com.',
+    'Labs hub —',
+    `Experiments and toys: language games, music tools, coding playgrounds, writing helpers, STEM demos, and prototypes. Some use your account for saves; others are one-click to try.`,
+    labsUrl,
     '',
-    'If you did not sign up, ignore this message.',
+    '--- More detail — TrifangX ---',
+    '',
+    'Chess engine & account:',
+    '• Progress & cloud save — wins, losses, draws, and summaries on your profile. Lifetime stats for captures, openings, streaks, and long-term goals.',
+    '• Achievements & points — large catalog (tactics, speed, material, blindfold, time controls, unusual feats). Points feed Total Points and rarer goals.',
+    '• Shop & cosmetics — boards, piece sets, highlights, arrows, themes, move and checkmate flair, time controls. Purchases stay on your profile across devices.',
+    `• Daily challenges & roundup — three rotating achievements each day. Dashboard: daily challenge roundup (pick a time zone) or email today’s challenges now.`,
+    '• Board tools — legal-move hints, arrows and highlights, premoves, blindfold or mental-board modes.',
+    '• Game history & replay — reopen recent games from the cloud and step through move-by-move.',
+    '• Modes — casual engine sparring, clocked games with increments, optional live-engine play from the lobby when enabled.',
+    '',
+    '--- More about each experience ---',
+    '',
+    'Dungeon:',
+    '• Exploration — combat, loot, merchants, hazards; dice-driven outcomes.',
+    '• Combat — attack lanes, defense, items, retreat when health is low.',
+    '• Progression — achievements and stats; multiple save slots.',
+    '• Cloud saves — slot data on your profile across devices.',
+    '',
+    'Classify planner:',
+    '• Semester view — courses, weekly blocks, recurring commitments.',
+    '• Built for real terms — midterms, projects, shifting schedules.',
+    '• Cloud backup — sync when signed in; recover after reinstall.',
+    '• Same account — planner plus games without extra logins.',
+    '',
+    'Kyrachyng:',
+    '• Structured path — lessons unlock in order.',
+    '• Reading & writing — practice production, not only passive reading.',
+    '• Saved progress — resume on any device.',
+    '• For curious learners — conlangs, puzzles, short daily study.',
+    '',
+    'Labs hub:',
+    '• Browse by card — clear entry for each experiment.',
+    '• Quick or deep — short tries or tools to revisit.',
+    '• Varied topics — language, audio, code, STEM, writing, humor.',
+    '• Account when useful — same login where a lab needs persistence.',
+    '',
+    'Account dashboard:',
+    `• Profile & sign-in — change password or username (username needs current password).`,
+    '• Email — time zone for roundup, daily challenge email, resend this welcome guide, email today’s challenges now.',
+    '• TrifangX shortcuts — open shop, settings, or achievements from the dashboard.',
+    '• Delete account — start removal when you want cloud data wiped; confirmation email when it finishes.',
+    'One email and password for every product above.',
+    '',
+    'Email from us: we will message you to confirm your address and for account security (for example password reset). Optional TrifangX roundup and milestone mail — change anytime in your dashboard:',
+    dashUrl,
+    '',
+    'Questions, ideas, or bug reports? caleb@ahrenslabs.com',
+    '',
+    `All links: ${homeUrl}`,
+    'If you did not create this account, you can ignore this message.',
   ].join('\n');
 
   const dispatchOpts = { to: email, subject, html, text };
