@@ -74,6 +74,31 @@ BLACK_PAWN_CAPTURE_DELTAS = ((-1, 1), (-1, -1))
 WHITE_PROMOTION_PIECES = ('Q', 'R', 'B', 'N')
 BLACK_PROMOTION_PIECES = ('q', 'r', 'b', 'n')
 
+def _is_white_promotion_piece(piece, target_row):
+    return target_row == 7 and piece in WHITE_PROMOTION_PIECES
+
+def _is_black_promotion_piece(piece, target_row):
+    return target_row == 0 and piece in BLACK_PROMOTION_PIECES
+
+def _is_promotion_piece(piece, target_row):
+    return _is_white_promotion_piece(piece, target_row) or _is_black_promotion_piece(piece, target_row)
+
+def _promotion_source_piece(piece, target_row):
+    if _is_white_promotion_piece(piece, target_row):
+        return 'P'
+    if _is_black_promotion_piece(piece, target_row):
+        return 'p'
+    return piece
+
+def _format_promotion_move(piece, from_col, to_row, to_col, captured_piece):
+    if _is_white_promotion_piece(piece, to_row):
+        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in BLACK_PIECES else ''
+        return prefix + indices_to_pos(to_row, to_col) + '=' + piece
+    if _is_black_promotion_piece(piece, to_row):
+        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in WHITE_PIECES else ''
+        return prefix + indices_to_pos(to_row, to_col) + '=' + piece.upper()
+    return None
+
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
     row = 8 - int(pos[1])
@@ -106,6 +131,14 @@ def print_board(board):
     #return output
 
 def print_piece_move(board, best_piece, best_row, best_col, target_row, target_col, piece, color):
+    promotion_move = _format_promotion_move(best_piece, best_col, target_row, target_col, piece)
+    if promotion_move:
+        move_played = promotion_move
+        opponent_color = 'w' if color == 'b' else 'b'
+        opp_king_row, opp_king_col = find_king(board, opponent_color)
+        if opp_king_row != -1 and is_king_in_check(board, opp_king_row, opp_king_col, opponent_color):
+            move_played += '+'
+        return move_played
     disambiguation = get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col)
 
     if color == 'b':
@@ -190,10 +223,13 @@ def _apply_debug_move(board, piece, from_row, from_col, to_row, to_col, color):
             board[0][4] = '0'
         return
 
+    source_piece = _promotion_source_piece(piece, to_row)
     board[from_row][from_col] = '0'
-    if piece == 'p' and color == 'b' and to_row == 0:
+    if _is_promotion_piece(piece, to_row):
+        board[to_row][to_col] = piece
+    elif source_piece == 'p' and color == 'b' and to_row == 0:
         board[to_row][to_col] = 'q'
-    elif piece == 'P' and color == 'w' and to_row == 7:
+    elif source_piece == 'P' and color == 'w' and to_row == 7:
         board[to_row][to_col] = 'Q'
     else:
         board[to_row][to_col] = piece
@@ -205,7 +241,8 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
 
     # Pawn captures should always be logged with "x", including en passant where
     # the target square is empty in the pre-move board state.
-    if piece in {'p', 'P'} and from_col != to_col and captured_piece == '0':
+    source_piece = _promotion_source_piece(piece, to_row)
+    if source_piece in {'p', 'P'} and from_col != to_col and captured_piece == '0':
         debug_captured_piece = 'P' if color == 'b' else 'p'
 
     if piece == '0-0':
@@ -2534,6 +2571,14 @@ def convert_to_long_algebraic(move, board, color):
     return None
 
 def print_piece_move(board, best_piece, best_row, best_col, target_row, target_col, piece, color):
+    promotion_move = _format_promotion_move(best_piece, best_col, target_row, target_col, piece)
+    if promotion_move:
+        move_played = promotion_move
+        opponent_color = 'w' if color == 'b' else 'b'
+        opp_king_row, opp_king_col = find_king(board, opponent_color)
+        if opp_king_row != -1 and is_king_in_check(board, opp_king_row, opp_king_col, opponent_color):
+            move_played += '+'
+        return move_played
     disambiguation = get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col)
 
     if color == 'b':
@@ -5337,24 +5382,25 @@ def best_move_function(board, bots, en_passant):
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
-                if best_piece == 'p' and target_row == 0:
-                    board[target_row][target_col] = 'q'
+                if (best_piece == 'p' and target_row == 0) or _is_black_promotion_piece(best_piece, target_row):
+                    promotion_piece = best_piece if best_piece in BLACK_PROMOTION_PIECES else 'q'
+                    board[target_row][target_col] = promotion_piece
                     if blind != 'y':
                         print_board(board)
                         print()
                     if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                         if piece in WHITE_PIECES:
-                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q' + '+'
+                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=' + promotion_piece.upper() + '+'
                             print(move_played)
                         else:
-                            move_played = indices_to_pos(target_row, target_col) + '=Q' + '+'
+                            move_played = indices_to_pos(target_row, target_col) + '=' + promotion_piece.upper() + '+'
                             print(move_played)
                     else:
                         if piece in WHITE_PIECES:
-                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
+                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=' + promotion_piece.upper()
                             print(move_played)
                         else:
-                            move_played = indices_to_pos(target_row, target_col) + '=Q'
+                            move_played = indices_to_pos(target_row, target_col) + '=' + promotion_piece.upper()
                             print(move_played)
                     en_passant = 'false'
                 else:
@@ -5445,7 +5491,7 @@ def best_move_function(board, bots, en_passant):
             print('Draw by Repetition')
         fifty_move_rule += 1
         if best_move not in {'0-0-0', '0-0'}:
-            if best_piece in {'p', 'en_passant_minus', 'en_passant_plus'} or 'x' in move_played:
+            if best_piece in {'p', 'en_passant_minus', 'en_passant_plus'} or best_piece in BLACK_PROMOTION_PIECES or 'x' in move_played:
                 fifty_move_rule = 0
         if fifty_move_rule >= 50:
             print('Draw by 50-Move Rule')
@@ -8012,25 +8058,26 @@ def best_move_black(board, bots, en_passant):
                 if best_piece == 'K':
                     king_move_white = 1
                 black_king_row, black_king_col = find_king(board, 'b')
-                if best_piece == 'P' and target_row == 7:
-                    board[target_row][target_col] = 'Q'
+                if (best_piece == 'P' and target_row == 7) or _is_white_promotion_piece(best_piece, target_row):
+                    promotion_piece = best_piece if best_piece in WHITE_PROMOTION_PIECES else 'Q'
+                    board[target_row][target_col] = promotion_piece
                     if blind != 'y':
                         print_board(board)
                         print()
                         print(str(white_move_count+1) + '. ', end='')
                     if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                         if piece in BLACK_PIECES:
-                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q' + '+'
+                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=' + promotion_piece + '+'
                             print(move_played)
                         else:
-                            move_played = indices_to_pos(target_row, target_col) + '=Q' + '+'
+                            move_played = indices_to_pos(target_row, target_col) + '=' + promotion_piece + '+'
                             print(move_played)
                     else:
                         if piece in BLACK_PIECES:
-                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
+                            move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=' + promotion_piece
                             print(move_played)
                         else:
-                            move_played = indices_to_pos(target_row, target_col) + '=Q'
+                            move_played = indices_to_pos(target_row, target_col) + '=' + promotion_piece
                             print(move_played)
                     en_passant = 'false'
                 else:
@@ -8123,7 +8170,7 @@ def best_move_black(board, bots, en_passant):
         if position_history[pos_hash] >= 3:
             print('Draw by Repetition')
         if best_move and best_move not in {'0-0-0', '0-0'}:
-            if best_piece in {'P', 'en_passant_minus', 'en_passant_plus'} or (move_played and 'x' in move_played):
+            if best_piece in {'P', 'en_passant_minus', 'en_passant_plus'} or best_piece in WHITE_PROMOTION_PIECES or (move_played and 'x' in move_played):
                 fifty_move_rule = 0
         if move_played is None:
             # This should never happen, but provides a fallback
