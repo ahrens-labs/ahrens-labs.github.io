@@ -1581,7 +1581,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
             else:
                 return None, None
-        board[from_row][from_col] = _source_piece_before_move(piece, to_row)
+        board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
         board[to_row][to_col] = captured_piece
         position_history[pos_hash] -= 1
         if piece == 'k':
@@ -1831,7 +1831,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
             else:
                 return None, None
-        board[from_row][from_col] = _source_piece_before_move(piece, to_row)
+        board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
         board[to_row][to_col] = captured_piece
         position_history[pos_hash] -= 1
         if piece == 'K':
@@ -4588,7 +4588,20 @@ def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, 
         board[target_row][target_col] = 'q'
 
 
-def _source_piece_before_move(moved_piece_symbol, target_row):
+def _source_piece_before_move(moved_piece_symbol, target_row, from_row=None):
+    """
+    Map the piece on the destination after a forward move back to what occupied the source.
+    Q/N on rank 8 (row 7) or q/n on rank 1 (row 0) are only pawn promotions when the
+    move started on the 7th resp. 2nd rank (row 6 resp. 1); otherwise a queen/knight moved
+    onto that square and must undo as the same piece.
+    """
+    if from_row is not None:
+        if target_row == 7 and moved_piece_symbol in WHITE_PROMOTION_PIECES and from_row == 6:
+            return 'P'
+        if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES and from_row == 1:
+            return 'p'
+        return moved_piece_symbol
+    # Callers that omit from_row keep legacy “any Q/N to row 7” behavior (avoid if possible).
     if target_row == 7 and moved_piece_symbol in WHITE_PROMOTION_PIECES:
         return 'P'
     if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES:
@@ -4599,7 +4612,7 @@ def _source_piece_before_move(moved_piece_symbol, target_row):
 def _undo_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol, captured_piece):
     # Use the piece actually on the destination (handles P vs Q/N after promotion on source).
     effective = board[target_row][target_col]
-    board[from_row][from_col] = _source_piece_before_move(effective, target_row)
+    board[from_row][from_col] = _source_piece_before_move(effective, target_row, from_row)
     board[target_row][target_col] = captured_piece
 
 
