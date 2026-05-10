@@ -6544,22 +6544,28 @@ def best_move_black(board, bots, en_passant):
                     # One-square advance
                     if row < 7 and board[row+1][col] == '0':
                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            new_board = [r[:] for r in board]
-                            key_args = (new_board, row, col, row+1, col, good_moves, 'P', white_king_row, white_king_col, '0', position_history)
-                            tasks.append(key_args)
+                            promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                            for promoted_piece in promotion_choices:
+                                new_board = [r[:] for r in board]
+                                key_args = (new_board, row, col, row+1, col, good_moves, promoted_piece, white_king_row, white_king_col, '0', position_history)
+                                tasks.append(key_args)
                     # Captures
                     if row < 7 and col > 0 and board[row+1][col-1] in BLACK_PIECES:
                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             captured_piece = board[row+1][col-1]
-                            new_board = [r[:] for r in board]
-                            key_args = (new_board, row, col, row+1, col-1, good_moves, 'P', white_king_row, white_king_col, captured_piece, position_history)
-                            tasks.append(key_args)
+                            promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                            for promoted_piece in promotion_choices:
+                                new_board = [r[:] for r in board]
+                                key_args = (new_board, row, col, row+1, col-1, good_moves, promoted_piece, white_king_row, white_king_col, captured_piece, position_history)
+                                tasks.append(key_args)
                     if row < 7 and col < 7 and board[row+1][col+1] in BLACK_PIECES:
                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             captured_piece = board[row+1][col+1]
-                            new_board = [r[:] for r in board]
-                            key_args = (new_board, row, col, row+1, col+1, good_moves, 'P', white_king_row, white_king_col, captured_piece, position_history)
-                            tasks.append(key_args)
+                            promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
+                            for promoted_piece in promotion_choices:
+                                new_board = [r[:] for r in board]
+                                key_args = (new_board, row, col, row+1, col+1, good_moves, promoted_piece, white_king_row, white_king_col, captured_piece, position_history)
+                                tasks.append(key_args)
 
                 # White Knights
                 elif piece == 'N':
