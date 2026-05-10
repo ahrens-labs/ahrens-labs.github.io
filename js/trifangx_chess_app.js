@@ -8185,7 +8185,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           dailyTitleCard.appendChild(dailyTitle);
           
           const dailySubtitle = document.createElement('div');
-          dailySubtitle.textContent = 'These reset and change every day at midnight!';
+          dailySubtitle.textContent = 'They refresh every day.';
           dailySubtitle.style.cssText = 'color: #d35400; font-style: italic; font-size: 0.85em;';
           dailyTitleCard.appendChild(dailySubtitle);
           
@@ -9007,7 +9007,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     // ========================================================================
     // DAILY CHALLENGES CONFIGURATION
     // ========================================================================
-    // Three challenges per UTC calendar day are chosen deterministically (same for everybody).
+    // Three challenges per local calendar day (device time) are chosen deterministically.
     // Keep this list aligned with workers/src/daily-challenge-picker.js.
     // ========================================================================
     function getAllDailyChallengeIds() {
@@ -9077,10 +9077,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
     
     // ========================================================================
-    // DAILY CHALLENGES — same three for every player on a calendar day
+    // DAILY CHALLENGES — same three for each calendar day in your time zone
     // ========================================================================
-    // Picks use a deterministic shuffle (seeded PRNG) from a UTC date
-    // string YYYY-MM-DD plus a fixed salt, so everyone sees the same dailies.
+    // Picks use a deterministic shuffle from a local YYYY-MM-DD date plus salt.
 
     const DAILY_CHALLENGE_PICK_SALT = 'ahrenslabs-chess-daily-v2';
 
@@ -9137,7 +9136,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (!ds) return [];
 
         const now = new Date();
-        const dateString = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         const validList = getAllDailyChallengeIds();
         const validSet = new Set(validList);

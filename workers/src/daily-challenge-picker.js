@@ -117,6 +117,7 @@ export function getDeterministicDailyChallengeIds(dateString, validList, maxPick
   return selected.slice(0, 3);
 }
 
+/** @param {string} dateString Local or zoned calendar day YYYY-MM-DD (not necessarily UTC). */
 export function getDailyChallengeIdsForUtcDate(dateString) {
   return getDeterministicDailyChallengeIds(dateString, FALLBACK_DAILY_CHALLENGE_IDS, 3);
 }

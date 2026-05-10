@@ -1,7 +1,6 @@
 // Cloudflare Workers entry point for Chess Engine Accounts
 
 import {
-  utcDateString,
   getDailyChallengeIdsForUtcDate,
   DAILY_CHALLENGE_DIGEST_BLURBS,
   DAILY_CHALLENGE_CARD_INFO,
@@ -513,18 +512,11 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
   if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
 
   const now = new Date();
-  const utcDateStr = utcDateString(now);
-  const ids = getDailyChallengeIdsForUtcDate(utcDateStr);
+  const digestDateStr = ymdInTimeZone(now, tz);
+  const ids = getDailyChallengeIdsForUtcDate(digestDateStr);
 
   try {
-    await sendDailyDigestEmail(
-      env,
-      { email, username },
-      utcDateStr,
-      ids,
-      tz,
-      { instant: true }
-    );
+    await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
     if (env.DAILY_DIGEST_KV) {
       await env.DAILY_DIGEST_KV.put(`instant-digest:${userId}`, '1', { expirationTtl: 120 });
     }
@@ -547,7 +539,6 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
     JSON.stringify({
       success: true,
       message: 'Check your inbox for today’s TrifangX daily challenges.',
-      utcDate: utcDateStr,
     }),
     {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -1629,9 +1620,13 @@ function hourInTimeZone(date, timeZone) {
     timeZone,
     hour: '2-digit',
     hour12: false,
+    hourCycle: 'h23',
   }).formatToParts(date);
   const h = parts.find((p) => p.type === 'hour');
-  return h ? parseInt(h.value, 10) : 0;
+  let n = h ? parseInt(h.value, 10) : 0;
+  if (!Number.isFinite(n)) n = 0;
+  if (n === 24) n = 0;
+  return n;
 }
 
 function ymdInTimeZone(date, timeZone) {
@@ -3127,7 +3122,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                 <tr>
                   <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
                     <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX chess</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and chase <strong>three rotating daily challenges</strong> every UTC day — the same puzzles for everyone worldwide. From your account dashboard you can turn on the <strong>daily TrifangX challenge roundup</strong> (email at midnight in your chosen time zone) or fire off <strong>today’s three challenge IDs</strong> on demand. Optional live-engine play and blindfold modes when you want to go deeper.</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Our flagship chess experience: spar with a strong engine, unlock <strong>hundreds of achievements</strong>, spend points in a <strong>cosmetic shop</strong> (boards, pieces, themes, effects), and complete <strong>three daily challenges</strong> that refresh each day on your device. From your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account dashboard</a> you can opt into a <strong>daily roundup email</strong> or request today’s list anytime.</p>
                     <p style="margin:10px 0 0 0;font-size:14px;"><a href="${chessUrl}" style="color:#2563eb;font-weight:600;">Open the chess lobby</a></p>
                   </td>
                 </tr>
@@ -3170,91 +3165,8 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                   </td>
                 </tr>
               </table>
-              <p style="margin:28px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">More detail — what an account actually does</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">TrifangX (chess engine)</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, draws, and rating-style summaries stay on your profile. Deep <strong>lifetime stats</strong> track captures, openings, streaks, and long-horizon goals so you can see how your style evolves over hundreds of games.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog of goals spanning tactics, speed, material, blindfold milestones, time controls, and quirky feats. Points feed your sidebar <strong>Total Points</strong> and unlock rarer achievements—giving both casual and grind-minded players something to chase.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlight and arrow colors, page themes, move/checkmate flair, and extra time controls. Everything you buy is stored server-side so it follows you across machines.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup email</strong> — every <strong>UTC calendar day</strong> the world shares the same three rotating achievements (listed in-game). Opt in to the <strong>daily TrifangX challenge roundup</strong> so those IDs land in your inbox at the start of each calendar day in your dashboard time zone, or tap <strong>email today’s challenges now</strong> when you don’t want to wait. They’re designed to nudge your playstyle and stack extra rewards on top of the main catalog.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, custom arrows and square highlights, premove queues, and optional blindfold/mental-board modes for serious training—or just a change of pace.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — keep recent games in the cloud (within fair-use limits), reopen them on the board, and step through move-by-move when you want to learn from a win or loss.</li>
-                      <li style="margin:0;"><strong>Modes &amp; match types</strong> — casual unrated engine sparring, clocked games with increments, and optional live-engine sessions from the lobby when available.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:24px 0 10px 0;font-size:13px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;">Deep dive — dungeon, planner, language &amp; labs</p>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Dungeon game</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Exploration loop</strong> — move through a dungeon where rooms can surprise you with fights, loot, merchants, or hazards; dice rolls keep outcomes readable but tense.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Combat depth</strong> — choose attack lanes, defensive responses, and items; retreat is a real option when health is low. Inventory and equipment matter for how fights feel.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Meta progression</strong> — achievements and stats reward repeated play; multiple <strong>save slots</strong> let you experiment with different routes without wiping a main run.</li>
-                      <li style="margin:0;"><strong>Cloud saves</strong> — slot data lives on your Ahrens Labs profile, so switching computers or browsers doesn’t erase hours of progress.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Classify planner</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Semester clarity</strong> — model courses, weekly blocks, and recurring commitments so you see conflicts before they happen.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Designed for students</strong> — tuned for the way real terms behave: intense midterms, project crunches, and shifting office hours—not just a generic calendar grid.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Cloud backup</strong> — signed-in users sync planner data to the server; recover your layout after a reinstall or device change.</li>
-                      <li style="margin:0;"><strong>Pair with chess &amp; games</strong> — keep academics organized in Classify, then reward study breaks in TrifangX or the dungeon without juggling separate accounts.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Kyrachyng lessons</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Structured path</strong> — lessons build on each other; completion gates keep the course coherent instead of a random grab bag of pages.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Reading &amp; writing</strong> — practice both recognition and production so the language sticks—not just passive reading.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Account progress</strong> — your “lit trail” of finished lessons is stored per user; resume on any device without losing your place.</li>
-                      <li style="margin:0;"><strong>For curious learners</strong> — ideal if you like conlangs, puzzles, or short daily study rituals alongside heavier games.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Labs hub</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Discovery surface</strong> — browse cards for each public experiment with clear entry points instead of hunting through the whole site.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Mix of depths</strong> — some labs are five-minute toys; others are tools you can return to for weeks.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Cross-domain</strong> — expect language, audio, code, robotics-adjacent demos, creative writing helpers, and occasional humor projects.</li>
-                      <li style="margin:0;"><strong>Account-aware where it helps</strong> — when a lab needs persistence, it can use the same login you already created—no new signup friction.</li>
-                    </ul>
-                  </td>
-                </tr>
-              </table>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
-                <tr>
-                  <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard &amp; security</p>
-                    <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
-                      <li style="margin:0 0 8px 0;"><strong>Profile &amp; credentials</strong> — change <strong>password</strong> or <strong>username</strong> (username changes require your password), and see at a glance who you’re signed in as.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Email controls</strong> — choose your <strong>time zone for the daily email</strong>, turn on the <strong>daily TrifangX challenge roundup</strong>, <strong>resend this welcome guide</strong>, or send <strong>today’s three challenges now</strong> without waiting for midnight.</li>
-                      <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — launch the in-browser <strong>shop, settings, or achievements</strong> overlay from the dashboard; when you close a modal, your <strong>achievement point total</strong> refreshes from the cloud.</li>
-                      <li style="margin:0;"><strong>Data removal</strong> — start <strong>account deletion</strong> when you want chess, dungeon, Classify, Kyrachyng, and other cloud data wiped; you’ll receive a confirmation email when the process finishes.</li>
-                    </ul>
-                    <p style="margin:12px 0 0 0;font-size:14px;line-height:1.55;color:#475569;">Everything above uses the <strong>same email and password</strong> you just created — no extra accounts per product.</p>
-                  </td>
-                </tr>
-              </table>
-              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> you’ll get a separate message to <strong>confirm your address</strong>. We’ll also mail you for account security (e.g. password resets). Optional: <strong>daily TrifangX challenge roundup</strong> and occasional chess milestone notes — turn those on anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your account dashboard</a>.</p>
+              <p style="margin:28px 0 0 0;font-size:14px;line-height:1.65;color:#475569;">Use your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account dashboard</a> to update your password or username, manage email (optional daily TrifangX roundup, resend this guide), open TrifangX shortcuts, or delete your account. One sign-in covers chess, dungeon, Classify, Kyrachyng, and labs.</p>
+              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll send a message to <strong>confirm your address</strong> and for account security when needed. Optional TrifangX roundup and milestone mail — adjust anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a>.</p>
               <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? <strong>All feedback can and should</strong> be sent to <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
@@ -3278,32 +3190,31 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '',
     '--- TrifangX (chess) ---',
     `Play: ${chessUrl}`,
-    'Flagship chess vs a strong engine with full cloud save: wins/losses/draws, deep lifetime stats (captures, openings, streaks), hundreds of achievements, and a points shop for boards, piece sets, highlights, arrows, themes, checkmate effects, and time controls.',
-    'Three UTC daily challenges (same trio for every player worldwide). Optional daily TrifangX challenge roundup email (midnight in your dashboard time zone) plus one-tap “email today’s challenges now” without waiting for the digest. Board tools include legal-move hints, arrows, premoves, blindfold/mental board, optional live-engine play from the lobby, and cloud game history with replay when enabled.',
+    'Engine chess with cloud save, achievements, a points shop, and three daily challenges that refresh each day on your device. Optional daily roundup email or request today’s list from your dashboard.',
     '',
     '--- Dungeon ---',
     `Play: ${dungeonUrl}`,
-    'Dice-driven dungeon crawl: rooms can be combat, loot, shops, or hazards. Tactical fights use attack lanes, defense, items, and retreat rolls; gear and inventory matter. Achievements and multiple cloud save slots let you juggle runs without losing progress when you switch devices.',
+    'Dice-driven dungeon crawl with cloud save slots.',
     '',
     '--- Classify (planner) ---',
     `Open: ${classifyUrl}`,
-    'Advanced class planner for real semesters: courses, weekly blocks, deadlines, and term rhythm in one workspace. Cloud sync when signed in so you do not rebuild your schedule after a reinstall or new laptop.',
+    'Class planner for real semesters; syncs when signed in.',
     '',
     '--- Kyrachyng ---',
     `Lessons: ${kyrachyngUrl}`,
-    'Constructed-language course with a gated lesson path: reading, writing, grammar, and vocabulary build on each other; mark lessons complete to unlock the next. Progress is stored on your account for mobile or desktop study sessions.',
+    'Structured language lessons; progress on your account.',
     '',
     '--- Labs ---',
     `Browse: ${labsUrl}`,
-    'Project gallery for experiments: language toys, music tools, coding sandboxes, writing helpers, STEM demos, and prototypes—quick toys and deeper tools; some use your account for saves, others are instant in the browser.',
+    'Project gallery — toys and tools to try in the browser.',
     '',
     '--- Account dashboard ---',
     `Open: ${dashUrl}`,
-    'Change password or username, set time zone and toggles for the daily TrifangX challenge roundup, resend this welcome guide, trigger on-demand “today’s challenges” emails, open TrifangX shop/settings/achievements in-page (points refresh when modals close), and start account deletion with email confirmation.',
+    'Password, username, email preferences, TrifangX shortcuts, account deletion.',
     '',
-    'You will receive a separate email to confirm your address. Optional daily TrifangX challenge roundup and chess milestone mail can be adjusted in dashboard settings.',
+    'We will email you to confirm your address. Optional roundup and milestone mail — adjust in the dashboard.',
     '',
-    'All feedback can and should be sent to caleb@ahrenslabs.com.',
+    'Feedback: caleb@ahrenslabs.com.',
     '',
     'If you did not sign up, ignore this message.',
   ].join('\n');
@@ -3404,7 +3315,7 @@ function digestDailyChallengesSectionHtml(challengeIds) {
   return `<tr>
 <td style="padding:10px 32px 6px 32px;text-align:center;border-bottom:3px solid #f39c12;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Apple Color Emoji,Segoe UI Emoji,sans-serif;">
 <h2 style="margin:0 0 5px 0;font-size:20.8px;font-weight:800;color:#e67e22;line-height:1.2;">🏆 Daily Challenges</h2>
-<div style="color:#d35400;font-style:italic;font-size:13.6px;line-height:1.4;padding-bottom:14px;">These reset and change every day at midnight!</div>
+<div style="color:#d35400;font-style:italic;font-size:13.6px;line-height:1.4;padding-bottom:14px;">They refresh every day.</div>
 </td>
 </tr>
 <tr>
@@ -3414,14 +3325,7 @@ function digestDailyChallengesSectionHtml(challengeIds) {
 </tr>`;
 }
 
-async function sendDailyDigestEmail(
-  env,
-  { email, username },
-  utcDateStr,
-  challengeIds,
-  digestTimeZoneLabel,
-  options = {}
-) {
+async function sendDailyDigestEmail(env, { email, username }, challengeIds, options = {}) {
   if (!email || typeof email !== 'string') return;
   const instant = options.instant === true;
   const safeName = String(username || 'there').replace(/[<>]/g, '');
@@ -3429,19 +3333,14 @@ async function sendDailyDigestEmail(
   const emailInnerMax = '720px';
   const chessUrl = `${base}/chess_engine.html`;
   const dashUrl = `${base}/account-dashboard.html`;
-  const tzNote = digestTimeZoneLabel
-    ? `Your daily TrifangX challenge email is scheduled around midnight at the start of your calendar day (${digestTimeZoneLabel}).`
-    : '';
   const instantBanner = instant
     ? `<tr><td style="padding:0 40px 18px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><p style="margin:0;padding:14px 18px;background:#fef3c7;border-radius:10px;border-left:4px solid #d97706;font-size:14px;line-height:1.5;color:#92400e;"><strong>On-demand send</strong> — you asked for today’s list from your account dashboard.</p></td></tr>`
     : '';
-  const preheader = `Three TrifangX daily challenges for UTC ${utcDateStr} — same for every player.`;
+  const preheader = `Today’s three TrifangX daily challenges — play in the chess engine.`;
 
   const dailySectionInner = digestDailyChallengesSectionHtml(challengeIds);
 
-  const subject = instant
-    ? `Your TrifangX daily challenges — ${utcDateStr} (UTC day)`
-    : `TrifangX daily challenges — ${utcDateStr} (UTC day)`;
+  const subject = instant ? `Your TrifangX daily challenges` : `TrifangX daily challenges`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -3455,7 +3354,7 @@ async function sendDailyDigestEmail(
           <tr>
             <td style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 40%,#b45309 100%);padding:28px 36px;text-align:left;">
               <p style="margin:0 0 4px 0;font-family:Georgia,serif;font-size:20px;font-weight:700;color:#fef3c7;">Daily challenges</p>
-              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#fde68a;opacity:0.95;line-height:1.45;">UTC calendar day <strong style="color:#fff;">${utcDateStr}</strong> · same three IDs for everyone</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#fde68a;opacity:0.95;line-height:1.45;">Three challenges refresh <strong style="color:#fff;">every day</strong> — here is today’s set</p>
             </td>
           </tr>
           <tr>
@@ -3473,8 +3372,7 @@ async function sendDailyDigestEmail(
           <tr>
             <td style="padding:10px 36px 32px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" align="center">
               <a href="${chessUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;">Open TrifangX</a>
-              <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Challenge IDs always use the <strong>UTC date</strong> above so they match the in-game list. Manage challenge emails in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
-              ${tzNote ? `<p style="margin:12px 0 0 0;font-size:12px;color:#94a3b8;">${tzNote}</p>` : ''}
+              <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Manage the daily roundup in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
             </td>
           </tr>
           <tr>
@@ -3492,15 +3390,13 @@ async function sendDailyDigestEmail(
   const text = [
     `Hi ${safeName},`,
     '',
-    instant ? '(Sent on request from your account dashboard.)' : '(Scheduled daily TrifangX challenge email.)',
+    instant ? '(Sent on request from your account dashboard.)' : '(Daily TrifangX challenge roundup.)',
     '',
-    `TrifangX daily challenges for UTC date ${utcDateStr} (same for every player):`,
+    `Today’s three challenges:`,
     formatDailyDigestLines(challengeIds),
     '',
     `Play: ${chessUrl}`,
     `Dashboard: ${dashUrl}`,
-    '',
-    tzNote,
     '',
     instant ? '' : 'You turned on the daily challenge email in account settings.',
   ]
@@ -3516,8 +3412,6 @@ async function handleScheduledCron(event, env) {
     return;
   }
   const now = new Date();
-  const utcDateStr = utcDateString(now);
-  const ids = getDailyChallengeIdsForUtcDate(utcDateStr);
   let cursor;
   let sent = 0;
   let failed = 0;
@@ -3566,7 +3460,8 @@ async function handleScheduledCron(event, env) {
           continue;
         }
 
-        await sendDailyDigestEmail(env, raw, utcDateStr, ids, tz);
+        const ids = getDailyChallengeIdsForUtcDate(localYmd);
+        await sendDailyDigestEmail(env, raw, ids, {});
         const next = { ...raw, digestTimeZone: tz, lastDigestLocalYmd: localYmd };
         await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
         sent++;
@@ -3577,7 +3472,7 @@ async function handleScheduledCron(event, env) {
     }
     cursor = list.list_complete ? undefined : list.cursor;
   } while (cursor);
-  console.log('Daily digest cron', { utcDateStr, sent, failed, skipped, cron: event.cron });
+  console.log('Daily digest cron', { sent, failed, skipped, cron: event.cron });
 }
 
 function generatePasswordResetToken() {

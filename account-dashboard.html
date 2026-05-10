@@ -376,15 +376,14 @@
             <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the daily challenge email, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
           </p>
           <p class="hint">
-            The <strong>daily TrifangX challenge email</strong> goes out around <strong>12:00 AM (midnight)</strong> at the start of the calendar day in the time zone you choose.
-            Default is <strong>US Central</strong> (<code>America/Chicago</code>) if you are unsure. It lists the same three daily challenge IDs as in-game (UTC calendar day).
+            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we’ll email you <strong>once per day</strong> with that day’s three challenges. Pick the time zone that matches where you want “the new day” to start (default is US Central). In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
           </p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
             <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
           </div>
           <div class="form-row">
-            <label for="email-tz">Time zone for that daily email (IANA)</label>
+            <label for="email-tz">Time zone for the daily roundup email</label>
             <select id="email-tz">
               <option value="America/Chicago">US Central — America/Chicago (default)</option>
               <option value="America/New_York">US Eastern — America/New_York</option>
@@ -401,7 +400,7 @@
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenge IDs (UTC calendar day — same as in-game). Works even if the daily roundup is off.</p>
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (based on the time zone above). Works even if the daily roundup is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
@@ -439,7 +438,7 @@
           <p class="hint">
             One line per account: <strong>email</strong>, <strong>username</strong>, <strong>verified</strong>, and actions.
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
-            Listing merges <strong>cloud profiles</strong>, the <strong>username registry</strong>, and <strong>digest KV</strong> (<code>sub:</code>).
+            Listing merges <strong>cloud profiles</strong>, the <strong>username registry</strong>, and <strong>email roundup subscribers</strong>.
             Use <strong>Load next page</strong> until “end of list”. CSV still includes internal user id.
           </p>
           <div class="admin-accounts-toolbar">
@@ -1281,7 +1280,7 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           let msg = dailyChallengeEmails
-            ? 'Saved. You should get the daily challenge email around midnight in your selected time zone.'
+            ? 'Saved. We’ll send the daily roundup once per day in your selected time zone.'
             : 'Saved. Daily challenge email is off.';
           if (data.warning) msg += ' ' + data.warning;
           setStatus(st, msg, 'ok');
@@ -1653,8 +1652,7 @@
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
-            const extra = data.utcDate ? ` — UTC day ${data.utcDate}` : '';
-            setStatus(st, (data.message || 'Sent.') + extra, 'ok');
+            setStatus(st, data.message || 'Sent.', 'ok');
           } else {
             setStatus(st, data.error || 'Could not send.', 'err');
           }
