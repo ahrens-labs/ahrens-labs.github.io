@@ -38,7 +38,7 @@ except (AttributeError, OSError, ValueError):
 ENABLE_MULTIPROCESSING = False
 
 # Noisy debug prints can dominate runtime on web servers due to log I/O.
-DEBUG_LOGS = False
+DEBUG_LOGS = True
 SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
 _DEVNULL = None
 
@@ -3449,7 +3449,7 @@ def is_checkmate(board, player):
                             board[row][col] = 'p'
                             board[row-2][col] = '0'
 
-                        elif direction == 2 and row < 7 and board[row-1][col] == '0':
+                        elif direction == 2 and row > 0 and board[row-1][col] == '0':
                             board[row][col] = '0'
                             board[row-1][col] = 'p'
                             if row-1 == 0:
@@ -3461,7 +3461,7 @@ def is_checkmate(board, player):
                             board[row][col] = 'p'
                             board[row-1][col] = '0'
 
-                        elif direction == 3 and row < 7 and col > 0 and board[row-1][col-1] in WHITE_PIECES:
+                        elif direction == 3 and row > 0 and col > 0 and board[row-1][col-1] in WHITE_PIECES:
                             captured_piece = board[row-1][col-1]
                             board[row][col] = '0'
                             board[row-1][col-1] = 'p'
@@ -6046,7 +6046,7 @@ def best_move2(board):
                         board[row][col] = 'p'
                         board[row-2][col] = '0'
 
-                    elif direction == 2 and row < 7 and board[row-1][col] == '0':
+                    elif direction == 2 and row > 0 and board[row-1][col] == '0':
                         board[row][col] = '0'
                         promotion_choices = BLACK_PROMOTION_PIECES if row - 1 == 0 else ('p',)
                         for promoted_piece in promotion_choices:
@@ -6062,7 +6062,7 @@ def best_move2(board):
                         board[row][col] = 'p'
                         board[row-1][col] = '0'
 
-                    elif direction == 3 and row < 7 and col > 0 and board[row-1][col-1] in WHITE_PIECES:
+                    elif direction == 3 and row > 0 and col > 0 and board[row-1][col-1] in WHITE_PIECES:
                         captured_piece = board[row-1][col-1]
                         board[row][col] = '0'
                         promotion_choices = BLACK_PROMOTION_PIECES if row - 1 == 0 else ('p',)
@@ -6385,7 +6385,8 @@ def best_move_black(board, bots, en_passant):
                 '1. e3 f6 2. d4 g5',
                 '1. Nf3 Nf6 2. Nc3 Nc6 3. Ne4 Ne5 4. Nc3 Nc6 5. Ne4 Ne5 6. Nc3',
                 '1. h3 a6 2. h4 a5 3. h5 b6 4. h6 Bb7 5. hxg7 Ra7',
-                '1. g4 a6 2. g5 f5'
+                '1. g4 a6 2. g5 f5',
+                '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6'
                 ]
     # Build tasks for multiprocessing if no opening book move
     tasks = []
@@ -6537,13 +6538,11 @@ def best_move_black(board, bots, en_passant):
                 if piece == 'P':
                     # Two-square advance
                     if row == 1 and board[row+2][col] == '0' and board[row+1][col] == '0':
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             new_board = [r[:] for r in board]
                             key_args = (new_board, row, col, row+2, col, good_moves, 'P', white_king_row, white_king_col, '0', position_history)
                             tasks.append(key_args)
                     # One-square advance
                     if row < 7 and board[row+1][col] == '0':
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
                             for promoted_piece in promotion_choices:
                                 new_board = [r[:] for r in board]
@@ -6551,7 +6550,6 @@ def best_move_black(board, bots, en_passant):
                                 tasks.append(key_args)
                     # Captures
                     if row < 7 and col > 0 and board[row+1][col-1] in BLACK_PIECES:
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             captured_piece = board[row+1][col-1]
                             promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
                             for promoted_piece in promotion_choices:
@@ -6559,7 +6557,6 @@ def best_move_black(board, bots, en_passant):
                                 key_args = (new_board, row, col, row+1, col-1, good_moves, promoted_piece, white_king_row, white_king_col, captured_piece, position_history)
                                 tasks.append(key_args)
                     if row < 7 and col < 7 and board[row+1][col+1] in BLACK_PIECES:
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             captured_piece = board[row+1][col+1]
                             promotion_choices = WHITE_PROMOTION_PIECES if row + 1 == 7 else ('P',)
                             for promoted_piece in promotion_choices:
@@ -8151,7 +8148,7 @@ def best_move_player_black(board):
                 # OPTIMIZATION: Fixed order - captures first (3,4), then advances (1,2) for better move ordering
                 directions = [3, 4, 1, 2]
                 for direction in directions:
-                    if direction == 1 and row == 7 and board[row-2][col] == '0' and board[row-1][col] == '0':
+                    if direction == 1 and row == 6 and board[row-2][col] == '0' and board[row-1][col] == '0':
                         board[row][col] = '0'
                         board[row-2][col] = 'p'
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
