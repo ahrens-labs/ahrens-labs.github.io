@@ -319,17 +319,34 @@
 
         /* --- Responsive --- */
         @media (max-width: 768px) {
-            .hero-fullwidth { padding: 4rem 1.5rem 3rem; }
+            .hero-fullwidth {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+                padding: 3.5rem 1.15rem 2.75rem;
+            }
             .hero-inner h2 { font-size: 2.4rem; }
             .hero-tagline { font-size: 1.05rem; }
             .hero-stats-strip { gap: 1.5rem; }
             .hero-stat-number { font-size: 1.8rem; }
             .hero-actions { flex-direction: column; align-items: center; }
             .labs-showcase { grid-template-columns: 1fr; }
+            .mission-section { padding: 2.5rem 1rem; }
+            .mission-section h3 { font-size: 1.65rem; }
+            .lab-preview-card { padding: 1.35rem 1.2rem; }
         }
         @media (max-width: 480px) {
+            .hero-fullwidth { padding: 3rem 1rem 2.25rem; }
             .hero-inner h2 { font-size: 1.9rem; }
             .hero-stats-strip { flex-direction: column; gap: 1rem; }
+            .mission-section { padding: 2rem 0.85rem; }
+            .btn-hero-primary,
+            .btn-hero-secondary {
+                width: 100%;
+                max-width: 320px;
+                justify-content: center;
+                box-sizing: border-box;
+            }
         }
     </style>
 </head>

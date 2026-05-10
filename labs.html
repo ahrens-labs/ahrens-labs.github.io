@@ -136,9 +136,15 @@
         }
         .lab-preview-card:hover .lab-preview-arrow { gap: 0.65rem; }
         @media (max-width: 768px) {
-            .labs-hero { padding: 2.5rem 1rem 1.5rem; }
+            .labs-hero {
+                width: 100%;
+                max-width: 100%;
+                margin-left: 0;
+                padding: 2.5rem 1rem 1.5rem;
+            }
             .labs-hero h2 { font-size: 1.7rem; }
             .labs-showcase { grid-template-columns: 1fr; }
+            .lab-preview-card { padding: 1.35rem 1.15rem; }
         }
     </style>
 </head>
