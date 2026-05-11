@@ -124,27 +124,48 @@
             color: #94a3b8;
             text-align: center;
         }
-        .lb-toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.6rem 1rem;
-            margin-bottom: 1rem;
-        }
-        .lb-toolbar label {
+        .lb-sort-heading {
             font-size: 0.88rem;
             font-weight: 600;
             color: #475569;
+            margin: 0 0 0.5rem 0;
         }
-        .lb-toolbar select {
+        .lb-sort-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-bottom: 1.1rem;
+        }
+        .lb-sort-btn {
             font: inherit;
-            font-size: 0.9rem;
-            padding: 0.45rem 0.75rem;
-            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.42rem 0.75rem;
+            border-radius: 999px;
             border: 1px solid #cbd5e1;
-            background: #fff;
+            background: #f8fafc;
+            color: #475569;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .lb-sort-btn:hover {
+            background: #e2e8f0;
+            border-color: #94a3b8;
             color: #0f172a;
-            min-width: 12rem;
+        }
+        .lb-sort-btn:focus-visible {
+            outline: 2px solid #0d9488;
+            outline-offset: 2px;
+        }
+        .lb-sort-btn.is-active {
+            background: linear-gradient(135deg, #0f766e, #0d9488);
+            border-color: #0f766e;
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(15, 118, 110, 0.28);
+        }
+        .lb-sort-btn.is-active:hover {
+            color: #fff;
+            border-color: #0d9488;
         }
         .lb-stat {
             font-family: "Roboto Mono", monospace;
@@ -194,23 +215,21 @@
             <section class="lb-page">
                 <article class="lb-panel">
                     <p class="lb-note">
-                        Choose a sort below. Stats come from your <strong>cloud chess save</strong> (career wins/losses/draws and lifetime counters such as captures and checks).
+                        Pick how to rank the table. Stats come from your <strong>cloud chess save</strong> (career wins/losses/draws and lifetime counters such as captures and checks).
                         <strong>Win %</strong> is wins ÷ (wins + losses); draws are not counted in that denominator. Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
-                    <div class="lb-toolbar">
-                        <label for="lb-sort">Sort by</label>
-                        <select id="lb-sort" aria-label="Sort leaderboard by">
-                            <option value="points">Career points</option>
-                            <option value="wins">Wins</option>
-                            <option value="losses">Losses</option>
-                            <option value="draws">Draws</option>
-                            <option value="games">Games played</option>
-                            <option value="winPct">Win % (wins / wins+losses)</option>
-                            <option value="captures">Captures (lifetime)</option>
-                            <option value="checks">Checks given (lifetime)</option>
-                            <option value="promotions">Promotions (lifetime)</option>
-                            <option value="castles">Castling moves (lifetime)</option>
-                        </select>
+                    <p class="lb-sort-heading" id="lb-sort-label">Sort by</p>
+                    <div class="lb-sort-row" id="lb-sort-row" role="group" aria-labelledby="lb-sort-label">
+                        <button type="button" class="lb-sort-btn is-active" data-sort="points" aria-pressed="true" title="Career achievement points">Points</button>
+                        <button type="button" class="lb-sort-btn" data-sort="wins" aria-pressed="false" title="Career wins">Wins</button>
+                        <button type="button" class="lb-sort-btn" data-sort="losses" aria-pressed="false" title="Career losses">Losses</button>
+                        <button type="button" class="lb-sort-btn" data-sort="draws" aria-pressed="false" title="Career draws">Draws</button>
+                        <button type="button" class="lb-sort-btn" data-sort="games" aria-pressed="false" title="Wins + losses + draws">Games</button>
+                        <button type="button" class="lb-sort-btn" data-sort="winPct" aria-pressed="false" title="Wins ÷ (wins + losses)">Win %</button>
+                        <button type="button" class="lb-sort-btn" data-sort="captures" aria-pressed="false" title="Lifetime captures">Captures</button>
+                        <button type="button" class="lb-sort-btn" data-sort="checks" aria-pressed="false" title="Lifetime checks given">Checks</button>
+                        <button type="button" class="lb-sort-btn" data-sort="promotions" aria-pressed="false" title="Lifetime promotions">Promotions</button>
+                        <button type="button" class="lb-sort-btn" data-sort="castles" aria-pressed="false" title="Lifetime castling moves">Castles</button>
                     </div>
                     <div class="lb-table-wrap">
                         <table class="lb-table" id="lb-table" aria-label="TrifangX leaderboard">
@@ -244,7 +263,7 @@
         window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
       const tbody = document.getElementById('lb-tbody');
       const meta = document.getElementById('lb-meta');
-      const sortSelect = document.getElementById('lb-sort');
+      const sortRow = document.getElementById('lb-sort-row');
       const colStat = document.getElementById('lb-col-stat');
 
       const SORT_LABELS = {
@@ -259,6 +278,23 @@
         promotions: 'Promotions',
         castles: 'Castles',
       };
+
+      function getSelectedSort() {
+        var active = sortRow && sortRow.querySelector('.lb-sort-btn.is-active');
+        var s = active && active.getAttribute('data-sort');
+        return s || 'points';
+      }
+
+      function setSelectedSort(sort) {
+        if (!sortRow) return;
+        var btns = sortRow.querySelectorAll('.lb-sort-btn');
+        for (var i = 0; i < btns.length; i++) {
+          var b = btns[i];
+          var on = b.getAttribute('data-sort') === sort;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+      }
 
       function showStatus(msg, isErr) {
         tbody.innerHTML = '';
@@ -312,7 +348,7 @@
       }
 
       function loadLeaderboard() {
-        var sort = sortSelect && sortSelect.value ? sortSelect.value : 'points';
+        var sort = getSelectedSort();
         if (colStat) colStat.textContent = SORT_LABELS[sort] || 'Points';
         showStatus('Loading…', false);
 
@@ -329,10 +365,8 @@
               return;
             }
             var effectiveSort = (data && data.sort) || sort;
-            if (sortSelect && effectiveSort !== sortSelect.value) {
-              sortSelect.value = effectiveSort;
-              if (colStat) colStat.textContent = SORT_LABELS[effectiveSort] || 'Points';
-            }
+            if (effectiveSort !== getSelectedSort()) setSelectedSort(effectiveSort);
+            if (colStat) colStat.textContent = SORT_LABELS[effectiveSort] || 'Points';
             renderRows(data.rows || [], effectiveSort);
             if (meta && typeof data.totalRanked === 'number') {
               meta.hidden = false;
@@ -367,7 +401,16 @@
           });
       }
 
-      if (sortSelect) sortSelect.addEventListener('change', loadLeaderboard);
+      if (sortRow) {
+        sortRow.addEventListener('click', function (e) {
+          var t = e.target && e.target.closest('.lb-sort-btn');
+          if (!t || !sortRow.contains(t)) return;
+          var s = t.getAttribute('data-sort');
+          if (!s) return;
+          setSelectedSort(s);
+          loadLeaderboard();
+        });
+      }
       loadLeaderboard();
     })();
     </script>
