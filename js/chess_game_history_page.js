@@ -634,8 +634,19 @@
         return false;
       }
       const data = await response.json();
+      const rawAch = data.achievements;
+      const achievementsObj = {};
+      if (Array.isArray(rawAch)) {
+        rawAch.forEach(function (id) {
+          if (id) achievementsObj[String(id)] = true;
+        });
+      } else if (rawAch && typeof rawAch === 'object') {
+        Object.keys(rawAch).forEach(function (k) {
+          achievementsObj[k] = rawAch[k];
+        });
+      }
       cloudChessData = {
-        achievements: data.achievements || {},
+        achievements: achievementsObj,
         points: data.points || 0,
         shopUnlocks: data.shopUnlocks || {},
         settings: data.settings || {},

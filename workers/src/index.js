@@ -3070,14 +3070,35 @@ function normalizeSanMoveForLeaderboardStats(raw) {
 }
 
 /**
- * Recent-window stats from synced `gameHistory` only: each completed game with `savedAt`
- * in [serverNow - windowMs, serverNow]. W/L/D from `result` + `playerColor`; per-move stats
- * from SAN on the human player's half-moves. Points: sum `pointsEarned` / `pointsDelta` when set on the record.
+ * Sum achievement points unlocked in the recent window using `chess.achievements[id]`
+ * shaped as `{ at: epochMs, pts: number }`. Legacy `true` / missing times are skipped for points.
+ */
+function sumRecentAchievementPointsFromChess(chessBlock, windowMs, serverNow = Date.now()) {
+  const cutoff = serverNow - windowMs;
+  const raw = chessBlock?.achievements;
+  let sum = 0;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 0;
+  for (const id of Object.keys(raw)) {
+    const v = raw[id];
+    if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    let at = Number(v.at);
+    if (!Number.isFinite(at) && v.at != null) at = Date.parse(String(v.at));
+    const pts = Number(v.pts);
+    if (!Number.isFinite(at) || !Number.isFinite(pts)) continue;
+    if (at < cutoff || at > serverNow) continue;
+    sum += Math.max(0, Math.floor(pts));
+  }
+  return sum;
+}
+
+/**
+ * Recent-window stats from synced `gameHistory` (games in window) plus achievement points
+ * from `chess.achievements` unlock timestamps in the same window.
  */
 function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNow = Date.now()) {
   const cutoff = serverNow - windowMs;
   const hist = Array.isArray(chessBlock?.gameHistory) ? chessBlock.gameHistory : [];
-  let weekPoints = 0;
+  let weekPoints = sumRecentAchievementPointsFromChess(chessBlock, windowMs, serverNow);
   let weekWins = 0;
   let weekLosses = 0;
   let weekDraws = 0;
@@ -3103,12 +3124,6 @@ function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNo
       if (isWhite) weekLosses++;
       else weekWins++;
     } else continue;
-
-    let pe = 0;
-    if (rec.pointsEarned != null && Number.isFinite(Number(rec.pointsEarned))) pe = Number(rec.pointsEarned);
-    else if (rec.pointsDelta != null && Number.isFinite(Number(rec.pointsDelta))) pe = Number(rec.pointsDelta);
-    else if (rec.pointsAwarded != null && Number.isFinite(Number(rec.pointsAwarded))) pe = Number(rec.pointsAwarded);
-    weekPoints += Math.max(0, Math.floor(pe));
 
     const sanList = Array.isArray(rec.historySan) ? rec.historySan : [];
     for (let i = 0; i < sanList.length; i++) {
