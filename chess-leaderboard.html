@@ -15,90 +15,211 @@
     <script src="js/script.js"></script>
 
     <style>
+        .lb-main {
+            flex: 1;
+            padding: 0;
+            max-width: none;
+            margin: 0;
+            width: 100%;
+            gap: 0;
+            background:
+                radial-gradient(ellipse 120% 80% at 50% -30%, rgba(56, 189, 248, 0.22), transparent 55%),
+                radial-gradient(ellipse 90% 60% at 100% 40%, rgba(167, 139, 250, 0.14), transparent 50%),
+                radial-gradient(ellipse 70% 50% at 0% 80%, rgba(45, 212, 191, 0.18), transparent 45%),
+                linear-gradient(165deg, #ecfeff 0%, #f0fdf4 28%, #faf5ff 58%, #fffbeb 100%);
+            background-color: #f8fafc;
+        }
         .lb-hero {
             width: 100vw;
             margin-left: calc(-50vw + 50%);
-            padding: 3.5rem 2rem 2.5rem;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 45%, #0c4a6e 100%);
+            padding: 3.75rem 2rem 3.25rem;
+            background:
+                radial-gradient(circle at 18% 35%, rgba(56, 189, 248, 0.45) 0%, transparent 42%),
+                radial-gradient(circle at 88% 25%, rgba(167, 139, 250, 0.38) 0%, transparent 38%),
+                radial-gradient(circle at 72% 88%, rgba(251, 191, 36, 0.28) 0%, transparent 40%),
+                linear-gradient(145deg, #020617 0%, #0f172a 38%, #134e4a 72%, #164e63 100%);
             color: #e2e8f0;
             text-align: center;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.35);
+            box-shadow:
+                0 8px 32px rgba(2, 6, 23, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+        .lb-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.04) 50%, transparent 60%);
+            background-size: 200% 100%;
+            animation: lb-hero-shine 12s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes lb-hero-shine {
+            0%, 100% { background-position: 100% 0; }
+            50% { background-position: -100% 0; }
+        }
+        .lb-hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0.07;
+            background-image:
+                linear-gradient(90deg, #fff 50%, transparent 50%),
+                linear-gradient(#fff 50%, transparent 50%);
+            background-size: 28px 28px;
+            pointer-events: none;
+        }
+        .lb-hero h2,
+        .lb-hero .lb-tag,
+        .lb-hero .lb-hero-sub {
+            position: relative;
+            z-index: 1;
         }
         .lb-hero h2 {
             font-family: "Orbitron", sans-serif;
-            font-size: 2.2rem;
+            font-size: clamp(1.55rem, 4vw, 2.35rem);
             font-weight: 900;
-            margin: 0 0 0.6rem;
-            letter-spacing: 0.05em;
-            color: #f8fafc;
+            margin: 0 0 0.65rem;
+            letter-spacing: 0.06em;
+            background: linear-gradient(120deg, #f8fafc 0%, #5eead4 42%, #7dd3fc 72%, #fde68a 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 40px rgba(94, 234, 212, 0.35);
+            filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
         }
         .lb-hero-sub {
-            font-size: 1.05rem;
-            color: #94a3b8;
+            font-size: 1.06rem;
+            color: #cbd5e1;
             max-width: 640px;
             margin: 0 auto;
-            line-height: 1.55;
+            line-height: 1.6;
         }
         .lb-tag {
             display: inline-block;
             font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.14em;
-            color: #38bdf8;
-            margin-bottom: 0.75rem;
-            font-weight: 600;
+            letter-spacing: 0.16em;
+            color: #a5f3fc;
+            margin-bottom: 0.85rem;
+            font-weight: 700;
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(34, 211, 238, 0.12);
+            border: 1px solid rgba(34, 211, 238, 0.35);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
         }
         .lb-page {
-            max-width: 720px;
-            margin: 2rem auto 0;
-            padding: 0 1.5rem 3rem;
+            max-width: 820px;
+            margin: -2.25rem auto 0;
+            padding: 0 1.35rem 3.5rem;
+            position: relative;
+            z-index: 2;
         }
         .lb-panel {
-            background: #fff;
-            border-radius: 16px;
-            padding: 1.5rem 1.5rem 1.25rem;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
-            border: 1px solid #e2e8f0;
+            background: linear-gradient(165deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%);
+            border-radius: 20px;
+            padding: 1.65rem 1.5rem 1.35rem;
+            box-shadow:
+                0 4px 6px rgba(15, 23, 42, 0.04),
+                0 24px 48px rgba(15, 118, 110, 0.12),
+                0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+            border: 1px solid rgba(13, 148, 136, 0.22);
+            backdrop-filter: blur(12px);
         }
         .lb-note {
             font-size: 0.9rem;
-            color: #64748b;
-            margin: 0 0 1.25rem;
-            line-height: 1.55;
+            color: #475569;
+            margin: 0 0 1.35rem;
+            line-height: 1.6;
+            padding: 1rem 1.15rem 1rem 1.2rem;
+            border-radius: 14px;
+            background: linear-gradient(125deg, rgba(224, 242, 254, 0.65) 0%, rgba(204, 251, 241, 0.55) 50%, rgba(237, 233, 254, 0.45) 100%);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+            border-left: 4px solid #14b8a6;
+            box-shadow: 0 4px 16px rgba(13, 148, 136, 0.08);
+        }
+        .lb-note strong {
+            color: #0f172a;
+        }
+        .lb-note a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(15, 118, 110, 0.35);
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        .lb-note a:hover {
+            color: #0d9488;
+            border-bottom-color: #0d9488;
         }
         .lb-table-wrap {
             overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
         }
         table.lb-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.95rem;
         }
+        .lb-table thead {
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 48%, #0891b2 100%);
+        }
         .lb-table th {
             text-align: left;
-            padding: 0.65rem 0.75rem;
-            border-bottom: 2px solid #e2e8f0;
-            color: #475569;
-            font-weight: 600;
-            font-size: 0.8rem;
+            padding: 0.75rem 0.85rem;
+            border-bottom: none;
+            color: #ecfdf5;
+            font-weight: 700;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.1em;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        .lb-table th.lb-stat-head {
+            text-align: right;
         }
         .lb-table td {
-            padding: 0.7rem 0.75rem;
-            border-bottom: 1px solid #f1f5f9;
+            padding: 0.72rem 0.85rem;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
             color: #334155;
+            transition: background 0.12s ease;
         }
-        .lb-table tbody tr:hover td {
-            background: #f8fafc;
+        .lb-table tbody tr:nth-child(even):not(:has(.lb-status)) td {
+            background: rgba(240, 253, 250, 0.45);
+        }
+        .lb-table tbody tr:hover:not(:has(.lb-status)) td {
+            background: rgba(224, 242, 254, 0.65) !important;
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(1) td {
+            background: linear-gradient(90deg, rgba(254, 243, 199, 0.55) 0%, rgba(255, 255, 255, 0) 72%);
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(2) td {
+            background: linear-gradient(90deg, rgba(241, 245, 249, 0.85) 0%, rgba(255, 255, 255, 0) 70%);
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(3) td {
+            background: linear-gradient(90deg, rgba(255, 237, 213, 0.55) 0%, rgba(255, 255, 255, 0) 70%);
         }
         .lb-rank {
             font-family: "Roboto Mono", monospace;
             font-weight: 600;
             color: #64748b;
             width: 3.5rem;
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(1) .lb-rank {
+            color: #b45309;
+            font-weight: 800;
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(2) .lb-rank {
+            color: #475569;
+            font-weight: 800;
+        }
+        .lb-table tbody tr:not(:has(.lb-status)):nth-child(3) .lb-rank {
+            color: #9a3412;
+            font-weight: 800;
         }
         .lb-points {
             font-family: "Roboto Mono", monospace;
@@ -112,70 +233,112 @@
         }
         .lb-status {
             text-align: center;
-            padding: 2rem 1rem;
+            padding: 2.25rem 1rem;
             color: #64748b;
+            font-size: 0.95rem;
+            background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(241, 245, 249, 0.5));
         }
         .lb-status.err {
             color: #b91c1c;
+            background: linear-gradient(180deg, rgba(254, 242, 242, 0.9), rgba(254, 226, 226, 0.35));
         }
         .lb-footer-meta {
-            margin-top: 1rem;
-            font-size: 0.85rem;
-            color: #94a3b8;
+            margin-top: 1.15rem;
+            font-size: 0.84rem;
+            color: #64748b;
             text-align: center;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            background: rgba(241, 245, 249, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.25);
         }
         .lb-sort-heading {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: #475569;
-            margin: 0 0 0.5rem 0;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #0f766e;
+            margin: 0 0 0.55rem 0;
+        }
+        .lb-sort-tray {
+            padding: 0.85rem 0.95rem;
+            margin-bottom: 1.25rem;
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 253, 250, 0.5) 100%);
+            border: 1px solid rgba(13, 148, 136, 0.18);
+            box-shadow: 0 4px 14px rgba(15, 118, 110, 0.06);
         }
         .lb-sort-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.45rem;
-            margin-bottom: 1.1rem;
+            gap: 0.5rem;
         }
         .lb-sort-btn {
             font: inherit;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            padding: 0.42rem 0.75rem;
+            padding: 0.45rem 0.78rem;
             border-radius: 999px;
-            border: 1px solid #cbd5e1;
-            background: #f8fafc;
+            border: 1px solid rgba(100, 116, 139, 0.28);
+            background: linear-gradient(180deg, #fff 0%, #f1f5f9 100%);
             color: #475569;
             cursor: pointer;
-            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .lb-sort-btn:hover {
-            background: #e2e8f0;
-            border-color: #94a3b8;
+            background: linear-gradient(180deg, #ecfeff 0%, #e0f2fe 100%);
+            border-color: #22d3ee;
             color: #0f172a;
+            box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
+        }
+        .lb-sort-btn:active {
+            transform: scale(0.97);
         }
         .lb-sort-btn:focus-visible {
             outline: 2px solid #0d9488;
             outline-offset: 2px;
         }
         .lb-sort-btn.is-active {
-            background: linear-gradient(135deg, #0f766e, #0d9488);
-            border-color: #0f766e;
+            background: linear-gradient(135deg, #0f766e 0%, #0d9488 45%, #0891b2 100%);
+            border-color: #0d9488;
             color: #fff;
-            box-shadow: 0 2px 10px rgba(15, 118, 110, 0.28);
+            box-shadow:
+                0 2px 12px rgba(13, 148, 136, 0.35),
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset;
         }
         .lb-sort-btn.is-active:hover {
             color: #fff;
-            border-color: #0d9488;
+            border-color: #14b8a6;
+            box-shadow: 0 4px 16px rgba(13, 148, 136, 0.45);
         }
         .lb-stat {
             font-family: "Roboto Mono", monospace;
-            font-weight: 600;
-            color: #0f766e;
+            font-weight: 700;
             text-align: right;
+            background: linear-gradient(120deg, #0f766e, #0891b2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        @media (prefers-contrast: more) {
+            .lb-stat {
+                background: none;
+                -webkit-background-clip: border-box;
+                background-clip: border-box;
+                color: #0f172a;
+            }
+            .lb-hero h2 {
+                background: none;
+                -webkit-background-clip: border-box;
+                background-clip: border-box;
+                color: #f8fafc;
+            }
         }
         @media (max-width: 640px) {
-            .lb-hero { margin-left: 0; width: 100%; padding: 2.5rem 1rem 2rem; }
-            .lb-hero h2 { font-size: 1.6rem; }
+            .lb-hero { margin-left: 0; width: 100%; padding: 2.75rem 1rem 2.5rem; }
+            .lb-page { margin-top: -1.5rem; padding: 0 1rem 2.5rem; }
+            .lb-panel { padding: 1.25rem 1.1rem 1.1rem; border-radius: 16px; }
+            .lb-sort-tray { padding: 0.7rem 0.75rem; }
         }
     </style>
 </head>
@@ -203,7 +366,7 @@
             </div>
         </header>
 
-        <main>
+        <main class="lb-main">
             <section class="lb-hero">
                 <div class="lb-tag">TrifangX</div>
                 <h2>TrifangX leaderboards</h2>
@@ -219,17 +382,19 @@
                         <strong>Win %</strong> is wins ÷ (wins + losses); draws are not counted in that denominator. Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
                     <p class="lb-sort-heading" id="lb-sort-label">Sort by</p>
-                    <div class="lb-sort-row" id="lb-sort-row" role="group" aria-labelledby="lb-sort-label">
-                        <button type="button" class="lb-sort-btn is-active" data-sort="points" aria-pressed="true" title="Career achievement points">Points</button>
-                        <button type="button" class="lb-sort-btn" data-sort="wins" aria-pressed="false" title="Career wins">Wins</button>
-                        <button type="button" class="lb-sort-btn" data-sort="losses" aria-pressed="false" title="Career losses">Losses</button>
-                        <button type="button" class="lb-sort-btn" data-sort="draws" aria-pressed="false" title="Career draws">Draws</button>
-                        <button type="button" class="lb-sort-btn" data-sort="games" aria-pressed="false" title="Wins + losses + draws">Games</button>
-                        <button type="button" class="lb-sort-btn" data-sort="winPct" aria-pressed="false" title="Wins ÷ (wins + losses)">Win %</button>
-                        <button type="button" class="lb-sort-btn" data-sort="captures" aria-pressed="false" title="Lifetime captures">Captures</button>
-                        <button type="button" class="lb-sort-btn" data-sort="checks" aria-pressed="false" title="Lifetime checks given">Checks</button>
-                        <button type="button" class="lb-sort-btn" data-sort="promotions" aria-pressed="false" title="Lifetime promotions">Promotions</button>
-                        <button type="button" class="lb-sort-btn" data-sort="castles" aria-pressed="false" title="Lifetime castling moves">Castles</button>
+                    <div class="lb-sort-tray">
+                        <div class="lb-sort-row" id="lb-sort-row" role="group" aria-labelledby="lb-sort-label">
+                            <button type="button" class="lb-sort-btn is-active" data-sort="points" aria-pressed="true" title="Career achievement points">Points</button>
+                            <button type="button" class="lb-sort-btn" data-sort="wins" aria-pressed="false" title="Career wins">Wins</button>
+                            <button type="button" class="lb-sort-btn" data-sort="losses" aria-pressed="false" title="Career losses">Losses</button>
+                            <button type="button" class="lb-sort-btn" data-sort="draws" aria-pressed="false" title="Career draws">Draws</button>
+                            <button type="button" class="lb-sort-btn" data-sort="games" aria-pressed="false" title="Wins + losses + draws">Games</button>
+                            <button type="button" class="lb-sort-btn" data-sort="winPct" aria-pressed="false" title="Wins ÷ (wins + losses)">Win %</button>
+                            <button type="button" class="lb-sort-btn" data-sort="captures" aria-pressed="false" title="Lifetime captures">Captures</button>
+                            <button type="button" class="lb-sort-btn" data-sort="checks" aria-pressed="false" title="Lifetime checks given">Checks</button>
+                            <button type="button" class="lb-sort-btn" data-sort="promotions" aria-pressed="false" title="Lifetime promotions">Promotions</button>
+                            <button type="button" class="lb-sort-btn" data-sort="castles" aria-pressed="false" title="Lifetime castling moves">Castles</button>
+                        </div>
                     </div>
                     <div class="lb-table-wrap">
                         <table class="lb-table" id="lb-table" aria-label="TrifangX leaderboard">
@@ -237,7 +402,7 @@
                                 <tr>
                                     <th class="lb-rank">#</th>
                                     <th>Username</th>
-                                    <th id="lb-col-stat" style="text-align:right;">Points</th>
+                                    <th id="lb-col-stat" class="lb-stat-head">Points</th>
                                 </tr>
                             </thead>
                             <tbody id="lb-tbody">
@@ -254,7 +419,7 @@
     </div>
 
     <footer>
-        <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
+        <p>&copy; 2026 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
     </footer>
 
     <script>
