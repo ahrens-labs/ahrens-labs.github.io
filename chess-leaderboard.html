@@ -8,7 +8,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
@@ -186,50 +186,70 @@
             padding: 0.72rem 0.85rem;
             border-bottom: 1px solid rgba(226, 232, 240, 0.9);
             color: #334155;
-            transition: background 0.12s ease;
+            transition: background 0.12s ease, color 0.12s ease;
         }
-        .lb-table tbody tr:nth-child(even):not(:has(.lb-status)) td {
-            background: rgba(240, 253, 250, 0.45);
+        .lb-table tbody tr:not(.lb-podium-1):not(.lb-podium-2):not(.lb-podium-3):not(:has(.lb-status)) td {
+            background: #ffffff !important;
         }
-        .lb-table tbody tr:hover:not(:has(.lb-status)) td {
-            background: rgba(224, 242, 254, 0.65) !important;
+        .lb-table tbody tr:hover:not(:has(.lb-status)):not(.lb-podium-1):not(.lb-podium-2):not(.lb-podium-3) td {
+            background: #f1f5f9 !important;
         }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(1) td {
-            background: linear-gradient(90deg, rgba(254, 243, 199, 0.55) 0%, rgba(255, 255, 255, 0) 72%);
+        .lb-table tbody tr.lb-podium-1 td {
+            background: #facc15 !important;
+            border-bottom-color: #eab308;
+            color: #422006;
         }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(2) td {
-            background: linear-gradient(90deg, rgba(241, 245, 249, 0.85) 0%, rgba(255, 255, 255, 0) 70%);
+        .lb-table tbody tr.lb-podium-1:hover td {
+            background: #eab308 !important;
         }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(3) td {
-            background: linear-gradient(90deg, rgba(255, 237, 213, 0.55) 0%, rgba(255, 255, 255, 0) 70%);
+        .lb-table tbody tr.lb-podium-2 td {
+            background: #94a3b8 !important;
+            border-bottom-color: #64748b;
+            color: #0f172a;
+        }
+        .lb-table tbody tr.lb-podium-2:hover td {
+            background: #7c8ea0 !important;
+        }
+        .lb-table tbody tr.lb-podium-3 td {
+            background: #78350f !important;
+            border-bottom-color: #5c2a0c;
+            color: #fffbeb;
+        }
+        .lb-table tbody tr.lb-podium-3:hover td {
+            background: #5c2a0c !important;
         }
         .lb-rank {
-            font-family: "Roboto Mono", monospace;
-            font-weight: 600;
+            font-family: "DM Sans", "Inter", system-ui, sans-serif;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
             color: #64748b;
             width: 3.5rem;
         }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(1) .lb-rank {
-            color: #b45309;
-            font-weight: 800;
+        .lb-table tbody tr.lb-podium-1 .lb-rank,
+        .lb-table tbody tr.lb-podium-2 .lb-rank {
+            color: inherit;
         }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(2) .lb-rank {
-            color: #475569;
-            font-weight: 800;
-        }
-        .lb-table tbody tr:not(:has(.lb-status)):nth-child(3) .lb-rank {
-            color: #9a3412;
-            font-weight: 800;
+        .lb-table tbody tr.lb-podium-3 .lb-rank {
+            color: #fef3c7;
         }
         .lb-points {
-            font-family: "Roboto Mono", monospace;
-            font-weight: 600;
+            font-family: "DM Sans", "Inter", system-ui, sans-serif;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
             color: #0f766e;
             text-align: right;
         }
         .lb-username {
             font-weight: 600;
             color: #0f172a;
+        }
+        .lb-table tbody tr.lb-podium-1 .lb-username,
+        .lb-table tbody tr.lb-podium-2 .lb-username {
+            color: inherit;
+        }
+        .lb-table tbody tr.lb-podium-3 .lb-username {
+            color: #fffbeb;
         }
         .lb-status {
             text-align: center;
@@ -259,6 +279,53 @@
             letter-spacing: 0.12em;
             color: #0f766e;
             margin: 0 0 0.55rem 0;
+        }
+        .lb-window-heading {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #0369a1;
+            margin: 0 0 0.55rem 0;
+        }
+        .lb-window-tray {
+            padding: 0.75rem 0.95rem;
+            margin-bottom: 1rem;
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(224, 242, 254, 0.65) 0%, rgba(255, 255, 255, 0.9) 100%);
+            border: 1px solid rgba(2, 132, 199, 0.22);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08);
+        }
+        .lb-window-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .lb-window-btn {
+            font: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 0.48rem 1rem;
+            border-radius: 999px;
+            border: 1px solid rgba(100, 116, 139, 0.35);
+            background: #fff;
+            color: #475569;
+            cursor: pointer;
+            transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .lb-window-btn:hover {
+            border-color: #0284c7;
+            color: #0c4a6e;
+        }
+        .lb-window-btn.is-active {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border-color: #0369a1;
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(3, 105, 161, 0.35);
+        }
+        .lb-window-btn:focus-visible {
+            outline: 2px solid #0284c7;
+            outline-offset: 2px;
         }
         .lb-sort-tray {
             padding: 0.85rem 0.95rem;
@@ -312,20 +379,43 @@
             box-shadow: 0 4px 16px rgba(13, 148, 136, 0.45);
         }
         .lb-stat {
-            font-family: "Roboto Mono", monospace;
+            font-family: "DM Sans", "Inter", system-ui, sans-serif;
             font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.03em;
             text-align: right;
-            background: linear-gradient(120deg, #0f766e, #0891b2);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
+        .lb-num {
+            font-family: inherit;
+            font-weight: inherit;
+            font-variant-numeric: tabular-nums;
+        }
+        .lb-num-t0 { color: #94a3b8; }
+        .lb-num-t1 { color: #64748b; }
+        .lb-num-t2 { color: #0d9488; }
+        .lb-num-t3 { color: #059669; }
+        .lb-num-t4 { color: #047857; }
+        .lb-num-neg-t0 { color: #fca5a5; }
+        .lb-num-neg-t1 { color: #f87171; }
+        .lb-num-neg-t2 { color: #ef4444; }
+        .lb-num-neg-t3 { color: #dc2626; }
+        .lb-num-neg-t4 { color: #b91c1c; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-t0 { color: #fcd34d; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-t1 { color: #fde047; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-t2 { color: #fef08a; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-t3 { color: #ecfccb; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-t4 { color: #f7fee7; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-neg-t0 { color: #fecaca; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-neg-t1 { color: #fca5a5; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-neg-t2 { color: #f87171; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-neg-t3 { color: #fecaca; }
+        .lb-table tbody tr.lb-podium-3 .lb-num-neg-t4 { color: #fee2e2; }
         @media (prefers-contrast: more) {
-            .lb-stat {
-                background: none;
-                -webkit-background-clip: border-box;
-                background-clip: border-box;
-                color: #0f172a;
+            .lb-num-t0, .lb-num-t1, .lb-num-t2, .lb-num-t3, .lb-num-t4,
+            .lb-num-neg-t0, .lb-num-neg-t1, .lb-num-neg-t2, .lb-num-neg-t3, .lb-num-neg-t4 {
+                color: inherit;
             }
             .lb-hero h2 {
                 background: none;
@@ -339,6 +429,7 @@
             .lb-page { margin-top: -1.5rem; padding: 0 1rem 2.5rem; }
             .lb-panel { padding: 1.25rem 1.1rem 1.1rem; border-radius: 16px; }
             .lb-sort-tray { padding: 0.7rem 0.75rem; }
+            .lb-window-tray { padding: 0.7rem 0.75rem; }
         }
     </style>
 </head>
@@ -377,9 +468,17 @@
 
             <section class="lb-page">
                 <article class="lb-panel">
-                    <p class="lb-note">
-                        Pick how to rank the table. Stats come from your <strong>cloud chess save</strong> (career wins/losses/draws and lifetime counters such as captures and checks).
-                        <strong>Win %</strong> is wins ÷ (wins + losses); draws are not counted in that denominator. Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
+                    <p class="lb-window-heading" id="lb-window-label">Time range</p>
+                    <div class="lb-window-tray">
+                        <div class="lb-window-row" id="lb-window-row" role="group" aria-labelledby="lb-window-label">
+                            <button type="button" class="lb-window-btn is-active" data-window="career" aria-pressed="true">All time (career)</button>
+                            <button type="button" class="lb-window-btn" data-window="week" aria-pressed="false">This week (UTC)</button>
+                        </div>
+                    </div>
+                    <p class="lb-note" id="lb-note">
+                        <strong>All time</strong> uses full career totals from your <strong>cloud chess save</strong>.
+                        <strong>This week</strong> ranks <em>gains since the UTC Monday</em> that started the current week: on your first chess sync after that moment, the server stores a baseline and subtracts it from your latest totals (so open the game and sync to appear). Same formulas for win % and games.
+                        Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
                     <p class="lb-sort-heading" id="lb-sort-label">Sort by</p>
                     <div class="lb-sort-tray">
@@ -429,6 +528,7 @@
       const tbody = document.getElementById('lb-tbody');
       const meta = document.getElementById('lb-meta');
       const sortRow = document.getElementById('lb-sort-row');
+      const windowRow = document.getElementById('lb-window-row');
       const colStat = document.getElementById('lb-col-stat');
 
       const SORT_LABELS = {
@@ -461,6 +561,23 @@
         }
       }
 
+      function getWindow() {
+        var active = windowRow && windowRow.querySelector('.lb-window-btn.is-active');
+        var w = active && active.getAttribute('data-window');
+        return w === 'week' ? 'week' : 'career';
+      }
+
+      function setWindow(win) {
+        if (!windowRow) return;
+        var btns = windowRow.querySelectorAll('.lb-window-btn');
+        for (var i = 0; i < btns.length; i++) {
+          var b = btns[i];
+          var on = b.getAttribute('data-window') === win;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+      }
+
       function showStatus(msg, isErr) {
         tbody.innerHTML = '';
         const tr = document.createElement('tr');
@@ -470,6 +587,57 @@
         td.textContent = msg;
         tr.appendChild(td);
         tbody.appendChild(tr);
+      }
+
+      function getStatNumericForSort(sort, r) {
+        if (sort === 'winPct') {
+          var vp = Number(r.winPct);
+          return Number.isFinite(vp) ? vp : 0;
+        }
+        var key =
+          sort === 'checks'
+            ? 'checksGiven'
+            : sort === 'castles'
+              ? 'castlingMoves'
+              : sort;
+        var n = Number(r[key]);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function statQualityClass(sort, rawVal) {
+        var v = Number(rawVal);
+        if (!Number.isFinite(v)) v = 0;
+        if (sort === 'losses') {
+          if (v >= 400) return 'lb-num-neg-t4';
+          if (v >= 150) return 'lb-num-neg-t3';
+          if (v >= 55) return 'lb-num-neg-t2';
+          if (v >= 18) return 'lb-num-neg-t1';
+          return 'lb-num-neg-t0';
+        }
+        if (sort === 'winPct') {
+          if (v >= 72) return 'lb-num-t4';
+          if (v >= 58) return 'lb-num-t3';
+          if (v >= 45) return 'lb-num-t2';
+          if (v >= 32) return 'lb-num-t1';
+          return 'lb-num-t0';
+        }
+        var tables = {
+          points: [120, 500, 2500, 15000],
+          wins: [4, 18, 75, 300],
+          draws: [3, 12, 45, 140],
+          games: [8, 35, 140, 550],
+          captures: [40, 180, 900, 4500],
+          checks: [25, 120, 600, 3000],
+          promotions: [3, 12, 45, 180],
+          castles: [4, 18, 60, 220],
+        };
+        var th = tables[sort] || [40, 150, 600, 3000];
+        var tier = 0;
+        for (var i = 0; i < th.length; i++) {
+          if (v >= th[i]) tier = i + 1;
+        }
+        if (tier > 4) tier = 4;
+        return 'lb-num-t' + tier;
       }
 
       function formatStatCell(sort, r) {
@@ -487,15 +655,26 @@
         return Number.isFinite(n) ? n.toLocaleString() : '0';
       }
 
-      function renderRows(rows, sort) {
+      function renderRows(rows, sort, windowMode) {
         tbody.innerHTML = '';
         if (!rows || rows.length === 0) {
-          showStatus('No players on the leaderboard yet. Play TrifangX while signed in to sync your profile here.');
+          if (windowMode === 'week') {
+            showStatus(
+              'No weekly gains to show for this UTC week yet, or every synced player is still at zero. Open TrifangX and sync after Monday UTC so baselines and deltas can be recorded.',
+              false
+            );
+          } else {
+            showStatus('No players on the leaderboard yet. Play TrifangX while signed in to sync your profile here.', false);
+          }
           return;
         }
         for (var i = 0; i < rows.length; i++) {
           var r = rows[i];
           var tr = document.createElement('tr');
+          var rk = Number(r.rank);
+          if (rk === 1) tr.className = 'lb-podium-1';
+          else if (rk === 2) tr.className = 'lb-podium-2';
+          else if (rk === 3) tr.className = 'lb-podium-3';
           var tdRank = document.createElement('td');
           tdRank.className = 'lb-rank';
           tdRank.textContent = String(r.rank);
@@ -504,7 +683,11 @@
           tdName.textContent = String(r.username || 'Player');
           var tdStat = document.createElement('td');
           tdStat.className = 'lb-stat';
-          tdStat.textContent = formatStatCell(sort, r);
+          var numVal = getStatNumericForSort(sort, r);
+          var span = document.createElement('span');
+          span.className = 'lb-num ' + statQualityClass(sort, numVal);
+          span.textContent = formatStatCell(sort, r);
+          tdStat.appendChild(span);
           tr.appendChild(tdRank);
           tr.appendChild(tdName);
           tr.appendChild(tdStat);
@@ -514,11 +697,18 @@
 
       function loadLeaderboard() {
         var sort = getSelectedSort();
-        if (colStat) colStat.textContent = SORT_LABELS[sort] || 'Points';
+        var windowMode = getWindow();
+        var prefix = windowMode === 'week' ? 'This week · ' : '';
+        if (colStat) colStat.textContent = prefix + (SORT_LABELS[sort] || 'Points');
         showStatus('Loading…', false);
+        if (meta) meta.hidden = true;
 
         fetch(
-          API_BASE_URL + '/api/chess/leaderboard?limit=50000&sort=' + encodeURIComponent(sort)
+          API_BASE_URL +
+            '/api/chess/leaderboard?limit=50000&sort=' +
+            encodeURIComponent(sort) +
+            '&window=' +
+            encodeURIComponent(windowMode)
         )
           .then(function (res) {
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -529,14 +719,31 @@
               showStatus('Leaderboard is not configured on this server yet.', true);
               return;
             }
+            if (data && data.weeklyUnavailable) {
+              setWindow('career');
+              if (meta) {
+                meta.hidden = false;
+                meta.textContent =
+                  data.message ||
+                  'This host only has the points backup map, so weekly deltas are unavailable.';
+              }
+              loadLeaderboard();
+              return;
+            }
             var effectiveSort = (data && data.sort) || sort;
             if (effectiveSort !== getSelectedSort()) setSelectedSort(effectiveSort);
-            if (colStat) colStat.textContent = SORT_LABELS[effectiveSort] || 'Points';
-            renderRows(data.rows || [], effectiveSort);
+            var respWindow = (data && data.window) || windowMode;
+            if (respWindow === 'week') setWindow('week');
+            else setWindow('career');
+            var prefix2 = respWindow === 'week' ? 'This week · ' : '';
+            if (colStat) colStat.textContent = prefix2 + (SORT_LABELS[effectiveSort] || 'Points');
+            renderRows(data.rows || [], effectiveSort, respWindow);
             if (meta && typeof data.totalRanked === 'number') {
               meta.hidden = false;
               var label = SORT_LABELS[effectiveSort] || 'Points';
+              var scope = respWindow === 'week' ? 'This UTC week (gains since Monday baseline on sync). ' : 'All-time career. ';
               var line =
+                scope +
                 'Sorted by ' +
                 label +
                 '. Showing ' +
@@ -576,6 +783,20 @@
           loadLeaderboard();
         });
       }
+      if (windowRow) {
+        windowRow.addEventListener('click', function (e) {
+          var t = e.target && e.target.closest('.lb-window-btn');
+          if (!t || !windowRow.contains(t)) return;
+          var w = t.getAttribute('data-window');
+          if (w !== 'week' && w !== 'career') return;
+          setWindow(w);
+          loadLeaderboard();
+        });
+      }
+      try {
+        var qs = new URLSearchParams(window.location.search || '').get('window');
+        if (qs === 'week' || qs === 'weekly') setWindow('week');
+      } catch (e) {}
       loadLeaderboard();
     })();
     </script>

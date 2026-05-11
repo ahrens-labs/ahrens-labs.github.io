@@ -3025,6 +3025,50 @@ function chessStatsSnapshot(chessBlock) {
   return { wins: w, losses: l, draws: dr, games, points };
 }
 
+/** UTC Monday `YYYY-MM-DD` for the ISO-week-style bucket used by leaderboard week deltas. */
+function utcMondayDateKeyUtc(nowMs = Date.now()) {
+  const d = new Date(nowMs);
+  const dow = d.getUTCDay();
+  const monOffset = (dow + 6) % 7;
+  const mon = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - monOffset, 0, 0, 0, 0));
+  const y = mon.getUTCFullYear();
+  const m = String(mon.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(mon.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Career counters from a chess block only (no weekly math). Used when resetting `lbWeekBaseline`. */
+function chessCareerTotalsFromChessBlock(chess) {
+  if (!chess || typeof chess !== 'object') {
+    return {
+      points: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      captures: 0,
+      checksGiven: 0,
+      promotions: 0,
+      castlingMoves: 0,
+    };
+  }
+  const points = Math.max(0, Math.floor(Number(chess.points) || 0));
+  const ps = chess.stats?.playerStats || {};
+  const wins = Math.max(0, Number(ps.wins) || 0);
+  const losses = Math.max(0, Number(ps.losses) || 0);
+  const draws = Math.max(0, Number(ps.draws) || 0);
+  const ltRaw = chess.stats?.lifetimeStats;
+  const lt = ltRaw && typeof ltRaw === 'object' ? ltRaw : {};
+  const captures = Math.max(0, Number(lt.totalCaptures) || 0);
+  const checksGiven = Math.max(0, Number(lt.checksGiven) || 0);
+  const promotions = Math.max(0, Number(lt.promotions) || 0);
+  const castlingMoves = Math.max(0, Number(lt.castlingMoves) || 0);
+  return { points, wins, losses, draws, captures, checksGiven, promotions, castlingMoves };
+}
+
+function chessLeaderboardBaselineFromChess(chess) {
+  return chessCareerTotalsFromChessBlock(chess);
+}
+
 /** Single KV document: `{ e: { [userId]: { u, p, t } }, updatedAt }` */
 const CHESS_LEADERBOARD_KV_MAP_KEY = 'chess_career_points_lb_v1';
 
@@ -3094,6 +3138,32 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const decisive = wins + losses;
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
+
+  const nowWeek = utcMondayDateKeyUtc();
+  const storedWeek = chess?.lbWeekUtc;
+  const b = chess?.lbWeekBaseline;
+  let weekPoints = 0;
+  let weekWins = 0;
+  let weekLosses = 0;
+  let weekDraws = 0;
+  let weekCaptures = 0;
+  let weekChecksGiven = 0;
+  let weekPromotions = 0;
+  let weekCastlingMoves = 0;
+  if (b && typeof b === 'object' && storedWeek === nowWeek) {
+    weekPoints = Math.max(0, points - Math.max(0, Math.floor(Number(b.points) || 0)));
+    weekWins = Math.max(0, wins - (Number(b.wins) || 0));
+    weekLosses = Math.max(0, losses - (Number(b.losses) || 0));
+    weekDraws = Math.max(0, draws - (Number(b.draws) || 0));
+    weekCaptures = Math.max(0, captures - (Number(b.captures) || 0));
+    weekChecksGiven = Math.max(0, checksGiven - (Number(b.checksGiven) || 0));
+    weekPromotions = Math.max(0, promotions - (Number(b.promotions) || 0));
+    weekCastlingMoves = Math.max(0, castlingMoves - (Number(b.castlingMoves) || 0));
+  }
+  const weekGames = weekWins + weekLosses + weekDraws;
+  const weekDecisive = weekWins + weekLosses;
+  const weekWinPct = weekDecisive > 0 ? (100 * weekWins) / weekDecisive : 0;
+
   return {
     username,
     points,
@@ -3106,21 +3176,32 @@ function extractChessLeaderboardStatsFromProfile(row) {
     checksGiven,
     promotions,
     castlingMoves,
+    weekPoints,
+    weekWins,
+    weekLosses,
+    weekDraws,
+    weekGames,
+    weekWinPct,
+    weekCaptures,
+    weekChecksGiven,
+    weekPromotions,
+    weekCastlingMoves,
   };
 }
 
-function leaderboardSortGetter(sortKey) {
+function leaderboardSortGetter(sortKey, mode = 'career') {
+  const wk = mode === 'week';
   const getters = {
-    points: (r) => r.points,
-    wins: (r) => r.wins,
-    losses: (r) => r.losses,
-    draws: (r) => r.draws,
-    games: (r) => r.games,
-    winPct: (r) => r.winPct,
-    captures: (r) => r.captures,
-    checks: (r) => r.checksGiven,
-    promotions: (r) => r.promotions,
-    castles: (r) => r.castlingMoves,
+    points: (r) => (wk ? r.weekPoints : r.points),
+    wins: (r) => (wk ? r.weekWins : r.wins),
+    losses: (r) => (wk ? r.weekLosses : r.losses),
+    draws: (r) => (wk ? r.weekDraws : r.draws),
+    games: (r) => (wk ? r.weekGames : r.games),
+    winPct: (r) => (wk ? r.weekWinPct : r.winPct),
+    captures: (r) => (wk ? r.weekCaptures : r.captures),
+    checks: (r) => (wk ? r.weekChecksGiven : r.checksGiven),
+    promotions: (r) => (wk ? r.weekPromotions : r.promotions),
+    castles: (r) => (wk ? r.weekCastlingMoves : r.castlingMoves),
   };
   return getters[sortKey] || getters.points;
 }
@@ -3145,9 +3226,9 @@ function normalizeLeaderboardSortKey(raw) {
   return s;
 }
 
-function sortLeaderboardStatsRows(rows, sortKey) {
+function sortLeaderboardStatsRows(rows, sortKey, mode = 'career') {
   const key = normalizeLeaderboardSortKey(sortKey);
-  const get = leaderboardSortGetter(key);
+  const get = leaderboardSortGetter(key, mode);
   rows.sort((a, b) => {
     const va = Number(get(a));
     const vb = Number(get(b));
@@ -3158,20 +3239,35 @@ function sortLeaderboardStatsRows(rows, sortKey) {
   });
 }
 
-function leaderboardPublicRow(r, index1) {
+function hasWeekLeaderboardActivity(r) {
+  if (!r || typeof r !== 'object') return false;
+  return (
+    Number(r.weekPoints) > 0 ||
+    Number(r.weekWins) > 0 ||
+    Number(r.weekLosses) > 0 ||
+    Number(r.weekDraws) > 0 ||
+    Number(r.weekCaptures) > 0 ||
+    Number(r.weekChecksGiven) > 0 ||
+    Number(r.weekPromotions) > 0 ||
+    Number(r.weekCastlingMoves) > 0
+  );
+}
+
+function leaderboardPublicRow(r, index1, mode = 'career') {
+  const wk = mode === 'week';
   return {
     rank: index1,
     username: r.username,
-    points: r.points,
-    wins: r.wins,
-    losses: r.losses,
-    draws: r.draws,
-    games: r.games,
-    winPct: Math.round(r.winPct * 100) / 100,
-    captures: r.captures,
-    checksGiven: r.checksGiven,
-    promotions: r.promotions,
-    castlingMoves: r.castlingMoves,
+    points: wk ? r.weekPoints : r.points,
+    wins: wk ? r.weekWins : r.wins,
+    losses: wk ? r.weekLosses : r.losses,
+    draws: wk ? r.weekDraws : r.draws,
+    games: wk ? r.weekGames : r.games,
+    winPct: Math.round((wk ? r.weekWinPct : r.winPct) * 100) / 100,
+    captures: wk ? r.weekCaptures : r.captures,
+    checksGiven: wk ? r.weekChecksGiven : r.checksGiven,
+    promotions: wk ? r.weekPromotions : r.promotions,
+    castlingMoves: wk ? r.weekCastlingMoves : r.castlingMoves,
   };
 }
 
@@ -3190,13 +3286,14 @@ function buildChessLeaderboardPublicPayload(map, limit, sortKey) {
     promotions: 0,
     castlingMoves: 0,
   }));
-  sortLeaderboardStatsRows(allRows, sk);
+  sortLeaderboardStatsRows(allRows, sk, 'career');
   const top = allRows.slice(0, limit);
   return {
     totalRanked: allRows.length,
     showing: top.length,
-    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1)),
+    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1, 'career')),
     sort: sk,
+    window: 'career',
   };
 }
 
@@ -3252,7 +3349,8 @@ async function fetchChessLeaderboardRowFromStub(stub) {
  * Public leaderboard: one row per account (live chess career points from each UserAccount DO).
  * Same stub discovery as admin account directory. Caps profile fetches to stay within Worker limits.
  */
-async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey) {
+async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey, mode = 'career') {
+  const modeNorm = mode === 'week' ? 'week' : 'career';
   const { stubs: allStubs, stoppedEarly: enumStopped } = await enumerateAllUserAccountStubsForLeaderboard(env);
   const totalAccountsDiscovered = allStubs.length;
   let stubs = allStubs;
@@ -3263,7 +3361,7 @@ async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey) {
       .slice(0, LEADERBOARD_MAX_PROFILE_FETCHES);
     profileFetchCapHit = true;
   }
-  const rows = [];
+  let rows = [];
   const batch = 10;
   for (let i = 0; i < stubs.length; i += batch) {
     const slice = stubs.slice(i, i + batch);
@@ -3272,14 +3370,18 @@ async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey) {
       if (r) rows.push(r);
     }
   }
-  sortLeaderboardStatsRows(rows, sortKey);
+  if (modeNorm === 'week') {
+    rows = rows.filter((r) => hasWeekLeaderboardActivity(r));
+  }
+  sortLeaderboardStatsRows(rows, sortKey, modeNorm);
   const top = rows.slice(0, limit);
   const out = {
     totalRanked: rows.length,
     showing: top.length,
-    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1)),
+    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1, modeNorm)),
     sort: normalizeLeaderboardSortKey(sortKey),
     source: 'accounts',
+    window: modeNorm === 'week' ? 'week' : 'career',
   };
   if (enumStopped) out.partialEnumeration = true;
   if (profileFetchCapHit) {
@@ -3294,6 +3396,10 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
   const rawLimit = parseInt(url.searchParams.get('limit') || '20000', 10);
   const limit = Math.min(50000, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 20000));
   const sortKey = normalizeLeaderboardSortKey(url.searchParams.get('sort'));
+  const windowRaw = String(url.searchParams.get('window') || 'career')
+    .trim()
+    .toLowerCase();
+  const isWeek = windowRaw === 'week' || windowRaw === 'weekly';
 
   const jsonHeaders = {
     ...corsHeaders,
@@ -3303,7 +3409,7 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
 
   if (env.USER_ACCOUNT) {
     try {
-      const body = await buildChessLeaderboardFromAllAccounts(env, limit, sortKey);
+      const body = await buildChessLeaderboardFromAllAccounts(env, limit, sortKey, isWeek ? 'week' : 'career');
       return new Response(JSON.stringify({ ...body, configured: true }), {
         headers: jsonHeaders,
       });
@@ -3320,6 +3426,26 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
         rows: [],
         sort: sortKey,
         configured: false,
+        window: isWeek ? 'week' : 'career',
+      }),
+      {
+        headers: jsonHeaders,
+      }
+    );
+  }
+  if (isWeek) {
+    return new Response(
+      JSON.stringify({
+        configured: true,
+        source: 'kv',
+        window: 'week',
+        weeklyUnavailable: true,
+        totalRanked: 0,
+        showing: 0,
+        rows: [],
+        sort: sortKey,
+        message:
+          'Weekly stats need live account data (points-only backup mode is active). Use the main deployment with UserAccount access, or sync chess once after upgrading so baselines are stored.',
       }),
       {
         headers: jsonHeaders,
@@ -5083,13 +5209,24 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
     }
 
-    userData.games.chess = {
+    const weekKey = utcMondayDateKeyUtc();
+    const mergedChess = {
       ...prevChess,
       ...restIncoming,
       gameHistory: mergedHistory,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
     };
-    
+    mergedChess.lbWeekUtc = weekKey;
+    if (!prevChess.lbWeekUtc || prevChess.lbWeekUtc !== weekKey) {
+      mergedChess.lbWeekBaseline = chessLeaderboardBaselineFromChess(prevChess || {});
+    } else if (prevChess.lbWeekBaseline && typeof prevChess.lbWeekBaseline === 'object') {
+      mergedChess.lbWeekBaseline = { ...prevChess.lbWeekBaseline };
+    } else {
+      mergedChess.lbWeekBaseline = chessLeaderboardBaselineFromChess(prevChess || {});
+    }
+
+    userData.games.chess = mergedChess;
+
     await this.storage.put('userData', userData);
 
     const nextSnap = chessStatsSnapshot(userData.games.chess);
