@@ -20,10 +20,11 @@ compatibility_date = "2025-05-01"
 binding = "DAILY_DIGEST_KV"
 id = "64db75c8a01b42229806b59cb30cae80"
 
-# Daily digest: hourly tick so each subscriber can be emailed shortly after local midnight (digestTimeZone in KV; default America/Chicago).
-# Confirm this cron appears under Worker Triggers in the Cloudflare dashboard; if it never runs, digests won’t send on a schedule.
+# Daily digest: runs every hour at minute 53 UTC — each subscriber is emailed when *their* local wall time matches DIGEST_SEND_LOCAL_* (below).
+# For 3:53 PM local test: hour 15, minute 53, cron minute 53. For midnight local: use 0, 0 and crons = ["0 * * * *"].
+# Confirm Triggers in the Cloudflare dashboard; if the cron never runs, scheduled digests won’t send.
 [triggers]
-crons = ["0 * * * *"]
+crons = ["53 * * * *"]
 
 [durable_objects]
 bindings = [
@@ -52,6 +53,9 @@ new_sqlite_classes = ["UsernameRegistry"]
 name = "EMAIL_TRANSACTIONAL"
 
 [vars]
+# Local time in each subscriber’s digestTimeZone when the scheduled daily challenge email is sent (24h clock).
+DIGEST_SEND_LOCAL_HOUR = "15"
+DIGEST_SEND_LOCAL_MINUTE = "53"
 # From address — must be allowed by Cloudflare Email Sending and/or Resend (same domain ok if root domain is verified).
 SENDER_EMAIL = "caleb@ahrenslabs.com"
 # Set to "resend" to skip Cloudflare Email send entirely (needs RESEND_API_KEY). Fixes stubborn E_RECIPIENT_NOT_ALLOWED from account/dashboard allowlists.

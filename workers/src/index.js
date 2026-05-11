@@ -1676,6 +1676,28 @@ function hourInTimeZone(date, timeZone) {
   return n;
 }
 
+function minuteInTimeZone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    minute: '2-digit',
+  }).formatToParts(date);
+  const p = parts.find((x) => x.type === 'minute');
+  let n = p ? parseInt(p.value, 10) : 0;
+  if (!Number.isFinite(n)) n = 0;
+  if (n < 0) n = 0;
+  if (n > 59) n = 59;
+  return n;
+}
+
+/** Local wall time (IANA tz) when scheduled digest runs — from Worker vars (see wrangler.toml). */
+function getDigestSendLocalHM(env) {
+  let h = parseInt(String(env.DIGEST_SEND_LOCAL_HOUR ?? '15'), 10);
+  let m = parseInt(String(env.DIGEST_SEND_LOCAL_MINUTE ?? '53'), 10);
+  if (!Number.isFinite(h) || h < 0 || h > 23) h = 15;
+  if (!Number.isFinite(m) || m < 0 || m > 59) m = 53;
+  return { hour: h, minute: m };
+}
+
 function ymdInTimeZone(date, timeZone) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -3593,6 +3615,7 @@ async function handleScheduledCron(event, env) {
     console.log('scheduled: DAILY_DIGEST_KV not bound, skipping digest');
     return;
   }
+  const digestSend = getDigestSendLocalHM(env);
   const now = new Date();
   let cursor;
   let sent = 0;
@@ -3632,9 +3655,9 @@ async function handleScheduledCron(event, env) {
         if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
 
         const localYmd = ymdInTimeZone(now, tz);
-        const hour = hourInTimeZone(now, tz);
-        // Hourly cron: allow local hours 0–1 so a tick near midnight still delivers if timing drifts slightly.
-        if (hour > 1) {
+        const localHour = hourInTimeZone(now, tz);
+        const localMinute = minuteInTimeZone(now, tz);
+        if (localHour !== digestSend.hour || localMinute !== digestSend.minute) {
           skipped++;
           continue;
         }
@@ -3655,7 +3678,13 @@ async function handleScheduledCron(event, env) {
     }
     cursor = list.list_complete ? undefined : list.cursor;
   } while (cursor);
-  console.log('Daily digest cron', { sent, failed, skipped, cron: event.cron });
+  console.log('Daily digest cron', {
+    sent,
+    failed,
+    skipped,
+    cron: event.cron,
+    digestLocalHM: `${digestSend.hour}:${String(digestSend.minute).padStart(2, '0')}`,
+  });
 }
 
 function generatePasswordResetToken() {
