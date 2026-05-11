@@ -81,6 +81,8 @@ export default {
         return handleChessSync(request, env, corsHeaders);
       } else if (path === '/api/chess/load' && request.method === 'GET') {
         return handleChessLoad(request, env, corsHeaders);
+      } else if (path === '/api/chess/leaderboard' && request.method === 'GET') {
+        return handleChessLeaderboardGet(request, env, corsHeaders);
       } else if (path === '/api/dungeon/slots' && request.method === 'GET') {
         return handleDungeonSlots(request, env, corsHeaders);
       } else if (path === '/api/dungeon/save' && request.method === 'POST') {
@@ -698,6 +700,14 @@ async function handleDeleteAccount(request, env, corsHeaders, executionCtx) {
       await env.DAILY_DIGEST_KV.delete(`sub:${userResult.userId}`);
     } catch (e) {
       console.error('delete digest KV key failed', e?.message || e);
+    }
+  }
+
+  if (env.CHESS_LEADERBOARD_KV) {
+    try {
+      await removeChessLeaderboardUser(env.CHESS_LEADERBOARD_KV, userResult.userId);
+    } catch (e) {
+      console.error('delete chess leaderboard KV failed', e?.message || e);
     }
   }
 
@@ -3015,6 +3025,110 @@ function chessStatsSnapshot(chessBlock) {
   return { wins: w, losses: l, draws: dr, games, points };
 }
 
+/** Single KV document: `{ e: { [userId]: { u, p, t } }, updatedAt }` */
+const CHESS_LEADERBOARD_KV_MAP_KEY = 'chess_career_points_lb_v1';
+
+function sanitizeLeaderboardUsernameDisplay(raw) {
+  let s = String(raw == null ? '' : raw).trim();
+  if (!s) s = 'Player';
+  s = s.replace(/[\u0000-\u001f\u007f]/g, '');
+  if (s.length > 48) s = s.slice(0, 48);
+  return s;
+}
+
+async function readChessLeaderboardMap(kv) {
+  if (!kv) return {};
+  try {
+    const raw = await kv.get(CHESS_LEADERBOARD_KV_MAP_KEY, 'json');
+    if (!raw || typeof raw !== 'object') return {};
+    const inner = raw.e;
+    if (inner && typeof inner === 'object') return { ...inner };
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeChessLeaderboardMap(kv, mapObj) {
+  if (!kv) return;
+  await kv.put(
+    CHESS_LEADERBOARD_KV_MAP_KEY,
+    JSON.stringify({ e: mapObj, updatedAt: Date.now() })
+  );
+}
+
+async function upsertChessLeaderboardEntry(kv, userId, username, points) {
+  if (!kv || !userId) return;
+  const p = Math.max(0, Math.floor(Number(points) || 0));
+  const u = sanitizeLeaderboardUsernameDisplay(username);
+  const map = await readChessLeaderboardMap(kv);
+  if (p <= 0) {
+    if (map[userId]) {
+      delete map[userId];
+      await writeChessLeaderboardMap(kv, map);
+    }
+    return;
+  }
+  map[userId] = { u, p, t: Date.now() };
+  await writeChessLeaderboardMap(kv, map);
+}
+
+async function removeChessLeaderboardUser(kv, userId) {
+  if (!kv || !userId) return;
+  const map = await readChessLeaderboardMap(kv);
+  if (!map[userId]) return;
+  delete map[userId];
+  await writeChessLeaderboardMap(kv, map);
+}
+
+function buildChessLeaderboardPublicPayload(map, limit) {
+  const allRows = Object.entries(map || {})
+    .map(([, v]) => ({
+      username: sanitizeLeaderboardUsernameDisplay(typeof v?.u === 'string' ? v.u : ''),
+      points: Math.max(0, Math.floor(Number(v?.p) || 0)),
+    }))
+    .filter((r) => r.points > 0)
+    .sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+  const top = allRows.slice(0, limit);
+  return {
+    totalRanked: allRows.length,
+    showing: top.length,
+    rows: top.map((r, i) => ({ rank: i + 1, username: r.username, points: r.points })),
+  };
+}
+
+async function handleChessLeaderboardGet(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const rawLimit = parseInt(url.searchParams.get('limit') || '100', 10);
+  const limit = Math.min(200, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 100));
+  if (!env.CHESS_LEADERBOARD_KV) {
+    return new Response(
+      JSON.stringify({
+        totalRanked: 0,
+        showing: 0,
+        rows: [],
+        configured: false,
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=60',
+        },
+      }
+    );
+  }
+  const map = await readChessLeaderboardMap(env.CHESS_LEADERBOARD_KV);
+  const body = buildChessLeaderboardPublicPayload(map, limit);
+  return new Response(JSON.stringify({ ...body, configured: true }), {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=60',
+    },
+  });
+}
+
 async function persistAndSendChessMilestones(env, storage, userData, prevSnap, nextSnap) {
   const email = normalizeEmail(userData.email || '');
   if (!email || !isLikelyRealEmail(email)) return;
@@ -4694,6 +4808,7 @@ export class UserAccount {
       await this.storage.put('userData', userData);
     }
 
+    await this.syncChessCareerPointsLeaderboardEntry();
     return { success: true, username: userData.username };
   }
 
@@ -4727,6 +4842,14 @@ export class UserAccount {
     const ok = await verifyStoredPassword(password, userData.passwordHash);
     if (!ok) {
       return { success: false, error: 'Password is incorrect' };
+    }
+    const userId = this.state.id.toString();
+    if (this.env.CHESS_LEADERBOARD_KV) {
+      try {
+        await removeChessLeaderboardUser(this.env.CHESS_LEADERBOARD_KV, userId);
+      } catch (e) {
+        console.error('leaderboard remove on delete failed', e?.message || e);
+      }
     }
     await this.storage.delete('userData');
     return { success: true };
@@ -4767,6 +4890,18 @@ export class UserAccount {
 
     const nextSnap = chessStatsSnapshot(userData.games.chess);
     await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
+    await this.syncChessCareerPointsLeaderboardEntry();
+  }
+
+  /** Pushes career achievement points + username to public leaderboard KV (if bound). */
+  async syncChessCareerPointsLeaderboardEntry() {
+    const kv = this.env.CHESS_LEADERBOARD_KV;
+    if (!kv) return;
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    const userId = this.state.id.toString();
+    const points = Math.max(0, Number(userData.games?.chess?.points) || 0);
+    await upsertChessLeaderboardEntry(kv, userId, userData.username, points);
   }
 
   async getChessData() {
