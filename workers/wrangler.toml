@@ -21,7 +21,8 @@ binding = "DAILY_DIGEST_KV"
 id = "64db75c8a01b42229806b59cb30cae80"
 
 # Daily digest: UTC crons + filter on America/Chicago using scheduledTime (same idea as sports-digest).
-# TEST — revert after you confirm: 4:05 PM Central = vars 16 / 5 and crons minute 5 at UTC 21–22 (covers CDT vs CST).
+# TEST — revert after you confirm: 4:05 PM Central = vars 16 / 5. While Chicago is CDT (UTC is 5h ahead of Central),
+# that moment is 21:05 UTC; after fall back to CST (UTC 6h ahead), it is 22:05 UTC — so crons minute 5 at UTC 21 and 22.
 # Production midnight: DIGEST_SEND_LOCAL_HOUR="0" DIGEST_SEND_LOCAL_MINUTE="0" and crons = ["0 5,6 * * *"].
 # Cron minute must match DIGEST_SEND_LOCAL_MINUTE when non-zero.
 # Confirm Triggers in the Cloudflare dashboard; if the cron never runs, scheduled digests won’t send.
