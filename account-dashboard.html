@@ -115,9 +115,16 @@
       line-height: 1.4;
     }
     .admin-broadcast-card {
-      display: none;
+      display: none !important;
       border-left: 4px solid #b45309;
       background: linear-gradient(180deg, #fffbeb 0%, #ffffff 48%);
+    }
+    html.dash-is-admin .admin-broadcast-card {
+      display: block !important;
+    }
+    /* Non-admins never see admin modals (even if [hidden] were cleared by mistake) */
+    html:not(.dash-is-admin) .dash-admin-modal {
+      display: none !important;
     }
     .admin-broadcast-card textarea { min-height: 120px; font-family: inherit; }
     .admin-accounts-toolbar {
@@ -549,7 +556,7 @@
     <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
   </footer>
 
-  <div id="admin-bulk-confirm-modal" class="dash-modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="admin-bulk-confirm-title">
+  <div id="admin-bulk-confirm-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-bulk-confirm-title">
     <div class="dash-modal-panel" role="document">
       <h2 id="admin-bulk-confirm-title" class="dash-modal-title">Confirm</h2>
       <p id="admin-bulk-confirm-desc" class="dash-modal-body"></p>
@@ -560,7 +567,7 @@
     </div>
   </div>
 
-  <div id="admin-custom-email-modal" class="dash-modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="admin-custom-email-title">
+  <div id="admin-custom-email-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-custom-email-title">
     <div class="dash-modal-panel dash-modal-panel-wide" role="document">
       <h2 id="admin-custom-email-title" class="dash-modal-title">Send custom email</h2>
       <p style="margin:0 0 14px 0;font-size:0.82rem;color:#64748b;line-height:1.45;">
@@ -678,6 +685,326 @@
       });
     }
 
+    /** Bulk broadcast / welcome controls — only call after confirming admin user. */
+    function wireAdminBulkEmailControls() {
+      document.getElementById('btn-admin-bc-preview')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-bc-status');
+        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
+        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
+        if (!subject || !text) {
+          setStatus(st, 'Enter subject and plain text first.', 'err');
+          return;
+        }
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        setStatus(st, 'Working…', '');
+        const emails = [];
+        let cursor;
+        let previewEmailSent = false;
+        let previewEmailError = null;
+        const MAX_PAGES = 500;
+        let page = 0;
+        try {
+          do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              return;
+            }
+            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                subject,
+                text,
+                html: (document.getElementById('admin-bc-html')?.value || '').trim(),
+                dryRun: true,
+                sendPreviewCopy: !cursor,
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok) {
+              let msg = formatApiFailure(status, data);
+              if (data.previewEmailError != null) msg += ` Preview: ${data.previewEmailError}`;
+              else if (data.previewEmailSent) msg += ' (Preview send was attempted.)';
+              setStatus(st, msg, 'err');
+              return;
+            }
+            if (!cursor) {
+              previewEmailSent = !!data.previewEmailSent;
+              previewEmailError = data.previewEmailError || null;
+            }
+            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            cursor = data.nextListCursor || null;
+          } while (cursor);
+          let msg = `Found ${emails.length} recipient(s) with a saved email.`;
+          if (previewEmailError) {
+            msg += ` Preview email failed: ${previewEmailError}`;
+            setStatus(st, msg, 'err');
+          } else if (previewEmailSent) {
+            msg += ' Check your inbox for the preview copy.';
+            setStatus(st, msg, 'ok');
+          } else {
+            setStatus(st, msg, 'ok');
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
+        }
+      });
+
+      document.getElementById('btn-admin-welcome-preview')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-welcome-status');
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        setStatus(st, 'Working…', '');
+        const emails = [];
+        let cursor;
+        let previewWelcomeSent = false;
+        let previewWelcomeError = null;
+        const MAX_PAGES = 500;
+        let page = 0;
+        try {
+          do {
+            if (++page > MAX_PAGES) {
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              return;
+            }
+            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                dryRun: true,
+                sendPreviewCopy: !cursor,
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok) {
+              let msg = formatApiFailure(status, data);
+              if (data.previewWelcomeError != null) msg += ` Sample send: ${data.previewWelcomeError}`;
+              else if (data.previewWelcomeSent) msg += ' (Sample send was attempted.)';
+              setStatus(st, msg, 'err');
+              return;
+            }
+            if (!cursor) {
+              previewWelcomeSent = !!data.previewWelcomeSent;
+              previewWelcomeError = data.previewWelcomeError || null;
+            }
+            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            cursor = data.nextListCursor || null;
+          } while (cursor);
+          let msg = `Found ${emails.length} recipient(s) who would get the welcome guide.`;
+          if (previewWelcomeError) {
+            msg += ` Sample email failed: ${previewWelcomeError}`;
+            setStatus(st, msg, 'err');
+          } else if (previewWelcomeSent) {
+            msg += ' Check your inbox for the sample welcome email.';
+            setStatus(st, msg, 'ok');
+          } else {
+            setStatus(st, msg, 'ok');
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
+        }
+      });
+
+      document.getElementById('btn-admin-welcome-send')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-welcome-status');
+        const ok = await showAdminBulkConfirmModal({
+          title: 'Send welcome guide to all accounts?',
+          description:
+            'This sends the full welcome / info email to every account with an email on file, including addresses that are not yet verified. Each person receives a separate message.',
+          confirmLabel: 'Send welcome emails',
+        });
+        if (!ok) return;
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        const btn = document.getElementById('btn-admin-welcome-send');
+        const prev = btn ? btn.textContent : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+        }
+        let totalSent = 0;
+        let totalSkipped = 0;
+        let totalProcessed = 0;
+        const failures = [];
+        let cursor;
+        setStatus(st, 'Starting…', '');
+        const MAX_PAGES = 500;
+        let page = 0;
+        try {
+          do {
+            if (++page > MAX_PAGES) {
+              setStatus(
+                st,
+                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
+                'err'
+              );
+              return;
+            }
+            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            const batchSent = Number(data.sent) || 0;
+            const batchSkipped = Number(data.skipped) || 0;
+            const batchProcessed = Number(data.processedObjects) || 0;
+            totalSent += batchSent;
+            totalSkipped += batchSkipped;
+            totalProcessed += batchProcessed;
+            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
+            cursor = data.nextListCursor || null;
+            setStatus(
+              st,
+              cursor
+                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
+                : `Finishing… (${totalSent} sent in completed batches)`,
+              ''
+            );
+          } while (cursor);
+          const failN = failures.length;
+          let msg = `Finished. ${totalSent} welcome email${totalSent === 1 ? '' : 's'} sent successfully.`;
+          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (no usable address on file).`;
+          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
+          setStatus(st, msg, failN ? 'err' : 'ok');
+          if (failN) console.warn('Welcome bulk failures', failures);
+        } catch (e) {
+          console.error(e);
+          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prev || 'Send welcome to all accounts';
+          }
+        }
+      });
+
+      document.getElementById('btn-admin-bc-send')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-bc-status');
+        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
+        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
+        const htmlRaw = (document.getElementById('admin-bc-html')?.value || '').trim();
+        if (!subject || !text) {
+          setStatus(st, 'Enter subject and plain text.', 'err');
+          return;
+        }
+        const ok = await showAdminBulkConfirmModal({
+          title: 'Send broadcast to all accounts?',
+          description:
+            'This sends your message as individual emails from caleb@ahrenslabs.com to every eligible account (verified email — same rules as the preview recipient list).',
+          confirmLabel: 'Send broadcast',
+        });
+        if (!ok) return;
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        const btn = document.getElementById('btn-admin-bc-send');
+        const prev = btn ? btn.textContent : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+        }
+        let totalSent = 0;
+        let totalSkipped = 0;
+        let totalProcessed = 0;
+        const failures = [];
+        let cursor;
+        setStatus(st, 'Starting…', '');
+        const MAX_PAGES = 500;
+        let page = 0;
+        try {
+          do {
+            if (++page > MAX_PAGES) {
+              setStatus(
+                st,
+                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
+                'err'
+              );
+              return;
+            }
+            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                subject,
+                text,
+                ...(htmlRaw ? { html: htmlRaw } : {}),
+                ...(cursor ? { listCursor: cursor } : {}),
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            const batchSent = Number(data.sent) || 0;
+            const batchSkipped = Number(data.skipped) || 0;
+            const batchProcessed = Number(data.processedObjects) || 0;
+            totalSent += batchSent;
+            totalSkipped += batchSkipped;
+            totalProcessed += batchProcessed;
+            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
+            cursor = data.nextListCursor || null;
+            setStatus(
+              st,
+              cursor
+                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
+                : `Finishing… (${totalSent} sent in completed batches)`,
+              ''
+            );
+          } while (cursor);
+          const failN = failures.length;
+          let msg = `Finished. ${totalSent} broadcast email${totalSent === 1 ? '' : 's'} sent successfully.`;
+          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (ineligible or no verified address).`;
+          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
+          setStatus(st, msg, failN ? 'err' : 'ok');
+          if (failN) console.warn('Broadcast failures', failures);
+        } catch (e) {
+          console.error(e);
+          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prev || 'Send to all accounts';
+          }
+        }
+      });
+    }
+
     async function requireUser() {
       const sessionId = getSessionId();
       if (!sessionId) {
@@ -777,12 +1104,8 @@
       loadTrifangxPointsForDashboard();
 
       if (isAdminBroadcastAccount(user.email)) {
-        const abc = document.getElementById('admin-broadcast-card');
-        if (abc) abc.style.display = 'block';
-        const awc = document.getElementById('admin-resend-welcome-card');
-        if (awc) awc.style.display = 'block';
-        const aac = document.getElementById('admin-accounts-card');
-        if (aac) aac.style.display = 'block';
+        document.documentElement.classList.add('dash-is-admin');
+        wireAdminBulkEmailControls();
 
         let adminAccountsAccum = [];
         let adminListNextCursor = null;
@@ -1338,323 +1661,6 @@
           if (btn) {
             btn.disabled = false;
             btn.textContent = WELCOME_BTN_LABEL;
-          }
-        }
-      });
-
-      document.getElementById('btn-admin-bc-preview')?.addEventListener('click', async () => {
-        const st = document.getElementById('admin-bc-status');
-        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
-        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
-        if (!subject || !text) {
-          setStatus(st, 'Enter subject and plain text first.', 'err');
-          return;
-        }
-        const sessionId = getSessionId();
-        if (!sessionId) {
-          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
-          return;
-        }
-        setStatus(st, 'Working…', '');
-        const emails = [];
-        let cursor;
-        let previewEmailSent = false;
-        let previewEmailError = null;
-        const MAX_PAGES = 500;
-        let page = 0;
-        try {
-          do {
-            if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
-              return;
-            }
-            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${sessionId}`,
-              },
-              body: JSON.stringify({
-                subject,
-                text,
-                html: (document.getElementById('admin-bc-html')?.value || '').trim(),
-                dryRun: true,
-                sendPreviewCopy: !cursor,
-                ...(cursor ? { listCursor: cursor } : {}),
-              }),
-            });
-            const { ok, status, data } = await readApiJsonResponse(res);
-            if (!ok) {
-              let msg = formatApiFailure(status, data);
-              if (data.previewEmailError != null) msg += ` Preview: ${data.previewEmailError}`;
-              else if (data.previewEmailSent) msg += ' (Preview send was attempted.)';
-              setStatus(st, msg, 'err');
-              return;
-            }
-            if (!cursor) {
-              previewEmailSent = !!data.previewEmailSent;
-              previewEmailError = data.previewEmailError || null;
-            }
-            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
-            cursor = data.nextListCursor || null;
-          } while (cursor);
-          let msg = `Found ${emails.length} recipient(s) with a saved email.`;
-          if (previewEmailError) {
-            msg += ` Preview email failed: ${previewEmailError}`;
-            setStatus(st, msg, 'err');
-          } else if (previewEmailSent) {
-            msg += ' Check your inbox for the preview copy.';
-            setStatus(st, msg, 'ok');
-          } else {
-            setStatus(st, msg, 'ok');
-          }
-        } catch (e) {
-          console.error(e);
-          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
-        }
-      });
-
-      document.getElementById('btn-admin-welcome-preview')?.addEventListener('click', async () => {
-        const st = document.getElementById('admin-welcome-status');
-        const sessionId = getSessionId();
-        if (!sessionId) {
-          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
-          return;
-        }
-        setStatus(st, 'Working…', '');
-        const emails = [];
-        let cursor;
-        let previewWelcomeSent = false;
-        let previewWelcomeError = null;
-        const MAX_PAGES = 500;
-        let page = 0;
-        try {
-          do {
-            if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
-              return;
-            }
-            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${sessionId}`,
-              },
-              body: JSON.stringify({
-                dryRun: true,
-                sendPreviewCopy: !cursor,
-                ...(cursor ? { listCursor: cursor } : {}),
-              }),
-            });
-            const { ok, status, data } = await readApiJsonResponse(res);
-            if (!ok) {
-              let msg = formatApiFailure(status, data);
-              if (data.previewWelcomeError != null) msg += ` Sample send: ${data.previewWelcomeError}`;
-              else if (data.previewWelcomeSent) msg += ' (Sample send was attempted.)';
-              setStatus(st, msg, 'err');
-              return;
-            }
-            if (!cursor) {
-              previewWelcomeSent = !!data.previewWelcomeSent;
-              previewWelcomeError = data.previewWelcomeError || null;
-            }
-            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
-            cursor = data.nextListCursor || null;
-          } while (cursor);
-          let msg = `Found ${emails.length} recipient(s) who would get the welcome guide.`;
-          if (previewWelcomeError) {
-            msg += ` Sample email failed: ${previewWelcomeError}`;
-            setStatus(st, msg, 'err');
-          } else if (previewWelcomeSent) {
-            msg += ' Check your inbox for the sample welcome email.';
-            setStatus(st, msg, 'ok');
-          } else {
-            setStatus(st, msg, 'ok');
-          }
-        } catch (e) {
-          console.error(e);
-          setStatus(st, e?.message ? `Preview failed: ${e.message}` : 'Preview failed (network).', 'err');
-        }
-      });
-
-      document.getElementById('btn-admin-welcome-send')?.addEventListener('click', async () => {
-        const st = document.getElementById('admin-welcome-status');
-        const ok = await showAdminBulkConfirmModal({
-          title: 'Send welcome guide to all accounts?',
-          description:
-            'This sends the full welcome / info email to every account with an email on file, including addresses that are not yet verified. Each person receives a separate message.',
-          confirmLabel: 'Send welcome emails',
-        });
-        if (!ok) return;
-        const sessionId = getSessionId();
-        if (!sessionId) {
-          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
-          return;
-        }
-        const btn = document.getElementById('btn-admin-welcome-send');
-        const prev = btn ? btn.textContent : '';
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = 'Sending…';
-        }
-        let totalSent = 0;
-        let totalSkipped = 0;
-        let totalProcessed = 0;
-        const failures = [];
-        let cursor;
-        setStatus(st, 'Starting…', '');
-        const MAX_PAGES = 500;
-        let page = 0;
-        try {
-          do {
-            if (++page > MAX_PAGES) {
-              setStatus(
-                st,
-                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
-                'err'
-              );
-              return;
-            }
-            const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${sessionId}`,
-              },
-              body: JSON.stringify({
-                ...(cursor ? { listCursor: cursor } : {}),
-              }),
-            });
-            const { ok, status, data } = await readApiJsonResponse(res);
-            if (!ok || !data.success) {
-              setStatus(st, formatApiFailure(status, data), 'err');
-              return;
-            }
-            const batchSent = Number(data.sent) || 0;
-            const batchSkipped = Number(data.skipped) || 0;
-            const batchProcessed = Number(data.processedObjects) || 0;
-            totalSent += batchSent;
-            totalSkipped += batchSkipped;
-            totalProcessed += batchProcessed;
-            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
-            cursor = data.nextListCursor || null;
-            setStatus(
-              st,
-              cursor
-                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
-                : `Finishing… (${totalSent} sent in completed batches)`,
-              ''
-            );
-          } while (cursor);
-          const failN = failures.length;
-          let msg = `Finished. ${totalSent} welcome email${totalSent === 1 ? '' : 's'} sent successfully.`;
-          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (no usable address on file).`;
-          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
-          setStatus(st, msg, failN ? 'err' : 'ok');
-          if (failN) console.warn('Welcome bulk failures', failures);
-        } catch (e) {
-          console.error(e);
-          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
-        } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = prev || 'Send welcome to all accounts';
-          }
-        }
-      });
-
-      document.getElementById('btn-admin-bc-send')?.addEventListener('click', async () => {
-        const st = document.getElementById('admin-bc-status');
-        const subject = (document.getElementById('admin-bc-subject')?.value || '').trim();
-        const text = (document.getElementById('admin-bc-text')?.value || '').trim();
-        const htmlRaw = (document.getElementById('admin-bc-html')?.value || '').trim();
-        if (!subject || !text) {
-          setStatus(st, 'Enter subject and plain text.', 'err');
-          return;
-        }
-        const ok = await showAdminBulkConfirmModal({
-          title: 'Send broadcast to all accounts?',
-          description:
-            'This sends your message as individual emails from caleb@ahrenslabs.com to every eligible account (verified email — same rules as the preview recipient list).',
-          confirmLabel: 'Send broadcast',
-        });
-        if (!ok) return;
-        const sessionId = getSessionId();
-        if (!sessionId) {
-          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
-          return;
-        }
-        const btn = document.getElementById('btn-admin-bc-send');
-        const prev = btn ? btn.textContent : '';
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = 'Sending…';
-        }
-        let totalSent = 0;
-        let totalSkipped = 0;
-        let totalProcessed = 0;
-        const failures = [];
-        let cursor;
-        setStatus(st, 'Starting…', '');
-        const MAX_PAGES = 500;
-        let page = 0;
-        try {
-          do {
-            if (++page > MAX_PAGES) {
-              setStatus(
-                st,
-                `Stopped after ${MAX_PAGES} batches (safety limit). Confirmed sent so far: ${totalSent} (${totalProcessed} accounts scanned, ${totalSkipped} skipped, ${failures.length} failed in completed batches).`,
-                'err'
-              );
-              return;
-            }
-            const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${sessionId}`,
-              },
-              body: JSON.stringify({
-                subject,
-                text,
-                ...(htmlRaw ? { html: htmlRaw } : {}),
-                ...(cursor ? { listCursor: cursor } : {}),
-              }),
-            });
-            const { ok, status, data } = await readApiJsonResponse(res);
-            if (!ok || !data.success) {
-              setStatus(st, formatApiFailure(status, data), 'err');
-              return;
-            }
-            const batchSent = Number(data.sent) || 0;
-            const batchSkipped = Number(data.skipped) || 0;
-            const batchProcessed = Number(data.processedObjects) || 0;
-            totalSent += batchSent;
-            totalSkipped += batchSkipped;
-            totalProcessed += batchProcessed;
-            if (Array.isArray(data.failed)) failures.push.apply(failures, data.failed);
-            cursor = data.nextListCursor || null;
-            setStatus(
-              st,
-              cursor
-                ? `Sent ${totalSent} so far… (batch: +${batchSent}, scanned ${batchProcessed})`
-                : `Finishing… (${totalSent} sent in completed batches)`,
-              ''
-            );
-          } while (cursor);
-          const failN = failures.length;
-          let msg = `Finished. ${totalSent} broadcast email${totalSent === 1 ? '' : 's'} sent successfully.`;
-          msg += ` Scanned ${totalProcessed} account record${totalProcessed === 1 ? '' : 's'}; ${totalSkipped} skipped (ineligible or no verified address).`;
-          if (failN) msg += ` ${failN} send${failN === 1 ? '' : 's'} failed — see console for addresses.`;
-          setStatus(st, msg, failN ? 'err' : 'ok');
-          if (failN) console.warn('Broadcast failures', failures);
-        } catch (e) {
-          console.error(e);
-          setStatus(st, e?.message ? `Send failed: ${e.message}` : 'Send failed (network).', 'err');
-        } finally {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = prev || 'Send to all accounts';
           }
         }
       });
