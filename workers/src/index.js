@@ -3320,20 +3320,6 @@ function sortLeaderboardStatsRows(rows, sortKey, mode = 'career') {
   });
 }
 
-function hasWeekLeaderboardActivity(r) {
-  if (!r || typeof r !== 'object') return false;
-  return (
-    Number(r.weekPoints) > 0 ||
-    Number(r.weekWins) > 0 ||
-    Number(r.weekLosses) > 0 ||
-    Number(r.weekDraws) > 0 ||
-    Number(r.weekCaptures) > 0 ||
-    Number(r.weekChecksGiven) > 0 ||
-    Number(r.weekPromotions) > 0 ||
-    Number(r.weekCastlingMoves) > 0
-  );
-}
-
 function leaderboardPublicRow(r, index1, mode = 'career') {
   const wk = mode === 'week';
   return {
@@ -3450,9 +3436,6 @@ async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey, mode = 
     for (const r of chunk) {
       if (r) rows.push(r);
     }
-  }
-  if (modeNorm === 'week') {
-    rows = rows.filter((r) => hasWeekLeaderboardActivity(r));
   }
   sortLeaderboardStatsRows(rows, sortKey, modeNorm);
   const top = rows.slice(0, limit);
