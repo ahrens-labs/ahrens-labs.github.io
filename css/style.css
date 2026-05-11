@@ -739,6 +739,17 @@ footer {
     box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
 }
 
+footer a {
+    color: #93c5fd;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+footer a:hover {
+    color: #dbeafe;
+    text-decoration: underline;
+}
+
 /* Specific Font Families for other elements */
 #myBoard,
 #status,
