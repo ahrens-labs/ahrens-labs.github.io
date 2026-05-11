@@ -3085,7 +3085,8 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const losses = Math.max(0, Number(ps.losses) || 0);
   const draws = Math.max(0, Number(ps.draws) || 0);
   const games = wins + losses + draws;
-  const lt = chess?.stats?.lifetimeStats && typeof chess.stats.lifetimeStats === 'object' ? chess.stats.lifetimeStats : {};
+  const ltRaw = chess?.stats?.lifetimeStats;
+  const lt = ltRaw && typeof ltRaw === 'object' ? ltRaw : {};
   const captures = Math.max(0, Number(lt.totalCaptures) || 0);
   const checksGiven = Math.max(0, Number(lt.checksGiven) || 0);
   const promotions = Math.max(0, Number(lt.promotions) || 0);
