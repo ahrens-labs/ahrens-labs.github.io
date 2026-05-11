@@ -237,7 +237,7 @@
         }
       }
 
-      fetch(API_BASE_URL + '/api/chess/leaderboard?limit=100')
+      fetch(API_BASE_URL + '/api/chess/leaderboard?limit=50000')
         .then(function (res) {
           if (!res.ok) throw new Error('HTTP ' + res.status);
           return res.json();
@@ -250,12 +250,23 @@
           renderRows(data.rows || []);
           if (meta && typeof data.totalRanked === 'number') {
             meta.hidden = false;
-            meta.textContent =
-              'Showing top ' +
+            let line =
+              'Showing ' +
               (data.showing || 0) +
               (data.totalRanked > (data.showing || 0)
-                ? ' of ' + data.totalRanked + ' ranked players.'
-                : ' players.');
+                ? ' of ' + data.totalRanked + ' accounts (by career points).'
+                : ' accounts (by career points).');
+            if (data.profileFetchCap && typeof data.totalAccountsDiscovered === 'number') {
+              line +=
+                ' Server loaded ' +
+                data.profileFetchCap +
+                ' of ' +
+                data.totalAccountsDiscovered +
+                ' known accounts (Worker limit); ranking is among those loaded.';
+            } else if (data.partialEnumeration) {
+              line += ' Account list may be incomplete (enumeration limit).';
+            }
+            meta.textContent = line;
           }
         })
         .catch(function () {

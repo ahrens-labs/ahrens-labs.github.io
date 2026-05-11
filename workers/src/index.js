@@ -3089,10 +3089,119 @@ function buildChessLeaderboardPublicPayload(map, limit) {
   };
 }
 
+/** Subrequest safety: profile fetches per leaderboard request (each account = one DO fetch). */
+const LEADERBOARD_MAX_PROFILE_FETCHES = 500;
+/** Pages of `listUserAccountStubsAdminUnified` when walking every account stub. */
+const LEADERBOARD_ENUM_MAX_PAGES = 250;
+
+function userAccountStubIdString(stub) {
+  try {
+    if (stub && stub.id != null && typeof stub.id.toString === 'function') return String(stub.id.toString());
+  } catch {
+    /* ignore */
+  }
+  return '';
+}
+
+async function enumerateAllUserAccountStubsForLeaderboard(env) {
+  const stubs = [];
+  const seen = new Set();
+  let cursor;
+  let pages = 0;
+  let stoppedEarly = false;
+  while (pages < LEADERBOARD_ENUM_MAX_PAGES) {
+    pages++;
+    const { stubs: pageStubs, nextListCursor, listError } = await listUserAccountStubsAdminUnified(env, 80, cursor);
+    if (listError) throw listError;
+    for (const st of pageStubs) {
+      const idStr = userAccountStubIdString(st);
+      if (!idStr || seen.has(idStr)) continue;
+      seen.add(idStr);
+      stubs.push(st);
+    }
+    if (!nextListCursor) break;
+    cursor = nextListCursor;
+    if (!pageStubs.length) break;
+  }
+  if (pages >= LEADERBOARD_ENUM_MAX_PAGES && cursor) stoppedEarly = true;
+  return { stubs, stoppedEarly };
+}
+
+async function fetchChessLeaderboardRowFromStub(stub) {
+  try {
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    if (!row || typeof row !== 'object') return null;
+    const username = sanitizeLeaderboardUsernameDisplay(row.username);
+    const points = Math.max(0, Math.floor(Number(row.games?.chess?.points) || 0));
+    return { username, points };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Public leaderboard: one row per account (live chess career points from each UserAccount DO).
+ * Same stub discovery as admin account directory. Caps profile fetches to stay within Worker limits.
+ */
+async function buildChessLeaderboardFromAllAccounts(env, limit) {
+  const { stubs: allStubs, stoppedEarly: enumStopped } = await enumerateAllUserAccountStubsForLeaderboard(env);
+  const totalAccountsDiscovered = allStubs.length;
+  let stubs = allStubs;
+  let profileFetchCapHit = false;
+  if (stubs.length > LEADERBOARD_MAX_PROFILE_FETCHES) {
+    stubs = [...stubs]
+      .sort((a, b) => userAccountStubIdString(a).localeCompare(userAccountStubIdString(b)))
+      .slice(0, LEADERBOARD_MAX_PROFILE_FETCHES);
+    profileFetchCapHit = true;
+  }
+  const rows = [];
+  const batch = 10;
+  for (let i = 0; i < stubs.length; i += batch) {
+    const slice = stubs.slice(i, i + batch);
+    const chunk = await Promise.all(slice.map((s) => fetchChessLeaderboardRowFromStub(s)));
+    for (const r of chunk) {
+      if (r) rows.push(r);
+    }
+  }
+  rows.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+  const top = rows.slice(0, limit);
+  const out = {
+    totalRanked: rows.length,
+    showing: top.length,
+    rows: top.map((r, i) => ({ rank: i + 1, username: r.username, points: r.points })),
+    source: 'accounts',
+  };
+  if (enumStopped) out.partialEnumeration = true;
+  if (profileFetchCapHit) {
+    out.profileFetchCap = LEADERBOARD_MAX_PROFILE_FETCHES;
+    out.totalAccountsDiscovered = totalAccountsDiscovered;
+  }
+  return out;
+}
+
 async function handleChessLeaderboardGet(request, env, corsHeaders) {
   const url = new URL(request.url);
-  const rawLimit = parseInt(url.searchParams.get('limit') || '100', 10);
-  const limit = Math.min(200, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 100));
+  const rawLimit = parseInt(url.searchParams.get('limit') || '20000', 10);
+  const limit = Math.min(50000, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 20000));
+
+  const jsonHeaders = {
+    ...corsHeaders,
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=30',
+  };
+
+  if (env.USER_ACCOUNT) {
+    try {
+      const body = await buildChessLeaderboardFromAllAccounts(env, limit);
+      return new Response(JSON.stringify({ ...body, configured: true }), {
+        headers: jsonHeaders,
+      });
+    } catch (e) {
+      console.error('leaderboard account scan failed', e?.message || e);
+    }
+  }
+
   if (!env.CHESS_LEADERBOARD_KV) {
     return new Response(
       JSON.stringify({
@@ -3102,22 +3211,14 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
         configured: false,
       }),
       {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=60',
-        },
+        headers: jsonHeaders,
       }
     );
   }
   const map = await readChessLeaderboardMap(env.CHESS_LEADERBOARD_KV);
   const body = buildChessLeaderboardPublicPayload(map, limit);
-  return new Response(JSON.stringify({ ...body, configured: true }), {
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=60',
-    },
+  return new Response(JSON.stringify({ ...body, configured: true, source: 'kv' }), {
+    headers: jsonHeaders,
   });
 }
 
