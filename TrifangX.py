@@ -88,21 +88,54 @@ def _is_black_promotion_piece(piece, target_row):
 def _is_promotion_piece(piece, target_row):
     return _is_white_promotion_piece(piece, target_row) or _is_black_promotion_piece(piece, target_row)
 
-def _promotion_source_piece(piece, target_row):
+def _promotion_source_piece(piece, target_row, from_row=None):
+    if from_row is not None:
+        if _is_actual_white_pawn_promotion(piece, from_row, target_row):
+            return 'P'
+        if _is_actual_black_pawn_promotion(piece, from_row, target_row):
+            return 'p'
+        return piece
     if _is_white_promotion_piece(piece, target_row):
         return 'P'
     if _is_black_promotion_piece(piece, target_row):
         return 'p'
     return piece
 
-def _format_promotion_move(piece, from_col, to_row, to_col, captured_piece):
-    if _is_white_promotion_piece(piece, to_row):
+def _is_actual_white_pawn_promotion(moved_piece, from_row, target_row):
+    """True only for a pawn step from rank 7 to rank 8 (engine row 6→7), not Q/N sliding onto the back rank."""
+    if target_row != 7 or from_row != 6:
+        return False
+    return moved_piece == 'P' or moved_piece in WHITE_PROMOTION_PIECES
+
+
+def _is_actual_black_pawn_promotion(moved_piece, from_row, target_row):
+    if target_row != 0 or from_row != 1:
+        return False
+    return moved_piece == 'p' or moved_piece in BLACK_PROMOTION_PIECES
+
+
+def _format_promotion_move(piece, from_row, from_col, to_row, to_col, captured_piece):
+    if _is_actual_white_pawn_promotion(piece, from_row, to_row):
+        promo = piece if piece in WHITE_PROMOTION_PIECES else 'Q'
         prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in BLACK_PIECES else ''
-        return prefix + indices_to_pos(to_row, to_col) + '=' + piece
-    if _is_black_promotion_piece(piece, to_row):
+        return prefix + indices_to_pos(to_row, to_col) + '=' + promo
+    if _is_actual_black_pawn_promotion(piece, from_row, to_row):
+        promo = piece if piece in BLACK_PROMOTION_PIECES else 'q'
         prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in WHITE_PIECES else ''
-        return prefix + indices_to_pos(to_row, to_col) + '=' + piece.upper()
+        return prefix + indices_to_pos(to_row, to_col) + '=' + promo.upper()
     return None
+
+
+def _piece_symbol_for_san(board_before, from_row, from_col, moved_piece_symbol):
+    """If search still reports P/p but the square holds a promoted piece, use the board piece for SAN."""
+    if not (0 <= from_row < 8 and 0 <= from_col < 8):
+        return moved_piece_symbol
+    actual = board_before[from_row][from_col]
+    if moved_piece_symbol == 'P' and actual in _WHITE_PROMO_MISMATCH:
+        return actual
+    if moved_piece_symbol == 'p' and actual in _BLACK_PROMO_MISMATCH:
+        return actual
+    return moved_piece_symbol
 
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
@@ -136,7 +169,7 @@ def print_board(board):
     #return output
 
 def print_piece_move(board, best_piece, best_row, best_col, target_row, target_col, piece, color):
-    promotion_move = _format_promotion_move(best_piece, best_col, target_row, target_col, piece)
+    promotion_move = _format_promotion_move(best_piece, best_row, best_col, target_row, target_col, piece)
     if promotion_move:
         move_played = promotion_move
         opponent_color = 'w' if color == 'b' else 'b'
@@ -147,51 +180,39 @@ def print_piece_move(board, best_piece, best_row, best_col, target_row, target_c
     disambiguation = get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col)
 
     if color == 'b':
-        if best_piece == 'p' and target_row == 0:
+        if disambiguation:
             if piece in WHITE_PIECES:
-                move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
+                move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
             else:
-                move_played = indices_to_pos(target_row, target_col) + '=Q'
+                move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
         else:
-            if disambiguation:
+            if best_piece != 'p':
                 if piece in WHITE_PIECES:
-                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
+                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
                 else:
-                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
             else:
-                if best_piece != 'p':
-                    if piece in WHITE_PIECES:
-                        move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
+                if piece in WHITE_PIECES:
+                    move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 else:
-                    if piece in WHITE_PIECES:
-                        move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = indices_to_pos(target_row, target_col)
+                    move_played = indices_to_pos(target_row, target_col)
     elif color == 'w':
-        if best_piece == 'P' and target_row == 7:
+        if disambiguation:
             if piece in BLACK_PIECES:
-                move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
+                move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
             else:
-                move_played = indices_to_pos(target_row, target_col) + '=Q'
+                move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
         else:
-            if disambiguation:
+            if best_piece != 'P':
                 if piece in BLACK_PIECES:
-                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
+                    move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
                 else:
-                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
+                    move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
             else:
-                if best_piece != 'P':
-                    if piece in BLACK_PIECES:
-                        move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
+                if piece in BLACK_PIECES:
+                    move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
                 else:
-                    if piece in BLACK_PIECES:
-                        move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = indices_to_pos(target_row, target_col)
+                    move_played = indices_to_pos(target_row, target_col)
 
     # Check if this move puts opponent in check
     opponent_color = 'w' if color == 'b' else 'b'
@@ -228,7 +249,7 @@ def _apply_debug_move(board, piece, from_row, from_col, to_row, to_col, color):
             board[0][4] = '0'
         return
 
-    source_piece = _promotion_source_piece(piece, to_row)
+    source_piece = _promotion_source_piece(piece, to_row, from_row)
     board[from_row][from_col] = '0'
     if _is_promotion_piece(piece, to_row):
         board[to_row][to_col] = piece
@@ -246,7 +267,7 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
 
     # Pawn captures should always be logged with "x", including en passant where
     # the target square is empty in the pre-move board state.
-    source_piece = _promotion_source_piece(piece, to_row)
+    source_piece = _promotion_source_piece(piece, to_row, from_row)
     if source_piece in {'p', 'P'} and from_col != to_col and captured_piece == '0':
         debug_captured_piece = 'P' if color == 'b' else 'p'
 
@@ -255,7 +276,8 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
     elif piece == '0-0-0':
         move_played = 'O-O-O'
     else:
-        move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
+        san_piece = _piece_symbol_for_san(board_before, from_row, from_col, piece)
+        move_played = print_piece_move(debug_board, san_piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
 
     opponent_color = 'w' if color == 'b' else 'b'
     opp_king_row, opp_king_col = find_king(debug_board, opponent_color)
@@ -2590,72 +2612,6 @@ def convert_to_long_algebraic(move, board, color):
                 return piece_letter + from_square + target_square
 
     return None
-
-def print_piece_move(board, best_piece, best_row, best_col, target_row, target_col, piece, color):
-    promotion_move = _format_promotion_move(best_piece, best_col, target_row, target_col, piece)
-    if promotion_move:
-        move_played = promotion_move
-        opponent_color = 'w' if color == 'b' else 'b'
-        opp_king_row, opp_king_col = find_king(board, opponent_color)
-        if opp_king_row != -1 and is_king_in_check(board, opp_king_row, opp_king_col, opponent_color):
-            move_played += '+'
-        return move_played
-    disambiguation = get_move_disambiguation(board, best_piece, best_row, best_col, target_row, target_col)
-
-    if color == 'b':
-        if best_piece == 'p' and target_row == 0:
-            if piece in WHITE_PIECES:
-                move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
-            else:
-                move_played = indices_to_pos(target_row, target_col) + '=Q'
-        else:
-            if disambiguation:
-                if piece in WHITE_PIECES:
-                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
-                else:
-                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
-            else:
-                if best_piece != 'p':
-                    if piece in WHITE_PIECES:
-                        move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
-                else:
-                    if piece in WHITE_PIECES:
-                        move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = indices_to_pos(target_row, target_col)
-    elif color == 'w':
-        if best_piece == 'P' and target_row == 7:
-            if piece in BLACK_PIECES:
-                move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + '=Q'
-            else:
-                move_played = indices_to_pos(target_row, target_col) + '=Q'
-        else:
-            if disambiguation:
-                if piece in BLACK_PIECES:
-                    move_played = best_piece.upper() + disambiguation + 'x' + indices_to_pos(target_row, target_col)
-                else:
-                    move_played = best_piece.upper() + disambiguation + indices_to_pos(target_row, target_col)
-            else:
-                if best_piece != 'P':
-                    if piece in BLACK_PIECES:
-                        move_played = best_piece.upper() + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = best_piece.upper() + indices_to_pos(target_row, target_col)
-                else:
-                    if piece in BLACK_PIECES:
-                        move_played = indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col)
-                    else:
-                        move_played = indices_to_pos(target_row, target_col)
-
-    # Check if this move puts opponent in check
-    opponent_color = 'w' if color == 'b' else 'b'
-    opp_king_row, opp_king_col = find_king(board, opponent_color)
-    if opp_king_row != -1 and is_king_in_check(board, opp_king_row, opp_king_col, opponent_color):
-        move_played += '+'
-
-    return move_played
 
 def score_king(board, row, col, color, stats):
     score = 0
@@ -5462,7 +5418,7 @@ def best_move_function(board, bots, en_passant):
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
-                if (best_piece == 'p' and target_row == 0) or _is_black_promotion_piece(best_piece, target_row):
+                if _is_actual_black_pawn_promotion(best_piece, best_row, target_row):
                     promotion_piece = best_piece if best_piece in BLACK_PROMOTION_PIECES else 'q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
@@ -8142,7 +8098,7 @@ def best_move_black(board, bots, en_passant):
                 if best_piece == 'K':
                     king_move_white = 1
                 black_king_row, black_king_col = find_king(board, 'b')
-                if (best_piece == 'P' and target_row == 7) or _is_white_promotion_piece(best_piece, target_row):
+                if _is_actual_white_pawn_promotion(best_piece, best_row, target_row):
                     promotion_piece = best_piece if best_piece in WHITE_PROMOTION_PIECES else 'Q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
