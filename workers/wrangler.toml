@@ -20,11 +20,13 @@ compatibility_date = "2025-05-01"
 binding = "DAILY_DIGEST_KV"
 id = "64db75c8a01b42229806b59cb30cae80"
 
-# Daily digest: same idea as sports-digest — Cloudflare cron is UTC; we wake at 05:00 and 06:00 UTC so exactly one tick
-# is midnight in America/Chicago year-round (CDT vs CST). The Worker filters on Chicago wall-clock hour === 0 (scheduledTime).
+# Daily digest: UTC crons + filter on America/Chicago using scheduledTime (same idea as sports-digest).
+# TEST — revert after you confirm: 4:05 PM Central = vars 16 / 5 and crons minute 5 at UTC 21–22 (covers CDT vs CST).
+# Production midnight: DIGEST_SEND_LOCAL_HOUR="0" DIGEST_SEND_LOCAL_MINUTE="0" and crons = ["0 5,6 * * *"].
+# Cron minute must match DIGEST_SEND_LOCAL_MINUTE when non-zero.
 # Confirm Triggers in the Cloudflare dashboard; if the cron never runs, scheduled digests won’t send.
 [triggers]
-crons = ["0 5,6 * * *"]
+crons = ["5 21,22 * * *"]
 
 [durable_objects]
 bindings = [
@@ -53,6 +55,9 @@ new_sqlite_classes = ["UsernameRegistry"]
 name = "EMAIL_TRANSACTIONAL"
 
 [vars]
+# TEST: scheduled digest at this Chicago wall time (24h). Revert to "0" / "0" for midnight after you confirm.
+DIGEST_SEND_LOCAL_HOUR = "16"
+DIGEST_SEND_LOCAL_MINUTE = "5"
 # From address — must be allowed by Cloudflare Email Sending and/or Resend (same domain ok if root domain is verified).
 SENDER_EMAIL = "caleb@ahrenslabs.com"
 # Set to "resend" to skip Cloudflare Email send entirely (needs RESEND_API_KEY). Fixes stubborn E_RECIPIENT_NOT_ALLOWED from account/dashboard allowlists.

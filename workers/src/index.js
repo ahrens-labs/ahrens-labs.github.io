@@ -1650,6 +1650,30 @@ function hourInTimeZone(date, timeZone) {
   return n;
 }
 
+function minuteInTimeZone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    minute: '2-digit',
+  }).formatToParts(date);
+  const p = parts.find((x) => x.type === 'minute');
+  let n = p ? parseInt(p.value, 10) : 0;
+  if (!Number.isFinite(n)) n = 0;
+  return Math.min(59, Math.max(0, n));
+}
+
+/** Chicago wall time for scheduled digest — `DIGEST_SEND_LOCAL_HOUR` / `DIGEST_SEND_LOCAL_MINUTE` in wrangler (24h). Defaults 0,0. */
+function getDigestSendLocalHM(env) {
+  const hRaw = env.DIGEST_SEND_LOCAL_HOUR;
+  const mRaw = env.DIGEST_SEND_LOCAL_MINUTE;
+  const hs = hRaw != null && hRaw !== '' ? String(hRaw).trim() : '0';
+  const ms = mRaw != null && mRaw !== '' ? String(mRaw).trim() : '0';
+  let h = parseInt(hs, 10);
+  let m = parseInt(ms, 10);
+  if (!Number.isFinite(h) || h < 0 || h > 23) h = 0;
+  if (!Number.isFinite(m) || m < 0 || m > 59) m = 0;
+  return { hour: h, minute: m };
+}
+
 function ymdInTimeZone(date, timeZone) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -3572,10 +3596,14 @@ async function handleScheduledCron(event, env) {
       ? event.scheduledTime
       : Date.now();
   const scheduledAt = new Date(scheduledMs);
+  const target = getDigestSendLocalHM(env);
   const centralHour = hourInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
-  if (centralHour !== 0) {
-    console.log('Daily digest cron skip — not midnight Central', {
+  const centralMinute = minuteInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
+  if (centralHour !== target.hour || centralMinute !== target.minute) {
+    console.log('Daily digest cron skip — not digest send instant in Central', {
       centralHour,
+      centralMinute,
+      target,
       cron: event?.cron,
       scheduledMs,
     });
@@ -3640,6 +3668,7 @@ async function handleScheduledCron(event, env) {
     skipped,
     cron: event?.cron,
     centralDate: localYmd,
+    digestLocalHM: `${target.hour}:${String(target.minute).padStart(2, '0')}`,
   });
 }
 
