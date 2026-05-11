@@ -1692,9 +1692,9 @@ function minuteInTimeZone(date, timeZone) {
 /** Local wall time (IANA tz) when scheduled digest runs — from Worker vars (see wrangler.toml). */
 function getDigestSendLocalHM(env) {
   let h = parseInt(String(env.DIGEST_SEND_LOCAL_HOUR ?? '15'), 10);
-  let m = parseInt(String(env.DIGEST_SEND_LOCAL_MINUTE ?? '53'), 10);
+  let m = parseInt(String(env.DIGEST_SEND_LOCAL_MINUTE ?? '55'), 10);
   if (!Number.isFinite(h) || h < 0 || h > 23) h = 15;
-  if (!Number.isFinite(m) || m < 0 || m > 59) m = 53;
+  if (!Number.isFinite(m) || m < 0 || m > 59) m = 55;
   return { hour: h, minute: m };
 }
 
