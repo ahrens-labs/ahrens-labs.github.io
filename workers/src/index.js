@@ -3025,19 +3025,10 @@ function chessStatsSnapshot(chessBlock) {
   return { wins: w, losses: l, draws: dr, games, points };
 }
 
-/** UTC Monday `YYYY-MM-DD` for the ISO-week-style bucket used by leaderboard week deltas. */
-function utcMondayDateKeyUtc(nowMs = Date.now()) {
-  const d = new Date(nowMs);
-  const dow = d.getUTCDay();
-  const monOffset = (dow + 6) % 7;
-  const mon = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - monOffset, 0, 0, 0, 0));
-  const y = mon.getUTCFullYear();
-  const m = String(mon.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(mon.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+/** Rolling "recent" leaderboard window (ms). Baselines refresh on chess sync when this elapses. */
+const LEADERBOARD_ROLLING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Career counters from a chess block only (no weekly math). Used when resetting `lbWeekBaseline`. */
+/** Career counters from a chess block only (no rolling delta math). Used when resetting `lbRollBaselineStats`. */
 function chessCareerTotalsFromChessBlock(chess) {
   if (!chess || typeof chess !== 'object') {
     return {
@@ -3139,9 +3130,15 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
 
-  const nowWeek = utcMondayDateKeyUtc();
-  const storedWeek = chess?.lbWeekUtc;
-  const b = chess?.lbWeekBaseline;
+  const serverNow = Date.now();
+  const rollStart = Number(chess?.lbRollBaselineMs) || 0;
+  const b = chess?.lbRollBaselineStats;
+  const rollFresh =
+    b &&
+    typeof b === 'object' &&
+    rollStart > 0 &&
+    serverNow >= rollStart &&
+    serverNow - rollStart < LEADERBOARD_ROLLING_WINDOW_MS;
   let weekPoints = 0;
   let weekWins = 0;
   let weekLosses = 0;
@@ -3150,7 +3147,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
   let weekChecksGiven = 0;
   let weekPromotions = 0;
   let weekCastlingMoves = 0;
-  if (b && typeof b === 'object' && storedWeek === nowWeek) {
+  if (rollFresh) {
     weekPoints = Math.max(0, points - Math.max(0, Math.floor(Number(b.points) || 0)));
     weekWins = Math.max(0, wins - (Number(b.wins) || 0));
     weekLosses = Math.max(0, losses - (Number(b.losses) || 0));
@@ -3399,7 +3396,11 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
   const windowRaw = String(url.searchParams.get('window') || 'career')
     .trim()
     .toLowerCase();
-  const isWeek = windowRaw === 'week' || windowRaw === 'weekly';
+  const isWeek =
+    windowRaw === 'week' ||
+    windowRaw === 'weekly' ||
+    windowRaw === '7d' ||
+    windowRaw === 'rolling';
 
   const jsonHeaders = {
     ...corsHeaders,
@@ -3445,7 +3446,7 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
         rows: [],
         sort: sortKey,
         message:
-          'Weekly stats need live account data (points-only backup mode is active). Use the main deployment with UserAccount access, or sync chess once after upgrading so baselines are stored.',
+          'Recent gains need live account data (this host is in points-only backup mode). Use the full deployment with account access, or sync chess after upgrading so baselines can be stored.',
       }),
       {
         headers: jsonHeaders,
@@ -5209,20 +5210,26 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
     }
 
-    const weekKey = utcMondayDateKeyUtc();
+    const now = Date.now();
+    const prevRollMs = Number(prevChess.lbRollBaselineMs) || 0;
     const mergedChess = {
       ...prevChess,
       ...restIncoming,
       gameHistory: mergedHistory,
-      lastUpdated: Date.now(),
+      lastUpdated: now,
     };
-    mergedChess.lbWeekUtc = weekKey;
-    if (!prevChess.lbWeekUtc || prevChess.lbWeekUtc !== weekKey) {
-      mergedChess.lbWeekBaseline = chessLeaderboardBaselineFromChess(prevChess || {});
-    } else if (prevChess.lbWeekBaseline && typeof prevChess.lbWeekBaseline === 'object') {
-      mergedChess.lbWeekBaseline = { ...prevChess.lbWeekBaseline };
+    delete mergedChess.lbWeekUtc;
+    delete mergedChess.lbWeekBaseline;
+
+    if (!prevRollMs || now - prevRollMs >= LEADERBOARD_ROLLING_WINDOW_MS) {
+      mergedChess.lbRollBaselineMs = now;
+      mergedChess.lbRollBaselineStats = chessLeaderboardBaselineFromChess(prevChess || {});
+    } else if (prevChess.lbRollBaselineStats && typeof prevChess.lbRollBaselineStats === 'object') {
+      mergedChess.lbRollBaselineMs = prevRollMs;
+      mergedChess.lbRollBaselineStats = { ...prevChess.lbRollBaselineStats };
     } else {
-      mergedChess.lbWeekBaseline = chessLeaderboardBaselineFromChess(prevChess || {});
+      mergedChess.lbRollBaselineMs = prevRollMs || now;
+      mergedChess.lbRollBaselineStats = chessLeaderboardBaselineFromChess(prevChess || {});
     }
 
     userData.games.chess = mergedChess;

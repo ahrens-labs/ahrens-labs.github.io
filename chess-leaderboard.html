@@ -210,6 +210,16 @@
         .lb-table tbody tr.lb-podium-2:hover td {
             background: #7c8ea0 !important;
         }
+        .lb-table tbody tr.lb-podium-2 .lb-num-t0 { color: #334155; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-t1 { color: #1e293b; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-t2 { color: #0f766e; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-t3 { color: #047857; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-t4 { color: #064e3b; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-neg-t0 { color: #7f1d1d; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-neg-t1 { color: #991b1b; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-neg-t2 { color: #b91c1c; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-neg-t3 { color: #991b1b; }
+        .lb-table tbody tr.lb-podium-2 .lb-num-neg-t4 { color: #7f1d1d; }
         .lb-table tbody tr.lb-podium-3 td {
             background: #78350f !important;
             border-bottom-color: #5c2a0c;
@@ -472,12 +482,12 @@
                     <div class="lb-window-tray">
                         <div class="lb-window-row" id="lb-window-row" role="group" aria-labelledby="lb-window-label">
                             <button type="button" class="lb-window-btn is-active" data-window="career" aria-pressed="true">All time (career)</button>
-                            <button type="button" class="lb-window-btn" data-window="week" aria-pressed="false">This week (UTC)</button>
+                            <button type="button" class="lb-window-btn" data-window="week" aria-pressed="false">Last 7 days</button>
                         </div>
                     </div>
                     <p class="lb-note" id="lb-note">
                         <strong>All time</strong> uses full career totals from your <strong>cloud chess save</strong>.
-                        <strong>This week</strong> ranks <em>gains since the UTC Monday</em> that started the current week: on your first chess sync after that moment, the server stores a baseline and subtracts it from your latest totals (so open the game and sync to appear). Same formulas for win % and games.
+                        <strong>Last 7 days</strong> ranks gains in roughly the last seven days: each time you sync chess, the server keeps a snapshot and, about once a week, rolls that snapshot forward so the table reflects recent progress (open the game and sync to show up). Win % uses the same wins-to-losses idea on those recent deltas.
                         Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
                     <p class="lb-sort-heading" id="lb-sort-label">Sort by</p>
@@ -660,7 +670,7 @@
         if (!rows || rows.length === 0) {
           if (windowMode === 'week') {
             showStatus(
-              'No weekly gains to show for this UTC week yet, or every synced player is still at zero. Open TrifangX and sync after Monday UTC so baselines and deltas can be recorded.',
+              'No recent gains in the last few days yet, or everyone is still at zero in that window. Open TrifangX and sync so the server can track your progress.',
               false
             );
           } else {
@@ -698,7 +708,7 @@
       function loadLeaderboard() {
         var sort = getSelectedSort();
         var windowMode = getWindow();
-        var prefix = windowMode === 'week' ? 'This week · ' : '';
+        var prefix = windowMode === 'week' ? 'Last 7 days · ' : '';
         if (colStat) colStat.textContent = prefix + (SORT_LABELS[sort] || 'Points');
         showStatus('Loading…', false);
         if (meta) meta.hidden = true;
@@ -725,7 +735,7 @@
                 meta.hidden = false;
                 meta.textContent =
                   data.message ||
-                  'This host only has the points backup map, so weekly deltas are unavailable.';
+                  'This host only has the points backup map, so recent gains are unavailable.';
               }
               loadLeaderboard();
               return;
@@ -735,13 +745,13 @@
             var respWindow = (data && data.window) || windowMode;
             if (respWindow === 'week') setWindow('week');
             else setWindow('career');
-            var prefix2 = respWindow === 'week' ? 'This week · ' : '';
+            var prefix2 = respWindow === 'week' ? 'Last 7 days · ' : '';
             if (colStat) colStat.textContent = prefix2 + (SORT_LABELS[effectiveSort] || 'Points');
             renderRows(data.rows || [], effectiveSort, respWindow);
             if (meta && typeof data.totalRanked === 'number') {
               meta.hidden = false;
               var label = SORT_LABELS[effectiveSort] || 'Points';
-              var scope = respWindow === 'week' ? 'This UTC week (gains since Monday baseline on sync). ' : 'All-time career. ';
+              var scope = respWindow === 'week' ? 'Last 7 days (rolling from your syncs). ' : 'All-time career. ';
               var line =
                 scope +
                 'Sorted by ' +
@@ -795,7 +805,7 @@
       }
       try {
         var qs = new URLSearchParams(window.location.search || '').get('window');
-        if (qs === 'week' || qs === 'weekly') setWindow('week');
+        if (qs === 'week' || qs === 'weekly' || qs === '7d' || qs === 'rolling') setWindow('week');
       } catch (e) {}
       loadLeaderboard();
     })();
