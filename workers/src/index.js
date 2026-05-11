@@ -3062,13 +3062,6 @@ async function upsertChessLeaderboardEntry(kv, userId, username, points) {
   const p = Math.max(0, Math.floor(Number(points) || 0));
   const u = sanitizeLeaderboardUsernameDisplay(username);
   const map = await readChessLeaderboardMap(kv);
-  if (p <= 0) {
-    if (map[userId]) {
-      delete map[userId];
-      await writeChessLeaderboardMap(kv, map);
-    }
-    return;
-  }
   map[userId] = { u, p, t: Date.now() };
   await writeChessLeaderboardMap(kv, map);
 }
@@ -3087,7 +3080,6 @@ function buildChessLeaderboardPublicPayload(map, limit) {
       username: sanitizeLeaderboardUsernameDisplay(typeof v?.u === 'string' ? v.u : ''),
       points: Math.max(0, Math.floor(Number(v?.p) || 0)),
     }))
-    .filter((r) => r.points > 0)
     .sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
   const top = allRows.slice(0, limit);
   return {
