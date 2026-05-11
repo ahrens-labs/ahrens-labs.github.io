@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy — Ahrens Labs</title>
+    <meta name="description" content="How Ahrens Labs handles information when you use the site, create an account, and use TrifangX, Classify, and other labs.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        .privacy-page {
+            max-width: 680px;
+            margin: 2rem auto 3rem;
+            padding: 0 1.25rem;
+            color: #334155;
+            font-size: 0.98rem;
+            line-height: 1.65;
+        }
+        .privacy-page h2 {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.65rem;
+            color: #0f172a;
+            margin: 0 0 0.5rem;
+            letter-spacing: 0.04em;
+        }
+        .privacy-updated {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin: 0 0 1.75rem;
+        }
+        .privacy-page h3 {
+            font-family: Inter, system-ui, sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 1.75rem 0 0.65rem;
+        }
+        .privacy-page p {
+            margin: 0 0 1rem;
+        }
+        .privacy-page ul {
+            margin: 0 0 1rem;
+            padding-left: 1.25rem;
+        }
+        .privacy-page li {
+            margin: 0.35rem 0;
+        }
+        .privacy-page a {
+            color: #2563eb;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .privacy-page a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 640px) {
+            .privacy-page {
+                margin: 1.25rem auto 2rem;
+                padding: 0 1rem;
+            }
+            .privacy-page h2 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="account.html">Account</a></li>
+                        <li><a href="chess_engine.html">Chess Engine</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Login</button>
+                    <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.3s; white-space: nowrap;">Sign Up</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em; white-space: nowrap;"></span>
+                </div>
+            </div>
+        </header>
+        <main>
+            <article class="privacy-page">
+                <h2>Privacy</h2>
+                <p class="privacy-updated">Last updated: May 2026</p>
+
+                <p>
+                    This page describes how <strong>Ahrens Labs</strong> (the site at <a href="https://ahrenslabs.com/">ahrenslabs.com</a>) handles information when you browse, create an account, or use products like TrifangX, Classify, and other labs.
+                    If something here does not match what you see in the product, what the product asks you matters—and you can always ask us at <a href="mailto:caleb@ahrenslabs.com">caleb@ahrenslabs.com</a>.
+                </p>
+
+                <h3>What we collect</h3>
+                <p><strong>Without an account.</strong> Like most websites, our hosting and infrastructure may log technical data when you load pages (for example IP address, browser type, and rough location derived from network data) for security and operations. We do not use that for advertising profiles on our end.</p>
+                <p><strong>With an account.</strong> If you sign up, we collect what you provide, such as:</p>
+                <ul>
+                    <li><strong>Username</strong> — shown in the product where relevant.</li>
+                    <li><strong>Email address</strong> — used for verification, password reset, optional TrifangX emails you turn on in your dashboard, and similar service messages.</li>
+                    <li><strong>Password</strong> — stored using strong one-way hashing; we do not store your password in plain text.</li>
+                </ul>
+                <p><strong>Cloud save data.</strong> When you use signed-in features (for example TrifangX progression, dungeon saves, Classify planner sync, Kyrachyng lesson progress where applicable), the data needed to restore your experience on that product is stored on our servers tied to your account.</p>
+
+                <h3>Browser storage on your device</h3>
+                <p>To keep you signed in, the site may store identifiers such as a <strong>session token</strong> in your browser (<code>localStorage</code> or similar). Clearing site data or using a private window signs you out from the device perspective. Third-party CDN scripts you load alongside our pages follow their own policies.</p>
+
+                <h3>Emails we send</h3>
+                <p>
+                    We send transactional and product mail (for example address confirmation, security notices, welcome or info messages, optional TrifangX digests when you enable them).
+                    Providers such as email delivery services process messages in transit—we use them only to deliver mail, not to sell your inbox.
+                    You can manage some preferences in your <a href="account-dashboard.html">account dashboard</a>.
+                </p>
+
+                <h3>Third-party services</h3>
+                <p>The site and account system rely on ordinary internet infrastructure—for example hosting for pages, serverless backends, and databases. Those providers operate under their own terms and may process minimal technical data necessary to route and store requests. Reasonable summaries include:</p>
+                <ul>
+                    <li>Static pages are served from ordinary web hosting.</li>
+                    <li>Account APIs and linked storage may run on platforms such as <strong>Cloudflare</strong> (Workers, databases, related products as configured).</li>
+                    <li>Outbound email may go through Cloudflare Email, <strong>Resend</strong>, or similar transactional providers.</li>
+                </ul>
+
+                <h3>Retention and deletion</h3>
+                <p>We keep account and cloud save information while your account stays open so the products continue to work. You can request removal by using in-product account deletion where offered. After deletion completes, associated cloud data tied to that account is removed according to how the backend is built; some backups or logs may persist for a limited time for security and legal obligations.</p>
+
+                <h3>Children and families</h3>
+                <p>Ahrens Labs includes educational and game content. Parents and guardians decide whether minors create accounts or share personal details. If you believe a child’s information was submitted in error, contact us at <a href="mailto:caleb@ahrenslabs.com">caleb@ahrenslabs.com</a> and we will work with you reasonably to address it.</p>
+
+                <h3>Questions</h3>
+                <p>For privacy questions or corrections, email <a href="mailto:caleb@ahrenslabs.com">caleb@ahrenslabs.com</a> or visit our <a href="contact.html">contact page</a>.</p>
+
+                <h3>Changes</h3>
+                <p>We may update this page when products or infrastructure change. The “Last updated” line at the top will reflect the latest general revision.</p>
+            </article>
+        </main>
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 Ahrens Labs. All rights reserved.</p>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
