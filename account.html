@@ -548,20 +548,6 @@
                 return;
             }
 
-            if (sessionId && urlParams.get('stay') !== '1') {
-                try {
-                    const response = await fetch(`${API_BASE_URL}/api/user`, {
-                        headers: { 'Authorization': `Bearer ${sessionId}` },
-                    });
-                    if (response.ok) {
-                        window.location.replace('index.html');
-                        return;
-                    }
-                } catch (error) {
-                    console.error('Session check error:', error);
-                }
-            }
-
             switchTab('login');
         });
 

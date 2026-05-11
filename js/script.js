@@ -37,7 +37,7 @@ function getCurrentPageReturnTarget() {
 window.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
     
-    // account.html redirects signed-in visitors to the home page by default (?stay=1 keeps the form visible).
+    // account.html and account-dashboard.html stay usable while signed in (no auto-redirect to home).
 });
 
 async function checkLoginStatus() {
