@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ahrens Labs — TrifangX career points leaderboard</title>
-    <meta name="description" content="See how Ahrens Labs players rank by total TrifangX achievement points (signed-in accounts).">
+    <title>Ahrens Labs — TrifangX leaderboards</title>
+    <meta name="description" content="Rank Ahrens Labs accounts by career points, wins, captures, and more from synced TrifangX cloud saves.">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -124,6 +124,34 @@
             color: #94a3b8;
             text-align: center;
         }
+        .lb-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .lb-toolbar label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        .lb-toolbar select {
+            font: inherit;
+            font-size: 0.9rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            min-width: 12rem;
+        }
+        .lb-stat {
+            font-family: "Roboto Mono", monospace;
+            font-weight: 600;
+            color: #0f766e;
+            text-align: right;
+        }
         @media (max-width: 640px) {
             .lb-hero { margin-left: 0; width: 100%; padding: 2.5rem 1rem 2rem; }
             .lb-hero h2 { font-size: 1.6rem; }
@@ -157,25 +185,40 @@
         <main>
             <section class="lb-hero">
                 <div class="lb-tag">TrifangX</div>
-                <h2>Career points leaderboard</h2>
+                <h2>TrifangX leaderboards</h2>
                 <p class="lb-hero-sub">
-                    Total achievement points from the chess engine, for players who use an Ahrens Labs account and sync to the cloud.
+                    Rank everyone with an Ahrens Labs account by synced chess stats: points, wins, captures, and more.
                 </p>
             </section>
 
             <section class="lb-page">
                 <article class="lb-panel">
                     <p class="lb-note">
-                        Rankings use the same <strong>career total points</strong> shown in TrifangX achievements (not shop spend).
-                        Your row updates the next time your game syncs after you earn points. <a href="chess_engine.html">Open the chess engine</a>
+                        Choose a sort below. Stats come from your <strong>cloud chess save</strong> (career wins/losses/draws and lifetime counters such as captures and checks).
+                        <strong>Win %</strong> is wins ÷ (wins + losses); draws are not counted in that denominator. Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
+                    <div class="lb-toolbar">
+                        <label for="lb-sort">Sort by</label>
+                        <select id="lb-sort" aria-label="Sort leaderboard by">
+                            <option value="points">Career points</option>
+                            <option value="wins">Wins</option>
+                            <option value="losses">Losses</option>
+                            <option value="draws">Draws</option>
+                            <option value="games">Games played</option>
+                            <option value="winPct">Win % (wins / wins+losses)</option>
+                            <option value="captures">Captures (lifetime)</option>
+                            <option value="checks">Checks given (lifetime)</option>
+                            <option value="promotions">Promotions (lifetime)</option>
+                            <option value="castles">Castling moves (lifetime)</option>
+                        </select>
+                    </div>
                     <div class="lb-table-wrap">
-                        <table class="lb-table" aria-label="Leaderboard by career points">
+                        <table class="lb-table" id="lb-table" aria-label="TrifangX leaderboard">
                             <thead>
                                 <tr>
                                     <th class="lb-rank">#</th>
                                     <th>Username</th>
-                                    <th style="text-align:right;">Points</th>
+                                    <th id="lb-col-stat" style="text-align:right;">Points</th>
                                 </tr>
                             </thead>
                             <tbody id="lb-tbody">
@@ -201,6 +244,21 @@
         window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
       const tbody = document.getElementById('lb-tbody');
       const meta = document.getElementById('lb-meta');
+      const sortSelect = document.getElementById('lb-sort');
+      const colStat = document.getElementById('lb-col-stat');
+
+      const SORT_LABELS = {
+        points: 'Points',
+        wins: 'Wins',
+        losses: 'Losses',
+        draws: 'Draws',
+        games: 'Games',
+        winPct: 'Win %',
+        captures: 'Captures',
+        checks: 'Checks',
+        promotions: 'Promotions',
+        castles: 'Castles',
+      };
 
       function showStatus(msg, isErr) {
         tbody.innerHTML = '';
@@ -213,65 +271,104 @@
         tbody.appendChild(tr);
       }
 
-      function renderRows(rows) {
+      function formatStatCell(sort, r) {
+        if (sort === 'winPct') {
+          const v = Number(r.winPct);
+          return (Number.isFinite(v) ? v : 0).toFixed(1) + '%';
+        }
+        var key =
+          sort === 'checks'
+            ? 'checksGiven'
+            : sort === 'castles'
+              ? 'castlingMoves'
+              : sort;
+        var n = Number(r[key]);
+        return Number.isFinite(n) ? n.toLocaleString() : '0';
+      }
+
+      function renderRows(rows, sort) {
         tbody.innerHTML = '';
         if (!rows || rows.length === 0) {
           showStatus('No players on the leaderboard yet. Play TrifangX while signed in to sync your profile here.');
           return;
         }
-        for (const r of rows) {
-          const tr = document.createElement('tr');
-          const tdRank = document.createElement('td');
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          var tr = document.createElement('tr');
+          var tdRank = document.createElement('td');
           tdRank.className = 'lb-rank';
           tdRank.textContent = String(r.rank);
-          const tdName = document.createElement('td');
+          var tdName = document.createElement('td');
           tdName.className = 'lb-username';
           tdName.textContent = String(r.username || 'Player');
-          const tdPts = document.createElement('td');
-          tdPts.className = 'lb-points';
-          tdPts.textContent = Number(r.points || 0).toLocaleString();
+          var tdStat = document.createElement('td');
+          tdStat.className = 'lb-stat';
+          tdStat.textContent = formatStatCell(sort, r);
           tr.appendChild(tdRank);
           tr.appendChild(tdName);
-          tr.appendChild(tdPts);
+          tr.appendChild(tdStat);
           tbody.appendChild(tr);
         }
       }
 
-      fetch(API_BASE_URL + '/api/chess/leaderboard?limit=50000')
-        .then(function (res) {
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.json();
-        })
-        .then(function (data) {
-          if (data && data.configured === false) {
-            showStatus('Leaderboard is not configured on this server yet.', true);
-            return;
-          }
-          renderRows(data.rows || []);
-          if (meta && typeof data.totalRanked === 'number') {
-            meta.hidden = false;
-            let line =
-              'Showing ' +
-              (data.showing || 0) +
-              (data.totalRanked > (data.showing || 0)
-                ? ' of ' + data.totalRanked + ' accounts (by career points).'
-                : ' accounts (by career points).');
-            if (data.profileFetchCap && typeof data.totalAccountsDiscovered === 'number') {
-              line +=
-                ' Server loaded ' +
-                data.profileFetchCap +
-                ' of ' +
-                data.totalAccountsDiscovered +
-                ' known accounts (Worker limit); ranking is among those loaded.';
-            } else if (data.partialEnumeration) {
-              line += ' Account list may be incomplete (enumeration limit).';
+      function loadLeaderboard() {
+        var sort = sortSelect && sortSelect.value ? sortSelect.value : 'points';
+        if (colStat) colStat.textContent = SORT_LABELS[sort] || 'Points';
+        showStatus('Loading…', false);
+
+        fetch(
+          API_BASE_URL + '/api/chess/leaderboard?limit=50000&sort=' + encodeURIComponent(sort)
+        )
+          .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+          })
+          .then(function (data) {
+            if (data && data.configured === false) {
+              showStatus('Leaderboard is not configured on this server yet.', true);
+              return;
             }
-            meta.textContent = line;
-          }
-        })
-        .catch(function () {
-          showStatus('Could not load the leaderboard. Try again later.', true);
-        });
+            var effectiveSort = (data && data.sort) || sort;
+            if (sortSelect && effectiveSort !== sortSelect.value) {
+              sortSelect.value = effectiveSort;
+              if (colStat) colStat.textContent = SORT_LABELS[effectiveSort] || 'Points';
+            }
+            renderRows(data.rows || [], effectiveSort);
+            if (meta && typeof data.totalRanked === 'number') {
+              meta.hidden = false;
+              var label = SORT_LABELS[effectiveSort] || 'Points';
+              var line =
+                'Sorted by ' +
+                label +
+                '. Showing ' +
+                (data.showing || 0) +
+                (data.totalRanked > (data.showing || 0)
+                  ? ' of ' + data.totalRanked + ' accounts.'
+                  : ' accounts.');
+              if (data.kvOnlyStats && effectiveSort !== 'points') {
+                line +=
+                  ' Backup mode: only career points are stored per player here; other stats are zero until live account listing works.';
+              }
+              if (data.profileFetchCap && typeof data.totalAccountsDiscovered === 'number') {
+                line +=
+                  ' Server loaded ' +
+                  data.profileFetchCap +
+                  ' of ' +
+                  data.totalAccountsDiscovered +
+                  ' known accounts (Worker limit); ranking is among those loaded.';
+              } else if (data.partialEnumeration) {
+                line += ' Account list may be incomplete (enumeration limit).';
+              }
+              meta.textContent = line;
+            }
+          })
+          .catch(function () {
+            showStatus('Could not load the leaderboard. Try again later.', true);
+          });
+      }
+
+      if (sortSelect) sortSelect.addEventListener('change', loadLeaderboard);
+      loadLeaderboard();
     })();
     </script>
 </body>

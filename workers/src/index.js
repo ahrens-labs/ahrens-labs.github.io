@@ -3074,18 +3074,128 @@ async function removeChessLeaderboardUser(kv, userId) {
   await writeChessLeaderboardMap(kv, map);
 }
 
-function buildChessLeaderboardPublicPayload(map, limit) {
-  const allRows = Object.entries(map || {})
-    .map(([, v]) => ({
-      username: sanitizeLeaderboardUsernameDisplay(typeof v?.u === 'string' ? v.u : ''),
-      points: Math.max(0, Math.floor(Number(v?.p) || 0)),
-    }))
-    .sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+/** @typedef {{ username: string, points: number, wins: number, losses: number, draws: number, games: number, winPct: number, captures: number, checksGiven: number, promotions: number, castlingMoves: number }} LeaderboardStatsRow */
+
+function extractChessLeaderboardStatsFromProfile(row) {
+  if (!row || typeof row !== 'object') return null;
+  const chess = row.games?.chess;
+  const points = Math.max(0, Math.floor(Number(chess?.points) || 0));
+  const ps = chess?.stats?.playerStats || {};
+  const wins = Math.max(0, Number(ps.wins) || 0);
+  const losses = Math.max(0, Number(ps.losses) || 0);
+  const draws = Math.max(0, Number(ps.draws) || 0);
+  const games = wins + losses + draws;
+  const lt = chess?.stats?.lifetimeStats && typeof chess.stats.lifetimeStats === 'object' ? chess.stats.lifetimeStats : {};
+  const captures = Math.max(0, Number(lt.totalCaptures) || 0);
+  const checksGiven = Math.max(0, Number(lt.checksGiven) || 0);
+  const promotions = Math.max(0, Number(lt.promotions) || 0);
+  const castlingMoves = Math.max(0, Number(lt.castlingMoves) || 0);
+  const decisive = wins + losses;
+  const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
+  const username = sanitizeLeaderboardUsernameDisplay(row.username);
+  return {
+    username,
+    points,
+    wins,
+    losses,
+    draws,
+    games,
+    winPct,
+    captures,
+    checksGiven,
+    promotions,
+    castlingMoves,
+  };
+}
+
+function leaderboardSortGetter(sortKey) {
+  const getters = {
+    points: (r) => r.points,
+    wins: (r) => r.wins,
+    losses: (r) => r.losses,
+    draws: (r) => r.draws,
+    games: (r) => r.games,
+    winPct: (r) => r.winPct,
+    captures: (r) => r.captures,
+    checks: (r) => r.checksGiven,
+    promotions: (r) => r.promotions,
+    castles: (r) => r.castlingMoves,
+  };
+  return getters[sortKey] || getters.points;
+}
+
+function normalizeLeaderboardSortKey(raw) {
+  const s = String(raw == null ? '' : raw)
+    .trim()
+    .toLowerCase();
+  if (s === 'winpct' || s === 'win_pct') return 'winPct';
+  const allowed = new Set([
+    'points',
+    'wins',
+    'losses',
+    'draws',
+    'games',
+    'captures',
+    'checks',
+    'promotions',
+    'castles',
+  ]);
+  if (!allowed.has(s)) return 'points';
+  return s;
+}
+
+function sortLeaderboardStatsRows(rows, sortKey) {
+  const key = normalizeLeaderboardSortKey(sortKey);
+  const get = leaderboardSortGetter(key);
+  rows.sort((a, b) => {
+    const va = Number(get(a));
+    const vb = Number(get(b));
+    const na = Number.isFinite(va) ? va : 0;
+    const nb = Number.isFinite(vb) ? vb : 0;
+    if (nb !== na) return nb > na ? 1 : -1;
+    return a.username.localeCompare(b.username);
+  });
+}
+
+function leaderboardPublicRow(r, index1) {
+  return {
+    rank: index1,
+    username: r.username,
+    points: r.points,
+    wins: r.wins,
+    losses: r.losses,
+    draws: r.draws,
+    games: r.games,
+    winPct: Math.round(r.winPct * 100) / 100,
+    captures: r.captures,
+    checksGiven: r.checksGiven,
+    promotions: r.promotions,
+    castlingMoves: r.castlingMoves,
+  };
+}
+
+function buildChessLeaderboardPublicPayload(map, limit, sortKey) {
+  const sk = normalizeLeaderboardSortKey(sortKey);
+  const allRows = Object.entries(map || {}).map(([, v]) => ({
+    username: sanitizeLeaderboardUsernameDisplay(typeof v?.u === 'string' ? v.u : ''),
+    points: Math.max(0, Math.floor(Number(v?.p) || 0)),
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    games: 0,
+    winPct: 0,
+    captures: 0,
+    checksGiven: 0,
+    promotions: 0,
+    castlingMoves: 0,
+  }));
+  sortLeaderboardStatsRows(allRows, sk);
   const top = allRows.slice(0, limit);
   return {
     totalRanked: allRows.length,
     showing: top.length,
-    rows: top.map((r, i) => ({ rank: i + 1, username: r.username, points: r.points })),
+    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1)),
+    sort: sk,
   };
 }
 
@@ -3131,10 +3241,7 @@ async function fetchChessLeaderboardRowFromStub(stub) {
   try {
     const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
     const row = await dataRes.json();
-    if (!row || typeof row !== 'object') return null;
-    const username = sanitizeLeaderboardUsernameDisplay(row.username);
-    const points = Math.max(0, Math.floor(Number(row.games?.chess?.points) || 0));
-    return { username, points };
+    return extractChessLeaderboardStatsFromProfile(row);
   } catch {
     return null;
   }
@@ -3144,7 +3251,7 @@ async function fetchChessLeaderboardRowFromStub(stub) {
  * Public leaderboard: one row per account (live chess career points from each UserAccount DO).
  * Same stub discovery as admin account directory. Caps profile fetches to stay within Worker limits.
  */
-async function buildChessLeaderboardFromAllAccounts(env, limit) {
+async function buildChessLeaderboardFromAllAccounts(env, limit, sortKey) {
   const { stubs: allStubs, stoppedEarly: enumStopped } = await enumerateAllUserAccountStubsForLeaderboard(env);
   const totalAccountsDiscovered = allStubs.length;
   let stubs = allStubs;
@@ -3164,12 +3271,13 @@ async function buildChessLeaderboardFromAllAccounts(env, limit) {
       if (r) rows.push(r);
     }
   }
-  rows.sort((a, b) => b.points - a.points || a.username.localeCompare(b.username));
+  sortLeaderboardStatsRows(rows, sortKey);
   const top = rows.slice(0, limit);
   const out = {
     totalRanked: rows.length,
     showing: top.length,
-    rows: top.map((r, i) => ({ rank: i + 1, username: r.username, points: r.points })),
+    rows: top.map((r, i) => leaderboardPublicRow(r, i + 1)),
+    sort: normalizeLeaderboardSortKey(sortKey),
     source: 'accounts',
   };
   if (enumStopped) out.partialEnumeration = true;
@@ -3184,6 +3292,7 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
   const url = new URL(request.url);
   const rawLimit = parseInt(url.searchParams.get('limit') || '20000', 10);
   const limit = Math.min(50000, Math.max(1, Number.isFinite(rawLimit) ? rawLimit : 20000));
+  const sortKey = normalizeLeaderboardSortKey(url.searchParams.get('sort'));
 
   const jsonHeaders = {
     ...corsHeaders,
@@ -3193,7 +3302,7 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
 
   if (env.USER_ACCOUNT) {
     try {
-      const body = await buildChessLeaderboardFromAllAccounts(env, limit);
+      const body = await buildChessLeaderboardFromAllAccounts(env, limit, sortKey);
       return new Response(JSON.stringify({ ...body, configured: true }), {
         headers: jsonHeaders,
       });
@@ -3208,6 +3317,7 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
         totalRanked: 0,
         showing: 0,
         rows: [],
+        sort: sortKey,
         configured: false,
       }),
       {
@@ -3216,8 +3326,8 @@ async function handleChessLeaderboardGet(request, env, corsHeaders) {
     );
   }
   const map = await readChessLeaderboardMap(env.CHESS_LEADERBOARD_KV);
-  const body = buildChessLeaderboardPublicPayload(map, limit);
-  return new Response(JSON.stringify({ ...body, configured: true, source: 'kv' }), {
+  const body = buildChessLeaderboardPublicPayload(map, limit, sortKey);
+  return new Response(JSON.stringify({ ...body, configured: true, source: 'kv', kvOnlyStats: true }), {
     headers: jsonHeaders,
   });
 }
