@@ -20,7 +20,8 @@ compatibility_date = "2025-05-01"
 binding = "DAILY_DIGEST_KV"
 id = "64db75c8a01b42229806b59cb30cae80"
 
-# Daily digest: hourly tick so each subscriber can be emailed at local midnight (see digestTimeZone in KV; default America/Chicago).
+# Daily digest: hourly tick so each subscriber can be emailed shortly after local midnight (digestTimeZone in KV; default America/Chicago).
+# Confirm this cron appears under Worker Triggers in the Cloudflare dashboard; if it never runs, digests won’t send on a schedule.
 [triggers]
 crons = ["0 * * * *"]
 

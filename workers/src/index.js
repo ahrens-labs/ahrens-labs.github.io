@@ -1442,6 +1442,9 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     );
   }
 
+  const wasDigestOn =
+    existingProfile.emailPreferences && existingProfile.emailPreferences.dailyChallengeEmails === true;
+
   const setPayload = {};
   if (hasEmails) setPayload.dailyChallengeEmails = body.dailyChallengeEmails;
   if (hasTz) setPayload.digestTimeZone = tzRaw;
@@ -1477,6 +1480,9 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   const username = fresh.username || 'there';
   const digestTz = prefs.digestTimeZone || DEFAULT_DIGEST_TIMEZONE;
 
+  let digestWelcomeSent = false;
+  let digestWelcomeError = null;
+
   if (env.DAILY_DIGEST_KV) {
     const key = `sub:${userId}`;
     try {
@@ -1499,6 +1505,41 @@ async function handleEmailPreferences(request, env, corsHeaders) {
                 : undefined,
           })
         );
+
+        // First-time opt-in: send today's list immediately so users are not waiting until local midnight.
+        // Set lastDigestLocalYmd to today so the hourly cron does not send a duplicate the same calendar day.
+        const digestOptIn =
+          hasEmails &&
+          body.dailyChallengeEmails === true &&
+          !wasDigestOn &&
+          prefs.dailyChallengeEmails === true &&
+          hasConfirmedEmailForProductMail(fresh) &&
+          email &&
+          isLikelyRealEmail(email);
+        if (digestOptIn) {
+          const now = new Date();
+          let tz = digestTz;
+          if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
+          const localYmd = ymdInTimeZone(now, tz);
+          const ids = getDailyChallengeIdsForUtcDate(localYmd);
+          try {
+            await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
+            digestWelcomeSent = true;
+            await env.DAILY_DIGEST_KV.put(
+              key,
+              JSON.stringify({
+                email,
+                username,
+                digestTimeZone: tz,
+                lastDigestLocalYmd: localYmd,
+              })
+            );
+          } catch (e) {
+            const w = summarizeEmailSendError(e);
+            digestWelcomeError = w.hint || w.message || String(e?.message || e);
+            console.error('digest opt-in welcome send failed:', digestWelcomeError);
+          }
+        }
       } else {
         await env.DAILY_DIGEST_KV.delete(key);
       }
@@ -1524,12 +1565,18 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     warning =
       'Challenge-email list storage is not configured on this Worker; opt-in saved but scheduled sends require DAILY_DIGEST_KV.';
   }
+  if (digestWelcomeError) {
+    const tail =
+      ' You can use “Email daily challenges now” on the dashboard, or wait for the next automatic send after midnight in your time zone.';
+    warning = (warning ? `${warning} ` : '') + `Today's welcome digest could not be sent: ${digestWelcomeError}.${tail}`;
+  }
 
   return new Response(
     JSON.stringify({
       success: true,
       emailPreferences: prefs,
       ...(warning ? { warning } : {}),
+      ...(digestWelcomeSent ? { digestWelcomeSent: true } : {}),
     }),
     {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -3586,7 +3633,8 @@ async function handleScheduledCron(event, env) {
 
         const localYmd = ymdInTimeZone(now, tz);
         const hour = hourInTimeZone(now, tz);
-        if (hour !== 0) {
+        // Hourly cron: allow local hours 0–1 so a tick near midnight still delivers if timing drifts slightly.
+        if (hour > 1) {
           skipped++;
           continue;
         }
