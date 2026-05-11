@@ -487,8 +487,8 @@
                     </div>
                     <p class="lb-note" id="lb-note">
                         <strong>All time</strong> uses full career totals from your <strong>cloud chess save</strong>.
-                        <strong>Last 7 days</strong> ranks gains in roughly the last seven days: each time you sync chess, the server keeps a snapshot and, about once a week, rolls that snapshot forward so the table reflects recent progress (open the game and sync to show up). Win % uses the same wins-to-losses idea on those recent deltas.
-                        Points are achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
+                        <strong>Last 7 days</strong> counts only completed games in your synced <strong>game history</strong> whose save time is within the last seven days (when the leaderboard loads): wins, losses, draws, and per-move stats are replayed from each game’s move list; achievement <strong>points</strong> are summed from points recorded on each finished game (newer clients). Very old games may drop off the capped history, so sync favorites if you care. Win % uses wins ÷ (wins + losses) on those games only.
+                        Points are career achievement points (not shop spend). <a href="chess_engine.html">Open the chess engine</a> to play and sync.
                     </p>
                     <p class="lb-sort-heading" id="lb-sort-label">Sort by</p>
                     <div class="lb-sort-tray">
@@ -751,7 +751,7 @@
             if (meta && typeof data.totalRanked === 'number') {
               meta.hidden = false;
               var label = SORT_LABELS[effectiveSort] || 'Points';
-              var scope = respWindow === 'week' ? 'Last 7 days (rolling from your syncs). ' : 'All-time career. ';
+              var scope = respWindow === 'week' ? 'Last 7 days (from saved game times in cloud history). ' : 'All-time career. ';
               var line =
                 scope +
                 'Sorted by ' +

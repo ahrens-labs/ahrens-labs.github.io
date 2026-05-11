@@ -3025,10 +3025,10 @@ function chessStatsSnapshot(chessBlock) {
   return { wins: w, losses: l, draws: dr, games, points };
 }
 
-/** Rolling "recent" leaderboard window (ms). Baselines refresh on chess sync when this elapses. */
-const LEADERBOARD_ROLLING_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/** "Last 7 days" leaderboard: include `gameHistory` entries with `savedAt` within this many ms of request time. */
+const LEADERBOARD_RECENT_GAMES_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Career counters from a chess block only (no rolling delta math). Used when resetting `lbRollBaselineStats`. */
+/** Career counters from a chess block only (no game-history aggregation). */
 function chessCareerTotalsFromChessBlock(chess) {
   if (!chess || typeof chess !== 'object') {
     return {
@@ -3056,8 +3056,90 @@ function chessCareerTotalsFromChessBlock(chess) {
   return { points, wins, losses, draws, captures, checksGiven, promotions, castlingMoves };
 }
 
-function chessLeaderboardBaselineFromChess(chess) {
-  return chessCareerTotalsFromChessBlock(chess);
+function gameHistoryRecordTimestampMs(rec) {
+  if (!rec || rec.savedAt == null) return NaN;
+  const t = Date.parse(String(rec.savedAt));
+  return Number.isFinite(t) ? t : NaN;
+}
+
+function normalizeSanMoveForLeaderboardStats(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/0-0-0/g, 'O-O-O')
+    .replace(/0-0/g, 'O-O');
+}
+
+/**
+ * Recent-window stats from synced `gameHistory` only: each completed game with `savedAt`
+ * in [serverNow - windowMs, serverNow]. W/L/D from `result` + `playerColor`; per-move stats
+ * from SAN on the human player's half-moves. Points: sum `pointsEarned` / `pointsDelta` when set on the record.
+ */
+function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNow = Date.now()) {
+  const cutoff = serverNow - windowMs;
+  const hist = Array.isArray(chessBlock?.gameHistory) ? chessBlock.gameHistory : [];
+  let weekPoints = 0;
+  let weekWins = 0;
+  let weekLosses = 0;
+  let weekDraws = 0;
+  let weekCaptures = 0;
+  let weekChecksGiven = 0;
+  let weekPromotions = 0;
+  let weekCastlingMoves = 0;
+
+  for (let hi = 0; hi < hist.length; hi++) {
+    const rec = hist[hi];
+    if (!rec || typeof rec !== 'object') continue;
+    const ts = gameHistoryRecordTimestampMs(rec);
+    if (!Number.isFinite(ts) || ts < cutoff) continue;
+
+    const res = String(rec.result || '').trim();
+    const pcRaw = rec.playerColor != null ? String(rec.playerColor) : 'white';
+    const isWhite = pcRaw.toLowerCase() !== 'black';
+    if (res === '1/2-1/2' || res === '1/2 - 1/2') weekDraws++;
+    else if (res === '1-0') {
+      if (isWhite) weekWins++;
+      else weekLosses++;
+    } else if (res === '0-1') {
+      if (isWhite) weekLosses++;
+      else weekWins++;
+    } else continue;
+
+    let pe = 0;
+    if (rec.pointsEarned != null && Number.isFinite(Number(rec.pointsEarned))) pe = Number(rec.pointsEarned);
+    else if (rec.pointsDelta != null && Number.isFinite(Number(rec.pointsDelta))) pe = Number(rec.pointsDelta);
+    else if (rec.pointsAwarded != null && Number.isFinite(Number(rec.pointsAwarded))) pe = Number(rec.pointsAwarded);
+    weekPoints += Math.max(0, Math.floor(pe));
+
+    const sanList = Array.isArray(rec.historySan) ? rec.historySan : [];
+    for (let i = 0; i < sanList.length; i++) {
+      const isPlayerMove = isWhite ? i % 2 === 0 : i % 2 === 1;
+      if (!isPlayerMove) continue;
+      const raw = String(sanList[i] || '').trim();
+      if (!raw) continue;
+      const san = normalizeSanMoveForLeaderboardStats(raw);
+      if (san.includes('x')) weekCaptures++;
+      if (san.includes('=')) weekPromotions++;
+      if (san === 'O-O' || san === 'O-O-O') weekCastlingMoves++;
+      if (/\+$/.test(san) || /#$/.test(san)) weekChecksGiven++;
+    }
+  }
+
+  const weekGames = weekWins + weekLosses + weekDraws;
+  const weekDecisive = weekWins + weekLosses;
+  const weekWinPct = weekDecisive > 0 ? (100 * weekWins) / weekDecisive : 0;
+
+  return {
+    weekPoints,
+    weekWins,
+    weekLosses,
+    weekDraws,
+    weekGames,
+    weekWinPct,
+    weekCaptures,
+    weekChecksGiven,
+    weekPromotions,
+    weekCastlingMoves,
+  };
 }
 
 /** Single KV document: `{ e: { [userId]: { u, p, t } }, updatedAt }` */
@@ -3130,36 +3212,23 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
 
-  const serverNow = Date.now();
-  const rollStart = Number(chess?.lbRollBaselineMs) || 0;
-  const b = chess?.lbRollBaselineStats;
-  const rollFresh =
-    b &&
-    typeof b === 'object' &&
-    rollStart > 0 &&
-    serverNow >= rollStart &&
-    serverNow - rollStart < LEADERBOARD_ROLLING_WINDOW_MS;
-  let weekPoints = 0;
-  let weekWins = 0;
-  let weekLosses = 0;
-  let weekDraws = 0;
-  let weekCaptures = 0;
-  let weekChecksGiven = 0;
-  let weekPromotions = 0;
-  let weekCastlingMoves = 0;
-  if (rollFresh) {
-    weekPoints = Math.max(0, points - Math.max(0, Math.floor(Number(b.points) || 0)));
-    weekWins = Math.max(0, wins - (Number(b.wins) || 0));
-    weekLosses = Math.max(0, losses - (Number(b.losses) || 0));
-    weekDraws = Math.max(0, draws - (Number(b.draws) || 0));
-    weekCaptures = Math.max(0, captures - (Number(b.captures) || 0));
-    weekChecksGiven = Math.max(0, checksGiven - (Number(b.checksGiven) || 0));
-    weekPromotions = Math.max(0, promotions - (Number(b.promotions) || 0));
-    weekCastlingMoves = Math.max(0, castlingMoves - (Number(b.castlingMoves) || 0));
-  }
-  const weekGames = weekWins + weekLosses + weekDraws;
-  const weekDecisive = weekWins + weekLosses;
-  const weekWinPct = weekDecisive > 0 ? (100 * weekWins) / weekDecisive : 0;
+  const recent = aggregateLeaderboardStatsFromRecentGames(
+    chess,
+    LEADERBOARD_RECENT_GAMES_WINDOW_MS,
+    Date.now()
+  );
+  const {
+    weekPoints,
+    weekWins,
+    weekLosses,
+    weekDraws,
+    weekGames,
+    weekWinPct,
+    weekCaptures,
+    weekChecksGiven,
+    weekPromotions,
+    weekCastlingMoves,
+  } = recent;
 
   return {
     username,
@@ -5210,27 +5279,16 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
     }
 
-    const now = Date.now();
-    const prevRollMs = Number(prevChess.lbRollBaselineMs) || 0;
     const mergedChess = {
       ...prevChess,
       ...restIncoming,
       gameHistory: mergedHistory,
-      lastUpdated: now,
+      lastUpdated: Date.now(),
     };
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
-
-    if (!prevRollMs || now - prevRollMs >= LEADERBOARD_ROLLING_WINDOW_MS) {
-      mergedChess.lbRollBaselineMs = now;
-      mergedChess.lbRollBaselineStats = chessLeaderboardBaselineFromChess(prevChess || {});
-    } else if (prevChess.lbRollBaselineStats && typeof prevChess.lbRollBaselineStats === 'object') {
-      mergedChess.lbRollBaselineMs = prevRollMs;
-      mergedChess.lbRollBaselineStats = { ...prevChess.lbRollBaselineStats };
-    } else {
-      mergedChess.lbRollBaselineMs = prevRollMs || now;
-      mergedChess.lbRollBaselineStats = chessLeaderboardBaselineFromChess(prevChess || {});
-    }
+    delete mergedChess.lbRollBaselineMs;
+    delete mergedChess.lbRollBaselineStats;
 
     userData.games.chess = mergedChess;
 

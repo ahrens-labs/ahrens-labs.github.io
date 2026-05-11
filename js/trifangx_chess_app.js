@@ -6121,6 +6121,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (!cloudChessData || !game || game.history().length === 0) return;
       if (result !== '1-0' && result !== '0-1' && result !== '1/2-1/2') return;
       const pgn = buildPgnStringForRecord(result);
+      const achievementPointsSnapshotBefore = Math.max(0, parseInt(cloudChessData.points, 10) || 0);
       const rec = {
         id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9),
         savedAt: new Date().toISOString(),
@@ -6129,12 +6130,29 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         timeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : 'none',
         pgn: pgn,
         historySan: game.history().slice(),
-        moveClockTimes: Array.isArray(moveClockTimes) ? moveClockTimes.slice() : []
+        moveClockTimes: Array.isArray(moveClockTimes) ? moveClockTimes.slice() : [],
+        pendingPointsFinalize: true,
+        achievementPointsSnapshotBefore: achievementPointsSnapshotBefore
       };
       if (!cloudChessData.gameHistory) cloudChessData.gameHistory = [];
       cloudChessData.gameHistory.unshift(rec);
       trimGameHistoryToCap();
       saveChessDataToCloud(true);
+    }
+
+    /** After achievements run, stamp `pointsEarned` on the newest game row for server leaderboards. */
+    function finalizePendingGameHistoryAchievementPoints() {
+      if (!cloudChessData || !Array.isArray(cloudChessData.gameHistory)) return;
+      const nowPts = Math.max(0, parseInt(cloudChessData.points, 10) || 0);
+      for (let i = 0; i < cloudChessData.gameHistory.length; i++) {
+        const r = cloudChessData.gameHistory[i];
+        if (r && r.pendingPointsFinalize) {
+          const before = Number(r.achievementPointsSnapshotBefore) || 0;
+          r.pointsEarned = Math.max(0, nowPts - before);
+          delete r.pendingPointsFinalize;
+          delete r.achievementPointsSnapshotBefore;
+        }
+      }
     }
 
     /** Favorited games are never dropped by the rolling cap; non-favorites keep the 50 newest. */
@@ -6749,6 +6767,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
       if (aggregatedNew.length > 0) {
         showAchievementNotificationsSequentially(aggregatedNew);
+      }
+      finalizePendingGameHistoryAchievementPoints();
+      if (typeof saveChessDataToCloud === 'function') {
+        saveChessDataToCloud(false);
       }
     }
 
