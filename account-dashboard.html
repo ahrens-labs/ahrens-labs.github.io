@@ -407,31 +407,16 @@
             <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the daily challenge email, “email challenges now,” admin broadcasts, and milestone emails are turned off for this address.
           </p>
           <p class="hint">
-            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we email you <strong>once per calendar day</strong> in your selected time zone (shortly after local midnight, on an hourly check). The <strong>first time you save with it on</strong>, we also send today’s three challenges right away so you can confirm it’s working. Pick the time zone where you want each “new day” to start (default is US Central). In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
+            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we email you <strong>once per calendar day</strong> shortly after <strong>midnight US Central</strong> (America/Chicago), matching how the daily challenge list is dated on the server. The <strong>first time you save with it on</strong>, we also send today’s three challenges right away so you can confirm it’s working. In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
           </p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
             <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
           </div>
-          <div class="form-row">
-            <label for="email-tz">Time zone for the daily roundup email</label>
-            <select id="email-tz">
-              <option value="America/Chicago">US Central — America/Chicago (default)</option>
-              <option value="America/New_York">US Eastern — America/New_York</option>
-              <option value="America/Denver">US Mountain — America/Denver</option>
-              <option value="America/Los_Angeles">US Pacific — America/Los_Angeles</option>
-              <option value="America/Phoenix">US Arizona — America/Phoenix</option>
-              <option value="UTC">UTC</option>
-              <option value="Europe/London">UK — Europe/London</option>
-              <option value="Europe/Paris">Central Europe — Europe/Paris</option>
-              <option value="Asia/Tokyo">Japan — Asia/Tokyo</option>
-              <option value="Australia/Sydney">Australia — Australia/Sydney</option>
-            </select>
-          </div>
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (based on the time zone above). Works even if the daily roundup is off.</p>
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (dated for <strong>US Central</strong>). Works even if the daily roundup is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
@@ -1070,7 +1055,6 @@
       if (em) localStorage.setItem('ahrenslabs_email', em);
 
       const cb = document.getElementById('email-digest-on');
-      const tz = document.getElementById('email-tz');
       const ep = user.emailPreferences || {};
       const needVerify = user.emailVerified === false;
       const banner = document.getElementById('email-verify-banner');
@@ -1088,10 +1072,6 @@
       }
       const digestNowBtn = document.getElementById('btn-email-challenges-now');
       if (digestNowBtn) digestNowBtn.disabled = needVerify;
-      if (tz && ep.digestTimeZone) {
-        const opt = Array.from(tz.options).find((o) => o.value === ep.digestTimeZone);
-        if (opt) tz.value = ep.digestTimeZone;
-      }
 
       const un = document.getElementById('uname-new');
       if (un) un.value = uname;
@@ -1615,19 +1595,18 @@
         const st = document.getElementById('email-pref-status');
         const sessionId = getSessionId();
         const dailyChallengeEmails = document.getElementById('email-digest-on').checked;
-        const digestTimeZone = document.getElementById('email-tz').value;
         const res = await fetch(`${API_BASE_URL}/api/email-preferences`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${sessionId}`,
           },
-          body: JSON.stringify({ dailyChallengeEmails, digestTimeZone }),
+          body: JSON.stringify({ dailyChallengeEmails }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           let msg = dailyChallengeEmails
-            ? 'Saved. We’ll send the daily roundup once per day in your selected time zone (after local midnight).'
+            ? 'Saved. We’ll send the daily roundup once per day after midnight US Central.'
             : 'Saved. Daily challenge email is off.';
           if (data.digestWelcomeSent) msg += ' Check your inbox for today’s challenges (including spam).';
           if (data.warning) msg += ' ' + data.warning;

@@ -7,7 +7,7 @@ import {
 } from './daily-challenge-picker.js';
 import { DISPOSABLE_EMAIL_DOMAINS } from './disposable-email-domains.js';
 
-/** Default when user has not picked a timezone (US Central). */
+/** Calendar day and send schedule for daily challenge digest (US Central only; no per-user timezone). */
 const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
 
 /** Only this logged-in account may POST /api/admin/broadcast-email */
@@ -504,15 +504,8 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
     );
   }
 
-  const prefs = row.emailPreferences && typeof row.emailPreferences === 'object' ? row.emailPreferences : {};
-  let tz =
-    typeof prefs.digestTimeZone === 'string' && prefs.digestTimeZone.trim()
-      ? prefs.digestTimeZone.trim()
-      : DEFAULT_DIGEST_TIMEZONE;
-  if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
-
   const now = new Date();
-  const digestDateStr = ymdInTimeZone(now, tz);
+  const digestDateStr = ymdInTimeZone(now, DEFAULT_DIGEST_TIMEZONE);
   const ids = getDailyChallengeIdsForUtcDate(digestDateStr);
 
   try {
@@ -1383,21 +1376,9 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   }
 
   const hasEmails = typeof body.dailyChallengeEmails === 'boolean';
-  const tzRaw = body.digestTimeZone != null ? String(body.digestTimeZone).trim() : '';
-  const hasTz = tzRaw !== '';
 
-  if (!hasEmails && !hasTz) {
-    return new Response(
-      JSON.stringify({ error: 'Send dailyChallengeEmails and/or digestTimeZone (IANA, e.g. America/Chicago)' }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  if (hasTz && !isValidIanaTimeZone(tzRaw)) {
-    return new Response(JSON.stringify({ error: 'Invalid digestTimeZone — use an IANA name like America/Chicago' }), {
+  if (!hasEmails) {
+    return new Response(JSON.stringify({ error: 'Send dailyChallengeEmails (boolean)' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -1445,9 +1426,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   const wasDigestOn =
     existingProfile.emailPreferences && existingProfile.emailPreferences.dailyChallengeEmails === true;
 
-  const setPayload = {};
-  if (hasEmails) setPayload.dailyChallengeEmails = body.dailyChallengeEmails;
-  if (hasTz) setPayload.digestTimeZone = tzRaw;
+  const setPayload = { dailyChallengeEmails: body.dailyChallengeEmails };
 
   const setReq = new Request('http://do/setEmailPreferences', {
     method: 'POST',
@@ -1478,7 +1457,6 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   const prefs = fresh.emailPreferences || {};
   const email = normalizeEmail(fresh.email || '');
   const username = fresh.username || 'there';
-  const digestTz = prefs.digestTimeZone || DEFAULT_DIGEST_TIMEZONE;
 
   let digestWelcomeSent = false;
   let digestWelcomeError = null;
@@ -1498,7 +1476,6 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           JSON.stringify({
             email,
             username,
-            digestTimeZone: digestTz,
             lastDigestLocalYmd:
               prev && typeof prev === 'object' && typeof prev.lastDigestLocalYmd === 'string'
                 ? prev.lastDigestLocalYmd
@@ -1506,8 +1483,8 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           })
         );
 
-        // First-time opt-in: send today's list immediately so users are not waiting until local midnight.
-        // Set lastDigestLocalYmd to today so the hourly cron does not send a duplicate the same calendar day.
+        // First-time opt-in: send today's list immediately so users are not waiting until midnight Central.
+        // Set lastDigestLocalYmd to today’s Chicago calendar date so the nightly cron does not duplicate the same day.
         const digestOptIn =
           hasEmails &&
           body.dailyChallengeEmails === true &&
@@ -1518,9 +1495,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           isLikelyRealEmail(email);
         if (digestOptIn) {
           const now = new Date();
-          let tz = digestTz;
-          if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
-          const localYmd = ymdInTimeZone(now, tz);
+          const localYmd = ymdInTimeZone(now, DEFAULT_DIGEST_TIMEZONE);
           const ids = getDailyChallengeIdsForUtcDate(localYmd);
           try {
             await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
@@ -1530,7 +1505,6 @@ async function handleEmailPreferences(request, env, corsHeaders) {
               JSON.stringify({
                 email,
                 username,
-                digestTimeZone: tz,
                 lastDigestLocalYmd: localYmd,
               })
             );
@@ -1567,7 +1541,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   }
   if (digestWelcomeError) {
     const tail =
-      ' You can use “Email daily challenges now” on the dashboard, or wait for the next automatic send after midnight in your time zone.';
+      ' You can use “Email daily challenges now” on the dashboard, or wait for the next automatic send after midnight US Central.';
     warning = (warning ? `${warning} ` : '') + `Today's welcome digest could not be sent: ${digestWelcomeError}.${tail}`;
   }
 
@@ -1674,28 +1648,6 @@ function hourInTimeZone(date, timeZone) {
   if (!Number.isFinite(n)) n = 0;
   if (n === 24) n = 0;
   return n;
-}
-
-function minuteInTimeZone(date, timeZone) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    minute: '2-digit',
-  }).formatToParts(date);
-  const p = parts.find((x) => x.type === 'minute');
-  let n = p ? parseInt(p.value, 10) : 0;
-  if (!Number.isFinite(n)) n = 0;
-  if (n < 0) n = 0;
-  if (n > 59) n = 59;
-  return n;
-}
-
-/** Local wall time (IANA tz) when scheduled digest runs — from Worker vars (see wrangler.toml). */
-function getDigestSendLocalHM(env) {
-  let h = parseInt(String(env.DIGEST_SEND_LOCAL_HOUR ?? '15'), 10);
-  let m = parseInt(String(env.DIGEST_SEND_LOCAL_MINUTE ?? '55'), 10);
-  if (!Number.isFinite(h) || h < 0 || h > 23) h = 15;
-  if (!Number.isFinite(m) || m < 0 || m > 59) m = 55;
-  return { hour: h, minute: m };
 }
 
 function ymdInTimeZone(date, timeZone) {
@@ -3615,8 +3567,22 @@ async function handleScheduledCron(event, env) {
     console.log('scheduled: DAILY_DIGEST_KV not bound, skipping digest');
     return;
   }
-  const digestSend = getDigestSendLocalHM(env);
-  const now = new Date();
+  const scheduledMs =
+    event && typeof event.scheduledTime === 'number' && Number.isFinite(event.scheduledTime)
+      ? event.scheduledTime
+      : Date.now();
+  const scheduledAt = new Date(scheduledMs);
+  const centralHour = hourInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
+  if (centralHour !== 0) {
+    console.log('Daily digest cron skip — not midnight Central', {
+      centralHour,
+      cron: event?.cron,
+      scheduledMs,
+    });
+    return;
+  }
+
+  const localYmd = ymdInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
   let cursor;
   let sent = 0;
   let failed = 0;
@@ -3651,16 +3617,6 @@ async function handleScheduledCron(event, env) {
           }
         }
 
-        let tz = typeof raw.digestTimeZone === 'string' && raw.digestTimeZone.trim() ? raw.digestTimeZone.trim() : DEFAULT_DIGEST_TIMEZONE;
-        if (!isValidIanaTimeZone(tz)) tz = DEFAULT_DIGEST_TIMEZONE;
-
-        const localYmd = ymdInTimeZone(now, tz);
-        const localHour = hourInTimeZone(now, tz);
-        const localMinute = minuteInTimeZone(now, tz);
-        if (localHour !== digestSend.hour || localMinute !== digestSend.minute) {
-          skipped++;
-          continue;
-        }
         if (raw.lastDigestLocalYmd === localYmd) {
           skipped++;
           continue;
@@ -3668,7 +3624,7 @@ async function handleScheduledCron(event, env) {
 
         const ids = getDailyChallengeIdsForUtcDate(localYmd);
         await sendDailyDigestEmail(env, raw, ids, {});
-        const next = { ...raw, digestTimeZone: tz, lastDigestLocalYmd: localYmd };
+        const next = { email: raw.email, username: raw.username, lastDigestLocalYmd: localYmd };
         await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
         sent++;
       } catch (e) {
@@ -3682,8 +3638,8 @@ async function handleScheduledCron(event, env) {
     sent,
     failed,
     skipped,
-    cron: event.cron,
-    digestLocalHM: `${digestSend.hour}:${String(digestSend.minute).padStart(2, '0')}`,
+    cron: event?.cron,
+    centralDate: localYmd,
   });
 }
 
@@ -4607,13 +4563,7 @@ export class UserAccount {
     if (body && typeof body.dailyChallengeEmails === 'boolean') {
       userData.emailPreferences.dailyChallengeEmails = body.dailyChallengeEmails;
     }
-    if (body && body.digestTimeZone != null && typeof body.digestTimeZone === 'string') {
-      const tz = body.digestTimeZone.trim();
-      if (!isValidIanaTimeZone(tz)) {
-        return { success: false, error: 'Invalid digestTimeZone' };
-      }
-      userData.emailPreferences.digestTimeZone = tz;
-    }
+    userData.emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
     await this.storage.put('userData', userData);
     return { success: true, emailPreferences: userData.emailPreferences };
   }
