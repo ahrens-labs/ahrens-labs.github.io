@@ -1423,6 +1423,22 @@ async function handleEmailPreferences(request, env, corsHeaders) {
     );
   }
 
+  if (hasEmails && body.dailyChallengeEmails === true) {
+    const emCheck = normalizeEmail(existingProfile.email || '');
+    if (!emCheck || !isLikelyRealEmail(emCheck)) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'Your account needs a deliverable email address before daily challenge emails can be turned on. Update your email in account settings if needed.',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+  }
+
   const wasDigestOn =
     existingProfile.emailPreferences && existingProfile.emailPreferences.dailyChallengeEmails === true;
 
@@ -1665,8 +1681,8 @@ function minuteInTimeZone(date, timeZone) {
 function getDigestSendLocalHM(env) {
   const hRaw = env.DIGEST_SEND_LOCAL_HOUR;
   const mRaw = env.DIGEST_SEND_LOCAL_MINUTE;
-  const hs = hRaw != null && hRaw !== '' ? String(hRaw).trim() : '0';
-  const ms = mRaw != null && mRaw !== '' ? String(mRaw).trim() : '0';
+  const hs = hRaw != null && String(hRaw).trim() !== '' ? String(hRaw).trim() : '0';
+  const ms = mRaw != null && String(mRaw).trim() !== '' ? String(mRaw).trim() : '0';
   let h = parseInt(hs, 10);
   let m = parseInt(ms, 10);
   if (!Number.isFinite(h) || h < 0 || h > 23) h = 0;
@@ -3505,8 +3521,9 @@ function digestDailyChallengesSectionHtml(challengeIds) {
 </tr>`;
 }
 
+/** @returns {Promise<boolean>} true if an email was sent */
 async function sendDailyDigestEmail(env, { email, username }, challengeIds, options = {}) {
-  if (!email || typeof email !== 'string') return;
+  if (!email || typeof email !== 'string') return false;
   const instant = options.instant === true;
   const safeName = String(username || 'there').replace(/[<>]/g, '');
   const base = siteMarketingBase(env);
@@ -3584,6 +3601,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
     .join('\n');
 
   await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+  return true;
 }
 
 async function handleScheduledCron(event, env) {
@@ -3599,11 +3617,16 @@ async function handleScheduledCron(event, env) {
   const target = getDigestSendLocalHM(env);
   const centralHour = hourInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
   const centralMinute = minuteInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
-  if (centralHour !== target.hour || centralMinute !== target.minute) {
+  const defaultMidnight = target.hour === 0 && target.minute === 0;
+  const gateOk = defaultMidnight
+    ? centralHour === 0
+    : centralHour === target.hour && centralMinute === target.minute;
+  if (!gateOk) {
     console.log('Daily digest cron skip — not digest send instant in Central', {
       centralHour,
       centralMinute,
       target,
+      defaultMidnight,
       cron: event?.cron,
       scheduledMs,
     });
@@ -3643,6 +3666,13 @@ async function handleScheduledCron(event, env) {
             skipped++;
             continue;
           }
+        } else {
+          const legacyTo = normalizeEmail(raw.email || '');
+          if (!legacyTo || !isLikelyRealEmail(legacyTo)) {
+            skipped++;
+            continue;
+          }
+          raw.email = legacyTo;
         }
 
         if (raw.lastDigestLocalYmd === localYmd) {
@@ -3651,7 +3681,11 @@ async function handleScheduledCron(event, env) {
         }
 
         const ids = getDailyChallengeIdsForUtcDate(localYmd);
-        await sendDailyDigestEmail(env, raw, ids, {});
+        const didSend = await sendDailyDigestEmail(env, raw, ids, {});
+        if (!didSend) {
+          skipped++;
+          continue;
+        }
         const next = { email: raw.email, username: raw.username, lastDigestLocalYmd: localYmd };
         await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
         sent++;
