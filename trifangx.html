@@ -89,8 +89,10 @@
             gap: 0.75rem;
             margin-top: 1.5rem;
         }
-        .tx-actions a.button {
+        .tx-actions a.button,
+        .tx-actions button.button {
             text-decoration: none;
+            font: inherit;
         }
         @media (max-width: 640px) {
             .tx-hero {
@@ -117,7 +119,7 @@
                     <ul>
                         <li><a href="index.html">Home</a></li>
                         <li><a href="labs.html">Labs & Projects</a></li>
-                        <li><a href="account.html">Account</a></li>
+                        <li><a href="account-dashboard.html">Account</a></li>
                         <li><a href="chess_engine.html">Chess Engine</a></li>
                         <li><a href="chess-leaderboard.html">Leaderboard</a></li>
                     </ul>
@@ -185,7 +187,7 @@
                         implementation, run it locally, or experiment with ideas of your own.
                     </p>
                     <div class="tx-actions">
-                        <a href="chess-leaderboard.html" class="button button-secondary">Career points leaderboard</a>
+                        <button type="button" class="button button-secondary" onclick="window.location.href='chess-leaderboard.html'">Career points leaderboard</button>
                         <a href="chess_engine.html" class="button lab-button-coding">Play against TrifangX</a>
                         <a href="https://github.com/ahrens-labs/chessengine" class="button button-secondary" rel="noopener noreferrer">View on GitHub</a>
                         <a href="coding-lab.html" class="button button-secondary">← Back to Coding Lab</a>

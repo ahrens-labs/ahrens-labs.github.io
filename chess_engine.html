@@ -252,8 +252,11 @@
     .chess-pregame-tool-btn.chess-pregame-settings {
       background: linear-gradient(135deg, #9b59b6, #8e44ad);
     }
+    .chess-pregame-tool-btn.chess-pregame-leaderboard {
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+    }
 
-    /* Undo global `button { … }` (below) so Achievements / Shop / Settings / Game history share one shape */
+    /* Undo global `button { … }` (below) so Achievements / Shop / Settings / Game history / Leaderboard share one shape */
     #chess-pregame-tools .chess-pregame-tool-btn {
       width: auto;
       max-width: none;
@@ -5257,6 +5260,7 @@
                 <button type="button" class="chess-pregame-tool-btn chess-pregame-ach" onclick="showAllAchievements()">Achievements</button>
                 <button type="button" class="chess-pregame-tool-btn chess-pregame-shop" onclick="showShop()">Shop</button>
                 <a href="chess_engine/game_history/" class="chess-pregame-tool-btn chess-pregame-history">Game history</a>
+                <button type="button" class="chess-pregame-tool-btn chess-pregame-leaderboard" onclick="window.location.href='chess-leaderboard.html'">Leaderboard</button>
                 <button type="button" class="chess-pregame-tool-btn chess-pregame-settings" onclick="showSettings()">Settings</button>
             </div>
         </div>
