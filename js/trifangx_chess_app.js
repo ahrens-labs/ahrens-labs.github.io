@@ -8825,7 +8825,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (stage === 1) {
         // First warning
         titleEl.textContent = '⚠️ Warning';
-        messageEl.textContent = 'This will reset ALL achievements and points to zero, and clear your saved game history!\n\nThis action cannot be undone.';
+        messageEl.textContent =
+          'This will reset ALL achievements and points to zero, clear your saved game history, and reset the monthly season track (bonus points, track progress, and season flair unlocks).\n\nThis action cannot be undone.';
         messageEl.style.color = '#555';
         listContainer.innerHTML = '';
         inputEl.style.display = 'none';
@@ -8837,7 +8838,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         titleEl.textContent = '⚠️ Are you ABSOLUTELY SURE?';
         messageEl.textContent = 'This will delete:';
         messageEl.style.color = '#555';
-        listContainer.innerHTML = '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li><li>All saved game history (last 50 games)</li></ul>';
+        listContainer.innerHTML =
+          '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li><li>All saved game history (last 50 games)</li><li>Season track progress, season bonus points, and season-gated flair unlocks</li><li>Season cosmetic shop unlocks (boards, pieces, highlights from the track)</li></ul>';
         inputEl.style.display = 'none';
         yesBtn.textContent = 'Continue';
         yesBtn.onclick = () => showResetConfirmModal(3);
@@ -8926,6 +8928,19 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       achievements = [];
       if (cloudChessData) {
         cloudChessData.achievements = {};
+        cloudChessData.seasonBonusPoints = 0;
+        if (typeof window.ChessSeasons === 'object' && window.ChessSeasons && typeof window.ChessSeasons.createFreshSeasonTrackState === 'function') {
+          cloudChessData.seasonTrack = window.ChessSeasons.createFreshSeasonTrackState();
+        } else {
+          const d = new Date();
+          const sid = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+          cloudChessData.seasonTrack = {
+            seasonId: sid,
+            nodesCompleted: 0,
+            lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
+            lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+          };
+        }
       }
       playerStats = { wins: 0, losses: 0, draws: 0 };
       lifetimeStats = {
@@ -9125,7 +9140,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       
       // Persist reset to cloud immediately (avoid losing reset if tab closes during debounce)
       if (typeof saveChessDataToCloud === 'function') {
-        saveChessDataToCloud(true, { replaceGameHistory: true }).catch(function (e) {
+        saveChessDataToCloud(true, { replaceGameHistory: true, fullCareerResetSync: true }).catch(function (e) {
           console.error('Immediate cloud save after reset failed:', e);
         });
       }
@@ -9147,7 +9162,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const dialog = modal.querySelector('.reset-confirm-dialog');
           titleEl.textContent = '✅ Success!';
           titleEl.style.color = '#2ecc71';
-          messageEl.textContent = 'All achievements, statistics, and game history have been reset successfully!';
+          messageEl.textContent =
+            'All achievements, statistics, game history, and season track progress have been reset successfully!';
           messageEl.style.color = '#555';
           listContainer.innerHTML = '';
           inputEl.style.display = 'none';
@@ -11472,6 +11488,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     async function saveChessDataToCloud(immediate, opts) {
       if (!isLoggedIn || !currentSessionId) return;
       const replaceGameHistory = opts && opts.replaceGameHistory === true;
+      const fullCareerResetSync = opts && opts.fullCareerResetSync === true;
 
       clearTimeout(saveTimeout);
       const doSave = async () => {
@@ -11491,6 +11508,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           }
           const payload = { ...cloudChessData };
           if (replaceGameHistory) payload.replaceGameHistory = true;
+          if (fullCareerResetSync) payload.fullCareerResetSync = true;
           const response = await fetch(`${API_BASE_URL}/api/chess/sync`, {
             method: 'POST',
             headers: {

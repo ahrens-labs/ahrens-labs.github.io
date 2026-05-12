@@ -214,6 +214,17 @@
     });
   }
 
+  /** Fresh track for the current UTC month (e.g. after full achievement reset). */
+  function createFreshSeasonTrackState() {
+    const seasonId = getChessSeasonIdUtc();
+    return {
+      seasonId: seasonId,
+      nodesCompleted: 0,
+      lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
+      lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+    };
+  }
+
   global.ChessSeasons = {
     GUIDELINES: GUIDELINES,
     getChessSeasonIdUtc: getChessSeasonIdUtc,
@@ -222,5 +233,6 @@
     getChessSeasonTrack: getChessSeasonTrack,
     LB_FRAMES: LB_FRAMES,
     getSeasonTrackAchievementIds: getSeasonTrackAchievementIds,
+    createFreshSeasonTrackState: createFreshSeasonTrackState,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

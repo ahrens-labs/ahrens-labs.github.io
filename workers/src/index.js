@@ -6302,8 +6302,11 @@ export class UserAccount {
 
     const replaceHistory =
       chessData.replaceGameHistory === true || chessData.replaceGameHistory === 'true';
+    const fullCareerResetSync =
+      chessData.fullCareerResetSync === true || chessData.fullCareerResetSync === 'true';
     const restIncoming = { ...chessData };
     delete restIncoming.replaceGameHistory;
+    delete restIncoming.fullCareerResetSync;
 
     const prevChess = userData.games.chess;
     const prevSnap = chessStatsSnapshot(prevChess || {});
@@ -6328,11 +6331,21 @@ export class UserAccount {
     }
 
     const mergedStats = mergeChessStatsForSync(prevChess.stats, incomingStats);
-    const mergedSeason = mergeChessSeasonFieldsForSync(
-      prevChess,
-      hasIncomingSeasonTrack ? incomingSeasonTrack : undefined,
-      hasIncomingSeasonBonus ? incomingSeasonBonus : undefined
-    );
+    const mergedSeason = fullCareerResetSync
+      ? {
+          seasonBonusPoints: 0,
+          seasonTrack: {
+            seasonId: utcChessSeasonIdNow(),
+            nodesCompleted: 0,
+            lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
+            lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+          },
+        }
+      : mergeChessSeasonFieldsForSync(
+          prevChess,
+          hasIncomingSeasonTrack ? incomingSeasonTrack : undefined,
+          hasIncomingSeasonBonus ? incomingSeasonBonus : undefined
+        );
 
     const mergedChess = {
       ...prevChess,
@@ -6344,7 +6357,9 @@ export class UserAccount {
       lastUpdated: Date.now(),
     };
     if (Object.prototype.hasOwnProperty.call(restIncoming, 'shopUnlocks')) {
-      mergedChess.shopUnlocks = mergeShopUnlocksForSync(prevChess.shopUnlocks, restIncoming.shopUnlocks);
+      mergedChess.shopUnlocks = fullCareerResetSync
+        ? mergeShopUnlocksForSync({}, restIncoming.shopUnlocks)
+        : mergeShopUnlocksForSync(prevChess.shopUnlocks, restIncoming.shopUnlocks);
     }
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
