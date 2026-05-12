@@ -352,6 +352,32 @@
             opacity: 0.65;
             cursor: not-allowed;
         }
+        .st-buyout-btn {
+            font-family: "DM Sans", sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 0.42rem 0.95rem;
+            border-radius: 10px;
+            border: 1px solid rgba(180, 83, 9, 0.45);
+            cursor: pointer;
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            box-shadow: 0 1px 6px rgba(180, 83, 9, 0.2);
+        }
+        .st-buyout-btn:hover:not(:disabled) {
+            filter: brightness(1.04);
+        }
+        .st-buyout-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+        .st-buyout-note {
+            margin: 0.35rem 0 0;
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.45;
+            max-width: 36rem;
+        }
         .st-loading, .st-err {
             text-align: center;
             padding: 2rem 1rem;
@@ -395,7 +421,7 @@
                 <div class="st-tag">TrifangX · Monthly season</div>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month (UTC). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. Earn the achievement in TrifangX, then claim the step here or in-game for bonus points, exclusive boards and pieces, and leaderboard flair.
+                    One path per calendar month (UTC). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. Earn the achievement in TrifangX, then claim the step here for bonus points, cosmetics, and leaderboard flair. Stuck on a step? You can pay a large chunk of career achievement points to skip the challenge and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
                 </p>
             </section>
 
@@ -444,9 +470,13 @@
         if (!r || !r.kind) return '';
         if (r.kind === 'shop' && r.category && r.id) {
           var cat = r.category;
-          if (cat === 'boards') return 'Exclusive board · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'pieces') return 'Exclusive piece set · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'highlightColors') return 'Exclusive square highlight · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'boards') return 'Board style · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'pieces') return 'Piece set · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'highlightColors') return 'Square highlight · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'arrowColors') return 'Arrow color · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'legalMoveDots') return 'Legal move dot · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'themes') return 'Page theme · ' + r.id.replace(/_/g, ' ');
+          if (cat === 'checkmateEffects') return 'Checkmate effect · ' + r.id.replace(/_/g, ' ');
           return 'Unlock · ' + r.id;
         }
         if (r.kind === 'lb_frame' && r.frame) {
@@ -763,13 +793,39 @@
             html += '</ul>';
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
-          if (i === nodesDone && hasAch) {
+          if (i === nodesDone && nodesDone < nodes.length) {
+            var careerPts = Math.max(0, Math.floor(Number(data.points) || 0));
+            var buyCost =
+              CS && typeof CS.getSeasonStepBuyoutCost === 'function' ? CS.getSeasonStepBuyoutCost(i) : 0;
+            var canBuy = buyCost > 0 && careerPts >= buyCost;
+            html += '<div class="st-claim-row">';
             html +=
-              '<div class="st-claim-row">' +
               '<button type="button" class="st-claim-btn" data-st-step="' +
               i +
-              '">Claim reward</button>' +
-              '</div>';
+              '"' +
+              (hasAch ? '' : ' disabled') +
+              '>Claim reward</button>';
+            if (!hasAch && buyCost > 0) {
+              html +=
+                '<button type="button" class="st-buyout-btn" data-st-step="' +
+                i +
+                '" data-st-cost="' +
+                buyCost +
+                '"' +
+                (canBuy ? '' : ' disabled') +
+                '>Skip challenge · ' +
+                buyCost.toLocaleString() +
+                ' pts</button>';
+            }
+            html += '</div>';
+            if (!hasAch && buyCost > 0 && !canBuy) {
+              html +=
+                '<p class="st-buyout-note">You have ' +
+                careerPts.toLocaleString() +
+                ' career points. This skip costs ' +
+                buyCost.toLocaleString() +
+                '.</p>';
+            }
           }
           html += '</div></li>';
         }
@@ -795,7 +851,7 @@
           '<p class="st-err">' + escapeHtml(msg) + '</p>';
       }
 
-      function claimSeasonStep(stepIndex, btn) {
+      function claimSeasonStep(stepIndex, btn, buyWithPoints) {
         if (!sessionId || !btn) return;
         btn.disabled = true;
         var orig = btn.textContent;
@@ -806,7 +862,10 @@
             Authorization: 'Bearer ' + sessionId,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ stepIndex: stepIndex }),
+          body: JSON.stringify({
+            stepIndex: stepIndex,
+            buyWithPoints: !!buyWithPoints,
+          }),
         })
           .then(function (res) {
             return res.json().then(function (j) {
@@ -853,11 +912,28 @@
       }
 
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
+        var buyBtn = ev.target && ev.target.closest && ev.target.closest('.st-buyout-btn');
+        if (buyBtn && !buyBtn.disabled) {
+          var bidx = parseInt(buyBtn.getAttribute('data-st-step'), 10);
+          var bcost = parseInt(buyBtn.getAttribute('data-st-cost'), 10);
+          if (!Number.isFinite(bidx) || !Number.isFinite(bcost) || bcost <= 0) return;
+          if (
+            !confirm(
+              'Spend ' +
+                bcost.toLocaleString() +
+                ' career points to skip this challenge?\n\nYou still get this step’s season rewards and bonus points. The TrifangX achievement for this step stays locked until you earn it in-game.'
+            )
+          ) {
+            return;
+          }
+          claimSeasonStep(bidx, buyBtn, true);
+          return;
+        }
         var btn = ev.target && ev.target.closest && ev.target.closest('.st-claim-btn');
         if (!btn || btn.disabled) return;
         var idx = parseInt(btn.getAttribute('data-st-step'), 10);
         if (!Number.isFinite(idx)) return;
-        claimSeasonStep(idx, btn);
+        claimSeasonStep(idx, btn, false);
       });
 
       fetch(API_BASE_URL + '/api/chess/load', {

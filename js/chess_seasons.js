@@ -17,6 +17,9 @@
  *      have been fully claimed). Next step index = that value. Gating is sequential.
  *    - `seasonTrack.earnBaseline` (games, wins, castlingMoves, …) is updated on each successful claim
  *      so the *next* step only counts stats gained after prior steps were claimed (not retroactive).
+ *    - Optional buyout: each step has a large career-points price (`getSeasonStepBuyoutCost`). Paying on
+ *      claim skips the achievement check only — it does not unlock the achievement in cloud; rewards
+ *      and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
  *
  * 3) Bonus points
  *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
@@ -58,6 +61,7 @@
     'Bonus points on claim; leaderboard uses achievement points + season bonus.',
     'Exclusive cosmetics via shopUnlocks ids; flair allowlisted on the worker.',
     'Optional theme: SEASON_THEMES_BY_UTC_MONTH[MM].stepTitles same length as mechanical track.',
+    'Buyout: SEASON_STEP_BUYOUT_POINTS must match worker; spend career points to skip achievement only.',
   ]);
 
   function pad2(n) {
@@ -136,11 +140,31 @@
       bonusPoints: 210,
       rewards: [
         { kind: 'lb_frame', frame: 'violet_arc' },
+        { kind: 'lb_title', title: 'Ascendant' },
+        { kind: 'lb_title', title: 'Emerald crown' },
         { kind: 'lb_title', title: 'Finisher' },
         { kind: 'lb_suffix', suffix: '✦' },
+        { kind: 'shop', category: 'boards', id: 'royal' },
+        { kind: 'shop', category: 'pieces', id: 'tatiana' },
+        { kind: 'shop', category: 'highlightColors', id: 'gold' },
+        { kind: 'shop', category: 'arrowColors', id: 'gold' },
+        { kind: 'shop', category: 'themes', id: 'forest' },
+        { kind: 'shop', category: 'checkmateEffects', id: 'fireworks' },
+        { kind: 'shop', category: 'legalMoveDots', id: 'gold-star' },
       ],
     },
   ];
+
+  /** Career points to skip the challenge for that step (claim with buyWithPoints). Sync with worker. */
+  const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
+    5500, 14000, 22000, 38000, 52000, 68000, 62000, 82000, 118000, 195000,
+  ]);
+
+  function getSeasonStepBuyoutCost(stepIndex) {
+    const i = Math.max(0, Math.floor(Number(stepIndex)) || 0);
+    if (i < 0 || i >= SEASON_STEP_BUYOUT_POINTS.length) return 0;
+    return Math.max(0, Math.floor(Number(SEASON_STEP_BUYOUT_POINTS[i])) || 0);
+  }
 
   const DEFAULT_STEP_TITLES = [
     'Play your first game of the month',
@@ -170,10 +194,10 @@
         'First leap — develop a knight to f3 (the path opens)',
         'Shaft of green light — slide a bishop to f4',
         'Secret forest path — one en passant capture',
-        'Storm along the files — 10 queen captures as the moving piece',
+        'Storm along the files — 10 captures made by your queen',
         'Harvest tempo — 50 total captures with any piece',
-        'Ring the grove — castle 5 times (lifetime)',
-        'Crown saplings — promote 5 pawns (lifetime)',
+        'Ring the grove — castle 5 times',
+        'Crown saplings — promote 5 pawns',
         'Strike from the spires — checkmate with a rook',
         'Canopy apex — checkmate with a queen',
       ],
@@ -250,6 +274,7 @@
     getChessSeasonTrack: getChessSeasonTrack,
     LB_FRAMES: LB_FRAMES,
     getSeasonTrackAchievementIds: getSeasonTrackAchievementIds,
+    getSeasonStepBuyoutCost: getSeasonStepBuyoutCost,
     createFreshSeasonTrackState: createFreshSeasonTrackState,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

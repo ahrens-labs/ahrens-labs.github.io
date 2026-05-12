@@ -3650,11 +3650,25 @@ const SEASON_CLAIM_NODES = [
     bonusPoints: 210,
     rewards: [
       { kind: 'lb_frame', frame: 'violet_arc' },
+      { kind: 'lb_title', title: 'Ascendant' },
+      { kind: 'lb_title', title: 'Emerald crown' },
       { kind: 'lb_title', title: 'Finisher' },
       { kind: 'lb_suffix', suffix: '✦' },
+      { kind: 'shop', category: 'boards', id: 'royal' },
+      { kind: 'shop', category: 'pieces', id: 'tatiana' },
+      { kind: 'shop', category: 'highlightColors', id: 'gold' },
+      { kind: 'shop', category: 'arrowColors', id: 'gold' },
+      { kind: 'shop', category: 'themes', id: 'forest' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'fireworks' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'gold-star' },
     ],
   },
 ];
+
+/** Must match `SEASON_STEP_BUYOUT_POINTS` in js/chess_seasons.js */
+const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
+  5500, 14000, 22000, 38000, 52000, 68000, 62000, 82000, 118000, 195000,
+]);
 
 function utcChessSeasonIdNow() {
   const d = new Date();
@@ -6182,6 +6196,7 @@ export class UserAccount {
     if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= SEASON_CLAIM_NODES.length) {
       return { success: false, error: 'Invalid step' };
     }
+    const buyWithPoints = !!(body && body.buyWithPoints);
     const userData = await this.storage.get('userData');
     if (!userData?.games?.chess) {
       return { success: false, error: 'No chess data' };
@@ -6189,12 +6204,6 @@ export class UserAccount {
 
     const node = SEASON_CLAIM_NODES[stepIndex];
     const chess = userData.games.chess;
-
-    if (!chessAchievementUnlocked(chess.achievements, node.challengeAchievementId)) {
-      return { success: false, error: 'Achievement not complete' };
-    }
-
-    const prevSnap = chessStatsSnapshot(chess);
 
     let st =
       chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
@@ -6215,6 +6224,27 @@ export class UserAccount {
     }
     if (done !== stepIndex) {
       return { success: false, error: 'Claim earlier steps first' };
+    }
+
+    if (buyWithPoints) {
+      const cost = SEASON_STEP_BUYOUT_POINTS[stepIndex];
+      if (!Number.isFinite(cost) || cost <= 0) {
+        return { success: false, error: 'Buyout unavailable for this step' };
+      }
+      const pts = Math.max(0, Math.floor(Number(chess.points) || 0));
+      if (pts < cost) {
+        return { success: false, error: `Not enough career points (need ${cost.toLocaleString('en-US')})` };
+      }
+    } else if (!chessAchievementUnlocked(chess.achievements, node.challengeAchievementId)) {
+      return { success: false, error: 'Achievement not complete' };
+    }
+
+    const prevSnap = chessStatsSnapshot(chess);
+
+    if (buyWithPoints) {
+      const cost = SEASON_STEP_BUYOUT_POINTS[stepIndex];
+      const pts = Math.max(0, Math.floor(Number(chess.points) || 0));
+      chess.points = Math.max(0, pts - cost);
     }
 
     applySeasonClaimRewardsToChess(chess, node);
