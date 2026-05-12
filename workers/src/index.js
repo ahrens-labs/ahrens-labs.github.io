@@ -85,6 +85,8 @@ export default {
         return handleSendTest(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
         return handleChessSync(request, env, corsHeaders);
+      } else if (path === '/api/chess/season-claim' && request.method === 'POST') {
+        return handleChessSeasonClaim(request, env, corsHeaders);
       } else if (path === '/api/chess/load' && request.method === 'GET') {
         return handleChessLoad(request, env, corsHeaders);
       } else if (path === '/api/chess/leaderboard' && request.method === 'GET') {
@@ -1082,6 +1084,56 @@ async function handleChessSync(request, env, corsHeaders) {
   await userAccount.fetch(updateReq);
 
   return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Claim one season-track step (same rewards as in-game); validates achievements server-side. */
+async function handleChessSeasonClaim(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const claimReq = new Request('http://do/claimSeasonStep', {
+    method: 'POST',
+    body: JSON.stringify(body && typeof body === 'object' ? body : {}),
+  });
+  const claimRes = await userAccount.fetch(claimReq);
+  const result = await claimRes.json();
+  const ok = Boolean(result?.success);
+  return new Response(JSON.stringify(result), {
+    status: ok ? 200 : 400,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -3503,7 +3555,141 @@ function mergeChessStatsForSync(prevStats, incomingStats) {
 const CHESS_SEASON_MAX_NODES = 10;
 const CHESS_LB_FLAIR_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc']);
 
-/** Sanitize season flair shown on public leaderboard rows. */
+/** Must match `SEASON_TRACK_MECHANICAL` in js/chess_seasons.js (claim validation). */
+const SEASON_CLAIM_NODES = [
+  { challengeAchievementId: 'first_game', bonusPoints: 12, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
+  {
+    challengeAchievementId: 'first_win',
+    bonusPoints: 22,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
+  },
+  {
+    challengeAchievementId: 'three_wins',
+    bonusPoints: 32,
+    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
+  },
+  {
+    challengeAchievementId: 'five_wins',
+    bonusPoints: 48,
+    rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
+  },
+  {
+    challengeAchievementId: 'castler',
+    bonusPoints: 55,
+    rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
+  },
+  {
+    challengeAchievementId: 'ten_wins',
+    bonusPoints: 72,
+    rewards: [{ kind: 'lb_title', title: 'Trailblazer' }],
+  },
+  {
+    challengeAchievementId: 'promoter',
+    bonusPoints: 65,
+    rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
+  },
+  {
+    challengeAchievementId: 'rook_hunter_10',
+    bonusPoints: 95,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
+  },
+  {
+    challengeAchievementId: 'fifteen_wins',
+    bonusPoints: 120,
+    rewards: [{ kind: 'lb_frame', frame: 'violet_arc' }],
+  },
+  {
+    challengeAchievementId: 'checkmate_queen',
+    bonusPoints: 220,
+    rewards: [
+      { kind: 'lb_title', title: 'Finisher' },
+      { kind: 'lb_suffix', suffix: '✦' },
+    ],
+  },
+];
+
+function utcChessSeasonIdNow() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function chessAchievementUnlocked(rawAchievements, achId) {
+  const key = String(achId || '');
+  if (!key || !rawAchievements || typeof rawAchievements !== 'object' || Array.isArray(rawAchievements)) {
+    return false;
+  }
+  const v = rawAchievements[key];
+  if (v === true || v === 1) return true;
+  if (v && typeof v === 'object' && !Array.isArray(v)) return true;
+  return false;
+}
+
+function uniqStrings(a) {
+  return [...new Set((Array.isArray(a) ? a : []).map((x) => String(x)))];
+}
+
+function applySeasonClaimRewardsToChess(chess, node) {
+  const shop =
+    chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? { ...chess.shopUnlocks } : {};
+  const categories = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'timeControls'];
+  for (const cat of categories) {
+    if (!Array.isArray(shop[cat])) shop[cat] = shop[cat] ? [...shop[cat]] : [];
+  }
+  if (!Array.isArray(shop.checkmateEffects)) shop.checkmateEffects = shop.checkmateEffects ? [...shop.checkmateEffects] : [];
+
+  const st =
+    chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
+  const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+  const owned = {
+    frames: [...(prevOwned.frames || [])],
+    titles: [...(prevOwned.titles || [])],
+    prefixes: [...(prevOwned.prefixes || [])],
+    suffixes: [...(prevOwned.suffixes || [])],
+  };
+  let lbFlair = { ...(st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {}) };
+
+  const rewards = Array.isArray(node.rewards) ? node.rewards : [];
+  for (const r of rewards) {
+    if (!r || typeof r !== 'object') continue;
+    if (r.kind === 'shop' && r.category && r.id) {
+      const cat = String(r.category);
+      if (!shop[cat]) shop[cat] = [];
+      const id = String(r.id);
+      if (!shop[cat].includes(id)) shop[cat].push(id);
+    } else if (r.kind === 'lb_frame' && r.frame && CHESS_LB_FLAIR_FRAMES.has(String(r.frame))) {
+      const f = String(r.frame);
+      if (!owned.frames.includes(f)) owned.frames.push(f);
+      lbFlair = { ...lbFlair, frame: f };
+    } else if (r.kind === 'lb_title' && r.title) {
+      const t = String(r.title).trim().slice(0, 24);
+      if (t) {
+        if (!owned.titles.includes(t)) owned.titles.push(t);
+        lbFlair = { ...lbFlair, title: t };
+      }
+    } else if (r.kind === 'lb_prefix' && r.prefix != null) {
+      const p = [...String(r.prefix)].slice(0, 3).join('');
+      if (p && !owned.prefixes.includes(p)) owned.prefixes.push(p);
+      lbFlair = { ...lbFlair, prefix: p };
+    } else if (r.kind === 'lb_suffix' && r.suffix != null) {
+      const s = [...String(r.suffix)].slice(0, 3).join('');
+      if (s && !owned.suffixes.includes(s)) owned.suffixes.push(s);
+      lbFlair = { ...lbFlair, suffix: s };
+    }
+  }
+
+  st.lbFlairUnlocked = {
+    frames: uniqStrings(owned.frames),
+    titles: uniqStrings(owned.titles),
+    prefixes: uniqStrings(owned.prefixes),
+    suffixes: uniqStrings(owned.suffixes),
+  };
+  st.lbFlair = sanitizeChessLbFlair(lbFlair);
+  chess.shopUnlocks = shop;
+  chess.seasonTrack = st;
+}
+
 function sanitizeChessLbFlair(raw) {
   const out = { frame: null, title: null, prefix: '', suffix: '' };
   if (!raw || typeof raw !== 'object') return out;
@@ -4648,7 +4834,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
           <tr>
             <td style="padding:28px 36px 10px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
               <p style="margin:0 0 8px 0;font-size:17px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
-              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">Here are today’s rotating TrifangX achievements. Complete them in the chess engine to earn progress toward your dailies.</p>
+              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">Here are today’s rotating TrifangX achievements. In the engine they <strong style="color:#0f172a;">unlock in this order</strong>: complete Daily 1 first; Daily 2 only starts counting after that; Daily 3 after Daily 2.</p>
             </td>
           </tr>
           ${instantBanner}
@@ -4680,7 +4866,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
     '',
     instant ? '(Sent on request from your account dashboard.)' : '(Daily TrifangX challenge roundup.)',
     '',
-    `Today’s three challenges:`,
+    `Today’s three challenges (complete in this order — #2 counts after #1, #3 after #2):`,
     formatDailyDigestLines(challengeIds),
     '',
     `Play: ${chessUrl}`,
@@ -5392,6 +5578,13 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/claimSeasonStep' && request.method === 'POST') {
+        const body = await request.json();
+        const result = await this.claimSeasonStep(body && typeof body === 'object' ? body : {});
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/getChessData' && request.method === 'GET') {
         const chessData = await this.getChessData();
         return new Response(JSON.stringify(chessData), {
@@ -5877,6 +6070,69 @@ export class UserAccount {
     }
     await this.storage.delete('userData');
     return { success: true };
+  }
+
+  /**
+   * Apply server-validated season step claim (see SEASON_CLAIM_NODES, js/chess_seasons.js).
+   * Idempotent: if step was already claimed, returns success + alreadyClaimed.
+   */
+  async claimSeasonStep(body) {
+    const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
+    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= SEASON_CLAIM_NODES.length) {
+      return { success: false, error: 'Invalid step' };
+    }
+    const userData = await this.storage.get('userData');
+    if (!userData?.games?.chess) {
+      return { success: false, error: 'No chess data' };
+    }
+
+    const node = SEASON_CLAIM_NODES[stepIndex];
+    const chess = userData.games.chess;
+
+    if (!chessAchievementUnlocked(chess.achievements, node.challengeAchievementId)) {
+      return { success: false, error: 'Achievement not complete' };
+    }
+
+    const prevSnap = chessStatsSnapshot(chess);
+
+    let st =
+      chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
+    if (!/^\d{4}-\d{2}$/.test(String(st.seasonId || '').trim())) {
+      st.seasonId = utcChessSeasonIdNow();
+      st.nodesCompleted = 0;
+    }
+    chess.seasonTrack = st;
+    const seasonIdForTrack = String(st.seasonId || '').trim();
+    const done = Math.min(
+      CHESS_SEASON_MAX_NODES,
+      Math.max(0, Math.floor(Number(st.nodesCompleted) || 0))
+    );
+
+    if (done > stepIndex) {
+      const outChess = await this.getChessData();
+      return { success: true, alreadyClaimed: true, chess: outChess };
+    }
+    if (done !== stepIndex) {
+      return { success: false, error: 'Claim earlier steps first' };
+    }
+
+    applySeasonClaimRewardsToChess(chess, node);
+    if (!chess.seasonTrack || typeof chess.seasonTrack !== 'object') chess.seasonTrack = {};
+    chess.seasonTrack.nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, done + 1);
+    chess.seasonTrack.seasonId = seasonIdForTrack;
+    chess.seasonBonusPoints =
+      Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)) +
+      Math.max(0, Math.floor(Number(node.bonusPoints) || 0));
+    chess.lastUpdated = Date.now();
+
+    await this.storage.put('userData', userData);
+
+    const nextSnap = chessStatsSnapshot(userData.games.chess);
+    await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
+    await this.syncChessCareerPointsLeaderboardEntry();
+
+    const outChess = await this.getChessData();
+    return { success: true, chess: outChess };
   }
 
   async updateChessData(chessData) {

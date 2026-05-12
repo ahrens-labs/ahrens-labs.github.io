@@ -278,6 +278,32 @@
             color: #94a3b8;
             font-weight: 500;
         }
+        .st-claim-row {
+            margin-top: 0.65rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .st-claim-btn {
+            font-family: "DM Sans", sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35);
+        }
+        .st-claim-btn:hover:not(:disabled) {
+            filter: brightness(1.06);
+        }
+        .st-claim-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
         .st-loading, .st-err {
             text-align: center;
             padding: 2rem 1rem;
@@ -321,7 +347,7 @@
                 <div class="st-tag">TrifangX · Monthly season</div>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month (UTC). Clear each step’s achievement in the engine, then claim the step in TrifangX to unlock bonus points, exclusive boards and pieces, and leaderboard flair.
+                    One path per calendar month (UTC). Clear each step’s achievement in the engine, then claim the step here or in TrifangX to unlock bonus points, exclusive boards and pieces, and leaderboard flair.
                 </p>
             </section>
 
@@ -415,7 +441,7 @@
         var currentSid = CS.getChessSeasonIdUtc();
         var st = (data.seasonTrack && typeof data.seasonTrack === 'object') ? data.seasonTrack : {};
         var cloudSid = String(st.seasonId || '').trim();
-        var displaySid = /^\\d{4}-\\d{2}$/.test(cloudSid) ? cloudSid : currentSid;
+        var displaySid = /^\d{4}-\d{2}$/.test(cloudSid) ? cloudSid : currentSid;
         var meta = CS.getChessSeasonTrack(displaySid);
         var nodes = meta.nodes;
         var bounds = meta.bounds;
@@ -444,7 +470,7 @@
             escapeHtml(cloudSid) +
             '</code> while the current UTC month is <code>' +
             escapeHtml(currentSid) +
-            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to roll forward. Below, the copy matches the save’s season.</p>';
+            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to roll forward, or claim a step below to align the track. Below, the copy matches the save’s season.</p>';
         }
 
         var themeHtml = '';
@@ -504,7 +530,7 @@
             statusMsg = 'Claimed — rewards are in your save.';
           } else if (i === nodesDone) {
             if (hasAch) {
-              statusMsg = 'Achievement complete. Open TrifangX (pregame menu) to claim this step and advance.';
+              statusMsg = 'Achievement complete — claim below to apply rewards and advance.';
             } else {
               statusMsg = 'Complete this achievement in TrifangX to unlock claiming this step.';
             }
@@ -532,6 +558,14 @@
             html += '</ul>';
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
+          if (i === nodesDone && hasAch) {
+            html +=
+              '<div class="st-claim-row">' +
+              '<button type="button" class="st-claim-btn" data-st-step="' +
+              i +
+              '">Claim reward</button>' +
+              '</div>';
+          }
           html += '</div></li>';
         }
 
@@ -556,12 +590,70 @@
           '<p class="st-err">' + escapeHtml(msg) + '</p>';
       }
 
+      function claimSeasonStep(stepIndex, btn) {
+        if (!sessionId || !btn) return;
+        btn.disabled = true;
+        var orig = btn.textContent;
+        btn.textContent = 'Claiming…';
+        fetch(API_BASE_URL + '/api/chess/season-claim', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + sessionId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ stepIndex: stepIndex }),
+        })
+          .then(function (res) {
+            return res.json().then(function (j) {
+              return { res: res, j: j };
+            });
+          })
+          .then(function (pack) {
+            if (pack.res.status === 401) {
+              showLogin();
+              return;
+            }
+            if (!pack.j.success) {
+              throw new Error(pack.j.error || 'Claim failed');
+            }
+            if (pack.j.chess) {
+              render(pack.j.chess);
+              return;
+            }
+            return fetch(API_BASE_URL + '/api/chess/load', {
+              headers: { Authorization: 'Bearer ' + sessionId },
+            }).then(function (r2) {
+              if (r2.status === 401) {
+                showLogin();
+                return null;
+              }
+              if (!r2.ok) throw new Error('Could not reload save');
+              return r2.json();
+            }).then(function (d2) {
+              if (d2) render(d2);
+            });
+          })
+          .catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = orig;
+            alert(e.message || 'Could not claim');
+          });
+      }
+
       var sessionId = localStorage.getItem('ahrenslabs_sessionId');
       if (!sessionId) {
         document.getElementById('st-loading').remove();
         showLogin();
         return;
       }
+
+      document.getElementById('st-panel-main').addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest('.st-claim-btn');
+        if (!btn || btn.disabled) return;
+        var idx = parseInt(btn.getAttribute('data-st-step'), 10);
+        if (!Number.isFinite(idx)) return;
+        claimSeasonStep(idx, btn);
+      });
 
       fetch(API_BASE_URL + '/api/chess/load', {
         headers: { Authorization: 'Bearer ' + sessionId },
