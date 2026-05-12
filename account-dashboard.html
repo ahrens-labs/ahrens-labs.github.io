@@ -512,9 +512,23 @@
         <div class="dash-card admin-broadcast-card full-span" id="admin-test-emails-card">
           <h2>Email test pack (admin)</h2>
           <p class="hint">
-            Sends <strong>one sample of each</strong> built-in template to <strong>your</strong> broadcast-admin address: welcome guide (broadcast From), confirm-email, password reset, account-deleted notice, TrifangX daily challenges digest, three milestone layouts (wins / games / points), a broadcast-From sample, and a plain transactional message.
-            <strong>Verification and reset links use dummy tokens</strong> — do not use them. You will receive <strong>several emails in quick succession</strong>; check spam if needed.
+            Send <strong>one sample</strong> of a built-in template to <strong>your</strong> broadcast-admin address, or use <strong>Send all</strong> for every type in one go.
+            <strong>Verification and reset samples use dummy tokens</strong> — do not use those links.
           </p>
+          <p style="margin:0 0 8px 0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">One at a time</p>
+          <div class="admin-test-email-grid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+            <button type="button" class="btn btn-ghost" data-admin-test-email="welcome_guide">Welcome guide</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="verification">Confirm email</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="password_reset">Password reset</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="account_deleted">Account deleted</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="daily_digest">Daily challenges digest</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="milestone_wins">Milestone · wins</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="milestone_games">Milestone · games</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="milestone_points">Milestone · points</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="broadcast_from_sample">Broadcast From sample</button>
+            <button type="button" class="btn btn-ghost" data-admin-test-email="transactional_plain">Transactional ping</button>
+          </div>
+          <p style="margin:0 0 8px 0;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">All types</p>
           <button type="button" class="btn btn-primary" id="btn-admin-send-all-test-emails">Send all test emails to me</button>
           <p class="status" id="admin-test-emails-status"></p>
         </div>
@@ -1016,6 +1030,42 @@
             btn.disabled = false;
             btn.textContent = prev || 'Send to all accounts';
           }
+        }
+      });
+
+      document.getElementById('admin-test-emails-card')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-admin-test-email]');
+        if (!btn || btn.disabled) return;
+        const type = btn.getAttribute('data-admin-test-email');
+        if (!type) return;
+        const st = document.getElementById('admin-test-emails-status');
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        const prevLabel = btn.textContent;
+        btn.disabled = true;
+        setStatus(st, `Sending “${prevLabel}”…`, '');
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/admin/send-test-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({ type }),
+          });
+          const { ok, status, data } = await readApiJsonResponse(res);
+          if (!ok || data.success === false) {
+            setStatus(st, formatApiFailure(status, data), 'err');
+            return;
+          }
+          setStatus(st, `Sent “${prevLabel}” to ${data.to || 'your inbox'}. Check spam if needed.`, 'ok');
+        } catch (err) {
+          setStatus(st, err?.message || 'Network error.', 'err');
+        } finally {
+          btn.disabled = false;
         }
       });
 

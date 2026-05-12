@@ -65,6 +65,8 @@ export default {
         return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-all-test-emails' && request.method === 'POST') {
         return handleAdminSendAllTestEmails(request, env, corsHeaders);
+      } else if (path === '/api/admin/send-test-email' && request.method === 'POST') {
+        return handleAdminSendTestEmail(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/leaderboard-row-color' && request.method === 'POST') {
@@ -3019,6 +3021,155 @@ async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
 }
 
 /**
+ * Admin QA: known transactional / product email sample ids (single send or full pack).
+ * Verification and password-reset samples use non-working tokens.
+ */
+const ADMIN_TEST_EMAIL_IDS = [
+  'welcome_guide',
+  'verification',
+  'password_reset',
+  'account_deleted',
+  'daily_digest',
+  'milestone_wins',
+  'milestone_games',
+  'milestone_points',
+  'broadcast_from_sample',
+  'transactional_plain',
+];
+
+async function executeAdminTestEmailById(env, gate, id) {
+  const to = gate.adminEmail;
+  const un = gate.adminUsername || 'Player';
+
+  switch (id) {
+    case 'welcome_guide':
+      await sendWelcomeGuideEmail(env, to, un, {
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      return;
+    case 'verification':
+      await sendVerificationEmail(env, to, un, 'admin_preview_token_do_not_verify');
+      return;
+    case 'password_reset':
+      await sendPasswordResetEmail(env, to, un, 'admin_preview_reset_do_not_use');
+      return;
+    case 'account_deleted':
+      await sendAccountDeletedEmail(env, to, un);
+      return;
+    case 'daily_digest': {
+      const digestDateStr = ymdInTimeZone(Date.now(), DEFAULT_DIGEST_TIMEZONE);
+      const digestIds = getDailyChallengeIdsForUtcDate(digestDateStr);
+      await sendDailyDigestEmail(env, { email: to, username: un }, digestIds, { instant: true });
+      return;
+    }
+    case 'milestone_wins':
+    case 'milestone_games':
+    case 'milestone_points': {
+      const base = siteMarketingBase(env);
+      const chessUrl = `${base}/chess_engine.html`;
+      const milestoneStats = {
+        wins: 28,
+        losses: 10,
+        draws: 2,
+        games: 40,
+        points: 12050,
+      };
+      const spec =
+        id === 'milestone_wins'
+          ? { kind: 'wins', threshold: 25 }
+          : id === 'milestone_games'
+            ? { kind: 'games', threshold: 100 }
+            : { kind: 'points', threshold: 10000 };
+      const p = buildChessMilestoneEmail({
+        username: un,
+        kind: spec.kind,
+        threshold: spec.threshold,
+        stats: milestoneStats,
+        chessUrl,
+      });
+      await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
+      return;
+    }
+    case 'broadcast_from_sample': {
+      const fromEsc = escapeHtmlEmail(ADMIN_BROADCAST_FROM_EMAIL);
+      await dispatchTransactionalEmail(env, {
+        to,
+        subject: '[Test] Broadcast From sample (admin)',
+        html: `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:20px;line-height:1.55;color:#1e293b;">
+<p>This uses the same <strong>From</strong> as admin broadcasts: <code>${fromEsc}</code> (${escapeHtmlEmail(
+          ADMIN_BROADCAST_FROM_NAME
+        )}).</p>
+<p>Real broadcasts fill <code>{{username}}</code> and <code>{{email}}</code> per recipient.</p>
+<p><em>Admin test pack — safe to delete.</em></p>
+</body></html>`,
+        text: `Broadcast From sample (same as bulk tools). From ${ADMIN_BROADCAST_FROM_EMAIL}. Admin test pack.`,
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      return;
+    }
+    case 'transactional_plain':
+      await dispatchTransactionalEmail(env, {
+        to,
+        subject: '[Test] Default transactional sender',
+        html: '<p>Uses the worker’s default transactional sender (no broadcast From override). Same path as a minimal health check email.</p>',
+        text: 'Default transactional sender (no From override). Admin test pack.',
+      });
+      return;
+    default:
+      throw new Error(`Unknown test email type: ${id}`);
+  }
+}
+
+async function handleAdminSendTestEmail(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const raw = body.type != null ? String(body.type).trim() : '';
+  const id = raw.toLowerCase().replace(/-/g, '_');
+
+  if (!id || !ADMIN_TEST_EMAIL_IDS.includes(id)) {
+    return new Response(
+      JSON.stringify({
+        error: 'Missing or invalid type',
+        validTypes: ADMIN_TEST_EMAIL_IDS,
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    await executeAdminTestEmailById(env, gate, id);
+    return new Response(JSON.stringify({ success: true, id, to: gate.adminEmail }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        id,
+        error: w.hint || w.message || String(err?.message || err),
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+/**
  * Admin only: send one sample of each built-in transactional / product email type to the
  * authenticated broadcast admin’s address (for QA). Verification and password-reset links use
  * placeholder tokens and must not be used.
@@ -3033,13 +3184,10 @@ async function handleAdminSendAllTestEmails(request, env, corsHeaders) {
     });
   }
 
-  const to = gate.adminEmail;
-  const un = gate.adminUsername || 'Player';
   const results = [];
-
-  async function sendOne(id, fn) {
+  for (const id of ADMIN_TEST_EMAIL_IDS) {
     try {
-      await fn();
+      await executeAdminTestEmailById(env, gate, id);
       results.push({ id, ok: true });
     } catch (err) {
       const w = summarizeEmailSendError(err);
@@ -3051,94 +3199,11 @@ async function handleAdminSendAllTestEmails(request, env, corsHeaders) {
     }
   }
 
-  await sendOne('welcome_guide', () =>
-    sendWelcomeGuideEmail(env, to, un, {
-      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
-      fromName: ADMIN_BROADCAST_FROM_NAME,
-    })
-  );
-  await sendOne('verification', () => sendVerificationEmail(env, to, un, 'admin_preview_token_do_not_verify'));
-  await sendOne('password_reset', () => sendPasswordResetEmail(env, to, un, 'admin_preview_reset_do_not_use'));
-  await sendOne('account_deleted', () => sendAccountDeletedEmail(env, to, un));
-
-  const digestDateStr = ymdInTimeZone(Date.now(), DEFAULT_DIGEST_TIMEZONE);
-  const digestIds = getDailyChallengeIdsForUtcDate(digestDateStr);
-  await sendOne('daily_digest', () =>
-    sendDailyDigestEmail(env, { email: to, username: un }, digestIds, { instant: true })
-  );
-
-  const base = siteMarketingBase(env);
-  const chessUrl = `${base}/chess_engine.html`;
-  const milestoneStats = {
-    wins: 28,
-    losses: 10,
-    draws: 2,
-    games: 40,
-    points: 12050,
-  };
-  await sendOne('milestone_wins', async () => {
-    const p = buildChessMilestoneEmail({
-      username: un,
-      kind: 'wins',
-      threshold: 25,
-      stats: milestoneStats,
-      chessUrl,
-    });
-    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
-  });
-  await sendOne('milestone_games', async () => {
-    const p = buildChessMilestoneEmail({
-      username: un,
-      kind: 'games',
-      threshold: 100,
-      stats: milestoneStats,
-      chessUrl,
-    });
-    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
-  });
-  await sendOne('milestone_points', async () => {
-    const p = buildChessMilestoneEmail({
-      username: un,
-      kind: 'points',
-      threshold: 10000,
-      stats: milestoneStats,
-      chessUrl,
-    });
-    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
-  });
-
-  await sendOne('broadcast_from_sample', async () => {
-    const fromEsc = escapeHtmlEmail(ADMIN_BROADCAST_FROM_EMAIL);
-    await dispatchTransactionalEmail(env, {
-      to,
-      subject: '[Test] Broadcast From sample (admin)',
-      html: `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:20px;line-height:1.55;color:#1e293b;">
-<p>This uses the same <strong>From</strong> as admin broadcasts: <code>${fromEsc}</code> (${escapeHtmlEmail(
-        ADMIN_BROADCAST_FROM_NAME
-      )}).</p>
-<p>Real broadcasts fill <code>{{username}}</code> and <code>{{email}}</code> per recipient.</p>
-<p><em>Admin test pack — safe to delete.</em></p>
-</body></html>`,
-      text: `Broadcast From sample (same as bulk tools). From ${ADMIN_BROADCAST_FROM_EMAIL}. Admin test pack.`,
-      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
-      fromName: ADMIN_BROADCAST_FROM_NAME,
-    });
-  });
-
-  await sendOne('transactional_plain', async () => {
-    await dispatchTransactionalEmail(env, {
-      to,
-      subject: '[Test] Default transactional sender',
-      html: '<p>Uses the worker’s default transactional sender (no broadcast From override). Same path as a minimal health check email.</p>',
-      text: 'Default transactional sender (no From override). Admin test pack.',
-    });
-  });
-
   const okN = results.filter((r) => r.ok).length;
   return new Response(
     JSON.stringify({
       success: okN === results.length,
-      to,
+      to: gate.adminEmail,
       sent: okN,
       total: results.length,
       results,
