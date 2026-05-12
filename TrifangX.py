@@ -105,13 +105,15 @@ def _is_actual_white_pawn_promotion(moved_piece, from_row, target_row):
     """True only for a pawn step from rank 7 to rank 8 (engine row 6→7), not Q/N sliding onto the back rank."""
     if target_row != 7 or from_row != 6:
         return False
-    return moved_piece == 'P' or moved_piece in WHITE_PROMOTION_PIECES
+    # Only a PAWN moving to rank 8 is a promotion, not other pieces that might be there
+    return moved_piece == 'P'
 
 
 def _is_actual_black_pawn_promotion(moved_piece, from_row, target_row):
     if target_row != 0 or from_row != 1:
         return False
-    return moved_piece == 'p' or moved_piece in BLACK_PROMOTION_PIECES
+    # Only a PAWN moving to rank 1 is a promotion, not other pieces that might be there
+    return moved_piece == 'p'
 
 
 def _format_promotion_move(piece, from_row, from_col, to_row, to_col, captured_piece):
@@ -4588,11 +4590,10 @@ def _source_piece_before_move(moved_piece_symbol, target_row, from_row=None):
         if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES and from_row == 1:
             return 'p'
         return moved_piece_symbol
-    # Callers that omit from_row keep legacy “any Q/N to row 7” behavior (avoid if possible).
-    if target_row == 7 and moved_piece_symbol in WHITE_PROMOTION_PIECES:
-        return 'P'
-    if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES:
-        return 'p'
+    # Without from_row, we cannot safely assume promotion. Return piece as-is to prevent
+    # incorrectly converting Knights/Queens on rank 7/0 back to pawns (e.g., after Nxe7).
+    # This avoids the legacy bug where any promotion piece on back rank was assumed to be
+    # a pawn that was promoted.
     return moved_piece_symbol
 
 
