@@ -113,14 +113,60 @@ def _is_actual_black_pawn_promotion(moved_piece, from_row, target_row):
     return moved_piece == 'p'
 
 
-def _format_promotion_move(piece, from_row, from_col, to_row, to_col, captured_piece):
-    if _is_actual_white_pawn_promotion(piece, from_row, to_row):
-        promo = piece if piece in WHITE_PROMOTION_PIECES else 'Q'
-        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in BLACK_PIECES else ''
+def _is_pawn_promotion_from_board(source_piece, moved_piece, from_row, from_col, to_row, to_col):
+    """True when the origin square had a pawn and (from,to) is a one-step promotion move.
+
+    Search often passes `moved_piece` as Q/R/B/N (or q/r/b/n) while `source_piece` on the board is still P/p.
+    """
+    if source_piece == 'P':
+        return (
+            moved_piece in ('P',) + WHITE_PROMOTION_PIECES
+            and from_row == 6
+            and to_row == 7
+            and abs(from_col - to_col) <= 1
+        )
+    if source_piece == 'p':
+        return (
+            moved_piece in ('p',) + BLACK_PROMOTION_PIECES
+            and from_row == 1
+            and to_row == 0
+            and abs(from_col - to_col) <= 1
+        )
+    return False
+
+
+def _format_promotion_move(
+    piece,
+    from_row,
+    from_col,
+    to_row,
+    to_col,
+    captured_piece,
+    pawn_promotion=False,
+    source_square_piece=None,
+):
+    """SAN for pawn promotion. Callers that pass the promoted piece (Q/R/B/N) must set pawn_promotion=True."""
+    if source_square_piece is not None and _is_pawn_promotion_from_board(
+        source_square_piece, piece, from_row, from_col, to_row, to_col
+    ):
+        if source_square_piece == 'P':
+            promo = piece if piece in WHITE_PROMOTION_PIECES else ('Q' if piece == 'P' else piece)
+            prefix = (indices_to_pos_col(from_col) + 'x') if captured_piece in BLACK_PIECES else ''
+            return prefix + indices_to_pos(to_row, to_col) + '=' + promo
+        promo = piece if piece in BLACK_PROMOTION_PIECES else ('q' if piece == 'p' else piece)
+        prefix = (indices_to_pos_col(from_col) + 'x') if captured_piece in WHITE_PIECES else ''
+        return prefix + indices_to_pos(to_row, to_col) + '=' + promo.upper()
+    if _is_actual_white_pawn_promotion(piece, from_row, to_row) or (
+        pawn_promotion and from_row == 6 and to_row == 7
+    ):
+        promo = piece if piece in WHITE_PROMOTION_PIECES else ('Q' if piece == 'P' else piece)
+        prefix = (indices_to_pos_col(from_col) + 'x') if captured_piece in BLACK_PIECES else ''
         return prefix + indices_to_pos(to_row, to_col) + '=' + promo
-    if _is_actual_black_pawn_promotion(piece, from_row, to_row):
-        promo = piece if piece in BLACK_PROMOTION_PIECES else 'q'
-        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in WHITE_PIECES else ''
+    if _is_actual_black_pawn_promotion(piece, from_row, to_row) or (
+        pawn_promotion and from_row == 1 and to_row == 0
+    ):
+        promo = piece if piece in BLACK_PROMOTION_PIECES else ('q' if piece == 'p' else piece)
+        prefix = (indices_to_pos_col(from_col) + 'x') if captured_piece in WHITE_PIECES else ''
         return prefix + indices_to_pos(to_row, to_col) + '=' + promo.upper()
     return None
 
@@ -167,8 +213,28 @@ def print_board(board):
       #      output += f" {move}"
     #return output
 
-def print_piece_move(board, best_piece, best_row, best_col, target_row, target_col, piece, color):
-    promotion_move = _format_promotion_move(best_piece, best_row, best_col, target_row, target_col, piece)
+def print_piece_move(
+    board,
+    best_piece,
+    best_row,
+    best_col,
+    target_row,
+    target_col,
+    piece,
+    color,
+    pawn_promotion=False,
+    source_square_piece=None,
+):
+    promotion_move = _format_promotion_move(
+        best_piece,
+        best_row,
+        best_col,
+        target_row,
+        target_col,
+        piece,
+        pawn_promotion=pawn_promotion,
+        source_square_piece=source_square_piece,
+    )
     if promotion_move:
         move_played = promotion_move
         opponent_color = 'w' if color == 'b' else 'b'
@@ -273,7 +339,17 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
         move_played = 'O-O-O'
     else:
         san_piece = _piece_symbol_for_san(board_before, from_row, from_col, piece)
-        move_played = print_piece_move(debug_board, san_piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
+        move_played = print_piece_move(
+            debug_board,
+            san_piece,
+            from_row,
+            from_col,
+            to_row,
+            to_col,
+            debug_captured_piece,
+            color,
+            source_square_piece=board_before[from_row][from_col],
+        )
 
     opponent_color = 'w' if color == 'b' else 'b'
     opp_king_row, opp_king_col = find_king(debug_board, opponent_color)
@@ -1488,8 +1564,28 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 checkmate = False
                 checkmate2 = False
                 black_king_row, black_king_col = find_king(board, 'b')
+            else:
+                black_king_row2, black_king_col2 = find_king(board, 'b')
+                if is_king_in_check(board, black_king_row2, black_king_col2, 'b'):
+                    current_score = 10000
+                else:
+                    current_score = -0.25
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0'] = current_score
+                board[7][6] = '0'
+                board[7][4] = 'k'
+                board[7][7] = 'r'
+                board[7][5] = '0'
+                checkmate = False
+                checkmate2 = False
+                black_king_row, black_king_col = find_king(board, 'b')
         elif checkmate:
-            return 10000, scoring_time
+            current_score = 10000
+            scores['0-0'] = current_score
+            board[7][6] = '0'
+            board[7][4] = 'k'
+            board[7][7] = 'r'
+            board[7][5] = '0'
             # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
@@ -1526,8 +1622,28 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 checkmate = False
                 checkmate2 = False
                 black_king_row, black_king_col = find_king(board, 'b')
+            else:
+                black_king_row2, black_king_col2 = find_king(board, 'b')
+                if is_king_in_check(board, black_king_row2, black_king_col2, 'b'):
+                    current_score = 10000
+                else:
+                    current_score = -0.25
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0-0'] = current_score
+                board[7][4] = 'k'
+                board[7][2] = '0'
+                board[7][0] = 'r'
+                board[7][3] = '0'
+                checkmate = False
+                checkmate2 = False
+                black_king_row, black_king_col = find_king(board, 'b')
         elif checkmate:
-            return 10000, scoring_time
+            current_score = 10000
+            scores['0-0-0'] = current_score
+            board[7][4] = 'k'
+            board[7][2] = '0'
+            board[7][0] = 'r'
+            board[7][3] = '0'
             # #sys.exit() # Removed #sys.exit()
 
     else:
@@ -1578,6 +1694,8 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                         white_king_row, white_king_col = find_king(board, 'w')
                         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
                             checkmate = True
+                            current_score = 10000
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                         else:
                             stalemate = True
                             current_score = -0.25
@@ -1604,12 +1722,14 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                             _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
                             _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-                    elif checkmate:
-                        return 10000, scoring_time
-                        # #sys.exit() # Removed #sys.exit()
-                    elif bad_checkmate:
-                        current_score = -1000
-                        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                        else:
+                            black_king_row2, black_king_col2 = find_king(board, 'b')
+                            if is_king_in_check(board, black_king_row2, black_king_col2, 'b'):
+                                current_score = 10000
+                            else:
+                                current_score = -0.25
+                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
             else:
                 return None, None
         if is_black_ep:
@@ -1756,8 +1876,28 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                 checkmate = False
                 checkmate2 = False
                 white_king_row, white_king_col = find_king(board, 'w')
+            else:
+                white_king_row2, white_king_col2 = find_king(board, 'w')
+                if is_king_in_check(board, white_king_row2, white_king_col2, 'w'):
+                    current_score = 10000
+                else:
+                    current_score = 0.25
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0'] = current_score
+                board[0][6] = '0'
+                board[0][4] = 'K'
+                board[0][7] = 'R'
+                board[0][5] = '0'
+                checkmate = False
+                checkmate2 = False
+                white_king_row, white_king_col = find_king(board, 'w')
         elif checkmate:
-            return -10000, scoring_time
+            current_score = -10000
+            scores['0-0'] = current_score
+            board[0][6] = '0'
+            board[0][4] = 'K'
+            board[0][7] = 'R'
+            board[0][5] = '0'
             # #sys.exit() # Removed #sys.exit()
     elif piece == '0-0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
@@ -1793,8 +1933,28 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                 checkmate = False
                 checkmate2 = False
                 white_king_row, white_king_col = find_king(board, 'w')
+            else:
+                white_king_row2, white_king_col2 = find_king(board, 'w')
+                if is_king_in_check(board, white_king_row2, white_king_col2, 'w'):
+                    current_score = 10000
+                else:
+                    current_score = 0.25
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0-0'] = current_score
+                board[0][4] = 'K'
+                board[0][2] = '0'
+                board[0][0] = 'R'
+                board[0][3] = '0'
+                checkmate = False
+                checkmate2 = False
+                white_king_row, white_king_col = find_king(board, 'w')
         elif checkmate:
-            return -10000, scoring_time
+            current_score = -10000
+            scores['0-0-0'] = current_score
+            board[0][4] = 'K'
+            board[0][2] = '0'
+            board[0][0] = 'R'
+            board[0][3] = '0'
             # #sys.exit() # Removed #sys.exit()
 
     else:
@@ -1847,6 +2007,8 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                         black_king_row, black_king_col = find_king(board, 'b')
                         if is_king_in_check(board, black_king_row, black_king_col, 'b'):
                             checkmate = True
+                            current_score = -10000
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
                         else:
                             stalemate = True
                             current_score = 0.25
@@ -1872,12 +2034,14 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                             _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
                             _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-                    elif checkmate:
-                        return -10000, scoring_time
-                        # #sys.exit() # Removed #sys.exit()
-                    elif bad_checkmate:
-                        current_score = 1000
-                        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                        else:
+                            white_king_row2, white_king_col2 = find_king(board, 'w')
+                            if is_king_in_check(board, white_king_row2, white_king_col2, 'w'):
+                                current_score = 10000
+                            else:
+                                current_score = 0.25
+                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
             else:
                 return None, None
         if is_white_ep:
@@ -4932,7 +5096,8 @@ def best_move_function(board, bots, en_passant):
                 '1. e4 f5 2. exf5 d5 3. Qh5+ g6 4. fxg6 Kd7 5. Qxd5+',
                 '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3',
                 '1. e4 d6 2. d4 Nf6 3. Nc3 g6 4.f4',
-                '1. e4 f6 2. d4 g5 3. Qh5'
+                '1. e4 f6 2. d4 g5 3. Qh5',
+                '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
     ]
     if opening_moves != 'none':
         normalized_input = normalize_pgn(opening_moves)
@@ -5318,7 +5483,9 @@ def best_move_function(board, bots, en_passant):
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
-                if _is_actual_black_pawn_promotion(best_piece, best_row, target_row):
+                if _is_pawn_promotion_from_board(
+                    board_before[best_row][best_col], best_piece, best_row, best_col, target_row, target_col
+                ):
                     promotion_piece = best_piece if best_piece in BLACK_PROMOTION_PIECES else 'q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
@@ -6850,7 +7017,7 @@ def best_move_black(board, bots, en_passant):
                                         print('CHECKMATE! you lose')
                                         output = print_moves('w', number_of_moves, game_moves)
                                         print(output.rstrip(' '), end='')
-                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col, '0', 'w')
+                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col, '0', 'w', pawn_promotion=True)
                                         print(' ' + next_move + '#')
                                         return next_move
                                         #sys.exit()
@@ -6929,7 +7096,7 @@ def best_move_black(board, bots, en_passant):
                                         print('CHECKMATE! you lose')
                                         output = print_moves('w', number_of_moves, game_moves)
                                         print(output.rstrip(' '), end='')
-                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col-1, captured_piece, 'w')
+                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col-1, captured_piece, 'w', pawn_promotion=True)
                                         print(' ' + next_move + '#')
                                         return next_move
                                         #sys.exit()
@@ -7087,7 +7254,7 @@ def best_move_black(board, bots, en_passant):
                                         print('CHECKMATE! you lose')
                                         output = print_moves('w', number_of_moves, game_moves)
                                         print(output.rstrip(' '), end='')
-                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col+1, captured_piece, 'w')
+                                        next_move = print_piece_move(board, promoted_piece, row, col, row+1, col+1, captured_piece, 'w', pawn_promotion=True)
                                         print(' ' + next_move + '#')
                                         return next_move
                                         #sys.exit()
@@ -8000,7 +8167,9 @@ def best_move_black(board, bots, en_passant):
                 if best_piece == 'K':
                     king_move_white = 1
                 black_king_row, black_king_col = find_king(board, 'b')
-                if _is_actual_white_pawn_promotion(best_piece, best_row, target_row):
+                if _is_pawn_promotion_from_board(
+                    board_before[best_row][best_col], best_piece, best_row, best_col, target_row, target_col
+                ):
                     promotion_piece = best_piece if best_piece in WHITE_PROMOTION_PIECES else 'Q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
