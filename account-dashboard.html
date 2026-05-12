@@ -402,6 +402,23 @@
           <p class="status" id="uname-status"></p>
         </div>
 
+        <div class="dash-card">
+          <h2>Leaderboard row color</h2>
+          <p class="hint">
+            Your row on the <a href="chess-leaderboard.html">public TrifangX leaderboard</a> uses this background. Leave unset for a plain white bar.
+          </p>
+          <div class="form-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;">
+            <label for="lb-row-color">Color</label>
+            <input type="color" id="lb-row-color" value="#94a3b8" aria-label="Leaderboard row background color" style="width:52px;height:40px;padding:0;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">
+            <span id="lb-row-color-preview" style="display:inline-block;min-width:140px;height:40px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;vertical-align:middle;" title="Preview"></span>
+          </div>
+          <p style="margin:14px 0 0 0;display:flex;flex-wrap:wrap;gap:10px;">
+            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save for leaderboard</button>
+            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear (default)</button>
+          </p>
+          <p class="status" id="lb-row-color-status"></p>
+        </div>
+
         <div class="dash-card full-span">
           <h2>Email</h2>
           <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
@@ -1079,10 +1096,30 @@
 
       const un = document.getElementById('uname-new');
       if (un) un.value = uname;
+
+      const lc = document.getElementById('lb-row-color');
+      const pv = document.getElementById('lb-row-color-preview');
+      if (lc && pv) {
+        const raw = user.leaderboardRowColor;
+        const norm = typeof raw === 'string' ? raw.trim() : '';
+        let full = null;
+        if (/^#[0-9a-f]{6}$/i.test(norm)) full = norm.toLowerCase();
+        else if (/^#[0-9a-f]{3}$/i.test(norm)) {
+          const a = norm.slice(1);
+          full = ('#' + a[0] + a[0] + a[1] + a[1] + a[2] + a[2]).toLowerCase();
+        }
+        if (full) {
+          lc.value = full;
+          pv.style.background = full;
+        } else {
+          lc.value = '#94a3b8';
+          pv.style.background = '#ffffff';
+        }
+      }
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-      const user = await requireUser();
+      let user = await requireUser();
       if (!user) return;
       applyUserToForm(user);
       loadTrifangxPointsForDashboard();
@@ -1590,10 +1627,72 @@
           const w = document.getElementById('dash-welcome');
           const em = user.email || '';
           if (w) w.textContent = `Signed in as ${data.username || newUsername}` + (em ? ` · ${em}` : '');
+          user.username = data.username || newUsername;
         } else {
           setStatus(st, data.error || 'Could not change username.', 'err');
         }
       });
+
+      const lbColorInput = document.getElementById('lb-row-color');
+      const lbColorPreview = document.getElementById('lb-row-color-preview');
+      if (lbColorInput && lbColorPreview) {
+        lbColorInput.addEventListener('input', () => {
+          lbColorPreview.style.background = lbColorInput.value;
+        });
+      }
+
+      const btnLbSave = document.getElementById('btn-lb-row-color-save');
+      if (btnLbSave) {
+        btnLbSave.addEventListener('click', async () => {
+          const st = document.getElementById('lb-row-color-status');
+          const sessionId = getSessionId();
+          const lc = document.getElementById('lb-row-color');
+          const pv = document.getElementById('lb-row-color-preview');
+          if (!lc || !pv) return;
+          setStatus(st, '', '');
+          const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({ color: lc.value }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            user.leaderboardRowColor = data.leaderboardRowColor;
+            applyUserToForm(user);
+            setStatus(st, 'Saved. Your leaderboard row will use this color.', 'ok');
+          } else {
+            setStatus(st, data.error || 'Could not save color.', 'err');
+          }
+        });
+      }
+
+      const btnLbClear = document.getElementById('btn-lb-row-color-clear');
+      if (btnLbClear) {
+        btnLbClear.addEventListener('click', async () => {
+          const st = document.getElementById('lb-row-color-status');
+          const sessionId = getSessionId();
+          setStatus(st, '', '');
+          const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({ color: null }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            delete user.leaderboardRowColor;
+            applyUserToForm(user);
+            setStatus(st, 'Cleared. Your row uses the default white bar.', 'ok');
+          } else {
+            setStatus(st, data.error || 'Could not clear.', 'err');
+          }
+        });
+      }
 
       document.getElementById('btn-save-email-prefs').addEventListener('click', async () => {
         const st = document.getElementById('email-pref-status');

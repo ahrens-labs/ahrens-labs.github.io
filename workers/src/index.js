@@ -65,6 +65,8 @@ export default {
         return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
+      } else if (path === '/api/leaderboard-row-color' && request.method === 'POST') {
+        return handleLeaderboardRowColor(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
         return handleChangePassword(request, env, corsHeaders);
       } else if (path === '/api/delete-account' && request.method === 'POST') {
@@ -627,6 +629,68 @@ async function handleChangeUsername(request, env, corsHeaders) {
   return new Response(JSON.stringify({ success: true, username: result.username }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+async function handleLeaderboardRowColor(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const doReq = new Request('http://do/setLeaderboardRowColor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const doRes = await userAccount.fetch(doReq);
+  const result = await doRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Could not save color' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      leaderboardRowColor: result.leaderboardRowColor ?? null,
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
 }
 
 // Delete account (requires session + current password; destroys session)
@@ -3312,6 +3376,19 @@ function sanitizeLeaderboardUsernameDisplay(raw) {
   return s;
 }
 
+/** Strict `#rrggbb` (or `#rgb`) for leaderboard row backgrounds only (no `url()` / expressions). */
+function sanitizeLeaderboardRowColorHex(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  let m = /^#([0-9a-fA-F]{6})$/.exec(s);
+  if (m) return `#${m[1].toLowerCase()}`;
+  m = /^#([0-9a-fA-F]{3})$/.exec(s);
+  if (!m) return null;
+  const a = m[1];
+  return `#${a[0]}${a[0]}${a[1]}${a[1]}${a[2]}${a[2]}`.toLowerCase();
+}
+
 async function readChessLeaderboardMap(kv) {
   if (!kv) return {};
   try {
@@ -3370,6 +3447,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const decisive = wins + losses;
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
+  const rowColor = sanitizeLeaderboardRowColorHex(row.leaderboardRowColor);
 
   const recent = aggregateLeaderboardStatsFromRecentGames(
     chess,
@@ -3391,6 +3469,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
 
   return {
     username,
+    rowColor,
     points,
     wins,
     losses,
@@ -3469,6 +3548,7 @@ function leaderboardPublicRow(r, index1, mode = 'career') {
   return {
     rank: index1,
     username: r.username,
+    rowColor: r.rowColor || null,
     points: wk ? r.weekPoints : r.points,
     wins: wk ? r.weekWins : r.wins,
     losses: wk ? r.weekLosses : r.losses,
@@ -4883,6 +4963,13 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/setLeaderboardRowColor' && request.method === 'POST') {
+        const body = await request.json();
+        const result = await this.setLeaderboardRowColor(body);
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/changeUsername' && request.method === 'POST') {
         const { newUsername, password } = await request.json();
         const result = await this.changeUsername(newUsername, password);
@@ -5257,6 +5344,26 @@ export class UserAccount {
     userData.emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
     await this.storage.put('userData', userData);
     return { success: true, emailPreferences: userData.emailPreferences };
+  }
+
+  async setLeaderboardRowColor(body) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+    const raw = body && Object.prototype.hasOwnProperty.call(body, 'color') ? body.color : undefined;
+    if (raw === null || raw === '') {
+      delete userData.leaderboardRowColor;
+      await this.storage.put('userData', userData);
+      return { success: true, leaderboardRowColor: null };
+    }
+    const hex = sanitizeLeaderboardRowColorHex(raw);
+    if (!hex) {
+      return { success: false, error: 'Invalid color. Use a hex value like #1a2b3c, or send null to clear.' };
+    }
+    userData.leaderboardRowColor = hex;
+    await this.storage.put('userData', userData);
+    return { success: true, leaderboardRowColor: hex };
   }
 
   async changeUsername(newUsernameDisplay, password) {
