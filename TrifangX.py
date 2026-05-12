@@ -1501,6 +1501,8 @@ def evaluate_chunks(chunk):
     # Optimized: removed excessive printing for performance
     results = []
     for task in chunk:
+        if task is None:
+            continue
         key, scoring, scoring_time = evaluate_white_task(task)
         if scoring:
             results.append((key, scoring))
@@ -1508,8 +1510,22 @@ def evaluate_chunks(chunk):
 
 
 def evaluate_white_task(args):
-    board, row, col, new_row, new_col, good_moves, piece, black_king_row, black_king_col, captured_piece, position_history = args
-    scoring, scoring_time = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
+    if not isinstance(args, (tuple, list)) or len(args) != 10:
+        return None, None, None
+    try:
+        board, row, col, new_row, new_col, good_moves, piece, black_king_row, black_king_col, captured_piece, position_history = args
+    except TypeError:
+        return None, None, None
+    try:
+        ev = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
+    except (TypeError, ValueError) as e:
+        if 'unpack' in str(e).lower():
+            print(f'evaluate_white_task: {e}', file=sys.stderr)
+            return None, None, None
+        raise
+    if ev is None or not isinstance(ev, (tuple, list)) or len(ev) != 2:
+        return None, None, None
+    scoring, scoring_time = ev[0], ev[1]
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1528,6 +1544,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
+    current_score = 0.0
     if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         board[7][7] = '0'
@@ -1815,6 +1832,8 @@ def evaluate_chunks_black(chunk):
     # Optimized: removed excessive printing for performance
     results = []
     for task in chunk:
+        if task is None:
+            continue
         key, scoring, scoring_time = evaluate_black_task(task)
         if scoring:
             results.append((key, scoring))
@@ -1822,8 +1841,22 @@ def evaluate_chunks_black(chunk):
 
 
 def evaluate_black_task(args):
-    board, row, col, new_row, new_col, good_moves, piece, white_king_row, white_king_col, captured_piece, position_history = args
-    scoring, scoring_time = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
+    if not isinstance(args, (tuple, list)) or len(args) != 10:
+        return None, None, None
+    try:
+        board, row, col, new_row, new_col, good_moves, piece, white_king_row, white_king_col, captured_piece, position_history = args
+    except TypeError:
+        return None, None, None
+    try:
+        ev = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
+    except (TypeError, ValueError) as e:
+        if 'unpack' in str(e).lower():
+            print(f'evaluate_black_task: {e}', file=sys.stderr)
+            return None, None, None
+        raise
+    if ev is None or not isinstance(ev, (tuple, list)) or len(ev) != 2:
+        return None, None, None
+    scoring, scoring_time = ev[0], ev[1]
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1842,6 +1875,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
+    current_score = 0.0
     if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         # Removed print for performance in parallel processing
