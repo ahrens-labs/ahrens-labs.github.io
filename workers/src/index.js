@@ -3677,6 +3677,28 @@ function uniqStrings(a) {
   return [...new Set((Array.isArray(a) ? a : []).map((x) => String(x)))];
 }
 
+/** Per-category union so a stale client sync cannot drop server-side season shop unlocks. */
+const SHOP_UNLOCK_MERGE_KEYS = [
+  'boards',
+  'pieces',
+  'highlightColors',
+  'arrowColors',
+  'legalMoveDots',
+  'themes',
+  'timeControls',
+  'checkmateEffects',
+];
+
+function mergeShopUnlocksForSync(prevShop, incShop) {
+  const p = prevShop && typeof prevShop === 'object' ? prevShop : {};
+  const i = incShop && typeof incShop === 'object' ? incShop : {};
+  const out = { ...p };
+  for (const cat of SHOP_UNLOCK_MERGE_KEYS) {
+    out[cat] = uniqStrings([...(Array.isArray(p[cat]) ? p[cat] : []), ...(Array.isArray(i[cat]) ? i[cat] : [])]);
+  }
+  return out;
+}
+
 function applySeasonClaimRewardsToChess(chess, node) {
   const shop =
     chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? { ...chess.shopUnlocks } : {};
@@ -6321,6 +6343,9 @@ export class UserAccount {
       seasonBonusPoints: mergedSeason.seasonBonusPoints,
       lastUpdated: Date.now(),
     };
+    if (Object.prototype.hasOwnProperty.call(restIncoming, 'shopUnlocks')) {
+      mergedChess.shopUnlocks = mergeShopUnlocksForSync(prevChess.shopUnlocks, restIncoming.shopUnlocks);
+    }
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
     delete mergedChess.lbRollBaselineMs;

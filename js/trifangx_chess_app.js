@@ -11315,6 +11315,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           cheatPoints: data.cheatPoints || 0,
           gameHistory: Array.isArray(data.gameHistory) ? data.gameHistory : []
         };
+        if (data.seasonTrack && typeof data.seasonTrack === 'object') {
+          cloudChessData.seasonTrack = { ...data.seasonTrack };
+        }
+        if (Object.prototype.hasOwnProperty.call(data, 'seasonBonusPoints')) {
+          cloudChessData.seasonBonusPoints = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
+        }
         achievements = Object.keys(cloudChessData.achievements || {}).filter(function (k) {
           const v = cloudChessData.achievements[k];
           if (v === true || v === 1) return true;
