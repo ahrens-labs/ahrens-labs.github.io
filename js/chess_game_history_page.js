@@ -642,7 +642,7 @@
         });
       } else if (rawAch && typeof rawAch === 'object') {
         Object.keys(rawAch).forEach(function (k) {
-          achievementsObj[k] = rawAch[k];
+          achievementsObj[String(k)] = rawAch[k];
         });
       }
       cloudChessData = {

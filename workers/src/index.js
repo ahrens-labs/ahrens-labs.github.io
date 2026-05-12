@@ -3169,6 +3169,8 @@ function chessStatsSnapshot(chessBlock) {
 
 /** "Last 7 days" leaderboard: include `gameHistory` entries with `savedAt` within this many ms of request time. */
 const LEADERBOARD_RECENT_GAMES_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/** Ignore client clocks up to this far ahead of the worker when scoring recent achievement unlocks. */
+const LEADERBOARD_ACHIEVEMENT_MAX_FUTURE_SKEW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Career counters from a chess block only (no game-history aggregation). */
 function chessCareerTotalsFromChessBlock(chess) {
@@ -3227,7 +3229,7 @@ function sumRecentAchievementPointsFromChess(chessBlock, windowMs, serverNow = D
     if (!Number.isFinite(at) && v.at != null) at = Date.parse(String(v.at));
     const pts = Number(v.pts);
     if (!Number.isFinite(at) || !Number.isFinite(pts)) continue;
-    if (at < cutoff || at > serverNow) continue;
+    if (at < cutoff || at > serverNow + LEADERBOARD_ACHIEVEMENT_MAX_FUTURE_SKEW_MS) continue;
     sum += Math.max(0, Math.floor(pts));
   }
   return sum;

@@ -6725,7 +6725,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
                 cloudChessData.achievements = {};
               }
               const now = Date.now();
-              cloudChessData.achievements[ach.id] = {
+              const achKey = String(ach.id);
+              cloudChessData.achievements[achKey] = {
                 at: now,
                 pts: Math.max(0, Math.floor(Number(ach.points) || 0)),
               };
@@ -6777,7 +6778,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         }
         const o = cloudChessData.achievements;
         parsed.forEach(function (id) {
-          if (id && !(id in o)) o[id] = true;
+          if (id == null || id === '') return;
+          const key = String(id);
+          if (!(key in o)) o[key] = true;
         });
       }
     } else if (parsed && typeof parsed === 'object') {
@@ -6788,7 +6791,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         return !!v;
       });
       if (typeof cloudChessData !== 'undefined' && cloudChessData) {
-        cloudChessData.achievements = { ...parsed };
+        const norm = {};
+        Object.keys(parsed).forEach(function (k) {
+          norm[String(k)] = parsed[k];
+        });
+        cloudChessData.achievements = norm;
       }
     } else {
       achievements = [];
@@ -6807,14 +6814,17 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           cloudChessData.achievements = {};
         }
         const o = cloudChessData.achievements;
-        const allow = new Set(achievements);
+        const allow = new Set();
+        achievements.forEach(function (id) {
+          if (id != null && id !== '') allow.add(String(id));
+        });
         Object.keys(o).forEach(function (k) {
-          if (!allow.has(k)) delete o[k];
+          if (!allow.has(String(k))) delete o[k];
         });
         achievements.forEach(function (id) {
-          if (id && !(id in o)) {
-            o[id] = true;
-          }
+          if (id == null || id === '') return;
+          const key = String(id);
+          if (!(key in o)) o[key] = true;
         });
         localStorage.setItem('achievements', JSON.stringify(cloudChessData.achievements));
       } else {
@@ -11154,7 +11164,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           });
         } else if (rawAch && typeof rawAch === 'object') {
           Object.keys(rawAch).forEach(function (k) {
-            achievementsObj[k] = rawAch[k];
+            achievementsObj[String(k)] = rawAch[k];
           });
         }
 
