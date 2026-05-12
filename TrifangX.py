@@ -1166,7 +1166,12 @@ def reset_engine_state():
 
 
 def _compute_engine_move_reply(move_notation, color):
-    """Run one engine reply using current module globals (board, etc.)."""
+    """Apply the human's move, then compute the engine's reply.
+
+    `color` is the human's side from /move. The engine is the other side.
+    `players_turn` applies **white** moves; `players_turn_white` applies **black** moves
+    (legacy naming).
+    """
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -1178,20 +1183,6 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move:
-                cleaned_return = clean_move(return_move)
-                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
-                    return_move = convert_long_move(return_move)
-        else:
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
                     players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
                     players_turn(board, '0-0-0', '0-0-0')
@@ -1199,6 +1190,20 @@ def _compute_engine_move_reply(move_notation, color):
                     next_move = move_notation.strip()
                     players_turn(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
+        else:
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn_white(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn_white(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn_white(board, next_move, notation_move)
+            return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
                 if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
@@ -5079,6 +5084,9 @@ def best_move_function(board, bots, en_passant):
     global fifty_move_rule
     blind = 'false'
     black_king_row, black_king_col = find_king(board, 'b')
+    white_king_row_chk, white_king_col_chk = find_king(board, 'w')
+    if black_king_row < 0 or white_king_row_chk < 0:
+        return None
     checkmate = False
     checkmate2 = False
     bad_checkmate = False
@@ -5140,6 +5148,8 @@ def best_move_function(board, bots, en_passant):
             if normalized_opening.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
+                if played_list != to_play_list[: len(played_list)]:
+                    continue
                 next_index = len(played_list)
                 if next_index < len(to_play_list):
                     next_move = to_play_list[next_index]
@@ -5175,10 +5185,11 @@ def best_move_function(board, bots, en_passant):
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
                             from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                            previous_score = score(board, 'w')
-                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                        if piece and to_col and to_row and disambig:
+                            if from_row is not None and from_col is not None:
+                                previous_score = score(board, 'w')
+                                kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                                result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                        elif piece and to_col and to_row and disambig:
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
                             from_row = from_col = None
@@ -6503,6 +6514,9 @@ def best_move_black(board, bots, en_passant):
     global game_moves
     blind = 'false'
     white_king_row, white_king_col = find_king(board, 'w')
+    black_king_row_chk, black_king_col_chk = find_king(board, 'b')
+    if white_king_row < 0 or black_king_row_chk < 0:
+        return None
     checkmate = False
     checkmate2 = False
     bad_checkmate = False
@@ -6588,6 +6602,8 @@ def best_move_black(board, bots, en_passant):
             if normalized_opening_line.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
+                if played_list != to_play_list[: len(played_list)]:
+                    continue
                 next_index = len(played_list)
                 if next_index < len(to_play_list):
                     next_move = to_play_list[next_index]
@@ -6653,7 +6669,7 @@ def best_move_black(board, bots, en_passant):
                                             kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
                                             result_scores[(from_row, from_col, row, col, kp)] = previous_score
                                             break
-                            if piece and to_col and to_row and disambig:
+                            elif piece and to_col and to_row and disambig:
                                 pos = str(to_col) + str(to_row)
                                 row, col = pos_to_indices(pos)
                                 from_row = from_col = None
