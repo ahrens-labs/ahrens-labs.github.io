@@ -6,11 +6,13 @@
   <title>Account dashboard - Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/chess_lb_row.css">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
   <script src="js/chess_seasons.js"></script>
+  <script src="js/chess_lb_row.js"></script>
   <style>
     .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
     .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
@@ -423,6 +425,23 @@
           </p>
           <p class="status" id="lb-row-color-status"></p>
 
+          <p style="margin:18px 0 6px;font-size:0.82rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Live preview</p>
+          <p class="hint" style="font-size:0.85rem;margin:0 0 10px;">
+            Same table row styling as the public leaderboard (tinted row, flair layout, points tier colors).
+          </p>
+          <div class="dash-lb-live-preview-wrap lb-table-wrap">
+            <table class="lb-table" aria-label="Leaderboard row preview">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th class="lb-stat-head">Points</th>
+                </tr>
+              </thead>
+              <tbody id="dash-lb-preview-tbody"></tbody>
+            </table>
+          </div>
+
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0;">
 
           <h3 style="margin:0 0 10px;font-size:0.95rem;color:#334155;">Displayed flair</h3>
@@ -446,8 +465,6 @@
               <label for="dash-lb-flair-suffix">Suffix</label>
               <select id="dash-lb-flair-suffix" aria-label="Leaderboard suffix"></select>
             </div>
-            <p style="margin:8px 0 6px;font-size:0.82rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Preview</p>
-            <div id="dash-lb-flair-preview" style="padding:12px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:0.95rem;color:#0f172a;min-height:1.4em;"></div>
             <p style="margin:16px 0 0;display:flex;flex-wrap:wrap;gap:10px;">
               <button type="button" class="btn btn-primary" id="btn-dash-lb-flair-save">Save flair</button>
             </p>
@@ -669,6 +686,9 @@
   <script>
     const API_BASE_URL =
       window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+
+    let dashLbPreviewUserRef = null;
+    let dashLbPreviewChessRef = null;
 
     const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
     function isAdminBroadcastAccount(email) {
@@ -1181,6 +1201,87 @@
       return res.json();
     }
 
+    function normalizeDashLbSavedRowColor(user) {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      const raw = user && user.leaderboardRowColor;
+      if (typeof raw !== 'string' || !U || typeof U.normalizeLbHex !== 'function') return null;
+      return U.normalizeLbHex(raw.trim());
+    }
+
+    function getDashLbPreviewRowColor() {
+      const lc = document.getElementById('lb-row-color');
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!lc || !U || typeof U.normalizeLbHex !== 'function') return null;
+      const fromInput = U.normalizeLbHex(lc.value);
+      if (!fromInput) return null;
+      const savedNorm = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+      const hasSaved = !!savedNorm;
+      if (!hasSaved && fromInput === '#94a3b8') return null;
+      return fromInput;
+    }
+
+    function dashLbPreviewPoints() {
+      const d = dashLbPreviewChessRef;
+      if (!d || typeof d !== 'object') return 0;
+      const fromAch = Math.max(0, Number(d.points) || 0);
+      const bonus = Math.max(0, Math.floor(Number(d.seasonBonusPoints) || 0));
+      return fromAch + bonus;
+    }
+
+    function refreshDashLbLivePreview() {
+      const tbody = document.getElementById('dash-lb-preview-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!U || typeof U.renderLbDataRow !== 'function') {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 3;
+        td.style.padding = '12px 14px';
+        td.style.color = '#64748b';
+        td.textContent = 'Row preview UI failed to load. Refresh the page.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      const user = dashLbPreviewUserRef || {};
+      const chess = dashLbPreviewChessRef;
+      const st = chess && chess.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+      const form = document.getElementById('dash-lb-flair-form');
+      const formVisible = !!(form && form.style.display === 'block');
+      let lbFlair = { frame: null, title: null, prefix: '', suffix: '' };
+      if (formVisible) {
+        const frameEl = document.getElementById('dash-lb-flair-frame');
+        const titleEl = document.getElementById('dash-lb-flair-title');
+        const prefixEl = document.getElementById('dash-lb-flair-prefix');
+        const suffixEl = document.getElementById('dash-lb-flair-suffix');
+        lbFlair = {
+          frame: frameEl && frameEl.value ? frameEl.value : null,
+          title: titleEl && titleEl.value ? titleEl.value : null,
+          prefix: prefixEl && prefixEl.value ? prefixEl.value : '',
+          suffix: suffixEl && suffixEl.value ? suffixEl.value : '',
+        };
+      } else if (st.lbFlair && typeof st.lbFlair === 'object') {
+        const f = st.lbFlair;
+        lbFlair = {
+          frame: f.frame != null && String(f.frame) ? String(f.frame) : null,
+          title: f.title != null && String(f.title) ? String(f.title) : null,
+          prefix: f.prefix != null ? String(f.prefix) : '',
+          suffix: f.suffix != null ? String(f.suffix) : '',
+        };
+      }
+      const tr = document.createElement('tr');
+      const row = {
+        rank: 1,
+        username: user.username || 'Player',
+        rowColor: getDashLbPreviewRowColor(),
+        lbFlair,
+        points: dashLbPreviewPoints(),
+      };
+      U.renderLbDataRow(tr, row, 'points');
+      tbody.appendChild(tr);
+    }
+
     function dashFrameLabel(id) {
       if (!id) return 'None';
       return String(id).replace(/_/g, ' ');
@@ -1213,23 +1314,6 @@
       if (!ok && selectEl.options.length) selectEl.selectedIndex = 0;
     }
 
-    function refreshDashLbFlairPreview() {
-      const box = document.getElementById('dash-lb-flair-preview');
-      if (!box) return;
-      const pf = document.getElementById('dash-lb-flair-prefix');
-      const tf = document.getElementById('dash-lb-flair-title');
-      const sf = document.getElementById('dash-lb-flair-suffix');
-      const ff = document.getElementById('dash-lb-flair-frame');
-      if (!pf || !tf || !sf || !ff) return;
-      const parts = [
-        pf.value,
-        tf.value,
-        sf.value,
-        ff.value ? dashFrameLabel(ff.value) : '',
-      ].filter(Boolean);
-      box.textContent = parts.length ? parts.join(' · ') : 'Plain name only';
-    }
-
     function refreshDashLbFlairFromChess(data) {
       const form = document.getElementById('dash-lb-flair-form');
       const hint = document.getElementById('dash-lb-flair-hint');
@@ -1240,6 +1324,7 @@
         form.style.display = 'none';
         hint.textContent =
           'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+        refreshDashLbLivePreview();
         return;
       }
       const st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
@@ -1253,6 +1338,7 @@
         form.style.display = 'none';
         hint.textContent =
           'No flair unlocks yet. Claim season track steps in TrifangX or on the season track page, then return here.';
+        refreshDashLbLivePreview();
         return;
       }
       hint.textContent =
@@ -1263,7 +1349,7 @@
       dashFillSelect(document.getElementById('dash-lb-flair-title'), [''].concat(titles), eq.title || '');
       dashFillSelect(document.getElementById('dash-lb-flair-prefix'), [''].concat(prefixes), eq.prefix || '');
       dashFillSelect(document.getElementById('dash-lb-flair-suffix'), [''].concat(suffixes), eq.suffix || '');
-      refreshDashLbFlairPreview();
+      refreshDashLbLivePreview();
     }
 
     async function loadTrifangxPointsForDashboard() {
@@ -1279,6 +1365,7 @@
         });
         if (!res.ok) throw new Error('load failed');
         const data = await res.json();
+        dashLbPreviewChessRef = data;
         const fromAch = Math.max(0, Number(data.points) || 0);
         const cheat = Math.max(0, Number(data.cheatPoints) || 0);
         const spent = Math.max(0, Number(data.pointsSpent) || 0);
@@ -1301,11 +1388,13 @@
         valEl.textContent = '—';
         subEl.textContent =
           'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+        dashLbPreviewChessRef = null;
         refreshDashLbFlairFromChess(null);
       }
     }
 
     function applyUserToForm(user) {
+      dashLbPreviewUserRef = user;
       const w = document.getElementById('dash-welcome');
       const uname = user.username || 'Player';
       const em = user.email || '';
@@ -1355,6 +1444,7 @@
           pv.style.background = '#ffffff';
         }
       }
+      refreshDashLbLivePreview();
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
@@ -1935,8 +2025,14 @@
 
       ['dash-lb-flair-frame', 'dash-lb-flair-title', 'dash-lb-flair-prefix', 'dash-lb-flair-suffix'].forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => refreshDashLbFlairPreview());
+        if (el) el.addEventListener('change', () => refreshDashLbLivePreview());
       });
+
+      const lbRowColorInput = document.getElementById('lb-row-color');
+      if (lbRowColorInput) {
+        lbRowColorInput.addEventListener('input', refreshDashLbLivePreview);
+        lbRowColorInput.addEventListener('change', refreshDashLbLivePreview);
+      }
 
       const btnDashLbFlair = document.getElementById('btn-dash-lb-flair-save');
       if (btnDashLbFlair) {

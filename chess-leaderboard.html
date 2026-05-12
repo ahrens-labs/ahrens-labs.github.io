@@ -11,8 +11,10 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/chess_lb_row.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <script src="js/script.js"></script>
+    <script src="js/chess_lb_row.js"></script>
 
     <style>
         .lb-main {
@@ -154,96 +156,12 @@
             color: #0d9488;
             border-bottom-color: #0d9488;
         }
-        .lb-table-wrap {
-            overflow-x: auto;
-            border-radius: 14px;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-        }
-        table.lb-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-        }
-        .lb-table thead {
-            background: linear-gradient(135deg, #0f766e 0%, #0d9488 48%, #0891b2 100%);
-        }
-        .lb-table th {
-            text-align: left;
-            padding: 0.75rem 0.85rem;
-            border-bottom: none;
-            color: #ecfdf5;
-            font-weight: 700;
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-        }
-        .lb-table th.lb-stat-head {
-            text-align: right;
-        }
-        .lb-table td {
-            padding: 0.72rem 0.85rem;
-            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-            color: #334155;
-            transition: background 0.12s ease, color 0.12s ease;
-        }
-        .lb-table tbody tr.lb-row-default:not(:has(.lb-status)) td {
-            background: #ffffff !important;
-            border-bottom-color: rgba(226, 232, 240, 0.9);
-            color: #334155;
-        }
-        .lb-table tbody tr.lb-row-default:hover:not(:has(.lb-status)) td {
-            background: #f1f5f9 !important;
-        }
-        .lb-table tbody tr.lb-row-themed td {
-            background: var(--lb-bg) !important;
-            border-bottom-color: var(--lb-border);
-            color: var(--lb-fg);
-        }
-        .lb-table tbody tr.lb-row-themed:hover td {
-            background: var(--lb-bg-hover) !important;
-        }
-        .lb-table tbody tr.lb-row-themed .lb-rank {
-            color: var(--lb-rank-fg);
-        }
-        .lb-table tbody tr.lb-row-themed .lb-username {
-            color: var(--lb-fg);
-        }
-        .lb-table tbody tr.lb-row-themed .lb-num-t0,
-        .lb-table tbody tr.lb-row-themed .lb-num-t1 {
-            color: var(--lb-stat-muted);
-        }
-        .lb-table tbody tr.lb-row-themed .lb-num-t2,
-        .lb-table tbody tr.lb-row-themed .lb-num-t3,
-        .lb-table tbody tr.lb-row-themed .lb-num-t4 {
-            color: var(--lb-stat-pos);
-        }
-        .lb-table tbody tr.lb-row-themed .lb-num-neg-t0,
-        .lb-table tbody tr.lb-row-themed .lb-num-neg-t1,
-        .lb-table tbody tr.lb-row-themed .lb-num-neg-t2,
-        .lb-table tbody tr.lb-row-themed .lb-num-neg-t3,
-        .lb-table tbody tr.lb-row-themed .lb-num-neg-t4 {
-            color: var(--lb-stat-neg);
-        }
-        .lb-rank {
-            font-family: "DM Sans", "Inter", system-ui, sans-serif;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.02em;
-            color: #64748b;
-            width: 3.5rem;
-        }
         .lb-points {
             font-family: "DM Sans", "Inter", system-ui, sans-serif;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             color: #0f766e;
             text-align: right;
-        }
-        .lb-username {
-            font-weight: 600;
-            color: #0f172a;
         }
         .lb-status {
             text-align: center;
@@ -372,47 +290,7 @@
             border-color: #14b8a6;
             box-shadow: 0 4px 16px rgba(13, 148, 136, 0.45);
         }
-        .lb-stat {
-            font-family: "DM Sans", "Inter", system-ui, sans-serif;
-            font-weight: 700;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.03em;
-            text-align: right;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        .lb-num {
-            font-family: inherit;
-            font-weight: inherit;
-            font-variant-numeric: tabular-nums;
-        }
-        .lb-num-t0 { color: #94a3b8; }
-        .lb-num-t1 { color: #64748b; }
-        .lb-num-t2 { color: #0d9488; }
-        .lb-num-t3 { color: #059669; }
-        .lb-num-t4 { color: #047857; }
-        .lb-num-neg-t0 { color: #fca5a5; }
-        .lb-num-neg-t1 { color: #f87171; }
-        .lb-num-neg-t2 { color: #ef4444; }
-        .lb-num-neg-t3 { color: #dc2626; }
-        .lb-num-neg-t4 { color: #b91c1c; }
         @media (prefers-contrast: more) {
-            .lb-num-t0, .lb-num-t1, .lb-num-t2, .lb-num-t3, .lb-num-t4,
-            .lb-num-neg-t0, .lb-num-neg-t1, .lb-num-neg-t2, .lb-num-neg-t3, .lb-num-neg-t4 {
-                color: inherit;
-            }
-            .lb-table tbody tr.lb-row-themed .lb-num-t0,
-            .lb-table tbody tr.lb-row-themed .lb-num-t1,
-            .lb-table tbody tr.lb-row-themed .lb-num-t2,
-            .lb-table tbody tr.lb-row-themed .lb-num-t3,
-            .lb-table tbody tr.lb-row-themed .lb-num-t4,
-            .lb-table tbody tr.lb-row-themed .lb-num-neg-t0,
-            .lb-table tbody tr.lb-row-themed .lb-num-neg-t1,
-            .lb-table tbody tr.lb-row-themed .lb-num-neg-t2,
-            .lb-table tbody tr.lb-row-themed .lb-num-neg-t3,
-            .lb-table tbody tr.lb-row-themed .lb-num-neg-t4 {
-                color: inherit;
-            }
             .lb-hero h2 {
                 background: none;
                 -webkit-background-clip: border-box;
@@ -585,186 +463,20 @@
         tbody.appendChild(tr);
       }
 
-      function getStatNumericForSort(sort, r) {
-        if (sort === 'winPct') {
-          var vp = Number(r.winPct);
-          return Number.isFinite(vp) ? vp : 0;
-        }
-        var key =
-          sort === 'checks'
-            ? 'checksGiven'
-            : sort === 'castles'
-              ? 'castlingMoves'
-              : sort;
-        var n = Number(r[key]);
-        return Number.isFinite(n) ? n : 0;
-      }
-
-      function statQualityClass(sort, rawVal) {
-        var v = Number(rawVal);
-        if (!Number.isFinite(v)) v = 0;
-        if (sort === 'losses') {
-          if (v >= 400) return 'lb-num-neg-t4';
-          if (v >= 150) return 'lb-num-neg-t3';
-          if (v >= 55) return 'lb-num-neg-t2';
-          if (v >= 18) return 'lb-num-neg-t1';
-          return 'lb-num-neg-t0';
-        }
-        if (sort === 'winPct') {
-          if (v >= 72) return 'lb-num-t4';
-          if (v >= 58) return 'lb-num-t3';
-          if (v >= 45) return 'lb-num-t2';
-          if (v >= 32) return 'lb-num-t1';
-          return 'lb-num-t0';
-        }
-        var tables = {
-          points: [120, 500, 2500, 15000],
-          wins: [4, 18, 75, 300],
-          draws: [3, 12, 45, 140],
-          games: [8, 35, 140, 550],
-          captures: [40, 180, 900, 4500],
-          checks: [25, 120, 600, 3000],
-          promotions: [3, 12, 45, 180],
-          castles: [4, 18, 60, 220],
-        };
-        var th = tables[sort] || [40, 150, 600, 3000];
-        var tier = 0;
-        for (var i = 0; i < th.length; i++) {
-          if (v >= th[i]) tier = i + 1;
-        }
-        if (tier > 4) tier = 4;
-        return 'lb-num-t' + tier;
-      }
-
-      function formatStatCell(sort, r) {
-        if (sort === 'winPct') {
-          const v = Number(r.winPct);
-          return (Number.isFinite(v) ? v : 0).toFixed(1) + '%';
-        }
-        var key =
-          sort === 'checks'
-            ? 'checksGiven'
-            : sort === 'castles'
-              ? 'castlingMoves'
-              : sort;
-        var n = Number(r[key]);
-        return Number.isFinite(n) ? n.toLocaleString() : '0';
-      }
-
-      function normalizeLbHex(hex) {
-        if (hex == null || typeof hex !== 'string') return null;
-        var s = hex.trim();
-        var m6 = /^#([0-9a-f]{6})$/i.exec(s);
-        if (m6) return '#' + m6[1].toLowerCase();
-        var m3 = /^#([0-9a-f]{3})$/i.exec(s);
-        if (!m3) return null;
-        var a = m3[1];
-        return '#' + a[0] + a[0] + a[1] + a[1] + a[2] + a[2];
-      }
-
-      function hexToRgb(hex) {
-        var h = (hex || '').replace(/^#/, '');
-        if (h.length === 3) {
-          h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-        }
-        if (h.length !== 6 || !/^[0-9a-f]+$/i.test(h)) return null;
-        return {
-          r: parseInt(h.slice(0, 2), 16),
-          g: parseInt(h.slice(2, 4), 16),
-          b: parseInt(h.slice(4, 6), 16),
-        };
-      }
-
-      function mixRgb(a, b, t) {
-        return {
-          r: Math.round(a.r + (b.r - a.r) * t),
-          g: Math.round(a.g + (b.g - a.g) * t),
-          b: Math.round(a.b + (b.b - a.b) * t),
-        };
-      }
-
-      function rgbToHex(rgb) {
-        function h(c) {
-          var x = Math.max(0, Math.min(255, c)).toString(16);
-          return x.length === 1 ? '0' + x : x;
-        }
-        return '#' + h(rgb.r) + h(rgb.g) + h(rgb.b);
-      }
-
-      function relLum(rgb) {
-        function f(c) {
-          c /= 255;
-          return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-        }
-        var R = f(rgb.r),
-          G = f(rgb.g),
-          B = f(rgb.b);
-        return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-      }
-
-      function applyLeaderboardRowTheme(tr, hexNorm) {
-        var base = hexToRgb(hexNorm);
-        if (!base) {
-          tr.className = 'lb-row-default';
-          tr.removeAttribute('style');
-          return;
-        }
-        var L = relLum(base);
-        var light = L > 0.45;
-        var black = { r: 0, g: 0, b: 0 };
-        var white = { r: 255, g: 255, b: 255 };
-        var bgHover = rgbToHex(mixRgb(base, light ? black : white, light ? 0.1 : 0.14));
-        var border = rgbToHex(mixRgb(base, black, light ? 0.12 : 0.28));
-        tr.className = 'lb-row-themed';
-        tr.style.setProperty('--lb-bg', hexNorm);
-        tr.style.setProperty('--lb-bg-hover', bgHover);
-        tr.style.setProperty('--lb-border', border);
-        if (light) {
-          tr.style.setProperty('--lb-fg', '#0f172a');
-          tr.style.setProperty('--lb-rank-fg', '#475569');
-          tr.style.setProperty('--lb-stat-muted', '#64748b');
-          tr.style.setProperty('--lb-stat-pos', '#047857');
-          tr.style.setProperty('--lb-stat-neg', '#b91c1c');
-        } else {
-          tr.style.setProperty('--lb-fg', '#f8fafc');
-          tr.style.setProperty('--lb-rank-fg', '#cbd5e1');
-          tr.style.setProperty('--lb-stat-muted', '#94a3b8');
-          tr.style.setProperty('--lb-stat-pos', '#6ee7b7');
-          tr.style.setProperty('--lb-stat-neg', '#fca5a5');
-        }
-      }
-
       function renderRows(rows, sort, windowMode) {
         tbody.innerHTML = '';
         if (!rows || rows.length === 0) {
           showStatus('No players on the leaderboard yet. Play TrifangX while signed in to sync your profile here.', false);
           return;
         }
+        var U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+        if (!U || typeof U.renderLbDataRow !== 'function') {
+          showStatus('Leaderboard row UI failed to load. Refresh the page.', true);
+          return;
+        }
         for (var i = 0; i < rows.length; i++) {
-          var r = rows[i];
           var tr = document.createElement('tr');
-          var hex = normalizeLbHex(r.rowColor);
-          if (hex) applyLeaderboardRowTheme(tr, hex);
-          else {
-            tr.className = 'lb-row-default';
-            tr.removeAttribute('style');
-          }
-          var tdRank = document.createElement('td');
-          tdRank.className = 'lb-rank';
-          tdRank.textContent = String(r.rank);
-          var tdName = document.createElement('td');
-          tdName.className = 'lb-username';
-          tdName.textContent = String(r.username || 'Player');
-          var tdStat = document.createElement('td');
-          tdStat.className = 'lb-stat';
-          var numVal = getStatNumericForSort(sort, r);
-          var span = document.createElement('span');
-          span.className = 'lb-num ' + statQualityClass(sort, numVal);
-          span.textContent = formatStatCell(sort, r);
-          tdStat.appendChild(span);
-          tr.appendChild(tdRank);
-          tr.appendChild(tdName);
-          tr.appendChild(tdStat);
+          U.renderLbDataRow(tr, rows[i], sort);
           tbody.appendChild(tr);
         }
       }
