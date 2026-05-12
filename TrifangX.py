@@ -95,10 +95,7 @@ def _promotion_source_piece(piece, target_row, from_row=None):
         if _is_actual_black_pawn_promotion(piece, from_row, target_row):
             return 'p'
         return piece
-    if _is_white_promotion_piece(piece, target_row):
-        return 'P'
-    if _is_black_promotion_piece(piece, target_row):
-        return 'p'
+    # Without from_row we cannot tell a knight/queen on the back rank from a promoted pawn.
     return piece
 
 def _is_actual_white_pawn_promotion(moved_piece, from_row, target_row):
@@ -251,14 +248,11 @@ def _apply_debug_move(board, piece, from_row, from_col, to_row, to_col, color):
             board[0][4] = '0'
         return
 
-    source_piece = _promotion_source_piece(piece, to_row, from_row)
     board[from_row][from_col] = '0'
-    if _is_promotion_piece(piece, to_row):
-        board[to_row][to_col] = piece
-    elif source_piece == 'p' and color == 'b' and to_row == 0:
-        board[to_row][to_col] = 'q'
-    elif source_piece == 'P' and color == 'w' and to_row == 7:
-        board[to_row][to_col] = 'Q'
+    if _is_actual_white_pawn_promotion(piece, from_row, to_row):
+        board[to_row][to_col] = piece if piece in WHITE_PROMOTION_PIECES else 'Q'
+    elif _is_actual_black_pawn_promotion(piece, from_row, to_row):
+        board[to_row][to_col] = piece if piece in BLACK_PROMOTION_PIECES else 'q'
     else:
         board[to_row][to_col] = piece
 
@@ -1557,6 +1551,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             ep_victim = board[ep_capture_row][ep_capture_col]
         else:
             placed = piece
+        orig_from_square_piece = board[from_row][from_col]
         analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, ep_victim if is_black_ep else captured_piece, 'b') if DEBUG_LOGS else None
         board[from_row][from_col] = '0'
         if is_black_ep:
@@ -1622,7 +1617,7 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             board[ep_capture_row][ep_capture_col] = ep_victim
             board[from_row][from_col] = 'p'
         else:
-            board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
+            board[from_row][from_col] = orig_from_square_piece
             board[to_row][to_col] = captured_piece
         position_history[pos_hash] -= 1
         if piece == 'k':
@@ -1823,6 +1818,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             ep_victim = board[ep_capture_row][ep_capture_col]
         else:
             placed = piece
+        orig_from_square_piece = board[from_row][from_col]
         analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, ep_victim if is_white_ep else captured_piece, 'w') if DEBUG_LOGS else None
         board[from_row][from_col] = '0'
         if is_white_ep:
@@ -1889,7 +1885,7 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             board[ep_capture_row][ep_capture_col] = ep_victim
             board[from_row][from_col] = 'P'
         else:
-            board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
+            board[from_row][from_col] = orig_from_square_piece
             board[to_row][to_col] = captured_piece
         position_history[pos_hash] -= 1
         if piece == 'K':
@@ -4556,6 +4552,23 @@ def _opening_book_key_piece(board, from_row, from_col, to_row, to_col, next_move
     return src
 
 
+_engine_reply_undo_src = threading.local()
+
+
+def _push_engine_reply_source_char(ch):
+    stack = getattr(_engine_reply_undo_src, 'stack', None)
+    if stack is None:
+        _engine_reply_undo_src.stack = stack = []
+    stack.append(ch)
+
+
+def _pop_engine_reply_source_char():
+    stack = getattr(_engine_reply_undo_src, 'stack', None)
+    if not stack:
+        return None
+    return stack.pop()
+
+
 def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol):
     """
     During static analysis / predicted lines: place the engine's reply on the board.
@@ -4563,6 +4576,7 @@ def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, 
     be Q/N or q/n after promotion). If that field is still P/p but the source square holds
     a promoted piece, use the board piece so undo restores correctly.
     """
+    _push_engine_reply_source_char(board[from_row][from_col])
     sym = moved_piece_symbol
     actual = board[from_row][from_col]
     if sym == 'P' and actual in _WHITE_PROMO_MISMATCH:
@@ -4580,27 +4594,25 @@ def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, 
 def _source_piece_before_move(moved_piece_symbol, target_row, from_row=None):
     """
     Map the piece on the destination after a forward move back to what occupied the source.
-    Q/N on rank 8 (row 7) or q/n on rank 1 (row 0) are only pawn promotions when the
-    move started on the 7th resp. 2nd rank (row 6 resp. 1); otherwise a queen/knight moved
-    onto that square and must undo as the same piece.
+    Only true pawn promotions (P from row 6→7, p from row 1→0) undo to a pawn; a knight or
+    queen that lands on the back rank stays that piece unless undo uses the source stack.
     """
     if from_row is not None:
-        if target_row == 7 and moved_piece_symbol in WHITE_PROMOTION_PIECES and from_row == 6:
+        if _is_actual_white_pawn_promotion(moved_piece_symbol, from_row, target_row):
             return 'P'
-        if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES and from_row == 1:
+        if _is_actual_black_pawn_promotion(moved_piece_symbol, from_row, target_row):
             return 'p'
         return moved_piece_symbol
-    # Without from_row, we cannot safely assume promotion. Return piece as-is to prevent
-    # incorrectly converting Knights/Queens on rank 7/0 back to pawns (e.g., after Nxe7).
-    # This avoids the legacy bug where any promotion piece on back rank was assumed to be
-    # a pawn that was promoted.
     return moved_piece_symbol
 
 
 def _undo_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol, captured_piece):
-    # Use the piece actually on the destination (handles P vs Q/N after promotion on source).
-    effective = board[target_row][target_col]
-    board[from_row][from_col] = _source_piece_before_move(effective, target_row, from_row)
+    popped = _pop_engine_reply_source_char()
+    if popped is not None:
+        board[from_row][from_col] = popped
+    else:
+        effective = board[target_row][target_col]
+        board[from_row][from_col] = _source_piece_before_move(effective, target_row, from_row)
     board[target_row][target_col] = captured_piece
 
 
