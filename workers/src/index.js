@@ -3068,13 +3068,12 @@ async function executeAdminTestEmailById(env, gate, id) {
     case 'milestone_points': {
       const base = siteMarketingBase(env);
       const chessUrl = `${base}/chess_engine.html`;
-      const milestoneStats = {
-        wins: 28,
-        losses: 10,
-        draws: 2,
-        games: 40,
-        points: 12050,
-      };
+      const milestoneStats = normalizeChessMilestoneEmailStats({
+        wins: 142,
+        losses: 98,
+        draws: 20,
+        points: 18650,
+      });
       const spec =
         id === 'milestone_wins'
           ? { kind: 'wins', threshold: 25 }
@@ -3093,16 +3092,24 @@ async function executeAdminTestEmailById(env, gate, id) {
     }
     case 'broadcast_from_sample': {
       const fromEsc = escapeHtmlEmail(ADMIN_BROADCAST_FROM_EMAIL);
+      const nameEsc = escapeHtmlEmail(ADMIN_BROADCAST_FROM_NAME);
       await dispatchTransactionalEmail(env, {
         to,
         subject: '[Test] Broadcast From sample (admin)',
-        html: `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:20px;line-height:1.55;color:#1e293b;">
-<p>This uses the same <strong>From</strong> as admin broadcasts: <code>${fromEsc}</code> (${escapeHtmlEmail(
-          ADMIN_BROADCAST_FROM_NAME
-        )}).</p>
-<p>Real broadcasts fill <code>{{username}}</code> and <code>{{email}}</code> per recipient.</p>
-<p><em>Admin test pack — safe to delete.</em></p>
-</body></html>`,
+        html: `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#312e81 0%,#0f172a 100%);">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" style="max-width:520px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);">
+<tr><td style="padding:22px 26px;background:linear-gradient(120deg,#818cf8,#c084fc);font-family:system-ui,sans-serif;">
+<p style="margin:0;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#eef2ff;">Admin · broadcast sender</p>
+<p style="margin:8px 0 0 0;font-size:20px;font-weight:900;color:#fff;line-height:1.2;">From line preview</p>
+</td></tr>
+<tr><td style="padding:24px 26px;font-family:system-ui,sans-serif;line-height:1.6;color:#334155;font-size:15px;">
+<p style="margin:0 0 12px 0;">This uses the same <strong style="color:#0f172a;">From</strong> as admin broadcasts:</p>
+<p style="margin:0 0 16px 0;padding:12px 14px;background:#f1f5f9;border-radius:10px;border-left:4px solid #6366f1;font-size:13px;word-break:break-all;"><code style="color:#4338ca;">${fromEsc}</code><br><span style="color:#64748b;">Display name:</span> <strong style="color:#0f172a;">${nameEsc}</strong></p>
+<p style="margin:0 0 10px 0;">Real broadcasts merge <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;color:#92400e;">{{username}}</code> and <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;color:#92400e;">{{email}}</code> per recipient.</p>
+<p style="margin:16px 0 0 0;font-size:13px;color:#94a3b8;font-style:italic;">Admin test pack — safe to delete.</p>
+</td></tr></table></td></tr></table></body></html>`,
         text: `Broadcast From sample (same as bulk tools). From ${ADMIN_BROADCAST_FROM_EMAIL}. Admin test pack.`,
         fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
         fromName: ADMIN_BROADCAST_FROM_NAME,
@@ -3113,7 +3120,18 @@ async function executeAdminTestEmailById(env, gate, id) {
       await dispatchTransactionalEmail(env, {
         to,
         subject: '[Test] Default transactional sender',
-        html: '<p>Uses the worker’s default transactional sender (no broadcast From override). Same path as a minimal health check email.</p>',
+        html: `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:linear-gradient(160deg,#134e4a 0%,#0f172a 100%);">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" style="max-width:480px;background:#fff;border-radius:16px;box-shadow:0 18px 44px rgba(0,0,0,.3);">
+<tr><td style="padding:22px 24px;background:linear-gradient(135deg,#14b8a6,#0d9488);font-family:system-ui,sans-serif;">
+<p style="margin:0;font-size:18px;font-weight:900;color:#fff;">Transactional path</p>
+<p style="margin:6px 0 0 0;font-size:13px;color:#ccfbf1;">Default sender — no broadcast override</p>
+</td></tr>
+<tr><td style="padding:22px 24px;font-family:system-ui,sans-serif;font-size:15px;line-height:1.6;color:#334155;">
+<p style="margin:0;">Uses the worker’s default transactional sender (same path as verification, reset, and digests). No <strong>From</strong> override.</p>
+<p style="margin:14px 0 0 0;font-size:13px;color:#94a3b8;">Admin test pack.</p>
+</td></tr></table></td></tr></table></body></html>`,
         text: 'Default transactional sender (no From override). Admin test pack.',
       });
       return;
@@ -3227,27 +3245,40 @@ function buildVerificationUrl(env, email, token) {
 async function sendVerificationEmail(env, email, username, token) {
   const verificationUrl = buildVerificationUrl(env, email, token);
   const safeName = String(username).replace(/[<>]/g, '');
-  const subject = 'Confirm your Ahrens Labs account';
-  const html = `
-        <html>
-          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2c3e50;">Welcome to Ahrens Labs!</h2>
-            <p>Hi ${safeName},</p>
-            <p>Thanks for creating an account. <strong>Confirm your email address</strong> using the button below — you can sign in only after you confirm.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}"
-                 style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                Confirm email address
-              </a>
+  const safeNameHtml = escapeHtmlEmail(safeName);
+  const subject = 'You are one tap away — confirm your Ahrens Labs account';
+  const urlEsc = escapeHtmlEmail(verificationUrl);
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#042f2e 0%,#0f172a 50%,#1e3a8a 100%);">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center" style="padding:32px 14px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);">
+        <tr>
+          <td style="padding:28px 32px;background:linear-gradient(120deg,#0d9488 0%,#2563eb 55%,#7c3aed 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            <p style="margin:0;font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ecfeff;opacity:.95;">Ahrens Labs</p>
+            <p style="margin:10px 0 0 0;font-size:26px;font-weight:900;line-height:1.2;color:#ffffff;">Confirm your email</p>
+            <p style="margin:10px 0 0 0;font-size:15px;line-height:1.55;color:#cffafe;">Unlock TrifangX saves, cloud sync, and every lab tied to one login.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+            <p style="margin:0 0 14px 0;font-size:18px;font-weight:700;">Hi ${safeNameHtml},</p>
+            <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for signing up. <strong style="color:#0f172a;">One quick confirm</strong> proves this inbox is yours — then you can sign in everywhere.</p>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${verificationUrl}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#14b8a6,#2563eb);color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:16px;box-shadow:0 12px 28px rgba(37,99,235,.35);">Confirm email address</a>
             </div>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="color: #7f8c8d; word-break: break-all;">${verificationUrl}</p>
-            <p style="margin-top: 30px; color: #7f8c8d; font-size: 0.9em;">
-              If you did not create this account, you can ignore this email.
-            </p>
-          </body>
-        </html>
-      `;
+            <p style="margin:0 0 8px 0;font-size:13px;color:#64748b;">Or paste this link:</p>
+            <p style="margin:0;padding:12px 14px;background:#f1f5f9;border-radius:10px;word-break:break-all;font-size:12px;color:#475569;line-height:1.5;">${urlEsc}</p>
+            <p style="margin:22px 0 0 0;font-size:12px;line-height:1.55;color:#94a3b8;">If you did not create this account, you can ignore this message.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
   const text = [
     `Hi ${safeName},`,
     '',
@@ -3265,16 +3296,36 @@ const CHESS_MILESTONE_WIN_THRESHOLDS = [1, 5, 10, 25, 50, 100, 250, 500];
 const CHESS_MILESTONE_GAME_THRESHOLDS = [10, 25, 50, 100, 250, 500, 1000];
 const CHESS_MILESTONE_POINT_THRESHOLDS = [1000, 5000, 10000, 20000, 50000, 100000];
 
+/**
+ * Coerce stats for milestone emails so games, win rate, and W/L/D stay consistent
+ * (games is at least wins + losses + draws, matching `chessStatsSnapshot`).
+ */
+function normalizeChessMilestoneEmailStats(raw) {
+  const wins = Math.max(0, Math.floor(Number(raw?.wins) || 0));
+  const losses = Math.max(0, Math.floor(Number(raw?.losses) || 0));
+  const draws = Math.max(0, Math.floor(Number(raw?.draws) || 0));
+  const points = Math.max(0, Math.floor(Number(raw?.points) || 0));
+  const sumWLd = wins + losses + draws;
+  let games = Math.max(0, Math.floor(Number(raw?.games) || 0));
+  if (sumWLd > 0) {
+    games = Math.max(games, sumWLd);
+  } else if (games < 1) {
+    games = 1;
+  }
+  return { wins, losses, draws, games, points };
+}
+
 function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }) {
+  const ns = normalizeChessMilestoneEmailStats(stats || {});
   const safeName = escapeHtmlEmail(username || 'there');
   const thresholdLabel = Number(threshold).toLocaleString();
-  const winsLabel = Number(stats.wins || 0).toLocaleString();
-  const lossesLabel = Number(stats.losses || 0).toLocaleString();
-  const drawsLabel = Number(stats.draws || 0).toLocaleString();
-  const gamesLabel = Number(stats.games || 0).toLocaleString();
-  const pointsLabel = Number(stats.points || 0).toLocaleString();
-  const totalGames = Math.max(1, Number(stats.games || 0));
-  const winRate = Math.round((Number(stats.wins || 0) / totalGames) * 100);
+  const winsLabel = Number(ns.wins).toLocaleString();
+  const lossesLabel = Number(ns.losses).toLocaleString();
+  const drawsLabel = Number(ns.draws).toLocaleString();
+  const gamesLabel = Number(ns.games).toLocaleString();
+  const pointsLabel = Number(ns.points).toLocaleString();
+  const totalGames = Math.max(1, ns.games);
+  const winRate = Math.round((ns.wins / totalGames) * 100);
   const safeChessUrl = escapeHtmlEmail(chessUrl);
 
   const variants = {
@@ -3316,12 +3367,12 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
     },
   };
   const v = variants[kind] || variants.points;
-  const preheader = `${v.textLine} Current record: ${winsLabel}W / ${lossesLabel}L / ${drawsLabel}D.`;
-  const statCell = (label, value, color) => `<td width="25%" style="padding:6px;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;">
-      <tr><td style="padding:14px 8px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-        <div style="font-size:22px;font-weight:900;line-height:1;color:${color};">${value}</div>
-        <div style="margin-top:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${label}</div>
+  const preheader = `${v.textLine} ${gamesLabel} games · ${pointsLabel} pts · ${winsLabel}W/${lossesLabel}L/${drawsLabel}D.`;
+  const statCell = (label, value, color, rim) => `<td width="20%" style="padding:5px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%);border:1px solid #e2e8f0;border-radius:14px;border-left:4px solid ${rim};box-shadow:0 8px 22px rgba(15,23,42,.1);">
+      <tr><td style="padding:12px 5px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+        <div style="font-size:20px;font-weight:900;line-height:1;color:${color};">${value}</div>
+        <div style="margin-top:5px;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#64748b;">${label}</div>
       </td></tr>
     </table>
   </td>`;
@@ -3329,62 +3380,63 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#111827;">
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#020617 0%,#1e1b4b 40%,#0f172a 100%);">
   <div style="display:none;max-height:0;overflow:hidden;">${escapeHtmlEmail(preheader)}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#111827;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:transparent;">
     <tr>
-      <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;width:100%;background:#f8fafc;border-radius:18px;overflow:hidden;box-shadow:0 22px 60px rgba(0,0,0,.35);">
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;width:100%;background:#f8fafc;border-radius:22px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06) inset;">
           <tr>
-            <td style="background:#0f172a;background-image:linear-gradient(135deg,#0f172a 0%,#1d4ed8 48%,${v.accentDark} 100%);padding:34px 34px 30px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
-              <div style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.14);color:${v.glow};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">${escapeHtmlEmail(v.eyebrow)}</div>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:18px;">
+            <td style="background-image:linear-gradient(125deg,#020617 0%,#312e81 32%,#1d4ed8 58%,${v.accentDark} 100%);padding:36px 34px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
+              <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:${v.glow};font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;">${escapeHtmlEmail(v.eyebrow)}</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <div style="font-size:42px;font-weight:900;line-height:1.05;margin:0;color:#ffffff;">${escapeHtmlEmail(v.hero)}</div>
-                    <div style="font-size:15px;line-height:1.5;color:#dbeafe;margin-top:9px;">A new TrifangX milestone is on your account.</div>
+                    <div style="font-size:44px;font-weight:900;line-height:1.05;margin:0;color:#ffffff;text-shadow:0 2px 22px rgba(0,0,0,.35),0 0 40px ${v.glow};">${escapeHtmlEmail(v.hero)}</div>
+                    <div style="font-size:16px;line-height:1.55;color:#e0e7ff;margin-top:12px;font-weight:500;">Your TrifangX career just hit a new high — the numbers below are live from your synced save.</div>
                   </td>
-                  <td width="82" align="right" style="vertical-align:middle;">
-                    <div style="width:70px;height:70px;border-radius:20px;background:rgba(255,255,255,.16);text-align:center;line-height:70px;font-size:38px;">${v.icon}</div>
+                  <td width="88" align="right" style="vertical-align:middle;">
+                    <div style="width:76px;height:76px;border-radius:22px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);text-align:center;line-height:74px;font-size:40px;box-shadow:0 8px 28px rgba(0,0,0,.25);">${v.icon}</div>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:30px 34px 8px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#172033;">
-              <h1 style="margin:0 0 10px 0;font-size:26px;line-height:1.2;color:#0f172a;">${v.title}</h1>
-              <p style="margin:0;font-size:16px;line-height:1.65;color:#475569;">${v.lead}</p>
+            <td style="padding:32px 34px 10px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#172033;">
+              <h1 style="margin:0 0 12px 0;font-size:27px;line-height:1.2;color:#0f172a;">${v.title}</h1>
+              <p style="margin:0;font-size:17px;line-height:1.65;color:#475569;">${v.lead}</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:18px 28px 4px 28px;">
+            <td style="padding:16px 22px 6px 22px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  ${statCell('Wins', winsLabel, '#16a34a')}
-                  ${statCell('Losses', lossesLabel, '#dc2626')}
-                  ${statCell('Draws', drawsLabel, '#7c3aed')}
-                  ${statCell('Points', pointsLabel, '#d97706')}
+                  ${statCell('Wins', winsLabel, '#16a34a', '#22c55e')}
+                  ${statCell('Losses', lossesLabel, '#ef4444', '#fb7185')}
+                  ${statCell('Draws', drawsLabel, '#7c3aed', '#c084fc')}
+                  ${statCell('Games', gamesLabel, '#0284c7', '#22d3ee')}
+                  ${statCell('Points', pointsLabel, '#d97706', '#fbbf24')}
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:12px 34px 4px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;">
+            <td style="padding:10px 34px 6px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,.06);">
                 <tr>
-                  <td style="padding:16px 18px;">
-                    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:9px;">Career snapshot: ${gamesLabel} total games, ${winRate}% win rate</div>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div style="width:${Math.min(100, Math.max(0, winRate))}%;height:10px;background:${v.accent};border-radius:999px;line-height:10px;font-size:0;">&nbsp;</div></td></tr></table>
+                  <td style="padding:18px 20px;">
+                    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">Win rate across <strong style="color:#0f172a;">${gamesLabel}</strong> games: <strong style="color:${v.accentDark};">${winRate}%</strong></div>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div style="width:${Math.min(100, Math.max(0, winRate))}%;height:12px;background:linear-gradient(90deg,${v.accentDark},${v.accent});border-radius:999px;line-height:12px;font-size:0;">&nbsp;</div></td></tr></table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:26px 34px 34px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-              <a href="${safeChessUrl}" style="display:inline-block;background:${v.accent};color:#0f172a;text-decoration:none;border-radius:999px;padding:14px 24px;font-weight:900;font-size:15px;">Play another game</a>
-              <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#64748b;">Keep playing TrifangX to unlock more milestones, achievements, and leaderboard progress.</p>
+            <td align="center" style="padding:28px 34px 38px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+              <a href="${safeChessUrl}" style="display:inline-block;background:linear-gradient(135deg,${v.accent} 0%,${v.accentDark} 100%);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:16px 30px;font-weight:900;font-size:16px;box-shadow:0 10px 28px rgba(15,23,42,.25);">Play another game →</a>
+              <p style="margin:18px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Chase the next milestone, rack up achievements, and climb the <strong style="color:#0f766e;">leaderboards</strong>.</p>
             </td>
           </tr>
         </table>
@@ -3398,8 +3450,8 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
     `Hi ${username || 'there'},`,
     '',
     v.textLine,
-    `Record: ${winsLabel}W / ${lossesLabel}L / ${drawsLabel}D.`,
-    `Games: ${gamesLabel}. Points: ${pointsLabel}. Win rate: ${winRate}%.`,
+    `Record: ${winsLabel}W / ${lossesLabel}L / ${drawsLabel}D — ${gamesLabel} games, ${pointsLabel} pts.`,
+    `Win rate: ${winRate}%.`,
     '',
     `Play another game: ${chessUrl}`,
   ].join('\n');
@@ -4034,6 +4086,7 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
  */
 async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const safeName = String(username).replace(/[<>]/g, '');
+  const safeNameHtml = escapeHtmlEmail(safeName);
   const base = siteMarketingBase(env);
   const subject = 'Welcome to Ahrens Labs — your hub for TrifangX, labs & more';
   const preheader =
@@ -4054,21 +4107,21 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   <meta name="viewport" content="width=device-width">
   <title>${subject}</title>
 </head>
-<body style="margin:0;padding:0;background:#e8eef4;">
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#0c4a6e 0%,#1e1b4b 40%,#312e81 100%);">
   <div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#e8eef4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:transparent;">
     <tr>
       <td align="center" style="padding:28px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:${emailInnerMax};width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(15,23,42,0.12);">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:${emailInnerMax};width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,0.28);border:1px solid rgba(255,255,255,0.12);">
           <tr>
-            <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#1d4ed8 100%);padding:28px 32px;text-align:center;">
-              <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:0.02em;">Ahrens Labs</p>
-              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;color:#c7d2fe;line-height:1.5;">Games, tools & learning — one sign-in everywhere</p>
+            <td style="background:linear-gradient(125deg,#0ea5e9 0%,#6366f1 40%,#a855f7 85%);padding:30px 32px;text-align:center;">
+              <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:0.02em;text-shadow:0 2px 12px rgba(0,0,0,0.2);">Ahrens Labs</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;color:#e0e7ff;line-height:1.5;">Games, tools & learning — one sign-in everywhere</p>
             </td>
           </tr>
           <tr>
             <td style="padding:32px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-              <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeName},</p>
+              <p style="margin:0 0 16px 0;font-size:18px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
               <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Thanks for joining <strong style="color:#0f172a;">Ahrens Labs</strong>. Your free account stores progress in the cloud so you can pick up where you left off on any device.</p>
               <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">Below is a quick tour of what you can play, build, and learn — all tied to the same login. Jump in anywhere; your saves and settings follow you.</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px 0;">
@@ -4329,6 +4382,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
 async function sendAccountDeletedEmail(env, email, username) {
   if (!email) return;
   const safeName = String(username).replace(/[<>]/g, '');
+  const safeNameHtml = escapeHtmlEmail(safeName);
   const base = sitePublicBase(env);
   let siteHostname = 'ahrenslabs.com';
   try {
@@ -4336,17 +4390,37 @@ async function sendAccountDeletedEmail(env, email, username) {
   } catch {
     /* keep default */
   }
+  const siteHostHtml = escapeHtmlEmail(siteHostname);
   const subject = 'Your Ahrens Labs account was deleted';
-  const html = `
-    <html>
-      <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #2c3e50;">Account removed</h2>
-        <p>Hi ${safeName},</p>
-        <p>This confirms that your <strong>Ahrens Labs</strong> account and its cloud data have been permanently deleted as you requested.</p>
-        <p>If you did not ask for this, contact support through the site and consider securing your email inbox.</p>
-        <p style="margin-top: 24px;"><a href="${base}/" style="color: #3498db;">${siteHostname}</a></p>
-      </body>
-    </html>`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#0c4a6e 0%,#0f172a 50%,#14532d 100%);">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center" style="padding:32px 14px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);">
+        <tr>
+          <td style="padding:28px 32px;background:linear-gradient(120deg,#0ea5e9 0%,#22c55e 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            <p style="margin:0;font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#ecfeff;opacity:.95;">Ahrens Labs</p>
+            <p style="margin:10px 0 0 0;font-size:26px;font-weight:900;line-height:1.2;color:#ffffff;">Account removed</p>
+            <p style="margin:10px 0 0 0;font-size:15px;line-height:1.55;color:#ecfdf5;">This message confirms the deletion you started — cloud saves and profile data tied to this login are gone.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+            <p style="margin:0 0 14px 0;font-size:18px;font-weight:700;">Hi ${safeNameHtml},</p>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.65;color:#334155;">Your <strong style="color:#0f172a;">Ahrens Labs</strong> account and associated cloud data have been <strong style="color:#b91c1c;">permanently deleted</strong> as requested.</p>
+            <p style="margin:0 0 22px 0;font-size:15px;line-height:1.65;color:#334155;">If you did not initiate this, secure your inbox and reach out through the site — we take unexpected removals seriously.</p>
+            <div style="text-align:center;margin:8px 0 0 0;">
+              <a href="${base}/" style="display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#0ea5e9,#16a34a);color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;box-shadow:0 10px 24px rgba(14,165,233,.35);">Visit ${siteHostHtml}</a>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
   const text = [
     `Hi ${safeName},`,
     '',
@@ -4391,15 +4465,16 @@ function digestChallengeCardHtml(challengeId) {
   );
   const pointsHtml =
     c && typeof c.points === 'number'
-      ? `<div style="font-size:14.4px;color:#f39c12;font-weight:700;margin-top:8px;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;">${c.points} points</div>`
+      ? `<div style="display:inline-block;margin-top:10px;padding:6px 12px;border-radius:999px;background:linear-gradient(90deg,#fef3c7,#fde68a);font-size:13px;font-weight:800;color:#b45309;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">${c.points} pts</div>`
       : '';
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:2px solid #e9ecef;border-radius:12px;background:#ffffff;overflow:hidden;">
-<tr><td style="padding:18px 22px;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Apple Color Emoji,Segoe UI Emoji,sans-serif;">
-<div style="font-size:17.6px;font-weight:700;color:#2c3e50;line-height:1.25;margin:0 0 8px 0;">${name}</div>
-<div style="font-size:14.4px;color:#7f8c8d;line-height:1.45;margin:0;">${desc}</div>
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,0.08);">
+<tr><td style="width:5px;background:linear-gradient(180deg,#f97316,#ea580c,#fbbf24);line-height:0;font-size:0;">&nbsp;</td>
+<td style="padding:18px 20px 18px 18px;background:#ffffff;border:1px solid #e2e8f0;border-left:none;border-radius:0 14px 14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica Neue,Arial,sans-serif;">
+<div style="font-size:17px;font-weight:800;color:#0f172a;line-height:1.25;margin:0 0 8px 0;">${name}</div>
+<div style="font-size:14px;color:#64748b;line-height:1.5;margin:0;">${desc}</div>
 ${pointsHtml}
-<div style="font-size:13.6px;color:#3498db;font-weight:600;margin-top:10px;font-family:Inter,Segoe UI,Roboto,sans-serif;">Track progress in TrifangX (same as All Achievements)</div>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:8px;"><tr><td style="height:6px;background:#e9ecef;border-radius:3px;line-height:6px;font-size:0;">&nbsp;</td></tr></table>
+<div style="font-size:13px;color:#2563eb;font-weight:700;margin-top:12px;">Track in TrifangX → All Achievements</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:10px;"><tr><td style="height:5px;background:linear-gradient(90deg,#fed7aa,#fdba74,#fcd34d);border-radius:4px;line-height:5px;font-size:0;">&nbsp;</td></tr></table>
 </td></tr></table>`;
 }
 
@@ -4413,9 +4488,9 @@ function digestDailyChallengesSectionHtml(challengeIds) {
     )
     .join('');
   return `<tr>
-<td style="padding:10px 32px 6px 32px;text-align:center;border-bottom:3px solid #f39c12;font-family:Inter,Segoe UI,Roboto,Helvetica Neue,Apple Color Emoji,Segoe UI Emoji,sans-serif;">
-<h2 style="margin:0 0 5px 0;font-size:20.8px;font-weight:800;color:#e67e22;line-height:1.2;">🏆 Daily Challenges</h2>
-<div style="color:#d35400;font-style:italic;font-size:13.6px;line-height:1.4;padding-bottom:14px;">They refresh every day.</div>
+<td style="padding:14px 32px 12px 32px;text-align:center;background:linear-gradient(180deg,#fff7ed 0%,#ffffff 100%);border-bottom:2px solid #fb923c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<h2 style="margin:0 0 6px 0;font-size:22px;font-weight:900;background:linear-gradient(90deg,#c2410c,#ea580c,#d97706);-webkit-background-clip:text;background-clip:text;color:#c2410c;line-height:1.2;">⚡ Daily challenges</h2>
+<div style="color:#9a3412;font-size:14px;line-height:1.45;font-weight:600;">Three fresh goals — every calendar day</div>
 </td>
 </tr>
 <tr>
@@ -4430,12 +4505,13 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
   if (!email || typeof email !== 'string') return false;
   const instant = options.instant === true;
   const safeName = String(username || 'there').replace(/[<>]/g, '');
+  const safeNameHtml = escapeHtmlEmail(safeName);
   const base = siteMarketingBase(env);
   const emailInnerMax = '720px';
   const chessUrl = `${base}/chess_engine.html`;
   const dashUrl = `${base}/account-dashboard.html`;
   const instantBanner = instant
-    ? `<tr><td style="padding:0 40px 18px 40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><p style="margin:0;padding:14px 18px;background:#fef3c7;border-radius:10px;border-left:4px solid #d97706;font-size:14px;line-height:1.5;color:#92400e;"><strong>On-demand send</strong> — you asked for today’s list from your account dashboard.</p></td></tr>`
+    ? `<tr><td style="padding:0 36px 18px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><p style="margin:0;padding:16px 18px;background:linear-gradient(90deg,#fef9c3,#ffedd5);border-radius:12px;border-left:5px solid #ea580c;font-size:14px;line-height:1.55;color:#9a3412;box-shadow:0 4px 14px rgba(234,88,12,0.15);"><strong style="color:#c2410c;">On-demand</strong> — you requested today’s list from your account dashboard.</p></td></tr>`
     : '';
   const preheader = `Today’s three TrifangX daily challenges — play in the chess engine.`;
 
@@ -4446,21 +4522,21 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#0f172a;">
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#431407 0%,#0f172a 55%,#1e3a8a 100%);">
   <div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:transparent;">
     <tr>
       <td align="center" style="padding:24px 12px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:${emailInnerMax};width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:${emailInnerMax};width:100%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 24px 56px rgba(0,0,0,0.38);border:1px solid rgba(255,255,255,0.08);">
           <tr>
-            <td style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 40%,#b45309 100%);padding:28px 36px;text-align:left;">
-              <p style="margin:0 0 4px 0;font-family:Georgia,serif;font-size:20px;font-weight:700;color:#fef3c7;">Daily challenges</p>
-              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#fde68a;opacity:0.95;line-height:1.45;">Three challenges refresh <strong style="color:#fff;">every day</strong> — here is today’s set</p>
+            <td style="background:linear-gradient(120deg,#ea580c 0%,#c2410c 35%,#1e293b 90%);padding:28px 36px;text-align:left;">
+              <p style="margin:0 0 4px 0;font-family:Georgia,serif;font-size:21px;font-weight:800;color:#fffbeb;text-shadow:0 2px 12px rgba(0,0,0,0.25);">Today’s TrifangX dailies</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;color:#ffedd5;line-height:1.5;">Three rotating achievements — <strong style="color:#ffffff;">new set every day</strong></p>
             </td>
           </tr>
           <tr>
             <td style="padding:28px 36px 10px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-              <p style="margin:0 0 8px 0;font-size:17px;font-weight:700;color:#0f172a;">Hi ${safeName},</p>
+              <p style="margin:0 0 8px 0;font-size:17px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
               <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">Here are today’s rotating TrifangX achievements. Complete them in the chess engine to earn progress toward your dailies.</p>
             </td>
           </tr>
@@ -4472,7 +4548,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
           </tr>
           <tr>
             <td style="padding:10px 36px 32px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;" align="center">
-              <a href="${chessUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#ffffff !important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;">Open TrifangX</a>
+              <a href="${chessUrl}" style="display:inline-block;padding:15px 34px;background:linear-gradient(135deg,#f97316,#ea580c,#dc2626);color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:15px;box-shadow:0 12px 28px rgba(234,88,12,0.35);">Open TrifangX</a>
               <p style="margin:16px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Manage the daily roundup in <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">account settings</a>.</p>
             </td>
           </tr>
@@ -4625,27 +4701,40 @@ function buildPasswordResetUrl(env, email, token) {
 async function sendPasswordResetEmail(env, email, username, token) {
   const resetUrl = buildPasswordResetUrl(env, email, token);
   const safeName = String(username).replace(/[<>]/g, '');
-  const subject = 'Reset your Ahrens Labs password';
-  const html = `
-        <html>
-          <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2c3e50;">Password reset</h2>
-            <p>Hi ${safeName},</p>
-            <p>We received a request to reset the password for your Ahrens Labs account. Click the button below to choose a new password. This link expires in one hour.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}"
-                 style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                Reset password
-              </a>
+  const safeNameHtml = escapeHtmlEmail(safeName);
+  const urlEsc = escapeHtmlEmail(resetUrl);
+  const subject = 'Secure link — reset your Ahrens Labs password';
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:linear-gradient(160deg,#1e1b4b 0%,#0f172a 45%,#9d174d 100%);">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr><td align="center" style="padding:32px 14px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);">
+        <tr>
+          <td style="padding:28px 32px;background:linear-gradient(115deg,#6366f1 0%,#a855f7 45%,#ec4899 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+            <p style="margin:0;font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#eef2ff;opacity:.95;">Account security</p>
+            <p style="margin:10px 0 0 0;font-size:26px;font-weight:900;line-height:1.2;color:#ffffff;">Password reset</p>
+            <p style="margin:10px 0 0 0;font-size:15px;line-height:1.55;color:#fce7f3;">Someone (hopefully you) asked for a fresh password. This link is single-use and expires in one hour.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 8px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;">
+            <p style="margin:0 0 14px 0;font-size:18px;font-weight:700;">Hi ${safeNameHtml},</p>
+            <p style="margin:0 0 18px 0;font-size:15px;line-height:1.65;color:#334155;">Tap the button to pick a <strong style="color:#0f172a;">new password</strong>. If the button does not work, use the plain link below — same one-hour window.</p>
+            <div style="text-align:center;margin:28px 0;">
+              <a href="${resetUrl}" style="display:inline-block;padding:16px 36px;background:linear-gradient(135deg,#6366f1,#db2777);color:#ffffff !important;text-decoration:none;border-radius:999px;font-weight:800;font-size:16px;box-shadow:0 12px 28px rgba(99,102,241,.4);">Reset password</a>
             </div>
-            <p>Or copy and paste this link into your browser:</p>
-            <p style="color: #7f8c8d; word-break: break-all;">${resetUrl}</p>
-            <p style="margin-top: 30px; color: #7f8c8d; font-size: 0.9em;">
-              If you did not request this, you can ignore this email; your password will stay the same.
-            </p>
-          </body>
-        </html>
-      `;
+            <p style="margin:0 0 8px 0;font-size:13px;color:#64748b;">Plain link:</p>
+            <p style="margin:0;padding:12px 14px;background:#f8fafc;border-radius:10px;word-break:break-all;font-size:12px;color:#475569;line-height:1.5;">${urlEsc}</p>
+            <p style="margin:22px 0 0 0;font-size:12px;line-height:1.55;color:#94a3b8;">If you did not request this, ignore this message — your password stays unchanged.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
   const text = [
     `Hi ${safeName},`,
     '',
@@ -4833,7 +4922,7 @@ async function handleSendTest(request, env, corsHeaders) {
     await dispatchTransactionalEmail(env, {
       to,
       subject: 'chess-accounts email test',
-      html: '<p>If you see this, outbound email from chess-accounts works.</p>',
+      html: `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:linear-gradient(165deg,#0f766e 0%,#0f172a 100%);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:24px 12px;"><table style="max-width:420px;background:#fff;border-radius:14px;padding:24px 26px;box-shadow:0 16px 40px rgba(0,0,0,.25);font-family:system-ui,sans-serif;"><tr><td><p style="margin:0 0 8px 0;font-size:18px;font-weight:800;color:#0f172a;">Outbound OK</p><p style="margin:0;font-size:15px;line-height:1.55;color:#475569;">If you see this, email from the chess-accounts worker is working.</p></td></tr></table></td></tr></table></body></html>`,
       text: 'If you see this, outbound email from chess-accounts works.',
     });
     return new Response(JSON.stringify({ success: true, to }), {
