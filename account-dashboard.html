@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
+  <script src="js/chess_seasons.js"></script>
   <style>
     .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
     .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
@@ -401,21 +402,57 @@
           <p class="status" id="uname-status"></p>
         </div>
 
-        <div class="dash-card">
-          <h2>Leaderboard row color</h2>
+        <div class="dash-card full-span" id="dash-lb-settings-card">
+          <h2>Leaderboard settings</h2>
           <p class="hint">
-            Your row on the <a href="chess-leaderboard.html">public TrifangX leaderboard</a> uses this background. Leave unset for a plain white bar.
+            Control how you look on the public <a href="chess-leaderboard.html">TrifangX career leaderboard</a>.
+            Row color is stored on your account. Prefix, suffix, title, and frame come from your cloud chess save and must be
+            <a href="chess-season-track.html">unlocked on the monthly season track</a> before you can equip them here.
           </p>
+
+          <h3 style="margin:18px 0 10px;font-size:0.95rem;color:#334155;">Row background</h3>
+          <p class="hint" style="font-size:0.85rem">Background tint for your row. Leave unset for a plain white bar.</p>
           <div class="form-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;">
             <label for="lb-row-color">Color</label>
             <input type="color" id="lb-row-color" value="#94a3b8" aria-label="Leaderboard row background color" style="width:52px;height:40px;padding:0;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">
             <span id="lb-row-color-preview" style="display:inline-block;min-width:140px;height:40px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;vertical-align:middle;" title="Preview"></span>
           </div>
           <p style="margin:14px 0 0 0;display:flex;flex-wrap:wrap;gap:10px;">
-            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save for leaderboard</button>
-            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear (default)</button>
+            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save row color</button>
+            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear row color</button>
           </p>
           <p class="status" id="lb-row-color-status"></p>
+
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0;">
+
+          <h3 style="margin:0 0 10px;font-size:0.95rem;color:#334155;">Displayed flair</h3>
+          <p class="hint" id="dash-lb-flair-hint" style="margin-bottom:12px">
+            Loading flair options from your cloud save…
+          </p>
+          <div id="dash-lb-flair-form" style="display:none">
+            <div class="form-row">
+              <label for="dash-lb-flair-frame">Frame</label>
+              <select id="dash-lb-flair-frame" aria-label="Leaderboard frame"></select>
+            </div>
+            <div class="form-row">
+              <label for="dash-lb-flair-title">Title</label>
+              <select id="dash-lb-flair-title" aria-label="Leaderboard title"></select>
+            </div>
+            <div class="form-row">
+              <label for="dash-lb-flair-prefix">Prefix</label>
+              <select id="dash-lb-flair-prefix" aria-label="Leaderboard prefix"></select>
+            </div>
+            <div class="form-row">
+              <label for="dash-lb-flair-suffix">Suffix</label>
+              <select id="dash-lb-flair-suffix" aria-label="Leaderboard suffix"></select>
+            </div>
+            <p style="margin:8px 0 6px;font-size:0.82rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Preview</p>
+            <div id="dash-lb-flair-preview" style="padding:12px 14px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;font-size:0.95rem;color:#0f172a;min-height:1.4em;"></div>
+            <p style="margin:16px 0 0;display:flex;flex-wrap:wrap;gap:10px;">
+              <button type="button" class="btn btn-primary" id="btn-dash-lb-flair-save">Save flair</button>
+            </p>
+          </div>
+          <p class="status" id="dash-lb-flair-status"></p>
         </div>
 
         <div class="dash-card full-span">
@@ -1144,6 +1181,91 @@
       return res.json();
     }
 
+    function dashFrameLabel(id) {
+      if (!id) return 'None';
+      return String(id).replace(/_/g, ' ');
+    }
+
+    function dashFillSelect(selectEl, values, selected) {
+      if (!selectEl) return;
+      selectEl.innerHTML = '';
+      values.forEach((v) => {
+        const opt = document.createElement('option');
+        const val = v === null || v === undefined || v === '' ? '' : String(v);
+        opt.value = val;
+        opt.textContent =
+          val === ''
+            ? 'None'
+            : selectEl.id === 'dash-lb-flair-frame'
+              ? dashFrameLabel(val)
+              : val;
+        selectEl.appendChild(opt);
+      });
+      const want = selected == null || selected === undefined || selected === '' ? '' : String(selected);
+      let ok = false;
+      for (let i = 0; i < selectEl.options.length; i++) {
+        if (selectEl.options[i].value === want) {
+          selectEl.selectedIndex = i;
+          ok = true;
+          break;
+        }
+      }
+      if (!ok && selectEl.options.length) selectEl.selectedIndex = 0;
+    }
+
+    function refreshDashLbFlairPreview() {
+      const box = document.getElementById('dash-lb-flair-preview');
+      if (!box) return;
+      const pf = document.getElementById('dash-lb-flair-prefix');
+      const tf = document.getElementById('dash-lb-flair-title');
+      const sf = document.getElementById('dash-lb-flair-suffix');
+      const ff = document.getElementById('dash-lb-flair-frame');
+      if (!pf || !tf || !sf || !ff) return;
+      const parts = [
+        pf.value,
+        tf.value,
+        sf.value,
+        ff.value ? dashFrameLabel(ff.value) : '',
+      ].filter(Boolean);
+      box.textContent = parts.length ? parts.join(' · ') : 'Plain name only';
+    }
+
+    function refreshDashLbFlairFromChess(data) {
+      const form = document.getElementById('dash-lb-flair-form');
+      const hint = document.getElementById('dash-lb-flair-hint');
+      const stEl = document.getElementById('dash-lb-flair-status');
+      if (stEl) setStatus(stEl, '', '');
+      if (!form || !hint) return;
+      if (!data || typeof data !== 'object') {
+        form.style.display = 'none';
+        hint.textContent =
+          'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+        return;
+      }
+      const st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+      const u = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+      const frames = Array.isArray(u.frames) ? u.frames : [];
+      const titles = Array.isArray(u.titles) ? u.titles : [];
+      const prefixes = Array.isArray(u.prefixes) ? u.prefixes : [];
+      const suffixes = Array.isArray(u.suffixes) ? u.suffixes : [];
+      const hasAny = frames.length + titles.length + prefixes.length + suffixes.length > 0;
+      if (!hasAny) {
+        form.style.display = 'none';
+        hint.textContent =
+          'No flair unlocks yet. Claim season track steps in TrifangX or on the season track page, then return here.';
+        return;
+      }
+      hint.textContent =
+        'Only options you have unlocked are listed. Changes save to your cloud chess profile and appear on the leaderboard.';
+      form.style.display = 'block';
+      const eq = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
+      dashFillSelect(document.getElementById('dash-lb-flair-frame'), [''].concat(frames), eq.frame || '');
+      dashFillSelect(document.getElementById('dash-lb-flair-title'), [''].concat(titles), eq.title || '');
+      dashFillSelect(document.getElementById('dash-lb-flair-prefix'), [''].concat(prefixes), eq.prefix || '');
+      dashFillSelect(document.getElementById('dash-lb-flair-suffix'), [''].concat(suffixes), eq.suffix || '');
+      refreshDashLbFlairPreview();
+    }
+
     async function loadTrifangxPointsForDashboard() {
       const sessionId = getSessionId();
       const valEl = document.getElementById('dash-trifangx-points-value');
@@ -1174,10 +1296,12 @@
           else sub += '.';
         }
         subEl.textContent = sub;
+        refreshDashLbFlairFromChess(data);
       } catch (e) {
         valEl.textContent = '—';
         subEl.textContent =
           'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+        refreshDashLbFlairFromChess(null);
       }
     }
 
@@ -1805,6 +1929,47 @@
             setStatus(st, 'Cleared. Your row uses the default white bar.', 'ok');
           } else {
             setStatus(st, data.error || 'Could not clear.', 'err');
+          }
+        });
+      }
+
+      ['dash-lb-flair-frame', 'dash-lb-flair-title', 'dash-lb-flair-prefix', 'dash-lb-flair-suffix'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => refreshDashLbFlairPreview());
+      });
+
+      const btnDashLbFlair = document.getElementById('btn-dash-lb-flair-save');
+      if (btnDashLbFlair) {
+        btnDashLbFlair.addEventListener('click', async () => {
+          const st = document.getElementById('dash-lb-flair-status');
+          const sessionId = getSessionId();
+          setStatus(st, '', '');
+          const frameEl = document.getElementById('dash-lb-flair-frame');
+          const titleEl = document.getElementById('dash-lb-flair-title');
+          const prefixEl = document.getElementById('dash-lb-flair-prefix');
+          const suffixEl = document.getElementById('dash-lb-flair-suffix');
+          const fv = frameEl && frameEl.value ? frameEl.value : null;
+          const tv = titleEl && titleEl.value ? titleEl.value : null;
+          const body = {
+            frame: fv,
+            title: tv,
+            prefix: prefixEl ? prefixEl.value : '',
+            suffix: suffixEl ? suffixEl.value : '',
+          };
+          const res = await fetch(`${API_BASE_URL}/api/chess/lb-flair`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.success) {
+            setStatus(st, 'Saved. Flair updates on the leaderboard within about a minute.', 'ok');
+            if (data.chess) refreshDashLbFlairFromChess(data.chess);
+          } else {
+            setStatus(st, data.error || 'Could not save flair.', 'err');
           }
         });
       }

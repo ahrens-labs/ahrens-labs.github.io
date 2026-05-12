@@ -39,6 +39,7 @@
  *    - If mechanics change (different achievements or rewards), edit `SEASON_TRACK_MECHANICAL` or
  *      introduce a month-keyed mechanical table (not needed until you intentionally fork the ladder).
  *    - Deploy worker + static site together when changing ids that the worker must recognize.
+ *    - Account dashboard can equip `seasonTrack.lbFlair` via POST /api/chess/lb-flair (unlocked ids only).
  *
  * =============================================================================
  */
@@ -206,6 +207,13 @@
 
   const LB_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc']);
 
+  /** Achievement ids in monthly season track order (same as `SEASON_TRACK_MECHANICAL`). */
+  function getSeasonTrackAchievementIds() {
+    return SEASON_TRACK_MECHANICAL.map(function (row) {
+      return row.challengeAchievementId;
+    });
+  }
+
   global.ChessSeasons = {
     GUIDELINES: GUIDELINES,
     getChessSeasonIdUtc: getChessSeasonIdUtc,
@@ -213,5 +221,6 @@
     seasonBoundsUtc: seasonBoundsUtc,
     getChessSeasonTrack: getChessSeasonTrack,
     LB_FRAMES: LB_FRAMES,
+    getSeasonTrackAchievementIds: getSeasonTrackAchievementIds,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

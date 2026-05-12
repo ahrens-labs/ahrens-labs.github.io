@@ -6681,6 +6681,30 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       document.getElementById("win-rate").style.color = winRate >= 50 ? '#2ecc71' : winRate >= 30 ? '#f39c12' : '#e74c3c';
     }
 
+    function getSeasonTrackAchievementOrder() {
+      try {
+        const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
+        if (CS && typeof CS.getSeasonTrackAchievementIds === 'function') {
+          return CS.getSeasonTrackAchievementIds();
+        }
+      } catch (e) {}
+      return [];
+    }
+
+    function isSeasonTrackAchievementBlocked(achId) {
+      const order = getSeasonTrackAchievementOrder();
+      const idx = order.indexOf(achId);
+      if (idx <= 0) return false;
+      for (let j = 0; j < idx; j++) {
+        if (!achievements.includes(order[j])) return true;
+      }
+      return false;
+    }
+
+    function seasonTrackGateMessage() {
+      return '🔒 Complete earlier monthly season track steps first — progress counts in order.';
+    }
+
     function checkAchievements() {
       // Calculate total points for point-gated achievements (from list definitions only).
       const allAchievements = getAllAchievementsList();
@@ -6707,6 +6731,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           return;
         }
         if (ach.isDaily && !isDailySlotProgressActive(ach.id, todayDailyIds)) {
+          return;
+        }
+
+        if (isSeasonTrackAchievementBlocked(ach.id)) {
           return;
         }
         
@@ -8467,6 +8495,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               progress = { current: 0, target: 1 };
               progressPercent = 0;
             }
+            if (!isUnlocked && isSeasonTrackAchievementBlocked(nextAchievement.id)) {
+              progress = {
+                current: 0,
+                target: Math.max(1, Math.floor(Number(progress.target)) || 1),
+                needsTotal: progress.needsTotal,
+                needsNoLosses: progress.needsNoLosses,
+              };
+              progressPercent = 0;
+            }
             const showProgress = !isUnlocked && progressPercent < 100;
             // needsTotal should be true or undefined (not false) to meet requirements
             const meetsRequirements = progress.needsTotal !== false;
@@ -8516,7 +8553,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             
             // Check if achievement is locked due to game count requirements
             let lockedMessage = '';
-            if (!meetsRequirements) {
+            if (!isUnlocked && isSeasonTrackAchievementBlocked(nextAchievement.id)) {
+              lockedMessage = seasonTrackGateMessage();
+            } else if (!meetsRequirements) {
               const desc = nextAchievement.desc || '';
               const gameMatch = desc.match(/(\d+)\+.*games?/i);
               if (gameMatch) {
@@ -8575,6 +8614,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
                 progress = { current: 0, target: 1 };
                 progressPercent = 0;
               }
+              if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
+                progress = {
+                  current: 0,
+                  target: Math.max(1, Math.floor(Number(progress.target)) || 1),
+                  needsTotal: progress.needsTotal,
+                  needsNoLosses: progress.needsNoLosses,
+                };
+                progressPercent = 0;
+              }
               const showProgress = !isUnlocked && progressPercent < 100;
               // needsTotal should be true or undefined (not false) to meet requirements
               const meetsRequirements = progress.needsTotal !== false;
@@ -8598,7 +8646,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               
               // Check if achievement is locked due to game count requirements
               let lockedMessage = '';
-              if (!meetsRequirements) {
+              if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
+                lockedMessage = seasonTrackGateMessage();
+              } else if (!meetsRequirements) {
                 // Extract game requirement from description or check specific achievements
                 const desc = ach.desc || '';
                 const gameMatch = desc.match(/(\d+)\+.*games?/i);
@@ -8649,6 +8699,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             progress = { current: 0, target: 1 };
             progressPercent = 0;
           }
+          if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
+            progress = {
+              current: 0,
+              target: Math.max(1, Math.floor(Number(progress.target)) || 1),
+              needsTotal: progress.needsTotal,
+              needsNoLosses: progress.needsNoLosses,
+            };
+            progressPercent = 0;
+          }
           
           const card = document.createElement('div');
           card.className = `achievement-card ${isUnlocked ? 'unlocked' : ''}`;
@@ -8668,7 +8727,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const meetsRequirements = progress.needsTotal !== false;
           const meetsNoLosses = progress.needsNoLosses !== false;
           let lockedMessage = '';
-          if (!meetsRequirements) {
+          if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
+            lockedMessage = seasonTrackGateMessage();
+          } else if (!meetsRequirements) {
             const desc = ach.desc || '';
             const gameMatch = desc.match(/(\d+)\+.*games?/i);
             if (gameMatch) {

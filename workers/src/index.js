@@ -71,6 +71,8 @@ export default {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/leaderboard-row-color' && request.method === 'POST') {
         return handleLeaderboardRowColor(request, env, corsHeaders);
+      } else if (path === '/api/chess/lb-flair' && request.method === 'POST') {
+        return handleChessLbFlair(request, env, corsHeaders);
       } else if (path === '/api/change-password' && request.method === 'POST') {
         return handleChangePassword(request, env, corsHeaders);
       } else if (path === '/api/delete-account' && request.method === 'POST') {
@@ -701,6 +703,51 @@ async function handleLeaderboardRowColor(request, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     }
   );
+}
+
+/** Set equipped leaderboard flair (prefix/suffix/title/frame) from unlocked season rewards only. */
+async function handleChessLbFlair(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const doReq = new Request('http://do/setChessLbFlair', {
+    method: 'POST',
+    body: JSON.stringify(body && typeof body === 'object' ? body : {}),
+  });
+  const doRes = await userAccount.fetch(doReq);
+  const result = await doRes.json();
+  const ok = Boolean(result?.success);
+  return new Response(JSON.stringify(result), {
+    status: ok ? 200 : 400,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 // Delete account (requires session + current password; destroys session)
@@ -5585,6 +5632,13 @@ export class UserAccount {
           status: result.success ? 200 : 400,
           headers: { 'Content-Type': 'application/json' },
         });
+      } else if (path === '/setChessLbFlair' && request.method === 'POST') {
+        const body = await request.json();
+        const result = await this.setChessLbFlair(body && typeof body === 'object' ? body : {});
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/getChessData' && request.method === 'GET') {
         const chessData = await this.getChessData();
         return new Response(JSON.stringify(chessData), {
@@ -6133,6 +6187,87 @@ export class UserAccount {
 
     const outChess = await this.getChessData();
     return { success: true, chess: outChess };
+  }
+
+  /** Equip leaderboard flair; each field must be cleared or chosen from `seasonTrack.lbFlairUnlocked`. */
+  async setChessLbFlair(body) {
+    const userData = await this.storage.get('userData');
+    if (!userData?.games?.chess) {
+      return { success: false, error: 'No chess data' };
+    }
+    const chess = userData.games.chess;
+    if (!chess.seasonTrack || typeof chess.seasonTrack !== 'object') {
+      chess.seasonTrack = {};
+    }
+    const st = chess.seasonTrack;
+    const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+    const owned = {
+      frames: uniqStrings(prevOwned.frames || []),
+      titles: uniqStrings(prevOwned.titles || []),
+      prefixes: uniqStrings(prevOwned.prefixes || []),
+      suffixes: uniqStrings(prevOwned.suffixes || []),
+    };
+    const prevEq = sanitizeChessLbFlair(st.lbFlair);
+    const incoming = body && typeof body === 'object' ? body : {};
+
+    const next = {
+      frame: Object.prototype.hasOwnProperty.call(incoming, 'frame') ? incoming.frame : prevEq.frame,
+      title: Object.prototype.hasOwnProperty.call(incoming, 'title') ? incoming.title : prevEq.title,
+      prefix: Object.prototype.hasOwnProperty.call(incoming, 'prefix') ? incoming.prefix : prevEq.prefix,
+      suffix: Object.prototype.hasOwnProperty.call(incoming, 'suffix') ? incoming.suffix : prevEq.suffix,
+    };
+
+    let nextFrame = next.frame;
+    if (nextFrame === null || nextFrame === undefined || nextFrame === '') {
+      nextFrame = null;
+    } else {
+      const f = String(nextFrame);
+      if (!CHESS_LB_FLAIR_FRAMES.has(f) || !owned.frames.includes(f)) {
+        return { success: false, error: 'Frame not unlocked' };
+      }
+      nextFrame = f;
+    }
+
+    let nextTitle = next.title;
+    if (nextTitle === null || nextTitle === undefined || (typeof nextTitle === 'string' && !nextTitle.trim())) {
+      nextTitle = null;
+    } else {
+      const t = String(nextTitle)
+        .trim()
+        .slice(0, 24)
+        .replace(/[\u0000-\u001f\u007f]/g, '');
+      if (!t) nextTitle = null;
+      else if (!owned.titles.includes(t)) {
+        return { success: false, error: 'Title not unlocked' };
+      } else {
+        nextTitle = t;
+      }
+    }
+
+    const pRaw = next.prefix != null ? String(next.prefix) : '';
+    const nextPrefix = [...pRaw].slice(0, 3).join('');
+    if (nextPrefix && !owned.prefixes.includes(nextPrefix)) {
+      return { success: false, error: 'Prefix not unlocked' };
+    }
+
+    const sRaw = next.suffix != null ? String(next.suffix) : '';
+    const nextSuffix = [...sRaw].slice(0, 3).join('');
+    if (nextSuffix && !owned.suffixes.includes(nextSuffix)) {
+      return { success: false, error: 'Suffix not unlocked' };
+    }
+
+    st.lbFlair = sanitizeChessLbFlair({
+      frame: nextFrame,
+      title: nextTitle,
+      prefix: nextPrefix,
+      suffix: nextSuffix,
+    });
+    chess.seasonTrack = st;
+    chess.lastUpdated = Date.now();
+    await this.storage.put('userData', userData);
+    await this.syncChessCareerPointsLeaderboardEntry();
+    const outChess = await this.getChessData();
+    return { success: true, lbFlair: st.lbFlair, chess: outChess };
   }
 
   async updateChessData(chessData) {
