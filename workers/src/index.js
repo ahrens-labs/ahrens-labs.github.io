@@ -3297,21 +3297,16 @@ const CHESS_MILESTONE_GAME_THRESHOLDS = [10, 25, 50, 100, 250, 500, 1000];
 const CHESS_MILESTONE_POINT_THRESHOLDS = [1000, 5000, 10000, 20000, 50000, 100000];
 
 /**
- * Coerce stats for milestone emails so games, win rate, and W/L/D stay consistent
- * (games is at least wins + losses + draws, matching `chessStatsSnapshot`).
+ * Coerce stats for milestone emails to match TrifangX `chessStatsSnapshot` / the
+ * player stats under the board: games played = wins + losses + draws (no separate
+ * games counter), points from `chess.points`.
  */
 function normalizeChessMilestoneEmailStats(raw) {
   const wins = Math.max(0, Math.floor(Number(raw?.wins) || 0));
   const losses = Math.max(0, Math.floor(Number(raw?.losses) || 0));
   const draws = Math.max(0, Math.floor(Number(raw?.draws) || 0));
   const points = Math.max(0, Math.floor(Number(raw?.points) || 0));
-  const sumWLd = wins + losses + draws;
-  let games = Math.max(0, Math.floor(Number(raw?.games) || 0));
-  if (sumWLd > 0) {
-    games = Math.max(games, sumWLd);
-  } else if (games < 1) {
-    games = 1;
-  }
+  const games = wins + losses + draws;
   return { wins, losses, draws, games, points };
 }
 
@@ -3324,8 +3319,9 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
   const drawsLabel = Number(ns.draws).toLocaleString();
   const gamesLabel = Number(ns.games).toLocaleString();
   const pointsLabel = Number(ns.points).toLocaleString();
-  const totalGames = Math.max(1, ns.games);
-  const winRate = Math.round((ns.wins / totalGames) * 100);
+  const totalGames = ns.games;
+  const effectiveWins = (ns.wins || 0) + 0.5 * (ns.draws || 0);
+  const winRate = totalGames > 0 ? Math.round((effectiveWins / totalGames) * 100) : 0;
   const safeChessUrl = escapeHtmlEmail(chessUrl);
 
   const variants = {
@@ -3393,7 +3389,7 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
                 <tr>
                   <td style="vertical-align:middle;">
                     <div style="font-size:44px;font-weight:900;line-height:1.05;margin:0;color:#ffffff;text-shadow:0 2px 22px rgba(0,0,0,.35),0 0 40px ${v.glow};">${escapeHtmlEmail(v.hero)}</div>
-                    <div style="font-size:16px;line-height:1.55;color:#e0e7ff;margin-top:12px;font-weight:500;">Your TrifangX career just hit a new high — the numbers below are live from your synced save.</div>
+                    <div style="font-size:16px;line-height:1.55;color:#e0e7ff;margin-top:12px;font-weight:500;">Your TrifangX career just hit a new high — here is where the run stands by the numbers.</div>
                   </td>
                   <td width="88" align="right" style="vertical-align:middle;">
                     <div style="width:76px;height:76px;border-radius:22px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);text-align:center;line-height:74px;font-size:40px;box-shadow:0 8px 28px rgba(0,0,0,.25);">${v.icon}</div>
@@ -3426,7 +3422,7 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 4px 16px rgba(15,23,42,.06);">
                 <tr>
                   <td style="padding:18px 20px;">
-                    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">Win rate across <strong style="color:#0f172a;">${gamesLabel}</strong> games: <strong style="color:${v.accentDark};">${winRate}%</strong></div>
+                    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:10px;">Win rate: <strong style="color:${v.accentDark};">${winRate}%</strong> <span style="font-weight:600;color:#64748b;">(${gamesLabel} games)</span></div>
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="height:12px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div style="width:${Math.min(100, Math.max(0, winRate))}%;height:12px;background:linear-gradient(90deg,${v.accentDark},${v.accent});border-radius:999px;line-height:12px;font-size:0;">&nbsp;</div></td></tr></table>
                   </td>
                 </tr>
