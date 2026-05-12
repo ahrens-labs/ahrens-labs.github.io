@@ -3667,7 +3667,7 @@ const SEASON_CLAIM_NODES = [
 
 /** Must match `SEASON_STEP_BUYOUT_POINTS` in js/chess_seasons.js */
 const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
-  5500, 14000, 22000, 38000, 52000, 68000, 62000, 82000, 118000, 195000,
+  3500, 9000, 15000, 26000, 36000, 47000, 42000, 55000, 78000, 125000,
 ]);
 
 function utcChessSeasonIdNow() {
