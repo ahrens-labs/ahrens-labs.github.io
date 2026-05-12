@@ -509,6 +509,16 @@
           <p class="status" id="admin-accounts-status"></p>
         </div>
 
+        <div class="dash-card admin-broadcast-card full-span" id="admin-test-emails-card">
+          <h2>Email test pack (admin)</h2>
+          <p class="hint">
+            Sends <strong>one sample of each</strong> built-in template to <strong>your</strong> broadcast-admin address: welcome guide (broadcast From), confirm-email, password reset, account-deleted notice, TrifangX daily challenges digest, three milestone layouts (wins / games / points), a broadcast-From sample, and a plain transactional message.
+            <strong>Verification and reset links use dummy tokens</strong> — do not use them. You will receive <strong>several emails in quick succession</strong>; check spam if needed.
+          </p>
+          <button type="button" class="btn btn-primary" id="btn-admin-send-all-test-emails">Send all test emails to me</button>
+          <p class="status" id="admin-test-emails-status"></p>
+        </div>
+
         <div class="dash-card admin-broadcast-card" id="admin-broadcast-card">
           <h2>Broadcast email (admin)</h2>
           <p class="hint">
@@ -1005,6 +1015,62 @@
           if (btn) {
             btn.disabled = false;
             btn.textContent = prev || 'Send to all accounts';
+          }
+        }
+      });
+
+      document.getElementById('btn-admin-send-all-test-emails')?.addEventListener('click', async () => {
+        const st = document.getElementById('admin-test-emails-status');
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          setStatus(st, 'Not signed in. Open Account and sign in again.', 'err');
+          return;
+        }
+        const okModal = await showAdminBulkConfirmModal({
+          title: 'Send full email test pack?',
+          description:
+            'About ten separate messages will go to your admin inbox. Verification and password-reset links are previews only and will not work.',
+          confirmLabel: 'Send test pack',
+        });
+        if (!okModal) return;
+        const btn = document.getElementById('btn-admin-send-all-test-emails');
+        const prev = btn ? btn.textContent : '';
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+        }
+        setStatus(st, 'Sending…', '');
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/admin/send-all-test-emails`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: '{}',
+          });
+          const { ok, status, data } = await readApiJsonResponse(res);
+          if (!ok) {
+            setStatus(st, formatApiFailure(status, data), 'err');
+            return;
+          }
+          const results = Array.isArray(data.results) ? data.results : [];
+          const failed = results.filter((r) => !r.ok);
+          let msg = `Sent ${Number(data.sent) || 0}/${Number(data.total) || results.length} to ${data.to || 'your admin email'}.`;
+          if (failed.length) {
+            msg +=
+              ' Failed: ' +
+              failed.map((f) => `${f.id}: ${f.error || '?'}`).join('; ');
+            setStatus(st, msg, 'err');
+          } else {
+            setStatus(st, msg + ' Check your inbox (and spam).', 'ok');
+          }
+        } catch (e) {
+          setStatus(st, e?.message || 'Network error.', 'err');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = prev || 'Send all test emails to me';
           }
         }
       });

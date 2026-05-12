@@ -63,6 +63,8 @@ export default {
         return handleAdminSendWelcomeToUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-custom-email-to-user' && request.method === 'POST') {
         return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
+      } else if (path === '/api/admin/send-all-test-emails' && request.method === 'POST') {
+        return handleAdminSendAllTestEmails(request, env, corsHeaders);
       } else if (path === '/api/change-username' && request.method === 'POST') {
         return handleChangeUsername(request, env, corsHeaders);
       } else if (path === '/api/leaderboard-row-color' && request.method === 'POST') {
@@ -3014,6 +3016,135 @@ async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Admin only: send one sample of each built-in transactional / product email type to the
+ * authenticated broadcast admin’s address (for QA). Verification and password-reset links use
+ * placeholder tokens and must not be used.
+ */
+async function handleAdminSendAllTestEmails(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const to = gate.adminEmail;
+  const un = gate.adminUsername || 'Player';
+  const results = [];
+
+  async function sendOne(id, fn) {
+    try {
+      await fn();
+      results.push({ id, ok: true });
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      results.push({
+        id,
+        ok: false,
+        error: w.hint || w.message || String(err?.message || err),
+      });
+    }
+  }
+
+  await sendOne('welcome_guide', () =>
+    sendWelcomeGuideEmail(env, to, un, {
+      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+      fromName: ADMIN_BROADCAST_FROM_NAME,
+    })
+  );
+  await sendOne('verification', () => sendVerificationEmail(env, to, un, 'admin_preview_token_do_not_verify'));
+  await sendOne('password_reset', () => sendPasswordResetEmail(env, to, un, 'admin_preview_reset_do_not_use'));
+  await sendOne('account_deleted', () => sendAccountDeletedEmail(env, to, un));
+
+  const digestDateStr = ymdInTimeZone(Date.now(), DEFAULT_DIGEST_TIMEZONE);
+  const digestIds = getDailyChallengeIdsForUtcDate(digestDateStr);
+  await sendOne('daily_digest', () =>
+    sendDailyDigestEmail(env, { email: to, username: un }, digestIds, { instant: true })
+  );
+
+  const base = siteMarketingBase(env);
+  const chessUrl = `${base}/chess_engine.html`;
+  const milestoneStats = {
+    wins: 28,
+    losses: 10,
+    draws: 2,
+    games: 40,
+    points: 12050,
+  };
+  await sendOne('milestone_wins', async () => {
+    const p = buildChessMilestoneEmail({
+      username: un,
+      kind: 'wins',
+      threshold: 25,
+      stats: milestoneStats,
+      chessUrl,
+    });
+    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
+  });
+  await sendOne('milestone_games', async () => {
+    const p = buildChessMilestoneEmail({
+      username: un,
+      kind: 'games',
+      threshold: 100,
+      stats: milestoneStats,
+      chessUrl,
+    });
+    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
+  });
+  await sendOne('milestone_points', async () => {
+    const p = buildChessMilestoneEmail({
+      username: un,
+      kind: 'points',
+      threshold: 10000,
+      stats: milestoneStats,
+      chessUrl,
+    });
+    await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
+  });
+
+  await sendOne('broadcast_from_sample', async () => {
+    const fromEsc = escapeHtmlEmail(ADMIN_BROADCAST_FROM_EMAIL);
+    await dispatchTransactionalEmail(env, {
+      to,
+      subject: '[Test] Broadcast From sample (admin)',
+      html: `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:20px;line-height:1.55;color:#1e293b;">
+<p>This uses the same <strong>From</strong> as admin broadcasts: <code>${fromEsc}</code> (${escapeHtmlEmail(
+        ADMIN_BROADCAST_FROM_NAME
+      )}).</p>
+<p>Real broadcasts fill <code>{{username}}</code> and <code>{{email}}</code> per recipient.</p>
+<p><em>Admin test pack — safe to delete.</em></p>
+</body></html>`,
+      text: `Broadcast From sample (same as bulk tools). From ${ADMIN_BROADCAST_FROM_EMAIL}. Admin test pack.`,
+      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+      fromName: ADMIN_BROADCAST_FROM_NAME,
+    });
+  });
+
+  await sendOne('transactional_plain', async () => {
+    await dispatchTransactionalEmail(env, {
+      to,
+      subject: '[Test] Default transactional sender',
+      html: '<p>Uses the worker’s default transactional sender (no broadcast From override). Same path as a minimal health check email.</p>',
+      text: 'Default transactional sender (no From override). Admin test pack.',
+    });
+  });
+
+  const okN = results.filter((r) => r.ok).length;
+  return new Response(
+    JSON.stringify({
+      success: okN === results.length,
+      to,
+      sent: okN,
+      total: results.length,
+      results,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 function verificationEmailOrigin(env) {
