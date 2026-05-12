@@ -3662,6 +3662,24 @@ function utcChessSeasonIdNow() {
   return `${y}-${m}`;
 }
 
+/** Snapshot career counters after a season claim so the next step only earns post-claim progress. */
+function snapshotSeasonEarnBaselineFromChess(chess) {
+  const ps = chess?.stats?.playerStats || {};
+  const ltRaw = chess?.stats?.lifetimeStats;
+  const lt = ltRaw && typeof ltRaw === 'object' ? ltRaw : {};
+  const w = Math.max(0, Number(ps.wins) || 0);
+  const l = Math.max(0, Number(ps.losses) || 0);
+  const dr = Math.max(0, Number(ps.draws) || 0);
+  return {
+    games: w + l + dr,
+    wins: w,
+    castlingMoves: Math.max(0, Number(lt.castlingMoves) || 0),
+    promotions: Math.max(0, Number(lt.promotions) || 0),
+    capturedRooks: Math.max(0, Number(lt.capturedRooks) || 0),
+    checkmateWithQueen: Math.max(0, Number(lt.checkmateWithQueen) || 0),
+  };
+}
+
 function chessAchievementUnlocked(rawAchievements, achId) {
   const key = String(achId || '');
   if (!key || !rawAchievements || typeof rawAchievements !== 'object' || Array.isArray(rawAchievements)) {
@@ -6196,6 +6214,7 @@ export class UserAccount {
     if (!chess.seasonTrack || typeof chess.seasonTrack !== 'object') chess.seasonTrack = {};
     chess.seasonTrack.nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, done + 1);
     chess.seasonTrack.seasonId = seasonIdForTrack;
+    chess.seasonTrack.earnBaseline = snapshotSeasonEarnBaselineFromChess(chess);
     chess.seasonBonusPoints =
       Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)) +
       Math.max(0, Math.floor(Number(node.bonusPoints) || 0));
@@ -6339,6 +6358,14 @@ export class UserAccount {
             nodesCompleted: 0,
             lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
             lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+            earnBaseline: {
+              games: 0,
+              wins: 0,
+              castlingMoves: 0,
+              promotions: 0,
+              capturedRooks: 0,
+              checkmateWithQueen: 0,
+            },
           },
         }
       : mergeChessSeasonFieldsForSync(

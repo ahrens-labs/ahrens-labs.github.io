@@ -15,6 +15,8 @@
  *      the achievement in the app first.
  *    - Progress is stored in cloud chess as `seasonTrack.nodesCompleted` (integer: how many steps
  *      have been fully claimed). Next step index = that value. Gating is sequential.
+ *    - `seasonTrack.earnBaseline` (games, wins, castlingMoves, …) is updated on each successful claim
+ *      so the *next* step only counts stats gained after prior steps were claimed (not retroactive).
  *
  * 3) Bonus points
  *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
@@ -222,6 +224,14 @@
       nodesCompleted: 0,
       lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
       lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+      earnBaseline: {
+        games: 0,
+        wins: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        capturedRooks: 0,
+        checkmateWithQueen: 0,
+      },
     };
   }
 

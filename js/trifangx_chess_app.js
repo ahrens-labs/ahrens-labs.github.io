@@ -6691,10 +6691,70 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return [];
     }
 
+    function getSeasonTrackNodesCompletedClient() {
+      const st =
+        typeof cloudChessData !== 'undefined' && cloudChessData && cloudChessData.seasonTrack && typeof cloudChessData.seasonTrack === 'object'
+          ? cloudChessData.seasonTrack
+          : null;
+      if (!st) return 0;
+      const n = Math.floor(Number(st.nodesCompleted) || 0);
+      const order = getSeasonTrackAchievementOrder();
+      const cap = order.length > 0 ? order.length : 10;
+      return Math.min(Math.max(0, n), cap);
+    }
+
+    /** Season ladder steps only: subtract counters frozen at last season claim. */
+    function applySeasonEarnBaselineOnly(achId, rawProgress) {
+      const order = getSeasonTrackAchievementOrder();
+      const idx = order.indexOf(achId);
+      if (idx < 0) return rawProgress;
+      const p = { ...rawProgress };
+      const cur = Number(p.current) || 0;
+      const st =
+        typeof cloudChessData !== 'undefined' && cloudChessData && cloudChessData.seasonTrack && typeof cloudChessData.seasonTrack === 'object'
+          ? cloudChessData.seasonTrack
+          : null;
+      const b = st && st.earnBaseline && typeof st.earnBaseline === 'object' ? st.earnBaseline : {};
+      let baseKey = null;
+      if (achId === 'first_game') baseKey = 'games';
+      else if (
+        achId === 'first_win' ||
+        achId === 'three_wins' ||
+        achId === 'five_wins' ||
+        achId === 'ten_wins' ||
+        achId === 'fifteen_wins'
+      ) {
+        baseKey = 'wins';
+      } else if (achId === 'castler') baseKey = 'castlingMoves';
+      else if (achId === 'promoter') baseKey = 'promotions';
+      else if (achId === 'rook_hunter_10') baseKey = 'capturedRooks';
+      else if (achId === 'checkmate_queen') baseKey = 'checkmateWithQueen';
+      if (!baseKey) return p;
+      const base = Math.max(0, Number(b[baseKey]) || 0);
+      p.current = Math.max(0, cur - base);
+      return p;
+    }
+
+    function getAchievementProgressResolved(ach) {
+      let raw;
+      try {
+        raw = ach.progress();
+      } catch (e) {
+        raw = { current: 0, target: 1 };
+      }
+      if (achievements.includes(ach.id)) return raw;
+      if (isSeasonTrackAchievementBlocked(ach.id)) {
+        return { ...raw, current: 0 };
+      }
+      return applySeasonEarnBaselineOnly(ach.id, raw);
+    }
+
     function isSeasonTrackAchievementBlocked(achId) {
       const order = getSeasonTrackAchievementOrder();
       const idx = order.indexOf(achId);
-      if (idx <= 0) return false;
+      if (idx < 0) return false;
+      const nodesDone = getSeasonTrackNodesCompletedClient();
+      if (nodesDone < idx) return true;
       for (let j = 0; j < idx; j++) {
         if (!achievements.includes(order[j])) return true;
       }
@@ -6702,7 +6762,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function seasonTrackGateMessage() {
-      return '🔒 Complete earlier monthly season track steps first — progress counts in order.';
+      return '🔒 Claim each prior season track step (season page) before this one can earn progress — order is enforced.';
     }
 
     function checkAchievements() {
@@ -6747,7 +6807,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (!ach.progress) return;
         
         try {
-          const progress = ach.progress();
+          const progress = applySeasonEarnBaselineOnly(ach.id, ach.progress());
           // Check if achievement has additional requirements (like minimum games played)
           // needsTotal should be true or undefined (not false) to meet requirements
           const meetsRequirements = progress.needsTotal !== false;
@@ -8313,7 +8373,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const isUnlocked = achievements.includes(ach.id);
           let progressRaw;
           try {
-            progressRaw = ach.progress();
+            progressRaw = getAchievementProgressResolved(ach);
           } catch (e) {
             console.error('Error calculating progress for', ach.id, e);
             progressRaw = { current: 0, target: 1 };
@@ -8488,20 +8548,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             const isUnlocked = achievements.includes(nextAchievement.id);
             let progress, progressPercent;
             try {
-              progress = nextAchievement.progress();
+              progress = getAchievementProgressResolved(nextAchievement);
               progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
             } catch (e) {
               console.error('Error calculating progress for', nextAchievement.id, e);
               progress = { current: 0, target: 1 };
-              progressPercent = 0;
-            }
-            if (!isUnlocked && isSeasonTrackAchievementBlocked(nextAchievement.id)) {
-              progress = {
-                current: 0,
-                target: Math.max(1, Math.floor(Number(progress.target)) || 1),
-                needsTotal: progress.needsTotal,
-                needsNoLosses: progress.needsNoLosses,
-              };
               progressPercent = 0;
             }
             const showProgress = !isUnlocked && progressPercent < 100;
@@ -8607,20 +8658,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               const isUnlocked = achievements.includes(ach.id);
               let progress, progressPercent;
               try {
-                progress = ach.progress();
+                progress = getAchievementProgressResolved(ach);
                 progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
               } catch (e) {
                 console.error('Error calculating progress for', ach.id, e);
                 progress = { current: 0, target: 1 };
-                progressPercent = 0;
-              }
-              if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
-                progress = {
-                  current: 0,
-                  target: Math.max(1, Math.floor(Number(progress.target)) || 1),
-                  needsTotal: progress.needsTotal,
-                  needsNoLosses: progress.needsNoLosses,
-                };
                 progressPercent = 0;
               }
               const showProgress = !isUnlocked && progressPercent < 100;
@@ -8692,20 +8734,11 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           const isUnlocked = achievements.includes(ach.id);
           let progress, progressPercent;
           try {
-            progress = ach.progress();
+            progress = getAchievementProgressResolved(ach);
             progressPercent = progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
           } catch (e) {
             console.error('Error calculating progress for', ach.id, e);
             progress = { current: 0, target: 1 };
-            progressPercent = 0;
-          }
-          if (!isUnlocked && isSeasonTrackAchievementBlocked(ach.id)) {
-            progress = {
-              current: 0,
-              target: Math.max(1, Math.floor(Number(progress.target)) || 1),
-              needsTotal: progress.needsTotal,
-              needsNoLosses: progress.needsNoLosses,
-            };
             progressPercent = 0;
           }
           
@@ -8939,6 +8972,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             nodesCompleted: 0,
             lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
             lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
+            earnBaseline: {
+              games: 0,
+              wins: 0,
+              castlingMoves: 0,
+              promotions: 0,
+              capturedRooks: 0,
+              checkmateWithQueen: 0,
+            },
           };
         }
       }
