@@ -6771,6 +6771,26 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return '🔒 Claim each prior season track step (season page) before this one can earn progress — order is enforced.';
     }
 
+    /**
+     * End-of-game toast order: highest career points first, then lower (ties: season track before non-season, then id).
+     * @param {Array<{ id: string, name: string, desc: string, points: number }>} list
+     * @returns {Array<{ id: string, name: string, desc: string, points: number, __notifySeason: boolean }>}
+     */
+    function orderAchievementNotificationsForDisplay(list) {
+      if (!Array.isArray(list) || !list.length) return [];
+      const order = getSeasonTrackAchievementOrder();
+      const seasonSet = new Set(order);
+      const tagged = list.map((a) => ({ ...a, __notifySeason: seasonSet.has(a && a.id) }));
+      tagged.sort((a, b) => {
+        const pa = Math.max(0, Math.floor(Number(a.points) || 0));
+        const pb = Math.max(0, Math.floor(Number(b.points) || 0));
+        if (pb !== pa) return pb - pa;
+        if (a.__notifySeason !== b.__notifySeason) return a.__notifySeason ? -1 : 1;
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
+      return tagged;
+    }
+
     function checkAchievements() {
       // Calculate total points for point-gated achievements (from list definitions only).
       const allAchievements = getAllAchievementsList();
@@ -6868,7 +6888,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         console.warn('checkAndUnlockAchievements: max iterations reached; report if achievements look wrong.');
       }
       if (aggregatedNew.length > 0) {
-        showAchievementNotificationsSequentially(aggregatedNew);
+        showAchievementNotificationsSequentially(orderAchievementNotificationsForDisplay(aggregatedNew));
       }
       if (typeof saveChessDataToCloud === 'function') {
         saveChessDataToCloud(false);
@@ -9555,11 +9575,31 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
     
     function showAchievementNotificationsSequentially(newAchievements) {
-      // Show achievements one at a time after game completion
+      const DISPLAY_MS = 3500;
+      const GAP_MS = 4000;
+      if (!Array.isArray(newAchievements) || !newAchievements.length) return;
+
       newAchievements.forEach((ach, index) => {
         setTimeout(() => {
+          const isSeason = !!ach.__notifySeason;
           const notification = document.createElement('div');
-          notification.style.cssText = `
+          const seasonStyle = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #0f766e 0%, #4f46e5 48%, #6d28d9 100%);
+            color: #f8fafc;
+            padding: 18px 22px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(253, 224, 71, 0.35);
+            box-shadow: 0 10px 36px rgba(79, 70, 229, 0.42), 0 0 0 1px rgba(15, 118, 110, 0.35) inset;
+            z-index: 10004;
+            font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Android Emoji", sans-serif;
+            font-weight: 600;
+            animation: slideInRight 0.5s ease-out;
+            max-width: 320px;
+          `;
+          const regularStyle = `
             position: fixed;
             top: 20px;
             right: 20px;
@@ -9574,19 +9614,28 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             animation: slideInRight 0.5s ease-out;
             max-width: 300px;
           `;
-          const pointsText = ach.points ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 5px;">+${ach.points} points</div>` : '';
+          notification.style.cssText = isSeason ? seasonStyle : regularStyle;
+
+          const pointsText = ach.points
+            ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 6px;">+${ach.points} career points</div>`
+            : '';
+          const ribbon = isSeason
+            ? `<div style="font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 800; opacity: 0.92; margin-bottom: 10px; color: #fef9c3;">Season track</div>`
+            : '';
+          const nameSize = isSeason ? '1.42em' : '1.5em';
           notification.innerHTML = `
-            <div style="font-size: 1.5em; margin-bottom: 8px;">${ach.name}</div>
-            <div style="font-size: 0.9em; opacity: 0.95;">${ach.desc}</div>
+            ${ribbon}
+            <div style="font-size: ${nameSize}; margin-bottom: 8px; line-height: 1.2;">${ach.name || ''}</div>
+            <div style="font-size: 0.9em; opacity: 0.95; line-height: 1.35;">${ach.desc || ''}</div>
             ${pointsText}
           `;
           document.body.appendChild(notification);
-          
+
           setTimeout(() => {
             notification.style.animation = 'slideOutRight 0.5s ease-in forwards';
             setTimeout(() => notification.remove(), 500);
-          }, 3500); // Show each notification for 3.5 seconds
-        }, index * 4000); // 4 second delay between each notification
+          }, DISPLAY_MS);
+        }, index * GAP_MS);
       });
     }
 
