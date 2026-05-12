@@ -152,8 +152,12 @@ export default {
     }
   },
 
-  async scheduled(event, env) {
-    return handleScheduledCron(event, env);
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(
+      handleScheduledCron(controller, env).catch((err) => {
+        console.error('scheduled cron failed', err?.stack || err?.message || err);
+      })
+    );
   },
 };
 
@@ -4616,6 +4620,7 @@ async function handleScheduledCron(event, env) {
     console.log('scheduled: DAILY_DIGEST_KV not bound, skipping digest');
     return;
   }
+  const cronExpr = event && typeof event.cron === 'string' ? event.cron : '';
   const scheduledMs =
     event && typeof event.scheduledTime === 'number' && Number.isFinite(event.scheduledTime)
       ? event.scheduledTime
@@ -4625,8 +4630,9 @@ async function handleScheduledCron(event, env) {
   const centralHour = hourInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
   const centralMinute = minuteInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
   const defaultMidnight = target.hour === 0 && target.minute === 0;
+  /** Chicago 00:00–00:19; duplicate sends same calendar day prevented by lastDigestLocalYmd. */
   const gateOk = defaultMidnight
-    ? centralHour === 0
+    ? centralHour === 0 && centralMinute <= 19
     : centralHour === target.hour && centralMinute === target.minute;
   if (!gateOk) {
     console.log('Daily digest cron skip — not digest send instant in Central', {
@@ -4634,9 +4640,14 @@ async function handleScheduledCron(event, env) {
       centralMinute,
       target,
       defaultMidnight,
-      cron: event?.cron,
+      cron: cronExpr,
       scheduledMs,
     });
+    if (!defaultMidnight) {
+      console.warn(
+        'Digest uses DIGEST_SEND_LOCAL_HOUR/MINUTE; add a [triggers] cron whose UTC fire matches that Chicago wall time, or use 0/0 for midnight Central.'
+      );
+    }
     return;
   }
 
@@ -4707,7 +4718,7 @@ async function handleScheduledCron(event, env) {
     sent,
     failed,
     skipped,
-    cron: event?.cron,
+    cron: cronExpr,
     centralDate: localYmd,
     digestLocalHM: `${target.hour}:${String(target.minute).padStart(2, '0')}`,
   });

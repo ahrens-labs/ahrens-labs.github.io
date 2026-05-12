@@ -26,12 +26,10 @@ binding = "CHESS_LEADERBOARD_KV"
 id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
-# Daily digest: UTC crons + filter on America/Chicago using scheduledTime (same idea as sports-digest).
-# Wake at 05:00 and 06:00 UTC so exactly one run is midnight Central year-round (CDT vs CST). Code gates on Chicago 00:00.
-# Optional test time: set DIGEST_SEND_LOCAL_HOUR / DIGEST_SEND_LOCAL_MINUTE and a cron whose UTC minute matches _MINUTE
-# (e.g. 4:05 PM → 16/5 and "5 21,22 * * *"). If triggers in the Cloudflare dashboard override wrangler, align or remove them there.
+# Daily digest: UTC crons that land on (or just after) midnight America/Chicago; code gates on Chicago 00:00–00:19.
+# 05:00/06:00 UTC cover CDT/CST midnight; 05:15/06:15 are backups if the :00 run is delayed or dropped.
 [triggers]
-crons = ["0 5,6 * * *"]
+crons = ["0 5,6 * * *", "15 5,6 * * *"]
 
 [durable_objects]
 bindings = [
