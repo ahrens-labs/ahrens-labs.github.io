@@ -18,6 +18,34 @@ import concurrent.futures
 import requests
 from functools import lru_cache
 
+# region agent log
+# Local Cursor default; on PythonAnywhere set TRIFANGX_AGENT_DEBUG_LOG to a path under your home
+# (e.g. /home/yourusername/trifangx-agent-debug.log) so writes succeed, then paste or sync that file.
+_AGENT_DEBUG_LOG_PATH = os.environ.get(
+    'TRIFANGX_AGENT_DEBUG_LOG',
+    '/home/matt/git/ahrens-labs.github.io/.cursor/debug-c5a30c.log',
+)
+_AGENT_DEBUG_SESSION = 'c5a30c'
+
+
+def _debug_agent_log(hypothesis_id, location, message, data=None):
+    try:
+        import json as _json
+        rec = {
+            'sessionId': _AGENT_DEBUG_SESSION,
+            'hypothesisId': hypothesis_id,
+            'location': location,
+            'message': message,
+            'timestamp': int(time.time() * 1000),
+        }
+        if data is not None:
+            rec['data'] = data
+        with open(_AGENT_DEBUG_LOG_PATH, 'a', encoding='utf-8') as _df:
+            _df.write(_json.dumps(rec, default=str) + '\n')
+    except Exception:
+        pass
+# endregion
+
 # Reduce broken-pipe noise when clients disconnect during long engine responses (reload, tab close).
 try:
     signal.signal(signal.SIGPIPE, signal.SIG_IGN)
@@ -1166,12 +1194,7 @@ def reset_engine_state():
 
 
 def _compute_engine_move_reply(move_notation, color):
-    """Apply the human's move, then compute the engine's reply.
-
-    `color` is the human's side from /move. The engine is the other side.
-    `players_turn` applies **white** moves; `players_turn_white` applies **black** moves
-    (legacy naming).
-    """
+    """Run one engine reply using current module globals (board, etc.)."""
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -1180,7 +1203,11 @@ def _compute_engine_move_reply(move_notation, color):
             if len(cleaned_move) == 4 and move_notation != '0-0-0':
                 move_notation = convert_to_long_algebraic(cleaned_move, board, color[0])
         return_move = None
+        # color is the human's side: human white -> apply with players_turn ('w'); engine replies as black (best_move_black).
+        # Human black -> players_turn_white ('b'); engine as white (best_move_function).
         if color == 'white':
+            if DEBUG_LOGS and move_notation:
+                print(f'TRACE _compute_engine_move_reply: color=white human_move={move_notation!r} applier=players_turn engine=best_move_black')
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
                     players_turn(board, '0-0', '0-0')
@@ -1189,12 +1216,14 @@ def _compute_engine_move_reply(move_notation, color):
                 else:
                     next_move = move_notation.strip()
                     players_turn(board, next_move, notation_move)
-            return_move = best_move_function(board, 'false', 'false')
+            return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
                 if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
                     return_move = convert_long_move(return_move)
         else:
+            if DEBUG_LOGS and move_notation:
+                print(f'TRACE _compute_engine_move_reply: color=black human_move={move_notation!r} applier=players_turn_white engine=best_move_function')
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
                     players_turn_white(board, '0-0', '0-0')
@@ -1203,11 +1232,32 @@ def _compute_engine_move_reply(move_notation, color):
                 else:
                     next_move = move_notation.strip()
                     players_turn_white(board, next_move, notation_move)
-            return_move = best_move_black(board, 'false', 'false')
+            return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
                 if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
                     return_move = convert_long_move(return_move)
+    # region agent log
+    try:
+        _wkr, _wkc = find_king(board, 'w')
+        _bkr, _bkc = find_king(board, 'b')
+        _debug_agent_log(
+            'H1',
+            'TrifangX.py:_compute_engine_move_reply',
+            'after_reply',
+            {
+                'color': color,
+                'move_in': (move_notation or '')[:32],
+                'return_move': (return_move or '')[:32],
+                'game_moves_len': len(game_moves),
+                'game_moves_tail': game_moves[-6:] if game_moves else [],
+                'wk': [_wkr, _wkc],
+                'bk': [_bkr, _bkc],
+            },
+        )
+    except Exception:
+        pass
+    # endregion
     return return_move
 
 
@@ -1505,32 +1555,60 @@ def update_modifiers():
 def evaluate_chunks(chunk):
     # Optimized: removed excessive printing for performance
     results = []
+    # region agent log
+    _n_tasks = _n_kept = _n_zero_drop = _n_err = 0
+    # endregion
     for task in chunk:
+        # region agent log
+        _n_tasks += 1
+        # endregion
         if task is None:
             continue
-        key, scoring, scoring_time = evaluate_white_task(task)
-        if scoring:
+        try:
+            key, scoring, scoring_time = evaluate_white_task(task)
+        except Exception as _e:
+            # region agent log
+            _n_err += 1
+            _debug_agent_log(
+                'H4',
+                'TrifangX.py:evaluate_chunks',
+                'evaluate_white_task_raised',
+                {'err': type(_e).__name__, 'msg': str(_e)[:240]},
+            )
+            # endregion
+            raise
+        if scoring is not None:
             results.append((key, scoring))
+            # region agent log
+            _n_kept += 1
+            # endregion
+        else:
+            # region agent log
+            if scoring == 0 or scoring == 0.0:
+                _n_zero_drop += 1
+            # endregion
+    # region agent log
+    if _n_tasks:
+        _debug_agent_log(
+            'H2',
+            'TrifangX.py:evaluate_chunks',
+            'chunk_summary',
+            {'n_tasks': _n_tasks, 'n_kept': _n_kept, 'n_zero_drop': _n_zero_drop, 'n_err': _n_err, 'out_len': len(results)},
+        )
+    # endregion
     return results
 
 
 def evaluate_white_task(args):
-    if not isinstance(args, (tuple, list)) or len(args) != 10:
+    if args is None:
         return None, None, None
-    try:
-        board, row, col, new_row, new_col, good_moves, piece, black_king_row, black_king_col, captured_piece, position_history = args
-    except TypeError:
-        return None, None, None
-    try:
-        ev = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
-    except (TypeError, ValueError) as e:
-        if 'unpack' in str(e).lower():
-            print(f'evaluate_white_task: {e}', file=sys.stderr)
-            return None, None, None
-        raise
-    if ev is None or not isinstance(ev, (tuple, list)) or len(ev) != 2:
-        return None, None, None
-    scoring, scoring_time = ev[0], ev[1]
+    board, row, col, new_row, new_col, good_moves, piece, black_king_row, black_king_col, captured_piece, position_history = args
+    scoring, scoring_time = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
+    if DEBUG_LOGS and os.environ.get('TRIFANGX_TRACE_EVAL') == '1':
+        print(
+            f'TRACE evaluate_white_task piece={piece!r} {row},{col}->{new_row},{new_col} '
+            f'scoring_type={type(scoring).__name__} scoring={scoring!r}'
+        )
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1538,7 +1616,16 @@ def evaluate_white_task(args):
     else:
         key = (row, col, new_row, new_col, piece)
     # Removed excessive printing for performance
-    if scoring:
+    # region agent log
+    if scoring == 0 or scoring == 0.0:
+        _debug_agent_log(
+            'H2',
+            'TrifangX.py:evaluate_white_task',
+            'zero_score_branch',
+            {'key': str(key)[:80], 'scoring': scoring, 'piece': piece},
+        )
+    # endregion
+    if scoring is not None:
         return key, scoring, scoring_time
     else:
         return None, None, None
@@ -1549,7 +1636,6 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
-    current_score = 0.0
     if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         board[7][7] = '0'
@@ -1840,28 +1926,16 @@ def evaluate_chunks_black(chunk):
         if task is None:
             continue
         key, scoring, scoring_time = evaluate_black_task(task)
-        if scoring:
+        if scoring is not None:
             results.append((key, scoring))
     return results
 
 
 def evaluate_black_task(args):
-    if not isinstance(args, (tuple, list)) or len(args) != 10:
+    if args is None:
         return None, None, None
-    try:
-        board, row, col, new_row, new_col, good_moves, piece, white_king_row, white_king_col, captured_piece, position_history = args
-    except TypeError:
-        return None, None, None
-    try:
-        ev = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
-    except (TypeError, ValueError) as e:
-        if 'unpack' in str(e).lower():
-            print(f'evaluate_black_task: {e}', file=sys.stderr)
-            return None, None, None
-        raise
-    if ev is None or not isinstance(ev, (tuple, list)) or len(ev) != 2:
-        return None, None, None
-    scoring, scoring_time = ev[0], ev[1]
+    board, row, col, new_row, new_col, good_moves, piece, white_king_row, white_king_col, captured_piece, position_history = args
+    scoring, scoring_time = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1869,7 +1943,7 @@ def evaluate_black_task(args):
     else:
         key = (row, col, new_row, new_col, piece)
     # Removed excessive printing for performance
-    if scoring:
+    if scoring is not None:
         return key, scoring, scoring_time
     else:
         return None, None, None
@@ -1880,7 +1954,6 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
     bad_checkmate = False
     stalemate = False
     scoring_time = 0
-    current_score = 0.0
     if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         # Removed print for performance in parallel processing
@@ -4644,7 +4717,6 @@ def convert_move(board, to_row, to_col, piece, color):
                 new_col = to_col + direction[1]
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'N':
-                        print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
             directions = BISHOP_DELTAS
@@ -5084,9 +5156,6 @@ def best_move_function(board, bots, en_passant):
     global fifty_move_rule
     blind = 'false'
     black_king_row, black_king_col = find_king(board, 'b')
-    white_king_row_chk, white_king_col_chk = find_king(board, 'w')
-    if black_king_row < 0 or white_king_row_chk < 0:
-        return None
     checkmate = False
     checkmate2 = False
     bad_checkmate = False
@@ -5148,13 +5217,25 @@ def best_move_function(board, bots, en_passant):
             if normalized_opening.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
-                if played_list != to_play_list[: len(played_list)]:
-                    continue
                 next_index = len(played_list)
                 if next_index < len(to_play_list):
                     next_move = to_play_list[next_index]
                     raw_opening_move = next_move
                     print("NM:", next_move)
+                    # region agent log
+                    _debug_agent_log(
+                        'H3',
+                        'TrifangX.py:best_move_function',
+                        'opening_book_hit',
+                        {
+                            'fn': 'best_move_function',
+                            'next_move': str(next_move)[:32],
+                            'next_index': next_index,
+                            'input_tail': normalized_input[-96:] if normalized_input else '',
+                            'opening_head': normalized_opening[:120] if normalized_opening else '',
+                        },
+                    )
+                    # endregion
                     if next_move in {'0-0', 'O-O'}:
                         previous_score = score(board, 'w')
                         result_scores[('0-0')] = previous_score
@@ -5185,11 +5266,20 @@ def best_move_function(board, bots, en_passant):
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
                             from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                            if from_row is not None and from_col is not None:
+                            # region agent log
+                            if from_row is None or from_col is None:
+                                _debug_agent_log(
+                                    'H5',
+                                    'TrifangX.py:best_move_function',
+                                    'book_convert_move_none',
+                                    {'next_move': str(next_move)[:32], 'piece': piece, 'row': row, 'col': col},
+                                )
+                            else:
                                 previous_score = score(board, 'w')
                                 kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
                                 result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                        elif piece and to_col and to_row and disambig:
+                            # endregion
+                        if piece and to_col and to_row and disambig:
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
                             from_row = from_col = None
@@ -6514,9 +6604,6 @@ def best_move_black(board, bots, en_passant):
     global game_moves
     blind = 'false'
     white_king_row, white_king_col = find_king(board, 'w')
-    black_king_row_chk, black_king_col_chk = find_king(board, 'b')
-    if white_king_row < 0 or black_king_row_chk < 0:
-        return None
     checkmate = False
     checkmate2 = False
     bad_checkmate = False
@@ -6602,8 +6689,6 @@ def best_move_black(board, bots, en_passant):
             if normalized_opening_line.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
-                if played_list != to_play_list[: len(played_list)]:
-                    continue
                 next_index = len(played_list)
                 if next_index < len(to_play_list):
                     next_move = to_play_list[next_index]
@@ -6669,7 +6754,7 @@ def best_move_black(board, bots, en_passant):
                                             kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
                                             result_scores[(from_row, from_col, row, col, kp)] = previous_score
                                             break
-                            elif piece and to_col and to_row and disambig:
+                            if piece and to_col and to_row and disambig:
                                 pos = str(to_col) + str(to_row)
                                 row, col = pos_to_indices(pos)
                                 from_row = from_col = None

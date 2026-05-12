@@ -279,7 +279,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       velvet: { w: 'linear-gradient(135deg,#ede7f6,#d1c4e9)', b: 'linear-gradient(135deg,#512da8,#311b92)' },
       stone: { w: 'linear-gradient(135deg,#bdbdbd,#9e9e9e)', b: 'linear-gradient(135deg,#616161,#424242)' },
       cyber: { w: 'linear-gradient(135deg,#00ff88,#00cc6a)', b: 'linear-gradient(135deg,#0d0d0d,#1a1a2e)' },
-      luxury: { w: 'linear-gradient(135deg,#fff8e1,#ffecb3)', b: 'linear-gradient(135deg,#ff8f00,#e65100)' }
+      luxury: { w: 'linear-gradient(135deg,#fff8e1,#ffecb3)', b: 'linear-gradient(135deg,#ff8f00,#e65100)' },
+      season_awakening: { w: 'linear-gradient(135deg,#e0f2fe,#bae6fd)', b: 'linear-gradient(135deg,#0369a1,#0c4a6e)' },
+      season_rift: { w: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', b: 'linear-gradient(135deg,#7e22ce,#4c1d95)' }
     };
     
     // Initialize arrow colors
@@ -1114,7 +1116,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       riohacha: 'https://lichess1.org/assets/piece/riohacha/{piece}.svg',
       shapes: 'https://lichess1.org/assets/piece/shapes/{piece}.svg',
       staunty: 'https://lichess1.org/assets/piece/staunty/{piece}.svg',
-      tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg'
+      tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg',
+      season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg'
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -2364,6 +2367,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         orange: { h: 'rgba(243,156,18,0.5)', a: 'rgba(243,156,18,0.9)' },
         pink: { h: 'rgba(236,112,99,0.5)', a: 'rgba(236,112,99,0.9)' },
         cyan: { h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+        season_glacier_glow: { h: 'rgba(56,189,248,0.55)', a: 'rgba(14,165,233,0.95)' },
         rainbow: { h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
       };
       const themePreviews = {
@@ -2705,6 +2709,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       orange: { highlightLight: 'rgba(243, 156, 18, 0.50)', highlightDark: 'rgba(243, 156, 18, 0.55)', arrow: 'rgba(243, 156, 18, 0.7)', arrowFill: 'rgba(243, 156, 18, 1)', h: 'rgba(243,156,18,0.5)', a: 'rgba(243,156,18,0.9)' },
       pink: { highlightLight: 'rgba(236, 112, 99, 0.50)', highlightDark: 'rgba(236, 112, 99, 0.55)', arrow: 'rgba(236, 112, 99, 0.7)', arrowFill: 'rgba(236, 112, 99, 1)', h: 'rgba(236,112,99,0.5)', a: 'rgba(236,112,99,0.9)' },
       cyan: { highlightLight: 'rgba(52, 152, 219, 0.50)', highlightDark: 'rgba(52, 152, 219, 0.55)', arrow: 'rgba(52, 152, 219, 0.7)', arrowFill: 'rgba(52, 152, 219, 1)', h: 'rgba(52,152,219,0.5)', a: 'rgba(52,152,219,0.9)' },
+      season_glacier_glow: {
+        highlightLight: 'rgba(56, 189, 248, 0.48)',
+        highlightDark: 'rgba(14, 165, 233, 0.52)',
+        arrow: 'rgba(14, 165, 233, 0.75)',
+        arrowFill: 'rgba(125, 211, 252, 1)',
+        h: 'rgba(56,189,248,0.5)',
+        a: 'rgba(14,165,233,0.9)',
+      },
       rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
     };
     

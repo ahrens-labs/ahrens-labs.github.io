@@ -3500,6 +3500,81 @@ function mergeChessStatsForSync(prevStats, incomingStats) {
   };
 }
 
+const CHESS_SEASON_MAX_NODES = 10;
+const CHESS_LB_FLAIR_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc']);
+
+/** Sanitize season flair shown on public leaderboard rows. */
+function sanitizeChessLbFlair(raw) {
+  const out = { frame: null, title: null, prefix: '', suffix: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  const frame = raw.frame != null ? String(raw.frame) : '';
+  if (frame && CHESS_LB_FLAIR_FRAMES.has(frame)) out.frame = frame;
+  const title = raw.title != null ? String(raw.title).trim() : '';
+  if (title.length > 0 && title.length <= 24) {
+    out.title = title.replace(/[\u0000-\u001f\u007f]/g, '');
+  }
+  const prefix = raw.prefix != null ? String(raw.prefix) : '';
+  out.prefix = [...prefix].slice(0, 3).join('');
+  const suffix = raw.suffix != null ? String(raw.suffix) : '';
+  out.suffix = [...suffix].slice(0, 3).join('');
+  return out;
+}
+
+function mergeChessSeasonFieldsForSync(prevChess, incomingSeasonTrack, incomingBonus) {
+  const prevBp = Math.max(0, Math.floor(Number(prevChess?.seasonBonusPoints) || 0));
+  const incBp = Math.max(0, Math.floor(Number(incomingBonus) || 0));
+  const seasonBonusPoints = Math.max(prevBp, incBp);
+
+  const prevT =
+    prevChess && prevChess.seasonTrack && typeof prevChess.seasonTrack === 'object'
+      ? prevChess.seasonTrack
+      : {};
+  const incT = incomingSeasonTrack && typeof incomingSeasonTrack === 'object' ? incomingSeasonTrack : null;
+  if (!incT) {
+    return {
+      seasonBonusPoints,
+      seasonTrack: { ...prevT },
+    };
+  }
+
+  const pSid = String(prevT.seasonId || '');
+  const iSid = String(incT.seasonId || '').trim();
+
+  let nodesCompleted = Math.max(0, Math.floor(Number(prevT.nodesCompleted) || 0));
+  const incN = Math.max(0, Math.floor(Number(incT.nodesCompleted) || 0));
+  if (iSid && pSid && iSid === pSid) {
+    nodesCompleted = Math.max(nodesCompleted, incN);
+  } else if (iSid) {
+    nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, incN);
+  }
+  nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, nodesCompleted);
+
+  const mergedFlair = sanitizeChessLbFlair({ ...(prevT.lbFlair && typeof prevT.lbFlair === 'object' ? prevT.lbFlair : {}), ...(incT.lbFlair && typeof incT.lbFlair === 'object' ? incT.lbFlair : {}) });
+
+  const prevOwnedF =
+    prevT.lbFlairUnlocked && typeof prevT.lbFlairUnlocked === 'object' ? prevT.lbFlairUnlocked : {};
+  const incOwnedF =
+    incT.lbFlairUnlocked && typeof incT.lbFlairUnlocked === 'object' ? incT.lbFlairUnlocked : {};
+  const uniq = (a) => [...new Set((Array.isArray(a) ? a : []).map((x) => String(x)))];
+  const mergedOwned = {
+    frames: uniq([...(prevOwnedF.frames || []), ...(incOwnedF.frames || [])]),
+    titles: uniq([...(prevOwnedF.titles || []), ...(incOwnedF.titles || [])]),
+    prefixes: uniq([...(prevOwnedF.prefixes || []), ...(incOwnedF.prefixes || [])]),
+    suffixes: uniq([...(prevOwnedF.suffixes || []), ...(incOwnedF.suffixes || [])]),
+  };
+
+  const seasonTrack = {
+    ...prevT,
+    ...incT,
+    seasonId: iSid || pSid || prevT.seasonId,
+    nodesCompleted,
+    lbFlair: mergedFlair,
+    lbFlairUnlocked: mergedOwned,
+  };
+
+  return { seasonBonusPoints, seasonTrack };
+}
+
 function chessStatsSnapshot(chessBlock) {
   const ps = chessBlock?.stats?.playerStats || {};
   const w = Math.max(0, Number(ps.wins) || 0);
@@ -3711,7 +3786,9 @@ async function removeChessLeaderboardUser(kv, userId) {
 function extractChessLeaderboardStatsFromProfile(row) {
   if (!row || typeof row !== 'object') return null;
   const chess = row.games?.chess;
-  const points = Math.max(0, Math.floor(Number(chess?.points) || 0));
+  const careerPts = Math.max(0, Math.floor(Number(chess?.points) || 0));
+  const seasonBonus = Math.max(0, Math.floor(Number(chess?.seasonBonusPoints) || 0));
+  const points = careerPts + seasonBonus;
   const ps = chess?.stats?.playerStats || {};
   const wins = Math.max(0, Number(ps.wins) || 0);
   const losses = Math.max(0, Number(ps.losses) || 0);
@@ -3727,6 +3804,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
   const rowColor = sanitizeLeaderboardRowColorHex(row.leaderboardRowColor);
+  const lbFlair = sanitizeChessLbFlair(chess?.seasonTrack?.lbFlair);
 
   const recent = aggregateLeaderboardStatsFromRecentGames(
     chess,
@@ -3769,6 +3847,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
     weekChecksGiven,
     weekPromotions,
     weekCastlingMoves,
+    lbFlair,
   };
 }
 
@@ -3828,6 +3907,7 @@ function leaderboardPublicRow(r, index1, mode = 'career') {
     rank: index1,
     username: r.username,
     rowColor: r.rowColor || null,
+    lbFlair: r.lbFlair && typeof r.lbFlair === 'object' ? r.lbFlair : { frame: null, title: null, prefix: '', suffix: '' },
     points: wk ? r.weekPoints : r.points,
     wins: wk ? r.weekWins : r.wins,
     losses: wk ? r.weekLosses : r.losses,
@@ -5814,7 +5894,17 @@ export class UserAccount {
 
     const prevChess = userData.games.chess;
     const prevSnap = chessStatsSnapshot(prevChess || {});
-    const { stats: incomingStats, ...restNoStats } = restIncoming;
+    const {
+      stats: incomingStats,
+      gameHistory: incomingHistoryIgnored,
+      seasonTrack: incomingSeasonTrack,
+      seasonBonusPoints: incomingSeasonBonus,
+      ...restNoStats
+    } = restIncoming;
+
+    const hasIncomingSeasonTrack = Object.prototype.hasOwnProperty.call(restIncoming, 'seasonTrack');
+    const hasIncomingSeasonBonus = Object.prototype.hasOwnProperty.call(restIncoming, 'seasonBonusPoints');
+
     let mergedHistory;
     if (replaceHistory && Array.isArray(restIncoming.gameHistory)) {
       mergedHistory = trimChessGameHistoryMerged(restIncoming.gameHistory);
@@ -5825,12 +5915,19 @@ export class UserAccount {
     }
 
     const mergedStats = mergeChessStatsForSync(prevChess.stats, incomingStats);
+    const mergedSeason = mergeChessSeasonFieldsForSync(
+      prevChess,
+      hasIncomingSeasonTrack ? incomingSeasonTrack : undefined,
+      hasIncomingSeasonBonus ? incomingSeasonBonus : undefined
+    );
 
     const mergedChess = {
       ...prevChess,
       ...restNoStats,
       stats: mergedStats,
       gameHistory: mergedHistory,
+      seasonTrack: mergedSeason.seasonTrack,
+      seasonBonusPoints: mergedSeason.seasonBonusPoints,
       lastUpdated: Date.now(),
     };
     delete mergedChess.lbWeekUtc;
@@ -5854,8 +5951,9 @@ export class UserAccount {
     const userData = await this.storage.get('userData');
     if (!userData) return;
     const userId = this.state.id.toString();
-    const points = Math.max(0, Number(userData.games?.chess?.points) || 0);
-    await upsertChessLeaderboardEntry(kv, userId, userData.username, points);
+    const points = Math.max(0, Math.floor(Number(userData.games?.chess?.points) || 0));
+    const sb = Math.max(0, Math.floor(Number(userData.games?.chess?.seasonBonusPoints) || 0));
+    await upsertChessLeaderboardEntry(kv, userId, userData.username, points + sb);
   }
 
   async getChessData() {
