@@ -12,7 +12,7 @@
  * 2) Track shape
  *    - One linear track of steps (currently 10). Each step = exactly one existing achievement id
  *      (`challengeAchievementId`) from `trifangx_chess_app.js` — do not invent ids here without adding
- *      the achievement in the app first.
+ *      the achievement in the app first. Steps can mix wins, tactics, material, and checkmates.
  *    - Progress is stored in cloud chess as `seasonTrack.nodesCompleted` (integer: how many steps
  *      have been fully claimed). Next step index = that value. Gating is sequential.
  *    - `seasonTrack.earnBaseline` (games, wins, castlingMoves, …) is updated on each successful claim
@@ -92,49 +92,50 @@
   const SEASON_TRACK_MECHANICAL = [
     { challengeAchievementId: 'first_game', bonusPoints: 12, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
     {
-      challengeAchievementId: 'first_win',
-      bonusPoints: 22,
+      challengeAchievementId: 'knight_to_f3',
+      bonusPoints: 16,
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
     },
     {
-      challengeAchievementId: 'three_wins',
-      bonusPoints: 32,
+      challengeAchievementId: 'bishop_to_f4',
+      bonusPoints: 18,
       rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
     },
     {
-      challengeAchievementId: 'five_wins',
-      bonusPoints: 48,
+      challengeAchievementId: 'en_passant',
+      bonusPoints: 28,
       rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
     },
     {
-      challengeAchievementId: 'castler',
-      bonusPoints: 55,
+      challengeAchievementId: 'queen_capturer',
+      bonusPoints: 42,
       rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
     },
     {
-      challengeAchievementId: 'ten_wins',
-      bonusPoints: 72,
-      rewards: [{ kind: 'lb_title', title: 'Trailblazer' }],
+      challengeAchievementId: 'capture_master',
+      bonusPoints: 52,
+      rewards: [{ kind: 'lb_title', title: 'Grove hunter' }],
     },
     {
-      challengeAchievementId: 'promoter',
-      bonusPoints: 65,
+      challengeAchievementId: 'castler',
+      bonusPoints: 58,
       rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
     },
     {
-      challengeAchievementId: 'rook_hunter_10',
-      bonusPoints: 95,
+      challengeAchievementId: 'promoter',
+      bonusPoints: 62,
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
     },
     {
-      challengeAchievementId: 'fifteen_wins',
-      bonusPoints: 120,
-      rewards: [{ kind: 'lb_frame', frame: 'violet_arc' }],
+      challengeAchievementId: 'checkmate_rook',
+      bonusPoints: 130,
+      rewards: [{ kind: 'lb_title', title: 'Spire sniper' }],
     },
     {
       challengeAchievementId: 'checkmate_queen',
-      bonusPoints: 220,
+      bonusPoints: 210,
       rewards: [
+        { kind: 'lb_frame', frame: 'violet_arc' },
         { kind: 'lb_title', title: 'Finisher' },
         { kind: 'lb_suffix', suffix: '✦' },
       ],
@@ -142,16 +143,16 @@
   ];
 
   const DEFAULT_STEP_TITLES = [
-    'Play your first game',
-    'Win your first game',
-    'Win 3 games',
-    'Win 5 games',
-    'Castle 5 times (lifetime)',
-    'Win 10 games',
-    'Promote a pawn 5 times',
-    'Capture 10 enemy rooks',
-    'Win 15 games',
-    'Checkmate with a queen',
+    'Play your first game of the month',
+    'Develop a knight to f3 (classic spring square)',
+    'Slide a bishop to f4 (diagonal light)',
+    'Land an en passant capture (path between the pawns)',
+    'Make 10 captures with your queen as the moving piece',
+    'Make 50 captures total with any of your pieces',
+    'Castle 5 times (lifetime) — tuck the king into cover',
+    'Promote 5 pawns (lifetime) — new queens from the soil',
+    'Deliver checkmate with a rook',
+    'Deliver checkmate with a queen — canopy apex',
   ];
 
   /**
@@ -163,18 +164,18 @@
       key: 'may_emerald_ascent',
       name: 'Emerald ascent',
       tagline:
-        'May is for opening well: take space on the calendar, develop habits (and your king), then finish with a clear crown strike. Same rules as the core track — this is the month’s story on top.',
+        'May’s track is a forest climb: step in, develop knights and bishops like branches, spring a trap, trade tempest, fortify, grow new queens, then endgames from the treeline to the crown. Each step is a different skill — not a win ladder.',
       stepTitles: [
-        'Step onto the field — play your first game of the month’s climb',
-        'First light — win a game',
-        'Triple sprout — three wins',
-        'Deep roots — five wins',
-        'Raise the walls — castle five times (lifetime)',
-        'Wide canopy — ten wins',
-        'Lift toward the sun — promote pawns five times',
-        'Clear the old growth — capture ten enemy rooks',
-        'Full grove — fifteen wins',
-        'Crown strike — checkmate with a queen',
+        'Cross the threshold — your first game in the emerald month',
+        'First leap — develop a knight to f3 (the path opens)',
+        'Shaft of green light — slide a bishop to f4',
+        'Secret forest path — one en passant capture',
+        'Storm along the files — 10 queen captures as the moving piece',
+        'Harvest tempo — 50 total captures with any piece',
+        'Ring the grove — castle 5 times (lifetime)',
+        'Crown saplings — promote 5 pawns (lifetime)',
+        'Strike from the spires — checkmate with a rook',
+        'Canopy apex — checkmate with a queen',
       ],
     },
     // '06': { key: '', name: '', tagline: '', stepTitles: [ ...10 ] },
@@ -231,6 +232,12 @@
         promotions: 0,
         capturedRooks: 0,
         checkmateWithQueen: 0,
+        knightToF3: 0,
+        bishopToF4: 0,
+        enPassants: 0,
+        capturesByQueen: 0,
+        totalCaptures: 0,
+        checkmateWithRook: 0,
       },
     };
   }

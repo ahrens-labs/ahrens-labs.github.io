@@ -6717,6 +6717,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const b = st && st.earnBaseline && typeof st.earnBaseline === 'object' ? st.earnBaseline : {};
       let baseKey = null;
       if (achId === 'first_game') baseKey = 'games';
+      else if (achId === 'knight_to_f3') baseKey = 'knightToF3';
+      else if (achId === 'bishop_to_f4') baseKey = 'bishopToF4';
+      else if (achId === 'en_passant') baseKey = 'enPassants';
+      else if (achId === 'queen_capturer') baseKey = 'capturesByQueen';
+      else if (achId === 'capture_master') baseKey = 'totalCaptures';
+      else if (achId === 'castler') baseKey = 'castlingMoves';
+      else if (achId === 'promoter') baseKey = 'promotions';
+      else if (achId === 'checkmate_rook') baseKey = 'checkmateWithRook';
+      else if (achId === 'checkmate_queen') baseKey = 'checkmateWithQueen';
       else if (
         achId === 'first_win' ||
         achId === 'three_wins' ||
@@ -6725,10 +6734,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         achId === 'fifteen_wins'
       ) {
         baseKey = 'wins';
-      } else if (achId === 'castler') baseKey = 'castlingMoves';
-      else if (achId === 'promoter') baseKey = 'promotions';
-      else if (achId === 'rook_hunter_10') baseKey = 'capturedRooks';
-      else if (achId === 'checkmate_queen') baseKey = 'checkmateWithQueen';
+      } else if (achId === 'rook_hunter_10') baseKey = 'capturedRooks';
       if (!baseKey) return p;
       const base = Math.max(0, Number(b[baseKey]) || 0);
       p.current = Math.max(0, cur - base);
@@ -8979,6 +8985,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               promotions: 0,
               capturedRooks: 0,
               checkmateWithQueen: 0,
+              knightToF3: 0,
+              bishopToF4: 0,
+              enPassants: 0,
+              capturesByQueen: 0,
+              totalCaptures: 0,
+              checkmateWithRook: 0,
             },
           };
         }

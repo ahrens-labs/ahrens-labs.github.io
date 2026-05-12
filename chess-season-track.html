@@ -395,7 +395,7 @@
                 <div class="st-tag">TrifangX · Monthly season</div>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month (UTC). Clear each step’s achievement in the engine, then claim the step here or in TrifangX to unlock bonus points, exclusive boards and pieces, and leaderboard flair.
+                    One path per calendar month (UTC). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. Earn the achievement in TrifangX, then claim the step here or in-game for bonus points, exclusive boards and pieces, and leaderboard flair.
                 </p>
             </section>
 
@@ -479,6 +479,12 @@
           promotions: Math.max(0, Number(b.promotions) || 0),
           capturedRooks: Math.max(0, Number(b.capturedRooks) || 0),
           checkmateWithQueen: Math.max(0, Number(b.checkmateWithQueen) || 0),
+          knightToF3: Math.max(0, Number(b.knightToF3) || 0),
+          bishopToF4: Math.max(0, Number(b.bishopToF4) || 0),
+          enPassants: Math.max(0, Number(b.enPassants) || 0),
+          capturesByQueen: Math.max(0, Number(b.capturesByQueen) || 0),
+          totalCaptures: Math.max(0, Number(b.totalCaptures) || 0),
+          checkmateWithRook: Math.max(0, Number(b.checkmateWithRook) || 0),
         };
       }
 
@@ -497,6 +503,12 @@
           promotions: Math.max(0, Number(lt.promotions) || 0),
           capturedRooks: Math.max(0, Number(lt.capturedRooks) || 0),
           checkmateWithQueen: Math.max(0, Number(lt.checkmateWithQueen) || 0),
+          knightToF3: Math.max(0, Number(lt.knightToF3) || 0),
+          bishopToF4: Math.max(0, Number(lt.bishopToF4) || 0),
+          enPassants: Math.max(0, Number(lt.enPassants) || 0),
+          capturesByQueen: Math.max(0, Number(lt.capturesByQueen) || 0),
+          totalCaptures: Math.max(0, Number(lt.totalCaptures) || 0),
+          checkmateWithRook: Math.max(0, Number(lt.checkmateWithRook) || 0),
         };
       }
 
@@ -515,6 +527,26 @@
           cur = Math.max(0, pstats.games - base.games);
           target = 1;
           label = 'games played (since prior claims)';
+        } else if (achId === 'knight_to_f3') {
+          cur = Math.max(0, lt.knightToF3 - base.knightToF3);
+          target = 1;
+          label = 'knight moves to f3 (lifetime, since prior claims)';
+        } else if (achId === 'bishop_to_f4') {
+          cur = Math.max(0, lt.bishopToF4 - base.bishopToF4);
+          target = 1;
+          label = 'bishop moves to f4 (lifetime, since prior claims)';
+        } else if (achId === 'en_passant') {
+          cur = Math.max(0, lt.enPassants - base.enPassants);
+          target = 1;
+          label = 'en passant captures (lifetime, since prior claims)';
+        } else if (achId === 'queen_capturer') {
+          cur = Math.max(0, lt.capturesByQueen - base.capturesByQueen);
+          target = 10;
+          label = 'captures with your queen as the moving piece (since prior claims)';
+        } else if (achId === 'capture_master') {
+          cur = Math.max(0, lt.totalCaptures - base.totalCaptures);
+          target = 50;
+          label = 'total captures with any of your pieces (since prior claims)';
         } else if (achId === 'first_win') {
           cur = Math.max(0, pstats.wins - base.wins);
           target = 1;
@@ -547,6 +579,10 @@
           cur = Math.max(0, lt.capturedRooks - base.capturedRooks);
           target = 10;
           label = 'enemy rooks captured (since prior claims)';
+        } else if (achId === 'checkmate_rook') {
+          cur = Math.max(0, lt.checkmateWithRook - base.checkmateWithRook);
+          target = 1;
+          label = 'checkmates with a rook (since prior claims)';
         } else if (achId === 'checkmate_queen') {
           cur = Math.max(0, lt.checkmateWithQueen - base.checkmateWithQueen);
           target = 1;
