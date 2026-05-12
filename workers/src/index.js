@@ -2094,6 +2094,7 @@ async function assertAdminBroadcastSession(env, sessionId) {
     ok: true,
     adminEmail: em,
     adminUsername: row && row.username ? String(row.username) : 'there',
+    adminUserId: userId,
   };
 }
 
@@ -3068,23 +3069,29 @@ async function executeAdminTestEmailById(env, gate, id) {
     case 'milestone_points': {
       const base = siteMarketingBase(env);
       const chessUrl = `${base}/chess_engine.html`;
-      const milestoneStats = normalizeChessMilestoneEmailStats({
-        wins: 142,
-        losses: 98,
-        draws: 20,
-        points: 18650,
-      });
+      let chessBlock = {};
+      if (gate.adminUserId && env.USER_ACCOUNT) {
+        try {
+          const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(gate.adminUserId));
+          const chessRes = await userAccount.fetch(new Request('http://do/getChessData', { method: 'GET' }));
+          const raw = await chessRes.json();
+          if (raw && typeof raw === 'object') chessBlock = raw;
+        } catch {
+          chessBlock = {};
+        }
+      }
+      const snap = normalizeChessMilestoneEmailStats(chessStatsSnapshot(chessBlock));
       const spec =
         id === 'milestone_wins'
-          ? { kind: 'wins', threshold: 25 }
+          ? { kind: 'wins', threshold: Math.max(1, snap.wins) }
           : id === 'milestone_games'
-            ? { kind: 'games', threshold: 100 }
-            : { kind: 'points', threshold: 10000 };
+            ? { kind: 'games', threshold: Math.max(1, snap.games) }
+            : { kind: 'points', threshold: Math.max(1, snap.points) };
       const p = buildChessMilestoneEmail({
         username: un,
         kind: spec.kind,
         threshold: spec.threshold,
-        stats: milestoneStats,
+        stats: snap,
         chessUrl,
       });
       await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
