@@ -3465,6 +3465,30 @@ function siteMarketingBase(env) {
   return String(env.PUBLIC_SITE_BASE || 'https://ahrenslabs.com').replace(/\/$/, '');
 }
 
+/**
+ * Deep-merge chess `stats` so a partial incoming payload (e.g. only lifetimeStats)
+ * cannot replace the whole `stats` object and drop `playerStats` (or vice versa).
+ */
+function mergeChessStatsForSync(prevStats, incomingStats) {
+  const base = prevStats && typeof prevStats === 'object' && !Array.isArray(prevStats) ? prevStats : {};
+  const inc = incomingStats && typeof incomingStats === 'object' && !Array.isArray(incomingStats) ? incomingStats : {};
+  const prevPs = base.playerStats && typeof base.playerStats === 'object' ? base.playerStats : {};
+  const incPs = inc.playerStats && typeof inc.playerStats === 'object' ? inc.playerStats : {};
+  const prevLt = base.lifetimeStats && typeof base.lifetimeStats === 'object' ? base.lifetimeStats : {};
+  const incLt = inc.lifetimeStats && typeof inc.lifetimeStats === 'object' ? inc.lifetimeStats : {};
+  const mergedPs = { ...prevPs, ...incPs };
+  return {
+    ...base,
+    ...inc,
+    playerStats: {
+      wins: Math.max(0, Math.floor(Number(mergedPs.wins) || 0)),
+      losses: Math.max(0, Math.floor(Number(mergedPs.losses) || 0)),
+      draws: Math.max(0, Math.floor(Number(mergedPs.draws) || 0)),
+    },
+    lifetimeStats: { ...prevLt, ...incLt },
+  };
+}
+
 function chessStatsSnapshot(chessBlock) {
   const ps = chessBlock?.stats?.playerStats || {};
   const w = Math.max(0, Number(ps.wins) || 0);
@@ -5772,6 +5796,7 @@ export class UserAccount {
 
     const prevChess = userData.games.chess;
     const prevSnap = chessStatsSnapshot(prevChess || {});
+    const { stats: incomingStats, ...restNoStats } = restIncoming;
     let mergedHistory;
     if (replaceHistory && Array.isArray(restIncoming.gameHistory)) {
       mergedHistory = trimChessGameHistoryMerged(restIncoming.gameHistory);
@@ -5781,9 +5806,12 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
     }
 
+    const mergedStats = mergeChessStatsForSync(prevChess.stats, incomingStats);
+
     const mergedChess = {
       ...prevChess,
-      ...restIncoming,
+      ...restNoStats,
+      stats: mergedStats,
       gameHistory: mergedHistory,
       lastUpdated: Date.now(),
     };

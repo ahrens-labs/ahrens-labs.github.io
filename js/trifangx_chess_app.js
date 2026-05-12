@@ -8142,15 +8142,22 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       ];
     }
 
-    function updateTotalPoints() {
+    function computeUnlockedAchievementPointsTotal() {
       const allAchievements = getAllAchievementsList();
       let totalPoints = 0;
-      achievements.forEach(achId => {
-        const ach = allAchievements.find(a => a.id === achId);
+      achievements.forEach(function (achId) {
+        const ach = allAchievements.find(function (a) {
+          return a.id === achId;
+        });
         if (ach && ach.points) {
           totalPoints += ach.points;
         }
       });
+      return totalPoints;
+    }
+
+    function updateTotalPoints() {
+      const totalPoints = computeUnlockedAchievementPointsTotal();
       const pointsEl = document.getElementById('total-achievement-points');
       if (pointsEl) {
         pointsEl.textContent = totalPoints.toLocaleString();
@@ -11217,6 +11224,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           saveChessDataToCloud(true);
         }
         
+        try {
+          const ps0 = cloudChessData.stats && cloudChessData.stats.playerStats;
+          if (ps0 && typeof ps0 === 'object') {
+            playerStats.wins = Math.max(0, Math.floor(Number(ps0.wins) || 0));
+            playerStats.losses = Math.max(0, Math.floor(Number(ps0.losses) || 0));
+            playerStats.draws = Math.max(0, Math.floor(Number(ps0.draws) || 0));
+          }
+        } catch (ePs) {}
+        
         // Update username display
         const username = localStorage.getItem('ahrenslabs_username') || 'Player';
         const usernameSpan = document.getElementById('header-username');
@@ -11346,6 +11362,19 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       clearTimeout(saveTimeout);
       const doSave = async () => {
         try {
+          if (typeof cloudChessData !== 'undefined' && cloudChessData && dataLoaded) {
+            if (typeof playerStats !== 'undefined' && playerStats) {
+              cloudChessData.stats = cloudChessData.stats || {};
+              cloudChessData.stats.playerStats = {
+                wins: Math.max(0, Math.floor(Number(playerStats.wins) || 0)),
+                losses: Math.max(0, Math.floor(Number(playerStats.losses) || 0)),
+                draws: Math.max(0, Math.floor(Number(playerStats.draws) || 0)),
+              };
+            }
+            if (typeof computeUnlockedAchievementPointsTotal === 'function') {
+              cloudChessData.points = computeUnlockedAchievementPointsTotal();
+            }
+          }
           const payload = { ...cloudChessData };
           if (replaceGameHistory) payload.replaceGameHistory = true;
           const response = await fetch(`${API_BASE_URL}/api/chess/sync`, {
