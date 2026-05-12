@@ -3005,6 +3005,148 @@ const CHESS_MILESTONE_WIN_THRESHOLDS = [1, 5, 10, 25, 50, 100, 250, 500];
 const CHESS_MILESTONE_GAME_THRESHOLDS = [10, 25, 50, 100, 250, 500, 1000];
 const CHESS_MILESTONE_POINT_THRESHOLDS = [1000, 5000, 10000, 20000, 50000, 100000];
 
+function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }) {
+  const safeName = escapeHtmlEmail(username || 'there');
+  const thresholdLabel = Number(threshold).toLocaleString();
+  const winsLabel = Number(stats.wins || 0).toLocaleString();
+  const lossesLabel = Number(stats.losses || 0).toLocaleString();
+  const drawsLabel = Number(stats.draws || 0).toLocaleString();
+  const gamesLabel = Number(stats.games || 0).toLocaleString();
+  const pointsLabel = Number(stats.points || 0).toLocaleString();
+  const totalGames = Math.max(1, Number(stats.games || 0));
+  const winRate = Math.round((Number(stats.wins || 0) / totalGames) * 100);
+  const safeChessUrl = escapeHtmlEmail(chessUrl);
+
+  const variants = {
+    wins: {
+      subject: `TrifangX milestone: ${thresholdLabel} career wins`,
+      eyebrow: 'Win milestone unlocked',
+      icon: '🏆',
+      hero: `${thresholdLabel} Wins`,
+      title: `Nice work, ${safeName}.`,
+      lead: `You just reached <strong>${thresholdLabel} career wins</strong> against TrifangX.`,
+      accent: '#22c55e',
+      accentDark: '#15803d',
+      glow: '#bbf7d0',
+      textLine: `You reached ${thresholdLabel} career wins against TrifangX.`,
+    },
+    games: {
+      subject: `TrifangX milestone: ${thresholdLabel} games played`,
+      eyebrow: 'Games milestone unlocked',
+      icon: '♟️',
+      hero: `${thresholdLabel} Games`,
+      title: `That is a lot of chess, ${safeName}.`,
+      lead: `You have now played <strong>${thresholdLabel} games</strong> against TrifangX.`,
+      accent: '#38bdf8',
+      accentDark: '#0369a1',
+      glow: '#bae6fd',
+      textLine: `You reached ${thresholdLabel} games played against TrifangX.`,
+    },
+    points: {
+      subject: `TrifangX milestone: ${thresholdLabel} points`,
+      eyebrow: 'Points milestone unlocked',
+      icon: '⚡',
+      hero: `${thresholdLabel} Points`,
+      title: `Your score keeps climbing, ${safeName}.`,
+      lead: `You crossed <strong>${thresholdLabel} career points</strong> in TrifangX.`,
+      accent: '#f59e0b',
+      accentDark: '#b45309',
+      glow: '#fde68a',
+      textLine: `You reached ${thresholdLabel} career points in TrifangX.`,
+    },
+  };
+  const v = variants[kind] || variants.points;
+  const preheader = `${v.textLine} Current record: ${winsLabel}W / ${lossesLabel}L / ${drawsLabel}D.`;
+  const statCell = (label, value, color) => `<td width="25%" style="padding:6px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;">
+      <tr><td style="padding:14px 8px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+        <div style="font-size:22px;font-weight:900;line-height:1;color:${color};">${value}</div>
+        <div style="margin-top:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b;">${label}</div>
+      </td></tr>
+    </table>
+  </td>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:#111827;">
+  <div style="display:none;max-height:0;overflow:hidden;">${escapeHtmlEmail(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#111827;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;width:100%;background:#f8fafc;border-radius:18px;overflow:hidden;box-shadow:0 22px 60px rgba(0,0,0,.35);">
+          <tr>
+            <td style="background:#0f172a;background-image:linear-gradient(135deg,#0f172a 0%,#1d4ed8 48%,${v.accentDark} 100%);padding:34px 34px 30px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
+              <div style="display:inline-block;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.14);color:${v.glow};font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">${escapeHtmlEmail(v.eyebrow)}</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:18px;">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <div style="font-size:42px;font-weight:900;line-height:1.05;margin:0;color:#ffffff;">${escapeHtmlEmail(v.hero)}</div>
+                    <div style="font-size:15px;line-height:1.5;color:#dbeafe;margin-top:9px;">A new TrifangX milestone is on your account.</div>
+                  </td>
+                  <td width="82" align="right" style="vertical-align:middle;">
+                    <div style="width:70px;height:70px;border-radius:20px;background:rgba(255,255,255,.16);text-align:center;line-height:70px;font-size:38px;">${v.icon}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:30px 34px 8px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#172033;">
+              <h1 style="margin:0 0 10px 0;font-size:26px;line-height:1.2;color:#0f172a;">${v.title}</h1>
+              <p style="margin:0;font-size:16px;line-height:1.65;color:#475569;">${v.lead}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px 4px 28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  ${statCell('Wins', winsLabel, '#16a34a')}
+                  ${statCell('Losses', lossesLabel, '#dc2626')}
+                  ${statCell('Draws', drawsLabel, '#7c3aed')}
+                  ${statCell('Points', pointsLabel, '#d97706')}
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 34px 4px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;">
+                <tr>
+                  <td style="padding:16px 18px;">
+                    <div style="font-size:13px;font-weight:800;color:#334155;margin-bottom:9px;">Career snapshot: ${gamesLabel} total games, ${winRate}% win rate</div>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td style="height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden;"><div style="width:${Math.min(100, Math.max(0, winRate))}%;height:10px;background:${v.accent};border-radius:999px;line-height:10px;font-size:0;">&nbsp;</div></td></tr></table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:26px 34px 34px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+              <a href="${safeChessUrl}" style="display:inline-block;background:${v.accent};color:#0f172a;text-decoration:none;border-radius:999px;padding:14px 24px;font-weight:900;font-size:15px;">Play another game</a>
+              <p style="margin:16px 0 0 0;font-size:12px;line-height:1.5;color:#64748b;">Keep playing TrifangX to unlock more milestones, achievements, and leaderboard progress.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    `Hi ${username || 'there'},`,
+    '',
+    v.textLine,
+    `Record: ${winsLabel}W / ${lossesLabel}L / ${drawsLabel}D.`,
+    `Games: ${gamesLabel}. Points: ${pointsLabel}. Win rate: ${winRate}%.`,
+    '',
+    `Play another game: ${chessUrl}`,
+  ].join('\n');
+
+  return { subject: v.subject, html, text };
+}
+
 /** Public site URL for links in transactional email (same as marketing/welcome). */
 function sitePublicBase(env) {
   return siteMarketingBase(env);
@@ -3536,7 +3678,6 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
     userData.milestonesEmailNotified = {};
   }
   const notified = userData.milestonesEmailNotified;
-  const safeName = String(userData.username || 'there').replace(/[<>]/g, '');
   const base = siteMarketingBase(env);
   const chessUrl = `${base}/chess_engine.html`;
 
@@ -3555,46 +3696,28 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
   for (const t of CHESS_MILESTONE_WIN_THRESHOLDS) {
     if (prevSnap.wins < t && nextSnap.wins >= t) {
       const key = `chess_wins_${t}`;
-      await tryOne(
-        key,
-        `Chess milestone: ${t} career wins`,
-        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2c3e50;">Nice work, ${safeName}!</h2>
-          <p>You reached <strong>${t} wins</strong> in the Ahrens Labs chess engine.</p>
-          <p>Total record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D — ${nextSnap.points.toLocaleString()} points.</p>
-          <p><a href="${chessUrl}" style="color: #3498db;">Open the chess engine</a></p>
-        </body></html>`,
-        [
-          `Hi ${safeName},`,
-          '',
-          `You reached ${t} career wins in the Ahrens Labs chess engine.`,
-          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D, ${nextSnap.points} points.`,
-          `Play: ${chessUrl}`,
-        ].join('\n')
-      );
+      const emailParts = buildChessMilestoneEmail({
+        username: userData.username,
+        kind: 'wins',
+        threshold: t,
+        stats: nextSnap,
+        chessUrl,
+      });
+      await tryOne(key, emailParts.subject, emailParts.html, emailParts.text);
     }
   }
 
   for (const t of CHESS_MILESTONE_GAME_THRESHOLDS) {
     if (prevSnap.games < t && nextSnap.games >= t) {
       const key = `chess_games_${t}`;
-      await tryOne(
-        key,
-        `Chess milestone: ${t} games played`,
-        `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2c3e50;">Milestone: ${t} games</h2>
-          <p>Hi ${safeName}, you have played <strong>${t} games</strong> against the engine.</p>
-          <p>Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D — ${nextSnap.points.toLocaleString()} points.</p>
-          <p><a href="${chessUrl}" style="color: #3498db;">Keep playing</a></p>
-        </body></html>`,
-        [
-          `Hi ${safeName},`,
-          '',
-          `You reached ${t} games played against the chess engine.`,
-          `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D, ${nextSnap.points} points.`,
-          chessUrl,
-        ].join('\n')
-      );
+      const emailParts = buildChessMilestoneEmail({
+        username: userData.username,
+        kind: 'games',
+        threshold: t,
+        stats: nextSnap,
+        chessUrl,
+      });
+      await tryOne(key, emailParts.subject, emailParts.html, emailParts.text);
     }
   }
 
@@ -3610,23 +3733,14 @@ async function persistAndSendChessMilestones(env, storage, userData, prevSnap, n
         notified[key] = Date.now();
         pointMilestoneNotifiedDirty = true;
       } else {
-        await tryOne(
-          key,
-          `Chess milestone: ${t.toLocaleString()} points`,
-          `<html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2c3e50;">${t.toLocaleString()} points</h2>
-          <p>Hi ${safeName}, you crossed <strong>${t.toLocaleString()} career points</strong> in the chess engine.</p>
-          <p>Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.</p>
-          <p><a href="${chessUrl}" style="color: #3498db;">Open the chess engine</a></p>
-        </body></html>`,
-          [
-            `Hi ${safeName},`,
-            '',
-            `You reached ${t} career points in the chess engine.`,
-            `Record: ${nextSnap.wins}W / ${nextSnap.losses}L / ${nextSnap.draws}D.`,
-            chessUrl,
-          ].join('\n')
-        );
+        const emailParts = buildChessMilestoneEmail({
+          username: userData.username,
+          kind: 'points',
+          threshold: t,
+          stats: nextSnap,
+          chessUrl,
+        });
+        await tryOne(key, emailParts.subject, emailParts.html, emailParts.text);
       }
     }
   }
