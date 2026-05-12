@@ -259,6 +259,54 @@
             color: #64748b;
             margin: 0 0 0.5rem;
         }
+        .st-progress {
+            margin-top: 0.5rem;
+            padding: 0.65rem 0.75rem;
+            border-radius: 10px;
+            background: rgba(241, 245, 249, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        .st-node.current .st-progress {
+            background: rgba(255, 251, 235, 0.95);
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+        .st-progress-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 0.35rem 0.75rem;
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .st-progress-row span:last-child {
+            font-variant-numeric: tabular-nums;
+            color: #0f766e;
+        }
+        .st-progress-bar {
+            height: 9px;
+            border-radius: 999px;
+            background: rgba(226, 232, 240, 0.95);
+            overflow: hidden;
+            margin-top: 0.45rem;
+        }
+        .st-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #14b8a6, #0d9488);
+            transition: width 0.35s ease;
+        }
+        .st-node.current .st-progress-fill {
+            background: linear-gradient(90deg, #f59e0b, #ea580c);
+        }
+        .st-progress-caption {
+            margin: 0.4rem 0 0;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: #64748b;
+            line-height: 1.35;
+        }
         .st-rewards {
             font-size: 0.84rem;
             color: #334155;
@@ -420,6 +468,95 @@
           .replace(/"/g, '&quot;');
       }
 
+      /** Matches TrifangX season earn baseline + step targets (see js/trifangx_chess_app.js). */
+      function getEarnBaselineFromData(data) {
+        var st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        var b = st.earnBaseline && typeof st.earnBaseline === 'object' ? st.earnBaseline : {};
+        return {
+          games: Math.max(0, Number(b.games) || 0),
+          wins: Math.max(0, Number(b.wins) || 0),
+          castlingMoves: Math.max(0, Number(b.castlingMoves) || 0),
+          promotions: Math.max(0, Number(b.promotions) || 0),
+          capturedRooks: Math.max(0, Number(b.capturedRooks) || 0),
+          checkmateWithQueen: Math.max(0, Number(b.checkmateWithQueen) || 0),
+        };
+      }
+
+      function getPlayerStatsFromData(data) {
+        var ps = data.stats && data.stats.playerStats && typeof data.stats.playerStats === 'object' ? data.stats.playerStats : {};
+        var w = Math.max(0, Number(ps.wins) || 0);
+        var l = Math.max(0, Number(ps.losses) || 0);
+        var dr = Math.max(0, Number(ps.draws) || 0);
+        return { wins: w, losses: l, draws: dr, games: w + l + dr };
+      }
+
+      function getLifetimeFromData(data) {
+        var lt = data.stats && data.stats.lifetimeStats && typeof data.stats.lifetimeStats === 'object' ? data.stats.lifetimeStats : {};
+        return {
+          castlingMoves: Math.max(0, Number(lt.castlingMoves) || 0),
+          promotions: Math.max(0, Number(lt.promotions) || 0),
+          capturedRooks: Math.max(0, Number(lt.capturedRooks) || 0),
+          checkmateWithQueen: Math.max(0, Number(lt.checkmateWithQueen) || 0),
+        };
+      }
+
+      /**
+       * Progress toward the active season step only (same deltas as in-game after prior claims).
+       * @returns {{ current: number, target: number, label: string } | null}
+       */
+      function getCurrentStepProgress(data, achId) {
+        var base = getEarnBaselineFromData(data);
+        var pstats = getPlayerStatsFromData(data);
+        var lt = getLifetimeFromData(data);
+        var cur = 0;
+        var target = 1;
+        var label = '';
+        if (achId === 'first_game') {
+          cur = Math.max(0, pstats.games - base.games);
+          target = 1;
+          label = 'games played (since prior claims)';
+        } else if (achId === 'first_win') {
+          cur = Math.max(0, pstats.wins - base.wins);
+          target = 1;
+          label = 'wins (since prior claims)';
+        } else if (achId === 'three_wins') {
+          cur = Math.max(0, pstats.wins - base.wins);
+          target = 3;
+          label = 'wins (since prior claims)';
+        } else if (achId === 'five_wins') {
+          cur = Math.max(0, pstats.wins - base.wins);
+          target = 5;
+          label = 'wins (since prior claims)';
+        } else if (achId === 'ten_wins') {
+          cur = Math.max(0, pstats.wins - base.wins);
+          target = 10;
+          label = 'wins (since prior claims)';
+        } else if (achId === 'fifteen_wins') {
+          cur = Math.max(0, pstats.wins - base.wins);
+          target = 15;
+          label = 'wins (since prior claims)';
+        } else if (achId === 'castler') {
+          cur = Math.max(0, lt.castlingMoves - base.castlingMoves);
+          target = 5;
+          label = 'castles (lifetime, since prior claims)';
+        } else if (achId === 'promoter') {
+          cur = Math.max(0, lt.promotions - base.promotions);
+          target = 5;
+          label = 'promotions (lifetime, since prior claims)';
+        } else if (achId === 'rook_hunter_10') {
+          cur = Math.max(0, lt.capturedRooks - base.capturedRooks);
+          target = 10;
+          label = 'enemy rooks captured (since prior claims)';
+        } else if (achId === 'checkmate_queen') {
+          cur = Math.max(0, lt.checkmateWithQueen - base.checkmateWithQueen);
+          target = 1;
+          label = 'checkmates with a queen (since prior claims)';
+        } else {
+          return null;
+        }
+        return { current: cur, target: target, label: label };
+      }
+
       function formatCountdown(endMs) {
         var now = Date.now();
         if (endMs <= now) return 'This season has ended (UTC). A new track starts on the 1st.';
@@ -547,9 +684,40 @@
           html += '<span class="st-badge ' + badgeClass + '">' + badgeText + '</span>';
           html += '</div>';
           html += '<p class="st-challenge">' + escapeHtml(node.challengeTitle) + '</p>';
-          html += '<p class="st-meta">Achievement <code style="font-size:0.8em;background:#f1f5f9;padding:2px 6px;border-radius:6px">' +
-            escapeHtml(node.challengeAchievementId) + '</code> · +' +
-            node.bonusPoints + ' bonus points on claim</p>';
+          html +=
+            '<p class="st-meta">+' +
+            node.bonusPoints +
+            ' bonus career points when you claim this step.</p>';
+
+          if (i === nodesDone) {
+            if (hasAch) {
+              html +=
+                '<div class="st-progress">' +
+                '<div class="st-progress-row"><span>Your progress</span><span>Done</span></div>' +
+                '<div class="st-progress-bar"><div class="st-progress-fill" style="width:100%"></div></div>' +
+                '<p class="st-progress-caption">You have met this challenge in TrifangX — claim below to collect rewards.</p>' +
+                '</div>';
+            } else {
+              var pr = getCurrentStepProgress(data, node.challengeAchievementId);
+              if (pr) {
+                var pct = pr.target > 0 ? Math.min(100, (pr.current / pr.target) * 100) : 0;
+                var shown = Math.min(pr.current, pr.target);
+                html +=
+                  '<div class="st-progress">' +
+                  '<div class="st-progress-row"><span>Your progress</span><span>' +
+                  shown +
+                  ' / ' +
+                  pr.target +
+                  '</span></div>' +
+                  '<div class="st-progress-bar"><div class="st-progress-fill" style="width:' +
+                  pct +
+                  '%"></div></div>' +
+                  '<p class="st-progress-caption">' +
+                  escapeHtml(pr.label) +
+                  '</p></div>';
+              }
+            }
+          }
           if (node.rewards && node.rewards.length) {
             html += '<ul class="st-rewards">';
             for (var r = 0; r < node.rewards.length; r++) {
