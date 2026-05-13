@@ -275,6 +275,28 @@
         .st-modal-cancel:hover {
             background: #f1f5f9;
         }
+        .st-modal-title--neutral {
+            color: #0f172a;
+        }
+        .st-primary-btn {
+            font: inherit;
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 0.48rem 1.15rem;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(13, 148, 136, 0.35);
+        }
+        .st-primary-btn:hover {
+            filter: brightness(1.05);
+        }
+        .st-primary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         .st-track-title {
             font-family: "Orbitron", sans-serif;
             font-size: 0.95rem;
@@ -583,6 +605,27 @@
                     </div>
                   </div>
                 </div>
+                <div id="st-msg-modal" class="st-modal" aria-hidden="true">
+                  <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-msg-modal"></div>
+                  <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-msg-modal-title">
+                    <h3 id="st-msg-modal-title" class="st-modal-title st-modal-title--neutral">Notice</h3>
+                    <div id="st-msg-modal-body" class="st-modal-body"></div>
+                    <div class="st-modal-actions">
+                      <button type="button" class="st-primary-btn" id="st-msg-modal-ok">OK</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="st-buyout-modal" class="st-modal" aria-hidden="true">
+                  <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-buyout-modal"></div>
+                  <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-buyout-modal-title">
+                    <h3 id="st-buyout-modal-title" class="st-modal-title st-modal-title--neutral">Skip with career points?</h3>
+                    <div id="st-buyout-modal-body" class="st-modal-body"></div>
+                    <div class="st-modal-actions">
+                      <button type="button" class="st-modal-cancel" id="st-buyout-modal-cancel">Cancel</button>
+                      <button type="button" class="st-primary-btn" id="st-buyout-modal-confirm">Spend points &amp; claim</button>
+                    </div>
+                  </div>
+                </div>
             </section>
         </main>
 
@@ -599,6 +642,7 @@
         window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
       var pendingSeasonResetBtn = null;
+      var __stPendingBuyout = null;
 
       function closeSeasonResetModal() {
         var m = document.getElementById('st-reset-modal');
@@ -688,7 +732,7 @@
           })
           .catch(function (e) {
             closeSeasonResetModal();
-            alert(e.message || 'Could not reset');
+            openStMsgModal('Could not reset', '<p>' + escapeHtml(e.message || 'Could not reset') + '</p>');
           });
       }
 
@@ -1102,6 +1146,84 @@
         } catch (ePing) {}
       }
 
+      function stSetModalOpen(id, open) {
+        var m = document.getElementById(id);
+        if (!m) return;
+        if (open) {
+          m.classList.add('is-open');
+          m.setAttribute('aria-hidden', 'false');
+        } else {
+          m.classList.remove('is-open');
+          m.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function openStMsgModal(title, bodyHtml) {
+        var tEl = document.getElementById('st-msg-modal-title');
+        var bEl = document.getElementById('st-msg-modal-body');
+        if (tEl) tEl.textContent = title || 'Notice';
+        if (bEl) bEl.innerHTML = bodyHtml || '';
+        stSetModalOpen('st-msg-modal', true);
+      }
+
+      function closeStMsgModal() {
+        stSetModalOpen('st-msg-modal', false);
+      }
+
+      function openStBuyoutModal(bidx, cost, btn) {
+        __stPendingBuyout = { bidx: bidx, cost: cost, btn: btn };
+        var body = document.getElementById('st-buyout-modal-body');
+        if (body) {
+          body.innerHTML =
+            '<p>Spend <strong>' +
+            escapeHtml(String(cost.toLocaleString())) +
+            '</strong> career achievement points to skip the in-game requirement for this step?</p>' +
+            '<p>You still get this step’s season rewards and <strong>season bonus points</strong>. The TrifangX achievement for this step stays <strong>locked</strong> until you earn it in-game.</p>';
+        }
+        stSetModalOpen('st-buyout-modal', true);
+      }
+
+      function closeStBuyoutModal() {
+        __stPendingBuyout = null;
+        stSetModalOpen('st-buyout-modal', false);
+      }
+
+      function showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, alreadyClaimed) {
+        var bonus = 0;
+        var buyCost = 0;
+        var CS = typeof window !== 'undefined' && window.ChessSeasons;
+        if (CS && typeof CS.getChessSeasonTrack === 'function') {
+          try {
+            var tr = CS.getChessSeasonTrack();
+            var nodes = tr && tr.nodes;
+            if (nodes && nodes[stepIndex])
+              bonus = Math.max(0, Math.floor(Number(nodes[stepIndex].bonusPoints) || 0));
+          } catch (eTr) {}
+        }
+        if (buyWithPoints && CS && typeof CS.getSeasonStepBuyoutCost === 'function')
+          buyCost = Math.max(0, Math.floor(Number(CS.getSeasonStepBuyoutCost(stepIndex)) || 0));
+        var title = alreadyClaimed ? 'Already claimed' : 'Step claimed';
+        var parts = [];
+        if (alreadyClaimed) {
+          parts.push('<p>This step was already recorded on your save. Nothing else was changed.</p>');
+        } else {
+          parts.push('<p>Rewards are on your account and the next track step is open.</p>');
+          if (bonus > 0)
+            parts.push(
+              '<p><strong>+' +
+                bonus.toLocaleString() +
+                '</strong> season bonus career points (these count toward leaderboard totals).</p>'
+            );
+          if (buyWithPoints && buyCost > 0)
+            parts.push(
+              '<p>You spent <strong>' +
+                buyCost.toLocaleString() +
+                '</strong> achievement points on the skip buyout.</p>'
+            );
+        }
+        openStMsgModal(title, parts.join(''));
+      }
+
       function claimSeasonStep(stepIndex, btn, buyWithPoints) {
         if (!sessionId || !btn) return;
         btn.disabled = true;
@@ -1125,21 +1247,31 @@
           })
           .then(function (pack) {
             if (pack.res.status === 401) {
+              btn.disabled = false;
+              btn.textContent = orig;
               showLogin();
               return;
             }
             if (!pack.j.success) {
               throw new Error(pack.j.error || 'Claim failed');
             }
+            function finishOk() {
+              btn.disabled = false;
+              btn.textContent = orig;
+              showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
+            }
             if (pack.j.chess) {
               render(pack.j.chess);
               pingTrifangxCosmeticsRefresh();
+              finishOk();
               return;
             }
             return fetch(API_BASE_URL + '/api/chess/load', {
               headers: { Authorization: 'Bearer ' + sessionId },
             }).then(function (r2) {
               if (r2.status === 401) {
+                btn.disabled = false;
+                btn.textContent = orig;
                 showLogin();
                 return null;
               }
@@ -1150,12 +1282,15 @@
                 render(d2);
                 pingTrifangxCosmeticsRefresh();
               }
+              btn.disabled = false;
+              btn.textContent = orig;
+              if (d2) showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
             });
           })
           .catch(function (e) {
             btn.disabled = false;
             btn.textContent = orig;
-            alert(e.message || 'Could not claim');
+            openStMsgModal('Could not claim', '<p>' + escapeHtml(e.message || 'Could not claim') + '</p>');
           });
       }
 
@@ -1198,7 +1333,7 @@
             ev.preventDefault();
             var sidCheat = localStorage.getItem('ahrenslabs_sessionId');
             if (!sidCheat) {
-              alert('Sign in first.');
+              openStMsgModal('Sign in required', '<p>Log in on this site first, then try again.</p>');
               return;
             }
             fetch(API_BASE_URL + '/api/chess/load', { headers: { Authorization: 'Bearer ' + sidCheat } })
@@ -1228,14 +1363,42 @@
               .then(function (d) {
                 render(d);
                 pingTrifangxCosmeticsRefresh();
-                alert('Dev cheat: +10,000 career points (for season buyouts).');
+                openStMsgModal(
+                  'Points added',
+                  '<p>Dev cheat: <strong>+10,000</strong> career achievement points (for season buyouts).</p>'
+                );
               })
               .catch(function (err) {
-                alert(err.message || 'Cheat failed');
+                openStMsgModal('Could not add points', '<p>' + escapeHtml(err.message || 'Cheat failed') + '</p>');
               });
           },
           true
         );
+      })();
+
+      (function bindSeasonAuxModals() {
+        var ok = document.getElementById('st-msg-modal-ok');
+        if (ok) ok.addEventListener('click', closeStMsgModal);
+        var bc = document.getElementById('st-buyout-modal-cancel');
+        var bok = document.getElementById('st-buyout-modal-confirm');
+        if (bc) bc.addEventListener('click', closeStBuyoutModal);
+        if (bok)
+          bok.addEventListener('click', function () {
+            var p = __stPendingBuyout;
+            closeStBuyoutModal();
+            if (p && p.btn) claimSeasonStep(p.bidx, p.btn, true);
+          });
+        document.addEventListener('click', function (ev) {
+          var id = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-st-modal-dismiss');
+          if (!id) return;
+          if (id === 'st-msg-modal') closeStMsgModal();
+          if (id === 'st-buyout-modal') closeStBuyoutModal();
+        });
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key !== 'Escape' || ev.defaultPrevented) return;
+          closeStMsgModal();
+          closeStBuyoutModal();
+        });
       })();
 
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
@@ -1249,16 +1412,7 @@
           var bidx = parseInt(buyBtn.getAttribute('data-st-step'), 10);
           var bcost = parseInt(buyBtn.getAttribute('data-st-cost'), 10);
           if (!Number.isFinite(bidx) || !Number.isFinite(bcost) || bcost <= 0) return;
-          if (
-            !confirm(
-              'Spend ' +
-                bcost.toLocaleString() +
-                ' career points to skip this challenge?\n\nYou still get this step’s season rewards and bonus points. The TrifangX achievement for this step stays locked until you earn it in-game.'
-            )
-          ) {
-            return;
-          }
-          claimSeasonStep(bidx, buyBtn, true);
+          openStBuyoutModal(bidx, bcost, buyBtn);
           return;
         }
         var btn = ev.target && ev.target.closest && ev.target.closest('.st-claim-btn');

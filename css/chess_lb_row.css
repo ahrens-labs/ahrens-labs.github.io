@@ -128,36 +128,51 @@ table.lb-table {
   letter-spacing: 0.03em;
   font-size: 0.95em;
 }
+.lb-flair-title-sep {
+  font-weight: 600;
+  opacity: 0.55;
+  margin: 0 0.12em;
+  user-select: none;
+}
 .lb-name-core {
   font-weight: 700;
 }
-.lb-flair-frame {
+/* Season leaderboard frame: wraps the whole flair + username block as a bordered “plate” */
+.lb-name-frame-wrap {
   display: inline-block;
-  margin-left: 0.35rem;
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.18rem 0.5rem;
-  border-radius: 999px;
+  max-width: 100%;
+  box-sizing: border-box;
   vertical-align: middle;
-  line-height: 1.2;
+  padding: 0.38rem 0.65rem;
+  border-radius: 12px;
+  line-height: 1.35;
+}
+.lb-name-frame-wrap .lb-name-cell-inner {
+  gap: 0.2rem 0.4rem;
 }
 .lb-flair-frame-silver_lane {
   color: #0f172a;
-  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
-  border: 1px solid #94a3b8;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  background: linear-gradient(145deg, #f1f5f9, #e2e8f0);
+  border: 2px solid #94a3b8;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.65) inset,
+    0 2px 8px rgba(15, 23, 42, 0.08);
 }
 .lb-flair-frame-amber_pulse {
   color: #422006;
-  background: linear-gradient(135deg, #fde68a, #fbbf24);
-  border: 1px solid #d97706;
+  background: linear-gradient(145deg, #fef3c7, #fde68a);
+  border: 2px solid #d97706;
+  box-shadow:
+    0 0 0 1px rgba(255, 251, 235, 0.5) inset,
+    0 2px 10px rgba(180, 83, 9, 0.2);
 }
 .lb-flair-frame-violet_arc {
   color: #f5f3ff;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
-  border: 1px solid #4c1d95;
+  background: linear-gradient(145deg, #8b5cf6, #5b21b6);
+  border: 2px solid #4c1d95;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+    0 2px 12px rgba(76, 29, 149, 0.35);
 }
 
 .lb-table tbody tr.lb-row-themed .lb-flair-prefix,
@@ -169,14 +184,20 @@ table.lb-table {
 .lb-table tbody tr.lb-row-themed .lb-name-core {
   color: var(--lb-fg);
 }
-.lb-table tbody tr.lb-row-themed .lb-flair-frame-silver_lane {
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-silver_lane {
   color: #0f172a;
+  border-color: #64748b;
 }
-.lb-table tbody tr.lb-row-themed .lb-flair-frame-amber_pulse {
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-amber_pulse {
   color: #422006;
+  border-color: #b45309;
 }
-.lb-table tbody tr.lb-row-themed .lb-flair-frame-violet_arc {
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-violet_arc {
   color: #f5f3ff;
+  border-color: #6d28d9;
+}
+.lb-table tbody tr.lb-row-themed .lb-flair-title-sep {
+  opacity: 0.65;
 }
 
 .dash-lb-live-preview-wrap .lb-table {

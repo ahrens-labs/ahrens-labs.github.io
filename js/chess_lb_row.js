@@ -108,7 +108,13 @@
     var bits = [];
     if (prefix)
       bits.push('<span class="lb-flair-prefix">' + escapeLbHtml(prefix) + '</span>');
-    if (title) bits.push('<span class="lb-flair-title">' + escapeLbHtml(title) + '</span>');
+    if (title) {
+      bits.push(
+        '<span class="lb-flair-title">' +
+          escapeLbHtml(title) +
+          '</span><span class="lb-flair-title-sep" aria-hidden="true"> — </span>'
+      );
+    }
     bits.push('<span class="lb-name-core">' + uname + '</span>');
     if (suffix) bits.push('<span class="lb-flair-suffix">' + escapeLbHtml(suffix) + '</span>');
     var inner =
@@ -116,12 +122,7 @@
       bits.join('<span class="lb-flair-gap" aria-hidden="true"> </span>') +
       '</span>';
     if (frame && LB_FRAMES[frame]) {
-      inner +=
-        ' <span class="lb-flair-frame lb-flair-frame-' +
-        frame +
-        '">' +
-        escapeLbHtml(frame.replace(/_/g, ' ')) +
-        '</span>';
+      return '<span class="lb-name-frame-wrap lb-flair-frame-' + frame + '">' + inner + '</span>';
     }
     return inner;
   }
