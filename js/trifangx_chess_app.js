@@ -8421,42 +8421,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const cur = (lifetimeStats.dailyStats.movesMadeToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.movesMadeToday) || 0);
           return { current: Math.min(60, cur), target: 60 };
         }},
-        { id: 'daily_fork_fiesta', name: '🍴 Fork Fiesta', desc: 'Win a game with 3+ knight forks today', category: 'Daily', points: 320, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.knightForkGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
-        { id: 'daily_pin_pool', name: '📌 Pin Gallery', desc: 'Win a game with 4+ pins today', category: 'Daily', points: 300, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.pinMasterGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
-        { id: 'daily_skewer_scout', name: '↗️ Skewer Scout', desc: 'Win a game with 2+ skewers today', category: 'Daily', points: 310, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.skewerKingGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
-        { id: 'daily_discovered_flair', name: '✨ Discovery Day', desc: 'Win a game with 3+ discovered attacks today', category: 'Daily', points: 300, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.discoveredAttackGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
-        { id: 'daily_zwischen_tag', name: '⏎ In-Between Artist', desc: 'Win a game with a Zwischenzug today', category: 'Daily', points: 290, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.zwischenzugGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
-        { id: 'daily_windmill_whisper', name: '🌀 Windmill Whisper', desc: 'Win a game with 5+ checks in a row at least once today', category: 'Daily', points: 340, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const n = lifetimeStats.dailyStats.windmillGamesToday || 0;
-          return { current: Math.min(1, n), target: 1 };
-        }},
         
         // ========================================================================
         // ADD NEW DAILY CHALLENGES HERE
@@ -9911,6 +9875,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     // ========================================================================
     // Three challenges per local calendar day (device time) are chosen deterministically.
     // Keep this list aligned with workers/src/daily-challenge-picker.js.
+    // Do not add dailies that require tactic-pattern detection (forks, pins, etc.) — tracking is unreliable.
     // ========================================================================
     function getAllDailyChallengeIds() {
       const fallbackIds = [
@@ -9973,12 +9938,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_checkmate_maestro',
         'daily_double_play',
         'daily_sixty_moves',
-        'daily_fork_fiesta',
-        'daily_pin_pool',
-        'daily_skewer_scout',
-        'daily_discovered_flair',
-        'daily_zwischen_tag',
-        'daily_windmill_whisper',
         // ADD NEW DAILY CHALLENGE IDs HERE:
         // 'daily_your_new_challenge',
       ];

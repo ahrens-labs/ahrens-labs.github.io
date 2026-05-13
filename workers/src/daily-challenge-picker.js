@@ -65,12 +65,6 @@ const FALLBACK_DAILY_CHALLENGE_IDS = [
   'daily_checkmate_maestro',
   'daily_double_play',
   'daily_sixty_moves',
-  'daily_fork_fiesta',
-  'daily_pin_pool',
-  'daily_skewer_scout',
-  'daily_discovered_flair',
-  'daily_zwischen_tag',
-  'daily_windmill_whisper',
 ];
 
 export function utcDateString(d) {
@@ -356,16 +350,6 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_double_play: { name: '🎮 Double Feature', desc: 'Play 2 complete games today', points: 140 },
   daily_sixty_moves: { name: '♟️ Sixty Steps', desc: 'Make 60 moves today (all games combined)', points: 135 },
-  daily_fork_fiesta: { name: '🍴 Fork Fiesta', desc: 'Win a game with 3+ knight forks today', points: 320 },
-  daily_pin_pool: { name: '📌 Pin Gallery', desc: 'Win a game with 4+ pins today', points: 300 },
-  daily_skewer_scout: { name: '↗️ Skewer Scout', desc: 'Win a game with 2+ skewers today', points: 310 },
-  daily_discovered_flair: { name: '✨ Discovery Day', desc: 'Win a game with 3+ discovered attacks today', points: 300 },
-  daily_zwischen_tag: { name: '⏎ In-Between Artist', desc: 'Win a game with a Zwischenzug today', points: 290 },
-  daily_windmill_whisper: {
-    name: '🌀 Windmill Whisper',
-    desc: 'Win a game with 5+ checks in a row at least once today',
-    points: 340,
-  },
 };
 
 /** Short blurbs for plain-text fallback (subset; unknown IDs still listed by id). */
