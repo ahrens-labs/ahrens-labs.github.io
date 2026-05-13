@@ -78,6 +78,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
     
     function unlockItem(category, itemId) {
+      const list = shopItems[category];
+      const meta = Array.isArray(list) ? list.find((i) => i && i.id === itemId) : null;
+      if (meta && meta.purchasable === false) return false;
       const unlocked = getUnlockedItems();
       if (!unlocked[category].includes(itemId)) {
         unlocked[category].push(itemId);
@@ -153,7 +156,25 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         { id: 'velvet', name: 'Velvet', price: 2750, preview: '🟣', coolness: 8 },
         { id: 'stone', name: 'Stone', price: 2000, preview: '🪨', coolness: 7 },
         { id: 'cyber', name: 'Cyber', price: 4000, preview: '&#9881;', coolness: 10 },
-        { id: 'luxury', name: 'Luxury', price: 5000, preview: '💎', coolness: 10 }
+        { id: 'luxury', name: 'Luxury', price: 5000, preview: '💎', coolness: 10 },
+        {
+          id: 'season_awakening',
+          name: 'Season · Awakening',
+          price: 0,
+          preview: '🌅',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_rift',
+          name: 'Season · Rift',
+          price: 0,
+          preview: '🌌',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
@@ -170,7 +191,16 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         { id: 'riohacha', name: 'Riohacha', price: 4000, preview: '♟️', coolness: 9 },
         { id: 'shapes', name: 'Shapes', price: 4750, preview: '♟️', coolness: 10 },
         { id: 'staunty', name: 'Staunty', price: 5500, preview: '♟️', coolness: 10 },
-        { id: 'tatiana', name: 'Tatiana', price: 7500, preview: '♟️', coolness: 10 }
+        { id: 'tatiana', name: 'Tatiana', price: 7500, preview: '♟️', coolness: 10 },
+        {
+          id: 'season_trail',
+          name: 'Season · Trail',
+          price: 0,
+          preview: '♟︎',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       highlightColors: [
         { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -181,7 +211,16 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         { id: 'orange', name: 'Orange Highlights', price: 1200, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
         { id: 'pink', name: 'Pink Highlights', price: 1400, preview: '🩷', coolness: 5, description: 'Pretty pink' },
         { id: 'cyan', name: 'Cyan Highlights', price: 1700, preview: '🔷', coolness: 6, description: 'Electric cyan' },
-        { id: 'rainbow', name: 'Rainbow Highlights', price: 3250, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+        { id: 'rainbow', name: 'Rainbow Highlights', price: 3250, preview: '🌈', coolness: 10, description: 'Colorful rainbow' },
+        {
+          id: 'season_glacier_glow',
+          name: 'Season · Glacier Glow',
+          price: 0,
+          preview: '❄️',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       arrowColors: [
         { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -2594,6 +2633,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (isUnlocked) {
           priceDiv.textContent = 'Unlocked';
           priceDiv.style.color = '#2ecc71';
+        } else if (item.purchasable === false) {
+          priceDiv.textContent = 'Season track reward';
+          priceDiv.style.color = '#7f8c8d';
         } else {
           priceDiv.textContent = `${item.price} points`;
           if (!canAfford) {
@@ -2618,6 +2660,10 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             button.classList.add('equip');
             button.onclick = () => equipItem(currentShopTab, item.id);
           }
+        } else if (item.purchasable === false) {
+          button.textContent = 'Season track';
+          button.classList.add('unlock');
+          button.disabled = true;
         } else {
           button.textContent = 'Unlock';
           button.classList.add('unlock');
@@ -2635,6 +2681,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
     
     function purchaseItem(category, itemId, price, name) {
+      const list = shopItems[category];
+      const meta = Array.isArray(list) ? list.find((i) => i && i.id === itemId) : null;
+        if (meta && meta.purchasable === false) {
+        showNotification('Unlock this by claiming the matching step on the Chess season track page.', 'info');
+        return;
+      }
       const spendable = getSpendablePoints();
       if (spendable < price) {
         showNotification(`Not enough points. You need ${price} but have ${spendable} available.`, 'error');

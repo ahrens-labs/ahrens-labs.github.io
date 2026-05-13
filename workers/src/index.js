@@ -4003,7 +4003,7 @@ function applySeasonClaimRewardsToChess(chess, node) {
     suffixes: uniqStrings(owned.suffixes),
   };
   st.lbFlair = sanitizeChessLbFlair(lbFlair);
-  chess.shopUnlocks = shop;
+  chess.shopUnlocks = ensureChessShopUnlockBasics(shop);
   chess.seasonTrack = st;
 }
 
