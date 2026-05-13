@@ -64,7 +64,7 @@
     return 0.2126 * R + 0.7152 * G + 0.0722 * B;
   }
 
-  /** Keep in sync with `workers/src/index.js` — `LB_ROW_BASIC_HEXES` + `LB_ROW_PRESET_MIN_NODES` + `LB_ROW_CUSTOM_HEX_MIN_NODES`. */
+  /** Keep in sync with `workers/src/index.js` — `LB_ROW_BASIC_HEXES`, shop solids, and `LB_ROW_PRESET_MIN_NODES`. */
   var LB_ROW_BASIC_HEXES = Object.freeze([
     '#ffffff',
     '#f8fafc',
@@ -76,15 +76,71 @@
     '#94a3b8',
   ]);
 
+  var LB_ROW_SHOP_CUSTOM_HEX_ID = 'lb_row_shop_custom_hex';
+
+  /** @type {ReadonlyArray<{ id: string, hex: string, label: string }>} */
+  var LB_ROW_SHOP_SOLIDS = Object.freeze([
+    { id: 'lb_row_shop_rose', hex: '#fb7185', label: 'Rose' },
+    { id: 'lb_row_shop_coral_fire', hex: '#f97316', label: 'Ember' },
+    { id: 'lb_row_shop_goldenrod', hex: '#ca8a04', label: 'Amber' },
+    { id: 'lb_row_shop_forest_deep', hex: '#166534', label: 'Forest' },
+    { id: 'lb_row_shop_teal_river', hex: '#0d9488', label: 'Teal' },
+    { id: 'lb_row_shop_sapphire', hex: '#1d4ed8', label: 'Sapphire' },
+    { id: 'lb_row_shop_amethyst', hex: '#7c3aed', label: 'Amethyst' },
+    { id: 'lb_row_shop_magenta_pop', hex: '#c026d3', label: 'Magenta' },
+  ]);
+
+  var LB_ROW_SHOP_ID_TO_HEX = (function () {
+    var o = {};
+    for (var i = 0; i < LB_ROW_SHOP_SOLIDS.length; i++) {
+      o[LB_ROW_SHOP_SOLIDS[i].id] = LB_ROW_SHOP_SOLIDS[i].hex;
+    }
+    return Object.freeze(o);
+  })();
+
   var LB_ROW_BASIC_HEX_SET = (function () {
     var o = {};
     for (var i = 0; i < LB_ROW_BASIC_HEXES.length; i++) o[LB_ROW_BASIC_HEXES[i]] = 1;
     return o;
   })();
 
-  var LB_ROW_CUSTOM_HEX_MIN_NODES = 4;
+  function leaderboardRowShopIdsFromChess(chess) {
+    if (!chess || typeof chess !== 'object') return [];
+    var shop = chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? chess.shopUnlocks : {};
+    var arr = shop.leaderboardRowColors;
+    if (!Array.isArray(arr)) return [];
+    var seen = {};
+    var out = [];
+    for (var j = 0; j < arr.length; j++) {
+      var id = String(arr[j] || '').trim();
+      if (!id || seen[id]) continue;
+      seen[id] = 1;
+      out.push(id);
+    }
+    return out;
+  }
 
-  /** @type {Record<string, { label: string, minNodes: number, bg: string, bgHover: string, border: string, sampleHex: string, fgPalette: { fg: string, rankFg: string, statMuted: string, statPos: string, statNeg: string } }>} */
+  function isLbRowShopCustomHexUnlocked(chess) {
+    var ids = leaderboardRowShopIdsFromChess(chess);
+    for (var i = 0; i < ids.length; i++) {
+      if (ids[i] === LB_ROW_SHOP_CUSTOM_HEX_ID) return true;
+    }
+    return false;
+  }
+
+  function isLbRowHexAllowedForUser(hex, chess) {
+    if (!hex) return false;
+    if (LB_ROW_BASIC_HEX_SET[hex]) return true;
+    var ids = leaderboardRowShopIdsFromChess(chess);
+    for (var c = 0; c < ids.length; c++) {
+      if (ids[c] === LB_ROW_SHOP_CUSTOM_HEX_ID) return true;
+    }
+    for (var k = 0; k < ids.length; k++) {
+      if (LB_ROW_SHOP_ID_TO_HEX[ids[k]] === hex) return true;
+    }
+    return false;
+  }
+
   var LB_ROW_PRESETS = Object.freeze({
     emerald_glade: {
       label: 'Emerald glade',
@@ -187,7 +243,7 @@
   }
 
   function isLbRowCustomHexUnlocked(chess) {
-    return seasonNodesAlignedForLbRow(chess) >= LB_ROW_CUSTOM_HEX_MIN_NODES;
+    return isLbRowShopCustomHexUnlocked(chess);
   }
 
   function isLbRowPresetUnlocked(chess, presetId) {
@@ -414,6 +470,12 @@
     applyLeaderboardRowPreset: applyLeaderboardRowPreset,
     LB_ROW_BASIC_HEXES: LB_ROW_BASIC_HEXES,
     LB_ROW_PRESETS: LB_ROW_PRESETS,
+    LB_ROW_SHOP_CUSTOM_HEX_ID: LB_ROW_SHOP_CUSTOM_HEX_ID,
+    LB_ROW_SHOP_SOLIDS: LB_ROW_SHOP_SOLIDS,
+    LB_ROW_SHOP_ID_TO_HEX: LB_ROW_SHOP_ID_TO_HEX,
+    leaderboardRowShopIdsFromChess: leaderboardRowShopIdsFromChess,
+    isLbRowShopCustomHexUnlocked: isLbRowShopCustomHexUnlocked,
+    isLbRowHexAllowedForUser: isLbRowHexAllowedForUser,
     utcChessSeasonIdNow: utcChessSeasonIdNow,
     seasonNodesAlignedForLbRow: seasonNodesAlignedForLbRow,
     isLbRowBasicHex: isLbRowBasicHex,

@@ -55,6 +55,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       moveEffects: ['default'],
       checkmateEffects: [],
       timeControls: ['none'],
+      leaderboardRowColors: [],
     };
 
     /** Merge free defaults with cloud/local lists. Empty arrays from the server must not wipe defaults (`[] || defaults` is wrong). */
@@ -117,6 +118,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         moveEffects: mergeUnlockedCategory(parsed.moveEffects, defaultUnlocked.moveEffects),
         checkmateEffects: mergeUnlockedCategory(parsed.checkmateEffects, defaultUnlocked.checkmateEffects),
         timeControls: mergeUnlockedCategory(parsed.timeControls, defaultUnlocked.timeControls),
+        leaderboardRowColors: mergeUnlockedCategory(parsed.leaderboardRowColors, defaultUnlocked.leaderboardRowColors),
       };
       return mergeEquippedSettingsIntoUnlocked(base);
     }
@@ -397,7 +399,90 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: '600|0', name: '10 min', price: 3000, preview: '🔟', coolness: 8, description: '10 minutes' },
         { id: '900|5', name: '15 | 5', price: 3500, preview: '1️⃣5️⃣', coolness: 9, description: '15 min + 5s' },
         { id: '3600|0', name: '60 min', price: 4000, preview: '⏱️', coolness: 10, description: '60 minutes' }
-      ]
+      ],
+      leaderboardRowColors: [
+        {
+          id: 'lb_row_shop_rose',
+          name: 'LB row · Rose',
+          price: 420,
+          preview: '📊',
+          coolness: 3,
+          rowHex: '#fb7185',
+          description: 'Solid rose tint on the public chess leaderboard (account dashboard).',
+        },
+        {
+          id: 'lb_row_shop_coral_fire',
+          name: 'LB row · Ember',
+          price: 450,
+          preview: '📊',
+          coolness: 3,
+          rowHex: '#f97316',
+          description: 'Solid ember orange leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_goldenrod',
+          name: 'LB row · Amber',
+          price: 480,
+          preview: '📊',
+          coolness: 3,
+          rowHex: '#ca8a04',
+          description: 'Solid amber leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_forest_deep',
+          name: 'LB row · Forest',
+          price: 520,
+          preview: '📊',
+          coolness: 4,
+          rowHex: '#166534',
+          description: 'Solid deep green leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_teal_river',
+          name: 'LB row · Teal',
+          price: 580,
+          preview: '📊',
+          coolness: 4,
+          rowHex: '#0d9488',
+          description: 'Solid teal leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_sapphire',
+          name: 'LB row · Sapphire',
+          price: 640,
+          preview: '📊',
+          coolness: 5,
+          rowHex: '#1d4ed8',
+          description: 'Solid sapphire blue leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_amethyst',
+          name: 'LB row · Amethyst',
+          price: 700,
+          preview: '📊',
+          coolness: 5,
+          rowHex: '#7c3aed',
+          description: 'Solid purple leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_magenta_pop',
+          name: 'LB row · Magenta',
+          price: 720,
+          preview: '📊',
+          coolness: 5,
+          rowHex: '#c026d3',
+          description: 'Solid magenta leaderboard row.',
+        },
+        {
+          id: 'lb_row_shop_custom_hex',
+          name: 'LB row · Custom solid',
+          price: 3800,
+          preview: '🎨',
+          coolness: 9,
+          description:
+            'Unlock any solid #RRGGBB for your leaderboard row from the account dashboard (same contrast rules as other tints).',
+        },
+      ],
     };
     
     let currentShopTab = 'boards';
@@ -2529,7 +2614,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
     
-    const shopTabOrder = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'checkmateEffects', 'timeControls'];
+    const shopTabOrder = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'checkmateEffects', 'timeControls', 'leaderboardRowColors'];
     function switchShopTab(tab) {
       currentShopTab = tab;
       const tabs = document.querySelectorAll('.shop-tab');
@@ -2706,12 +2791,28 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           }
         }
         wrap.appendChild(th);
+      } else if (category === 'leaderboardRowColors') {
+        const bar = document.createElement('div');
+        bar.className = 'shop-preview-lb-row';
+        bar.style.cssText =
+          'width:100%;min-height:38px;border-radius:8px;border:1px solid rgba(148,163,184,0.45);box-sizing:border-box;';
+        if (item.rowHex) {
+          bar.style.background = item.rowHex;
+        } else {
+          bar.style.background = 'linear-gradient(90deg,#64748b 0%,#0ea5e9 35%,#a855f7 68%,#f43f5e 100%)';
+        }
+        wrap.appendChild(bar);
       } else {
         const emoji = document.createElement('span');
         emoji.className = 'shop-preview-emoji';
         emoji.textContent = item.preview || '?';
         wrap.appendChild(emoji);
-        if (['checkmateEffects', 'timeControls'].includes(category)) {
+        if (category === 'leaderboardRowColors') {
+          const hint = document.createElement('span');
+          hint.className = 'shop-preview-hint';
+          hint.textContent = 'Pick tint on account dashboard';
+          wrap.appendChild(hint);
+        } else if (['checkmateEffects', 'timeControls'].includes(category)) {
           const hint = document.createElement('span');
           hint.className = 'shop-preview-hint';
           hint.textContent = 'Preview in game';
@@ -2740,14 +2841,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       items.forEach(item => {
         const isUnlocked = (unlocked[currentShopTab] || []).includes(item.id);
         const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
-        const isEquipped = (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
-                          (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
-                          (currentShopTab === 'highlightColors' && item.id === currentHighlightColor) ||
-                          (currentShopTab === 'arrowColors' && item.id === currentArrowColor) ||
-                          (currentShopTab === 'legalMoveDots' && item.id === currentLegalDot) ||
-                          (currentShopTab === 'themes' && item.id === currentTheme) ||
-                          (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
-                          (currentShopTab === 'timeControls' && item.id === currentTime);
+        const isEquipped =
+          currentShopTab === 'leaderboardRowColors'
+            ? false
+            : (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
+              (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
+              (currentShopTab === 'highlightColors' && item.id === currentHighlightColor) ||
+              (currentShopTab === 'arrowColors' && item.id === currentArrowColor) ||
+              (currentShopTab === 'legalMoveDots' && item.id === currentLegalDot) ||
+              (currentShopTab === 'themes' && item.id === currentTheme) ||
+              (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
+              (currentShopTab === 'timeControls' && item.id === currentTime);
         const canAfford = item.price <= spendable;
         const isCheckmateAddon = currentShopTab === 'checkmateEffects';
         
@@ -2822,6 +2926,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             button.textContent = isEquipped ? 'Enabled ✓' : 'Enable';
             button.classList.add(isEquipped ? 'equipped' : 'equip');
             button.onclick = () => { toggleCheckmateAddon(item.id); renderShopItems(); if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns(); };
+          } else if (currentShopTab === 'leaderboardRowColors') {
+            button.textContent = 'Owned';
+            button.classList.add('equipped');
+            button.disabled = true;
           } else if (isEquipped) {
             button.textContent = 'Equipped';
             button.classList.add('equipped');
@@ -2873,6 +2981,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         showNotification(`Unlocked ${displayName}! (-${price} points)`, 'success');
         
         // Auto-sync to account
+        if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
         if (typeof autoSync === 'function') autoSync();
       }
     }
@@ -2911,6 +3020,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           sel.value = itemId;
           localStorage.setItem('timeControl', itemId);
         }
+      } else if (category === 'leaderboardRowColors') {
+        /* Unlocks only; row tint is chosen on the account dashboard. */
       }
       renderShopItems();
 
@@ -11886,6 +11997,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       'moveEffects',
       'timeControls',
       'checkmateEffects',
+      'leaderboardRowColors',
     ];
 
     /** Baseline shop unlocks; merged with API so `{}` or partial objects cannot wipe categories. */
@@ -11899,6 +12011,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       moveEffects: ['default'],
       checkmateEffects: [],
       timeControls: ['none'],
+      leaderboardRowColors: [],
     };
 
     const TRIFANGX_DEFAULT_CHESS_SETTINGS = {

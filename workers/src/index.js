@@ -3935,6 +3935,7 @@ const SHOP_UNLOCK_MERGE_KEYS = [
   'themes',
   'timeControls',
   'checkmateEffects',
+  'leaderboardRowColors',
 ];
 
 function mergeShopUnlocksForSync(prevShop, incShop) {
@@ -3950,7 +3951,16 @@ function mergeShopUnlocksForSync(prevShop, incShop) {
 function applySeasonClaimRewardsToChess(chess, node) {
   const shop =
     chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? { ...chess.shopUnlocks } : {};
-  const categories = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'timeControls'];
+  const categories = [
+    'boards',
+    'pieces',
+    'highlightColors',
+    'arrowColors',
+    'legalMoveDots',
+    'themes',
+    'timeControls',
+    'leaderboardRowColors',
+  ];
   for (const cat of categories) {
     if (!Array.isArray(shop[cat])) shop[cat] = shop[cat] ? [...shop[cat]] : [];
   }
@@ -4140,6 +4150,7 @@ function ensureChessShopUnlockBasics(shop) {
     legalMoveDots: ['gray-circle'],
     themes: ['light'],
     timeControls: ['none'],
+    leaderboardRowColors: [],
   };
   for (const [k, fallback] of Object.entries(defaults)) {
     const cur = Array.isArray(o[k]) ? o[k] : [];
@@ -4152,7 +4163,16 @@ function ensureChessShopUnlockBasics(shop) {
 
 function removeSeasonShopRewardsFromChessShop(rawShop, keySet) {
   const shop = rawShop && typeof rawShop === 'object' ? { ...rawShop } : {};
-  const cats = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'timeControls'];
+  const cats = [
+    'boards',
+    'pieces',
+    'highlightColors',
+    'arrowColors',
+    'legalMoveDots',
+    'themes',
+    'timeControls',
+    'leaderboardRowColors',
+  ];
   for (const cat of cats) {
     const arr = Array.isArray(shop[cat]) ? [...shop[cat]] : [];
     shop[cat] = arr.filter((id) => !keySet.has(cat + '\0' + String(id)));
@@ -4426,19 +4446,47 @@ const LB_ROW_PRESET_MIN_NODES = Object.freeze({
   finale_aurora: 10,
 });
 
-const LB_ROW_CUSTOM_HEX_MIN_NODES = 4;
+/** Purchasable solid row tints (keep in sync with `js/chess_lb_row.js`). */
+const LB_ROW_SHOP_CUSTOM_HEX_ID = 'lb_row_shop_custom_hex';
+const LB_ROW_SHOP_SOLIDS = Object.freeze([
+  { id: 'lb_row_shop_rose', hex: '#fb7185' },
+  { id: 'lb_row_shop_coral_fire', hex: '#f97316' },
+  { id: 'lb_row_shop_goldenrod', hex: '#ca8a04' },
+  { id: 'lb_row_shop_forest_deep', hex: '#166534' },
+  { id: 'lb_row_shop_teal_river', hex: '#0d9488' },
+  { id: 'lb_row_shop_sapphire', hex: '#1d4ed8' },
+  { id: 'lb_row_shop_amethyst', hex: '#7c3aed' },
+  { id: 'lb_row_shop_magenta_pop', hex: '#c026d3' },
+]);
+
+const LB_ROW_SHOP_ID_TO_HEX = Object.freeze(
+  Object.fromEntries(LB_ROW_SHOP_SOLIDS.map((r) => [r.id, r.hex]))
+);
+
+function leaderboardRowShopIdsFromChess(chess) {
+  const shop = chess?.shopUnlocks && typeof chess.shopUnlocks === 'object' ? chess.shopUnlocks : {};
+  const arr = shop.leaderboardRowColors;
+  if (!Array.isArray(arr)) return [];
+  return uniqStrings(arr.map((x) => String(x)));
+}
+
+function leaderboardRowHexAllowedForUser(hex, chess) {
+  if (!hex) return false;
+  if (LB_ROW_BASIC_HEXES.has(hex)) return true;
+  const ids = leaderboardRowShopIdsFromChess(chess);
+  if (ids.includes(LB_ROW_SHOP_CUSTOM_HEX_ID)) return true;
+  for (let i = 0; i < ids.length; i++) {
+    const mapped = LB_ROW_SHOP_ID_TO_HEX[ids[i]];
+    if (mapped === hex) return true;
+  }
+  return false;
+}
 
 function leaderboardRowSeasonNodesAligned(chess) {
   const st = chess?.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
   const sid = String(st.seasonId || '').trim();
   if (!/^\d{4}-\d{2}$/.test(sid) || sid !== utcChessSeasonIdNow()) return 0;
   return seasonTrackNodesCompletedFromChess(chess);
-}
-
-function leaderboardRowHexAllowedForUser(hex, chess) {
-  if (!hex) return false;
-  if (LB_ROW_BASIC_HEXES.has(hex)) return true;
-  return leaderboardRowSeasonNodesAligned(chess) >= LB_ROW_CUSTOM_HEX_MIN_NODES;
 }
 
 function parseLeaderboardRowStoredToken(raw) {
@@ -6360,11 +6408,18 @@ export class UserAccount {
     if (!emailPreferences.digestTimeZone || !isValidIanaTimeZone(String(emailPreferences.digestTimeZone))) {
       emailPreferences.digestTimeZone = DEFAULT_DIGEST_TIMEZONE;
     }
-    return {
+    const out = {
       userId: this.state.id.toString(),
       ...safeData,
       emailPreferences,
     };
+    const chessForLb = out.games?.chess;
+    if (userData.leaderboardRowColor == null || userData.leaderboardRowColor === '') {
+      out.leaderboardRowColor = null;
+    } else {
+      out.leaderboardRowColor = sanitizeLeaderboardRowAppearance(userData.leaderboardRowColor, chessForLb) ?? null;
+    }
+    return out;
   }
 
   async updateData(newData) {
@@ -6516,13 +6571,13 @@ export class UserAccount {
         return {
           success: false,
           error:
-            'Invalid row style. Choose a standard tint, a season gradient you have unlocked, or a custom hex after mid-season progress — or clear.',
+            'Invalid row style. Choose a standard tint, a season gradient you have unlocked, a shop row color you own, or clear.',
         };
       }
       return {
         success: false,
         error:
-          'That row style is locked. Claim more steps on this month’s TrifangX season track (or pick a standard tint).',
+          'That row style is locked. Buy row tints in the TrifangX shop, claim season gradients, or pick a standard tint.',
       };
     }
     userData.leaderboardRowColor = normalized;
@@ -6972,6 +7027,7 @@ export class UserAccount {
         ? mergeShopUnlocksForSync({}, restIncoming.shopUnlocks)
         : mergeShopUnlocksForSync(prevChess.shopUnlocks, restIncoming.shopUnlocks);
     }
+    mergedChess.shopUnlocks = ensureChessShopUnlockBasics(mergedChess.shopUnlocks || {});
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
     delete mergedChess.lbRollBaselineMs;
@@ -7014,7 +7070,8 @@ export class UserAccount {
           legalMoveDots: ['gray-circle'],
           themes: ['light'],
           checkmateEffects: [],
-          timeControls: ['none']
+          timeControls: ['none'],
+          leaderboardRowColors: [],
         },
         settings: {
           boardStyle: 'classic',
@@ -7031,7 +7088,11 @@ export class UserAccount {
       };
     }
     
-    return userData.games.chess;
+    const c = userData.games.chess;
+    return {
+      ...c,
+      shopUnlocks: ensureChessShopUnlockBasics(c.shopUnlocks || {}),
+    };
   }
 
   async getDungeonSlots() {

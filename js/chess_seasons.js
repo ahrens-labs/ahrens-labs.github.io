@@ -46,8 +46,9 @@
  *      introduce a month-keyed mechanical table (not needed until you intentionally fork the ladder).
  *    - Deploy worker + static site together when changing ids that the worker must recognize.
  *    - Account dashboard can equip `seasonTrack.lbFlair` via POST /api/chess/lb-flair (unlocked ids only).
- *    - Leaderboard row background: standard hex swatches for everyone; season gradients / custom hex gated by
- *      current-month `seasonTrack.nodesCompleted` (see `workers/src/index.js` + `js/chess_lb_row.js`, keep in sync).
+ *    - Leaderboard row background: standard hex swatches for everyone; extra solids and custom hex from
+ *      `shopUnlocks.leaderboardRowColors` (TrifangX shop); season gradients gated by current-month
+ *      `seasonTrack.nodesCompleted` (see `workers/src/index.js` + `js/chess_lb_row.js`, keep in sync).
  *
  * 7) Season reset (optional player action)
  *    - POST `/api/chess/season-reset` (session) → durable `resetSeasonTrack`: only for `seasonTrack.seasonId`

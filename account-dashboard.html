@@ -427,24 +427,32 @@
 
           <h3 style="margin:18px 0 10px;font-size:0.95rem;color:#334155;">Row background</h3>
           <p class="hint" style="font-size:0.85rem">
-            Everyone gets a small set of standard tints. Claim steps on this month’s
-            <a href="chess-season-track.html">season track</a> in TrifangX to unlock gradients and any custom hex.
+            Everyone gets a small set of standard tints. Buy extra solid row colors (or a custom color pass) in the
+            <a href="chess_engine.html">TrifangX shop</a>. Claim steps on this month’s
+            <a href="chess-season-track.html">season track</a> in TrifangX to unlock gradient row finishes.
           </p>
           <div id="dash-lb-row-picks-wrap">
             <p style="margin:10px 0 6px;font-size:0.82rem;font-weight:600;color:#475569;">Standard tints</p>
             <div id="dash-lb-row-picks-basic" class="dash-lb-row-swatch-grid" aria-label="Standard row colors"></div>
+            <div id="dash-lb-row-picks-shop-block" style="display:none;margin-top:14px;">
+              <p style="margin:0 0 6px;font-size:0.82rem;font-weight:600;color:#475569;">Shop row tints</p>
+              <p class="hint" style="font-size:0.8rem;margin:0 0 8px;">
+                Purchased in TrifangX; pick one here to use on the leaderboard.
+              </p>
+              <div id="dash-lb-row-picks-shop" class="dash-lb-row-swatch-grid" aria-label="Shop row tints"></div>
+            </div>
             <div id="dash-lb-row-picks-season-block" style="margin-top:14px;">
               <p style="margin:0 0 6px;font-size:0.82rem;font-weight:600;color:#0f766e;">Season row finishes</p>
               <p class="hint" style="font-size:0.8rem;margin:0 0 8px;">
-                Gradients unlock at 4, 7, and 10 monthly claims (this UTC season). Custom hex unlocks after 4 claims.
+                Gradients unlock at 4, 7, and 10 monthly claims (this UTC season).
               </p>
               <div id="dash-lb-row-picks-season" class="dash-lb-row-swatch-grid" aria-label="Season gradients"></div>
               <div id="dash-lb-row-custom-wrap" style="display:none;margin-top:12px;">
-                <label for="dash-lb-row-custom-hex" style="font-size:0.82rem;font-weight:600;color:#334155;">Custom hex</label>
+                <label for="dash-lb-row-custom-hex" style="font-size:0.82rem;font-weight:600;color:#334155;">Custom solid</label>
                 <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">
                   <input type="color" id="dash-lb-row-custom-hex" value="#64748b" aria-label="Custom leaderboard row color" style="width:52px;height:40px;padding:0;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">
                   <label style="display:inline-flex;align-items:center;gap:8px;font-size:0.85rem;color:#475569;">
-                    <input type="radio" name="dash-lb-row-bg" value="__custom__" id="dash-lb-row-bg-custom-radio"> Use custom color
+                    <input type="radio" name="dash-lb-row-bg" value="__custom__" id="dash-lb-row-bg-custom-radio"> Use custom solid
                   </label>
                 </div>
               </div>
@@ -1314,11 +1322,12 @@
           const hx = U.normalizeLbHex(s);
           if (hx) {
             if (U.isLbRowBasicHex(hx)) sel = hx;
-            else if (U.isLbRowCustomHexUnlocked(dashLbPreviewChessRef)) {
+            else if (U.isLbRowShopCustomHexUnlocked(dashLbPreviewChessRef)) {
               sel = '__custom__';
               const c = document.getElementById('dash-lb-row-custom-hex');
               if (c) c.value = hx;
-            } else sel = '__clear__';
+            } else if (U.isLbRowHexAllowedForUser(hx, dashLbPreviewChessRef)) sel = hx;
+            else sel = '__clear__';
           }
         }
       }
@@ -1342,6 +1351,8 @@
       const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
       const basicHost = document.getElementById('dash-lb-row-picks-basic');
       const seasonHost = document.getElementById('dash-lb-row-picks-season');
+      const shopHost = document.getElementById('dash-lb-row-picks-shop');
+      const shopBlock = document.getElementById('dash-lb-row-picks-shop-block');
       const customWrap = document.getElementById('dash-lb-row-custom-wrap');
       if (!basicHost || !seasonHost || !U || !U.LB_ROW_BASIC_HEXES) return;
 
@@ -1368,6 +1379,7 @@
 
       basicHost.innerHTML = '';
       seasonHost.innerHTML = '';
+      if (shopHost) shopHost.innerHTML = '';
 
       basicHost.appendChild(makeSwatch('__clear__', 'Default', 'background:#ffffff', true));
       const basicCap = {
@@ -1384,6 +1396,18 @@
         basicHost.appendChild(makeSwatch(hex, basicCap[hex] || 'Tint', 'background:' + hex + ' !important', true));
       });
 
+      const ch = dashLbPreviewChessRef;
+      const shopIds = typeof U.leaderboardRowShopIdsFromChess === 'function' ? U.leaderboardRowShopIdsFromChess(ch) : [];
+      const shopSolids = (U.LB_ROW_SHOP_SOLIDS || []).filter((row) => shopIds.indexOf(row.id) >= 0);
+      if (shopHost && shopBlock) {
+        shopSolids.forEach((row) => {
+          shopHost.appendChild(
+            makeSwatch(row.hex, row.label, 'background:' + row.hex + ' !important', true)
+          );
+        });
+        shopBlock.style.display = shopSolids.length ? 'block' : 'none';
+      }
+
       Object.keys(U.LB_ROW_PRESETS || {}).forEach((pid) => {
         const def = U.LB_ROW_PRESETS[pid];
         const token = 'lbrow:' + pid;
@@ -1397,7 +1421,7 @@
       });
 
       if (customWrap) {
-        customWrap.style.display = U.isLbRowCustomHexUnlocked(dashLbPreviewChessRef) ? 'block' : 'none';
+        customWrap.style.display = U.isLbRowShopCustomHexUnlocked(dashLbPreviewChessRef) ? 'block' : 'none';
       }
 
       syncDashLbRowSelectionFromSaved();
