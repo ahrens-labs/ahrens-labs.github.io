@@ -137,6 +137,44 @@
         .st-note a:hover {
             color: #0d9488;
         }
+        .st-reset-zone {
+            margin: 0 0 1.25rem;
+            padding: 1rem 1.1rem 1.05rem;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(255, 247, 237, 0.92));
+            border: 1px solid rgba(248, 113, 113, 0.45);
+        }
+        .st-reset-zone h4 {
+            margin: 0 0 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #991b1b;
+            letter-spacing: 0.04em;
+        }
+        .st-reset-zone p {
+            margin: 0 0 0.75rem;
+            font-size: 0.86rem;
+            color: #7f1d1d;
+            line-height: 1.55;
+        }
+        .st-reset-btn {
+            font: inherit;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(185, 28, 28, 0.55);
+            background: #fff;
+            color: #b91c1c;
+            cursor: pointer;
+        }
+        .st-reset-btn:hover:not(:disabled) {
+            background: #fef2f2;
+        }
+        .st-reset-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
         .st-track-title {
             font-family: "Orbitron", sans-serif;
             font-size: 0.95rem;
@@ -709,6 +747,19 @@
           Math.max(0, Math.floor(Number(data.points) || 0)).toLocaleString() + '</div></div>';
         html += '</div>';
 
+        var canResetSeason =
+          nodesDone > 0 && /^\d{4}-\d{2}$/.test(cloudSid) && cloudSid === currentSid;
+        if (canResetSeason) {
+          html +=
+            '<div class="st-reset-zone" id="st-reset-zone">' +
+            '<h4>Reset this month’s season track</h4>' +
+            '<p>This clears <strong>claimed steps</strong> for <code>' +
+            escapeHtml(currentSid) +
+            '</code>, removes <strong>cosmetics and leaderboard flair</strong> granted by those steps, subtracts this month’s <strong>season bonus points</strong> from your career total, and clears your season earn baseline so counters start fresh for the ladder. Your global TrifangX achievements are <strong>not</strong> removed. Career points spent on step buyouts are <strong>not</strong> refunded (the server does not record which steps used a buyout).</p>' +
+            '<button type="button" class="st-reset-btn" id="st-reset-season-btn">Reset season progress…</button>' +
+            '</div>';
+        }
+
         html += '<h3 class="st-track-title">Track</h3>';
         html += '<ol class="st-timeline">';
 
@@ -915,6 +966,69 @@
           });
       }
 
+      function requestSeasonReset(btn) {
+        if (!sessionId || !btn) return;
+        var msg =
+          'Reset the CURRENT UTC month season track?\n\n' +
+          '• Claimed steps go back to zero; earn baseline resets for the ladder.\n' +
+          '• All cosmetics and leaderboard flair from those claims are removed.\n' +
+          '• Season bonus career points from those claims are subtracted.\n' +
+          '• Global achievements are NOT removed.\n' +
+          '• Buyout career points are NOT refunded.\n\n' +
+          'This cannot be undone.';
+        if (!confirm(msg)) return;
+        btn.disabled = true;
+        var orig = btn.textContent;
+        btn.textContent = 'Resetting…';
+        fetch(API_BASE_URL + '/api/chess/season-reset', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + sessionId,
+            'Content-Type': 'application/json',
+          },
+          body: '{}',
+        })
+          .then(function (res) {
+            return res.json().then(function (j) {
+              return { res: res, j: j };
+            });
+          })
+          .then(function (pack) {
+            if (pack.res.status === 401) {
+              showLogin();
+              return;
+            }
+            if (!pack.j.success) {
+              throw new Error(pack.j.error || 'Reset failed');
+            }
+            if (pack.j.chess) {
+              render(pack.j.chess);
+              pingTrifangxCosmeticsRefresh();
+              return;
+            }
+            return fetch(API_BASE_URL + '/api/chess/load', {
+              headers: { Authorization: 'Bearer ' + sessionId },
+            }).then(function (r2) {
+              if (r2.status === 401) {
+                showLogin();
+                return null;
+              }
+              if (!r2.ok) throw new Error('Could not reload save');
+              return r2.json();
+            }).then(function (d2) {
+              if (d2) {
+                render(d2);
+                pingTrifangxCosmeticsRefresh();
+              }
+            });
+          })
+          .catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = orig;
+            alert(e.message || 'Could not reset');
+          });
+      }
+
       var sessionId = localStorage.getItem('ahrenslabs_sessionId');
       if (!sessionId) {
         document.getElementById('st-loading').remove();
@@ -923,6 +1037,11 @@
       }
 
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
+        var resetBtn = ev.target && ev.target.closest && ev.target.closest('#st-reset-season-btn');
+        if (resetBtn && !resetBtn.disabled) {
+          requestSeasonReset(resetBtn);
+          return;
+        }
         var buyBtn = ev.target && ev.target.closest && ev.target.closest('.st-buyout-btn');
         if (buyBtn && !buyBtn.disabled) {
           var bidx = parseInt(buyBtn.getAttribute('data-st-step'), 10);

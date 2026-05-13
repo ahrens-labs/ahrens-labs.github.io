@@ -47,6 +47,12 @@
  *    - Deploy worker + static site together when changing ids that the worker must recognize.
  *    - Account dashboard can equip `seasonTrack.lbFlair` via POST /api/chess/lb-flair (unlocked ids only).
  *
+ * 7) Season reset (optional player action)
+ *    - POST `/api/chess/season-reset` (session) → durable `resetSeasonTrack`: only for `seasonTrack.seasonId`
+ *      equal to current UTC month; zeros `nodesCompleted`, refreshes `earnBaseline`, strips shop + flair
+ *      granted by `SEASON_CLAIM_NODES` for claimed steps, subtracts matching `seasonBonusPoints`, clears
+ *      finale email key for that month. Does not remove global achievements; buyouts are not refunded.
+ *
  * =============================================================================
  */
 (function (global) {

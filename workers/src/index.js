@@ -89,6 +89,8 @@ export default {
         return handleChessSync(request, env, corsHeaders);
       } else if (path === '/api/chess/season-claim' && request.method === 'POST') {
         return handleChessSeasonClaim(request, env, corsHeaders);
+      } else if (path === '/api/chess/season-reset' && request.method === 'POST') {
+        return handleChessSeasonReset(request, env, corsHeaders);
       } else if (path === '/api/chess/load' && request.method === 'GET') {
         return handleChessLoad(request, env, corsHeaders);
       } else if (path === '/api/chess/leaderboard' && request.method === 'GET') {
@@ -1178,6 +1180,39 @@ async function handleChessSeasonClaim(request, env, corsHeaders) {
   });
   const claimRes = await userAccount.fetch(claimReq);
   const result = await claimRes.json();
+  const ok = Boolean(result?.success);
+  return new Response(JSON.stringify(result), {
+    status: ok ? 200 : 400,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Reset current UTC month season track (progress + this month’s track rewards only). */
+async function handleChessSeasonReset(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ success: false, error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const resetReq = new Request('http://do/resetSeasonTrack', { method: 'POST', body: '{}' });
+  const resetRes = await userAccount.fetch(resetReq);
+  const result = await resetRes.json();
   const ok = Boolean(result?.success);
   return new Response(JSON.stringify(result), {
     status: ok ? 200 : 400,
@@ -4004,6 +4039,124 @@ function mergeChessSeasonFieldsForSync(prevChess, incomingSeasonTrack, incomingB
   return { seasonBonusPoints, seasonTrack };
 }
 
+/** Shop reward keys `category\\0id` granted by season steps `[0, endExclusive)`. */
+function seasonTrackRewardShopKeysThroughStep(endExclusive) {
+  const keys = new Set();
+  const end = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(endExclusive) || 0)));
+  for (let i = 0; i < end; i++) {
+    const node = SEASON_CLAIM_NODES[i];
+    if (!node || !Array.isArray(node.rewards)) continue;
+    for (const r of node.rewards) {
+      if (r && r.kind === 'shop' && r.category && r.id) {
+        keys.add(String(r.category) + '\0' + String(r.id));
+      }
+    }
+  }
+  return keys;
+}
+
+/** Leaderboard flair tokens granted by those same steps (for removal on reset). */
+function collectSeasonLbTokensThroughStep(endExclusive) {
+  const frames = new Set();
+  const titles = new Set();
+  const prefixes = new Set();
+  const suffixes = new Set();
+  const end = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(endExclusive) || 0)));
+  for (let i = 0; i < end; i++) {
+    const node = SEASON_CLAIM_NODES[i];
+    if (!node || !Array.isArray(node.rewards)) continue;
+    for (const r of node.rewards) {
+      if (!r || typeof r !== 'object') continue;
+      if (r.kind === 'lb_frame' && r.frame && CHESS_LB_FLAIR_FRAMES.has(String(r.frame))) {
+        frames.add(String(r.frame));
+      } else if (r.kind === 'lb_title' && r.title) {
+        const t = String(r.title)
+          .trim()
+          .slice(0, 24)
+          .replace(/[\u0000-\u001f\u007f]/g, '');
+        if (t) titles.add(t);
+      } else if (r.kind === 'lb_prefix' && r.prefix != null) {
+        const p = [...String(r.prefix)].slice(0, 3).join('');
+        if (p) prefixes.add(p);
+      } else if (r.kind === 'lb_suffix' && r.suffix != null) {
+        const s = [...String(r.suffix)].slice(0, 3).join('');
+        if (s) suffixes.add(s);
+      }
+    }
+  }
+  return { frames, titles, prefixes, suffixes };
+}
+
+function ensureChessShopUnlockBasics(shop) {
+  const o = shop && typeof shop === 'object' ? { ...shop } : {};
+  const defaults = {
+    boards: ['classic'],
+    pieces: ['classic'],
+    highlightColors: ['red'],
+    arrowColors: ['red'],
+    legalMoveDots: ['gray-circle'],
+    themes: ['light'],
+    timeControls: ['none'],
+  };
+  for (const [k, fallback] of Object.entries(defaults)) {
+    const cur = Array.isArray(o[k]) ? o[k] : [];
+    const merged = uniqStrings([...fallback, ...cur]);
+    o[k] = merged.length ? merged : [...fallback];
+  }
+  if (!Array.isArray(o.checkmateEffects)) o.checkmateEffects = [];
+  return o;
+}
+
+function removeSeasonShopRewardsFromChessShop(rawShop, keySet) {
+  const shop = rawShop && typeof rawShop === 'object' ? { ...rawShop } : {};
+  const cats = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'timeControls'];
+  for (const cat of cats) {
+    const arr = Array.isArray(shop[cat]) ? [...shop[cat]] : [];
+    shop[cat] = arr.filter((id) => !keySet.has(cat + '\0' + String(id)));
+  }
+  const cm = Array.isArray(shop.checkmateEffects) ? [...shop.checkmateEffects] : [];
+  shop.checkmateEffects = cm.filter((id) => !keySet.has('checkmateEffects\0' + String(id)));
+  return ensureChessShopUnlockBasics(shop);
+}
+
+function shrinkLbFlairEquipsToOwned(rawFlair, owned) {
+  const san = sanitizeChessLbFlair(rawFlair);
+  const of = owned && typeof owned === 'object' ? owned : {};
+  const frames = new Set(of.frames || []);
+  const titles = new Set(of.titles || []);
+  const prefixes = new Set(of.prefixes || []);
+  const suffixes = new Set(of.suffixes || []);
+  let frame = san.frame;
+  if (frame && !frames.has(String(frame))) frame = null;
+  let title = san.title;
+  if (title && !titles.has(String(title))) title = null;
+  let prefix = san.prefix;
+  if (prefix && !prefixes.has(String(prefix))) prefix = '';
+  let suffix = san.suffix;
+  if (suffix && !suffixes.has(String(suffix))) suffix = '';
+  return sanitizeChessLbFlair({ frame, title, prefix, suffix });
+}
+
+/** If equipped cosmetics are no longer unlocked, fall back to safe defaults. */
+function sanitizeChessVisualSettingsAfterUnshop(chess) {
+  const shop = chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? chess.shopUnlocks : {};
+  if (!chess.settings || typeof chess.settings !== 'object') chess.settings = {};
+  const s = chess.settings;
+  const has = (cat, id) => (Array.isArray(shop[cat]) ? shop[cat] : []).includes(id);
+  if (s.boardStyle && !has('boards', s.boardStyle)) s.boardStyle = 'classic';
+  if (s.pieceStyle && !has('pieces', s.pieceStyle)) s.pieceStyle = 'classic';
+  if (s.highlightColor && !has('highlightColors', s.highlightColor)) s.highlightColor = 'red';
+  if (s.arrowColor && !has('arrowColors', s.arrowColor)) s.arrowColor = 'red';
+  if (s.legalMoveDotStyle && !has('legalMoveDots', s.legalMoveDotStyle)) {
+    s.legalMoveDotStyle = (shop.legalMoveDots && shop.legalMoveDots[0]) || 'gray-circle';
+  }
+  if (s.pageTheme && !has('themes', s.pageTheme)) s.pageTheme = 'light';
+  const addons = s.checkmateAddons;
+  if (Array.isArray(addons)) {
+    s.checkmateAddons = addons.filter((x) => has('checkmateEffects', String(x)));
+  }
+}
+
 function chessStatsSnapshot(chessBlock) {
   const ps = chessBlock?.stats?.playerStats || {};
   const w = Math.max(0, Number(ps.wins) || 0);
@@ -5828,6 +5981,12 @@ export class UserAccount {
           status: result.success ? 200 : 400,
           headers: { 'Content-Type': 'application/json' },
         });
+      } else if (path === '/resetSeasonTrack' && request.method === 'POST') {
+        const result = await this.resetSeasonTrack();
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/setChessLbFlair' && request.method === 'POST') {
         const body = await request.json();
         const result = await this.setChessLbFlair(body && typeof body === 'object' ? body : {});
@@ -6406,6 +6565,83 @@ export class UserAccount {
 
     const outChess = await this.getChessData();
     return { success: true, chess: outChess };
+  }
+
+  /**
+   * Reset the current UTC month’s season ladder: nodes, baseline, this month’s track-only shop unlocks,
+   * leaderboard flair unlocked via the track, and the matching slice of `seasonBonusPoints`.
+   * Does not remove global TrifangX achievements or refund step buyouts (not stored per step).
+   */
+  async resetSeasonTrack() {
+    const userData = await this.storage.get('userData');
+    if (!userData?.games?.chess) {
+      return { success: false, error: 'No chess data' };
+    }
+    const chess = userData.games.chess;
+    const utcSid = utcChessSeasonIdNow();
+    let st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
+    const stSid = String(st.seasonId || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(stSid)) {
+      return { success: false, error: 'No synced season on file. Open TrifangX while signed in, then try again.' };
+    }
+    if (stSid !== utcSid) {
+      return {
+        success: false,
+        error:
+          'Reset only applies to the active UTC month. After the calendar rolls, the new month’s ladder is separate.',
+      };
+    }
+    const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)));
+    if (n <= 0) {
+      return { success: false, error: `No claimed steps to reset for ${utcSid}.` };
+    }
+
+    let bonusSubtract = 0;
+    for (let i = 0; i < n; i++) {
+      bonusSubtract += Math.max(0, Math.floor(Number(SEASON_CLAIM_NODES[i]?.bonusPoints) || 0));
+    }
+
+    const shopKeys = seasonTrackRewardShopKeysThroughStep(n);
+    chess.shopUnlocks = removeSeasonShopRewardsFromChessShop(chess.shopUnlocks, shopKeys);
+
+    const tokenSets = collectSeasonLbTokensThroughStep(n);
+    const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+    const newOwned = {
+      frames: uniqStrings((prevOwned.frames || []).filter((f) => !tokenSets.frames.has(String(f)))),
+      titles: uniqStrings((prevOwned.titles || []).filter((t) => !tokenSets.titles.has(String(t)))),
+      prefixes: uniqStrings((prevOwned.prefixes || []).filter((p) => !tokenSets.prefixes.has(String(p)))),
+      suffixes: uniqStrings((prevOwned.suffixes || []).filter((s) => !tokenSets.suffixes.has(String(s)))),
+    };
+    st.lbFlairUnlocked = newOwned;
+    st.lbFlair = shrinkLbFlairEquipsToOwned(st.lbFlair, newOwned);
+    st.nodesCompleted = 0;
+    st.seasonId = utcSid;
+    st.earnBaseline = snapshotSeasonEarnBaselineFromChess(chess);
+    chess.seasonTrack = st;
+
+    const prevSb = Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0));
+    chess.seasonBonusPoints = Math.max(0, prevSb - bonusSubtract);
+    chess.lastUpdated = Date.now();
+
+    sanitizeChessVisualSettingsAfterUnshop(chess);
+
+    if (!userData.milestonesEmailNotified || typeof userData.milestonesEmailNotified !== 'object') {
+      userData.milestonesEmailNotified = {};
+    } else {
+      userData.milestonesEmailNotified = { ...userData.milestonesEmailNotified };
+    }
+    delete userData.milestonesEmailNotified['trifangx_season_finale_' + utcSid];
+
+    await this.storage.put('userData', userData);
+    await this.syncChessCareerPointsLeaderboardEntry();
+
+    const outChess = await this.getChessData();
+    return {
+      success: true,
+      chess: outChess,
+      resetSteps: n,
+      bonusPointsRemoved: bonusSubtract,
+    };
   }
 
   /** Equip leaderboard flair; each field must be cleared or chosen from `seasonTrack.lbFlairUnlocked`. */
