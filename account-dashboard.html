@@ -59,7 +59,8 @@
       border: 0;
       z-index: 10000;
       pointer-events: none;
-      background: transparent;
+      /* Opaque so TrifangX page themes in the iframe never tint the dashboard shell */
+      background: #f1f5f9;
     }
     .dash-trifangx-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
     .dash-action-tile {

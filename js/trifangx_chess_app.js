@@ -3076,13 +3076,38 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       `;
     }
 
+    function stripTrifangxPageThemeClasses() {
+      try {
+        const el = document.documentElement;
+        [...el.classList].forEach(function (c) {
+          if (/^page-theme-/.test(c)) el.classList.remove(c);
+        });
+      } catch (e) {}
+    }
+
+    function isTrifangxChessThemedShell() {
+      if (typeof window !== 'undefined' && window.TRIFANGX_DASHBOARD_EMBED === true) return false;
+      try {
+        var p = (typeof location !== 'undefined' && location.pathname) || '';
+        if (p.indexOf('trifangx_live.html') !== -1) return true;
+        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') return true;
+        if (p.indexOf('chess_engine.html') !== -1) return true;
+      } catch (e) {}
+      return false;
+    }
+
     function applyPageTheme(themeId) {
       // Only apply theme if user is logged in
       if (!isLoggedIn || !currentSessionId) {
         return;
       }
-      
+
       currentPageTheme = themeId;
+      if (!isTrifangxChessThemedShell()) {
+        stripTrifangxPageThemeClasses();
+        return;
+      }
+
       const themeBaseClasses = [
         'page-theme-light',
         'page-theme-dark',
@@ -6035,51 +6060,106 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           setTimeout(() => overlay.remove(), 6000);
         }
 
-        // Add-on: fireworks (shop) or season finale flare (emerald / gold burst)
-        if (addons.includes('fireworks') || addons.includes('season_finale_flare')) {
-        const board = document.getElementById('board');
+        // Season finale flare: centered on the board — emerald / gold filaments (not sky rockets)
+        if (addons.includes('season_finale_flare')) {
+          const board = document.getElementById('board');
           const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
-        const centerX = boardRect.left + boardRect.width / 2;
-        const centerY = boardRect.top + boardRect.height / 2;
-          const colors = addons.includes('season_finale_flare')
-            ? ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d']
-            : ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
-        for (let burst = 0; burst < 8; burst++) {
-          setTimeout(() => {
-            const numParticles = 30;
-            for (let i = 0; i < numParticles; i++) {
-              const angle = (Math.PI * 2 * i) / numParticles;
-              const distance = 100 + Math.random() * 150;
+          const centerX = boardRect.left + boardRect.width / 2;
+          const centerY = boardRect.top + boardRect.height / 2;
+          const colors = ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d'];
+          for (let burst = 0; burst < 6; burst++) {
+            setTimeout(() => {
+              const numParticles = 42;
+              for (let i = 0; i < numParticles; i++) {
+                const angle = (Math.PI * 2 * i) / numParticles;
+                const distance = 90 + Math.random() * 130;
                 const p = document.createElement('div');
                 p.className = 'particle';
-              const tx = Math.cos(angle) * distance;
-              const ty = Math.sin(angle) * distance;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
                 p.style.setProperty('--tx', tx + 'px');
                 p.style.setProperty('--ty', ty + 'px');
                 p.style.left = centerX + 'px';
                 p.style.top = centerY + 'px';
                 p.style.background = colors[Math.floor(Math.random() * colors.length)];
-                p.style.animation = `particleTrail ${0.8 + Math.random() * 0.4}s ease-out forwards`;
+                p.style.boxShadow = '0 0 10px rgba(253, 230, 138, 0.55)';
+                p.style.animation = `particleTrail ${0.65 + Math.random() * 0.35}s ease-out forwards`;
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 1200);
+              }
+            }, burst * 240);
+          }
+          for (let i = 0; i < 40; i++) {
+            setTimeout(() => {
+              const sparkle = document.createElement('div');
+              sparkle.className = 'sparkle';
+              const angle = (Math.PI * 2 * i) / 40;
+              const distance = 180 + Math.random() * 160;
+              sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
+              sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
+              sparkle.style.width = (12 + Math.random() * 16) + 'px';
+              sparkle.style.height = sparkle.style.width;
+              sparkle.style.animation = `sparkle ${0.5 + Math.random() * 0.5}s ease-out`;
+              document.body.appendChild(sparkle);
+              setTimeout(() => sparkle.remove(), 1300);
+            }, i * 35);
+          }
+        }
+
+        // Shop fireworks: rockets from below, burst shells in the sky (distinct from finale flare)
+        if (addons.includes('fireworks')) {
+          if (!document.getElementById('trifangx-fw-rocket-keyframes')) {
+            const st = document.createElement('style');
+            st.id = 'trifangx-fw-rocket-keyframes';
+            st.textContent =
+              '@keyframes trifangx-fw-rocket-rise{0%{transform:translate3d(-50%,0,0) scaleY(1);opacity:1}85%{opacity:1}100%{transform:translate3d(-50%,calc(-42vh - 5%),0) scaleY(0.65);opacity:0.95}}';
+            document.head.appendChild(st);
+          }
+          const shellColors = ['#ff4500', '#ffd700', '#ff6b6b', '#38bdf8', '#f97316', '#ffffff', '#a855f7', '#22c55e'];
+          function burstAt(cx, cy) {
+            const n = 40 + Math.floor(Math.random() * 18);
+            for (let i = 0; i < n; i++) {
+              const angle = (Math.PI * 2 * i) / n;
+              const distance = 70 + Math.random() * 140;
+              const p = document.createElement('div');
+              p.className = 'particle';
+              p.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+              p.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+              p.style.left = cx + 'px';
+              p.style.top = cy + 'px';
+              p.style.background = shellColors[Math.floor(Math.random() * shellColors.length)];
+              p.style.animation = `particleTrail ${0.75 + Math.random() * 0.45}s ease-out forwards`;
+              document.body.appendChild(p);
+              setTimeout(() => p.remove(), 1400);
             }
-          }, burst * 300);
-        }
-        for (let i = 0; i < 60; i++) {
-          setTimeout(() => {
-            const sparkle = document.createElement('div');
-            sparkle.className = 'sparkle';
-            const angle = (Math.PI * 2 * i) / 60;
-            const distance = 250 + Math.random() * 200;
-            sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
-            sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
-            sparkle.style.width = (15 + Math.random() * 20) + 'px';
-            sparkle.style.height = sparkle.style.width;
-            sparkle.style.animation = `sparkle ${0.6 + Math.random() * 0.6}s ease-out`;
-            document.body.appendChild(sparkle);
-            setTimeout(() => sparkle.remove(), 1500);
-          }, i * 30);
-        }
+          }
+          for (let r = 0; r < 11; r++) {
+            setTimeout(() => {
+              const pct = 8 + Math.random() * 84;
+              const rocket = document.createElement('div');
+              rocket.style.cssText =
+                'position:fixed;left:' +
+                pct +
+                '%;bottom:-6px;width:4px;height:22px;border-radius:2px;transform:translateX(-50%);' +
+                'background:linear-gradient(180deg,#fff,#fbbf24,#f97316);z-index:9997;pointer-events:none;' +
+                'box-shadow:0 0 14px rgba(255,220,120,0.9);animation:trifangx-fw-rocket-rise 0.95s ease-out forwards';
+              document.body.appendChild(rocket);
+              const onEnd = () => {
+                rocket.removeEventListener('animationend', onEnd);
+                const rect = rocket.getBoundingClientRect();
+                burstAt(rect.left + rect.width / 2, rect.top);
+                rocket.remove();
+              };
+              rocket.addEventListener('animationend', onEnd);
+              setTimeout(() => {
+                if (!rocket.parentNode) return;
+                rocket.removeEventListener('animationend', onEnd);
+                const rect = rocket.getBoundingClientRect();
+                burstAt(rect.left + rect.width / 2, rect.top);
+                rocket.remove();
+              }, 1100);
+            }, r * 140);
+          }
         }
 
         // Add-on: pulse

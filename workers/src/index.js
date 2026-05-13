@@ -3968,6 +3968,7 @@ function applySeasonClaimRewardsToChess(chess, node) {
   let lbFlair = { ...(st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {}) };
 
   const rewards = Array.isArray(node.rewards) ? node.rewards : [];
+  let lbTitleEquippedThisNode = false;
   for (const r of rewards) {
     if (!r || typeof r !== 'object') continue;
     if (r.kind === 'shop' && r.category && r.id) {
@@ -3983,7 +3984,10 @@ function applySeasonClaimRewardsToChess(chess, node) {
       const t = String(r.title).trim().slice(0, 24);
       if (t) {
         if (!owned.titles.includes(t)) owned.titles.push(t);
-        lbFlair = { ...lbFlair, title: t };
+        if (!lbTitleEquippedThisNode) {
+          lbFlair = { ...lbFlair, title: t };
+          lbTitleEquippedThisNode = true;
+        }
       }
     } else if (r.kind === 'lb_prefix' && r.prefix != null) {
       const p = [...String(r.prefix)].slice(0, 3).join('');

@@ -9,6 +9,13 @@
         if (new URLSearchParams(location.search).get('dashboardEmbed') === '1') {
           document.documentElement.classList.add('trifangx-dashboard-embed');
           window.TRIFANGX_DASHBOARD_EMBED = true;
+          document.documentElement.className = document.documentElement.className
+            .split(/\s+/)
+            .filter(function (c) {
+              return c && !/^page-theme-/.test(c);
+            })
+            .join(' ')
+            .trim();
         }
       } catch (e) {}
     })();
@@ -4561,6 +4568,31 @@
       border-color: #4caf50 !important;
       box-shadow: 0 0 10px rgba(76, 175, 80, 0.2) !important;
     }
+    .page-theme-forest #notation-container,
+    .page-theme-forest #move-timer-container,
+    .page-theme-forest #timers-container {
+      color: #ecfdf5 !important;
+    }
+    .page-theme-forest #notation-container .notation-num {
+      color: #a7f3d0 !important;
+    }
+    .page-theme-forest #notation-container .notation-san {
+      color: #f0fdf4 !important;
+    }
+    .page-theme-forest #notation-container .notation-san:hover:not(.notation-san--empty) {
+      background: rgba(22, 101, 52, 0.45) !important;
+    }
+    .page-theme-forest #notation-container .notation-time--white,
+    .page-theme-forest #notation-container .notation-time--black,
+    .page-theme-forest #notation-container .notation-time--white.notation-time--muted,
+    .page-theme-forest #notation-container .notation-time--black.notation-time--muted {
+      color: #ccfbf1 !important;
+    }
+    .page-theme-forest .black-move {
+      color: #ecfdf5 !important;
+      border-left-color: #34d399 !important;
+      background: rgba(15, 118, 110, 0.2) !important;
+    }
 
     /* Season-exclusive page theme: forest shell + cooler moonlit canopy (May track) */
     html.page-theme-season_moonlit_canopy.page-theme-forest body,
@@ -4592,6 +4624,7 @@
     html.page-theme-season_moonlit_canopy.page-theme-forest .reset-confirm-dialog,
     html.page-theme-season_moonlit_canopy.page-theme-forest .shop-confirm-dialog {
       background: linear-gradient(168deg, #1e4036 0%, #164e3f 38%, #0f2f24 100%) !important;
+      color: #f8fafc !important;
       border-color: #2dd4bf !important;
       box-shadow: 0 4px 28px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(45, 212, 191, 0.12), 0 0 22px rgba(20, 184, 166, 0.12) !important;
     }
@@ -4607,8 +4640,43 @@
     html.page-theme-season_moonlit_canopy.page-theme-forest select,
     html.page-theme-season_moonlit_canopy.page-theme-forest input {
       background: #0f2d24 !important;
-      color: #ccfbf1 !important;
+      color: #f0fdfa !important;
       border-color: #14b8a6 !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #move-timer-container,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #timers-container {
+      color: #f0fdfa !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-num {
+      color: #99f6e4 !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-san {
+      color: #f0fdfa !important;
+      font-weight: 700;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-san:hover:not(.notation-san--empty) {
+      background: rgba(13, 148, 136, 0.5) !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-san.highlighted {
+      color: #0f172a !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-time--white,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-time--black,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-time--white.notation-time--muted,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #notation-container .notation-time--black.notation-time--muted {
+      color: #ccfbf1 !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest .black-move {
+      color: #f0fdfa !important;
+      border-left-color: #2dd4bf !important;
+      background: rgba(15, 118, 110, 0.35) !important;
+    }
+    html.page-theme-season_moonlit_canopy.page-theme-forest #game-title,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #choose-side,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #choose-side label,
+    html.page-theme-season_moonlit_canopy.page-theme-forest #choose-side p {
+      color: #f0fdfa !important;
     }
 
     /* Sunset Theme - Animated warm gradient */
