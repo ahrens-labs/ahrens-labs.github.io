@@ -174,9 +174,9 @@ export function getDailyChallengeIdsForUtcDate(dateString) {
 export const DAILY_CHALLENGE_CARD_INFO = {
   daily_explorer: { name: '🗺️ Daily Explorer', desc: 'Visit 20 unique squares in one day', points: 100 },
   daily_checker: { name: '✓ Daily Checker', desc: 'Give 8 checks in one day', points: 120 },
-  daily_warrior: { name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day (any of your pieces)', points: 150 },
+  daily_warrior: { name: '⚔️ Daily Warrior', desc: 'Make 12 captures in one day (any of your pieces)', points: 150 },
   daily_lightning: { name: '⚡ Daily Lightning', desc: 'Win 2 games in 25 moves or fewer today', points: 350 },
-  daily_capturer: { name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day (any of your pieces)', points: 180 },
+  daily_capturer: { name: '🎯 Daily Capturer', desc: 'Make 24 captures in one day (any of your pieces)', points: 180 },
   daily_longgame: { name: '⏱️ Daily Marathon', desc: 'Make 150 total moves today (all games)', points: 150 },
   daily_promoter: { name: '👑 Daily Promoter', desc: 'Promote 3 pawns in one day', points: 250 },
   daily_castler: { name: '🏰 Daily Castler', desc: 'Castle 2 times in one day', points: 110 },
@@ -189,7 +189,7 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   daily_personality_master: { name: '🎭 Triple Duty', desc: 'Play 3 games today', points: 350 },
   daily_survivor: {
     name: '🛡️ Daily Survivor',
-    desc: 'Make 16 captures today, all games (any of your pieces)',
+    desc: 'Make 32 captures today, all games (any of your pieces)',
     points: 200,
   },
   daily_blitz_king: {
@@ -284,7 +284,7 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_piece_hunter: {
     name: '🎯 Piece Hunter',
-    desc: 'Make 12 captures today, all games (any of your pieces)',
+    desc: 'Make 24 captures today, all games (any of your pieces)',
     points: 340,
   },
   daily_white_duo: { name: '⚪ White Hot', desc: 'Win 2 games as White today', points: 220 },
@@ -338,7 +338,7 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_center_control: {
     name: '🎯 Center Control',
-    desc: 'Make 11 captures today, all games (any of your pieces)',
+    desc: 'Make 22 captures today, all games (any of your pieces)',
     points: 360,
   },
   daily_pawn_island: {
@@ -353,37 +353,37 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_elite_capturer: {
     name: '⚔️ Elite Capturer',
-    desc: 'Make 14 captures today, all games (any of your pieces)',
+    desc: 'Make 28 captures today, all games (any of your pieces)',
     points: 300,
   },
   daily_pawn_sweeper: {
     name: '🧹 Pawn Sweeper',
-    desc: 'Take 5 enemy pawns today (victim type)',
+    desc: 'Take 10 enemy pawns today (victim type)',
     points: 300,
   },
   daily_knight_roundup: {
     name: '🐴 Knight Roundup',
-    desc: 'Take 2 enemy knights today (victim type)',
+    desc: 'Take 4 enemy knights today (victim type)',
     points: 340,
   },
   daily_bishop_ambush: {
     name: '♗ Bishop Ambush',
-    desc: 'Take 2 enemy bishops today (victim type)',
+    desc: 'Take 4 enemy bishops today (victim type)',
     points: 310,
   },
   daily_rook_raider_adv: {
     name: '🏰 Rook Raider',
-    desc: 'Take 2 enemy rooks today (victim type)',
+    desc: 'Take 4 enemy rooks today (victim type)',
     points: 360,
   },
   daily_queen_snatcher: {
     name: '👑 Queen Snatcher',
-    desc: 'Take 1 enemy queen today (victim type)',
+    desc: 'Take 2 enemy queens today (victim type)',
     points: 400,
   },
   daily_full_deck_hunter: {
     name: '🃏 Mini Deck',
-    desc: 'Capture at least 4 pawns, 1 knight, and 1 rook today (victim type, all games)',
+    desc: 'Capture at least 7 pawns, 2 knights, and 2 rooks today (victim type, all games)',
     points: 420,
   },
   daily_checkmate_maestro: {

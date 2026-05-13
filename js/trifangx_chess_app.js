@@ -8210,20 +8210,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const combined = new Set([...(lifetimeStats.dailyStats.uniqueSquaresVisitedToday || []), ...((gameStats && gameStats.dailyStats && gameStats.dailyStats.uniqueSquaresVisitedToday) || [])]);
           return { current: combined.size, target: 20 };
         }},
-        { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 5 captures in one day (any of your pieces)', category: 'Daily', points: 150, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
+        { id: 'daily_warrior', name: '⚔️ Daily Warrior', desc: 'Make 12 captures in one day (any of your pieces)', category: 'Daily', points: 150, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 12 };
           resetDailyStatsIfNeeded();
-          return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 5 };
+          const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
+          return { current: Math.min(12, cur), target: 12 };
         }},
         { id: 'daily_lightning', name: '⚡ Daily Lightning', desc: 'Win 2 games in 25 moves or fewer today', category: 'Daily', points: 350, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           return { current: Math.min(2, lifetimeStats.dailyStats.quickWinsToday || 0), target: 2 };
         }},
-        { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 10 captures in one day (any of your pieces)', category: 'Daily', points: 180, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 10 };
+        { id: 'daily_capturer', name: '🎯 Daily Capturer', desc: 'Make 24 captures in one day (any of your pieces)', category: 'Daily', points: 180, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 24 };
           resetDailyStatsIfNeeded();
-          return { current: ((lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0)), target: 10 };
+          const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
+          return { current: Math.min(24, cur), target: 24 };
         }},
         { id: 'daily_checker', name: '✓ Daily Checker', desc: 'Give 8 checks in one day', category: 'Daily', points: 120, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 8 };
@@ -8335,11 +8337,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           resetDailyStatsIfNeeded();
           return { current: Math.min(3, lifetimeStats.dailyStats.gamesWonToday || 0), target: 3 };
         }},
-        { id: 'daily_center_control', name: '🎯 Center Control', desc: 'Make 11 captures today, all games (any of your pieces)', category: 'Daily', points: 360, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 11 };
+        { id: 'daily_center_control', name: '🎯 Center Control', desc: 'Make 22 captures today, all games (any of your pieces)', category: 'Daily', points: 360, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 22 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
-          return { current: Math.min(11, cur), target: 11 };
+          return { current: Math.min(22, cur), target: 22 };
         }},
         { id: 'daily_pawn_island', name: '🏝️ Check Rain', desc: 'Give 12 checks today (all games)', category: 'Daily', points: 320, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 12 };
@@ -8357,11 +8359,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           resetDailyStatsIfNeeded();
           return { current: Math.min(3, lifetimeStats.dailyStats.gamesPlayedToday || 0), target: 3 };
         }},
-        { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 16 captures today, all games (any of your pieces)', category: 'Daily', points: 200, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 16 };
+        { id: 'daily_survivor', name: '🛡️ Daily Survivor', desc: 'Make 32 captures today, all games (any of your pieces)', category: 'Daily', points: 200, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 32 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
-          return { current: Math.min(16, cur), target: 16 };
+          return { current: Math.min(32, cur), target: 32 };
         }},
         { id: 'daily_blitz_king', name: '⚡⚡ Blitz King', desc: 'Win 2 games with 1-minute time control today', category: 'Daily', points: 300, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
@@ -8477,53 +8479,53 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const comebackWins = (lifetimeStats.dailyStats.comebackWinsToday || 0);
           return { current: comebackWins, target: 1 };
         }},
-        { id: 'daily_piece_hunter', name: '🎯 Piece Hunter', desc: 'Make 12 captures today, all games (any of your pieces)', category: 'Daily', points: 340, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 12 };
+        { id: 'daily_piece_hunter', name: '🎯 Piece Hunter', desc: 'Make 24 captures today, all games (any of your pieces)', category: 'Daily', points: 340, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 24 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
-          return { current: Math.min(12, cur), target: 12 };
+          return { current: Math.min(24, cur), target: 24 };
         }},
-        { id: 'daily_elite_capturer', name: '⚔️ Elite Capturer', desc: 'Make 14 captures today, all games (any of your pieces)', category: 'Daily', points: 300, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 14 };
+        { id: 'daily_elite_capturer', name: '⚔️ Elite Capturer', desc: 'Make 28 captures today, all games (any of your pieces)', category: 'Daily', points: 300, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 28 };
           resetDailyStatsIfNeeded();
           const cur = (lifetimeStats.dailyStats.capturesToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.capturesToday) || 0);
-          return { current: Math.min(14, cur), target: 14 };
+          return { current: Math.min(28, cur), target: 28 };
         }},
-        { id: 'daily_pawn_sweeper', name: '🧹 Pawn Sweeper', desc: 'Take 5 enemy pawns today (victim type)', category: 'Daily', points: 300, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
+        { id: 'daily_pawn_sweeper', name: '🧹 Pawn Sweeper', desc: 'Take 10 enemy pawns today (victim type)', category: 'Daily', points: 300, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 10 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
-          return { current: Math.min(5, c.p), target: 5 };
+          return { current: Math.min(10, c.p), target: 10 };
         }},
-        { id: 'daily_knight_roundup', name: '🐴 Knight Roundup', desc: 'Take 2 enemy knights today (victim type)', category: 'Daily', points: 340, isDaily: true, progress: () => {
+        { id: 'daily_knight_roundup', name: '🐴 Knight Roundup', desc: 'Take 4 enemy knights today (victim type)', category: 'Daily', points: 340, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(4, c.n), target: 4 };
+        }},
+        { id: 'daily_bishop_ambush', name: '♗ Bishop Ambush', desc: 'Take 4 enemy bishops today (victim type)', category: 'Daily', points: 310, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(4, c.b), target: 4 };
+        }},
+        { id: 'daily_rook_raider_adv', name: '🏰 Rook Raider', desc: 'Take 4 enemy rooks today (victim type)', category: 'Daily', points: 360, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 4 };
+          resetDailyStatsIfNeeded();
+          const c = getDailyPlayerCapturesByTypeMerged();
+          return { current: Math.min(4, c.r), target: 4 };
+        }},
+        { id: 'daily_queen_snatcher', name: '👑 Queen Snatcher', desc: 'Take 2 enemy queens today (victim type)', category: 'Daily', points: 400, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
-          return { current: Math.min(2, c.n), target: 2 };
+          return { current: Math.min(2, c.q), target: 2 };
         }},
-        { id: 'daily_bishop_ambush', name: '♗ Bishop Ambush', desc: 'Take 2 enemy bishops today (victim type)', category: 'Daily', points: 310, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
-          resetDailyStatsIfNeeded();
-          const c = getDailyPlayerCapturesByTypeMerged();
-          return { current: Math.min(2, c.b), target: 2 };
-        }},
-        { id: 'daily_rook_raider_adv', name: '🏰 Rook Raider', desc: 'Take 2 enemy rooks today (victim type)', category: 'Daily', points: 360, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
-          resetDailyStatsIfNeeded();
-          const c = getDailyPlayerCapturesByTypeMerged();
-          return { current: Math.min(2, c.r), target: 2 };
-        }},
-        { id: 'daily_queen_snatcher', name: '👑 Queen Snatcher', desc: 'Take 1 enemy queen today (victim type)', category: 'Daily', points: 400, isDaily: true, progress: () => {
+        { id: 'daily_full_deck_hunter', name: '🃏 Mini Deck', desc: 'Capture at least 7 pawns, 2 knights, and 2 rooks today (victim type, all games)', category: 'Daily', points: 420, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
           resetDailyStatsIfNeeded();
           const c = getDailyPlayerCapturesByTypeMerged();
-          return { current: Math.min(1, c.q), target: 1 };
-        }},
-        { id: 'daily_full_deck_hunter', name: '🃏 Mini Deck', desc: 'Capture at least 4 pawns, 1 knight, and 1 rook today (victim type, all games)', category: 'Daily', points: 420, isDaily: true, progress: () => {
-          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
-          resetDailyStatsIfNeeded();
-          const c = getDailyPlayerCapturesByTypeMerged();
-          const ok = c.p >= 4 && c.n >= 1 && c.r >= 1;
+          const ok = c.p >= 7 && c.n >= 2 && c.r >= 2;
           return { current: ok ? 1 : 0, target: 1 };
         }},
         { id: 'daily_checkmate_maestro', name: '🎨 Checkmate Maestro', desc: 'Deliver checkmate with 3 different piece types today (queen, rook, knight, bishop, or pawn)', category: 'Daily', points: 400, isDaily: true, progress: () => {
@@ -10051,16 +10053,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         // ORIGINAL DAILY CHALLENGES
         'daily_explorer',              // Visit 20 unique squares
         'daily_checker',               // Give 8 checks
-        'daily_warrior',               // Make 5 captures
+        'daily_warrior',               // Make 12 captures
         'daily_lightning',              // 2 quick wins (≤25 moves) today
-        'daily_capturer',              // Make 10 captures
+        'daily_capturer',              // Make 24 captures
         'daily_longgame',              // 150 moves today
         'daily_promoter',              // Promote 3 pawns
         'daily_castler',               // Castle 2 times
         'daily_comeback',              // Win 3 games
         'daily_blindfold_bishop',      // Make 5 bishop moves in blindfold games
         'daily_personality_master',    // Play 3 games today
-        'daily_survivor',              // 16 captures today
+        'daily_survivor',              // 32 captures today
         'daily_blitz_king',            // Win 2 games with 1-minute time control
         'daily_time_master',           // Win on 2 different time controls
         'daily_king_safety',           // Castle in 2 different games
@@ -10079,7 +10081,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_double_castle',         // Kingside + queenside castle today
         'daily_promotion_variety',     // 4 promotions today
         'daily_comeback_king',         // Win after being down 5+ material points
-        'daily_piece_hunter',          // 12 captures today
+        'daily_piece_hunter',          // 24 captures today
         'daily_white_duo',             // 2 wins as White today
         'daily_black_duo',             // 2 wins as Black today
         // UNIQUE AND CREATIVE DAILY CHALLENGES
@@ -10094,7 +10096,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_square_master',         // 35 unique squares today
         'daily_blindfold_win_no_history', // Win blindfold without move history
         'daily_piece_sacrifice_chain', // Win 3 games today
-        'daily_center_control',        // 15 captures today
+        'daily_center_control',        // 22 captures today
         'daily_pawn_island',           // 18 checks today
         'daily_rook_battery',          // Play 4 games today
         'daily_elite_capturer',
