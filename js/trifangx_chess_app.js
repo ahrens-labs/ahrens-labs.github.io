@@ -2960,8 +2960,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     };
     
     function applyHighlightColor(colorId) {
-      // Dynamic styles for rainbow keyframes only. Last-move / check use fixed colors in the page CSS.
-      // Premove and right-click must stay red (see chess_engine / trifangx_live); never tie them to highlightColor.
+      const root = document.documentElement;
       let styleTag = document.getElementById('dynamic-color-styles');
       if (!styleTag) {
         styleTag = document.createElement('style');
@@ -2969,25 +2968,83 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         document.head.appendChild(styleTag);
       }
 
-      let existingContent = styleTag.textContent || '';
-
       if (colorId === 'rainbow') {
-        existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
-        existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
+        const BT =
+          '.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,' +
+          '.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,' +
+          '.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,' +
+          '.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,' +
+          '.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,' +
+          '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury';
+        const lmW =
+          '#board .square-55d63.highlight-last-move.white-1e1d7,\n#board div.highlight-last-move.white-1e1d7,\n#board :is(' +
+          BT +
+          ') .square-55d63.highlight-last-move.white-1e1d7,\n#board :is(' +
+          BT +
+          ') div.highlight-last-move.white-1e1d7';
+        const lmB =
+          '#board .square-55d63.highlight-last-move.black-3c85d,\n#board div.highlight-last-move.black-3c85d,\n#board :is(' +
+          BT +
+          ') .square-55d63.highlight-last-move.black-3c85d,\n#board :is(' +
+          BT +
+          ') div.highlight-last-move.black-3c85d';
+        const rcW =
+          '#board .square-55d63.right-click-highlight.white-1e1d7,\n#board div.right-click-highlight.white-1e1d7,\n#board :is(' +
+          BT +
+          ') .square-55d63.right-click-highlight.white-1e1d7,\n#board :is(' +
+          BT +
+          ') div.right-click-highlight.white-1e1d7';
+        const rcB =
+          '#board .square-55d63.right-click-highlight.black-3c85d,\n#board div.right-click-highlight.black-3c85d,\n#board :is(' +
+          BT +
+          ') .square-55d63.right-click-highlight.black-3c85d,\n#board :is(' +
+          BT +
+          ') div.right-click-highlight.black-3c85d';
+        const chW =
+          '#board .square-55d63.highlight-check.white-1e1d7,\n#board div.highlight-check.white-1e1d7,\n#board :is(' +
+          BT +
+          ') .square-55d63.highlight-check.white-1e1d7,\n#board :is(' +
+          BT +
+          ') div.highlight-check.white-1e1d7';
+        const chB =
+          '#board .square-55d63.highlight-check.black-3c85d,\n#board div.highlight-check.black-3c85d,\n#board :is(' +
+          BT +
+          ') .square-55d63.highlight-check.black-3c85d,\n#board :is(' +
+          BT +
+          ') div.highlight-check.black-3c85d';
+        const grad =
+          'linear-gradient(90deg, rgba(255,0,0,0.48), rgba(255,127,0,0.48), rgba(255,255,0,0.48), rgba(0,255,0,0.48), rgba(0,0,255,0.48), rgba(75,0,130,0.48), rgba(148,0,211,0.48))';
+        const rainbowBody =
+          'background-color: transparent !important; background-image: ' +
+          grad +
+          ' !important; background-size: 200% 200% !important; animation: rainbow-shift 2.5s ease infinite !important; box-shadow: none !important;';
+        const rainbowMove =
+          lmW +
+          ',\n' +
+          lmB +
+          ',\n' +
+          rcW +
+          ',\n' +
+          rcB +
+          ',\n' +
+          chW +
+          ',\n' +
+          chB +
+          ' {\n  ' +
+          rainbowBody +
+          '\n}\n';
         styleTag.textContent =
-          existingContent +
-          `
-          @keyframes rainbow-shift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `;
-      } else {
-        existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
-        existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
-        styleTag.textContent = existingContent;
+          rainbowMove +
+          '@keyframes rainbow-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }\n';
+        root.style.setProperty('--trfx-hl-light', 'rgba(255, 235, 59, 0.42)');
+        root.style.setProperty('--trfx-hl-dark', 'rgba(255, 235, 59, 0.34)');
+        return;
       }
+
+      styleTag.textContent = '';
+      const colors = colorMap[colorId] || colorMap.red;
+      root.style.setProperty('--trfx-hl-light', colors.highlightLight);
+      root.style.setProperty('--trfx-hl-dark', colors.highlightDark);
     }
     
     function applyArrowColor(colorId) {
