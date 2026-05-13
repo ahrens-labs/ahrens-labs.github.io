@@ -2182,10 +2182,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     function getCheatPoints() {
       return parseInt(localStorage.getItem('cheatPoints') || '0', 10);
     }
-    function addCheatPoints(amount) {
-      const n = getCheatPoints() + amount;
-      localStorage.setItem('cheatPoints', String(n));
-    }
     function getTotalPoints() {
       const allAchievements = getAllAchievementsList();
       const fromAchievements = allAchievements.reduce((sum, ach) => {
@@ -3376,16 +3372,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             resetAllAchievements();
           });
         }
-
-        // Cheat code: press "p" to add 10,000 points (for testing)
-        document.addEventListener('keydown', function(e) {
-          if (e.key !== 'p' && e.key !== 'P') return;
-          const active = document.activeElement;
-          if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-          addCheatPoints(10000);
-          if (typeof updateShopPoints === 'function') updateShopPoints();
-          if (typeof showNotification === 'function') showNotification('+10,000 points (cheat)', 'success');
-        });
 
         // Engine personality loading removed
 

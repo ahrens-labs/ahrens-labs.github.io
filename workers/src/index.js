@@ -3137,6 +3137,7 @@ const ADMIN_TEST_EMAIL_IDS = [
   'milestone_wins',
   'milestone_games',
   'milestone_points',
+  'season_track_finale',
   'broadcast_from_sample',
   'transactional_plain',
 ];
@@ -3196,6 +3197,19 @@ async function executeAdminTestEmailById(env, gate, id) {
         threshold: spec.threshold,
         stats: snap,
         chessUrl,
+      });
+      await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
+      return;
+    }
+    case 'season_track_finale': {
+      const base = siteMarketingBase(env);
+      const sid = utcChessSeasonIdNow();
+      const p = buildSeasonTrackFinaleEmail({
+        username: un,
+        seasonId: sid,
+        seasonBonusPoints: 828,
+        chessUrl: `${base}/chess_engine.html`,
+        trackUrl: `${base}/chess-season-track.html`,
       });
       await dispatchTransactionalEmail(env, { to, subject: `[Test] ${p.subject}`, html: p.html, text: p.text });
       return;
@@ -3565,6 +3579,76 @@ function buildChessMilestoneEmail({ username, kind, threshold, stats, chessUrl }
   return { subject: v.subject, html, text };
 }
 
+function formatSeasonIdForEmail(seasonId) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
+  if (!m) return String(seasonId || '').trim() || 'this month';
+  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const idx = parseInt(m[2], 10) - 1;
+  const mo = names[idx] || m[2];
+  return `${mo} ${m[1]}`;
+}
+
+function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, chessUrl, trackUrl }) {
+  const safeName = escapeHtmlEmail(username || 'there');
+  const seasonLabel = escapeHtmlEmail(formatSeasonIdForEmail(seasonId));
+  const sidEsc = escapeHtmlEmail(String(seasonId || '').trim());
+  const bonusLabel = Number(Math.max(0, Math.floor(Number(seasonBonusPoints) || 0))).toLocaleString();
+  const safeChessUrl = escapeHtmlEmail(chessUrl);
+  const safeTrackUrl = escapeHtmlEmail(trackUrl);
+  const subject = `TrifangX season cleared — ${formatSeasonIdForEmail(seasonId)}`;
+  const preheader = `You finished all 10 monthly season challenges for ${formatSeasonIdForEmail(seasonId)}. Claimed rewards, flair, and ${bonusLabel} season bonus points are on your account.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;padding:0;background:linear-gradient(165deg,#042f2e 0%,#1e1b4b 45%,#0f172a 100%);">
+  <div style="display:none;max-height:0;overflow:hidden;">${escapeHtmlEmail(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:transparent;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;width:100%;background:#f8fafc;border-radius:22px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06) inset;">
+          <tr>
+            <td style="background-image:linear-gradient(125deg,#0f766e 0%,#4f46e5 48%,#6d28d9 100%);padding:36px 34px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
+              <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fef9c3;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;">Season track complete</div>
+              <p style="margin:18px 0 0 0;font-size:34px;font-weight:900;line-height:1.1;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.35);">Congratulations, ${safeName}!</p>
+              <p style="margin:14px 0 0 0;font-size:16px;line-height:1.55;color:#e0e7ff;font-weight:500;">You cleared <strong style="color:#fef08a;">all 10 challenges</strong> for the <strong style="color:#fff;">${seasonLabel}</strong> ladder <span style="opacity:.9;">(${sidEsc} UTC)</span>.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 30px 10px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.65;color:#334155;">
+              <p style="margin:0 0 14px 0;">Finale rewards (boards, pieces, themes, leaderboard flair, and more) are already unlocked on your save. You have earned <strong style="color:#0f766e;">${escapeHtmlEmail(bonusLabel)}</strong> total <strong>season bonus points</strong> toward career totals this month.</p>
+              <p style="margin:0 0 18px 0;">Thank you for going the distance — few players clear the full track.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:8px 30px 36px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+              <a href="${safeChessUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(15,118,110,.35);">Open TrifangX →</a>
+              <a href="${safeTrackUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(79,70,229,.35);">Season track page →</a>
+              <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">When the calendar rolls to a new UTC month, a fresh ladder begins. See you on the next climb.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = [
+    `Hi ${username || 'there'},`,
+    '',
+    `Congratulations — you completed all 10 TrifangX monthly season challenges for ${formatSeasonIdForEmail(seasonId)} (${String(seasonId || '').trim()} UTC).`,
+    `Season bonus points on your account (total this season): ${bonusLabel}.`,
+    '',
+    `Play again: ${chessUrl}`,
+    `Season track: ${trackUrl}`,
+    '',
+    'A new ladder starts each UTC calendar month.',
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
 /** Public site URL for links in transactional email (same as marketing/welcome). */
 function sitePublicBase(env) {
   return siteMarketingBase(env);
@@ -3669,6 +3753,57 @@ const SEASON_CLAIM_NODES = [
 const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
   500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
 ]);
+
+function seasonTrackNodesCompletedFromChess(chess) {
+  const st = chess?.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+  return Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)));
+}
+
+function seasonTrackIdFromChess(chess) {
+  const st = chess?.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+  const sid = String(st.seasonId || '').trim();
+  return /^\d{4}-\d{2}$/.test(sid) ? sid : '';
+}
+
+/** One congratulations email per UTC season id, when `nodesCompleted` crosses to 10 (same rules as milestone mail). */
+async function maybeSendSeasonTrackFinaleEmail(env, storage, userData, prevChess, nextChess) {
+  const prevN = seasonTrackNodesCompletedFromChess(prevChess || {});
+  const nextN = seasonTrackNodesCompletedFromChess(nextChess || {});
+  if (!(prevN < CHESS_SEASON_MAX_NODES && nextN >= CHESS_SEASON_MAX_NODES)) return;
+
+  const seasonId = seasonTrackIdFromChess(nextChess) || seasonTrackIdFromChess(prevChess);
+  if (!seasonId) return;
+
+  const email = normalizeEmail(userData.email || '');
+  if (!email || !isLikelyRealEmail(email)) return;
+  if (userData.emailVerified === false) return;
+
+  if (!userData.milestonesEmailNotified || typeof userData.milestonesEmailNotified !== 'object') {
+    userData.milestonesEmailNotified = {};
+  }
+  const key = `trifangx_season_finale_${seasonId}`;
+  if (userData.milestonesEmailNotified[key]) return;
+
+  const username = userData.username || 'Player';
+  const bonus = Math.max(0, Math.floor(Number(nextChess?.seasonBonusPoints) || 0));
+  const base = siteMarketingBase(env);
+  const parts = buildSeasonTrackFinaleEmail({
+    username,
+    seasonId,
+    seasonBonusPoints: bonus,
+    chessUrl: `${base}/chess_engine.html`,
+    trackUrl: `${base}/chess-season-track.html`,
+  });
+
+  try {
+    await dispatchTransactionalEmail(env, { to: email, subject: parts.subject, html: parts.html, text: parts.text });
+    userData.milestonesEmailNotified[key] = Date.now();
+    await storage.put('userData', userData);
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    console.error('Season track finale email failed', seasonId, w.code, w.message);
+  }
+}
 
 function utcChessSeasonIdNow() {
   const d = new Date();
@@ -6241,6 +6376,11 @@ export class UserAccount {
 
     const prevSnap = chessStatsSnapshot(chess);
 
+    const prevFinaleSnapshot = {
+      seasonTrack: { seasonId: seasonIdForTrack, nodesCompleted: done },
+      seasonBonusPoints: Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)),
+    };
+
     if (buyWithPoints) {
       const cost = SEASON_STEP_BUYOUT_POINTS[stepIndex];
       const pts = Math.max(0, Math.floor(Number(chess.points) || 0));
@@ -6261,6 +6401,7 @@ export class UserAccount {
 
     const nextSnap = chessStatsSnapshot(userData.games.chess);
     await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
+    await maybeSendSeasonTrackFinaleEmail(this.env, this.storage, userData, prevFinaleSnapshot, userData.games.chess);
     await this.syncChessCareerPointsLeaderboardEntry();
 
     const outChess = await this.getChessData();
@@ -6442,6 +6583,7 @@ export class UserAccount {
 
     const nextSnap = chessStatsSnapshot(userData.games.chess);
     await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
+    await maybeSendSeasonTrackFinaleEmail(this.env, this.storage, userData, prevChess, mergedChess);
     await this.syncChessCareerPointsLeaderboardEntry();
   }
 
