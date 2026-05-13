@@ -18,8 +18,8 @@
  *    - `seasonTrack.earnBaseline` (games, wins, castlingMoves, …) is updated on each successful claim
  *      so the *next* step only counts stats gained after prior steps were claimed (not retroactive).
  *    - Optional buyout: each step has a large career-points price (`getSeasonStepBuyoutCost`). Paying on
- *      claim skips the achievement check only — it does not unlock the achievement in cloud; rewards
- *      and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
+ *      claim skips the season-relative progress check only — it does not unlock the achievement in cloud;
+ *      rewards and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
  *
  * 3) Bonus points
  *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
@@ -337,6 +337,60 @@
     };
   }
 
+  /**
+   * Same mechanical targets as `getAllAchievementsList` / worker claim validation.
+   * @type {Record<string, { type: 'games', target: number } | { type: 'lifetime', key: string, target: number }>}
+   */
+  const SEASON_STEP_EARN_RULES = Object.freeze({
+    first_game: { type: 'games', target: 1 },
+    knight_to_f3: { type: 'lifetime', key: 'knightToF3', target: 1 },
+    bishop_to_f4: { type: 'lifetime', key: 'bishopToF4', target: 1 },
+    en_passant: { type: 'lifetime', key: 'enPassants', target: 1 },
+    queen_capturer: { type: 'lifetime', key: 'capturesByQueen', target: 10 },
+    capture_master: { type: 'lifetime', key: 'totalCaptures', target: 50 },
+    castler: { type: 'lifetime', key: 'castlingMoves', target: 5 },
+    promoter: { type: 'lifetime', key: 'promotions', target: 5 },
+    checkmate_rook: { type: 'lifetime', key: 'checkmateWithRook', target: 1 },
+    checkmate_queen: { type: 'lifetime', key: 'checkmateWithQueen', target: 1 },
+  });
+
+  function readEarnBaselineField(baseline, key) {
+    if (!baseline || typeof baseline !== 'object') return 0;
+    return Math.max(0, Number(baseline[key]) || 0);
+  }
+
+  /**
+   * Whether cloud chess stats since `earnBaseline` satisfy this track step (independent of global achievement flags).
+   * @param {object} chess - `games.chess` payload (stats.playerStats, stats.lifetimeStats).
+   * @param {object} baseline - `seasonTrack.earnBaseline` or {}.
+   * @param {string} achId
+   */
+  function seasonChallengeMetSinceBaseline(chess, baseline, achId) {
+    const id = String(achId || '');
+    const rule = SEASON_STEP_EARN_RULES[id];
+    if (!rule) return false;
+    const ps =
+      chess && chess.stats && chess.stats.playerStats && typeof chess.stats.playerStats === 'object'
+        ? chess.stats.playerStats
+        : {};
+    const w = Math.max(0, Number(ps.wins) || 0);
+    const l = Math.max(0, Number(ps.losses) || 0);
+    const dr = Math.max(0, Number(ps.draws) || 0);
+    const games = w + l + dr;
+    const lt =
+      chess && chess.stats && chess.stats.lifetimeStats && typeof chess.stats.lifetimeStats === 'object'
+        ? chess.stats.lifetimeStats
+        : {};
+    const g = (k) => Math.max(0, Number(lt[k]) || 0);
+    if (rule.type === 'games') {
+      return games - readEarnBaselineField(baseline, 'games') >= rule.target;
+    }
+    if (rule.type === 'lifetime') {
+      return g(rule.key) - readEarnBaselineField(baseline, rule.key) >= rule.target;
+    }
+    return false;
+  }
+
   global.ChessSeasons = {
     GUIDELINES: GUIDELINES,
     getChessSeasonIdUtc: getChessSeasonIdUtc,
@@ -348,5 +402,6 @@
     getSeasonStepBuyoutCost: getSeasonStepBuyoutCost,
     createFreshSeasonTrackState: createFreshSeasonTrackState,
     formatSeasonRewardLine: formatSeasonRewardLine,
+    seasonChallengeMetSinceBaseline: seasonChallengeMetSinceBaseline,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

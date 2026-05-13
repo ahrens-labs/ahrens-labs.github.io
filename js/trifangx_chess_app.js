@@ -6735,7 +6735,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       } catch (e) {
         raw = { current: 0, target: 1 };
       }
-      if (achievements.includes(ach.id)) return raw;
+      const inSeason = getSeasonTrackAchievementOrder().indexOf(ach.id) >= 0;
+      if (achievements.includes(ach.id) && !inSeason) return raw;
       if (isSeasonTrackAchievementBlocked(ach.id)) {
         return { ...raw, current: 0 };
       }
@@ -6747,11 +6748,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const idx = order.indexOf(achId);
       if (idx < 0) return false;
       const nodesDone = getSeasonTrackNodesCompletedClient();
-      if (nodesDone < idx) return true;
-      for (let j = 0; j < idx; j++) {
-        if (!achievements.includes(order[j])) return true;
-      }
-      return false;
+      return nodesDone < idx;
     }
 
     function seasonTrackGateMessage() {

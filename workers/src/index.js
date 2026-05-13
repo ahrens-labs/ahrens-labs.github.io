@@ -3870,6 +3870,46 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
   };
 }
 
+/** Same targets as `js/chess_seasons.js` SEASON_STEP_EARN_RULES — season claims use deltas vs `earnBaseline`, not legacy achievement flags. */
+const SEASON_STEP_EARN_RULES = Object.freeze({
+  first_game: { type: 'games', target: 1 },
+  knight_to_f3: { type: 'lifetime', key: 'knightToF3', target: 1 },
+  bishop_to_f4: { type: 'lifetime', key: 'bishopToF4', target: 1 },
+  en_passant: { type: 'lifetime', key: 'enPassants', target: 1 },
+  queen_capturer: { type: 'lifetime', key: 'capturesByQueen', target: 10 },
+  capture_master: { type: 'lifetime', key: 'totalCaptures', target: 50 },
+  castler: { type: 'lifetime', key: 'castlingMoves', target: 5 },
+  promoter: { type: 'lifetime', key: 'promotions', target: 5 },
+  checkmate_rook: { type: 'lifetime', key: 'checkmateWithRook', target: 1 },
+  checkmate_queen: { type: 'lifetime', key: 'checkmateWithQueen', target: 1 },
+});
+
+function readEarnBaselineField(baseline, key) {
+  if (!baseline || typeof baseline !== 'object') return 0;
+  return Math.max(0, Number(baseline[key]) || 0);
+}
+
+function seasonChallengeMetSinceBaseline(chess, baseline, achId) {
+  const id = String(achId || '');
+  const rule = SEASON_STEP_EARN_RULES[id];
+  if (!rule) return false;
+  const ps = chess?.stats?.playerStats || {};
+  const w = Math.max(0, Number(ps.wins) || 0);
+  const l = Math.max(0, Number(ps.losses) || 0);
+  const dr = Math.max(0, Number(ps.draws) || 0);
+  const games = w + l + dr;
+  const ltRaw = chess?.stats?.lifetimeStats;
+  const lt = ltRaw && typeof ltRaw === 'object' ? ltRaw : {};
+  const g = (k) => Math.max(0, Number(lt[k]) || 0);
+  if (rule.type === 'games') {
+    return games - readEarnBaselineField(baseline, 'games') >= rule.target;
+  }
+  if (rule.type === 'lifetime') {
+    return g(rule.key) - readEarnBaselineField(baseline, rule.key) >= rule.target;
+  }
+  return false;
+}
+
 function chessAchievementUnlocked(rawAchievements, achId) {
   const key = String(achId || '');
   if (!key || !rawAchievements || typeof rawAchievements !== 'object' || Array.isArray(rawAchievements)) {
@@ -6519,6 +6559,8 @@ export class UserAccount {
       return { success: false, error: 'Claim earlier steps first' };
     }
 
+    const earnBaseline = st.earnBaseline && typeof st.earnBaseline === 'object' ? st.earnBaseline : {};
+
     if (buyWithPoints) {
       const cost = SEASON_STEP_BUYOUT_POINTS[stepIndex];
       if (!Number.isFinite(cost) || cost <= 0) {
@@ -6528,8 +6570,11 @@ export class UserAccount {
       if (pts < cost) {
         return { success: false, error: `Not enough career points (need ${cost.toLocaleString('en-US')})` };
       }
-    } else if (!chessAchievementUnlocked(chess.achievements, node.challengeAchievementId)) {
-      return { success: false, error: 'Achievement not complete' };
+    } else if (!seasonChallengeMetSinceBaseline(chess, earnBaseline, node.challengeAchievementId)) {
+      return {
+        success: false,
+        error: 'Finish this challenge in TrifangX after your last claim (or use a step buyout).',
+      };
     }
 
     const prevSnap = chessStatsSnapshot(chess);
