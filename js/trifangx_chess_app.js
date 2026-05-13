@@ -58,6 +58,30 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return merged.length ? merged : [...d];
     }
 
+    /** Equipped cloud settings are always treated as unlocked (shopUnlocks can lag or omit ids). */
+    function mergeEquippedSettingsIntoUnlocked(out) {
+      try {
+        if (typeof dataLoaded === 'undefined' || !dataLoaded) return out;
+        if (typeof cloudChessData === 'undefined' || !cloudChessData || !cloudChessData.settings) return out;
+        const s = cloudChessData.settings;
+        if (typeof s !== 'object') return out;
+        if (s.boardStyle) out.boards = mergeUnlockedCategory([String(s.boardStyle)], out.boards);
+        if (s.pieceStyle) out.pieces = mergeUnlockedCategory([String(s.pieceStyle)], out.pieces);
+        if (s.highlightColor) out.highlightColors = mergeUnlockedCategory([String(s.highlightColor)], out.highlightColors);
+        if (s.arrowColor) out.arrowColors = mergeUnlockedCategory([String(s.arrowColor)], out.arrowColors);
+        if (s.legalMoveDotStyle) out.legalMoveDots = mergeUnlockedCategory([String(s.legalMoveDotStyle)], out.legalMoveDots);
+        if (s.pageTheme) out.themes = mergeUnlockedCategory([String(s.pageTheme)], out.themes);
+        if (s.moveEffect) out.moveEffects = mergeUnlockedCategory([String(s.moveEffect)], out.moveEffects);
+        if (s.timeControl) out.timeControls = mergeUnlockedCategory([String(s.timeControl)], out.timeControls);
+        const addons = s.checkmateAddons;
+        if (Array.isArray(addons)) {
+          const extra = addons.map((x) => String(x)).filter(Boolean);
+          if (extra.length) out.checkmateEffects = mergeUnlockedCategory(extra, out.checkmateEffects);
+        }
+      } catch (eEq) {}
+      return out;
+    }
+
     function getUnlockedItems() {
       const stored = localStorage.getItem('unlockedItems');
       const parsed = stored ? JSON.parse(stored) : {};
@@ -68,7 +92,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         delete parsed.colors;
         saveUnlockedItems(parsed);
       }
-      return {
+      const base = {
         boards: mergeUnlockedCategory(parsed.boards, defaultUnlocked.boards),
         pieces: mergeUnlockedCategory(parsed.pieces, defaultUnlocked.pieces),
         highlightColors: mergeUnlockedCategory(parsed.highlightColors, defaultUnlocked.highlightColors),
@@ -79,6 +103,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         checkmateEffects: mergeUnlockedCategory(parsed.checkmateEffects, defaultUnlocked.checkmateEffects),
         timeControls: mergeUnlockedCategory(parsed.timeControls, defaultUnlocked.timeControls),
       };
+      return mergeEquippedSettingsIntoUnlocked(base);
     }
     
     function saveUnlockedItems(items) {
