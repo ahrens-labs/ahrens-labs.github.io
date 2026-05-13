@@ -2976,18 +2976,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           '.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,' +
           '.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,' +
           '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury';
-        const lmW =
-          '#board .square-55d63.highlight-last-move.white-1e1d7,\n#board div.highlight-last-move.white-1e1d7,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-last-move.white-1e1d7,\n#board :is(' +
-          BT +
-          ') div.highlight-last-move.white-1e1d7';
-        const lmB =
-          '#board .square-55d63.highlight-last-move.black-3c85d,\n#board div.highlight-last-move.black-3c85d,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-last-move.black-3c85d,\n#board :is(' +
-          BT +
-          ') div.highlight-last-move.black-3c85d';
         const rcW =
           '#board .square-55d63.right-click-highlight.white-1e1d7,\n#board div.right-click-highlight.white-1e1d7,\n#board :is(' +
           BT +
@@ -3019,10 +3007,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           grad +
           ' !important; background-size: 200% 200% !important; animation: rainbow-shift 2.5s ease infinite !important; box-shadow: none !important;';
         const rainbowMove =
-          lmW +
-          ',\n' +
-          lmB +
-          ',\n' +
           rcW +
           ',\n' +
           rcB +
@@ -5284,14 +5268,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function highlightLastMove(from, to) {
-      // Remove previous highlights
       $("#board .square-55d63").removeClass("highlight-last-move");
-      
-      // Add new highlights
-      if (from && to) {
-        $("#board .square-" + from).addClass("highlight-last-move");
-        $("#board .square-" + to).addClass("highlight-last-move");
-      }
     }
 
     function highlightCheck() {
