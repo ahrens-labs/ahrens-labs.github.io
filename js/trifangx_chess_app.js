@@ -6768,7 +6768,186 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function seasonTrackGateMessage() {
-      return '🔒 Claim each prior season track step (season page) before this one can earn progress — order is enforced.';
+      return '🔒 Finish each prior season track step in order before this one can earn progress toward the next.';
+    }
+
+    /** Same counters as worker `snapshotSeasonEarnBaselineFromChess` / `createFreshSeasonTrackState.earnBaseline`. */
+    function snapshotSeasonEarnBaselineFromLocalStats() {
+      const w = Math.max(0, Math.floor(Number(playerStats.wins) || 0));
+      const l = Math.max(0, Math.floor(Number(playerStats.losses) || 0));
+      const dr = Math.max(0, Math.floor(Number(playerStats.draws) || 0));
+      const lt = lifetimeStats && typeof lifetimeStats === 'object' ? lifetimeStats : {};
+      return {
+        games: w + l + dr,
+        wins: w,
+        castlingMoves: Math.max(0, Number(lt.castlingMoves) || 0),
+        promotions: Math.max(0, Number(lt.promotions) || 0),
+        capturedRooks: Math.max(0, Number(lt.capturedRooks) || 0),
+        checkmateWithQueen: Math.max(0, Number(lt.checkmateWithQueen) || 0),
+        knightToF3: Math.max(0, Number(lt.knightToF3) || 0),
+        bishopToF4: Math.max(0, Number(lt.bishopToF4) || 0),
+        enPassants: Math.max(0, Number(lt.enPassants) || 0),
+        capturesByQueen: Math.max(0, Number(lt.capturesByQueen) || 0),
+        totalCaptures: Math.max(0, Number(lt.totalCaptures) || 0),
+        checkmateWithRook: Math.max(0, Number(lt.checkmateWithRook) || 0),
+      };
+    }
+
+    function sanitizeSeasonLbFlairClient(raw) {
+      const out = { frame: null, title: null, prefix: '', suffix: '' };
+      if (!raw || typeof raw !== 'object') return out;
+      const CSF = typeof window !== 'undefined' && window.ChessSeasons && window.ChessSeasons.LB_FRAMES;
+      const frame = raw.frame != null ? String(raw.frame) : '';
+      if (frame && CSF && typeof CSF.has === 'function' && CSF.has(frame)) out.frame = frame;
+      const title = raw.title != null ? String(raw.title).trim() : '';
+      if (title.length > 0 && title.length <= 24) out.title = title.replace(/[\u0000-\u001f\u007f]/g, '');
+      const prefix = raw.prefix != null ? String(raw.prefix) : '';
+      out.prefix = [...prefix].slice(0, 3).join('');
+      const suffix = raw.suffix != null ? String(raw.suffix) : '';
+      out.suffix = [...suffix].slice(0, 3).join('');
+      return out;
+    }
+
+    function uniqStrArr(a) {
+      return [...new Set((Array.isArray(a) ? a : []).map((x) => String(x)))];
+    }
+
+    /** Apply one season track node rewards to `cloudChessData` (mirrors worker `applySeasonClaimRewardsToChess`). */
+    function applySeasonNodeRewardsToCloudData(node) {
+      if (!node || typeof cloudChessData === 'undefined' || !cloudChessData) return;
+      if (!cloudChessData.shopUnlocks || typeof cloudChessData.shopUnlocks !== 'object') {
+        cloudChessData.shopUnlocks = {
+          boards: ['classic'],
+          pieces: ['classic'],
+          highlightColors: ['red'],
+          arrowColors: ['red'],
+          legalMoveDots: ['blue-circle'],
+          themes: ['light'],
+          checkmateEffects: [],
+          timeControls: ['none'],
+        };
+      }
+      const shop = { ...cloudChessData.shopUnlocks };
+      const categories = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'timeControls'];
+      for (const cat of categories) {
+        if (!Array.isArray(shop[cat])) shop[cat] = shop[cat] ? [...shop[cat]] : [];
+      }
+      if (!Array.isArray(shop.checkmateEffects)) shop.checkmateEffects = shop.checkmateEffects ? [...shop.checkmateEffects] : [];
+
+      const st =
+        cloudChessData.seasonTrack && typeof cloudChessData.seasonTrack === 'object'
+          ? { ...cloudChessData.seasonTrack }
+          : {};
+      const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+      const owned = {
+        frames: [...(prevOwned.frames || [])],
+        titles: [...(prevOwned.titles || [])],
+        prefixes: [...(prevOwned.prefixes || [])],
+        suffixes: [...(prevOwned.suffixes || [])],
+      };
+      let lbFlair = { ...(st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {}) };
+      const CSF = typeof window !== 'undefined' && window.ChessSeasons && window.ChessSeasons.LB_FRAMES;
+
+      const rewards = Array.isArray(node.rewards) ? node.rewards : [];
+      for (const r of rewards) {
+        if (!r || typeof r !== 'object') continue;
+        if (r.kind === 'shop' && r.category && r.id) {
+          const cat = String(r.category);
+          if (!shop[cat]) shop[cat] = [];
+          const id = String(r.id);
+          if (!shop[cat].includes(id)) shop[cat] = [...shop[cat], id];
+        } else if (r.kind === 'lb_frame' && r.frame && CSF && typeof CSF.has === 'function' && CSF.has(String(r.frame))) {
+          const f = String(r.frame);
+          if (!owned.frames.includes(f)) owned.frames.push(f);
+          lbFlair = { ...lbFlair, frame: f };
+        } else if (r.kind === 'lb_title' && r.title) {
+          const t = String(r.title).trim().slice(0, 24);
+          if (t) {
+            if (!owned.titles.includes(t)) owned.titles.push(t);
+            lbFlair = { ...lbFlair, title: t };
+          }
+        } else if (r.kind === 'lb_prefix' && r.prefix != null) {
+          const p = [...String(r.prefix)].slice(0, 3).join('');
+          if (p && !owned.prefixes.includes(p)) owned.prefixes.push(p);
+          lbFlair = { ...lbFlair, prefix: p };
+        } else if (r.kind === 'lb_suffix' && r.suffix != null) {
+          const s = [...String(r.suffix)].slice(0, 3).join('');
+          if (s && !owned.suffixes.includes(s)) owned.suffixes.push(s);
+          lbFlair = { ...lbFlair, suffix: s };
+        }
+      }
+
+      st.lbFlairUnlocked = {
+        frames: uniqStrArr(owned.frames),
+        titles: uniqStrArr(owned.titles),
+        prefixes: uniqStrArr(owned.prefixes),
+        suffixes: uniqStrArr(owned.suffixes),
+      };
+      st.lbFlair = sanitizeSeasonLbFlairClient(lbFlair);
+      cloudChessData.shopUnlocks = shop;
+      cloudChessData.seasonTrack = st;
+      try {
+        if (typeof saveUnlockedItems === 'function') saveUnlockedItems(shop);
+      } catch (eSu) {}
+      try {
+        if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+      } catch (eSd) {}
+    }
+
+    /**
+     * When the active season step's achievement unlocks in-engine, grant that step's rewards, season bonus,
+     * advance nodesCompleted, and snapshot earnBaseline so the next step counts only new progress (0/…).
+     */
+    function maybeAdvanceSeasonTrackOnStepAchievementUnlock(unlockedId) {
+      try {
+        if (typeof isLoggedIn === 'undefined' || !isLoggedIn) return;
+        if (typeof cloudChessData === 'undefined' || !cloudChessData) return;
+        const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
+        if (!CS || typeof CS.getChessSeasonTrack !== 'function' || typeof CS.getChessSeasonIdUtc !== 'function') return;
+
+        const utcSid = CS.getChessSeasonIdUtc();
+        let st =
+          cloudChessData.seasonTrack && typeof cloudChessData.seasonTrack === 'object'
+            ? { ...cloudChessData.seasonTrack }
+            : null;
+        if (!st && typeof CS.createFreshSeasonTrackState === 'function') {
+          cloudChessData.seasonTrack = CS.createFreshSeasonTrackState();
+          st = { ...cloudChessData.seasonTrack };
+        }
+        if (!st) return;
+
+        let stSid = String(st.seasonId || '').trim();
+        if (!/^\d{4}-\d{2}$/.test(stSid)) {
+          st.seasonId = utcSid;
+          st.nodesCompleted = 0;
+          stSid = utcSid;
+        }
+        if (stSid !== utcSid) return;
+
+        const order = getSeasonTrackAchievementOrder();
+        if (!order.length) return;
+        const cap = order.length;
+        const nodesDone = Math.min(Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)), cap);
+        if (nodesDone >= cap) return;
+        const expectedId = order[nodesDone];
+        if (String(unlockedId) !== String(expectedId)) return;
+
+        const track = CS.getChessSeasonTrack(stSid);
+        const nodeRow = track.nodes && track.nodes[nodesDone];
+        if (!nodeRow || String(nodeRow.challengeAchievementId) !== String(expectedId)) return;
+
+        applySeasonNodeRewardsToCloudData(nodeRow);
+        const stAfter = { ...cloudChessData.seasonTrack };
+        stAfter.nodesCompleted = Math.min(cap, nodesDone + 1);
+        stAfter.seasonId = stSid;
+        stAfter.earnBaseline = snapshotSeasonEarnBaselineFromLocalStats();
+        cloudChessData.seasonBonusPoints =
+          Math.max(0, Math.floor(Number(cloudChessData.seasonBonusPoints) || 0)) +
+          Math.max(0, Math.floor(Number(nodeRow.bonusPoints) || 0));
+        cloudChessData.seasonTrack = stAfter;
+      } catch (e) {
+        console.error('maybeAdvanceSeasonTrackOnStepAchievementUnlock', e);
+      }
     }
 
     /**
@@ -6861,6 +7040,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
               };
             }
             if (ach.points) totalPoints += ach.points;
+            maybeAdvanceSeasonTrackOnStepAchievementUnlock(ach.id);
           }
         } catch (e) {
           console.error('Error checking achievement', ach.id, e);
