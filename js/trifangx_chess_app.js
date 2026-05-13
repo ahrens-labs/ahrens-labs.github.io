@@ -4916,6 +4916,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
             
             // Check if this is a promotion move
             if (isPromotionMove(moveFrom, moveTo)) {
+              syncChessboardToGame(false);
               showPromotionModal(moveFrom, moveTo);
             } else {
             handleMove(moveFrom, moveTo);
@@ -10005,6 +10006,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           
           // Check if this is a promotion move
           if (isPromotionMove(source, target)) {
+            syncChessboardToGame(false);
             showPromotionModal(source, target);
           } else {
           handleMove(source, target);
@@ -10076,6 +10078,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
                 
                 // Check if this is a promotion move
                 if (isPromotionMove(moveFrom, moveTo)) {
+                  syncChessboardToGame(false);
                   showPromotionModal(moveFrom, moveTo);
                 } else {
                   handleMove(moveFrom, moveTo);
@@ -10864,6 +10867,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       return false;
     }
 
+    /** chessboard.js can leave the DOM out of sync after a test `game.move` + `undo`; keep the widget aligned with chess.js. */
+    function syncChessboardToGame(useAnimation) {
+      try {
+        if (typeof board !== 'undefined' && board && game && typeof game.fen === 'function') {
+          board.position(game.fen(), useAnimation !== false);
+        }
+      } catch (eSync) {}
+    }
+
     // Check if a move would be a promotion
     function isPromotionMove(from, to) {
       const piece = game.get(from);
@@ -11004,7 +11016,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const prevTurn = game.turn() === "w" ? "b" : "w";
       const moveTimeMs = stopTimerAndUpdateTotal(prevTurn);
       updateLastMove(move.san, formatTime(moveTimeMs), game.turn() === "w" ? "black" : "white", game.history().length/2 + 0.5);
-      board.position(game.fen());
+      board.position(game.fen(), !move.promotion);
       highlightLastMove(source, target);
       highlightCheck();
       updateTurnDisplay();
