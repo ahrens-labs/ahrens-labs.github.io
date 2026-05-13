@@ -476,6 +476,31 @@
         .st-rewards li {
             margin: 0.2rem 0;
         }
+        .st-lbrow-finish-line {
+            display: block;
+            line-height: 1.45;
+        }
+        .st-lbrow-swatch-row {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem 0.65rem;
+            margin-top: 0.25rem;
+        }
+        .st-lbrow-swatch-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 500;
+        }
+        .st-lbrow-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+        }
         .st-status-msg {
             font-size: 0.88rem;
             margin-top: 0.5rem;
@@ -1046,22 +1071,57 @@
             }
           }
           if (node.rewards && node.rewards.length) {
-            var rewardLines = [];
+            var rewardItems = [];
             for (var ri = 0; ri < node.rewards.length; ri++) {
+              var rw = node.rewards[ri];
+              if (
+                rw &&
+                rw.kind === 'lb_row_finish' &&
+                Array.isArray(rw.presets) &&
+                rw.presets.length &&
+                CS &&
+                typeof CS.getSeasonLbRowPresetSwatch === 'function'
+              ) {
+                var swParts = [];
+                for (var pi = 0; pi < rw.presets.length; pi++) {
+                  var sw = CS.getSeasonLbRowPresetSwatch(rw.presets[pi]);
+                  if (!sw || !sw.sampleHex) continue;
+                  swParts.push(
+                    '<span class="st-lbrow-swatch-item"><span class="st-lbrow-swatch" style="background:' +
+                      escapeHtml(sw.sampleHex) +
+                      '"></span>' +
+                      escapeHtml(sw.label) +
+                      '</span>'
+                  );
+                }
+                if (swParts.length) {
+                  rewardItems.push({
+                    html:
+                      '<span class="st-lbrow-finish-line"><strong>Leaderboard row finishes</strong> (gradient row styles for the public leaderboard)<span class="st-lbrow-swatch-row">' +
+                      swParts.join('') +
+                      '</span></span>',
+                  });
+                }
+                continue;
+              }
               var ln =
                 CS && typeof CS.formatSeasonRewardLine === 'function'
-                  ? CS.formatSeasonRewardLine(node.rewards[ri])
+                  ? CS.formatSeasonRewardLine(rw)
                   : '';
-              if (ln) rewardLines.push(ln);
+              if (ln) rewardItems.push({ text: ln });
             }
-            if (rewardLines.length) {
+            if (rewardItems.length) {
               var rewardIntro = '';
               if (i < nodesDone) rewardIntro = '<p class="st-rewards-heading">Unlocked when you claimed this step:</p>';
               else if (i === nodesDone) rewardIntro = '<p class="st-rewards-heading">You receive these when you press Claim reward:</p>';
               else rewardIntro = '<p class="st-rewards-heading">You’ll unlock these after you finish the challenge and claim:</p>';
               html += rewardIntro + '<ul class="st-rewards">';
-              for (var j = 0; j < rewardLines.length; j++) {
-                html += '<li>' + escapeHtml(rewardLines[j]) + '</li>';
+              for (var j = 0; j < rewardItems.length; j++) {
+                var item = rewardItems[j];
+                html +=
+                  '<li>' +
+                  (item.html ? item.html : escapeHtml(item.text)) +
+                  '</li>';
               }
               html += '</ul>';
             }

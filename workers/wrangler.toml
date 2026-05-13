@@ -26,10 +26,9 @@ binding = "CHESS_LEADERBOARD_KV"
 id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
-# Daily digest: UTC crons that land on (or just after) midnight America/Chicago; code gates on Chicago 00:00–00:19.
-# 05:00/06:00 UTC cover CDT/CST midnight; 05:15/06:15 are backups if the :00 run is delayed or dropped.
+# Daily digest: Worker gates sends to DIGEST_SEND_UTC_HOUR:MINUTE (defaults 07:00 UTC). Cron should fire in that window.
 [triggers]
-crons = ["0 5,6 * * *", "15 5,6 * * *"]
+crons = ["0 7 * * *", "15 7 * * *"]
 
 [durable_objects]
 bindings = [
@@ -66,6 +65,9 @@ SENDER_EMAIL = "caleb@ahrenslabs.com"
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Public website for links in welcome/digest emails (no trailing slash).
 PUBLIC_SITE_BASE = "https://ahrenslabs.com"
+# Daily challenge roundup send time (UTC, 24h). Must align with [triggers] crons.
+DIGEST_SEND_UTC_HOUR = "7"
+DIGEST_SEND_UTC_MINUTE = "0"
 # Origin used in signup verification & password-reset links in email (no trailing slash).
 VERIFICATION_LINK_BASE = "https://ahrenslabs.com"
 # Path that handles ?verify=&email= (signup confirmation).

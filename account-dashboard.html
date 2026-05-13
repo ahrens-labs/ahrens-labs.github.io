@@ -518,7 +518,7 @@
             <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the daily challenge email, “email challenges now,” admin broadcasts, milestone mail, and the season-track finale congratulations email are turned off for this address.
           </p>
           <p class="hint">
-            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we email you <strong>once per calendar day</strong> shortly after <strong>midnight US Central</strong> (America/Chicago), matching how the daily challenge list is dated on the server. The <strong>first time you save with it on</strong>, we also send today’s three challenges right away so you can confirm it’s working. In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
+            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we email you <strong>once per calendar day</strong> with that day’s three challenges (same calendar the server uses for the list). The <strong>first time you save with it on</strong>, we also send today’s three challenges right away so you can confirm it’s working. In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
           </p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
@@ -527,7 +527,7 @@
           <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
           <p class="status" id="email-pref-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (dated for <strong>US Central</strong>). Works even if the daily roundup is off.</p>
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (dated the same way as the daily roundup). Works even if the daily roundup is off.</p>
           <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
           <p class="status" id="digest-now-status"></p>
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
@@ -2383,7 +2383,7 @@
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success) {
           let msg = dailyChallengeEmails
-            ? 'Saved. We’ll send the daily roundup once per day after midnight US Central.'
+            ? 'Saved. We’ll send the daily roundup once per day while this option stays on.'
             : 'Saved. Daily challenge email is off.';
           if (data.digestWelcomeSent) msg += ' Check your inbox for today’s challenges (including spam).';
           if (data.warning) msg += ' ' + data.warning;

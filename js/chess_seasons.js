@@ -31,6 +31,9 @@
  *    - `shop` rewards use ids that are NOT sold in the regular shop; unlock goes into `shopUnlocks`
  *      like any other cosmetic. Add piece URLs / board CSS / highlight `colorMap` in the engine when
  *      adding a new id. Finale step grants only `season_*` shop ids (not career-shop duplicates).
+ *    - Leaderboard row gradient finishes (season): gated by `nodesCompleted` thresholds (see worker
+ *      `LB_ROW_PRESET_MIN_NODES` + `js/chess_lb_row.js`); list on the matching track step via
+ *      `lb_row_finish` rewards in `SEASON_TRACK_MECHANICAL` / worker `SEASON_CLAIM_NODES` (display + docs; unlock is node-based).
  *    - Leaderboard flair: `lb_frame` (allowlist in worker `sanitizeChessLbFlair`), `lb_title`,
  *      `lb_prefix`, `lb_suffix`. Keep strings short; worker sanitizes length / charset.
  *
@@ -61,7 +64,7 @@
 (function (global) {
   'use strict';
 
-  /** @typedef {{ challengeAchievementId: string, challengeTitle: string, bonusPoints: number, rewards: Array<{ kind: string, category?: string, id?: string, title?: string, frame?: string, prefix?: string, suffix?: string }> }} ChessSeasonNode */
+  /** @typedef {{ challengeAchievementId: string, challengeTitle: string, bonusPoints: number, rewards: Array<{ kind: string, category?: string, id?: string, title?: string, frame?: string, prefix?: string, suffix?: string, presets?: string[] }> }} ChessSeasonNode */
 
   /** @typedef {{ key: string, name: string, tagline: string, stepTitles: string[] }} SeasonThemeDef */
 
@@ -118,7 +121,10 @@
     {
       challengeAchievementId: 'en_passant',
       bonusPoints: 118,
-      rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
+      rewards: [
+        { kind: 'shop', category: 'pieces', id: 'season_trail' },
+        { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
+      ],
     },
     {
       challengeAchievementId: 'queen_capturer',
@@ -133,7 +139,10 @@
     {
       challengeAchievementId: 'castler',
       bonusPoints: 347,
-      rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
+      rewards: [
+        { kind: 'lb_frame', frame: 'amber_pulse' },
+        { kind: 'lb_row_finish', presets: ['violet_canopy', 'moonlit_band'] },
+      ],
     },
     {
       challengeAchievementId: 'promoter',
@@ -161,6 +170,7 @@
         { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
         { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
         { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+        { kind: 'lb_row_finish', presets: ['finale_aurora'] },
       ],
     },
   ];
@@ -186,8 +196,17 @@
     violet_arc: 'Violet Arc',
   });
 
+  /** Sample colors for season leaderboard row gradients — keep in sync with `js/chess_lb_row.js` LB_ROW_PRESETS. */
+  const SEASON_LB_ROW_PRESET_SWATCHES = Object.freeze({
+    emerald_glade: { label: 'Emerald glade', sampleHex: '#34d399' },
+    glacier_ribbon: { label: 'Glacier ribbon', sampleHex: '#22d3ee' },
+    violet_canopy: { label: 'Violet canopy', sampleHex: '#a78bfa' },
+    moonlit_band: { label: 'Moonlit band', sampleHex: '#134e4a' },
+    finale_aurora: { label: 'Finale aurora', sampleHex: '#7c3aed' },
+  });
+
   /**
-   * @param {{ kind: string, category?: string, id?: string, title?: string, frame?: string, prefix?: string, suffix?: string }} r
+   * @param {{ kind: string, category?: string, id?: string, title?: string, frame?: string, prefix?: string, suffix?: string, presets?: string[] }} r
    * @returns {string}
    */
   function formatSeasonRewardLine(r) {
@@ -226,7 +245,27 @@
     if (r.kind === 'lb_suffix' && r.suffix != null && String(r.suffix).trim() !== '') {
       return 'Leaderboard suffix · Season · ' + String(r.suffix);
     }
+    if (r.kind === 'lb_row_finish' && Array.isArray(r.presets) && r.presets.length) {
+      const parts = [];
+      for (let pi = 0; pi < r.presets.length; pi++) {
+        const id = String(r.presets[pi] || '').trim();
+        const sw = id && SEASON_LB_ROW_PRESET_SWATCHES[id];
+        if (sw && sw.label) parts.push(sw.label);
+      }
+      if (parts.length)
+        return 'Leaderboard row finishes · ' + parts.join(' · ') + ' (gradient row styles for the public leaderboard)';
+    }
     return '';
+  }
+
+  /**
+   * @param {string} presetId
+   * @returns {{ label: string, sampleHex: string } | null}
+   */
+  function getSeasonLbRowPresetSwatch(presetId) {
+    const id = String(presetId || '').trim();
+    if (!id || !SEASON_LB_ROW_PRESET_SWATCHES[id]) return null;
+    return SEASON_LB_ROW_PRESET_SWATCHES[id];
   }
 
   /** Career points to skip the challenge for that step (claim with buyWithPoints). Sync with worker. */
@@ -405,6 +444,7 @@
     getSeasonStepBuyoutCost: getSeasonStepBuyoutCost,
     createFreshSeasonTrackState: createFreshSeasonTrackState,
     formatSeasonRewardLine: formatSeasonRewardLine,
+    getSeasonLbRowPresetSwatch: getSeasonLbRowPresetSwatch,
     seasonChallengeMetSinceBaseline: seasonChallengeMetSinceBaseline,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

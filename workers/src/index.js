@@ -2,13 +2,14 @@
 
 import {
   getDailyChallengeIdsForUtcDate,
+  utcDateString,
   DAILY_CHALLENGE_DIGEST_BLURBS,
   DAILY_CHALLENGE_CARD_INFO,
 } from './daily-challenge-picker.js';
 import { DISPOSABLE_EMAIL_DOMAINS } from './disposable-email-domains.js';
 
-/** Calendar day and send schedule for daily challenge digest (US Central only; no per-user timezone). */
-const DEFAULT_DIGEST_TIMEZONE = 'America/Chicago';
+/** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
+const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
 
 /** Only this logged-in account may POST /api/admin/broadcast-email */
 const ADMIN_BROADCAST_ACCOUNT_EMAIL = 'calebahrens2011@gmail.com';
@@ -523,7 +524,7 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
   }
 
   const now = new Date();
-  const digestDateStr = ymdInTimeZone(now, DEFAULT_DIGEST_TIMEZONE);
+  const digestDateStr = utcDateString(now);
   const ids = getDailyChallengeIdsForUtcDate(digestDateStr);
 
   try {
@@ -1715,8 +1716,8 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           })
         );
 
-        // First-time opt-in: send today's list immediately so users are not waiting until midnight Central.
-        // Set lastDigestLocalYmd to today’s Chicago calendar date so the nightly cron does not duplicate the same day.
+        // First-time opt-in: send today's list immediately so users are not waiting for the next daily send.
+        // Set lastDigestLocalYmd to today's digest calendar date (UTC) so the scheduled job does not duplicate the same day.
         const digestOptIn =
           hasEmails &&
           body.dailyChallengeEmails === true &&
@@ -1727,8 +1728,8 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           isLikelyRealEmail(email);
         if (digestOptIn) {
           const now = new Date();
-          const localYmd = ymdInTimeZone(now, DEFAULT_DIGEST_TIMEZONE);
-          const ids = getDailyChallengeIdsForUtcDate(localYmd);
+          const digestYmd = utcDateString(now);
+          const ids = getDailyChallengeIdsForUtcDate(digestYmd);
           try {
             await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
             digestWelcomeSent = true;
@@ -1737,7 +1738,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
               JSON.stringify({
                 email,
                 username,
-                lastDigestLocalYmd: localYmd,
+                lastDigestLocalYmd: digestYmd,
               })
             );
           } catch (e) {
@@ -1773,7 +1774,7 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   }
   if (digestWelcomeError) {
     const tail =
-      ' You can use “Email daily challenges now” on the dashboard, or wait for the next automatic send after midnight US Central.';
+      ' You can use “Email daily challenges now” on the dashboard, or wait for the next automatic daily send.';
     warning = (warning ? `${warning} ` : '') + `Today's welcome digest could not be sent: ${digestWelcomeError}.${tail}`;
   }
 
@@ -1893,15 +1894,15 @@ function minuteInTimeZone(date, timeZone) {
   return Math.min(59, Math.max(0, n));
 }
 
-/** Chicago wall time for scheduled digest — `DIGEST_SEND_LOCAL_HOUR` / `DIGEST_SEND_LOCAL_MINUTE` in wrangler (24h). Defaults 0,0. */
-function getDigestSendLocalHM(env) {
-  const hRaw = env.DIGEST_SEND_LOCAL_HOUR;
-  const mRaw = env.DIGEST_SEND_LOCAL_MINUTE;
-  const hs = hRaw != null && String(hRaw).trim() !== '' ? String(hRaw).trim() : '0';
+/** Daily digest send time in UTC — `DIGEST_SEND_UTC_HOUR` / `DIGEST_SEND_UTC_MINUTE` in wrangler [vars]. Defaults 7, 0. */
+function getDigestSendUtcHM(env) {
+  const hRaw = env.DIGEST_SEND_UTC_HOUR;
+  const mRaw = env.DIGEST_SEND_UTC_MINUTE;
+  const hs = hRaw != null && String(hRaw).trim() !== '' ? String(hRaw).trim() : '7';
   const ms = mRaw != null && String(mRaw).trim() !== '' ? String(mRaw).trim() : '0';
   let h = parseInt(hs, 10);
   let m = parseInt(ms, 10);
-  if (!Number.isFinite(h) || h < 0 || h > 23) h = 0;
+  if (!Number.isFinite(h) || h < 0 || h > 23) h = 7;
   if (!Number.isFinite(m) || m < 0 || m > 59) m = 0;
   return { hour: h, minute: m };
 }
@@ -3198,7 +3199,7 @@ async function executeAdminTestEmailById(env, gate, id) {
       await sendAccountDeletedEmail(env, to, un);
       return;
     case 'daily_digest': {
-      const digestDateStr = ymdInTimeZone(Date.now(), DEFAULT_DIGEST_TIMEZONE);
+      const digestDateStr = utcDateString(new Date());
       const digestIds = getDailyChallengeIdsForUtcDate(digestDateStr);
       await sendDailyDigestEmail(env, { email: to, username: un }, digestIds, { instant: true });
       return;
@@ -3739,7 +3740,10 @@ const SEASON_CLAIM_NODES = [
   {
     challengeAchievementId: 'en_passant',
     bonusPoints: 118,
-    rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
+    rewards: [
+      { kind: 'shop', category: 'pieces', id: 'season_trail' },
+      { kind: 'lb_row_finish', presets: ['emerald_glade', 'glacier_ribbon'] },
+    ],
   },
   {
     challengeAchievementId: 'queen_capturer',
@@ -3754,7 +3758,10 @@ const SEASON_CLAIM_NODES = [
   {
     challengeAchievementId: 'castler',
     bonusPoints: 347,
-    rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
+    rewards: [
+      { kind: 'lb_frame', frame: 'amber_pulse' },
+      { kind: 'lb_row_finish', presets: ['violet_canopy', 'moonlit_band'] },
+    ],
   },
   {
     challengeAchievementId: 'promoter',
@@ -3782,6 +3789,7 @@ const SEASON_CLAIM_NODES = [
       { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
       { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
       { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
+      { kind: 'lb_row_finish', presets: ['finale_aurora'] },
     ],
   },
 ];
@@ -5083,7 +5091,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                       <li style="margin:0 0 8px 0;"><strong>Progress &amp; cloud save</strong> — wins, losses, draws, and summaries stay on your profile. <strong>Lifetime stats</strong> track captures, openings, streaks, and long-term goals across many games.</li>
                       <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog spanning tactics, speed, material, blindfold milestones, time controls, and unusual feats. Points feed <strong>Total Points</strong> and unlock rarer goals.</li>
                       <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlights, arrows, themes, move and checkmate flair, and time controls. Purchases stay on your profile across devices.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup</strong> — three rotating achievements refresh each day in TrifangX. In your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">dashboard</a>, turn on the <strong>daily challenge roundup</strong> (choose a time zone) or use <strong>email today’s challenges now</strong> anytime.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup</strong> — three rotating achievements refresh each day in TrifangX. In your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">dashboard</a>, turn on the <strong>daily challenge roundup email</strong> (sent once per day) or use <strong>email today’s challenges now</strong> anytime.</li>
                       <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, arrows and highlights, premoves, and blindfold or mental-board modes for training or variety.</li>
                       <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — reopen recent games from the cloud on the board and step through move-by-move.</li>
                       <li style="margin:0;"><strong>Modes</strong> — casual engine sparring, clocked games with increments, and optional live-engine play from the lobby when you enable it.</li>
@@ -5150,7 +5158,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                     <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard</p>
                     <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
                       <li style="margin:0 0 8px 0;"><strong>Profile &amp; sign-in</strong> — change <strong>password</strong> or <strong>username</strong> (username changes need your current password).</li>
-                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — time zone for the roundup, toggle the <strong>daily challenge email</strong>, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — toggle the <strong>daily challenge roundup</strong>, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
                       <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — open <strong>shop, settings, or achievements</strong> straight from the dashboard.</li>
                       <li style="margin:0;"><strong>Delete account</strong> — start removal when you want cloud data wiped; you get a confirmation email when it finishes.</li>
                     </ul>
@@ -5215,7 +5223,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '• Progress & cloud save — wins, losses, draws, and summaries on your profile. Lifetime stats for captures, openings, streaks, and long-term goals.',
     '• Achievements & points — large catalog (tactics, speed, material, blindfold, time controls, unusual feats). Points feed Total Points and rarer goals.',
     '• Shop & cosmetics — boards, piece sets, highlights, arrows, themes, move and checkmate flair, time controls. Purchases stay on your profile across devices.',
-    `• Daily challenges & roundup — three rotating achievements each day. Dashboard: daily challenge roundup (pick a time zone) or email today’s challenges now.`,
+    `• Daily challenges & roundup — three rotating achievements each day. Dashboard: daily roundup email (once per day) or email today’s challenges now.`,
     '• Board tools — legal-move hints, arrows and highlights, premoves, blindfold or mental-board modes.',
     '• Game history & replay — reopen recent games from the cloud and step through move-by-move.',
     '• Modes — casual engine sparring, clocked games with increments, optional live-engine play from the lobby when enabled.',
@@ -5248,7 +5256,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '',
     'Account dashboard:',
     `• Profile & sign-in — change password or username (username needs current password).`,
-    '• Email — time zone for roundup, daily challenge email, resend this welcome guide, email today’s challenges now.',
+    '• Email — daily challenge roundup, resend this welcome guide, email today’s challenges now.',
     '• TrifangX shortcuts — open shop, settings, or achievements from the dashboard.',
     '• Delete account — start removal when you want cloud data wiped; confirmation email when it finishes.',
     'One email and password for every product above.',
@@ -5427,7 +5435,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
           <tr>
             <td style="padding:28px 36px 10px 36px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
               <p style="margin:0 0 8px 0;font-size:17px;font-weight:700;color:#0f172a;">Hi ${safeNameHtml},</p>
-              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">Here are today’s rotating TrifangX achievements. In the engine they <strong style="color:#0f172a;">unlock in this order</strong>: complete Daily 1 first; Daily 2 only starts counting after that; Daily 3 after Daily 2.</p>
+              <p style="margin:0;font-size:15px;line-height:1.65;color:#475569;">Here are today’s three TrifangX daily challenges. You can <strong style="color:#0f172a;">complete them in any order</strong> — each counts as soon as you finish it.</p>
             </td>
           </tr>
           ${instantBanner}
@@ -5459,7 +5467,7 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
     '',
     instant ? '(Sent on request from your account dashboard.)' : '(Daily TrifangX challenge roundup.)',
     '',
-    `Today’s three challenges (complete in this order — #2 counts after #1, #3 after #2):`,
+    `Today’s three challenges (complete in any order):`,
     formatDailyDigestLines(challengeIds),
     '',
     `Play: ${chessUrl}`,
@@ -5485,32 +5493,24 @@ async function handleScheduledCron(event, env) {
       ? event.scheduledTime
       : Date.now();
   const scheduledAt = new Date(scheduledMs);
-  const target = getDigestSendLocalHM(env);
-  const centralHour = hourInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
-  const centralMinute = minuteInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
-  const defaultMidnight = target.hour === 0 && target.minute === 0;
-  /** Chicago 00:00–00:19; duplicate sends same calendar day prevented by lastDigestLocalYmd. */
-  const gateOk = defaultMidnight
-    ? centralHour === 0 && centralMinute <= 19
-    : centralHour === target.hour && centralMinute === target.minute;
+  const target = getDigestSendUtcHM(env);
+  const utcHour = scheduledAt.getUTCHours();
+  const utcMinute = scheduledAt.getUTCMinutes();
+  /** Allow the scheduled instant plus up to 19 minutes (Cloudflare may run slightly late). */
+  const gateOk =
+    utcHour === target.hour && utcMinute >= target.minute && utcMinute <= target.minute + 19;
   if (!gateOk) {
-    console.log('Daily digest cron skip — not digest send instant in Central', {
-      centralHour,
-      centralMinute,
+    console.log('Daily digest cron skip — not digest send window (UTC)', {
+      utcHour,
+      utcMinute,
       target,
-      defaultMidnight,
       cron: cronExpr,
       scheduledMs,
     });
-    if (!defaultMidnight) {
-      console.warn(
-        'Digest uses DIGEST_SEND_LOCAL_HOUR/MINUTE; add a [triggers] cron whose UTC fire matches that Chicago wall time, or use 0/0 for midnight Central.'
-      );
-    }
     return;
   }
 
-  const localYmd = ymdInTimeZone(scheduledAt, DEFAULT_DIGEST_TIMEZONE);
+  const digestYmd = utcDateString(scheduledAt);
   let cursor;
   let sent = 0;
   let failed = 0;
@@ -5552,18 +5552,18 @@ async function handleScheduledCron(event, env) {
           raw.email = legacyTo;
         }
 
-        if (raw.lastDigestLocalYmd === localYmd) {
+        if (raw.lastDigestLocalYmd === digestYmd) {
           skipped++;
           continue;
         }
 
-        const ids = getDailyChallengeIdsForUtcDate(localYmd);
+        const ids = getDailyChallengeIdsForUtcDate(digestYmd);
         const didSend = await sendDailyDigestEmail(env, raw, ids, {});
         if (!didSend) {
           skipped++;
           continue;
         }
-        const next = { email: raw.email, username: raw.username, lastDigestLocalYmd: localYmd };
+        const next = { email: raw.email, username: raw.username, lastDigestLocalYmd: digestYmd };
         await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
         sent++;
       } catch (e) {
@@ -5578,8 +5578,8 @@ async function handleScheduledCron(event, env) {
     failed,
     skipped,
     cron: cronExpr,
-    centralDate: localYmd,
-    digestLocalHM: `${target.hour}:${String(target.minute).padStart(2, '0')}`,
+    digestDate: digestYmd,
+    digestUtcHM: `${target.hour}:${String(target.minute).padStart(2, '0')}`,
   });
 }
 

@@ -7424,9 +7424,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (ach.isDaily && !todayDailyIds.includes(ach.id)) {
           return;
         }
-        if (ach.isDaily && !isDailySlotProgressActive(ach.id, todayDailyIds)) {
-          return;
-        }
 
         if (isSeasonTrackAchievementBlocked(ach.id)) {
           return;
@@ -9003,13 +9000,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           
           const dailySubtitle = document.createElement('div');
           dailySubtitle.textContent =
-            'They refresh every day. Progress counts in order: finish Daily 1, then Daily 2, then Daily 3.';
+            'They refresh every day. You can complete the three picks in any order.';
           dailySubtitle.style.cssText = 'color: #d35400; font-style: italic; font-size: 0.85em;';
           dailyTitleCard.appendChild(dailySubtitle);
           
           masterGrid.appendChild(dailyTitleCard);
         
-          // Add exactly 3 daily achievements as the first row (pick order = chain order)
+          // Add exactly 3 daily achievements as the first row (today’s random picks).
         orderedDailies.forEach(ach => {
           const isUnlocked = achievements.includes(ach.id);
           let progressRaw;
@@ -9019,19 +9016,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             console.error('Error calculating progress for', ach.id, e);
             progressRaw = { current: 0, target: 1 };
           }
-          const chainLocked = !isDailySlotProgressActive(ach.id, todayDailyIds);
           let progress = progressRaw;
           let progressPercent =
             progress.target > 0 ? Math.min(100, (progress.current / progress.target) * 100) : 0;
-          if (chainLocked && !isUnlocked) {
-            progress = {
-              current: 0,
-              target: progressRaw.target,
-              needsTotal: progressRaw.needsTotal,
-              needsNoLosses: progressRaw.needsNoLosses,
-            };
-            progressPercent = 0;
-          }
           
           // Use EXACT same card styling as regular achievements
           const card = document.createElement('div');
@@ -9051,9 +9038,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const meetsRequirements = progress.needsTotal !== false;
           const meetsNoLosses = progress.needsNoLosses !== false;
           let lockedMessage = '';
-          if (chainLocked && !isUnlocked) {
-            lockedMessage = '🔒 Complete the previous daily first — this one starts counting after that.';
-          } else if (!meetsRequirements) {
+          if (!meetsRequirements) {
             const desc = ach.desc || '';
             const gameMatch = desc.match(/(\d+)\+.*games?/i);
             if (gameMatch) {
@@ -10030,22 +10015,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         console.error('Error in getTodayDailyAchievements:', e);
         return ['daily_explorer', 'daily_warrior', 'daily_checker'];
       }
-    }
-
-    /**
-     * Today's three dailies count in pick order: #2 does not progress or unlock until #1 is done; #3 until #2 is done.
-     * @param {string} dailyId
-     * @param {string[]} todayDailyIds from getTodayDailyAchievements()
-     */
-    function isDailySlotProgressActive(dailyId, todayDailyIds) {
-      if (!Array.isArray(todayDailyIds) || todayDailyIds.length === 0 || !dailyId) return true;
-      const idx = todayDailyIds.indexOf(dailyId);
-      if (idx <= 0) return true;
-      for (let i = 0; i < idx; i++) {
-        const prev = todayDailyIds[i];
-        if (!prev || achievements.indexOf(prev) === -1) return false;
-      }
-      return true;
     }
 
     /** Full daily counters + metadata; shared by full reset and midnight rollover. */
