@@ -47,8 +47,16 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       themes: ['light'],
       moveEffects: ['default'],
       checkmateEffects: [],
-      timeControls: ['none']
+      timeControls: ['none'],
     };
+
+    /** Merge free defaults with cloud/local lists. Empty arrays from the server must not wipe defaults (`[] || defaults` is wrong). */
+    function mergeUnlockedCategory(parsedVal, defaults) {
+      const d = Array.isArray(defaults) ? defaults : [];
+      const p = Array.isArray(parsedVal) ? parsedVal.filter((x) => x != null && String(x) !== '') : [];
+      const merged = [...new Set([...d.map(String), ...p.map(String)])];
+      return merged.length ? merged : [...d];
+    }
 
     function getUnlockedItems() {
       const stored = localStorage.getItem('unlockedItems');
@@ -61,15 +69,15 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         saveUnlockedItems(parsed);
       }
       return {
-        boards: parsed.boards || defaultUnlocked.boards,
-        pieces: parsed.pieces || defaultUnlocked.pieces,
-        highlightColors: parsed.highlightColors || defaultUnlocked.highlightColors,
-        arrowColors: parsed.arrowColors || defaultUnlocked.arrowColors,
-        legalMoveDots: parsed.legalMoveDots || defaultUnlocked.legalMoveDots,
-        themes: parsed.themes || defaultUnlocked.themes,
-        moveEffects: parsed.moveEffects || defaultUnlocked.moveEffects,
-        checkmateEffects: parsed.checkmateEffects || defaultUnlocked.checkmateEffects,
-        timeControls: parsed.timeControls || defaultUnlocked.timeControls
+        boards: mergeUnlockedCategory(parsed.boards, defaultUnlocked.boards),
+        pieces: mergeUnlockedCategory(parsed.pieces, defaultUnlocked.pieces),
+        highlightColors: mergeUnlockedCategory(parsed.highlightColors, defaultUnlocked.highlightColors),
+        arrowColors: mergeUnlockedCategory(parsed.arrowColors, defaultUnlocked.arrowColors),
+        legalMoveDots: mergeUnlockedCategory(parsed.legalMoveDots, defaultUnlocked.legalMoveDots),
+        themes: mergeUnlockedCategory(parsed.themes, defaultUnlocked.themes),
+        moveEffects: mergeUnlockedCategory(parsed.moveEffects, defaultUnlocked.moveEffects),
+        checkmateEffects: mergeUnlockedCategory(parsed.checkmateEffects, defaultUnlocked.checkmateEffects),
+        timeControls: mergeUnlockedCategory(parsed.timeControls, defaultUnlocked.timeControls),
       };
     }
     
@@ -6864,7 +6872,6 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (n >= order.length) return [];
       const curId = order[n];
       if (justUnlocked.has(String(curId))) return [];
-      if (achievements.includes(curId)) return [];
       if (isSeasonTrackAchievementBlocked(curId)) return [];
       const all = getAllAchievementsList();
       const ach = all.find((a) => a && a.id === curId);
@@ -6897,6 +6904,47 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           points: 0,
           __notifySeason: true,
           __seasonProgressOnly: true,
+        },
+      ];
+    }
+
+    /**
+     * After a game, remind the player the current season step’s in-game requirement is satisfied
+     * (baselined progress ≥ target). Still need to claim on the website; shown even if the global
+     * achievement was unlocked long ago.
+     */
+    function buildSeasonTrackReadyToClaimNotifications(unlockedIdsThisRun) {
+      if (typeof isLoggedIn === 'undefined' || !isLoggedIn) return [];
+      const justUnlocked = unlockedIdsThisRun instanceof Set ? unlockedIdsThisRun : new Set();
+      const order = getSeasonTrackAchievementOrder();
+      if (!order.length) return [];
+      const n = getSeasonTrackNodesCompletedClient();
+      if (n >= order.length) return [];
+      const curId = order[n];
+      if (justUnlocked.has(String(curId))) return [];
+      if (isSeasonTrackAchievementBlocked(curId)) return [];
+      const all = getAllAchievementsList();
+      const ach = all.find((a) => a && a.id === curId);
+      if (!ach || typeof ach.progress !== 'function') return [];
+      let progress;
+      try {
+        progress = getAchievementProgressResolved(ach);
+      } catch (e) {
+        return [];
+      }
+      const cur = Math.max(0, Math.floor(Number(progress && progress.current) || 0));
+      const tgt = Math.max(1, Math.floor(Number(progress && progress.target) || 1));
+      if (cur < tgt) return [];
+      return [
+        {
+          id: '__st_ready_' + curId,
+          relatedAchId: curId,
+          name: ach.name || 'Season step',
+          desc:
+            'This month’s season challenge is met in TrifangX. Claim the step on the Chess season track page to collect rewards and advance.',
+          points: 0,
+          __notifySeason: true,
+          __seasonReadyClaim: true,
         },
       ];
     }
@@ -7028,7 +7076,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       const seasonUnlocks = unlockedOrdered.filter((a) => a.__notifySeason);
       const nonSeason = unlockedOrdered.filter((a) => !a.__notifySeason);
       const progressFiltered = buildSeasonTrackProgressNotifications(unlockedIdsThisRun);
-      const finalNotifyList = [...seasonUnlocks, ...progressFiltered, ...nonSeason];
+      const readyFiltered = buildSeasonTrackReadyToClaimNotifications(unlockedIdsThisRun);
+      const finalNotifyList = [...seasonUnlocks, ...progressFiltered, ...readyFiltered, ...nonSeason];
       if (finalNotifyList.length > 0) {
         showAchievementNotificationsSequentially(finalNotifyList);
       }
@@ -9725,6 +9774,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         setTimeout(() => {
           const isSeason = !!ach.__notifySeason;
           const isSeasonProgress = !!ach.__seasonProgressOnly;
+          const isSeasonReady = !!ach.__seasonReadyClaim;
           const notification = document.createElement('div');
           const seasonStyle = `
             position: fixed;
@@ -9760,12 +9810,12 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           notification.style.cssText = isSeason ? seasonStyle : regularStyle;
 
           const pointsText =
-            ach.points && !isSeasonProgress
+            ach.points && !isSeasonProgress && !isSeasonReady
               ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 6px;">+${ach.points} career points</div>`
               : '';
           const ribbon = isSeason
             ? `<div style="font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 800; opacity: 0.92; margin-bottom: 10px; color: #fef9c3;">${
-                isSeasonProgress ? 'Season track · Progress' : 'Season track'
+                isSeasonProgress ? 'Season track · Progress' : isSeasonReady ? 'Season track · Ready to claim' : 'Season track'
               }</div>`
             : '';
           const nameSize = isSeason ? '1.42em' : '1.5em';
