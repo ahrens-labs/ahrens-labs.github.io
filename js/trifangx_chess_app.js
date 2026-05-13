@@ -3,6 +3,13 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
   window.TRIFANGX_PAGE_MODE = 'lobby';
 }
 
+/**
+ * `cloudChessData` / `dataLoaded` live inside `$(document).ready)`; unlock helpers are declared
+ * outside that callback, so they cannot close over those lets. Bridge is updated after a successful
+ * `/api/chess/load` so mergeEquippedSettingsIntoUnlocked can read equipped settings.
+ */
+const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
+
     let game, board;
     let playerColor = "white";
     let timerStart = 0;
@@ -61,19 +68,27 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     /** Equipped cloud settings are always treated as unlocked (shopUnlocks can lag or omit ids). */
     function mergeEquippedSettingsIntoUnlocked(out) {
       try {
-        if (typeof dataLoaded === 'undefined' || !dataLoaded) return out;
-        if (typeof cloudChessData === 'undefined' || !cloudChessData || !cloudChessData.settings) return out;
-        const s = cloudChessData.settings;
-        if (typeof s !== 'object') return out;
-        if (s.boardStyle) out.boards = mergeUnlockedCategory([String(s.boardStyle)], out.boards);
-        if (s.pieceStyle) out.pieces = mergeUnlockedCategory([String(s.pieceStyle)], out.pieces);
-        if (s.highlightColor) out.highlightColors = mergeUnlockedCategory([String(s.highlightColor)], out.highlightColors);
-        if (s.arrowColor) out.arrowColors = mergeUnlockedCategory([String(s.arrowColor)], out.arrowColors);
-        if (s.legalMoveDotStyle) out.legalMoveDots = mergeUnlockedCategory([String(s.legalMoveDotStyle)], out.legalMoveDots);
-        if (s.pageTheme) out.themes = mergeUnlockedCategory([String(s.pageTheme)], out.themes);
-        if (s.moveEffect) out.moveEffects = mergeUnlockedCategory([String(s.moveEffect)], out.moveEffects);
-        if (s.timeControl) out.timeControls = mergeUnlockedCategory([String(s.timeControl)], out.timeControls);
-        const addons = s.checkmateAddons;
+        if (!trifangxChessCloudBridge.dataLoaded || !trifangxChessCloudBridge.chessData) return out;
+        const cd = trifangxChessCloudBridge.chessData;
+        const s = cd.settings;
+        if (!s || typeof s !== 'object') return out;
+        const boardId = s.boardStyle || s.board_style;
+        if (boardId) out.boards = mergeUnlockedCategory([String(boardId)], out.boards);
+        const pieceId = s.pieceStyle || s.piece_style;
+        if (pieceId) out.pieces = mergeUnlockedCategory([String(pieceId)], out.pieces);
+        const hi = s.highlightColor || s.highlight_color;
+        if (hi) out.highlightColors = mergeUnlockedCategory([String(hi)], out.highlightColors);
+        const ar = s.arrowColor || s.arrow_color;
+        if (ar) out.arrowColors = mergeUnlockedCategory([String(ar)], out.arrowColors);
+        const ld = s.legalMoveDotStyle || s.legal_move_dot_style;
+        if (ld) out.legalMoveDots = mergeUnlockedCategory([String(ld)], out.legalMoveDots);
+        const th = s.pageTheme || s.page_theme;
+        if (th) out.themes = mergeUnlockedCategory([String(th)], out.themes);
+        const me = s.moveEffect || s.move_effect;
+        if (me) out.moveEffects = mergeUnlockedCategory([String(me)], out.moveEffects);
+        const tc = s.timeControl || s.time_control;
+        if (tc) out.timeControls = mergeUnlockedCategory([String(tc)], out.timeControls);
+        const addons = s.checkmateAddons || s.checkmate_addons;
         if (Array.isArray(addons)) {
           const extra = addons.map((x) => String(x)).filter(Boolean);
           if (extra.length) out.checkmateEffects = mergeUnlockedCategory(extra, out.checkmateEffects);
@@ -125,7 +140,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     
     function isUnlocked(category, itemId) {
       const unlocked = getUnlockedItems();
-      return (unlocked[category] || []).includes(itemId);
+      const want = String(itemId);
+      return (unlocked[category] || []).some((x) => String(x) === want);
     }
 
     function getCheckmateAddonsEnabled() {
@@ -2142,7 +2158,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function changeBoardStyle() {
-      const style = document.getElementById("board-style").value;
+      let style = document.getElementById("board-style").value;
       
       // Check if unlocked
       if (!isUnlocked('boards', style)) {
@@ -2320,23 +2336,39 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     }
 
     function updateChessPregameToolsVisibility() {
+      let isLiveShell = false;
+      try {
+        isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
+      } catch (eLive) {}
       const bar = document.getElementById('chess-pregame-tools');
       if (bar) {
+        let showPregameBar = isChessPregamePhase() || isHistoryReplayMode;
+        if (isLiveShell) {
+          const lp = document.getElementById('login-page');
+          const gc = document.getElementById('game-container');
+          const loginHidden = !lp || lp.style.display === 'none';
+          const gameVisible = gc && gc.style.display !== 'none';
+          if (loginHidden && gameVisible) showPregameBar = true;
+        }
         // Show the same top bar during saved-game replay so Shop / Settings / History stay available.
-        bar.style.display = (isChessPregamePhase() || isHistoryReplayMode) ? 'flex' : 'none';
+        bar.style.display = showPregameBar ? 'flex' : 'none';
       }
       const ingameBar = document.getElementById('chess-ingame-tools');
       if (ingameBar) {
-        const lp = document.getElementById('login-page');
-        if (lp && lp.style.display !== 'none') {
+        if (isLiveShell) {
           ingameBar.style.display = 'none';
         } else {
-          const cs = document.getElementById('choose-side');
-          const gc = document.getElementById('game-container');
-          const sideHidden = cs && cs.style.display === 'none';
-          const gameVisible = gc && gc.style.display !== 'none';
-          // Hide ingame strip while replay uses the full pregame top bar (avoids duplicate buttons).
-          ingameBar.style.display = (sideHidden && gameVisible && !isHistoryReplayMode) ? 'flex' : 'none';
+          const lp = document.getElementById('login-page');
+          if (lp && lp.style.display !== 'none') {
+            ingameBar.style.display = 'none';
+          } else {
+            const cs = document.getElementById('choose-side');
+            const gc = document.getElementById('game-container');
+            const sideHidden = cs && cs.style.display === 'none';
+            const gameVisible = gc && gc.style.display !== 'none';
+            // Hide ingame strip while replay uses the full pregame top bar (avoids duplicate buttons).
+            ingameBar.style.display = sideHidden && gameVisible && !isHistoryReplayMode ? 'flex' : 'none';
+          }
         }
       }
     }
@@ -10454,7 +10486,9 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         stopPregameStatusPolling();
 
         const pgTools = document.getElementById('chess-pregame-tools');
-        if (pgTools) pgTools.style.display = 'none';
+        if (pgTools && !(typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live')) {
+          pgTools.style.display = 'none';
+        }
 
         playerColor = snap.playerColor === 'black' ? 'black' : 'white';
         timeLimited = !!snap.timeLimited;
@@ -11683,6 +11717,8 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
 
         isLoggedIn = true;
         dataLoaded = true;
+        trifangxChessCloudBridge.chessData = cloudChessData;
+        trifangxChessCloudBridge.dataLoaded = true;
         currentUserId = localStorage.getItem('ahrenslabs_userId');
 
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
@@ -11715,6 +11751,35 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     }
 
+    const TRIFANGX_SHOP_UNLOCK_MERGE_KEYS = [
+      'boards',
+      'pieces',
+      'highlightColors',
+      'arrowColors',
+      'legalMoveDots',
+      'themes',
+      'moveEffects',
+      'timeControls',
+      'checkmateEffects',
+    ];
+
+    function mergeTrifangxShopUnlocksClient(prev, incoming) {
+      const p = prev && typeof prev === 'object' ? prev : {};
+      const i = incoming && typeof incoming === 'object' ? incoming : {};
+      const out = { ...p };
+      for (const cat of TRIFANGX_SHOP_UNLOCK_MERGE_KEYS) {
+        const merged = [
+          ...new Set(
+            [...(Array.isArray(p[cat]) ? p[cat] : []), ...(Array.isArray(i[cat]) ? i[cat] : [])]
+              .map((x) => String(x))
+              .filter((x) => x !== '')
+          ),
+        ];
+        out[cat] = merged;
+      }
+      return out;
+    }
+
     /** When another tab claims a season step (see chess-season-track.html), pull authoritative cosmetics without clobbering in-memory game state. */
     let refreshChessCosmeticsFromCloudTimer = null;
     async function refreshChessCosmeticsFromCloud() {
@@ -11726,7 +11791,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (!response.ok) return;
         const data = await response.json();
         if (data.shopUnlocks && typeof data.shopUnlocks === 'object') {
-          cloudChessData.shopUnlocks = data.shopUnlocks;
+          cloudChessData.shopUnlocks = mergeTrifangxShopUnlocksClient(cloudChessData.shopUnlocks, data.shopUnlocks);
         }
         if (data.seasonTrack && typeof data.seasonTrack === 'object') {
           cloudChessData.seasonTrack = { ...data.seasonTrack };
