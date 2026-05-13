@@ -2347,6 +2347,53 @@
       filter: grayscale(0.5);
     }
 
+    .shop-item-desc {
+      font-size: 0.85em;
+      color: #7f8c8d;
+      margin: 5px 0;
+    }
+
+    .shop-item.shop-item-season-reward {
+      border-color: rgba(16, 185, 129, 0.65);
+      background: linear-gradient(160deg, #ecfdf5 0%, #f0fdfa 45%, #e0f2fe 100%);
+      box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.25), 0 6px 18px rgba(16, 185, 129, 0.12);
+    }
+
+    .shop-item.shop-item-season-reward.unlocked {
+      border-color: #059669;
+      background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+    }
+
+    .shop-item.shop-item-season-reward.locked {
+      opacity: 0.92;
+      filter: none;
+      border-color: rgba(6, 182, 212, 0.55);
+      background: linear-gradient(160deg, #f8fafc 0%, #ecfeff 55%, #e0f2fe 100%);
+    }
+
+    .shop-item.shop-item-season-reward[data-season-month="05"] {
+      border-color: rgba(5, 150, 105, 0.7);
+      background: linear-gradient(155deg, #f0fdf4 0%, #ecfccb 35%, #d1fae5 70%, #cffafe 100%);
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.28), 0 8px 22px rgba(16, 185, 129, 0.14);
+    }
+
+    .shop-item.shop-item-season-reward[data-season-month="05"].unlocked {
+      border-color: #047857;
+    }
+
+    .shop-item.shop-item-season-reward[data-season-theme-key="may_emerald_ascent"] .shop-item-name {
+      color: #065f46;
+    }
+
+    .shop-item-desc-season {
+      color: #0f766e;
+    }
+
+    .shop-item-price-season {
+      color: #0d9488;
+      font-weight: 700;
+    }
+
     .shop-item-name {
       font-size: 1.2em;
       font-weight: 700;

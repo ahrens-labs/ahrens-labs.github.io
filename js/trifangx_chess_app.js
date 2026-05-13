@@ -152,6 +152,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
     function setCheckmateAddonsEnabled(ids) {
       localStorage.setItem('checkmateAddonsEnabled', JSON.stringify(ids));
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
     function toggleCheckmateAddon(id) {
       if (!isUnlocked('checkmateEffects', id)) return;
@@ -2189,6 +2190,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
     // Engine personality functions removed for performance
@@ -2219,6 +2221,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
       
       // If board exists, update the piece theme
       if (board) {
@@ -2678,8 +2681,28 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const canAfford = item.price <= spendable;
         const isCheckmateAddon = currentShopTab === 'checkmateEffects';
         
+        const isSeasonTrackReward = item.purchasable === false;
+        const Cs = typeof ChessSeasons !== 'undefined' ? ChessSeasons : null;
+        let seasonMonth = '';
+        let seasonThemeKey = '';
+        if (isSeasonTrackReward && Cs) {
+          if (typeof Cs.getChessSeasonIdUtc === 'function' && typeof Cs.utcMonthFromSeasonId === 'function') {
+            seasonMonth = Cs.utcMonthFromSeasonId(Cs.getChessSeasonIdUtc()) || '';
+          }
+          if (typeof Cs.getChessSeasonTrack === 'function') {
+            try {
+              const tr = Cs.getChessSeasonTrack();
+              if (tr && tr.theme && tr.theme.key) seasonThemeKey = String(tr.theme.key);
+            } catch (_) {}
+          }
+        }
+
         const itemDiv = document.createElement('div');
-        itemDiv.className = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        let itemClasses = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        if (isSeasonTrackReward) itemClasses += ' shop-item-season-reward';
+        itemDiv.className = itemClasses;
+        if (seasonMonth) itemDiv.setAttribute('data-season-month', seasonMonth);
+        if (seasonThemeKey) itemDiv.setAttribute('data-season-theme-key', seasonThemeKey);
         
         if (isUnlocked) {
           const badge = document.createElement('div');
@@ -2701,7 +2724,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         
         if (item.description) {
           const descDiv = document.createElement('div');
-          descDiv.style.cssText = 'font-size: 0.85em; color: #7f8c8d; margin: 5px 0;';
+          descDiv.className = 'shop-item-desc' + (isSeasonTrackReward ? ' shop-item-desc-season' : '');
           descDiv.textContent = item.description;
           itemDiv.appendChild(descDiv);
         }
@@ -2713,7 +2736,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           priceDiv.style.color = '#2ecc71';
         } else if (item.purchasable === false) {
           priceDiv.textContent = 'Season track reward';
-          priceDiv.style.color = '#7f8c8d';
+          priceDiv.classList.add('shop-item-price-season');
         } else {
           priceDiv.textContent = `${item.price} points`;
           if (!canAfford) {
@@ -2820,7 +2843,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
       }
       renderShopItems();
-      
+
+      if (!['boards', 'pieces', 'checkmateEffects'].includes(category) && typeof saveChessDataToCloud === 'function') {
+        void saveChessDataToCloud(true);
+      }
+
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
     }
@@ -3234,6 +3261,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           boardElement.classList.add('board-theme-' + v);
         }
         localStorage.setItem('chessboardStyle', v);
+        if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
       }
     }
 
@@ -3258,6 +3286,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             board.position(pos);
           }
         }
+        if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
       }
     }
 
@@ -3268,6 +3297,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       currentHighlightColor = v;
       applyHighlightColor(v);
       localStorage.setItem('highlightColor', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
     
     function applySettingsArrowColor() {
@@ -3277,6 +3307,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       currentArrowColor = v;
       applyArrowColor(v);
       localStorage.setItem('arrowColor', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
     
     function applySettingsLegalDotStyle() {
@@ -3285,6 +3316,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const v = sel.value;
       applyLegalMoveDotStyle(v);
       localStorage.setItem('legalMoveDotStyle', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
     function applySettingsTheme() {
@@ -3294,6 +3326,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       currentPageTheme = v;
       applyPageTheme(v);
       localStorage.setItem('pageTheme', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
     function applySettingsMoveEffect() {
@@ -3303,6 +3336,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       currentMoveEffect = v;
       applyMoveEffect(v);
       localStorage.setItem('moveEffect', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
     function applySettingsCheckmateEffect() {
@@ -3316,6 +3350,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const v = sel.value;
       mainSel.value = v;
       localStorage.setItem('timeControl', v);
+      if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
  $(document).ready(async function() {
