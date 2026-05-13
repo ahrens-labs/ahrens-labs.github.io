@@ -2941,6 +2941,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
     function showSettings() {
       const modal = document.getElementById('settings-modal');
       if (!modal) return;
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
       updateSettingsDropdowns();
       modal.classList.add('show');
     }
@@ -6876,8 +6877,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         if (typeof saveUnlockedItems === 'function') saveUnlockedItems(shop);
       } catch (eSu) {}
       try {
+        if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+      } catch (eSt) {}
+      try {
         if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
       } catch (eSd) {}
+      try {
+        if (typeof renderShopItems === 'function') renderShopItems();
+      } catch (eSh) {}
     }
 
     /**
@@ -11647,6 +11654,49 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
         return false;
       }
     }
+
+    /** When another tab claims a season step (see chess-season-track.html), pull authoritative cosmetics without clobbering in-memory game state. */
+    let refreshChessCosmeticsFromCloudTimer = null;
+    async function refreshChessCosmeticsFromCloud() {
+      if (!isLoggedIn || !currentSessionId || !dataLoaded || !cloudChessData) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/chess/load`, {
+          headers: { Authorization: `Bearer ${currentSessionId}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.shopUnlocks && typeof data.shopUnlocks === 'object') {
+          cloudChessData.shopUnlocks = data.shopUnlocks;
+        }
+        if (data.seasonTrack && typeof data.seasonTrack === 'object') {
+          cloudChessData.seasonTrack = { ...data.seasonTrack };
+        }
+        if (Object.prototype.hasOwnProperty.call(data, 'seasonBonusPoints')) {
+          cloudChessData.seasonBonusPoints = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
+        }
+        if (Object.prototype.hasOwnProperty.call(data, 'points')) {
+          cloudChessData.points = Math.max(0, Math.floor(Number(data.points) || 0));
+        }
+        if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+        if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
+        if (typeof renderShopItems === 'function') renderShopItems();
+        if (typeof updateShopPoints === 'function') updateShopPoints();
+      } catch (e) {
+        console.warn('refreshChessCosmeticsFromCloud', e);
+      }
+    }
+
+    function scheduleRefreshChessCosmeticsFromCloud() {
+      clearTimeout(refreshChessCosmeticsFromCloudTimer);
+      refreshChessCosmeticsFromCloudTimer = setTimeout(function () {
+        refreshChessCosmeticsFromCloud();
+      }, 250);
+    }
+
+    window.addEventListener('storage', function (ev) {
+      if (ev.key !== 'ahrenslabs_season_claim_ping' || ev.newValue == null) return;
+      scheduleRefreshChessCosmeticsFromCloud();
+    });
     
     // Override localStorage for chess game data - redirect to cloud
     const originalLocalStorage = window.localStorage;

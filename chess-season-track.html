@@ -851,6 +851,13 @@
           '<p class="st-err">' + escapeHtml(msg) + '</p>';
       }
 
+      /** Other tabs (e.g. TrifangX) listen for this key and refresh shop unlock dropdowns from the server. */
+      function pingTrifangxCosmeticsRefresh() {
+        try {
+          localStorage.setItem('ahrenslabs_season_claim_ping', String(Date.now()));
+        } catch (ePing) {}
+      }
+
       function claimSeasonStep(stepIndex, btn, buyWithPoints) {
         if (!sessionId || !btn) return;
         btn.disabled = true;
@@ -882,6 +889,7 @@
             }
             if (pack.j.chess) {
               render(pack.j.chess);
+              pingTrifangxCosmeticsRefresh();
               return;
             }
             return fetch(API_BASE_URL + '/api/chess/load', {
@@ -894,7 +902,10 @@
               if (!r2.ok) throw new Error('Could not reload save');
               return r2.json();
             }).then(function (d2) {
-              if (d2) render(d2);
+              if (d2) {
+                render(d2);
+                pingTrifangxCosmeticsRefresh();
+              }
             });
           })
           .catch(function (e) {
