@@ -723,7 +723,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           zwischenzugMade: false, // Track if zwischenzug made
           pawnMovesToday: 0, // Player pawn moves (committed to lifetime daily at game end)
           underpromotionMovesToday: 0,
-          playerCapturesByType: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+          playerCapturesByType: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+          _comboBits: {},
+          _comboDoneThisGame: {},
+          rookMovesInBlindfoldToday: 0,
+          queenMovesInBlindfoldToday: 0,
+          pawnMovesInPureBlindfoldToday: 0,
+          castledByMove12ThisGame: false
         }
       };
     }
@@ -1147,6 +1153,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           lifetimeStats.dailyStats.castlingToday += gameStats.dailyStats.castlingToday || 0;
           lifetimeStats.dailyStats.bishopMovesInBlindfoldToday += gameStats.dailyStats.bishopMovesInBlindfoldToday || 0;
           lifetimeStats.dailyStats.knightMovesInPureBlindfoldToday += gameStats.dailyStats.knightMovesInPureBlindfoldToday || 0;
+          lifetimeStats.dailyStats.rookMovesInBlindfoldToday =
+            (lifetimeStats.dailyStats.rookMovesInBlindfoldToday || 0) + (gameStats.dailyStats.rookMovesInBlindfoldToday || 0);
+          lifetimeStats.dailyStats.queenMovesInBlindfoldToday =
+            (lifetimeStats.dailyStats.queenMovesInBlindfoldToday || 0) + (gameStats.dailyStats.queenMovesInBlindfoldToday || 0);
+          lifetimeStats.dailyStats.pawnMovesInPureBlindfoldToday =
+            (lifetimeStats.dailyStats.pawnMovesInPureBlindfoldToday || 0) + (gameStats.dailyStats.pawnMovesInPureBlindfoldToday || 0);
           lifetimeStats.dailyStats.kingMovesToday = (lifetimeStats.dailyStats.kingMovesToday || 0) + (gameStats.dailyStats.kingMoves || 0);
           lifetimeStats.dailyStats.pawnMovesToday = (lifetimeStats.dailyStats.pawnMovesToday || 0) + (gameStats.dailyStats.pawnMovesToday || 0);
           lifetimeStats.dailyStats.underpromotionMovesToday = (lifetimeStats.dailyStats.underpromotionMovesToday || 0) + (gameStats.dailyStats.underpromotionMovesToday || 0);
@@ -1201,7 +1213,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (gameStats._isWinGameEnd && materialWeLostDaily - materialWeCapturedDaily >= 5 && lifetimeStats.dailyStats) {
         lifetimeStats.dailyStats.comebackWinsToday = (lifetimeStats.dailyStats.comebackWinsToday || 0) + 1;
       }
-      
+
+      if (gameStats.dailyStats && gameStats.dailyStats.castledByMove12ThisGame && lifetimeStats.dailyStats) {
+        lifetimeStats.dailyStats.gamesCastledByMove12Today = (lifetimeStats.dailyStats.gamesCastledByMove12Today || 0) + 1;
+      }
+
       saveLifetimeStats();
       // Reset gameStats after committing
       resetGameStats();
@@ -5705,6 +5721,89 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    /** Same-game piece→square dailies; legs are your moves landing that piece type on that square (algebraic). */
+    const VERIFIABLE_DAILY_COMBO_DEFS = [
+      { id: 'daily_triad_qe4_nf6_pa6', name: '🧩 Triad Crown', desc: 'In one game: land your queen on e4, a knight on f6, and a pawn on a6.', points: 280, legs: [['q', 'e4'], ['n', 'f6'], ['p', 'a6']], mode: 'none' },
+      { id: 'daily_triad_qd5_nc3_ph5', name: '🧭 Baltic Beacon', desc: 'Queen d5, knight c3, pawn h5 in the same game.', points: 275, legs: [['q', 'd5'], ['n', 'c3'], ['p', 'h5']], mode: 'none' },
+      { id: 'daily_triad_rc7_ne5_bb5', name: '🏔️ Highland Trio', desc: 'Rook c7, knight e5, bishop b5 in one game.', points: 290, legs: [['r', 'c7'], ['n', 'e5'], ['b', 'b5']], mode: 'none' },
+      { id: 'daily_triad_ra4_bc6_pe6', name: '🌊 Lowland March', desc: 'Rook a4, bishop c6, pawn e6 in one game.', points: 285, legs: [['r', 'a4'], ['b', 'c6'], ['p', 'e6']], mode: 'none' },
+      { id: 'daily_triad_qg4_nh3_pb4', name: '🎪 Wing Walk', desc: 'Queen g4, knight h3, pawn b4 in one game.', points: 270, legs: [['q', 'g4'], ['n', 'h3'], ['p', 'b4']], mode: 'none' },
+      { id: 'daily_triad_qd4_nf3_pe5', name: '🎯 Central Wedge', desc: 'Queen d4, knight f3, pawn e5 in one game.', points: 265, legs: [['q', 'd4'], ['n', 'f3'], ['p', 'e5']], mode: 'none' },
+      { id: 'daily_triad_nf3_pd4_bc4', name: '🇮🇹 Italian Echo', desc: 'Knight f3, pawn d4, bishop c4 in one game.', points: 265, legs: [['n', 'f3'], ['p', 'd4'], ['b', 'c4']], mode: 'none' },
+      { id: 'daily_triad_qc4_nd5_pf5', name: '📎 Central Pinch', desc: 'Queen c4, knight d5, pawn f5 in one game.', points: 285, legs: [['q', 'c4'], ['n', 'd5'], ['p', 'f5']], mode: 'none' },
+      { id: 'daily_triad_bd5_ne6_pg5', name: '🪜 Minor Lead', desc: 'Bishop d5, knight e6, pawn g5 in one game.', points: 275, legs: [['b', 'd5'], ['n', 'e6'], ['p', 'g5']], mode: 'none' },
+      { id: 'daily_triad_re5_kf5_qh5', name: '🎯 Forward Camp', desc: 'Rook e5, king f5, queen h5 in one game.', points: 295, legs: [['r', 'e5'], ['k', 'f5'], ['q', 'h5']], mode: 'none' },
+      { id: 'daily_triad_pe5_nf6_qd4', name: '🐉 Sicilian Sketch', desc: 'Pawn e5, knight f6, queen d4 in one game.', points: 280, legs: [['p', 'e5'], ['n', 'f6'], ['q', 'd4']], mode: 'none' },
+      { id: 'daily_triad_pc5_bb7_qc7', name: '♟️ Slav Trace', desc: 'Pawn c5, bishop b7, queen c7 in one game.', points: 285, legs: [['p', 'c5'], ['b', 'b7'], ['q', 'c7']], mode: 'none' },
+      { id: 'daily_triad_ng6_ph5_qf6', name: '🦅 Kingside Leap', desc: 'Knight g6, pawn h5, queen f6 in one game.', points: 290, legs: [['n', 'g6'], ['p', 'h5'], ['q', 'f6']], mode: 'none' },
+      { id: 'daily_triad_re6_qf6_pg6', name: '⬛ Mid Rank Storm', desc: 'Rook e6, queen f6, pawn g6 in one game.', points: 295, legs: [['r', 'e6'], ['q', 'f6'], ['p', 'g6']], mode: 'none' },
+      { id: 'daily_triad_bf4_ne2_pg3', name: '🌿 English Garden', desc: 'Bishop f4, knight e2, pawn g3 in one game.', points: 270, legs: [['b', 'f4'], ['n', 'e2'], ['p', 'g3']], mode: 'none' },
+      { id: 'daily_triad_rc3_nb5_qa4', name: '🔭 A-File Scope', desc: 'Rook c3, knight b5, queen a4 in one game.', points: 285, legs: [['r', 'c3'], ['n', 'b5'], ['q', 'a4']], mode: 'none' },
+      { id: 'daily_triad_pb5_nc6_qb6', name: '🏙️ Queenside Stack', desc: 'Pawn b5, knight c6, queen b6 in one game.', points: 280, legs: [['p', 'b5'], ['n', 'c6'], ['q', 'b6']], mode: 'none' },
+      { id: 'daily_triad_kb5_rc5_qd5', name: '🧱 Fifth Rank Net', desc: 'King b5, rook c5, queen d5 in one game.', points: 295, legs: [['k', 'b5'], ['r', 'c5'], ['q', 'd5']], mode: 'none' },
+      { id: 'daily_triad_ne4_pf5_qh5', name: '🎆 H-File Burst', desc: 'Knight e4, pawn f5, queen h5 in one game.', points: 285, legs: [['n', 'e4'], ['p', 'f5'], ['q', 'h5']], mode: 'none' },
+      { id: 'daily_triad_rh3_qg3_pg4', name: '🌊 G-File Surf', desc: 'Rook h3, queen g3, pawn g4 in one game.', points: 275, legs: [['r', 'h3'], ['q', 'g3'], ['p', 'g4']], mode: 'none' },
+      { id: 'daily_triad_bc3_ne4_rg3', name: '🏰 Piece Storm', desc: 'Bishop c3, knight e4, rook g3 in one game.', points: 270, legs: [['b', 'c3'], ['n', 'e4'], ['r', 'g3']], mode: 'none' },
+      { id: 'daily_triad_pd5_nf6_bg5', name: '🥊 Mainline Jab', desc: 'Pawn d5, knight f6, bishop g5 in one game.', points: 275, legs: [['p', 'd5'], ['n', 'f6'], ['b', 'g5']], mode: 'none' },
+      { id: 'daily_triad_qd4_ne5_rc5', name: '🔄 Central Heavy', desc: 'Queen d4, knight e5, rook c5 in one game.', points: 290, legs: [['q', 'd4'], ['n', 'e5'], ['r', 'c5']], mode: 'none' },
+      { id: 'daily_triad_ra3_nc4_pb5', name: '🧊 Wing Advance', desc: 'Rook a3, knight c4, pawn b5 in one game.', points: 275, legs: [['r', 'a3'], ['n', 'c4'], ['p', 'b5']], mode: 'none' },
+      { id: 'daily_triad_qh4_rf4_ph3', name: '🪁 Hook Route', desc: 'Queen h4, rook f4, pawn h3 in one game.', points: 280, legs: [['q', 'h4'], ['r', 'f4'], ['p', 'h3']], mode: 'none' },
+      { id: 'daily_bf_nf3_pe4_bc4', name: '👁️ Blind Italian', desc: 'Blindfold: knight f3, pawn e4, bishop c4 in one game.', points: 320, legs: [['n', 'f3'], ['p', 'e4'], ['b', 'c4']], mode: 'blindfold' },
+      { id: 'daily_bf_qd5_re5_pf5', name: '👁️ Blind Mid', desc: 'Blindfold: queen d5, rook e5, pawn f5 in one game.', points: 330, legs: [['q', 'd5'], ['r', 'e5'], ['p', 'f5']], mode: 'blindfold' },
+      { id: 'daily_bf_pd4_ne5_qd5', name: '👁️ Blind Central', desc: 'Blindfold: pawn d4, knight e5, queen d5 in one game.', points: 325, legs: [['p', 'd4'], ['n', 'e5'], ['q', 'd5']], mode: 'blindfold' },
+      { id: 'daily_bf_bd4_ne4_re5', name: '👁️ Blind Battery', desc: 'Blindfold: bishop d4, knight e4, rook e5 in one game.', points: 315, legs: [['b', 'd4'], ['n', 'e4'], ['r', 'e5']], mode: 'blindfold' },
+      { id: 'daily_bf_bc4_nd4_pe5', name: '👁️ Blind Duo Wing', desc: 'Blindfold: bishop c4, knight d4, pawn e5 in one game.', points: 310, legs: [['b', 'c4'], ['n', 'd4'], ['p', 'e5']], mode: 'blindfold' },
+      { id: 'daily_bf_ra5_nc5_pb5', name: '👁️ Blind Fifth', desc: 'Blindfold: rook a5, knight c5, pawn b5 in one game.', points: 335, legs: [['r', 'a5'], ['n', 'c5'], ['p', 'b5']], mode: 'blindfold' },
+      { id: 'daily_pure_ke4_nf5_pd4', name: '🌑 Pure Mid', desc: 'Pure blindfold (no history): king e4, knight f5, pawn d4.', points: 380, legs: [['k', 'e4'], ['n', 'f5'], ['p', 'd4']], mode: 'pure' },
+      { id: 'daily_pure_qd5_ne4_pf5', name: '🌑 Pure Fight', desc: 'Pure blindfold: queen d5, knight e4, pawn f5.', points: 390, legs: [['q', 'd5'], ['n', 'e4'], ['p', 'f5']], mode: 'pure' },
+      { id: 'daily_pure_rc4_qe5_nd5', name: '🌑 Pure Heavy', desc: 'Pure blindfold: rook c4, queen e5, knight d5.', points: 385, legs: [['r', 'c4'], ['q', 'e5'], ['n', 'd5']], mode: 'pure' },
+      { id: 'daily_pure_bd4_ne3_pf4', name: '🌑 Pure Minor', desc: 'Pure blindfold: bishop d4, knight e3, pawn f4.', points: 395, legs: [['b', 'd4'], ['n', 'e3'], ['p', 'f4']], mode: 'pure' },
+      { id: 'daily_duo_qe4_nf6', name: '🤝 Duo Crown', desc: 'Queen e4 and knight f6 in the same game.', points: 220, legs: [['q', 'e4'], ['n', 'f6']], mode: 'none' },
+      { id: 'daily_duo_rc7_qc2', name: '🏰 Seventh Echo', desc: 'Rook c7 and queen c2 in the same game.', points: 230, legs: [['r', 'c7'], ['q', 'c2']], mode: 'none' },
+      { id: 'daily_duo_nf3_bc4', name: '🍝 Italian Pair', desc: 'Knight f3 and bishop c4 in the same game.', points: 210, legs: [['n', 'f3'], ['b', 'c4']], mode: 'none' },
+      { id: 'daily_duo_pd4_pe4', name: '📌 Central Pawns', desc: 'Pawn to d4 and pawn to e4 in the same game.', points: 225, legs: [['p', 'd4'], ['p', 'e4']], mode: 'none' },
+    ];
+
+    function bumpVerifiableComboDailies(pieceType, target, ctx) {
+      if (!gameStats || !gameStats.dailyStats || !lifetimeStats) return;
+      const ds = gameStats.dailyStats;
+      if (!ds._comboBits) ds._comboBits = {};
+      if (!ds._comboDoneThisGame) ds._comboDoneThisGame = {};
+      for (let i = 0; i < VERIFIABLE_DAILY_COMBO_DEFS.length; i++) {
+        const def = VERIFIABLE_DAILY_COMBO_DEFS[i];
+        if (ds._comboDoneThisGame[def.id]) continue;
+        const mode = def.mode || 'none';
+        if (mode === 'blindfold' && !ctx.blindfold) continue;
+        if (mode === 'pure' && !ctx.pure) continue;
+        let legIdx = -1;
+        for (let j = 0; j < def.legs.length; j++) {
+          const leg = def.legs[j];
+          if (pieceType === leg[0] && target === leg[1]) {
+            legIdx = j;
+            break;
+          }
+        }
+        if (legIdx < 0) continue;
+        const mask = (ds._comboBits[def.id] || 0) | (1 << legIdx);
+        ds._comboBits[def.id] = mask;
+        const full = (1 << def.legs.length) - 1;
+        if (mask !== full) continue;
+        ds._comboDoneThisGame[def.id] = true;
+        resetDailyStatsIfNeeded();
+        const lt = lifetimeStats.dailyStats;
+        if (!lt) continue;
+        if (!Array.isArray(lt.completedVerifiableCombosToday)) lt.completedVerifiableCombosToday = [];
+        if (lt.completedVerifiableCombosToday.includes(def.id)) continue;
+        lt.completedVerifiableCombosToday.push(def.id);
+        saveLifetimeStats();
+        try {
+          checkAndUnlockAchievements();
+        } catch (e) {
+          console.warn('bumpVerifiableComboDailies: achievement check failed', e);
+        }
+      }
+    }
+
     function trackRandomAchievements(move, source, target) {
       const isPlayerMove = (move.color === 'w' && playerColor === 'white') || (move.color === 'b' && playerColor === 'black');
       if (!isPlayerMove) return;
@@ -5797,6 +5896,29 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         gameStats.dailyStats.knightMovesInPureBlindfoldToday++;
       }
+
+      if (pieceType === 'r' && isBlindfoldActive && gameStats && gameStats.dailyStats) {
+        gameStats.dailyStats.rookMovesInBlindfoldToday = (gameStats.dailyStats.rookMovesInBlindfoldToday || 0) + 1;
+      }
+      if (pieceType === 'q' && isBlindfoldActive && gameStats && gameStats.dailyStats) {
+        gameStats.dailyStats.queenMovesInBlindfoldToday = (gameStats.dailyStats.queenMovesInBlindfoldToday || 0) + 1;
+      }
+      if (pieceType === 'p' && isPureBlindfold && gameStats && gameStats.dailyStats) {
+        gameStats.dailyStats.pawnMovesInPureBlindfoldToday = (gameStats.dailyStats.pawnMovesInPureBlindfoldToday || 0) + 1;
+      }
+
+      if (
+        pieceType === 'k' &&
+        move.flags &&
+        (move.flags.includes('k') || move.flags.includes('q')) &&
+        gameStats &&
+        gameStats.dailyStats &&
+        playerMoveNumber <= 12
+      ) {
+        gameStats.dailyStats.castledByMove12ThisGame = true;
+      }
+
+      bumpVerifiableComboDailies(pieceType, target, { blindfold: isBlindfoldActive, pure: isPureBlindfold });
       
       // Track king moves for daily challenge
       if (pieceType === 'k' && gameStats && gameStats.dailyStats) {
@@ -8421,6 +8543,49 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const cur = (lifetimeStats.dailyStats.movesMadeToday || 0) + ((gameStats && gameStats.dailyStats && gameStats.dailyStats.movesMadeToday) || 0);
           return { current: Math.min(60, cur), target: 60 };
         }},
+        ...VERIFIABLE_DAILY_COMBO_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedVerifiableCombosToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
+        { id: 'daily_blindfold_rook_ranger', name: '👁️🏰 Blindfold Rook Ranger', desc: 'Make 6 rook moves in blindfold games today (board hidden)', category: 'Daily', points: 260, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 6 };
+          resetDailyStatsIfNeeded();
+          const cur =
+            (lifetimeStats.dailyStats.rookMovesInBlindfoldToday || 0) +
+            ((gameStats && gameStats.dailyStats && gameStats.dailyStats.rookMovesInBlindfoldToday) || 0);
+          return { current: Math.min(6, cur), target: 6 };
+        }},
+        { id: 'daily_blindfold_queen_nav', name: '👁️👑 Blindfold Queen Nav', desc: 'Make 5 queen moves in blindfold games today (board hidden)', category: 'Daily', points: 270, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 5 };
+          resetDailyStatsIfNeeded();
+          const cur =
+            (lifetimeStats.dailyStats.queenMovesInBlindfoldToday || 0) +
+            ((gameStats && gameStats.dailyStats && gameStats.dailyStats.queenMovesInBlindfoldToday) || 0);
+          return { current: Math.min(5, cur), target: 5 };
+        }},
+        { id: 'daily_pure_blind_pawn_echo', name: '👁️♟️ Pure Blind Pawn Echo', desc: 'Make 6 pawn moves in pure blindfold (no move history) today', category: 'Daily', points: 320, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 6 };
+          resetDailyStatsIfNeeded();
+          const cur =
+            (lifetimeStats.dailyStats.pawnMovesInPureBlindfoldToday || 0) +
+            ((gameStats && gameStats.dailyStats && gameStats.dailyStats.pawnMovesInPureBlindfoldToday) || 0);
+          return { current: Math.min(6, cur), target: 6 };
+        }},
+        { id: 'daily_early_bird_castle', name: '🏰 Early Bird Castle', desc: 'Castle by your 12th move of the game at least once today', category: 'Daily', points: 200, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          return { current: Math.min(1, lifetimeStats.dailyStats.gamesCastledByMove12Today || 0), target: 1 };
+        }},
         
         // ========================================================================
         // ADD NEW DAILY CHALLENGES HERE
@@ -9876,8 +10041,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     // Three challenges per local calendar day (device time) are chosen deterministically.
     // Keep this list aligned with workers/src/daily-challenge-picker.js.
     // Do not add dailies that require tactic-pattern detection (forks, pins, etc.) — tracking is unreliable.
+    // Piece→square "route" dailies use VERIFIABLE_DAILY_COMBO_DEFS + bumpVerifiableComboDailies (same game, your moves only).
     // ========================================================================
     function getAllDailyChallengeIds() {
+      const comboIds = VERIFIABLE_DAILY_COMBO_DEFS.map(function (d) {
+        return d.id;
+      });
       const fallbackIds = [
         // ORIGINAL DAILY CHALLENGES
         'daily_explorer',              // Visit 20 unique squares
@@ -9938,9 +10107,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_checkmate_maestro',
         'daily_double_play',
         'daily_sixty_moves',
-        // ADD NEW DAILY CHALLENGE IDs HERE:
-        // 'daily_your_new_challenge',
-      ];
+      ].concat(
+        comboIds,
+        'daily_blindfold_rook_ranger',
+        'daily_blindfold_queen_nav',
+        'daily_pure_blind_pawn_echo',
+        'daily_early_bird_castle'
+      );
 
       return fallbackIds;
     }
@@ -10093,7 +10266,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         discoveredAttackGamesToday: 0,
         windmillGamesToday: 0,
         zwischenzugGamesToday: 0,
-        playerCapturesByTypeToday: { p: 0, n: 0, b: 0, r: 0, q: 0 }
+        playerCapturesByTypeToday: { p: 0, n: 0, b: 0, r: 0, q: 0 },
+        completedVerifiableCombosToday: [],
+        rookMovesInBlindfoldToday: 0,
+        queenMovesInBlindfoldToday: 0,
+        pawnMovesInPureBlindfoldToday: 0,
+        gamesCastledByMove12Today: 0
       };
     }
 
@@ -10144,6 +10322,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lifetimeStats.lastPlayDate = todayDate.toISOString();
         if (lifetimeStats.dailyStats && !lifetimeStats.dailyStats.playerCapturesByTypeToday) {
           lifetimeStats.dailyStats.playerCapturesByTypeToday = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+        }
+        if (lifetimeStats.dailyStats && !Array.isArray(lifetimeStats.dailyStats.completedVerifiableCombosToday)) {
+          lifetimeStats.dailyStats.completedVerifiableCombosToday = [];
+        }
+        if (lifetimeStats.dailyStats && lifetimeStats.dailyStats.rookMovesInBlindfoldToday === undefined) {
+          lifetimeStats.dailyStats.rookMovesInBlindfoldToday = 0;
+        }
+        if (lifetimeStats.dailyStats && lifetimeStats.dailyStats.queenMovesInBlindfoldToday === undefined) {
+          lifetimeStats.dailyStats.queenMovesInBlindfoldToday = 0;
+        }
+        if (lifetimeStats.dailyStats && lifetimeStats.dailyStats.pawnMovesInPureBlindfoldToday === undefined) {
+          lifetimeStats.dailyStats.pawnMovesInPureBlindfoldToday = 0;
+        }
+        if (lifetimeStats.dailyStats && lifetimeStats.dailyStats.gamesCastledByMove12Today === undefined) {
+          lifetimeStats.dailyStats.gamesCastledByMove12Today = 0;
         }
         saveLifetimeStats();
       }
