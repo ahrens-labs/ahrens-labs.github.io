@@ -549,7 +549,7 @@
           0 15px 35px rgba(0, 0, 0, 0.15),
           0 5px 15px rgba(0, 0, 0, 0.1);
       border: 3px solid #e9ecef;
-      overflow: hidden;
+      overflow: visible;
       position: relative;
       background-color: white;
       transition: all 0.3s ease;
@@ -928,15 +928,16 @@
       cursor: grabbing;
     }
     
-    /* Ensure dragged pieces appear above the board */
+    /* Chessboard.js drag ghost (often appended to body) */
     .chessboard-dragging-piece {
-      z-index: 10000 !important;
+      z-index: 100000 !important;
       position: relative;
     }
     
-    /* Chessboard.js creates a dragging element - ensure it's above everything */
+    /* CDN drag ghost (Lichess uses /piece/ in path; older sets may use "pieces") */
+    body > img[src*="/piece/"],
     body > img[src*="pieces"] {
-      z-index: 10000 !important;
+      z-index: 100000 !important;
     }
 
     /* Only show yellow border on legal move targets during drag */
@@ -1848,7 +1849,7 @@
     }
 
 
-    /* Arrow overlay container */
+    /* Arrow overlay: keep below .board-b72b1 so tall piece SVGs (e.g. season trail) paint on top; pointer-events none passes clicks through */
     #arrow-overlay {
       position: absolute;
       top: 0;
@@ -1856,8 +1857,18 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
-      z-index: 1000;
+      z-index: 1;
       overflow: visible;
+    }
+
+    #board .board-b72b1 {
+      position: relative;
+      z-index: 2;
+    }
+
+    #board .square-55d63 > img {
+      position: relative;
+      z-index: 1;
     }
 
     #arrow-overlay svg {

@@ -4275,7 +4275,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!overlayEl) {
         overlayEl = document.createElement('div');
         overlayEl.id = 'arrow-overlay';
-        boardEl.appendChild(overlayEl);
+      }
+      if (overlayEl.parentNode !== boardEl) {
+        boardEl.insertBefore(overlayEl, boardEl.firstChild);
+      } else if (boardEl.firstChild !== overlayEl) {
+        boardEl.insertBefore(overlayEl, boardEl.firstChild);
       }
       
       let svg = document.getElementById('arrow-svg');
