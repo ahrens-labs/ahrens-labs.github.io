@@ -2158,8 +2158,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function changeBoardStyle() {
-      let style = document.getElementById("board-style").value;
-      
+      const bsEl = document.getElementById('board-style');
+      let style = bsEl && bsEl.value != null ? String(bsEl.value).trim() : 'classic';
+      if (!style) style = 'classic';
+
       // Check if unlocked
       if (!isUnlocked('boards', style)) {
         showNotification('This board style is locked. Visit the shop to unlock it.', 'info');
@@ -2192,8 +2194,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     // Engine personality functions removed for performance
 
     function changePieceStyle() {
-      let style = document.getElementById("piece-style").value;
-      
+      const psEl = document.getElementById('piece-style');
+      let style = psEl && psEl.value != null ? String(psEl.value).trim() : 'classic';
+      if (!style) style = 'classic';
+
       // Check if unlocked
       if (!isUnlocked('pieces', style)) {
         showNotification('This piece style is locked. Visit the shop to unlock it.', 'info');
@@ -3397,6 +3401,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
         if (gameContainer) gameContainer.style.display = 'block';
         updateChessPregameToolsVisibility();
+
+        // Rebuild style <select>s from cloud unlocks *before* applying saved styles. Static HTML omits
+        // shop-only boards (e.g. season_awakening); assigning .value without a matching <option> leaves
+        // an invalid value so changeBoardStyle() reads '' and wrongly reports locked.
+        if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
