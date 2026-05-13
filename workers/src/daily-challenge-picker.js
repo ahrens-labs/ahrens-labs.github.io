@@ -63,6 +63,14 @@ const FALLBACK_DAILY_CHALLENGE_IDS = [
   'daily_queen_snatcher',
   'daily_full_deck_hunter',
   'daily_checkmate_maestro',
+  'daily_double_play',
+  'daily_sixty_moves',
+  'daily_fork_fiesta',
+  'daily_pin_pool',
+  'daily_skewer_scout',
+  'daily_discovered_flair',
+  'daily_zwischen_tag',
+  'daily_windmill_whisper',
 ];
 
 export function utcDateString(d) {
@@ -144,8 +152,8 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   daily_personality_master: { name: '🎭 Triple Duty', desc: 'Play 3 games today', points: 350 },
   daily_survivor: {
     name: '🛡️ Daily Survivor',
-    desc: 'Make 25 captures today, all games (any of your pieces)',
-    points: 225,
+    desc: 'Make 16 captures today, all games (any of your pieces)',
+    points: 200,
   },
   daily_blitz_king: {
     name: '⚡⚡ Blitz King',
@@ -154,28 +162,28 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_time_master: {
     name: '⏱️ Time Master',
-    desc: 'Win games with 3 different time controls today',
-    points: 280,
+    desc: 'Win at least one game on each of 2 different time controls today',
+    points: 300,
   },
   daily_king_safety: {
     name: "👑 King's Guard",
-    desc: 'Castle in 3 different games today',
-    points: 200,
+    desc: 'Castle in 2 different games today',
+    points: 190,
   },
   daily_promotion_royalty: {
     name: '👸 Promotion Royalty',
-    desc: 'Promote a pawn in 2 different games today',
-    points: 240,
+    desc: 'Promote a pawn in any game today',
+    points: 170,
   },
   daily_material_advantage: {
     name: '⚖️ Material Master',
-    desc: 'Win 2 games where you had a material advantage of 3+ points',
-    points: 275,
+    desc: 'Win a game where you had a material advantage of 3+ points',
+    points: 260,
   },
   daily_openings_expert: {
     name: '📚 Opening Expert',
-    desc: 'Play 3 different detected openings today',
-    points: 220,
+    desc: 'Play 2 different detected openings today',
+    points: 230,
   },
   daily_checkmate_artist: {
     name: '🎨 Checkmate Artist',
@@ -184,13 +192,13 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_en_passant_master: {
     name: '🎯 En Passant Master',
-    desc: 'Perform en passant in 2 different games today',
-    points: 400,
+    desc: 'Perform en passant in a game today',
+    points: 320,
   },
   daily_underpromotion: {
     name: '♟️ Underpromotion Specialist',
-    desc: 'Underpromote 2 times today (rook, bishop, or knight)',
-    points: 450,
+    desc: 'Underpromote once today (to rook, bishop, or knight)',
+    points: 320,
   },
   daily_queen_sacrifice: {
     name: '👑 Queen Sacrifice',
@@ -219,8 +227,8 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_check_storm: {
     name: '⚡ Check Storm',
-    desc: 'Give 22 checks today (all games)',
-    points: 280,
+    desc: 'Give 14 checks today (all games)',
+    points: 250,
   },
   daily_double_castle: {
     name: '🏰 Double Castle',
@@ -239,8 +247,8 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_piece_hunter: {
     name: '🎯 Piece Hunter',
-    desc: 'Make 18 captures today, all games (any of your pieces)',
-    points: 450,
+    desc: 'Make 12 captures today, all games (any of your pieces)',
+    points: 340,
   },
   daily_white_duo: { name: '⚪ White Hot', desc: 'Win 2 games as White today', points: 220 },
   daily_black_duo: { name: '⚫ Black Hot', desc: 'Win 2 games as Black today', points: 220 },
@@ -293,13 +301,13 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_center_control: {
     name: '🎯 Center Control',
-    desc: 'Make 15 captures today, all games (any of your pieces)',
-    points: 480,
+    desc: 'Make 11 captures today, all games (any of your pieces)',
+    points: 360,
   },
   daily_pawn_island: {
     name: '🏝️ Check Rain',
-    desc: 'Give 18 checks today (all games)',
-    points: 380,
+    desc: 'Give 12 checks today (all games)',
+    points: 320,
   },
   daily_rook_battery: {
     name: '🏰 Four Corners',
@@ -308,43 +316,55 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   },
   daily_elite_capturer: {
     name: '⚔️ Elite Capturer',
-    desc: 'Make 20 captures today, all games (any of your pieces)',
-    points: 360,
+    desc: 'Make 14 captures today, all games (any of your pieces)',
+    points: 300,
   },
   daily_pawn_sweeper: {
     name: '🧹 Pawn Sweeper',
-    desc: 'Take 8 enemy pawns today (victim type)',
-    points: 380,
+    desc: 'Take 5 enemy pawns today (victim type)',
+    points: 300,
   },
   daily_knight_roundup: {
     name: '🐴 Knight Roundup',
-    desc: 'Take 4 enemy knights today (victim type)',
-    points: 460,
+    desc: 'Take 2 enemy knights today (victim type)',
+    points: 340,
   },
   daily_bishop_ambush: {
     name: '♗ Bishop Ambush',
-    desc: 'Take 3 enemy bishops today (victim type)',
-    points: 430,
+    desc: 'Take 2 enemy bishops today (victim type)',
+    points: 310,
   },
   daily_rook_raider_adv: {
     name: '🏰 Rook Raider',
-    desc: 'Take 3 enemy rooks today (victim type)',
-    points: 480,
+    desc: 'Take 2 enemy rooks today (victim type)',
+    points: 360,
   },
   daily_queen_snatcher: {
     name: '👑 Queen Snatcher',
-    desc: 'Take 2 enemy queens today (victim type)',
-    points: 520,
+    desc: 'Take 1 enemy queen today (victim type)',
+    points: 400,
   },
   daily_full_deck_hunter: {
-    name: '🃏 Full Deck',
-    desc: 'Take at least one enemy pawn, knight, bishop, rook, and queen today',
-    points: 580,
+    name: '🃏 Mini Deck',
+    desc: 'Capture at least 4 pawns, 1 knight, and 1 rook today (victim type, all games)',
+    points: 420,
   },
   daily_checkmate_maestro: {
     name: '🎨 Checkmate Maestro',
-    desc: 'Deliver checkmate with 4 different piece types today (queen, rook, knight, bishop, or pawn)',
-    points: 520,
+    desc: 'Deliver checkmate with 3 different piece types today (queen, rook, knight, bishop, or pawn)',
+    points: 400,
+  },
+  daily_double_play: { name: '🎮 Double Feature', desc: 'Play 2 complete games today', points: 140 },
+  daily_sixty_moves: { name: '♟️ Sixty Steps', desc: 'Make 60 moves today (all games combined)', points: 135 },
+  daily_fork_fiesta: { name: '🍴 Fork Fiesta', desc: 'Win a game with 3+ knight forks today', points: 320 },
+  daily_pin_pool: { name: '📌 Pin Gallery', desc: 'Win a game with 4+ pins today', points: 300 },
+  daily_skewer_scout: { name: '↗️ Skewer Scout', desc: 'Win a game with 2+ skewers today', points: 310 },
+  daily_discovered_flair: { name: '✨ Discovery Day', desc: 'Win a game with 3+ discovered attacks today', points: 300 },
+  daily_zwischen_tag: { name: '⏎ In-Between Artist', desc: 'Win a game with a Zwischenzug today', points: 290 },
+  daily_windmill_whisper: {
+    name: '🌀 Windmill Whisper',
+    desc: 'Win a game with 5+ checks in a row at least once today',
+    points: 340,
   },
 };
 

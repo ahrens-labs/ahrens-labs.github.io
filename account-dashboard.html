@@ -1288,10 +1288,19 @@
       return U.normalizeLbHex(v);
     }
 
+    /** Row tint for previews: use the form when set; otherwise fall back to cloud profile (e.g. before chess sync). */
+    function getDashLbRowPreviewDisplayColor() {
+      const rad = getDashLbRowBgCheckedRadio();
+      if (rad && rad.value === '__clear__') return null;
+      const eff = getDashLbRowEffectiveRowColor();
+      if (eff != null) return eff;
+      return normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+    }
+
     function dashLbRowPaintPreview() {
       const pv = document.getElementById('lb-row-color-preview');
       if (!pv) return;
-      const val = getDashLbRowEffectiveRowColor();
+      const val = getDashLbRowPreviewDisplayColor();
       if (!val) {
         pv.style.background = '#ffffff';
         pv.style.backgroundImage = '';
@@ -1327,7 +1336,7 @@
               const c = document.getElementById('dash-lb-row-custom-hex');
               if (c) c.value = hx;
             } else if (U.isLbRowHexAllowedForUser(hx, dashLbPreviewChessRef)) sel = hx;
-            else sel = '__clear__';
+            else sel = hx;
           }
         }
       }
@@ -1339,9 +1348,12 @@
         if (on) hit = true;
       });
       if (!hit) {
-        radios.forEach((r) => {
-          if (r.value === '__clear__') r.checked = true;
-        });
+        const savedNorm = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+        if (!savedNorm) {
+          radios.forEach((r) => {
+            if (r.value === '__clear__') r.checked = true;
+          });
+        }
       }
       updateDashLbRowSwatchSelectionState();
       dashLbRowPaintPreview();
@@ -1428,7 +1440,7 @@
     }
 
     function getDashLbPreviewRowColor() {
-      return getDashLbRowEffectiveRowColor();
+      return getDashLbRowPreviewDisplayColor();
     }
 
     function selectDashLbCustomHexMode() {
