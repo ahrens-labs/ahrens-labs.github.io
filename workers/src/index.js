@@ -3626,7 +3626,6 @@ function formatSeasonIdForEmail(seasonId) {
 function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, chessUrl, trackUrl }) {
   const safeName = escapeHtmlEmail(username || 'there');
   const seasonLabel = escapeHtmlEmail(formatSeasonIdForEmail(seasonId));
-  const sidEsc = escapeHtmlEmail(String(seasonId || '').trim());
   const bonusLabel = Number(Math.max(0, Math.floor(Number(seasonBonusPoints) || 0))).toLocaleString();
   const safeChessUrl = escapeHtmlEmail(chessUrl);
   const safeTrackUrl = escapeHtmlEmail(trackUrl);
@@ -3646,7 +3645,7 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
             <td style="background-image:linear-gradient(125deg,#0f766e 0%,#4f46e5 48%,#6d28d9 100%);padding:36px 34px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
               <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fef9c3;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;">Season track complete</div>
               <p style="margin:18px 0 0 0;font-size:34px;font-weight:900;line-height:1.1;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.35);">Congratulations, ${safeName}!</p>
-              <p style="margin:14px 0 0 0;font-size:16px;line-height:1.55;color:#e0e7ff;font-weight:500;">You cleared <strong style="color:#fef08a;">all 10 challenges</strong> for the <strong style="color:#fff;">${seasonLabel}</strong> ladder <span style="opacity:.9;">(${sidEsc} UTC)</span>.</p>
+              <p style="margin:14px 0 0 0;font-size:16px;line-height:1.55;color:#e0e7ff;font-weight:500;">You cleared <strong style="color:#fef08a;">all 10 challenges</strong> on the <strong style="color:#fff;">${seasonLabel}</strong> ladder.</p>
             </td>
           </tr>
           <tr>
@@ -3659,7 +3658,7 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
             <td align="center" style="padding:8px 30px 36px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
               <a href="${safeChessUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(15,118,110,.35);">Open TrifangX →</a>
               <a href="${safeTrackUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(79,70,229,.35);">Season track page →</a>
-              <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">When the calendar rolls to a new UTC month, a fresh ladder begins. See you on the next climb.</p>
+              <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">When the calendar rolls to a new month, a fresh ladder begins. See you on the next climb.</p>
             </td>
           </tr>
         </table>
@@ -3672,13 +3671,13 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
   const text = [
     `Hi ${username || 'there'},`,
     '',
-    `Congratulations — you completed all 10 TrifangX monthly season challenges for ${formatSeasonIdForEmail(seasonId)} (${String(seasonId || '').trim()} UTC).`,
+    `Congratulations — you completed all 10 TrifangX monthly season challenges for ${formatSeasonIdForEmail(seasonId)}.`,
     `Season bonus points on your account (total this season): ${bonusLabel}.`,
     '',
     `Play again: ${chessUrl}`,
     `Season track: ${trackUrl}`,
     '',
-    'A new ladder starts each UTC calendar month.',
+    'A new ladder starts each calendar month.',
   ].join('\n');
 
   return { subject, html, text };
@@ -6588,7 +6587,7 @@ export class UserAccount {
       return {
         success: false,
         error:
-          'Reset only applies to the active UTC month. After the calendar rolls, the new month’s ladder is separate.',
+          'Reset only applies to the active month on your save. Open TrifangX once while signed in if your track looks out of date.',
       };
     }
     const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)));

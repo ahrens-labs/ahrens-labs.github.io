@@ -162,6 +162,70 @@
     },
   ];
 
+  /** Human-readable lines for the season track UI (keep in sync with `SEASON_TRACK_MECHANICAL` rewards). */
+  const SEASON_REWARD_LABELS = Object.freeze({
+    'boards:season_awakening': 'Board style · Emerald Awakening (season exclusive)',
+    'highlightColors:season_glacier_glow': 'Square highlights · Glacier Glow (season exclusive)',
+    'pieces:season_trail': 'Piece set · Forest Trail (season exclusive)',
+    'boards:season_rift': 'Board style · Violet Rift (season exclusive)',
+    'boards:royal': 'Board style · Royal',
+    'pieces:tatiana': 'Piece set · Tatiana',
+    'highlightColors:gold': 'Square highlights · Gold',
+    'arrowColors:gold': 'Move arrows · Gold',
+    'themes:forest': 'Page theme · Forest',
+    'checkmateEffects:fireworks': 'Checkmate effect · Fireworks',
+    'legalMoveDots:gold-star': 'Legal move markers · Gold star',
+  });
+
+  const SEASON_LB_FRAME_LABELS = Object.freeze({
+    silver_lane: 'Silver Lane',
+    amber_pulse: 'Amber Pulse',
+    violet_arc: 'Violet Arc',
+  });
+
+  /**
+   * @param {{ kind: string, category?: string, id?: string, title?: string, frame?: string, prefix?: string, suffix?: string }} r
+   * @returns {string}
+   */
+  function formatSeasonRewardLine(r) {
+    if (!r || !r.kind) return '';
+    if (r.kind === 'shop' && r.category && r.id) {
+      const cat = String(r.category);
+      const id = String(r.id);
+      const key = cat + ':' + id;
+      if (SEASON_REWARD_LABELS[key]) return SEASON_REWARD_LABELS[key];
+      if (r.title && String(r.title).trim()) return String(r.title).trim();
+      const pretty = id.replace(/_/g, ' ');
+      if (cat === 'boards') return 'Board style · ' + pretty;
+      if (cat === 'pieces') return 'Piece set · ' + pretty;
+      if (cat === 'highlightColors') return 'Square highlights · ' + pretty;
+      if (cat === 'arrowColors') return 'Move arrows · ' + pretty;
+      if (cat === 'legalMoveDots') return 'Legal move markers · ' + pretty;
+      if (cat === 'themes') return 'Page theme · ' + pretty;
+      if (cat === 'checkmateEffects') return 'Checkmate effect · ' + pretty;
+      if (cat === 'timeControls') return 'Time control · ' + pretty;
+      return 'Unlock · ' + pretty;
+    }
+    if (r.kind === 'lb_frame' && r.frame) {
+      const f = String(r.frame);
+      if (SEASON_LB_FRAME_LABELS[f]) return 'Leaderboard frame · ' + SEASON_LB_FRAME_LABELS[f];
+      const raw = f.replace(/_/g, ' ');
+      const label = raw.replace(/\b\w/g, (m) => m.toUpperCase());
+      return 'Leaderboard frame · ' + label;
+    }
+    if (r.kind === 'lb_title' && r.title) {
+      const t = String(r.title).trim();
+      if (t) return 'Leaderboard title · “' + t + '”';
+    }
+    if (r.kind === 'lb_prefix' && r.prefix != null && String(r.prefix).trim() !== '') {
+      return 'Leaderboard prefix · ' + String(r.prefix);
+    }
+    if (r.kind === 'lb_suffix' && r.suffix != null && String(r.suffix).trim() !== '') {
+      return 'Leaderboard suffix · ' + String(r.suffix);
+    }
+    return '';
+  }
+
   /** Career points to skip the challenge for that step (claim with buyWithPoints). Sync with worker. */
   const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
     500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
@@ -283,5 +347,6 @@
     getSeasonTrackAchievementIds: getSeasonTrackAchievementIds,
     getSeasonStepBuyoutCost: getSeasonStepBuyoutCost,
     createFreshSeasonTrackState: createFreshSeasonTrackState,
+    formatSeasonRewardLine: formatSeasonRewardLine,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -175,6 +175,106 @@
             opacity: 0.55;
             cursor: not-allowed;
         }
+        .st-where-panel {
+            margin: 0 0 1.25rem;
+            padding: 1rem 1.1rem;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(224, 242, 254, 0.55), rgba(236, 253, 245, 0.5));
+            border: 1px solid rgba(14, 165, 233, 0.22);
+        }
+        .st-where-title {
+            margin: 0 0 0.55rem;
+            font-size: 0.92rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .st-where-list {
+            margin: 0;
+            padding-left: 1.15rem;
+            font-size: 0.86rem;
+            color: #475569;
+            line-height: 1.55;
+        }
+        .st-where-list li {
+            margin: 0.35rem 0;
+        }
+        .st-where-list a {
+            color: #0f766e;
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(15, 118, 110, 0.35);
+        }
+        .st-rewards-heading {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            margin: 0.65rem 0 0.35rem;
+        }
+        .st-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .st-modal.is-open {
+            display: flex;
+        }
+        .st-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+        }
+        .st-modal-card {
+            position: relative;
+            width: 100%;
+            max-width: 28rem;
+            background: #fff;
+            border-radius: 16px;
+            padding: 1.25rem 1.35rem 1.2rem;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+        }
+        .st-modal-title {
+            margin: 0 0 0.75rem;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #991b1b;
+        }
+        .st-modal-body {
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: #334155;
+        }
+        .st-modal-body p {
+            margin: 0 0 0.65rem;
+        }
+        .st-modal-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: flex-end;
+            margin-top: 1rem;
+        }
+        .st-modal-cancel {
+            font: inherit;
+            font-weight: 600;
+            font-size: 0.88rem;
+            padding: 0.45rem 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.6);
+            background: #f8fafc;
+            color: #334155;
+            cursor: pointer;
+        }
+        .st-modal-cancel:hover {
+            background: #f1f5f9;
+        }
         .st-track-title {
             font-family: "Orbitron", sans-serif;
             font-size: 0.95rem;
@@ -459,7 +559,7 @@
                 <div class="st-tag">TrifangX · Monthly season</div>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month (UTC). Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. Earn the achievement in TrifangX, then claim the step here for bonus points, cosmetics, and leaderboard flair. Stuck on a step? You can pay a large chunk of career achievement points to skip the challenge and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
+                    One path per calendar month. Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. Meet the challenge in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (The achievement alone does not advance the track until you claim.) Stuck? You can pay a large chunk of career achievement points to skip the challenge check and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
                 </p>
             </section>
 
@@ -469,6 +569,20 @@
                         <div class="st-loading" id="st-loading">Loading your season progress…</div>
                     </div>
                 </article>
+                <div id="st-reset-modal" class="st-modal" aria-hidden="true">
+                  <div class="st-modal-backdrop" tabindex="-1"></div>
+                  <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-reset-modal-title">
+                    <h3 id="st-reset-modal-title" class="st-modal-title">Reset this month’s season track?</h3>
+                    <div class="st-modal-body">
+                      <p>This clears <strong>claimed steps</strong> for the month on your save, removes <strong>cosmetics and leaderboard flair</strong> from those claims, subtracts the matching <strong>season bonus career points</strong>, and resets your season earn baseline. Your global TrifangX achievements are <strong>not</strong> removed. Career points spent on step buyouts are <strong>not</strong> refunded.</p>
+                      <p><strong>This cannot be undone.</strong></p>
+                    </div>
+                    <div class="st-modal-actions">
+                      <button type="button" class="st-modal-cancel" id="st-reset-cancel">Cancel</button>
+                      <button type="button" class="st-reset-btn" id="st-reset-confirm">Reset season</button>
+                    </div>
+                  </div>
+                </div>
             </section>
         </main>
 
@@ -483,6 +597,100 @@
     (function () {
       var API_BASE_URL =
         window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+
+      var pendingSeasonResetBtn = null;
+
+      function closeSeasonResetModal() {
+        var m = document.getElementById('st-reset-modal');
+        if (m) {
+          m.classList.remove('is-open');
+          m.setAttribute('aria-hidden', 'true');
+        }
+        var c = document.getElementById('st-reset-confirm');
+        if (c) {
+          c.disabled = false;
+          c.textContent = 'Reset season';
+        }
+        if (pendingSeasonResetBtn) {
+          pendingSeasonResetBtn.disabled = false;
+          if (pendingSeasonResetBtn.textContent === 'Resetting…') {
+            pendingSeasonResetBtn.textContent = 'Reset season progress…';
+          }
+          pendingSeasonResetBtn = null;
+        }
+      }
+
+      function openSeasonResetModal(btn) {
+        pendingSeasonResetBtn = btn;
+        var m = document.getElementById('st-reset-modal');
+        if (!m) return;
+        m.classList.add('is-open');
+        m.setAttribute('aria-hidden', 'false');
+      }
+
+      function executeSeasonReset() {
+        var btn = pendingSeasonResetBtn;
+        var sid = localStorage.getItem('ahrenslabs_sessionId');
+        if (!sid || !btn) {
+          closeSeasonResetModal();
+          return;
+        }
+        var confirmBtn = document.getElementById('st-reset-confirm');
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Working…';
+        }
+        btn.disabled = true;
+        btn.textContent = 'Resetting…';
+        fetch(API_BASE_URL + '/api/chess/season-reset', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + sid,
+            'Content-Type': 'application/json',
+          },
+          body: '{}',
+        })
+          .then(function (res) {
+            return res.json().then(function (j) {
+              return { res: res, j: j };
+            });
+          })
+          .then(function (pack) {
+            if (pack.res.status === 401) {
+              closeSeasonResetModal();
+              showLogin();
+              return;
+            }
+            if (!pack.j.success) {
+              throw new Error(pack.j.error || 'Reset failed');
+            }
+            closeSeasonResetModal();
+            if (pack.j.chess) {
+              render(pack.j.chess);
+              pingTrifangxCosmeticsRefresh();
+              return;
+            }
+            return fetch(API_BASE_URL + '/api/chess/load', {
+              headers: { Authorization: 'Bearer ' + sid },
+            }).then(function (r2) {
+              if (r2.status === 401) {
+                showLogin();
+                return null;
+              }
+              if (!r2.ok) throw new Error('Could not reload save');
+              return r2.json();
+            }).then(function (d2) {
+              if (d2) {
+                render(d2);
+                pingTrifangxCosmeticsRefresh();
+              }
+            });
+          })
+          .catch(function (e) {
+            closeSeasonResetModal();
+            alert(e.message || 'Could not reset');
+          });
+      }
 
       function achievementIdSet(data) {
         var raw = data && data.achievements;
@@ -502,29 +710,6 @@
           });
         }
         return out;
-      }
-
-      function formatReward(r) {
-        if (!r || !r.kind) return '';
-        if (r.kind === 'shop' && r.category && r.id) {
-          var cat = r.category;
-          if (cat === 'boards') return 'Board style · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'pieces') return 'Piece set · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'highlightColors') return 'Square highlight · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'arrowColors') return 'Arrow color · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'legalMoveDots') return 'Legal move dot · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'themes') return 'Page theme · ' + r.id.replace(/_/g, ' ');
-          if (cat === 'checkmateEffects') return 'Checkmate effect · ' + r.id.replace(/_/g, ' ');
-          return 'Unlock · ' + r.id;
-        }
-        if (r.kind === 'lb_frame' && r.frame) {
-          var fn = String(r.frame).replace(/_/g, ' ');
-          return 'Leaderboard frame · ' + fn;
-        }
-        if (r.kind === 'lb_title' && r.title) return 'Leaderboard title · “' + r.title + '”';
-        if (r.kind === 'lb_prefix' && r.prefix) return 'Leaderboard prefix · ' + r.prefix;
-        if (r.kind === 'lb_suffix' && r.suffix) return 'Leaderboard suffix · ' + r.suffix;
-        return r.kind;
       }
 
       function escapeHtml(s) {
@@ -663,12 +848,12 @@
 
       function formatCountdown(endMs) {
         var now = Date.now();
-        if (endMs <= now) return 'This season has ended (UTC). A new track starts on the 1st.';
+        if (endMs <= now) return 'This season has ended. A new track starts on the 1st of the month.';
         var sec = Math.floor((endMs - now) / 1000);
         var d = Math.floor(sec / 86400);
         var h = Math.floor((sec % 86400) / 3600);
-        if (d >= 1) return 'About ' + d + ' day' + (d === 1 ? '' : 's') + ' left (UTC).';
-        return 'Less than a day left (UTC).';
+        if (d >= 1) return 'About ' + d + ' day' + (d === 1 ? '' : 's') + ' left in this season.';
+        return 'Less than a day left in this season.';
       }
 
       function render(data) {
@@ -709,9 +894,9 @@
           syncNote =
             '<p class="st-note"><strong>Note:</strong> Your cloud save still shows season <code>' +
             escapeHtml(cloudSid) +
-            '</code> while the current UTC month is <code>' +
+            '</code> while this page is showing <code>' +
             escapeHtml(currentSid) +
-            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to roll forward, or claim a step below to align the track. Below, the copy matches the save’s season.</p>';
+            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to refresh your save, or claim a step below to align the track. The timeline below matches your save’s season.</p>';
         }
 
         var themeHtml = '';
@@ -747,18 +932,14 @@
           Math.max(0, Math.floor(Number(data.points) || 0)).toLocaleString() + '</div></div>';
         html += '</div>';
 
-        var canResetSeason =
-          nodesDone > 0 && /^\d{4}-\d{2}$/.test(cloudSid) && cloudSid === currentSid;
-        if (canResetSeason) {
-          html +=
-            '<div class="st-reset-zone" id="st-reset-zone">' +
-            '<h4>Reset this month’s season track</h4>' +
-            '<p>This clears <strong>claimed steps</strong> for <code>' +
-            escapeHtml(currentSid) +
-            '</code>, removes <strong>cosmetics and leaderboard flair</strong> granted by those steps, subtracts this month’s <strong>season bonus points</strong> from your career total, and clears your season earn baseline so counters start fresh for the ladder. Your global TrifangX achievements are <strong>not</strong> removed. Career points spent on step buyouts are <strong>not</strong> refunded (the server does not record which steps used a buyout).</p>' +
-            '<button type="button" class="st-reset-btn" id="st-reset-season-btn">Reset season progress…</button>' +
-            '</div>';
-        }
+        html +=
+          '<div class="st-panel st-where-panel">' +
+          '<h4 class="st-where-title">Where season rewards show up</h4>' +
+          '<ul class="st-where-list">' +
+          '<li><strong>TrifangX (lobby)</strong> — after you <strong>claim</strong> a step on this page, new boards, piece sets, highlights, themes, and checkmate effects show up under <strong>Settings</strong> and the <strong>Shop</strong> so you can equip them.</li>' +
+          '<li><strong>Account dashboard</strong> — leaderboard title, frame, prefix, and suffix from the track are chosen from the flair section there.</li>' +
+          '<li><strong>This page</strong> — each step lists its rewards by name. Finishing the in-game challenge still requires <strong>Claim reward</strong> here to unlock the row and move on.</li>' +
+          '</ul></div>';
 
         html += '<h3 class="st-track-title">Track</h3>';
         html += '<ol class="st-timeline">';
@@ -781,10 +962,12 @@
           var hasAch = !!ach[node.challengeAchievementId];
           var statusMsg = '';
           if (i < nodesDone) {
-            statusMsg = 'Claimed — rewards are in your save.';
+            statusMsg =
+              'Claimed. The list above is what that claim added to your account — use cosmetics in TrifangX Settings / Shop and flair on your account dashboard.';
           } else if (i === nodesDone) {
             if (hasAch) {
-              statusMsg = 'Achievement complete — claim below to apply rewards and advance.';
+              statusMsg =
+                'Challenge met in TrifangX. Press Claim reward below to add this step’s unlocks and bonus points and advance the track. (Claiming is required — the achievement alone does not complete the step.)';
             } else {
               statusMsg =
                 'Work toward this in TrifangX. Only progress after you claimed all earlier track steps counts toward this step.';
@@ -812,7 +995,7 @@
                 '<div class="st-progress">' +
                 '<div class="st-progress-row"><span>Your progress</span><span>Done</span></div>' +
                 '<div class="st-progress-bar"><div class="st-progress-fill" style="width:100%"></div></div>' +
-                '<p class="st-progress-caption">You have met this challenge in TrifangX — claim below to collect rewards.</p>' +
+                '<p class="st-progress-caption">You have met this challenge in TrifangX — claim below to collect rewards and complete this step.</p>' +
                 '</div>';
             } else {
               var pr = getCurrentStepProgress(data, node.challengeAchievementId);
@@ -836,12 +1019,25 @@
             }
           }
           if (node.rewards && node.rewards.length) {
-            html += '<ul class="st-rewards">';
-            for (var r = 0; r < node.rewards.length; r++) {
-              var line = formatReward(node.rewards[r]);
-              if (line) html += '<li>' + escapeHtml(line) + '</li>';
+            var rewardLines = [];
+            for (var ri = 0; ri < node.rewards.length; ri++) {
+              var ln =
+                CS && typeof CS.formatSeasonRewardLine === 'function'
+                  ? CS.formatSeasonRewardLine(node.rewards[ri])
+                  : '';
+              if (ln) rewardLines.push(ln);
             }
-            html += '</ul>';
+            if (rewardLines.length) {
+              var rewardIntro = '';
+              if (i < nodesDone) rewardIntro = '<p class="st-rewards-heading">Unlocked when you claimed this step:</p>';
+              else if (i === nodesDone) rewardIntro = '<p class="st-rewards-heading">You receive these when you press Claim reward:</p>';
+              else rewardIntro = '<p class="st-rewards-heading">You’ll unlock these after you finish the challenge and claim:</p>';
+              html += rewardIntro + '<ul class="st-rewards">';
+              for (var j = 0; j < rewardLines.length; j++) {
+                html += '<li>' + escapeHtml(rewardLines[j]) + '</li>';
+              }
+              html += '</ul>';
+            }
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
           if (i === nodesDone && nodesDone < nodes.length) {
@@ -882,6 +1078,20 @@
         }
 
         html += '</ol>';
+
+        var canResetSeason =
+          nodesDone > 0 && /^\d{4}-\d{2}$/.test(cloudSid) && cloudSid === currentSid;
+        if (canResetSeason) {
+          html +=
+            '<div class="st-reset-zone" id="st-reset-zone">' +
+            '<h4>Reset this month’s season track</h4>' +
+            '<p>Clears <strong>claimed steps</strong> for <code>' +
+            escapeHtml(currentSid) +
+            '</code>, removes track-granted <strong>cosmetics and leaderboard flair</strong>, subtracts matching <strong>season bonus career points</strong>, and resets your season earn baseline. Global achievements stay; buyout points spent are not refunded.</p>' +
+            '<button type="button" class="st-reset-btn" id="st-reset-season-btn">Reset season progress…</button>' +
+            '</div>';
+        }
+
         document.getElementById('st-content').innerHTML = html;
       }
 
@@ -966,69 +1176,6 @@
           });
       }
 
-      function requestSeasonReset(btn) {
-        if (!sessionId || !btn) return;
-        var msg =
-          'Reset the CURRENT UTC month season track?\n\n' +
-          '• Claimed steps go back to zero; earn baseline resets for the ladder.\n' +
-          '• All cosmetics and leaderboard flair from those claims are removed.\n' +
-          '• Season bonus career points from those claims are subtracted.\n' +
-          '• Global achievements are NOT removed.\n' +
-          '• Buyout career points are NOT refunded.\n\n' +
-          'This cannot be undone.';
-        if (!confirm(msg)) return;
-        btn.disabled = true;
-        var orig = btn.textContent;
-        btn.textContent = 'Resetting…';
-        fetch(API_BASE_URL + '/api/chess/season-reset', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer ' + sessionId,
-            'Content-Type': 'application/json',
-          },
-          body: '{}',
-        })
-          .then(function (res) {
-            return res.json().then(function (j) {
-              return { res: res, j: j };
-            });
-          })
-          .then(function (pack) {
-            if (pack.res.status === 401) {
-              showLogin();
-              return;
-            }
-            if (!pack.j.success) {
-              throw new Error(pack.j.error || 'Reset failed');
-            }
-            if (pack.j.chess) {
-              render(pack.j.chess);
-              pingTrifangxCosmeticsRefresh();
-              return;
-            }
-            return fetch(API_BASE_URL + '/api/chess/load', {
-              headers: { Authorization: 'Bearer ' + sessionId },
-            }).then(function (r2) {
-              if (r2.status === 401) {
-                showLogin();
-                return null;
-              }
-              if (!r2.ok) throw new Error('Could not reload save');
-              return r2.json();
-            }).then(function (d2) {
-              if (d2) {
-                render(d2);
-                pingTrifangxCosmeticsRefresh();
-              }
-            });
-          })
-          .catch(function (e) {
-            btn.disabled = false;
-            btn.textContent = orig;
-            alert(e.message || 'Could not reset');
-          });
-      }
-
       var sessionId = localStorage.getItem('ahrenslabs_sessionId');
       if (!sessionId) {
         document.getElementById('st-loading').remove();
@@ -1036,10 +1183,20 @@
         return;
       }
 
+      (function bindSeasonResetModal() {
+        var m = document.getElementById('st-reset-modal');
+        if (!m) return;
+        var bd = m.querySelector('.st-modal-backdrop');
+        var cancel = document.getElementById('st-reset-cancel');
+        var ok = document.getElementById('st-reset-confirm');
+        if (bd) bd.addEventListener('click', closeSeasonResetModal);
+        if (cancel) cancel.addEventListener('click', closeSeasonResetModal);
+        if (ok) ok.addEventListener('click', executeSeasonReset);
+      })();
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
         var resetBtn = ev.target && ev.target.closest && ev.target.closest('#st-reset-season-btn');
         if (resetBtn && !resetBtn.disabled) {
-          requestSeasonReset(resetBtn);
+          openSeasonResetModal(resetBtn);
           return;
         }
         var buyBtn = ev.target && ev.target.closest && ev.target.closest('.st-buyout-btn');
