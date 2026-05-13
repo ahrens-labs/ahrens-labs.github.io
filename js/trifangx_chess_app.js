@@ -6943,21 +6943,80 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       }
     }
 
+    /** Dedupe identical “X/Y” season progress toasts across consecutive games. */
+    let lastSeasonProgressToastSig = '';
+
     /**
-     * End-of-game toast order: highest career points first, then lower (ties: season track before non-season, then id).
+     * One toast for the active season step when it has a multi-count target and is not done (e.g. 36/50).
+     * Skips binary (1-count) steps and skips if this run already unlocked that achievement.
+     */
+    function buildSeasonTrackProgressNotifications(unlockedIdsThisRun) {
+      if (typeof isLoggedIn === 'undefined' || !isLoggedIn) return [];
+      const justUnlocked = unlockedIdsThisRun instanceof Set ? unlockedIdsThisRun : new Set();
+      const order = getSeasonTrackAchievementOrder();
+      if (!order.length) return [];
+      const n = getSeasonTrackNodesCompletedClient();
+      if (n >= order.length) return [];
+      const curId = order[n];
+      if (justUnlocked.has(String(curId))) return [];
+      if (achievements.includes(curId)) return [];
+      if (isSeasonTrackAchievementBlocked(curId)) return [];
+      const all = getAllAchievementsList();
+      const ach = all.find((a) => a && a.id === curId);
+      if (!ach || typeof ach.progress !== 'function') return [];
+      let progress;
+      try {
+        progress = getAchievementProgressResolved(ach);
+      } catch (e) {
+        return [];
+      }
+      const cur = Math.max(0, Math.floor(Number(progress && progress.current) || 0));
+      const tgt = Math.max(1, Math.floor(Number(progress && progress.target) || 1));
+      if (cur >= tgt) return [];
+      if (tgt <= 1) return [];
+      let utcSid = '';
+      try {
+        const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
+        if (CS && typeof CS.getChessSeasonIdUtc === 'function') utcSid = String(CS.getChessSeasonIdUtc() || '');
+      } catch (eSid) {}
+      const sig = utcSid + '|' + curId + '|' + cur + '/' + tgt;
+      if (sig === lastSeasonProgressToastSig) return [];
+      lastSeasonProgressToastSig = sig;
+      const shown = Math.min(cur, tgt);
+      return [
+        {
+          id: '__st_prog_' + curId,
+          relatedAchId: curId,
+          name: ach.name || 'Season step',
+          desc: 'Now at ' + shown + '/' + tgt + ' for this month’s season track (not finished yet).',
+          points: 0,
+          __notifySeason: true,
+          __seasonProgressOnly: true,
+        },
+      ];
+    }
+
+    /**
+     * End-of-game toast order: all season-track achievement unlocks first (track step order), then by points / id.
      * @param {Array<{ id: string, name: string, desc: string, points: number }>} list
      * @returns {Array<{ id: string, name: string, desc: string, points: number, __notifySeason: boolean }>}
      */
     function orderAchievementNotificationsForDisplay(list) {
       if (!Array.isArray(list) || !list.length) return [];
       const order = getSeasonTrackAchievementOrder();
+      const seasonIndex = new Map(order.map((id, i) => [id, i]));
       const seasonSet = new Set(order);
       const tagged = list.map((a) => ({ ...a, __notifySeason: seasonSet.has(a && a.id) }));
       tagged.sort((a, b) => {
+        if (a.__notifySeason !== b.__notifySeason) return a.__notifySeason ? -1 : 1;
+        if (a.__notifySeason && b.__notifySeason) {
+          const ia = seasonIndex.has(a.id) ? seasonIndex.get(a.id) : 999;
+          const ib = seasonIndex.has(b.id) ? seasonIndex.get(b.id) : 999;
+          if (ia !== ib) return ia - ib;
+        }
         const pa = Math.max(0, Math.floor(Number(a.points) || 0));
         const pb = Math.max(0, Math.floor(Number(b.points) || 0));
         if (pb !== pa) return pb - pa;
-        if (a.__notifySeason !== b.__notifySeason) return a.__notifySeason ? -1 : 1;
         return String(a.id || '').localeCompare(String(b.id || ''));
       });
       return tagged;
@@ -7060,8 +7119,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       if (iteration >= maxIterations) {
         console.warn('checkAndUnlockAchievements: max iterations reached; report if achievements look wrong.');
       }
-      if (aggregatedNew.length > 0) {
-        showAchievementNotificationsSequentially(orderAchievementNotificationsForDisplay(aggregatedNew));
+      const unlockedIdsThisRun = new Set(aggregatedNew.map((a) => String(a && a.id)));
+      const unlockedOrdered = orderAchievementNotificationsForDisplay(aggregatedNew);
+      const seasonUnlocks = unlockedOrdered.filter((a) => a.__notifySeason);
+      const nonSeason = unlockedOrdered.filter((a) => !a.__notifySeason);
+      const progressFiltered = buildSeasonTrackProgressNotifications(unlockedIdsThisRun);
+      const finalNotifyList = [...seasonUnlocks, ...progressFiltered, ...nonSeason];
+      if (finalNotifyList.length > 0) {
+        showAchievementNotificationsSequentially(finalNotifyList);
       }
       if (typeof saveChessDataToCloud === 'function') {
         saveChessDataToCloud(false);
@@ -9755,6 +9820,7 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
       newAchievements.forEach((ach, index) => {
         setTimeout(() => {
           const isSeason = !!ach.__notifySeason;
+          const isSeasonProgress = !!ach.__seasonProgressOnly;
           const notification = document.createElement('div');
           const seasonStyle = `
             position: fixed;
@@ -9789,11 +9855,14 @@ if (typeof window !== 'undefined' && typeof window.TRIFANGX_PAGE_MODE !== 'strin
           `;
           notification.style.cssText = isSeason ? seasonStyle : regularStyle;
 
-          const pointsText = ach.points
-            ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 6px;">+${ach.points} career points</div>`
-            : '';
+          const pointsText =
+            ach.points && !isSeasonProgress
+              ? `<div style="font-size: 0.85em; opacity: 0.9; margin-top: 6px;">+${ach.points} career points</div>`
+              : '';
           const ribbon = isSeason
-            ? `<div style="font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 800; opacity: 0.92; margin-bottom: 10px; color: #fef9c3;">Season track</div>`
+            ? `<div style="font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.16em; font-weight: 800; opacity: 0.92; margin-bottom: 10px; color: #fef9c3;">${
+                isSeasonProgress ? 'Season track · Progress' : 'Season track'
+              }</div>`
             : '';
           const nameSize = isSeason ? '1.42em' : '1.5em';
           notification.innerHTML = `

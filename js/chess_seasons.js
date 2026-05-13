@@ -21,10 +21,11 @@
  *      claim skips the achievement check only — it does not unlock the achievement in cloud; rewards
  *      and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
  *
- * 3) Bonus points
- *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
- *      toward public leaderboard career “points” column on the worker (achievement points + bonus).
- *    - Tune curve: early steps cheap encouragement; mid ramp; finale largest. Keep monthly total sane.
+   * 3) Bonus points
+   *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
+   *      toward public leaderboard career “points” column on the worker (achievement points + bonus).
+   *    - Curve: exponential by step index (~base × growth^i), rounded; keep in sync with worker
+   *      `SEASON_CLAIM_NODES` bonusPoints.
  *
  * 4) Rewards
  *    - `shop` rewards use ids that are NOT sold in the regular shop; unlock goes into `shopUnlocks`
@@ -94,50 +95,50 @@
    * @type {Array<Omit<ChessSeasonNode, 'challengeTitle'>>}
    */
   const SEASON_TRACK_MECHANICAL = [
-    { challengeAchievementId: 'first_game', bonusPoints: 12, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
+    { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
     {
       challengeAchievementId: 'knight_to_f3',
-      bonusPoints: 16,
+      bonusPoints: 57,
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
     },
     {
       challengeAchievementId: 'bishop_to_f4',
-      bonusPoints: 18,
+      bonusPoints: 82,
       rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
     },
     {
       challengeAchievementId: 'en_passant',
-      bonusPoints: 28,
+      bonusPoints: 118,
       rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
     },
     {
       challengeAchievementId: 'queen_capturer',
-      bonusPoints: 42,
+      bonusPoints: 169,
       rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
     },
     {
       challengeAchievementId: 'capture_master',
-      bonusPoints: 52,
+      bonusPoints: 242,
       rewards: [{ kind: 'lb_title', title: 'Grove hunter' }],
     },
     {
       challengeAchievementId: 'castler',
-      bonusPoints: 58,
+      bonusPoints: 347,
       rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
     },
     {
       challengeAchievementId: 'promoter',
-      bonusPoints: 62,
+      bonusPoints: 496,
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
     },
     {
       challengeAchievementId: 'checkmate_rook',
-      bonusPoints: 130,
+      bonusPoints: 709,
       rewards: [{ kind: 'lb_title', title: 'Spire sniper' }],
     },
     {
       challengeAchievementId: 'checkmate_queen',
-      bonusPoints: 210,
+      bonusPoints: 1015,
       rewards: [
         { kind: 'lb_frame', frame: 'violet_arc' },
         { kind: 'lb_title', title: 'Ascendant' },

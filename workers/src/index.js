@@ -3207,7 +3207,7 @@ async function executeAdminTestEmailById(env, gate, id) {
       const p = buildSeasonTrackFinaleEmail({
         username: un,
         seasonId: sid,
-        seasonBonusPoints: 828,
+        seasonBonusPoints: 4275,
         chessUrl: `${base}/chess_engine.html`,
         trackUrl: `${base}/chess-season-track.html`,
       });
@@ -3688,50 +3688,50 @@ const CHESS_LB_FLAIR_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc
 
 /** Must match `SEASON_TRACK_MECHANICAL` in js/chess_seasons.js (claim validation). */
 const SEASON_CLAIM_NODES = [
-  { challengeAchievementId: 'first_game', bonusPoints: 12, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
+  { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
   {
     challengeAchievementId: 'knight_to_f3',
-    bonusPoints: 16,
+    bonusPoints: 57,
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_awakening' }],
   },
   {
     challengeAchievementId: 'bishop_to_f4',
-    bonusPoints: 18,
+    bonusPoints: 82,
     rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_glacier_glow' }],
   },
   {
     challengeAchievementId: 'en_passant',
-    bonusPoints: 28,
+    bonusPoints: 118,
     rewards: [{ kind: 'shop', category: 'pieces', id: 'season_trail' }],
   },
   {
     challengeAchievementId: 'queen_capturer',
-    bonusPoints: 42,
+    bonusPoints: 169,
     rewards: [{ kind: 'lb_frame', frame: 'silver_lane' }],
   },
   {
     challengeAchievementId: 'capture_master',
-    bonusPoints: 52,
+    bonusPoints: 242,
     rewards: [{ kind: 'lb_title', title: 'Grove hunter' }],
   },
   {
     challengeAchievementId: 'castler',
-    bonusPoints: 58,
+    bonusPoints: 347,
     rewards: [{ kind: 'lb_frame', frame: 'amber_pulse' }],
   },
   {
     challengeAchievementId: 'promoter',
-    bonusPoints: 62,
+    bonusPoints: 496,
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_rift' }],
   },
   {
     challengeAchievementId: 'checkmate_rook',
-    bonusPoints: 130,
+    bonusPoints: 709,
     rewards: [{ kind: 'lb_title', title: 'Spire sniper' }],
   },
   {
     challengeAchievementId: 'checkmate_queen',
-    bonusPoints: 210,
+    bonusPoints: 1015,
     rewards: [
       { kind: 'lb_frame', frame: 'violet_arc' },
       { kind: 'lb_title', title: 'Ascendant' },
