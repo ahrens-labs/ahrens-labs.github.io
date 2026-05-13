@@ -452,9 +452,8 @@
             <p style="margin:12px 0 0;font-size:0.82rem;font-weight:600;color:#475569;">Preview</p>
             <span id="lb-row-color-preview" style="display:block;width:100%;max-width:280px;height:44px;margin-top:6px;border-radius:10px;border:1px solid #e2e8f0;background:#ffffff;" title="Row preview"></span>
           </div>
-          <p style="margin:14px 0 0 0;display:flex;flex-wrap:wrap;gap:10px;">
-            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save row style</button>
-            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear row style</button>
+          <p class="hint" style="margin:14px 0 0;font-size:0.82rem;color:#64748b;">
+            Row style saves automatically when you change it. Pick <strong>Default</strong> above to clear your tint.
           </p>
           <p class="status" id="lb-row-color-status"></p>
 
@@ -498,8 +497,8 @@
               <label for="dash-lb-flair-suffix">Suffix</label>
               <select id="dash-lb-flair-suffix" aria-label="Leaderboard suffix"></select>
             </div>
-            <p style="margin:16px 0 0;display:flex;flex-wrap:wrap;gap:10px;">
-              <button type="button" class="btn btn-primary" id="btn-dash-lb-flair-save">Save flair</button>
+            <p class="hint" style="margin:14px 0 0;font-size:0.82rem;color:#64748b;">
+              Flair saves automatically when you change a field.
             </p>
           </div>
           <p class="status" id="dash-lb-flair-status"></p>
@@ -723,6 +722,11 @@
 
     let dashLbPreviewUserRef = null;
     let dashLbPreviewChessRef = null;
+    let dashLbFlairSuppressAutoSave = false;
+    let dashLbRowColorSaveTimer = null;
+    let dashLbFlairSaveTimer = null;
+    const DASH_LB_ROW_HEX_AUTOSAVE_MS = 480;
+    const DASH_LB_FLAIR_AUTOSAVE_MS = 420;
 
     const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
     function isAdminBroadcastAccount(email) {
@@ -1506,47 +1510,54 @@
     }
 
     function refreshDashLbFlairFromChess(data) {
-      const form = document.getElementById('dash-lb-flair-form');
-      const hint = document.getElementById('dash-lb-flair-hint');
-      const stEl = document.getElementById('dash-lb-flair-status');
-      if (stEl) setStatus(stEl, '', '');
-      if (!form || !hint) {
-        rebuildDashLbRowPicks();
-        return;
-      }
-      if (!data || typeof data !== 'object') {
-        form.style.display = 'none';
+      dashLbFlairSuppressAutoSave = true;
+      try {
+        const form = document.getElementById('dash-lb-flair-form');
+        const hint = document.getElementById('dash-lb-flair-hint');
+        const stEl = document.getElementById('dash-lb-flair-status');
+        if (stEl) setStatus(stEl, '', '');
+        if (!form || !hint) {
+          rebuildDashLbRowPicks();
+          return;
+        }
+        if (!data || typeof data !== 'object') {
+          form.style.display = 'none';
+          hint.textContent =
+            'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+          refreshDashLbLivePreview();
+          rebuildDashLbRowPicks();
+          return;
+        }
+        const st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        const u = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+        const frames = Array.isArray(u.frames) ? u.frames : [];
+        const titles = Array.isArray(u.titles) ? u.titles : [];
+        const prefixes = Array.isArray(u.prefixes) ? u.prefixes : [];
+        const suffixes = Array.isArray(u.suffixes) ? u.suffixes : [];
+        const hasAny = frames.length + titles.length + prefixes.length + suffixes.length > 0;
+        if (!hasAny) {
+          form.style.display = 'none';
+          hint.textContent =
+            'No flair unlocks yet. Claim season track steps in TrifangX or on the season track page, then return here.';
+          refreshDashLbLivePreview();
+          rebuildDashLbRowPicks();
+          return;
+        }
         hint.textContent =
-          'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
+          'Only options you have unlocked are listed. Changes save to your cloud chess profile and appear on the leaderboard within about a minute.';
+        form.style.display = 'block';
+        const eq = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
+        dashFillSelect(document.getElementById('dash-lb-flair-frame'), [''].concat(frames), eq.frame || '');
+        dashFillSelect(document.getElementById('dash-lb-flair-title'), [''].concat(titles), eq.title || '');
+        dashFillSelect(document.getElementById('dash-lb-flair-prefix'), [''].concat(prefixes), eq.prefix || '');
+        dashFillSelect(document.getElementById('dash-lb-flair-suffix'), [''].concat(suffixes), eq.suffix || '');
         refreshDashLbLivePreview();
         rebuildDashLbRowPicks();
-        return;
+      } finally {
+        setTimeout(function () {
+          dashLbFlairSuppressAutoSave = false;
+        }, 0);
       }
-      const st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
-      const u = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
-      const frames = Array.isArray(u.frames) ? u.frames : [];
-      const titles = Array.isArray(u.titles) ? u.titles : [];
-      const prefixes = Array.isArray(u.prefixes) ? u.prefixes : [];
-      const suffixes = Array.isArray(u.suffixes) ? u.suffixes : [];
-      const hasAny = frames.length + titles.length + prefixes.length + suffixes.length > 0;
-      if (!hasAny) {
-        form.style.display = 'none';
-        hint.textContent =
-          'No flair unlocks yet. Claim season track steps in TrifangX or on the season track page, then return here.';
-        refreshDashLbLivePreview();
-        rebuildDashLbRowPicks();
-        return;
-      }
-      hint.textContent =
-        'Only options you have unlocked are listed. Changes save to your cloud chess profile and appear on the leaderboard.';
-      form.style.display = 'block';
-      const eq = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
-      dashFillSelect(document.getElementById('dash-lb-flair-frame'), [''].concat(frames), eq.frame || '');
-      dashFillSelect(document.getElementById('dash-lb-flair-title'), [''].concat(titles), eq.title || '');
-      dashFillSelect(document.getElementById('dash-lb-flair-prefix'), [''].concat(prefixes), eq.prefix || '');
-      dashFillSelect(document.getElementById('dash-lb-flair-suffix'), [''].concat(suffixes), eq.suffix || '');
-      refreshDashLbLivePreview();
-      rebuildDashLbRowPicks();
     }
 
     async function loadTrifangxPointsForDashboard() {
@@ -1624,6 +1635,159 @@
 
       rebuildDashLbRowPicks();
       refreshDashLbLivePreview();
+    }
+
+    function getDesiredLbRowColorPayloadForSave() {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!U) return undefined;
+      const rad = getDashLbRowBgCheckedRadio();
+      if (!rad) return undefined;
+      const v = rad.value;
+      if (v === '__clear__') return null;
+      if (v === '__custom__') {
+        const el = document.getElementById('dash-lb-row-custom-hex');
+        const hx = U.normalizeLbHex(el && el.value ? el.value : '');
+        if (!hx) return undefined;
+        return hx;
+      }
+      if (v.indexOf('lbrow:') === 0) return v.toLowerCase();
+      return U.normalizeLbHex(v);
+    }
+
+    function lbRowColorPayloadsMatchSaved(desired) {
+      const saved = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+      const a = desired == null ? null : String(desired).toLowerCase();
+      const b = saved == null ? null : String(saved).toLowerCase();
+      return a === b;
+    }
+
+    async function persistLbRowColorFromUi() {
+      const st = document.getElementById('lb-row-color-status');
+      const sessionId = getSessionId();
+      if (!sessionId) return;
+      const desired = getDesiredLbRowColorPayloadForSave();
+      if (desired === undefined) return;
+      if (lbRowColorPayloadsMatchSaved(desired)) return;
+      setStatus(st, 'Saving…', '');
+      const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionId}`,
+        },
+        body: JSON.stringify({ color: desired }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (dashLbPreviewUserRef) {
+          if (data.leaderboardRowColor == null) delete dashLbPreviewUserRef.leaderboardRowColor;
+          else dashLbPreviewUserRef.leaderboardRowColor = data.leaderboardRowColor;
+        }
+        syncDashLbRowSelectionFromSaved();
+        refreshDashLbLivePreview();
+        setStatus(st, 'Saved.', 'ok');
+      } else {
+        setStatus(st, data.error || 'Could not save row style.', 'err');
+      }
+    }
+
+    function schedulePersistLbRowColorDebounced() {
+      clearTimeout(dashLbRowColorSaveTimer);
+      dashLbRowColorSaveTimer = setTimeout(function () {
+        dashLbRowColorSaveTimer = null;
+        void persistLbRowColorFromUi();
+      }, DASH_LB_ROW_HEX_AUTOSAVE_MS);
+    }
+
+    function normDashLbFlairSlot(v) {
+      if (v == null || v === '') return null;
+      return String(v);
+    }
+
+    function normDashLbFlairStr(v) {
+      if (v == null) return '';
+      return String(v);
+    }
+
+    function getDashLbSavedFlairNorm() {
+      const ch = dashLbPreviewChessRef;
+      const st = ch && ch.seasonTrack && typeof ch.seasonTrack === 'object' ? ch.seasonTrack : {};
+      const f = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
+      return {
+        frame: normDashLbFlairSlot(f.frame),
+        title: normDashLbFlairSlot(f.title),
+        prefix: normDashLbFlairStr(f.prefix),
+        suffix: normDashLbFlairStr(f.suffix),
+      };
+    }
+
+    function getDashLbFormFlairNorm() {
+      const frameEl = document.getElementById('dash-lb-flair-frame');
+      const titleEl = document.getElementById('dash-lb-flair-title');
+      const prefixEl = document.getElementById('dash-lb-flair-prefix');
+      const suffixEl = document.getElementById('dash-lb-flair-suffix');
+      return {
+        frame: frameEl && frameEl.value ? String(frameEl.value) : null,
+        title: titleEl && titleEl.value ? String(titleEl.value) : null,
+        prefix: prefixEl ? normDashLbFlairStr(prefixEl.value) : '',
+        suffix: suffixEl ? normDashLbFlairStr(suffixEl.value) : '',
+      };
+    }
+
+    function dashLbFlairNormEquals(a, b) {
+      return (
+        a.frame === b.frame &&
+        a.title === b.title &&
+        a.prefix === b.prefix &&
+        a.suffix === b.suffix
+      );
+    }
+
+    async function persistDashLbFlairFromUi() {
+      if (dashLbFlairSuppressAutoSave) return;
+      const form = document.getElementById('dash-lb-flair-form');
+      if (!form || form.style.display !== 'block') return;
+      const st = document.getElementById('dash-lb-flair-status');
+      const sessionId = getSessionId();
+      if (!sessionId) return;
+      const cur = getDashLbFormFlairNorm();
+      if (dashLbFlairNormEquals(cur, getDashLbSavedFlairNorm())) return;
+      setStatus(st, 'Saving…', '');
+      const body = {
+        frame: cur.frame,
+        title: cur.title,
+        prefix: cur.prefix,
+        suffix: cur.suffix,
+      };
+      const res = await fetch(`${API_BASE_URL}/api/chess/lb-flair`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionId}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (data.chess) {
+          dashLbPreviewChessRef = data.chess;
+          refreshDashLbFlairFromChess(data.chess);
+        } else {
+          refreshDashLbLivePreview();
+        }
+        setStatus(st, 'Saved.', 'ok');
+      } else {
+        setStatus(st, data.error || 'Could not save flair.', 'err');
+      }
+    }
+
+    function schedulePersistDashLbFlair() {
+      if (dashLbFlairSuppressAutoSave) return;
+      clearTimeout(dashLbFlairSaveTimer);
+      dashLbFlairSaveTimer = setTimeout(function () {
+        dashLbFlairSaveTimer = null;
+        void persistDashLbFlairFromUi();
+      }, DASH_LB_FLAIR_AUTOSAVE_MS);
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
@@ -2149,6 +2313,7 @@
             updateDashLbRowSwatchSelectionState();
             refreshDashLbLivePreview();
             dashLbRowPaintPreview();
+            void persistLbRowColorFromUi();
           }
         });
       }
@@ -2165,116 +2330,20 @@
           if (rad && rad.value === '__custom__') {
             refreshDashLbLivePreview();
             dashLbRowPaintPreview();
-          }
-        });
-      }
-
-      const btnLbSave = document.getElementById('btn-lb-row-color-save');
-      if (btnLbSave) {
-        btnLbSave.addEventListener('click', async () => {
-          const st = document.getElementById('lb-row-color-status');
-          const sessionId = getSessionId();
-          setStatus(st, '', '');
-          const rad = getDashLbRowBgCheckedRadio();
-          if (!rad) return;
-          let colorPayload;
-          if (rad.value === '__clear__') colorPayload = null;
-          else if (rad.value === '__custom__') {
-            const hx = ChessLbRowUi.normalizeLbHex(document.getElementById('dash-lb-row-custom-hex').value);
-            if (!hx) {
-              setStatus(st, 'Pick a custom color, or choose another row style.', 'err');
-              return;
-            }
-            colorPayload = hx;
-          } else {
-            colorPayload = rad.value;
-          }
-          const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionId}`,
-            },
-            body: JSON.stringify({ color: colorPayload }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            user.leaderboardRowColor = data.leaderboardRowColor;
-            applyUserToForm(user);
-            setStatus(st, 'Saved. Your leaderboard row will use this style.', 'ok');
-          } else {
-            setStatus(st, data.error || 'Could not save row style.', 'err');
-          }
-        });
-      }
-
-      const btnLbClear = document.getElementById('btn-lb-row-color-clear');
-      if (btnLbClear) {
-        btnLbClear.addEventListener('click', async () => {
-          const st = document.getElementById('lb-row-color-status');
-          const sessionId = getSessionId();
-          setStatus(st, '', '');
-          const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionId}`,
-            },
-            body: JSON.stringify({ color: null }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            delete user.leaderboardRowColor;
-            applyUserToForm(user);
-            setStatus(st, 'Cleared. Your row uses the default white bar.', 'ok');
-          } else {
-            setStatus(st, data.error || 'Could not clear.', 'err');
+            schedulePersistLbRowColorDebounced();
           }
         });
       }
 
       ['dash-lb-flair-frame', 'dash-lb-flair-title', 'dash-lb-flair-prefix', 'dash-lb-flair-suffix'].forEach((id) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener('change', () => refreshDashLbLivePreview());
-      });
-
-
-      const btnDashLbFlair = document.getElementById('btn-dash-lb-flair-save');
-      if (btnDashLbFlair) {
-        btnDashLbFlair.addEventListener('click', async () => {
-          const st = document.getElementById('dash-lb-flair-status');
-          const sessionId = getSessionId();
-          setStatus(st, '', '');
-          const frameEl = document.getElementById('dash-lb-flair-frame');
-          const titleEl = document.getElementById('dash-lb-flair-title');
-          const prefixEl = document.getElementById('dash-lb-flair-prefix');
-          const suffixEl = document.getElementById('dash-lb-flair-suffix');
-          const fv = frameEl && frameEl.value ? frameEl.value : null;
-          const tv = titleEl && titleEl.value ? titleEl.value : null;
-          const body = {
-            frame: fv,
-            title: tv,
-            prefix: prefixEl ? prefixEl.value : '',
-            suffix: suffixEl ? suffixEl.value : '',
-          };
-          const res = await fetch(`${API_BASE_URL}/api/chess/lb-flair`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionId}`,
-            },
-            body: JSON.stringify(body),
+        if (el) {
+          el.addEventListener('change', () => {
+            refreshDashLbLivePreview();
+            schedulePersistDashLbFlair();
           });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data.success) {
-            setStatus(st, 'Saved. Flair updates on the leaderboard within about a minute.', 'ok');
-            if (data.chess) refreshDashLbFlairFromChess(data.chess);
-          } else {
-            setStatus(st, data.error || 'Could not save flair.', 'err');
-          }
-        });
-      }
-
+        }
+      });
       document.getElementById('btn-save-email-prefs').addEventListener('click', async () => {
         const st = document.getElementById('email-pref-status');
         const sessionId = getSessionId();
