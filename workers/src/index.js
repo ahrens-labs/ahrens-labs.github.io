@@ -3630,7 +3630,7 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
   const safeChessUrl = escapeHtmlEmail(chessUrl);
   const safeTrackUrl = escapeHtmlEmail(trackUrl);
   const subject = `TrifangX season cleared — ${formatSeasonIdForEmail(seasonId)}`;
-  const preheader = `You finished all 10 monthly season challenges for ${formatSeasonIdForEmail(seasonId)}. Claimed rewards, flair, and ${bonusLabel} season bonus points are on your account.`;
+  const preheader = `You ran the table this month — rare cosmetics, leaderboard sparkle, and ${bonusLabel} bonus points to flex with.`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -3645,20 +3645,21 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
             <td style="background-image:linear-gradient(125deg,#0f766e 0%,#4f46e5 48%,#6d28d9 100%);padding:36px 34px 32px 34px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#ffffff;">
               <div style="display:inline-block;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);color:#fef9c3;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;">Season track complete</div>
               <p style="margin:18px 0 0 0;font-size:34px;font-weight:900;line-height:1.1;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.35);">Congratulations, ${safeName}!</p>
-              <p style="margin:14px 0 0 0;font-size:16px;line-height:1.55;color:#e0e7ff;font-weight:500;">You cleared <strong style="color:#fef08a;">all 10 challenges</strong> on the <strong style="color:#fff;">${seasonLabel}</strong> ladder.</p>
+              <p style="margin:14px 0 0 0;font-size:16px;line-height:1.55;color:#e0e7ff;font-weight:500;">You cleared <strong style="color:#fef08a;">all 10 challenges</strong> on the <strong style="color:#fff;">${seasonLabel}</strong> ladder — that puts you in rare company.</p>
             </td>
           </tr>
           <tr>
             <td style="padding:26px 30px 10px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:15px;line-height:1.65;color:#334155;">
-              <p style="margin:0 0 14px 0;">Finale rewards (boards, pieces, themes, leaderboard flair, and more) are already unlocked on your save. You have earned <strong style="color:#0f766e;">${escapeHtmlEmail(bonusLabel)}</strong> total <strong>season bonus points</strong> toward career totals this month.</p>
-              <p style="margin:0 0 18px 0;">Thank you for going the distance — few players clear the full track.</p>
+              <p style="margin:0 0 14px 0;">You unlocked the big finale bundle: showy <strong>boards and piece sets</strong>, a moody <strong>theme</strong>, and extras that make your moves feel louder. You also picked up <strong>titles and frames</strong> so your name can shine the way you want it to on the <strong style="color:#0f766e;">public leaderboard</strong>.</p>
+              <p style="margin:0 0 14px 0;">On top of the bragging rights, you banked <strong style="color:#0f766e;">${escapeHtmlEmail(bonusLabel)}</strong> <strong>bonus points this season</strong> — stack that on your achievement score and watch the ranks react.</p>
+              <p style="margin:0 0 18px 0;">Jump in, equip what you like, and give the ladder something to remember you by.</p>
             </td>
           </tr>
           <tr>
             <td align="center" style="padding:8px 30px 36px 30px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
               <a href="${safeChessUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(15,118,110,.35);">Open TrifangX →</a>
               <a href="${safeTrackUrl}" style="display:inline-block;margin:6px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#ffffff !important;text-decoration:none;border-radius:999px;padding:14px 26px;font-weight:900;font-size:15px;box-shadow:0 10px 28px rgba(79,70,229,.35);">Season track page →</a>
-              <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">When the calendar rolls to a new month, a fresh ladder begins. See you on the next climb.</p>
+              <p style="margin:20px 0 0 0;font-size:13px;line-height:1.55;color:#64748b;">Next month brings a brand-new climb — same heat, fresh rewards. Hope we see you at the top again.</p>
             </td>
           </tr>
         </table>
@@ -3671,13 +3672,15 @@ function buildSeasonTrackFinaleEmail({ username, seasonId, seasonBonusPoints, ch
   const text = [
     `Hi ${username || 'there'},`,
     '',
-    `Congratulations — you completed all 10 TrifangX monthly season challenges for ${formatSeasonIdForEmail(seasonId)}.`,
-    `Season bonus points on your account (total this season): ${bonusLabel}.`,
+    `You cleared every rung of the ${formatSeasonIdForEmail(seasonId)} season ladder — all 10 TrifangX monthly challenges. That is a rare finish.`,
     '',
-    `Play again: ${chessUrl}`,
-    `Season track: ${trackUrl}`,
+    'You unlocked the finale bundle: exclusive boards, pieces, themes, and flair so you can stand out on the public leaderboard. You also piled on bonus points for the season — ',
+    `${bonusLabel} extra — on top of what you earned from achievements, so your career score gets a serious bump.`,
     '',
-    'A new ladder starts each calendar month.',
+    `Open TrifangX and equip what you like: ${chessUrl}`,
+    `See the track and what is next: ${trackUrl}`,
+    '',
+    'A new ladder opens next month if you want another shot at the spotlight.',
   ].join('\n');
 
   return { subject, html, text };
