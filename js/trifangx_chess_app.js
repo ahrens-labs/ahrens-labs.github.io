@@ -3400,9 +3400,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         // Load saved board style
         const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
-        // Ensure saved style is unlocked, otherwise use classic
-        const unlocked = getUnlockedItems();
-        if (!unlocked.boards.includes(savedStyle)) {
+        // Ensure saved style is unlocked, otherwise use classic (isUnlocked matches equipped settings via bridge)
+        if (!isUnlocked('boards', savedStyle)) {
           localStorage.setItem('chessboardStyle', 'classic');
           document.getElementById('board-style').value = 'classic';
         } else {
@@ -3413,7 +3412,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         // Load saved piece style
         const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
         // Ensure saved style is unlocked, otherwise use classic
-        if (!unlocked.pieces.includes(savedPieceStyle)) {
+        if (!isUnlocked('pieces', savedPieceStyle)) {
           localStorage.setItem('chessPieceStyle', 'classic');
           currentPieceStyle = 'classic';
           document.getElementById('piece-style').value = 'classic';
@@ -3421,6 +3420,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         currentPieceStyle = savedPieceStyle;
         document.getElementById('piece-style').value = savedPieceStyle;
         }
+        
+        const unlocked = getUnlockedItems();
         
         // Load saved colors and apply theme
         currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
@@ -11629,6 +11630,60 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     let isLoggedIn = false;
     let saveTimeout = null;
     let dataLoaded = false;
+
+    const TRIFANGX_SHOP_UNLOCK_MERGE_KEYS = [
+      'boards',
+      'pieces',
+      'highlightColors',
+      'arrowColors',
+      'legalMoveDots',
+      'themes',
+      'moveEffects',
+      'timeControls',
+      'checkmateEffects',
+    ];
+
+    /** Baseline shop unlocks; merged with API so `{}` or partial objects cannot wipe categories. */
+    const TRIFANGX_DEFAULT_SHOP_UNLOCKS = {
+      boards: ['classic'],
+      pieces: ['classic'],
+      highlightColors: ['red'],
+      arrowColors: ['red'],
+      legalMoveDots: ['blue-circle'],
+      themes: ['light'],
+      moveEffects: ['default'],
+      checkmateEffects: [],
+      timeControls: ['none'],
+    };
+
+    const TRIFANGX_DEFAULT_CHESS_SETTINGS = {
+      boardStyle: 'classic',
+      pieceStyle: 'classic',
+      highlightColor: 'red',
+      arrowColor: 'red',
+      legalMoveDotStyle: 'blue-circle',
+      pageTheme: 'light',
+      checkmateAddons: [],
+      timeControl: 'none',
+      moveEffect: 'default',
+    };
+
+    function mergeTrifangxShopUnlocksClient(prev, incoming) {
+      const p = prev && typeof prev === 'object' ? prev : {};
+      const i = incoming && typeof incoming === 'object' ? incoming : {};
+      const out = { ...p };
+      for (const cat of TRIFANGX_SHOP_UNLOCK_MERGE_KEYS) {
+        const merged = [
+          ...new Set(
+            [...(Array.isArray(p[cat]) ? p[cat] : []), ...(Array.isArray(i[cat]) ? i[cat] : [])]
+              .map((x) => String(x))
+              .filter((x) => x !== '')
+          ),
+        ];
+        out[cat] = merged;
+      }
+      return out;
+    }
     
     // Load chess data from cloud
     async function loadChessDataFromCloud() {
@@ -11677,29 +11732,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           });
         }
 
-        // Ensure data has all required fields with defaults
+        // Ensure data has all required fields with defaults (empty `{}` from API is truthy — must merge)
         cloudChessData = {
           achievements: achievementsObj,
           points: data.points || 0,
-          shopUnlocks: data.shopUnlocks || {
-            boards: ['classic'],
-            pieces: ['classic'],
-            highlightColors: ['red'],
-            arrowColors: ['red'],
-            legalMoveDots: ['blue-circle'],
-            themes: ['light'],
-            checkmateEffects: [],
-            timeControls: ['none']
-          },
-          settings: data.settings || {
-            boardStyle: 'classic',
-            pieceStyle: 'classic',
-            highlightColor: 'red',
-            arrowColor: 'red',
-            legalMoveDotStyle: 'blue-circle',
-            pageTheme: 'light',
-            checkmateAddons: [],
-            timeControl: 'none'
+          shopUnlocks: mergeTrifangxShopUnlocksClient(
+            TRIFANGX_DEFAULT_SHOP_UNLOCKS,
+            data.shopUnlocks && typeof data.shopUnlocks === 'object' ? data.shopUnlocks : {}
+          ),
+          settings: {
+            ...TRIFANGX_DEFAULT_CHESS_SETTINGS,
+            ...(data.settings && typeof data.settings === 'object' ? data.settings : {}),
           },
           stats: data.stats || {
             playerStats: { wins: 0, losses: 0, draws: 0 },
@@ -11758,35 +11801,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         window.location.href = 'account.html?return=' + encodeURIComponent(trifangxAccountReturnFilename());
         return false;
       }
-    }
-
-    const TRIFANGX_SHOP_UNLOCK_MERGE_KEYS = [
-      'boards',
-      'pieces',
-      'highlightColors',
-      'arrowColors',
-      'legalMoveDots',
-      'themes',
-      'moveEffects',
-      'timeControls',
-      'checkmateEffects',
-    ];
-
-    function mergeTrifangxShopUnlocksClient(prev, incoming) {
-      const p = prev && typeof prev === 'object' ? prev : {};
-      const i = incoming && typeof incoming === 'object' ? incoming : {};
-      const out = { ...p };
-      for (const cat of TRIFANGX_SHOP_UNLOCK_MERGE_KEYS) {
-        const merged = [
-          ...new Set(
-            [...(Array.isArray(p[cat]) ? p[cat] : []), ...(Array.isArray(i[cat]) ? i[cat] : [])]
-              .map((x) => String(x))
-              .filter((x) => x !== '')
-          ),
-        ];
-        out[cat] = merged;
-      }
-      return out;
     }
 
     /** When another tab claims a season step (see chess-season-track.html), pull authoritative cosmetics without clobbering in-memory game state. */
