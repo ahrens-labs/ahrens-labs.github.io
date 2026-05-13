@@ -21,11 +21,11 @@
  *      claim skips the achievement check only — it does not unlock the achievement in cloud; rewards
  *      and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
  *
-   * 3) Bonus points
-   *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
-   *      toward public leaderboard career “points” column on the worker (achievement points + bonus).
-   *    - Curve: exponential by step index (~base × growth^i), rounded; keep in sync with worker
-   *      `SEASON_CLAIM_NODES` bonusPoints.
+ * 3) Bonus points
+ *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
+ *      toward public leaderboard career “points” column on the worker (achievement points + bonus).
+ *    - Curve: exponential by step index (~base × growth^i), rounded; keep in sync with worker
+ *      `SEASON_CLAIM_NODES` bonusPoints.
  *
  * 4) Rewards
  *    - `shop` rewards use ids that are NOT sold in the regular shop; unlock goes into `shopUnlocks`
