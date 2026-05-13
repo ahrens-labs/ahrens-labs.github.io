@@ -84,7 +84,7 @@
 
   var LB_ROW_CUSTOM_HEX_MIN_NODES = 4;
 
-  /** @type {Record<string, { label: string, minNodes: number, bg: string, bgHover: string, border: string, sampleHex: string, fgPalette: { fg: string, rankFg: string, statMuted: string, statPos: string, statNeg: string, textShadow: string } }>} */
+  /** @type {Record<string, { label: string, minNodes: number, bg: string, bgHover: string, border: string, sampleHex: string, fgPalette: { fg: string, rankFg: string, statMuted: string, statPos: string, statNeg: string } }>} */
   var LB_ROW_PRESETS = Object.freeze({
     emerald_glade: {
       label: 'Emerald glade',
@@ -99,7 +99,6 @@
         statMuted: '#475569',
         statPos: '#047857',
         statNeg: '#b91c1c',
-        textShadow: '0 1px 2px rgba(255, 255, 255, 0.55), 0 0 1px rgba(255, 255, 255, 0.35)',
       },
     },
     glacier_ribbon: {
@@ -115,7 +114,6 @@
         statMuted: '#475569',
         statPos: '#0f766e',
         statNeg: '#b91c1c',
-        textShadow: '0 1px 2px rgba(255, 255, 255, 0.55), 0 0 1px rgba(255, 255, 255, 0.35)',
       },
     },
     violet_canopy: {
@@ -131,7 +129,6 @@
         statMuted: '#5b567c',
         statPos: '#047857',
         statNeg: '#9d174d',
-        textShadow: '0 1px 2px rgba(255, 255, 255, 0.65), 0 0 1px rgba(255, 255, 255, 0.45)',
       },
     },
     moonlit_band: {
@@ -147,7 +144,6 @@
         statMuted: '#cbd5e1',
         statPos: '#6ee7b7',
         statNeg: '#fecaca',
-        textShadow: '0 1px 3px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.45)',
       },
     },
     finale_aurora: {
@@ -163,7 +159,6 @@
         statMuted: '#cbd5e1',
         statPos: '#bbf7d0',
         statNeg: '#fecaca',
-        textShadow: '0 1px 3px rgba(0, 0, 0, 0.55), 0 0 14px rgba(0, 0, 0, 0.35)',
       },
     },
   });
@@ -222,7 +217,6 @@
     tr.style.setProperty('--lb-stat-muted', pal.statMuted);
     tr.style.setProperty('--lb-stat-pos', pal.statPos);
     tr.style.setProperty('--lb-stat-neg', pal.statNeg);
-    tr.style.setProperty('--lb-text-shadow', pal.textShadow || 'none');
   }
 
   function applyLeaderboardRowFromStored(tr, stored) {
@@ -286,7 +280,6 @@
       tr.style.setProperty('--lb-stat-pos', '#6ee7b7');
       tr.style.setProperty('--lb-stat-neg', '#fca5a5');
     }
-    tr.style.setProperty('--lb-text-shadow', 'none');
   }
 
   var LB_FRAMES = { silver_lane: 1, amber_pulse: 1, violet_arc: 1 };

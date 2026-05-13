@@ -23,7 +23,6 @@ table.lb-table {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .lb-table th.lb-stat-head {
   text-align: right;
@@ -46,14 +45,9 @@ table.lb-table {
   background: var(--lb-bg) !important;
   border-bottom-color: var(--lb-border);
   color: var(--lb-fg);
-  text-shadow: var(--lb-text-shadow, none);
 }
 .lb-table tbody tr.lb-row-themed:hover td {
   background: var(--lb-bg-hover) !important;
-  text-shadow: var(--lb-text-shadow, none);
-}
-.lb-table tbody tr.lb-row-themed .lb-stat {
-  font-weight: 800;
 }
 .lb-table tbody tr.lb-row-themed .lb-rank {
   color: var(--lb-rank-fg);
@@ -178,7 +172,6 @@ table.lb-table {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.12) inset,
     0 2px 12px rgba(76, 29, 149, 0.35);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .lb-table tbody tr.lb-row-themed .lb-flair-prefix,
@@ -201,7 +194,6 @@ table.lb-table {
 .lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-violet_arc {
   color: #fefcff;
   border-color: #6d28d9;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(0, 0, 0, 0.25);
 }
 
 /* Row tint must not override text inside season frames — username/title stay frame-contrast */
