@@ -51,6 +51,18 @@
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
     .full-span { grid-column: 1 / -1; }
+    .dash-lb-row-swatch-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+    .dash-lb-row-swatch {
+      display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+      padding: 6px 8px 8px; border-radius: 10px; border: 2px solid #e2e8f0; cursor: pointer;
+      background: #fff; min-width: 86px; max-width: 120px; box-sizing: border-box;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .dash-lb-row-swatch--on { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18); }
+    .dash-lb-row-swatch input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .dash-lb-row-swatch-fill { border-radius: 6px; min-height: 28px; width: 100%; border: 1px solid rgba(148, 163, 184, 0.35); }
+    .dash-lb-row-swatch-cap { font-size: 0.68rem; font-weight: 600; color: #64748b; line-height: 1.2; text-align: center; }
+    .dash-lb-row-swatch--disabled { opacity: 0.48; cursor: not-allowed; }
     .trifangx-dashboard-embed-frame {
       position: fixed;
       inset: 0;
@@ -414,15 +426,35 @@
           </p>
 
           <h3 style="margin:18px 0 10px;font-size:0.95rem;color:#334155;">Row background</h3>
-          <p class="hint" style="font-size:0.85rem">Background tint for your row. Leave unset for a plain white bar.</p>
-          <div class="form-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;">
-            <label for="lb-row-color">Color</label>
-            <input type="color" id="lb-row-color" value="#94a3b8" aria-label="Leaderboard row background color" style="width:52px;height:40px;padding:0;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">
-            <span id="lb-row-color-preview" style="display:inline-block;min-width:140px;height:40px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;vertical-align:middle;" title="Preview"></span>
+          <p class="hint" style="font-size:0.85rem">
+            Everyone gets a small set of standard tints. Claim steps on this month’s
+            <a href="chess-season-track.html">season track</a> in TrifangX to unlock gradients and any custom hex.
+          </p>
+          <div id="dash-lb-row-picks-wrap">
+            <p style="margin:10px 0 6px;font-size:0.82rem;font-weight:600;color:#475569;">Standard tints</p>
+            <div id="dash-lb-row-picks-basic" class="dash-lb-row-swatch-grid" aria-label="Standard row colors"></div>
+            <div id="dash-lb-row-picks-season-block" style="margin-top:14px;">
+              <p style="margin:0 0 6px;font-size:0.82rem;font-weight:600;color:#0f766e;">Season row finishes</p>
+              <p class="hint" style="font-size:0.8rem;margin:0 0 8px;">
+                Gradients unlock at 4, 7, and 10 monthly claims (this UTC season). Custom hex unlocks after 4 claims.
+              </p>
+              <div id="dash-lb-row-picks-season" class="dash-lb-row-swatch-grid" aria-label="Season gradients"></div>
+              <div id="dash-lb-row-custom-wrap" style="display:none;margin-top:12px;">
+                <label for="dash-lb-row-custom-hex" style="font-size:0.82rem;font-weight:600;color:#334155;">Custom hex</label>
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:6px;">
+                  <input type="color" id="dash-lb-row-custom-hex" value="#64748b" aria-label="Custom leaderboard row color" style="width:52px;height:40px;padding:0;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">
+                  <label style="display:inline-flex;align-items:center;gap:8px;font-size:0.85rem;color:#475569;">
+                    <input type="radio" name="dash-lb-row-bg" value="__custom__" id="dash-lb-row-bg-custom-radio"> Use custom color
+                  </label>
+                </div>
+              </div>
+            </div>
+            <p style="margin:12px 0 0;font-size:0.82rem;font-weight:600;color:#475569;">Preview</p>
+            <span id="lb-row-color-preview" style="display:block;width:100%;max-width:280px;height:44px;margin-top:6px;border-radius:10px;border:1px solid #e2e8f0;background:#ffffff;" title="Row preview"></span>
           </div>
           <p style="margin:14px 0 0 0;display:flex;flex-wrap:wrap;gap:10px;">
-            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save row color</button>
-            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear row color</button>
+            <button type="button" class="btn btn-primary" id="btn-lb-row-color-save">Save row style</button>
+            <button type="button" class="btn btn-ghost" id="btn-lb-row-color-clear">Clear row style</button>
           </p>
           <p class="status" id="lb-row-color-status"></p>
 
@@ -1204,22 +1236,163 @@
     }
 
     function normalizeDashLbSavedRowColor(user) {
-      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
       const raw = user && user.leaderboardRowColor;
-      if (typeof raw !== 'string' || !U || typeof U.normalizeLbHex !== 'function') return null;
-      return U.normalizeLbHex(raw.trim());
+      if (typeof raw !== 'string') return null;
+      const t = raw.trim();
+      if (!t) return null;
+      if (/^lbrow:[a-z0-9_]+$/i.test(t)) return t.toLowerCase();
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!U || typeof U.normalizeLbHex !== 'function') return null;
+      return U.normalizeLbHex(t);
+    }
+
+    function updateDashLbRowSwatchSelectionState() {
+      document.querySelectorAll('.dash-lb-row-swatch').forEach((lab) => {
+        const inp = lab.querySelector('input[name="dash-lb-row-bg"]');
+        lab.classList.toggle('dash-lb-row-swatch--on', !!(inp && inp.checked));
+      });
+    }
+
+    function getDashLbRowEffectiveRowColor() {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!U) return null;
+      const rad = document.querySelector('input[name="dash-lb-row-bg"]:checked');
+      if (!rad) return null;
+      const v = rad.value;
+      if (v === '__clear__') return null;
+      if (v === '__custom__') {
+        const c = document.getElementById('dash-lb-row-custom-hex');
+        return U.normalizeLbHex(c && c.value ? c.value : '') || null;
+      }
+      if (v.indexOf('lbrow:') === 0) return v.toLowerCase();
+      return U.normalizeLbHex(v);
+    }
+
+    function dashLbRowPaintPreview() {
+      const pv = document.getElementById('lb-row-color-preview');
+      if (!pv) return;
+      const val = getDashLbRowEffectiveRowColor();
+      if (!val) {
+        pv.style.background = '#ffffff';
+        pv.style.backgroundImage = '';
+        return;
+      }
+      if (val.indexOf('lbrow:') === 0) {
+        const id = val.slice(6);
+        const d = ChessLbRowUi.getLbRowPresetDef(id);
+        if (d) {
+          pv.style.background = d.bg;
+          pv.style.backgroundImage = '';
+          return;
+        }
+      }
+      pv.style.backgroundImage = '';
+      pv.style.background = val;
+    }
+
+    function syncDashLbRowSelectionFromSaved() {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      if (!U) return;
+      const raw = dashLbPreviewUserRef && dashLbPreviewUserRef.leaderboardRowColor;
+      const s = typeof raw === 'string' ? raw.trim() : '';
+      let sel = '__clear__';
+      if (s) {
+        if (/^lbrow:/i.test(s)) sel = s.toLowerCase();
+        else {
+          const hx = U.normalizeLbHex(s);
+          if (hx) {
+            if (U.isLbRowBasicHex(hx)) sel = hx;
+            else if (U.isLbRowCustomHexUnlocked(dashLbPreviewChessRef)) {
+              sel = '__custom__';
+              const c = document.getElementById('dash-lb-row-custom-hex');
+              if (c) c.value = hx;
+            } else sel = '__clear__';
+          }
+        }
+      }
+      const radios = document.querySelectorAll('input[name="dash-lb-row-bg"]');
+      let hit = false;
+      radios.forEach((r) => {
+        const on = r.value === sel;
+        r.checked = on;
+        if (on) hit = true;
+      });
+      if (!hit) {
+        radios.forEach((r) => {
+          if (r.value === '__clear__') r.checked = true;
+        });
+      }
+      updateDashLbRowSwatchSelectionState();
+      dashLbRowPaintPreview();
+    }
+
+    function rebuildDashLbRowPicks() {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      const basicHost = document.getElementById('dash-lb-row-picks-basic');
+      const seasonHost = document.getElementById('dash-lb-row-picks-season');
+      const customWrap = document.getElementById('dash-lb-row-custom-wrap');
+      if (!basicHost || !seasonHost || !U || !U.LB_ROW_BASIC_HEXES) return;
+
+      function makeSwatch(value, cap, fillStyle, unlocked) {
+        const lab = document.createElement('label');
+        lab.className = 'dash-lb-row-swatch' + (unlocked === false ? ' dash-lb-row-swatch--disabled' : '');
+        const inp = document.createElement('input');
+        inp.type = 'radio';
+        inp.name = 'dash-lb-row-bg';
+        inp.value = value;
+        if (unlocked === false) inp.disabled = true;
+        const fill = document.createElement('span');
+        fill.className = 'dash-lb-row-swatch-fill';
+        if (fillStyle) fill.setAttribute('style', fillStyle);
+        const capEl = document.createElement('span');
+        capEl.className = 'dash-lb-row-swatch-cap';
+        capEl.textContent = cap;
+        lab.appendChild(inp);
+        lab.appendChild(fill);
+        lab.appendChild(capEl);
+        lab.title = cap;
+        return lab;
+      }
+
+      basicHost.innerHTML = '';
+      seasonHost.innerHTML = '';
+
+      basicHost.appendChild(makeSwatch('__clear__', 'Default', 'background:#ffffff', true));
+      const basicCap = {
+        '#ffffff': 'White',
+        '#f8fafc': 'Snow',
+        '#f1f5f9': 'Cloud',
+        '#e2e8f0': 'Slate',
+        '#dbeafe': 'Ice',
+        '#fef3c7': 'Cream',
+        '#dcfce7': 'Mint',
+        '#94a3b8': 'Mist',
+      };
+      U.LB_ROW_BASIC_HEXES.forEach((hex) => {
+        basicHost.appendChild(makeSwatch(hex, basicCap[hex] || 'Tint', 'background:' + hex + ' !important', true));
+      });
+
+      Object.keys(U.LB_ROW_PRESETS || {}).forEach((pid) => {
+        const def = U.LB_ROW_PRESETS[pid];
+        const token = 'lbrow:' + pid;
+        const ok = U.isLbRowPresetUnlocked(dashLbPreviewChessRef, pid);
+        const need = def.minNodes;
+        const cap = (ok ? '' : '🔒 ') + def.label;
+        const fillSt = 'background:' + def.bg + ' !important;border:none;';
+        const sw = makeSwatch(token, cap, fillSt, ok);
+        if (!ok) sw.title = 'Claim at least ' + need + ' monthly season steps (this UTC month) to unlock.';
+        seasonHost.appendChild(sw);
+      });
+
+      if (customWrap) {
+        customWrap.style.display = U.isLbRowCustomHexUnlocked(dashLbPreviewChessRef) ? 'block' : 'none';
+      }
+
+      syncDashLbRowSelectionFromSaved();
     }
 
     function getDashLbPreviewRowColor() {
-      const lc = document.getElementById('lb-row-color');
-      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
-      if (!lc || !U || typeof U.normalizeLbHex !== 'function') return null;
-      const fromInput = U.normalizeLbHex(lc.value);
-      if (!fromInput) return null;
-      const savedNorm = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
-      const hasSaved = !!savedNorm;
-      if (!hasSaved && fromInput === '#94a3b8') return null;
-      return fromInput;
+      return getDashLbRowEffectiveRowColor();
     }
 
     function dashLbPreviewPoints() {
@@ -1321,12 +1494,16 @@
       const hint = document.getElementById('dash-lb-flair-hint');
       const stEl = document.getElementById('dash-lb-flair-status');
       if (stEl) setStatus(stEl, '', '');
-      if (!form || !hint) return;
+      if (!form || !hint) {
+        rebuildDashLbRowPicks();
+        return;
+      }
       if (!data || typeof data !== 'object') {
         form.style.display = 'none';
         hint.textContent =
           'Could not load chess data. Open TrifangX while signed in once to sync, then refresh this page.';
         refreshDashLbLivePreview();
+        rebuildDashLbRowPicks();
         return;
       }
       const st = data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
@@ -1341,6 +1518,7 @@
         hint.textContent =
           'No flair unlocks yet. Claim season track steps in TrifangX or on the season track page, then return here.';
         refreshDashLbLivePreview();
+        rebuildDashLbRowPicks();
         return;
       }
       hint.textContent =
@@ -1352,6 +1530,7 @@
       dashFillSelect(document.getElementById('dash-lb-flair-prefix'), [''].concat(prefixes), eq.prefix || '');
       dashFillSelect(document.getElementById('dash-lb-flair-suffix'), [''].concat(suffixes), eq.suffix || '');
       refreshDashLbLivePreview();
+      rebuildDashLbRowPicks();
     }
 
     async function loadTrifangxPointsForDashboard() {
@@ -1427,25 +1606,7 @@
       const un = document.getElementById('uname-new');
       if (un) un.value = uname;
 
-      const lc = document.getElementById('lb-row-color');
-      const pv = document.getElementById('lb-row-color-preview');
-      if (lc && pv) {
-        const raw = user.leaderboardRowColor;
-        const norm = typeof raw === 'string' ? raw.trim() : '';
-        let full = null;
-        if (/^#[0-9a-f]{6}$/i.test(norm)) full = norm.toLowerCase();
-        else if (/^#[0-9a-f]{3}$/i.test(norm)) {
-          const a = norm.slice(1);
-          full = ('#' + a[0] + a[0] + a[1] + a[1] + a[2] + a[2]).toLowerCase();
-        }
-        if (full) {
-          lc.value = full;
-          pv.style.background = full;
-        } else {
-          lc.value = '#94a3b8';
-          pv.style.background = '#ffffff';
-        }
-      }
+      rebuildDashLbRowPicks();
       refreshDashLbLivePreview();
     }
 
@@ -1964,11 +2125,25 @@
         }
       });
 
-      const lbColorInput = document.getElementById('lb-row-color');
-      const lbColorPreview = document.getElementById('lb-row-color-preview');
-      if (lbColorInput && lbColorPreview) {
-        lbColorInput.addEventListener('input', () => {
-          lbColorPreview.style.background = lbColorInput.value;
+      const picksWrap = document.getElementById('dash-lb-row-picks-wrap');
+      if (picksWrap) {
+        picksWrap.addEventListener('change', (e) => {
+          const t = e.target;
+          if (t && t.name === 'dash-lb-row-bg') {
+            updateDashLbRowSwatchSelectionState();
+            refreshDashLbLivePreview();
+            dashLbRowPaintPreview();
+          }
+        });
+      }
+      const customHexEl = document.getElementById('dash-lb-row-custom-hex');
+      if (customHexEl) {
+        customHexEl.addEventListener('input', () => {
+          const r = document.getElementById('dash-lb-row-bg-custom-radio');
+          if (r) r.checked = true;
+          updateDashLbRowSwatchSelectionState();
+          refreshDashLbLivePreview();
+          dashLbRowPaintPreview();
         });
       }
 
@@ -1977,25 +2152,36 @@
         btnLbSave.addEventListener('click', async () => {
           const st = document.getElementById('lb-row-color-status');
           const sessionId = getSessionId();
-          const lc = document.getElementById('lb-row-color');
-          const pv = document.getElementById('lb-row-color-preview');
-          if (!lc || !pv) return;
           setStatus(st, '', '');
+          const rad = document.querySelector('input[name="dash-lb-row-bg"]:checked');
+          if (!rad) return;
+          let colorPayload;
+          if (rad.value === '__clear__') colorPayload = null;
+          else if (rad.value === '__custom__') {
+            const hx = ChessLbRowUi.normalizeLbHex(document.getElementById('dash-lb-row-custom-hex').value);
+            if (!hx) {
+              setStatus(st, 'Pick a custom color, or choose another row style.', 'err');
+              return;
+            }
+            colorPayload = hx;
+          } else {
+            colorPayload = rad.value;
+          }
           const res = await fetch(`${API_BASE_URL}/api/leaderboard-row-color`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${sessionId}`,
             },
-            body: JSON.stringify({ color: lc.value }),
+            body: JSON.stringify({ color: colorPayload }),
           });
           const data = await res.json().catch(() => ({}));
           if (res.ok && data.success) {
             user.leaderboardRowColor = data.leaderboardRowColor;
             applyUserToForm(user);
-            setStatus(st, 'Saved. Your leaderboard row will use this color.', 'ok');
+            setStatus(st, 'Saved. Your leaderboard row will use this style.', 'ok');
           } else {
-            setStatus(st, data.error || 'Could not save color.', 'err');
+            setStatus(st, data.error || 'Could not save row style.', 'err');
           }
         });
       }
@@ -2030,11 +2216,6 @@
         if (el) el.addEventListener('change', () => refreshDashLbLivePreview());
       });
 
-      const lbRowColorInput = document.getElementById('lb-row-color');
-      if (lbRowColorInput) {
-        lbRowColorInput.addEventListener('input', refreshDashLbLivePreview);
-        lbRowColorInput.addEventListener('change', refreshDashLbLivePreview);
-      }
 
       const btnDashLbFlair = document.getElementById('btn-dash-lb-flair-save');
       if (btnDashLbFlair) {

@@ -4405,6 +4405,72 @@ function sanitizeLeaderboardRowColorHex(raw) {
   return `#${a[0]}${a[0]}${a[1]}${a[1]}${a[2]}${a[2]}`.toLowerCase();
 }
 
+/** Keep in sync with `js/chess_lb_row.js` (basic swatches + preset ids / minNodes). */
+const LB_ROW_BASIC_HEXES = new Set([
+  '#ffffff',
+  '#f8fafc',
+  '#f1f5f9',
+  '#e2e8f0',
+  '#dbeafe',
+  '#fef3c7',
+  '#dcfce7',
+  '#94a3b8',
+]);
+
+/** Season leaderboard row finishes: `lbrow:<id>` stored on account; min monthly nodes (current UTC season). */
+const LB_ROW_PRESET_MIN_NODES = Object.freeze({
+  emerald_glade: 4,
+  glacier_ribbon: 4,
+  violet_canopy: 7,
+  moonlit_band: 7,
+  finale_aurora: 10,
+});
+
+const LB_ROW_CUSTOM_HEX_MIN_NODES = 4;
+
+function leaderboardRowSeasonNodesAligned(chess) {
+  const st = chess?.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+  const sid = String(st.seasonId || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(sid) || sid !== utcChessSeasonIdNow()) return 0;
+  return seasonTrackNodesCompletedFromChess(chess);
+}
+
+function leaderboardRowHexAllowedForUser(hex, chess) {
+  if (!hex) return false;
+  if (LB_ROW_BASIC_HEXES.has(hex)) return true;
+  return leaderboardRowSeasonNodesAligned(chess) >= LB_ROW_CUSTOM_HEX_MIN_NODES;
+}
+
+function parseLeaderboardRowStoredToken(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const low = s.toLowerCase();
+  if (low.startsWith('lbrow:')) {
+    const id = low.slice(6);
+    if (!/^[a-z0-9_]+$/.test(id)) return null;
+    if (!Object.prototype.hasOwnProperty.call(LB_ROW_PRESET_MIN_NODES, id)) return null;
+    return { kind: 'preset', id };
+  }
+  const hex = sanitizeLeaderboardRowColorHex(s);
+  if (!hex) return null;
+  return { kind: 'hex', hex };
+}
+
+/** Returns normalized stored value (`#rrggbb` or `lbrow:<id>`) or null if not allowed / invalid. */
+function sanitizeLeaderboardRowAppearance(raw, chess) {
+  const p = parseLeaderboardRowStoredToken(raw);
+  if (!p) return null;
+  const n = leaderboardRowSeasonNodesAligned(chess);
+  if (p.kind === 'hex') {
+    if (!leaderboardRowHexAllowedForUser(p.hex, chess)) return null;
+    return p.hex;
+  }
+  const need = LB_ROW_PRESET_MIN_NODES[p.id];
+  if (n < need) return null;
+  return `lbrow:${p.id}`;
+}
+
 async function readChessLeaderboardMap(kv) {
   if (!kv) return {};
   try {
@@ -4465,7 +4531,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
   const decisive = wins + losses;
   const winPct = decisive > 0 ? (100 * wins) / decisive : 0;
   const username = sanitizeLeaderboardUsernameDisplay(row.username);
-  const rowColor = sanitizeLeaderboardRowColorHex(row.leaderboardRowColor);
+  const rowColor = sanitizeLeaderboardRowAppearance(row.leaderboardRowColor, chess);
   const lbFlair = sanitizeChessLbFlair(chess?.seasonTrack?.lbFlair);
 
   const recent = aggregateLeaderboardStatsFromRecentGames(
@@ -6442,13 +6508,26 @@ export class UserAccount {
       await this.storage.put('userData', userData);
       return { success: true, leaderboardRowColor: null };
     }
-    const hex = sanitizeLeaderboardRowColorHex(raw);
-    if (!hex) {
-      return { success: false, error: 'Invalid color. Use a hex value like #1a2b3c, or send null to clear.' };
+    const chess = userData.games?.chess;
+    const normalized = sanitizeLeaderboardRowAppearance(raw, chess);
+    if (!normalized) {
+      const parsed = parseLeaderboardRowStoredToken(raw);
+      if (!parsed) {
+        return {
+          success: false,
+          error:
+            'Invalid row style. Choose a standard tint, a season gradient you have unlocked, or a custom hex after mid-season progress — or clear.',
+        };
+      }
+      return {
+        success: false,
+        error:
+          'That row style is locked. Claim more steps on this month’s TrifangX season track (or pick a standard tint).',
+      };
     }
-    userData.leaderboardRowColor = hex;
+    userData.leaderboardRowColor = normalized;
     await this.storage.put('userData', userData);
-    return { success: true, leaderboardRowColor: hex };
+    return { success: true, leaderboardRowColor: normalized };
   }
 
   async changeUsername(newUsernameDisplay, password) {
