@@ -2960,55 +2960,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     };
     
     function applyHighlightColor(colorId) {
-      // Update highlight colors only (not arrows)
+      // Dynamic styles for rainbow keyframes only. Last-move / check use fixed colors in the page CSS.
+      // Premove and right-click must stay red (see chess_engine / trifangx_live); never tie them to highlightColor.
       let styleTag = document.getElementById('dynamic-color-styles');
       if (!styleTag) {
         styleTag = document.createElement('style');
         styleTag.id = 'dynamic-color-styles';
         document.head.appendChild(styleTag);
       }
-      
-      // Get existing content and preserve arrow color settings
+
       let existingContent = styleTag.textContent || '';
-      
+
       if (colorId === 'rainbow') {
-        // Remove old highlight rules
         existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
         existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
-        styleTag.textContent = existingContent + `
+        styleTag.textContent =
+          existingContent +
+          `
           @keyframes rainbow-shift {
             0% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
           }
-          #board .premove-highlight.white-1e1d7,
-          #board .premove-source.white-1e1d7,
-          #board .right-click-highlight.white-1e1d7,
-          #board .premove-highlight.black-3c85d,
-          #board .premove-source.black-3c85d,
-          #board .right-click-highlight.black-3c85d {
-            background: linear-gradient(135deg, rgba(255,0,0,0.6), rgba(255,127,0,0.6), rgba(255,255,0,0.6), rgba(0,255,0,0.6), rgba(0,0,255,0.6), rgba(75,0,130,0.6), rgba(148,0,211,0.6)) !important;
-            background-size: 200% 200% !important;
-            animation: rainbow-shift 3s ease infinite !important;
-          }
         `;
       } else {
-        const colors = colorMap[colorId] || colorMap.red;
-        // Remove old highlight rules
         existingContent = existingContent.replace(/#board .*?highlight.*?\{[^}]*\}/g, '');
         existingContent = existingContent.replace(/@keyframes rainbow-shift[^}]*\}/g, '');
-        styleTag.textContent = existingContent + `
-          #board .premove-highlight.white-1e1d7,
-          #board .premove-source.white-1e1d7,
-          #board .right-click-highlight.white-1e1d7 {
-            background-color: ${colors.highlightLight} !important;
-          }
-          #board .premove-highlight.black-3c85d,
-          #board .premove-source.black-3c85d,
-          #board .right-click-highlight.black-3c85d {
-            background-color: ${colors.highlightDark} !important;
-          }
-        `;
+        styleTag.textContent = existingContent;
       }
     }
     
