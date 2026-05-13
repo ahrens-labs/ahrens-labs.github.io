@@ -11688,6 +11688,44 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       return out;
     }
+
+    /**
+     * Reconcile `shopUnlocks` with `seasonTrack.nodesCompleted` (same shop rewards as worker claim).
+     * Fixes first-load "locked" when persisted shop lists lag behind claimed season steps.
+     */
+    function mergeSeasonClaimedShopRewardsIntoShopUnlocks(chessData) {
+      if (!chessData || typeof chessData !== 'object') return;
+      const st = chessData.seasonTrack;
+      if (!st || typeof st !== 'object') return;
+      const nRaw = Math.max(0, Math.floor(Number(st.nodesCompleted) || 0));
+      if (nRaw <= 0) return;
+      const Cs = typeof window !== 'undefined' && window.ChessSeasons;
+      if (!Cs || typeof Cs.getChessSeasonTrack !== 'function') return;
+      let track;
+      try {
+        track = Cs.getChessSeasonTrack(st.seasonId);
+      } catch (eSe) {
+        return;
+      }
+      const nodes = track && Array.isArray(track.nodes) ? track.nodes : [];
+      if (!nodes.length) return;
+      const n = Math.min(nRaw, nodes.length);
+      const extra = {};
+      for (let i = 0; i < n; i++) {
+        const row = nodes[i];
+        const rewards = row && Array.isArray(row.rewards) ? row.rewards : [];
+        for (let j = 0; j < rewards.length; j++) {
+          const r = rewards[j];
+          if (!r || r.kind !== 'shop' || !r.category || !r.id) continue;
+          const cat = String(r.category);
+          const id = String(r.id);
+          if (!extra[cat]) extra[cat] = [];
+          if (!extra[cat].includes(id)) extra[cat].push(id);
+        }
+      }
+      if (!Object.keys(extra).length) return;
+      chessData.shopUnlocks = mergeTrifangxShopUnlocksClient(chessData.shopUnlocks || {}, extra);
+    }
     
     // Load chess data from cloud
     async function loadChessDataFromCloud() {
@@ -11762,6 +11800,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (Object.prototype.hasOwnProperty.call(data, 'seasonBonusPoints')) {
           cloudChessData.seasonBonusPoints = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
         }
+        mergeSeasonClaimedShopRewardsIntoShopUnlocks(cloudChessData);
         achievements = Object.keys(cloudChessData.achievements || {}).filter(function (k) {
           const v = cloudChessData.achievements[k];
           if (v === true || v === 1) return true;
@@ -11829,6 +11868,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (Object.prototype.hasOwnProperty.call(data, 'points')) {
           cloudChessData.points = Math.max(0, Math.floor(Number(data.points) || 0));
         }
+        mergeSeasonClaimedShopRewardsIntoShopUnlocks(cloudChessData);
         if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
         if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
         if (typeof renderShopItems === 'function') renderShopItems();
@@ -11869,19 +11909,63 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           'achievements': () => JSON.stringify(cloudChessData.achievements || {}),
           'totalPoints': () => (cloudChessData.points || 0).toString(),
           'unlockedItems': () => JSON.stringify(cloudChessData.shopUnlocks || {}),
-          'chessBoardStyle': () => cloudChessData.settings?.boardStyle || 'classic',
-          'chessboardStyle': () => cloudChessData.settings?.boardStyle || 'classic',
-          'chessPieceStyle': () => cloudChessData.settings?.pieceStyle || 'classic',
-          'highlightColor': () => cloudChessData.settings?.highlightColor || 'red',
-          'arrowColor': () => cloudChessData.settings?.arrowColor || 'red',
-          'legalMoveDotStyle': () => cloudChessData.settings?.legalMoveDotStyle || 'blue-circle',
-          'pageTheme': () => cloudChessData.settings?.pageTheme || 'light',
-          'moveEffect': () => cloudChessData.settings?.moveEffect || 'default',
-          'timeControl': () => cloudChessData.settings?.timeControl || 'none',
+          'chessBoardStyle': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.boardStyle != null ? s.boardStyle : s.board_style;
+            return v != null && String(v) !== '' ? String(v) : 'classic';
+          },
+          'chessboardStyle': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.boardStyle != null ? s.boardStyle : s.board_style;
+            return v != null && String(v) !== '' ? String(v) : 'classic';
+          },
+          'chessPieceStyle': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.pieceStyle != null ? s.pieceStyle : s.piece_style;
+            return v != null && String(v) !== '' ? String(v) : 'classic';
+          },
+          'highlightColor': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.highlightColor != null ? s.highlightColor : s.highlight_color;
+            return v != null && String(v) !== '' ? String(v) : 'red';
+          },
+          'arrowColor': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.arrowColor != null ? s.arrowColor : s.arrow_color;
+            return v != null && String(v) !== '' ? String(v) : 'red';
+          },
+          'legalMoveDotStyle': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.legalMoveDotStyle != null ? s.legalMoveDotStyle : s.legal_move_dot_style;
+            return v != null && String(v) !== '' ? String(v) : 'blue-circle';
+          },
+          'pageTheme': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.pageTheme != null ? s.pageTheme : s.page_theme;
+            return v != null && String(v) !== '' ? String(v) : 'light';
+          },
+          'moveEffect': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.moveEffect != null ? s.moveEffect : s.move_effect;
+            return v != null && String(v) !== '' ? String(v) : 'default';
+          },
+          'timeControl': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.timeControl != null ? s.timeControl : s.time_control;
+            return v != null && String(v) !== '' ? String(v) : 'none';
+          },
           'playerStats': () => JSON.stringify(cloudChessData.stats?.playerStats || {wins:0,losses:0,draws:0}),
           'lifetimeStats': () => JSON.stringify(cloudChessData.stats?.lifetimeStats || {}),
-          'checkmateAddonsEnabled': () => JSON.stringify(cloudChessData.settings?.checkmateAddons || []),
-          'selectedTimeControl': () => cloudChessData.settings?.timeControl || 'none',
+          'checkmateAddonsEnabled': () => {
+            const s = cloudChessData.settings || {};
+            const a = s.checkmateAddons != null ? s.checkmateAddons : s.checkmate_addons;
+            return JSON.stringify(Array.isArray(a) ? a : []);
+          },
+          'selectedTimeControl': () => {
+            const s = cloudChessData.settings || {};
+            const v = s.timeControl != null ? s.timeControl : s.time_control;
+            return v != null && String(v) !== '' ? String(v) : 'none';
+          },
           'shopPointsSpent': () => (cloudChessData.pointsSpent || 0).toString(),
           'cheatPoints': () => (cloudChessData.cheatPoints || 0).toString(),
           'gamesPlayed': () => (cloudChessData.stats?.playerStats?.wins || 0) + (cloudChessData.stats?.playerStats?.losses || 0) + (cloudChessData.stats?.playerStats?.draws || 0),
