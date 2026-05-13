@@ -225,6 +225,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_canopy_crown',
+          name: 'Season · Canopy Crown',
+          price: 0,
+          preview: '👑',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
@@ -251,6 +260,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_canopy_pieces',
+          name: 'Season · Canopy Regalia',
+          price: 0,
+          preview: '♟',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       highlightColors: [
         { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -271,6 +289,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_gilded_leaf',
+          name: 'Season · Gilded leaf',
+          price: 0,
+          preview: '🍃',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       arrowColors: [
         { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -281,7 +308,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'orange', name: 'Orange Arrows', price: 1200, preview: '🟠', coolness: 4, description: 'Vibrant orange' },
         { id: 'pink', name: 'Pink Arrows', price: 1400, preview: '🩷', coolness: 5, description: 'Pretty pink' },
         { id: 'cyan', name: 'Cyan Arrows', price: 1700, preview: '🔷', coolness: 6, description: 'Electric cyan' },
-        { id: 'rainbow', name: 'Rainbow Arrows', price: 3250, preview: '🌈', coolness: 10, description: 'Colorful rainbow' }
+        { id: 'rainbow', name: 'Rainbow Arrows', price: 3250, preview: '🌈', coolness: 10, description: 'Colorful rainbow' },
+        {
+          id: 'season_grove_arrow',
+          name: 'Season · Grove gold',
+          price: 0,
+          preview: '🏹',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       legalMoveDots: [
         { id: 'blue-circle', name: 'Gray Circle', price: 0, preview: '⚪', coolness: 1, description: 'Classic gray dot', color: 'rgba(128, 128, 128, 0.6)', shape: 'circle' },
@@ -295,7 +331,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'blue-diamond', name: 'Blue Diamond', price: 1100, preview: '💠', coolness: 5, description: 'Blue diamond', color: '#3498db', shape: 'diamond' },
         { id: 'red-diamond', name: 'Red Diamond', price: 1250, preview: '💠', coolness: 5, description: 'Red diamond', color: '#e74c3c', shape: 'diamond' },
         { id: 'gold-star', name: 'Gold Star', price: 1750, preview: '⭐', coolness: 7, description: 'Gold star', color: '#f1c40f', shape: 'star' },
-        { id: 'rainbow-circle', name: 'Rainbow Circle', price: 2500, preview: '🌈', coolness: 9, description: 'Rainbow dot', color: 'rainbow', shape: 'circle' }
+        { id: 'rainbow-circle', name: 'Rainbow Circle', price: 2500, preview: '🌈', coolness: 9, description: 'Rainbow dot', color: 'rainbow', shape: 'circle' },
+        {
+          id: 'season_emerald_star',
+          name: 'Season · Emerald star',
+          price: 0,
+          preview: '✦',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          color: '#10b981',
+          shape: 'star',
+          purchasable: false,
+        },
       ],
       themes: [
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
@@ -310,7 +357,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'matrix', name: 'Matrix', price: 2750, preview: '🔢', coolness: 9, description: 'Falling code rain' },
         { id: 'retro', name: 'Retro', price: 2250, preview: '📺', coolness: 8, description: '80s scanlines & glow' },
         { id: 'galaxy', name: 'Galaxy', price: 3000, preview: '🌠', coolness: 10, description: 'Spiral galaxy animation' },
-        { id: 'fire', name: 'Fire', price: 2500, preview: '🔥', coolness: 9, description: 'Animated flames' }
+        { id: 'fire', name: 'Fire', price: 2500, preview: '🔥', coolness: 9, description: 'Animated flames' },
+        {
+          id: 'season_moonlit_canopy',
+          name: 'Season · Moonlit canopy',
+          price: 0,
+          preview: '🌙',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 750, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
@@ -322,7 +378,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'hearts', name: 'Hearts', price: 800, preview: '❤️', coolness: 5, description: 'Floating hearts' },
         { id: 'meteors', name: 'Meteors', price: 1600, preview: '☄️', coolness: 8, description: 'Shooting streaks' },
         { id: 'ribbons', name: 'Streamers', price: 1000, preview: '🎀', coolness: 6, description: 'Colorful streamers' },
-        { id: 'shockwave', name: 'Shockwave', price: 1250, preview: '💫', coolness: 7, description: 'Expanding rings from the board' }
+        { id: 'shockwave', name: 'Shockwave', price: 1250, preview: '💫', coolness: 7, description: 'Expanding rings from the board' },
+        {
+          id: 'season_finale_flare',
+          name: 'Season · Finale flare',
+          price: 0,
+          preview: '✨',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       timeControls: [
         { id: 'none', name: 'None', price: 0, preview: '⏸️', coolness: 1, description: 'No time limit' },
@@ -370,7 +435,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       cyber: { w: 'linear-gradient(135deg,#00ff88,#00cc6a)', b: 'linear-gradient(135deg,#0d0d0d,#1a1a2e)' },
       luxury: { w: 'linear-gradient(135deg,#fff8e1,#ffecb3)', b: 'linear-gradient(135deg,#ff8f00,#e65100)' },
       season_awakening: { w: 'linear-gradient(135deg,#e0f2fe,#bae6fd)', b: 'linear-gradient(135deg,#0369a1,#0c4a6e)' },
-      season_rift: { w: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', b: 'linear-gradient(135deg,#7e22ce,#4c1d95)' }
+      season_rift: { w: 'linear-gradient(135deg,#fdf4ff,#fae8ff)', b: 'linear-gradient(135deg,#7e22ce,#4c1d95)' },
+      season_canopy_crown: {
+        w: 'linear-gradient(135deg,#ecfdf5 0%,#d9f99d 45%,#fef9c3 100%)',
+        b: 'linear-gradient(135deg,#14532d 0%,#166534 40%,#422006 100%)',
+      },
     };
     
     // Initialize arrow colors
@@ -1206,7 +1275,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       shapes: 'https://lichess1.org/assets/piece/shapes/{piece}.svg',
       staunty: 'https://lichess1.org/assets/piece/staunty/{piece}.svg',
       tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg',
-      season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg'
+      season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg',
+      season_canopy_pieces: 'https://lichess1.org/assets/piece/mpchess/{piece}.svg',
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -2870,6 +2940,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         h: 'rgba(56,189,248,0.5)',
         a: 'rgba(14,165,233,0.9)',
       },
+      season_gilded_leaf: {
+        highlightLight: 'rgba(250, 204, 21, 0.42)',
+        highlightDark: 'rgba(22, 163, 74, 0.52)',
+        arrow: 'rgba(22, 163, 74, 0.75)',
+        arrowFill: 'rgba(250, 204, 21, 0.95)',
+        h: 'rgba(234,179,8,0.45)',
+        a: 'rgba(5,150,105,0.92)',
+      },
+      season_grove_arrow: {
+        highlightLight: 'rgba(52, 211, 153, 0.48)',
+        highlightDark: 'rgba(5, 150, 105, 0.55)',
+        arrow: 'rgba(212, 175, 55, 0.85)',
+        arrowFill: 'rgba(254, 243, 199, 1)',
+        h: 'rgba(34,197,94,0.5)',
+        a: 'rgba(217,119,6,0.9)',
+      },
       rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
     };
     
@@ -2997,8 +3083,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       
       currentPageTheme = themeId;
-      document.documentElement.classList.remove('page-theme-light', 'page-theme-dark', 'page-theme-midnight', 'page-theme-ocean', 'page-theme-forest', 'page-theme-sunset', 'page-theme-cyber', 'page-theme-space', 'page-theme-aurora', 'page-theme-matrix', 'page-theme-retro', 'page-theme-galaxy', 'page-theme-fire');
-      document.documentElement.classList.add('page-theme-' + themeId);
+      const themeBaseClasses = [
+        'page-theme-light',
+        'page-theme-dark',
+        'page-theme-midnight',
+        'page-theme-ocean',
+        'page-theme-forest',
+        'page-theme-sunset',
+        'page-theme-cyber',
+        'page-theme-space',
+        'page-theme-aurora',
+        'page-theme-matrix',
+        'page-theme-retro',
+        'page-theme-galaxy',
+        'page-theme-fire',
+        'page-theme-season_moonlit_canopy',
+      ];
+      themeBaseClasses.forEach(function (c) {
+        document.documentElement.classList.remove(c);
+      });
+      if (themeId === 'season_moonlit_canopy') {
+        document.documentElement.classList.add('page-theme-forest');
+        document.documentElement.classList.add('page-theme-season_moonlit_canopy');
+      } else {
+        document.documentElement.classList.add('page-theme-' + themeId);
+      }
     }
 
     function applyMoveEffect(effectId) {
@@ -5926,13 +6035,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           setTimeout(() => overlay.remove(), 6000);
         }
 
-        // Add-on: fireworks
-        if (addons.includes('fireworks')) {
+        // Add-on: fireworks (shop) or season finale flare (emerald / gold burst)
+        if (addons.includes('fireworks') || addons.includes('season_finale_flare')) {
         const board = document.getElementById('board');
           const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
         const centerX = boardRect.left + boardRect.width / 2;
         const centerY = boardRect.top + boardRect.height / 2;
-          const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
+          const colors = addons.includes('season_finale_flare')
+            ? ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d']
+            : ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#2ECC71', '#3498DB', '#FF1493', '#00CED1', '#FFD700', '#FF4500'];
         for (let burst = 0; burst < 8; burst++) {
           setTimeout(() => {
             const numParticles = 30;

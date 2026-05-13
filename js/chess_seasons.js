@@ -30,7 +30,7 @@
  * 4) Rewards
  *    - `shop` rewards use ids that are NOT sold in the regular shop; unlock goes into `shopUnlocks`
  *      like any other cosmetic. Add piece URLs / board CSS / highlight `colorMap` in the engine when
- *      adding a new id.
+ *      adding a new id. Finale step grants only `season_*` shop ids (not career-shop duplicates).
  *    - Leaderboard flair: `lb_frame` (allowlist in worker `sanitizeChessLbFlair`), `lb_title`,
  *      `lb_prefix`, `lb_suffix`. Keep strings short; worker sanitizes length / charset.
  *
@@ -101,7 +101,7 @@
    * @type {Array<Omit<ChessSeasonNode, 'challengeTitle'>>}
    */
   const SEASON_TRACK_MECHANICAL = [
-    { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
+    { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🌲' }] },
     {
       challengeAchievementId: 'knight_to_f3',
       bonusPoints: 57,
@@ -125,7 +125,7 @@
     {
       challengeAchievementId: 'capture_master',
       bonusPoints: 242,
-      rewards: [{ kind: 'lb_title', title: 'Grove hunter' }],
+      rewards: [{ kind: 'lb_title', title: 'Emerald grove hunter' }],
     },
     {
       challengeAchievementId: 'castler',
@@ -140,24 +140,24 @@
     {
       challengeAchievementId: 'checkmate_rook',
       bonusPoints: 709,
-      rewards: [{ kind: 'lb_title', title: 'Spire sniper' }],
+      rewards: [{ kind: 'lb_title', title: 'Canopy spire sniper' }],
     },
     {
       challengeAchievementId: 'checkmate_queen',
       bonusPoints: 1015,
       rewards: [
         { kind: 'lb_frame', frame: 'violet_arc' },
-        { kind: 'lb_title', title: 'Ascendant' },
+        { kind: 'lb_title', title: 'Emerald ascendant' },
         { kind: 'lb_title', title: 'Emerald crown' },
-        { kind: 'lb_title', title: 'Finisher' },
+        { kind: 'lb_title', title: 'Canopy finisher' },
         { kind: 'lb_suffix', suffix: '✦' },
-        { kind: 'shop', category: 'boards', id: 'royal' },
-        { kind: 'shop', category: 'pieces', id: 'tatiana' },
-        { kind: 'shop', category: 'highlightColors', id: 'gold' },
-        { kind: 'shop', category: 'arrowColors', id: 'gold' },
-        { kind: 'shop', category: 'themes', id: 'forest' },
-        { kind: 'shop', category: 'checkmateEffects', id: 'fireworks' },
-        { kind: 'shop', category: 'legalMoveDots', id: 'gold-star' },
+        { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
+        { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
+        { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
+        { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
+        { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
+        { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
+        { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
       ],
     },
   ];
@@ -168,13 +168,13 @@
     'highlightColors:season_glacier_glow': 'Square highlights · Glacier Glow (season exclusive)',
     'pieces:season_trail': 'Piece set · Forest Trail (season exclusive)',
     'boards:season_rift': 'Board style · Violet Rift (season exclusive)',
-    'boards:royal': 'Board style · Royal',
-    'pieces:tatiana': 'Piece set · Tatiana',
-    'highlightColors:gold': 'Square highlights · Gold',
-    'arrowColors:gold': 'Move arrows · Gold',
-    'themes:forest': 'Page theme · Forest',
-    'checkmateEffects:fireworks': 'Checkmate effect · Fireworks',
-    'legalMoveDots:gold-star': 'Legal move markers · Gold star',
+    'boards:season_canopy_crown': 'Board style · Canopy Crown (season exclusive)',
+    'pieces:season_canopy_pieces': 'Piece set · Canopy Regalia (season exclusive)',
+    'highlightColors:season_gilded_leaf': 'Square highlights · Gilded leaf (season exclusive)',
+    'arrowColors:season_grove_arrow': 'Move arrows · Grove gold (season exclusive)',
+    'themes:season_moonlit_canopy': 'Page theme · Moonlit canopy (season exclusive)',
+    'checkmateEffects:season_finale_flare': 'Checkmate effect · Finale flare (season exclusive)',
+    'legalMoveDots:season_emerald_star': 'Legal move markers · Emerald star (season exclusive)',
   });
 
   const SEASON_LB_FRAME_LABELS = Object.freeze({
@@ -208,20 +208,20 @@
     }
     if (r.kind === 'lb_frame' && r.frame) {
       const f = String(r.frame);
-      if (SEASON_LB_FRAME_LABELS[f]) return 'Leaderboard frame · ' + SEASON_LB_FRAME_LABELS[f];
+      if (SEASON_LB_FRAME_LABELS[f]) return 'Leaderboard frame · Season · ' + SEASON_LB_FRAME_LABELS[f];
       const raw = f.replace(/_/g, ' ');
       const label = raw.replace(/\b\w/g, (m) => m.toUpperCase());
-      return 'Leaderboard frame · ' + label;
+      return 'Leaderboard frame · Season · ' + label;
     }
     if (r.kind === 'lb_title' && r.title) {
       const t = String(r.title).trim();
-      if (t) return 'Leaderboard title · “' + t + '”';
+      if (t) return 'Leaderboard title · Season · “' + t + '”';
     }
     if (r.kind === 'lb_prefix' && r.prefix != null && String(r.prefix).trim() !== '') {
-      return 'Leaderboard prefix · ' + String(r.prefix);
+      return 'Leaderboard prefix · Season · ' + String(r.prefix);
     }
     if (r.kind === 'lb_suffix' && r.suffix != null && String(r.suffix).trim() !== '') {
-      return 'Leaderboard suffix · ' + String(r.suffix);
+      return 'Leaderboard suffix · Season · ' + String(r.suffix);
     }
     return '';
   }

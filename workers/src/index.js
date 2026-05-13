@@ -3722,7 +3722,7 @@ const CHESS_LB_FLAIR_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc
 
 /** Must match `SEASON_TRACK_MECHANICAL` in js/chess_seasons.js (claim validation). */
 const SEASON_CLAIM_NODES = [
-  { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '♟' }] },
+  { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🌲' }] },
   {
     challengeAchievementId: 'knight_to_f3',
     bonusPoints: 57,
@@ -3746,7 +3746,7 @@ const SEASON_CLAIM_NODES = [
   {
     challengeAchievementId: 'capture_master',
     bonusPoints: 242,
-    rewards: [{ kind: 'lb_title', title: 'Grove hunter' }],
+    rewards: [{ kind: 'lb_title', title: 'Emerald grove hunter' }],
   },
   {
     challengeAchievementId: 'castler',
@@ -3761,24 +3761,24 @@ const SEASON_CLAIM_NODES = [
   {
     challengeAchievementId: 'checkmate_rook',
     bonusPoints: 709,
-    rewards: [{ kind: 'lb_title', title: 'Spire sniper' }],
+    rewards: [{ kind: 'lb_title', title: 'Canopy spire sniper' }],
   },
   {
     challengeAchievementId: 'checkmate_queen',
     bonusPoints: 1015,
     rewards: [
       { kind: 'lb_frame', frame: 'violet_arc' },
-      { kind: 'lb_title', title: 'Ascendant' },
+      { kind: 'lb_title', title: 'Emerald ascendant' },
       { kind: 'lb_title', title: 'Emerald crown' },
-      { kind: 'lb_title', title: 'Finisher' },
+      { kind: 'lb_title', title: 'Canopy finisher' },
       { kind: 'lb_suffix', suffix: '✦' },
-      { kind: 'shop', category: 'boards', id: 'royal' },
-      { kind: 'shop', category: 'pieces', id: 'tatiana' },
-      { kind: 'shop', category: 'highlightColors', id: 'gold' },
-      { kind: 'shop', category: 'arrowColors', id: 'gold' },
-      { kind: 'shop', category: 'themes', id: 'forest' },
-      { kind: 'shop', category: 'checkmateEffects', id: 'fireworks' },
-      { kind: 'shop', category: 'legalMoveDots', id: 'gold-star' },
+      { kind: 'shop', category: 'boards', id: 'season_canopy_crown' },
+      { kind: 'shop', category: 'pieces', id: 'season_canopy_pieces' },
+      { kind: 'shop', category: 'highlightColors', id: 'season_gilded_leaf' },
+      { kind: 'shop', category: 'arrowColors', id: 'season_grove_arrow' },
+      { kind: 'shop', category: 'themes', id: 'season_moonlit_canopy' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'season_finale_flare' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'season_emerald_star' },
     ],
   },
 ];
