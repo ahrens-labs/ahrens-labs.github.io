@@ -3085,15 +3085,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e) {}
     }
 
+    /** Page themes only run in this bundle (chess_engine / trifangx_live), never in dashboardEmbed. */
     function isTrifangxChessThemedShell() {
-      if (typeof window !== 'undefined' && window.TRIFANGX_DASHBOARD_EMBED === true) return false;
-      try {
-        var p = (typeof location !== 'undefined' && location.pathname) || '';
-        if (p.indexOf('trifangx_live.html') !== -1) return true;
-        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') return true;
-        if (p.indexOf('chess_engine.html') !== -1) return true;
-      } catch (e) {}
-      return false;
+      return !(typeof window !== 'undefined' && window.TRIFANGX_DASHBOARD_EMBED === true);
     }
 
     function applyPageTheme(themeId) {
