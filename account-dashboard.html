@@ -1253,10 +1253,18 @@
       });
     }
 
+    function getDashLbRowBgCheckedRadio() {
+      const radios = document.querySelectorAll('input[name="dash-lb-row-bg"]');
+      for (let i = 0; i < radios.length; i++) {
+        if (radios[i].checked) return radios[i];
+      }
+      return null;
+    }
+
     function getDashLbRowEffectiveRowColor() {
       const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
       if (!U) return null;
-      const rad = document.querySelector('input[name="dash-lb-row-bg"]:checked');
+      const rad = getDashLbRowBgCheckedRadio();
       if (!rad) return null;
       const v = rad.value;
       if (v === '__clear__') return null;
@@ -1393,6 +1401,14 @@
 
     function getDashLbPreviewRowColor() {
       return getDashLbRowEffectiveRowColor();
+    }
+
+    function selectDashLbCustomHexMode() {
+      const r = document.getElementById('dash-lb-row-bg-custom-radio');
+      if (r) r.checked = true;
+      updateDashLbRowSwatchSelectionState();
+      refreshDashLbLivePreview();
+      dashLbRowPaintPreview();
     }
 
     function dashLbPreviewPoints() {
@@ -2138,12 +2154,18 @@
       }
       const customHexEl = document.getElementById('dash-lb-row-custom-hex');
       if (customHexEl) {
+        customHexEl.addEventListener('click', () => {
+          selectDashLbCustomHexMode();
+        });
+        customHexEl.addEventListener('focus', () => {
+          selectDashLbCustomHexMode();
+        });
         customHexEl.addEventListener('input', () => {
-          const r = document.getElementById('dash-lb-row-bg-custom-radio');
-          if (r) r.checked = true;
-          updateDashLbRowSwatchSelectionState();
-          refreshDashLbLivePreview();
-          dashLbRowPaintPreview();
+          const rad = getDashLbRowBgCheckedRadio();
+          if (rad && rad.value === '__custom__') {
+            refreshDashLbLivePreview();
+            dashLbRowPaintPreview();
+          }
         });
       }
 
@@ -2153,7 +2175,7 @@
           const st = document.getElementById('lb-row-color-status');
           const sessionId = getSessionId();
           setStatus(st, '', '');
-          const rad = document.querySelector('input[name="dash-lb-row-bg"]:checked');
+          const rad = getDashLbRowBgCheckedRadio();
           if (!rad) return;
           let colorPayload;
           if (rad.value === '__clear__') colorPayload = null;
