@@ -1176,6 +1176,68 @@
         if (cancel) cancel.addEventListener('click', closeSeasonResetModal);
         if (ok) ok.addEventListener('click', executeSeasonReset);
       })();
+
+      /** Dev cheat (Matt): type the word `points` (not in an input) for +10,000 career achievement points (season step buyouts). */
+      (function installDevPointsCheat() {
+        var buf = '';
+        window.addEventListener(
+          'keydown',
+          function (ev) {
+            if (ev.defaultPrevented) return;
+            var el = ev.target;
+            if (el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]')) return;
+            if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+            if (ev.key === 'Escape') {
+              buf = '';
+              return;
+            }
+            if (!ev.key || ev.key.length !== 1 || ev.isComposing) return;
+            buf = (buf + ev.key).slice(-6);
+            if (buf.toLowerCase() !== 'points') return;
+            buf = '';
+            ev.preventDefault();
+            var sidCheat = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sidCheat) {
+              alert('Sign in first.');
+              return;
+            }
+            fetch(API_BASE_URL + '/api/chess/load', { headers: { Authorization: 'Bearer ' + sidCheat } })
+              .then(function (r) {
+                if (r.status === 401) throw new Error('Session expired — sign in again.');
+                if (!r.ok) throw new Error('Could not load save');
+                return r.json();
+              })
+              .then(function (payload) {
+                payload.points = Math.max(0, Math.floor(Number(payload.points) || 0)) + 10000;
+                return fetch(API_BASE_URL + '/api/chess/sync', {
+                  method: 'POST',
+                  headers: {
+                    Authorization: 'Bearer ' + sidCheat,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload),
+                }).then(function (sr) {
+                  if (!sr.ok) throw new Error('Could not save points');
+                  return fetch(API_BASE_URL + '/api/chess/load', { headers: { Authorization: 'Bearer ' + sidCheat } });
+                });
+              })
+              .then(function (r) {
+                if (!r.ok) throw new Error('Reload failed');
+                return r.json();
+              })
+              .then(function (d) {
+                render(d);
+                pingTrifangxCosmeticsRefresh();
+                alert('Dev cheat: +10,000 career points (for season buyouts).');
+              })
+              .catch(function (err) {
+                alert(err.message || 'Cheat failed');
+              });
+          },
+          true
+        );
+      })();
+
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
         var resetBtn = ev.target && ev.target.closest && ev.target.closest('#st-reset-season-btn');
         if (resetBtn && !resetBtn.disabled) {

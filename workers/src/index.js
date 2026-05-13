@@ -4252,6 +4252,30 @@ function normalizeSanMoveForLeaderboardStats(raw) {
     .replace(/0-0/g, 'O-O');
 }
 
+/** Normalize PGN-style results for leaderboard aggregation (spacing / unicode dashes). */
+function normalizeLeaderboardGameResultKey(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\s+/g, '');
+}
+
+/**
+ * Dedupe rolling game history the same way as `mergeChessGameHistoryForSync` so the
+ * last-7-days window cannot double-count the same finished game.
+ */
+function leaderboardHistoryRecordDedupeKey(r) {
+  if (!r || typeof r !== 'object') return null;
+  if (typeof r.id === 'string' && r.id.trim()) return r.id.trim();
+  const sa = r.savedAt != null ? String(r.savedAt) : '';
+  const h0 =
+    Array.isArray(r.historySan) && r.historySan.length ? String(r.historySan[0]) : '';
+  if (sa) {
+    return `legacy:${sa}:${h0}:${normalizeLeaderboardGameResultKey(r.result)}:${String(r.playerColor || '')}`;
+  }
+  return null;
+}
+
 /**
  * Sum achievement points unlocked in the recent window using `chess.achievements[id]`
  * shaped as `{ at: epochMs, pts: number }`. Legacy `true` / missing times are skipped for points.
@@ -4280,6 +4304,7 @@ function sumRecentAchievementPointsFromChess(chessBlock, windowMs, serverNow = D
  */
 function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNow = Date.now()) {
   const cutoff = serverNow - windowMs;
+  const futureCutoff = serverNow + LEADERBOARD_ACHIEVEMENT_MAX_FUTURE_SKEW_MS;
   const hist = Array.isArray(chessBlock?.gameHistory) ? chessBlock.gameHistory : [];
   let weekPoints = sumRecentAchievementPointsFromChess(chessBlock, windowMs, serverNow);
   let weekWins = 0;
@@ -4290,20 +4315,27 @@ function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNo
   let weekPromotions = 0;
   let weekCastlingMoves = 0;
 
+  const byKey = new Map();
   for (let hi = 0; hi < hist.length; hi++) {
     const rec = hist[hi];
     if (!rec || typeof rec !== 'object') continue;
     const ts = gameHistoryRecordTimestampMs(rec);
-    if (!Number.isFinite(ts) || ts < cutoff) continue;
+    if (!Number.isFinite(ts) || ts < cutoff || ts > futureCutoff) continue;
+    const k = leaderboardHistoryRecordDedupeKey(rec);
+    if (k) byKey.set(k, rec);
+    else byKey.set(`noid:${hi}:${ts}`, rec);
+  }
 
-    const res = String(rec.result || '').trim();
+  for (const rec of byKey.values()) {
+    const rk = normalizeLeaderboardGameResultKey(rec.result);
     const pcRaw = rec.playerColor != null ? String(rec.playerColor) : 'white';
-    const isWhite = pcRaw.toLowerCase() !== 'black';
-    if (res === '1/2-1/2' || res === '1/2 - 1/2') weekDraws++;
-    else if (res === '1-0') {
+    const pc = pcRaw.trim().toLowerCase();
+    const isWhite = pc !== 'black' && pc !== 'b';
+    if (rk === '1/2-1/2') weekDraws++;
+    else if (rk === '1-0') {
       if (isWhite) weekWins++;
       else weekLosses++;
-    } else if (res === '0-1') {
+    } else if (rk === '0-1') {
       if (isWhite) weekLosses++;
       else weekWins++;
     } else continue;
@@ -4321,6 +4353,11 @@ function aggregateLeaderboardStatsFromRecentGames(chessBlock, windowMs, serverNo
       if (/\+$/.test(san) || /#$/.test(san)) weekChecksGiven++;
     }
   }
+
+  const career = chessCareerTotalsFromChessBlock(chessBlock);
+  weekWins = Math.min(weekWins, career.wins);
+  weekLosses = Math.min(weekLosses, career.losses);
+  weekDraws = Math.min(weekDraws, career.draws);
 
   const weekGames = weekWins + weekLosses + weekDraws;
   const weekDecisive = weekWins + weekLosses;
