@@ -46,9 +46,14 @@ table.lb-table {
   background: var(--lb-bg) !important;
   border-bottom-color: var(--lb-border);
   color: var(--lb-fg);
+  text-shadow: var(--lb-text-shadow, none);
 }
 .lb-table tbody tr.lb-row-themed:hover td {
   background: var(--lb-bg-hover) !important;
+  text-shadow: var(--lb-text-shadow, none);
+}
+.lb-table tbody tr.lb-row-themed .lb-stat {
+  font-weight: 800;
 }
 .lb-table tbody tr.lb-row-themed .lb-rank {
   color: var(--lb-rank-fg);

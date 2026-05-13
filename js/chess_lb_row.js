@@ -84,7 +84,7 @@
 
   var LB_ROW_CUSTOM_HEX_MIN_NODES = 4;
 
-  /** @type {Record<string, { label: string, minNodes: number, bg: string, bgHover: string, border: string, sampleHex: string }>} */
+  /** @type {Record<string, { label: string, minNodes: number, bg: string, bgHover: string, border: string, sampleHex: string, fgPalette: { fg: string, rankFg: string, statMuted: string, statPos: string, statNeg: string, textShadow: string } }>} */
   var LB_ROW_PRESETS = Object.freeze({
     emerald_glade: {
       label: 'Emerald glade',
@@ -93,6 +93,14 @@
       bgHover: 'linear-gradient(125deg, #d1fae5 0%, #6ee7b7 40%, #10b981 100%)',
       border: 'rgba(16, 185, 129, 0.45)',
       sampleHex: '#34d399',
+      fgPalette: {
+        fg: '#0f172a',
+        rankFg: '#334155',
+        statMuted: '#475569',
+        statPos: '#047857',
+        statNeg: '#b91c1c',
+        textShadow: '0 1px 2px rgba(255, 255, 255, 0.55), 0 0 1px rgba(255, 255, 255, 0.35)',
+      },
     },
     glacier_ribbon: {
       label: 'Glacier ribbon',
@@ -101,6 +109,14 @@
       bgHover: 'linear-gradient(120deg, #cffafe 0%, #67e8f9 42%, #06b6d4 100%)',
       border: 'rgba(6, 182, 212, 0.4)',
       sampleHex: '#22d3ee',
+      fgPalette: {
+        fg: '#0f172a',
+        rankFg: '#334155',
+        statMuted: '#475569',
+        statPos: '#0f766e',
+        statNeg: '#b91c1c',
+        textShadow: '0 1px 2px rgba(255, 255, 255, 0.55), 0 0 1px rgba(255, 255, 255, 0.35)',
+      },
     },
     violet_canopy: {
       label: 'Violet canopy',
@@ -109,6 +125,14 @@
       bgHover: 'linear-gradient(128deg, #ede9fe 0%, #c4b5fd 38%, #8b5cf6 92%)',
       border: 'rgba(139, 92, 246, 0.42)',
       sampleHex: '#a78bfa',
+      fgPalette: {
+        fg: '#1e1b4b',
+        rankFg: '#312e81',
+        statMuted: '#5b567c',
+        statPos: '#047857',
+        statNeg: '#9d174d',
+        textShadow: '0 1px 2px rgba(255, 255, 255, 0.65), 0 0 1px rgba(255, 255, 255, 0.45)',
+      },
     },
     moonlit_band: {
       label: 'Moonlit band',
@@ -117,6 +141,14 @@
       bgHover: 'linear-gradient(118deg, #020617 0%, #115e59 38%, #172554 72%, #020617 100%)',
       border: 'rgba(45, 212, 191, 0.35)',
       sampleHex: '#134e4a',
+      fgPalette: {
+        fg: '#f8fafc',
+        rankFg: '#e2e8f0',
+        statMuted: '#cbd5e1',
+        statPos: '#6ee7b7',
+        statNeg: '#fecaca',
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.65), 0 0 1px rgba(0, 0, 0, 0.45)',
+      },
     },
     finale_aurora: {
       label: 'Finale aurora',
@@ -124,7 +156,15 @@
       bg: 'linear-gradient(132deg, #fffbeb 0%, #fcd34d 32%, #f59e0b 58%, #7c3aed 100%)',
       bgHover: 'linear-gradient(132deg, #fef3c7 0%, #fbbf24 34%, #ea580c 56%, #6d28d9 100%)',
       border: 'rgba(124, 58, 237, 0.35)',
-      sampleHex: '#f59e0b',
+      sampleHex: '#7c3aed',
+      fgPalette: {
+        fg: '#f8fafc',
+        rankFg: '#e2e8f0',
+        statMuted: '#cbd5e1',
+        statPos: '#bbf7d0',
+        statNeg: '#fecaca',
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.55), 0 0 14px rgba(0, 0, 0, 0.35)',
+      },
     },
   });
 
@@ -167,36 +207,22 @@
 
   function applyLeaderboardRowPreset(tr, presetId) {
     var def = LB_ROW_PRESETS[presetId];
-    if (!def) {
+    if (!def || !def.fgPalette) {
       tr.className = 'lb-row-default';
       tr.removeAttribute('style');
       return;
     }
-    var base = hexToRgb(def.sampleHex);
-    if (!base) {
-      tr.className = 'lb-row-default';
-      tr.removeAttribute('style');
-      return;
-    }
-    var L = relLum(base);
-    var light = L > 0.45;
+    var pal = def.fgPalette;
     tr.className = 'lb-row-themed';
     tr.style.setProperty('--lb-bg', def.bg);
     tr.style.setProperty('--lb-bg-hover', def.bgHover);
     tr.style.setProperty('--lb-border', def.border);
-    if (light) {
-      tr.style.setProperty('--lb-fg', '#0f172a');
-      tr.style.setProperty('--lb-rank-fg', '#475569');
-      tr.style.setProperty('--lb-stat-muted', '#64748b');
-      tr.style.setProperty('--lb-stat-pos', '#047857');
-      tr.style.setProperty('--lb-stat-neg', '#b91c1c');
-    } else {
-      tr.style.setProperty('--lb-fg', '#f8fafc');
-      tr.style.setProperty('--lb-rank-fg', '#cbd5e1');
-      tr.style.setProperty('--lb-stat-muted', '#94a3b8');
-      tr.style.setProperty('--lb-stat-pos', '#6ee7b7');
-      tr.style.setProperty('--lb-stat-neg', '#fca5a5');
-    }
+    tr.style.setProperty('--lb-fg', pal.fg);
+    tr.style.setProperty('--lb-rank-fg', pal.rankFg);
+    tr.style.setProperty('--lb-stat-muted', pal.statMuted);
+    tr.style.setProperty('--lb-stat-pos', pal.statPos);
+    tr.style.setProperty('--lb-stat-neg', pal.statNeg);
+    tr.style.setProperty('--lb-text-shadow', pal.textShadow || 'none');
   }
 
   function applyLeaderboardRowFromStored(tr, stored) {
@@ -260,6 +286,7 @@
       tr.style.setProperty('--lb-stat-pos', '#6ee7b7');
       tr.style.setProperty('--lb-stat-neg', '#fca5a5');
     }
+    tr.style.setProperty('--lb-text-shadow', 'none');
   }
 
   var LB_FRAMES = { silver_lane: 1, amber_pulse: 1, violet_arc: 1 };
