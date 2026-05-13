@@ -2377,6 +2377,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         if (window.TRIFANGX_DASHBOARD_EMBED) return true;
       } catch (e) {}
+      try {
+        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live') {
+          const lp = document.getElementById('login-page');
+          const gc = document.getElementById('game-container');
+          const loginHidden = !lp || lp.style.display === 'none';
+          const gameVisible = gc && gc.style.display !== 'none';
+          if (loginHidden && gameVisible) return true;
+        }
+      } catch (eLive) {}
       if (isHistoryReplayMode) return true;
       if (!isChessPregamePhase()) {
         showNotification('Use the menu above before you start a game.', 'error');
