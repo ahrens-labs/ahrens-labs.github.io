@@ -1,0 +1,202 @@
+/* TrifangX Achievements — dedicated page (light theme) */
+
+.ca-main {
+  flex: 1;
+  width: 100%;
+  padding: 0 0 2.5rem;
+  max-width: none;
+  margin: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -30%, rgba(56, 189, 248, 0.14), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 100% 40%, rgba(167, 139, 250, 0.1), transparent 50%),
+    linear-gradient(165deg, #ecfeff 0%, #f0fdf4 35%, #faf5ff 70%, #fffbeb 100%);
+  background-color: #f8fafc;
+  min-height: calc(100vh - 120px);
+}
+
+.ca-hero {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 1rem;
+  text-align: center;
+}
+
+.ca-hero-inner {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.99) 100%);
+  border-radius: 20px;
+  padding: 1.75rem 1.5rem 1.35rem;
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  box-shadow:
+    0 4px 6px rgba(15, 23, 42, 0.04),
+    0 16px 40px rgba(52, 152, 219, 0.08);
+}
+
+.ca-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #2563eb;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.ca-hero h2 {
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  font-weight: 900;
+  margin: 0 0 0.5rem;
+  color: #0f172a;
+}
+
+.ca-hero-sub {
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1.65;
+  margin: 0 auto 1rem;
+  max-width: 560px;
+}
+
+.ca-points-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.ca-points-badge span {
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.25rem;
+}
+
+.ca-layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.ca-panel {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.99));
+  border: 1px solid rgba(52, 152, 219, 0.15);
+  border-radius: 16px;
+  padding: 1.25rem 1rem 1.5rem;
+  box-shadow: 0 8px 28px rgba(52, 152, 219, 0.06);
+}
+
+.ca-sidebar-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+}
+
+.ca-sidebar-links a {
+  color: #0f766e;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.ca-sidebar-links a:hover {
+  text-decoration: underline;
+}
+
+.ca-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #64748b;
+}
+
+#all-achievements-list.ca-achievements-grid-host {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#all-achievements-list .achievement-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 15px;
+  border: 2px solid #e9ecef;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  font-family: "Inter", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+}
+
+#all-achievements-list .achievement-card.unlocked {
+  border-color: #2ecc71;
+  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.15);
+}
+
+#all-achievements-list .achievement-card.unlocked::before {
+  content: "✓";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #2ecc71;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+#all-achievements-list .achievement-card.locked {
+  opacity: 0.55;
+  filter: grayscale(0.65);
+}
+
+#all-achievements-list .achievement-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+#all-achievements-list .achievement-name {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+#all-achievements-list .achievement-desc {
+  font-size: 0.88em;
+  color: #64748b;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+#all-achievements-list .achievement-progress {
+  font-size: 0.85em;
+  color: #3498db;
+  font-weight: 600;
+}
+
+#all-achievements-list .achievement-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+#all-achievements-list .achievement-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 3px;
+}
+
+#all-achievements-list .trophy-emoji {
+  color: #ffd700;
+}
+
+@media (max-width: 720px) {
+  #all-achievements-list[style*="grid"] {
+    grid-template-columns: 1fr !important;
+  }
+}

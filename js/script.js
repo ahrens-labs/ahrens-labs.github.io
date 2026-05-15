@@ -14,6 +14,7 @@ const AHRENS_API_URL = window.AHRENS_LABS_API_BASE;
 const PROTECTED_PAGE_BASENAMES = [
     'chess_engine',
     'chess_shop',
+    'achievements',
     'dungeon_game',
     'classify'
 ];
