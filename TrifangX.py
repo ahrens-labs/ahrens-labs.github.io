@@ -444,7 +444,7 @@ ENGINE_STATE_KEYS = (
     'edge_up_white_king', 'edge_down_white_king', 'edge_left_white_king', 'edge_right_white_king',
     'number_of_moves', 'white_move_count', 'black_move_count', 'king_move', 'king_move_white',
     'game_moves', 'scores', 'board', 'white_king_row', 'white_king_col', 'black_king_row', 'black_king_col',
-    'position_history', 'engine_running',
+    'position_history', 'engine_running', 'SCORING_VERSION', 'SCORING_MODIFIERS',
 )
 
 
@@ -461,6 +461,8 @@ def _capture_engine_state_to_dict():
         elif key == 'game_moves':
             out[key] = list(v)
         elif key == 'scores':
+            out[key] = dict(v)
+        elif key == 'SCORING_MODIFIERS':
             out[key] = dict(v)
         else:
             out[key] = v
@@ -482,6 +484,8 @@ def _restore_engine_state_from_dict(d):
             g[key] = list(val)
         elif key == 'scores':
             g[key] = dict(val)
+        elif key == 'SCORING_MODIFIERS':
+            g[key] = dict(val)
         else:
             g[key] = val
     g['stop_event'] = threading.Event()
@@ -500,7 +504,7 @@ def _copy_engine_snapshot(snap):
             out[key] = fast_copy_board(val)
         elif key == 'game_moves':
             out[key] = list(val) if val is not None else []
-        elif key == 'scores':
+        elif key in {'scores', 'SCORING_MODIFIERS'}:
             out[key] = dict(val) if val is not None else {}
         else:
             out[key] = val
@@ -530,6 +534,8 @@ def _new_game_snapshot_when_inline_lock_busy():
         _set_fresh_start_snapshot_template(snap0)
         template = _copy_engine_snapshot(snap0)
     out = _copy_engine_snapshot(template)
+    out['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
+    out['SCORING_VERSION'] = SCORING_VERSION
     out['engine_running'] = True
     return out
 
@@ -601,6 +607,11 @@ def _ensure_move_pool():
         except (ValueError, OSError, AttributeError):
             _MOVE_POOL = None
         return _MOVE_POOL
+
+
+def _restart_move_pool_after_modifier_change():
+    """Workers forked at pool creation won't see updated SCORING_MODIFIERS; recycle pool."""
+    _shutdown_move_pool()
 
 
 def _get_mp_ctx():
@@ -1059,7 +1070,9 @@ def reset_engine_state():
     timer_thread = None
     game_moves = []
     scores = {}
-    _clear_engine_caches()
+    # Reset caches (new game state)
+    global SCORING_VERSION
+    SCORING_VERSION += 1
     # Reset king positions to starting squares
     white_king_row = 0
     white_king_col = 4
@@ -1069,13 +1082,7 @@ def reset_engine_state():
 
 
 def _compute_engine_move_reply(move_notation, color):
-    """Apply the human's move, then compute the engine's reply.
-
-    `color` is the human's side from /move. The engine is the other side.
-    `players_turn` applies **white** moves; `players_turn_white` applies **black** moves
-    (legacy naming). White engine moves use `best_move_black`; black engine moves use
-    `best_move_function`.
-    """
+    """Run one engine reply using current module globals (board, etc.)."""
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -1087,20 +1094,6 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn(board, next_move, notation_move)
-            return_move = best_move_function(board, 'false', 'false')
-            if return_move:
-                cleaned_return = clean_move(return_move)
-                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
-                    return_move = convert_long_move(return_move)
-        else:
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
                     players_turn_white(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
                     players_turn_white(board, '0-0-0', '0-0-0')
@@ -1108,6 +1101,20 @@ def _compute_engine_move_reply(move_notation, color):
                     next_move = move_notation.strip()
                     players_turn_white(board, next_move, notation_move)
             return_move = best_move_black(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
+        else:
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn(board, next_move, notation_move)
+            return_move = best_move_function(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
                 if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
@@ -1371,11 +1378,46 @@ def move_result(job_id):
         MOVE_JOBS.pop(job_id, None)
         return jsonify({'status': 'done', 'move': rec['move']})
 
+@app.route('/modifiers', methods=['POST', 'GET'])
+def update_modifiers():
+    """Update or retrieve scoring modifiers to adjust engine personality"""
+    if request.method == 'GET':
+        # Return current modifiers
+        return jsonify(SCORING_MODIFIERS)
+
+    # POST - update modifiers
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    # Update any provided modifiers
+    for key, value in data.items():
+        if key in SCORING_MODIFIERS:
+            try:
+                SCORING_MODIFIERS[key] = float(value)
+            except (ValueError, TypeError):
+                return jsonify({'error': f'Invalid value for {key}: {value}'}), 400
+        else:
+            return jsonify({'error': f'Unknown modifier: {key}'}), 400
+
+    # Modifiers affect evaluation; bump version and clear caches
+    global SCORING_VERSION
+    SCORING_VERSION += 1
+    _restart_move_pool_after_modifier_change()
+    _shutdown_all_dedicated_workers()
+    with _GAMES_LOCK:
+        for info in GAMES.values():
+            d = info['snapshot']
+            d['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
+            d['SCORING_VERSION'] = SCORING_VERSION
+
+    return jsonify({'message': 'Modifiers updated', 'modifiers': SCORING_MODIFIERS})
+
 def evaluate_chunks(chunk):
     # Optimized: removed excessive printing for performance
     results = []
     for task in chunk:
-        key, scoring = evaluate_white_task(task)
+        key, scoring, scoring_time = evaluate_white_task(task)
         if scoring:
             results.append((key, scoring))
     return results
@@ -1383,7 +1425,7 @@ def evaluate_chunks(chunk):
 
 def evaluate_white_task(args):
     board, row, col, new_row, new_col, good_moves, piece, black_king_row, black_king_col, captured_piece, position_history = args
-    scoring = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
+    scoring, scoring_time = evaluate_white(board, row, col, new_row, new_col, good_moves, {}, piece, black_king_row, black_king_col, captured_piece, position_history)
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1392,73 +1434,169 @@ def evaluate_white_task(args):
         key = (row, col, new_row, new_col, piece)
     # Removed excessive printing for performance
     if scoring:
-        return key, scoring
+        return key, scoring, scoring_time
     else:
-        return None, None
+        return None, None, None
 
 def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores, piece, black_king_row, black_king_col, captured_piece, position_history):
-    current_score = None
-    if piece in ('0-0', '0-0-0'):
-        castling_key = piece
+    checkmate = False
+    checkmate2 = False
+    bad_checkmate = False
+    stalemate = False
+    scoring_time = 0
+    if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
-        with _analysis_castling_black(board, piece):
-            current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_white(board)
-            if checkmate2:
-                return 10000
-            if ply2 and DEBUG_LOGS:
-                br, bc, tr, tc, bp, cap, _d = ply2
-                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'w')
-                predicted_move_2 = None
-                if ply3:
-                    br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'b')
-                log_move_analysis(
-                    analyzed_move, predicted_move_1, predicted_move_2, current_score,
-                    _board_after_analyzed_line(board, ply2, ply3),
-                )
-            scores[castling_key] = current_score
-        return current_score
+        board[7][7] = '0'
+        board[7][5] = 'r'
+        board[7][6] = 'k'
+        board[7][4] = '0'
+        best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
+        scoring_time += score_time
+        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+            checkmate = True
+        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+            bad_checkmate = True
+            return -1000, scoring_time
+        if not checkmate and not bad_checkmate:
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
+            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
+            scoring_time += score_time
+            if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                checkmate2 = True
+            if not checkmate2:
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
+                _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                current_score = score(board, 'w')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                scoring_time += 0
+                _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0'] = current_score
+                board[7][6] = '0'
+                board[7][4] = 'k'
+                board[7][7] = 'r'
+                board[7][5] = '0'
+                checkmate = False
+                checkmate2 = False
+                black_king_row, black_king_col = find_king(board, 'b')
+        elif checkmate:
+            return 10000, scoring_time
+            # #sys.exit() # Removed #sys.exit()
+    elif piece == '0-0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
+        board[7][0] = '0'
+        board[7][3] = 'r'
+        board[7][2] = 'k'
+        board[7][4] = '0'
+        best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
+        scoring_time += score_time
+        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+            checkmate = True
+        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+            bad_checkmate = True
+            return -1000, scoring_time
+        if not checkmate and not bad_checkmate:
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
+            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
+            scoring_time += score_time
+            if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                checkmate2 = True
+            if not checkmate2:
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
+                _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                current_score = score(board, 'w')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0-0'] = current_score
+                board[7][4] = 'k'
+                board[7][2] = '0'
+                board[7][0] = 'r'
+                board[7][3] = '0'
+                checkmate = False
+                checkmate2 = False
+                black_king_row, black_king_col = find_king(board, 'b')
+        elif checkmate:
+            return 10000, scoring_time
+            # #sys.exit() # Removed #sys.exit()
 
-    if piece in BLACK_PROMOTION_PIECES and to_row == 0:
-        placed = piece
-    elif piece == 'p' and to_row == 0:
-        placed = 'q'
-    elif piece in WHITE_PROMOTION_PIECES and to_row == 7:
-        placed = piece
-    elif piece == 'P' and to_row == 7:
-        placed = 'Q'
     else:
-        placed = piece
-    analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
-    with _analysis_trial_move(board, from_row, from_col, to_row, to_col, placed, captured_piece, position_history) as pos_hash:
+        if piece in BLACK_PROMOTION_PIECES and to_row == 0:
+            placed = piece
+        elif piece == 'p' and to_row == 0:
+            placed = 'q'
+        elif piece in WHITE_PROMOTION_PIECES and to_row == 7:
+            placed = piece
+        elif piece == 'P' and to_row == 7:
+            placed = 'Q'
+        else:
+            placed = piece
+        analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
+        board[from_row][from_col] = '0'
+        board[to_row][to_col] = placed
+        # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
+        pos_hash = board_to_hash(board)
+        position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             current_score = -0.25
             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
+        else:
+            if piece == 'k':
+                black_king_row, black_king_col = find_king(board, 'b')
+            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
+
+                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
+                scoring_time += score_time
+                if draw:
+                    current_score = -0.25
+                    scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                else:
+                    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+                        white_king_row, white_king_col = find_king(board, 'w')
+                        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            checkmate = True
+                        else:
+                            stalemate = True
+                            current_score = -0.25
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                    elif best_row == best_col == target_row == target_col == best_piece == captured == '2':
+                        bad_checkmate = True
+                        return -1000, scoring_time
+                    if not checkmate and not bad_checkmate and not stalemate:
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
+                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                        best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
+                        scoring_time += score_time
+                        if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                            checkmate2 = True
+                        if not checkmate2:
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
+                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                            current_score = score(board, 'w')
+                            scoring_time += 0
+                            for move in good_moves:
+                                if (from_row, from_col, from_row, from_col, piece, '0') == move:
+                                    current_score += 0.5
+                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                    elif checkmate:
+                        return 10000, scoring_time
+                        # #sys.exit() # Removed #sys.exit()
+                    elif bad_checkmate:
+                        current_score = -1000
+                        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+            else:
+                return None, None
+        board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
+        board[to_row][to_col] = captured_piece
+        position_history[pos_hash] -= 1
         if piece == 'k':
             black_king_row, black_king_col = find_king(board, 'b')
-        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
-            return None
-        current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_white(board)
-        if checkmate2:
-            return 10000
-        if DEBUG_LOGS and ply2:
-            br, bc, tr, tc, bp, cap, _d = ply2
-            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'w')
-            predicted_move_2 = None
-            if ply3:
-                br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'b')
-            log_move_analysis(
-                analyzed_move, predicted_move_1, predicted_move_2, current_score,
-                _board_after_analyzed_line(board, ply2, ply3),
-            )
-        for move in good_moves:
-            if (from_row, from_col, from_row, from_col, piece, '0') == move:
-                current_score += 0.5
-        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-    return current_score
-
+    return current_score, scoring_time
 
 # Cache piece values globally to avoid recreating dict every function call
 PIECE_VALUES = {
@@ -1467,6 +1605,24 @@ PIECE_VALUES = {
     'q': 36, 'Q': -36, 'k': 1000, 'K': -1000
 }
 
+# Scoring modifiers - adjust these to change engine personality
+SCORING_MODIFIERS = {
+    "material": 1.25,
+    "king_safety_b": 1.0,
+    "king_safety_w": 1.0,
+    "centralization_b": 1.0,
+    "centralization_w": 1.0,
+    "attack_b": 1.0,
+    "attack_w": 1.0,
+    "piece_activity_b": 1.0,
+    "piece_activity_w": 1.0,
+    "defense_b": 1.0,
+    "defense_w": 1.0,
+    "pawn_structure_b": 1.0,
+    "pawn_structure_w": 1.0
+}
+
+# Position cache for memoization - avoid re-evaluating same positions
 
 def board_to_hash(board):
     """Convert board to hashable tuple for caching"""
@@ -1481,11 +1637,17 @@ def board_to_hash(board):
 # `score()` is called extremely frequently (directly and via best-move helpers).
 # Caching it gives a large speedup for repeated positions during search/analysis.
 #
-# We include `castled` flags so cache entries remain valid when castling state changes.
+# We include `castled` flags and a scoring version so cache entries remain valid
+# when game state or SCORING_MODIFIERS change.
+SCORING_VERSION = 0
+
+# Pre-seed new-game snapshot for /start when _INLINE_ENGINE_LOCK is busy. Must run after
+# SCORING_* exist: an earlier capture left None for those keys and _copy_engine_snapshot
+# called dict(None), crashing import and preventing the server from starting.
 _set_fresh_start_snapshot_template(_capture_engine_state_to_dict())
 
 @lru_cache(maxsize=200_000)
-def _score_cached(board_hash, turn, castled, castled_white):
+def _score_cached(board_hash, turn, castled, castled_white, scoring_version):
     # IMPORTANT: many helper functions (eg `is_checkmate`) simulate moves by
     # mutating `board`. Our cache key uses an immutable tuple-of-tuples, but we
     # must evaluate on a mutable 8x8 list-of-lists.
@@ -1507,7 +1669,7 @@ def evaluate_chunks_black(chunk):
     # Optimized: removed excessive printing for performance
     results = []
     for task in chunk:
-        key, scoring = evaluate_black_task(task)
+        key, scoring, scoring_time = evaluate_black_task(task)
         if scoring:
             results.append((key, scoring))
     return results
@@ -1515,7 +1677,7 @@ def evaluate_chunks_black(chunk):
 
 def evaluate_black_task(args):
     board, row, col, new_row, new_col, good_moves, piece, white_king_row, white_king_col, captured_piece, position_history = args
-    scoring = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
+    scoring, scoring_time = evaluate_black(board, row, col, new_row, new_col, good_moves, {}, piece, white_king_row, white_king_col, captured_piece, position_history)
     if piece == '0-0-0':
         key = '0-0-0'
     elif piece == '0-0':
@@ -1524,73 +1686,170 @@ def evaluate_black_task(args):
         key = (row, col, new_row, new_col, piece)
     # Removed excessive printing for performance
     if scoring:
-        return key, scoring
+        return key, scoring, scoring_time
     else:
-        return None, None
+        return None, None, None
 
 def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores, piece, white_king_row, white_king_col, captured_piece, position_history):
-    current_score = None
-    if piece in ('0-0', '0-0-0'):
-        castling_key = piece
+    checkmate = False
+    checkmate2 = False
+    bad_checkmate = False
+    stalemate = False
+    scoring_time = 0
+    if piece == '0-0':
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
-        with _analysis_castling_white(board, piece):
-            current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_black(board)
-            if checkmate2:
-                return -10000
-            if ply2 and DEBUG_LOGS:
-                br, bc, tr, tc, bp, cap, _d = ply2
-                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'b')
-                predicted_move_2 = None
-                if ply3:
-                    br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'w')
-                log_move_analysis(
-                    analyzed_move, predicted_move_1, predicted_move_2, current_score,
-                    _board_after_analyzed_line(board, ply2, ply3),
-                )
-            scores[castling_key] = current_score
-        return current_score
+        # Removed print for performance in parallel processing
+        board[0][7] = '0'
+        board[0][5] = 'R'
+        board[0][6] = 'K'
+        board[0][4] = '0'
+        best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
+        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+            checkmate = True
+        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+            bad_checkmate = True
+            return 1000, scoring_time
+        if not checkmate and not bad_checkmate:
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
+            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
+            if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                checkmate2 = True
+            if not checkmate2:
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
+                _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                current_score = score(board, 'b')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0'] = current_score
+                board[0][6] = '0'
+                board[0][4] = 'K'
+                board[0][7] = 'R'
+                board[0][5] = '0'
+                checkmate = False
+                checkmate2 = False
+                white_king_row, white_king_col = find_king(board, 'w')
+        elif checkmate:
+            return -10000, scoring_time
+            # #sys.exit() # Removed #sys.exit()
+    elif piece == '0-0-0':
+        analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
+        # Removed print for performance in parallel processing
+        board[0][0] = '0'
+        board[0][3] = 'R'
+        board[0][2] = 'K'
+        board[0][4] = '0'
+        best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
+        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+            checkmate = True
+        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+            bad_checkmate = True
+            return 1000, scoring_time
+        if not checkmate and not bad_checkmate:
+            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
+            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
+            if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                checkmate2 = True
+            if not checkmate2:
+                predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
+                _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                current_score = score(board, 'b')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                scores['0-0-0'] = current_score
+                board[0][4] = 'K'
+                board[0][2] = '0'
+                board[0][0] = 'R'
+                board[0][3] = '0'
+                checkmate = False
+                checkmate2 = False
+                white_king_row, white_king_col = find_king(board, 'w')
+        elif checkmate:
+            return -10000, scoring_time
+            # #sys.exit() # Removed #sys.exit()
 
-    if piece in WHITE_PROMOTION_PIECES and to_row == 7:
-        placed = piece
-    elif piece == 'P' and to_row == 7:
-        placed = 'Q'
-    elif piece in BLACK_PROMOTION_PIECES and to_row == 0:
-        placed = piece
-    elif piece == 'p' and to_row == 0:
-        placed = 'q'
     else:
-        placed = piece
-    analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
-    with _analysis_trial_move(board, from_row, from_col, to_row, to_col, placed, captured_piece, position_history) as pos_hash:
+        if piece in WHITE_PROMOTION_PIECES and to_row == 7:
+            placed = piece
+        elif piece == 'P' and to_row == 7:
+            placed = 'Q'
+        elif piece in BLACK_PROMOTION_PIECES and to_row == 0:
+            placed = piece
+        elif piece == 'p' and to_row == 0:
+            placed = 'q'
+        else:
+            placed = piece
+        analyzed_move = format_debug_move(board, placed, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
+        board[from_row][from_col] = '0'
+        board[to_row][to_col] = placed
+        # Removed print_piece_move for performance in parallel processing
+        # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
+        pos_hash = board_to_hash(board)
+        position_history[pos_hash] += 1
         if position_history[pos_hash] >= 3:
             current_score = 0.25
+            # Removed print for performance
             scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
+        else:
+            if piece == 'K':
+                white_king_row, white_king_col = find_king(board, 'w')
+            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+
+                best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
+                if draw:
+                    current_score = 0.25
+                    # Removed print for performance
+                    scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                else:
+                    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+                        black_king_row, black_king_col = find_king(board, 'b')
+                        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
+                            checkmate = True
+                        else:
+                            stalemate = True
+                            current_score = 0.25
+                            # Removed print for performance
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                    elif best_row == best_col == target_row == target_col == best_piece == captured == '2':
+                        bad_checkmate = True
+                        return 1000, scoring_time
+                    if not checkmate and not bad_checkmate and not stalemate:
+                        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
+                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                        best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
+                        if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
+                            checkmate2 = True
+                        if not checkmate2:
+                            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
+                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                            current_score = score(board, 'b')
+                            for move in good_moves:
+                                if (from_row, from_col, from_row, from_col, piece, '0') == move:
+                                    current_score -= 0.5
+                            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
+                            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+                    elif checkmate:
+                        return -10000, scoring_time
+                        # #sys.exit() # Removed #sys.exit()
+                    elif bad_checkmate:
+                        current_score = 1000
+                        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
+            else:
+                return None, None
+        board[from_row][from_col] = _source_piece_before_move(piece, to_row, from_row)
+        board[to_row][to_col] = captured_piece
+        position_history[pos_hash] -= 1
         if piece == 'K':
             white_king_row, white_king_col = find_king(board, 'w')
-        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
-            return None
-        current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_black(board)
-        if checkmate2:
-            return -10000
-        if DEBUG_LOGS and ply2:
-            br, bc, tr, tc, bp, cap, _d = ply2
-            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'b')
-            predicted_move_2 = None
-            if ply3:
-                br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'w')
-            log_move_analysis(
-                analyzed_move, predicted_move_1, predicted_move_2, current_score,
-                _board_after_analyzed_line(board, ply2, ply3),
-            )
-        for move in good_moves:
-            if (from_row, from_col, from_row, from_col, piece, '0') == move:
-                current_score -= 0.5
-        scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-    return current_score
+    return current_score, scoring_time
 
+def evaluate_for_modifiers(board, SCORING_MODIFIERS):
+    pass  # Empty function - removed print for performance
 
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
@@ -1792,7 +2051,7 @@ def _score_uncached(board, turn, castled, castled_white):
         "rook_placed_col_white": rook_placed_col_white, "key_squares": key_squares
     }
     stats["key_squares"] = set_key_squares(board)
-    score += material_score
+    score += material_score * SCORING_MODIFIERS["material"]
     if not endgame:
         score += score_holes(board, stats, w_kr, w_kc, b_kr, b_kc)
     if material_score >= 8:
@@ -1847,9 +2106,9 @@ def _score_uncached(board, turn, castled, castled_white):
                   not_protected_by_ally = is_protected(board, row, col, protected_color)
                   if not not_protected_by_ally:
                       if piece.isupper():
-                          score += VALUES_black[piece]
+                          score += VALUES_black[piece] * SCORING_MODIFIERS["material"]
                       else:
-                          score += VALUES_white[piece]
+                          score += VALUES_white[piece] * SCORING_MODIFIERS["material"]
 
         if turn == 'b':
             if piece in {'N', 'B', 'R', 'Q'}:
@@ -1860,13 +2119,13 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'Q' and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 34
+                                score += 34 * SCORING_MODIFIERS["material"]
                         elif piece == 'R' and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 18
+                                score += 18 * SCORING_MODIFIERS["material"]
                         elif piece in {'N', 'B'} and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 10
+                                score += 10 * SCORING_MODIFIERS["material"]
             if piece in {'R', 'Q'}:
                 directions = KNIGHT_DELTAS
                 for direction in directions:
@@ -1875,10 +2134,10 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'Q' and board[new_row][new_col] == 'n':
                             if is_protected(board, row, col, 'w'):
-                                score += 30
+                                score += 30 * SCORING_MODIFIERS["material"]
                         elif piece == 'R' and board[new_row][new_col] == 'n':
                             if is_protected(board, row, col, 'w'):
-                                score += 13
+                                score += 13 * SCORING_MODIFIERS["material"]
                 directions = BISHOP_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
@@ -1887,10 +2146,10 @@ def _score_uncached(board, turn, castled, castled_white):
                         if 0 <= new_row < 8 and 0 <= new_col < 8:
                             if piece == 'Q' and board[new_row][new_col] == 'b':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 30
+                                    score += 30 * SCORING_MODIFIERS["material"]
                             elif piece == 'R' and board[new_row][new_col] == 'b':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 13
+                                    score += 13 * SCORING_MODIFIERS["material"]
                             if board[new_row][new_col] != '0':
                                 break
                         else:
@@ -1904,7 +2163,7 @@ def _score_uncached(board, turn, castled, castled_white):
                         if 0 <= new_row < 8 and 0 <= new_col < 8:
                             if board[new_row][new_col] == 'r':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 18
+                                    score += 18 * SCORING_MODIFIERS["material"]
                             if board[new_row][new_col] != '0':
                                 break
                         else:
@@ -1918,14 +2177,14 @@ def _score_uncached(board, turn, castled, castled_white):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'q' and board[new_row][new_col] == 'P' and stats["pawn_take_queen"] == False and is_protected(board, row, col, 'b'):
-                            score -= 34
+                            score -= 34 * SCORING_MODIFIERS["material"]
                             stats["pawn_take_queen"] = True
                         elif piece == 'r' and board[new_row][new_col] == 'P':
                             if is_protected(board, row, col, 'b'):
-                                score -= 18
+                                score -= 18 * SCORING_MODIFIERS["material"]
                         elif piece in {'n', 'b'} and board[new_row][new_col] == 'P':
                             if is_protected(board, row, col, 'b'):
-                                score -= 10
+                                score -= 10 * SCORING_MODIFIERS["material"]
             if piece in {'r', 'q'}:
                 directions = KNIGHT_DELTAS
                 for direction in directions:
@@ -1934,10 +2193,10 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'q' and board[new_row][new_col] == 'N':
                             if is_protected(board, row, col, 'b'):
-                                score -= 30
+                                score -= 30 * SCORING_MODIFIERS["material"]
                         elif piece == 'r' and board[new_row][new_col] == 'N':
                             if is_protected(board, row, col, 'b'):
-                                score -= 13
+                                score -= 13 * SCORING_MODIFIERS["material"]
                 directions = BISHOP_DELTAS
                 for direction in directions:
                   for i in range(1, 8):
@@ -1946,10 +2205,10 @@ def _score_uncached(board, turn, castled, castled_white):
                       if 0 <= new_row < 8 and 0 <= new_col < 8:
                           if piece == 'q' and board[new_row][new_col] == 'B':
                               if is_protected(board, row, col, 'b'):
-                                  score -= 30
+                                  score -= 30 * SCORING_MODIFIERS["material"]
                           elif piece == 'r' and board[new_row][new_col] == 'B':
                               if is_protected(board, row, col, 'b'):
-                                  score -= 13
+                                  score -= 13 * SCORING_MODIFIERS["material"]
                           if board[new_row][new_col] != '0':
                               break
                       else:
@@ -1963,7 +2222,7 @@ def _score_uncached(board, turn, castled, castled_white):
                             if 0 <= new_row < 8 and 0 <= new_col < 8:
                                 if board[new_row][new_col] == 'R':
                                     if is_protected(board, row, col, 'b'):
-                                        score -= 18
+                                        score -= 18 * SCORING_MODIFIERS["material"]
                                 if board[new_row][new_col] != '0':
                                     break
                             else:
@@ -1977,8 +2236,8 @@ def score(board, turn):
     repeated evaluation of identical positions.
     """
     # These globals are part of the evaluation (castling heuristics).
-    global castled, castled_white
-    return _score_cached(board_to_hash(board), turn, castled, castled_white)
+    global castled, castled_white, SCORING_VERSION
+    return _score_cached(board_to_hash(board), turn, castled, castled_white, SCORING_VERSION)
 
 def is_light_square(row, col):
     return (row + col) % 2 == 0
@@ -2004,6 +2263,16 @@ def indices_to_pos_col(col):
 def indices_to_pos_row(row):
     row_pos = str(8 - row)
     return row_pos
+
+def find_king(board, king_color):
+    king_symbol = 'K' if king_color == 'w' else 'k'
+    for row in range(8):
+        row_data = board[row]
+        for col in range(8):
+            if row_data[col] == king_symbol:
+                return row, col
+    print_board(board)
+    return None
 
 def check_defenders_lower(board, row, col):
     defenders = 0
@@ -2143,132 +2412,135 @@ def score_holes(board, stats, white_king_row=None, white_king_col=None, black_ki
     if black_king_row is None or black_king_col is None:
         black_king_row, black_king_col = find_king(board, 'b')
 
+    # Pre-compute modifier products to avoid repeated multiplications
+    psb_db = SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["defense_b"]
+    psw_dw = SCORING_MODIFIERS["pawn_structure_w"]# * SCORING_MODIFIERS["defense_w"]
 
     for col in range(8):
         if not is_protected_pawn(board, 5, col, 'p') and board[5][col] in {'0', 'P', 'N', 'B'}:
             if black_king_col not in {3, 4} and col in {black_king_col, black_king_col+1, black_king_col-1}:
-                score -= 0.75
+                score -= 0.75 * psb_db
             else:
-                score -= 0.3
+                score -= 0.3 * psb_db
             if is_protected_pawn(board, 5, col, 'P'):
-                score -= 0.5
+                score -= 0.5 * psb_db
                 if board[5][col] == 'P':
-                    score -= 0.6
+                    score -= 0.6 * psb_db
                 if board[5][col] == 'N':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.8
+                        score -= 0.8 * psb_db
                     elif col in {1, 6}:
-                        score -= 0.4
+                        score -= 0.4 * psb_db
                 if board[5][col] == 'B':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.4
+                        score -= 0.4 * psb_db
                     else:
-                        score -= 0.2
+                        score -= 0.2 * psb_db
             else:
                 if board[5][col] == 'N':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.5
+                        score -= 0.5 * psb_db
                     elif col in {1, 6}:
-                        score -= 0.25
+                        score -= 0.25 * psb_db
                 if board[5][col] == 'B':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.25
+                        score -= 0.25 * psb_db
                     else:
                         score -= 0.13
         if not is_protected_pawn(board, 4, col, 'p') and board[4][col] == '0':
             if col != 7 and board[6][col+1] != 'p':
                 if col != 0  and board[6][col-1] != 'p':
                     if black_king_col not in {3, 4} and col in {black_king_col, black_king_col+1, black_king_col-1}:
-                        score -= 0.75
+                        score -= 0.75 * psb_db
                     else:
-                        score -= 0.3
+                        score -= 0.3 * psb_db
                     if is_protected_pawn(board, 4, col, 'P'):
-                        score -= 0.5
+                        score -= 0.5 * psb_db
                         if board[4][col] == 'P':
-                            score -= 0.6
+                            score -= 0.6 * psb_db
                         if board[4][col] == 'N':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.8
+                                score -= 0.8 * psb_db
                             elif col in {1, 6}:
-                                score -= 0.4
+                                score -= 0.4 * psb_db
                         elif board[4][col] == 'B':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.4
+                                score -= 0.4 * psb_db
                             else:
-                                score -= 0.2
+                                score -= 0.2 * psb_db
                     else:
                         if board[4][col] == 'N':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.5
+                                score -= 0.5 * psb_db
                             elif col in {1, 6}:
-                                score -= 0.25
+                                score -= 0.25 * psb_db
                         elif board[4][col] == 'B':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.25
+                                score -= 0.25 * psb_db
                             else:
-                                score -= 0.13
+                                score -= 0.13 * psb_db
         if not is_protected_pawn(board, 2, col, 'P') and board[2][col] == '0':
             if white_king_col not in {3, 4} and col in {white_king_col, white_king_col+1, white_king_col-1}:
-                score += 0.75
+                score += 0.75 * psw_dw
             else:
-                score += 0.3
+                score += 0.3 * psw_dw
             if is_protected_pawn(board, 2, col, 'p'):
                 if board[2][col] == 'p':
-                    score += 0.6
+                    score += 0.6 * psw_dw
                 score += 0.5
                 if board[2][col] == 'n':
                     if col in {2, 3, 4, 5}:
-                        score += 0.8
+                        score += 0.8 * psw_dw
                     elif col in {1, 6}:
-                        score += 0.4
+                        score += 0.4 * psw_dw
                 elif board[2][col] == 'b':
                     if col in {2, 3, 4, 5}:
-                        score += 0.4
+                        score += 0.4 * psw_dw
                     else:
-                        score += 0.2
+                        score += 0.2 * psw_dw
             else:
                 if board[2][col] == 'n':
                     if col in {2, 3, 4, 5}:
-                        score += 0.5
+                        score += 0.5 * psw_dw
                     elif col in {1, 6}:
-                        score += 0.25
+                        score += 0.25 * psw_dw
                 elif board[2][col] == 'b':
                     if col in {2, 3, 4, 5}:
-                        score += 0.25
+                        score += 0.25 * psw_dw
                     else:
-                        score += 0.13
+                        score += 0.13 * psw_dw
         if not is_protected_pawn(board, 3, col, 'P') and board[3][col] == '0':
             if col != 7 and board[1][col+1] != 'P':
                 if col != 0 and board[1][col-1] != 'P':
                     if white_king_col not in {3, 4} and col in {white_king_col, white_king_col+1, white_king_col-1}:
-                        score += 0.75
+                        score += 0.75 * psw_dw
                     else:
-                        score += 0.3
+                        score += 0.3 * psw_dw
                     if is_protected_pawn(board, 3, col, 'p'):
-                        score += 0.5
+                        score += 0.5 * psw_dw
                         if board[3][col] == 'p':
-                            score += 0.6
+                            score += 0.6 * psw_dw
                         if board[3][col] == 'n':
                             if col in {2, 3, 4, 5}:
-                                score += 0.8
+                                score += 0.8 * psw_dw
                             elif col in {1, 6}:
-                                score += 0.4
+                                score += 0.4 * psw_dw
                         elif board[3][col] == 'b':
                             if col in {2, 3, 4, 5}:
-                                score += 0.4
+                                score += 0.4 * psw_dw
                             else:
-                                score += 0.2
+                                score += 0.2 * psw_dw
                     else:
                         if board[3][col] == 'n':
                             if col in {2, 3, 4, 5}:
-                                score += 0.5
+                                score += 0.5 * psw_dw
                             elif col in {1, 6}:
-                                score += 0.25
+                                score += 0.25 * psw_dw
                         elif board[3][col] == 'b':
                             if col in {2, 3, 4, 5}:
-                                score += 0.25
+                                score += 0.25 * psw_dw
                             else:
-                                score += 0.13
+                                score += 0.13 * psw_dw
 
     return score
 
@@ -2403,10 +2675,10 @@ def score_king(board, row, col, color, stats):
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score += 7-distance
             if row in {7, 0} or col in {7, 0}:
-                score -= 0.5#
+                score -= 0.5# * SCORING_MODIFIERS["piece_activity_b"]
             if stats["black_bishops"] + stats["black_knights"] + stats["black_rooks"] + stats["black_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
-                score += (7-distance)/2#
+                score += (7-distance)/2# * SCORING_MODIFIERS["piece_activity_b"]
             directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
@@ -2414,7 +2686,7 @@ def score_king(board, row, col, color, stats):
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'P':
                         if not is_protected(board, new_row, new_col, 'b'):
-                            score += 1#
+                            score += 1# * SCORING_MODIFIERS["attack_b"]
 #            if stats["edge_up_white_king"]:
 #                if board[row+2][col] == 'K':
 #                    score -= 1.5
@@ -2432,17 +2704,17 @@ def score_king(board, row, col, color, stats):
 #                    score -= 1.5
 #                score -= (7-col)/15
         if board[7][4] != 'k' and not stats["fake_castled"] and not castled:
-            score -= 2#
+            score -= 2# * SCORING_MODIFIERS["king_safety_b"]
     else:
         if stats["endgame"]:
             if stats["white_pieces"] == 1:
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score -= 7-distance
             if row in {7, 0} or col in {7, 0}:
-                score += 0.5#
+                score += 0.5# * SCORING_MODIFIERS["piece_activity_w"]
             if stats["white_bishops"] + stats["white_knights"] + stats["white_rooks"] + stats["white_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
-                score -= (7-distance)/2#
+                score -= (7-distance)/2# * SCORING_MODIFIERS["piece_activity_w"]
             directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
@@ -2450,7 +2722,7 @@ def score_king(board, row, col, color, stats):
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'p':
                         if not is_protected(board, new_row, new_col, 'w'):
-                            score -= 1#
+                            score -= 1# * SCORING_MODIFIERS["attack_w"]
 #            if stats["edge_up_black_king"]:
 #                if board[row+2][col] == 'k':
 #                    score -= 1.5
@@ -2468,22 +2740,22 @@ def score_king(board, row, col, color, stats):
 #                    score -= 1.5
 #                score -= (7-col)/15
         if board[0][4] != 'K' and not stats["fake_castled_white"] and not castled_white:
-            score += 2#
+            score += 2# * SCORING_MODIFIERS["king_safety_b"]
     return score
 
 def score_queen(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.4#
+            score += 0.4# * SCORING_MODIFIERS["centralization_b"]
         if board[0][6] == 'K':
             if col in [5, 6, 7]:
-                score += 0.7#
+                score += 0.7# * SCORING_MODIFIERS["attack_b"]
         if not stats["endgame"]:
             if open_file(board, col, 'b'):
-              score += 0.3#
+              score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
             if open_file(board, col, 'w'):
-              score += 0.3#
+              score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
             directions = QUEEN_DELTAS
             queen_squares = 0
             for direction in directions:
@@ -2496,7 +2768,7 @@ def score_queen(board, row, col, color, stats):
                             break
                     else:
                         break
-            score += queen_squares/27#
+            score += queen_squares/27# * SCORING_MODIFIERS["piece_activity_b"]
         else:
             if stats["black_pieces"] == 2 and stats["white_pieces"] == 1:
                 if is_king_in_check(board, stats["white_king_row"], stats["white_king_col"], 'w'):
@@ -2510,20 +2782,20 @@ def score_queen(board, row, col, color, stats):
                             score += 1.3
         # Opening bonuses with smooth transition to middlegame
         if (row, col) in [(6, 4), (6, 2), (6, 3), (7, 3)]:
-            score += 0.6 * stats["opening_weight"]#
+            score += 0.6 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_b"]
         if (row, col) == (7, 3):
-            score += 1.0 * stats["opening_weight"]#
+            score += 1.0 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_b"]
     else:
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.4#
+            score -= 0.4# * SCORING_MODIFIERS["centralization_w"]
         if board[7][6] == 'k':
             if col in [5, 6, 7]:
-                score += 0.7#
+                score += 0.7# * SCORING_MODIFIERS["attack_w"]
         if not stats["endgame"]:
             if open_file(board, col, 'w'):
-              score -= 0.3#
+              score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
             if open_file(board, col, 'b'):
-              score -= 0.3#
+              score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
             directions = QUEEN_DELTAS
             bad_queen_squares = 0
             for direction in directions:
@@ -2536,7 +2808,7 @@ def score_queen(board, row, col, color, stats):
                             break
                     else:
                         break
-            score -= bad_queen_squares/27#
+            score -= bad_queen_squares/27# * SCORING_MODIFIERS["piece_activity_w"]
         else:
             if stats["white_pieces"] == 2 and stats["black_pieces"] == 1:
                 if is_king_in_check(board, stats["black_king_row"], stats["black_king_col"], 'b'):
@@ -2582,9 +2854,9 @@ def score_queen(board, row, col, color, stats):
 
         # Opening penalties with smooth transition
         if (row, col) in [(1, 4), (1, 2), (1, 3), (0, 3)]:
-            score -= 0.6 * stats["opening_weight"]#
+            score -= 0.6 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_w"]
         if (row, col) == [(0, 3)]:
-            score -= 1.0 * stats["opening_weight"]#
+            score -= 1.0 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_w"]
     return score
 
 def score_rook(board, row, col, color, stats):
@@ -2592,23 +2864,23 @@ def score_rook(board, row, col, color, stats):
     if color == 'b':
         # Penalty for moving rooks early in the game (not on starting square unless castled)
         if ((row, col) != (7, 7) and board[7][6] != 'k') or ((row, col) != (7, 0) and board[7][2] != 'k'):
-            score -= 0.7 * stats["opening_weight"]#
+            score -= 0.7 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
 
         if board[0][6] == 'K':
             if col in [5, 6, 7] and row == 5:
-                score += 0.6#
+                score += 0.6# * SCORING_MODIFIERS["attack_b"]
         if open_file(board, col, 'b'):
-            score += 0.5#
+            score += 0.5# * SCORING_MODIFIERS["piece_activity_b"]
             if open_file(board, col, 'w'):
-              score += 0.5#
+              score += 0.5# * SCORING_MODIFIERS["piece_activity_b"]
               if stats["rook_open_file"]:
-                  score += 0.6#
+                  score += 0.6# * SCORING_MODIFIERS["piece_activity_b"]
               stats["rook_open_file"] = True
         if not stats["endgame"]:
             if row == 1:
-                score += 0.5#
+                score += 0.5# * SCORING_MODIFIERS["attack_b"]
                 if stats["rook_7th_rank"]:
-                    score += 0.8#
+                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
                 stats["rook_7th_rank"] = True
             if not is_pinned_to_king(board, row, col, 'b'):
                 rook_squares = 0
@@ -2623,7 +2895,7 @@ def score_rook(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score += rook_squares/14#
+                score += rook_squares/14# * SCORING_MODIFIERS["piece_activity_b"]
         if stats["endgame"]:
             if stats["white_pieces"] == 1:
                 if stats["black_rooks"] == 2:
@@ -2642,23 +2914,23 @@ def score_rook(board, row, col, color, stats):
     else:
         # Penalty for moving rooks early in the game (not on starting rank)
         if ((row, col) != (0, 7) and board[0][6] != 'K') or ((row, col) != (0, 0) and board[0][2] != 'K'):
-            score += 0.7 * stats["opening_weight"]#
+            score += 0.7 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
 
         if board[7][6] == 'k':
             if col in [5, 6, 7] and row == 2:
-                score -= 0.6#
+                score -= 0.6# * SCORING_MODIFIERS["attack_w"]
         if open_file(board, col, 'w'):
-            score -= 0.5#
+            score -= 0.5# * SCORING_MODIFIERS["piece_activity_w"]
             if open_file(board, col, 'b'):
-              score -= 0.5#
+              score -= 0.5# * SCORING_MODIFIERS["piece_activity_w"]
               if stats["rook_open_file_black"]:
-                  score -= 0.6#
+                  score -= 0.6# * SCORING_MODIFIERS["piece_activity_w"]
               stats["rook_open_file_black"] = True
         if not stats["endgame"]:
             if row == 6:
-                score -= 0.5#
+                score -= 0.5# * SCORING_MODIFIERS["attack_w"]
                 if stats["rook_7th_rank_black"]:
-                    score -= 0.8#
+                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
                 stats["rook_7th_rank_black"] = True
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_rook_squares = 0
@@ -2673,7 +2945,7 @@ def score_rook(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score -= bad_rook_squares/14#
+                score -= bad_rook_squares/14# * SCORING_MODIFIERS["piece_activity_w"]
         else:
             if stats["black_pieces"] == 1:
                 if stats["white_rooks"] == 2:
@@ -2695,15 +2967,15 @@ def score_knight(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.6#
+            score += 0.6# * SCORING_MODIFIERS["centralization_b"]
         elif (col) == 0 or (col) == 7:
-            score -= 0.2#
+            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
         if (row) == 0 or (row) == 7:
-            score -= 0.2#
+            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
         elif row in [5, 4, 3, 2]:
-            score += 0.2#
+            score += 0.2# * SCORING_MODIFIERS["centralization_b"]
             if row in [3, 2]:
-                score += 0.3#
+                score += 0.3# * SCORING_MODIFIERS["attack_b"]
         directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
@@ -2711,14 +2983,14 @@ def score_knight(board, row, col, color, stats):
             if 0 <= new_row < 8 and 0 <= new_col < 8:
                 threatened_piece = board[new_row][new_col]
                 if threatened_piece in {'P', 'N', 'B', 'R'}:
-                    score += 0.3#
+                    score += 0.3# * SCORING_MODIFIERS["attack_b"]
                 if threatened_piece in {'Q', 'K'}:
-                    score += 0.5#
+                    score += 0.5# * SCORING_MODIFIERS["attack_b"]
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'p'):
-                score += 0.4#
+                score += 0.4# * SCORING_MODIFIERS["defense_b"]
             if (row, col) == (5, 5) and board[4][4] == 'p':
-                score += 0.5#
+                score += 0.5# * SCORING_MODIFIERS["centralization_b"]
             if not is_pinned_to_king(board, row, col, 'b'):
                 knight_squares = 0
                 directions = KNIGHT_DELTAS
@@ -2727,23 +2999,23 @@ def score_knight(board, row, col, color, stats):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] in {'0', 'P', 'N', 'B', 'R', 'Q'}:
                         knight_squares += 1
-                score += knight_squares/8#
+                score += knight_squares/8# * SCORING_MODIFIERS["piece_activity_b"]
         # Opening penalties with smooth transition
         if (row, col) == (7, 1) or (row, col) == (7, 6):
-            score -= 0.3 * stats["opening_weight"]#
+            score -= 0.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
         if (row, col) == (5, 5) and board[4][5] == 'p':
-            score += 0.5 * stats["opening_weight"]#
+            score += 0.5 * stats["opening_weight"]# * SCORING_MODIFIERS["centralization_b"]
     else:
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.6#
+            score -= 0.6# * SCORING_MODIFIERS["centralization_w"]
         elif (col) == 0 or (col) == 7:
-            score += 0.2#
+            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
         if (row) == 0 or (row) == 7:
-            score += 0.2#
+            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
         elif row in [5, 4, 3, 2]:
-            score -= 0.2#
+            score -= 0.2# * SCORING_MODIFIERS["centralization_w"]
             if row in [4, 5]:
-                score -= 0.3#
+                score -= 0.3# * SCORING_MODIFIERS["attack_w"]
         directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
@@ -2751,14 +3023,14 @@ def score_knight(board, row, col, color, stats):
             if 0 <= new_row < 8 and 0 <= new_col < 8:
                 threatened_piece = board[new_row][new_col]
                 if threatened_piece in {'p', 'n', 'b', 'r'}:
-                    score -= 0.3#
+                    score -= 0.3# * SCORING_MODIFIERS["attack_w"]
                 if threatened_piece in {'q', 'k'}:
-                    score -= 0.5#
+                    score -= 0.5# * SCORING_MODIFIERS["attack_w"]
         if not stats["endgame"]:
             if (row, col) == (2, 2) and board[3][4] == 'P':
-                score -= 0.5#
+                score -= 0.5# * SCORING_MODIFIERS["centralization_w"]
             if is_protected_pawn(board, row, col, 'P'):
-                score -= 0.4#
+                score -= 0.4# * SCORING_MODIFIERS["defense_w"]
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_knight_squares = 0
                 directions = KNIGHT_DELTAS
@@ -2767,29 +3039,29 @@ def score_knight(board, row, col, color, stats):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] in {'0', 'p', 'n', 'b', 'r', 'q'}:
                         bad_knight_squares += 1
-                score -= bad_knight_squares/8#
+                score -= bad_knight_squares/8# * SCORING_MODIFIERS["piece_activity_w"]
         # Opening bonuses with smooth transition
         if (row, col) == (0, 1) or (row, col) == (0, 6):
-            score += 0.3 * stats["opening_weight"]#
+            score += 0.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
         if (row, col) == (2, 5) and board[3][5] == 'P':
-            score -= 0.5 * stats["opening_weight"]#
+            score -= 0.5 * stats["opening_weight"]# * SCORING_MODIFIERS["centralization_w"]
     return score
 
 def score_bishop(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if stats["black_bishops"] == 2:
-            score += 0.6#
+            score += 0.6# * SCORING_MODIFIERS["piece_activity_b"]
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.3#
+            score += 0.3# * SCORING_MODIFIERS["centralization_b"]
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'p'):
-                score += 0.4#
+                score += 0.4# * SCORING_MODIFIERS["defense_b"]
             if (row, col) == (3, 6):
                 if board[2][5] == 'N' and board[0][3] == 'Q':
-                    score += 0.9#
+                    score += 0.9# * SCORING_MODIFIERS["piece_activity_b"]
                     if board[1][4] == 'B':
-                      score -= 0.3#
+                      score -= 0.3# * SCORING_MODIFIERS["piece_activity_b"]
             if not is_pinned_to_king(board, row, col, 'b'):
                 bishop_squares = 0
                 directions = BISHOP_DELTAS
@@ -2803,23 +3075,23 @@ def score_bishop(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score += bishop_squares/13#
+                score += bishop_squares/13# * SCORING_MODIFIERS["piece_activity_b"]
         # Opening penalties with smooth transition
         if (row, col) == (7, 2) or (row, col) == (7, 5):
-            score -= 1.3 * stats["opening_weight"]#
+            score -= 1.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
     else:
         if stats["white_bishops"] == 2:
-            score -= 0.6#
+            score -= 0.6# * SCORING_MODIFIERS["piece_activity_w"]
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.3#
+            score -= 0.3# * SCORING_MODIFIERS["centralization_w"]
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'P'):
-                score -= 0.4#
+                score -= 0.4# * SCORING_MODIFIERS["defense_w"]
             if (row, col) == (4, 6):
                 if board[5][5] == 'n' and board[7][3] == 'q':
-                    score -= 0.9#
+                    score -= 0.9# * SCORING_MODIFIERS["piece_activity_w"]
                     if board[6][4] == 'b':
-                      score += 0.3#
+                      score += 0.3# * SCORING_MODIFIERS["piece_activity_w"]
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_bishop_squares = 0
                 directions = BISHOP_DELTAS
@@ -2833,10 +3105,10 @@ def score_bishop(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score -= bad_bishop_squares/13#
+                score -= bad_bishop_squares/13# * SCORING_MODIFIERS["piece_activity_w"]
         # Opening bonuses with smooth transition
         if (row, col) == (0, 2) or (row, col) == (0, 5):
-            score += 1.3 * stats["opening_weight"]#
+            score += 1.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
     return score
 
 def score_pawn(board, row, col, color, stats):
@@ -2863,20 +3135,20 @@ def score_pawn(board, row, col, color, stats):
 
     if color == 'b':
         if stats["black_light_squared_bishop"] and not light_square:
-            score += 0.3##
+            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
         if stats["black_dark_squared_bishop"] and light_square:
-            score += 0.3##
+            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
         if stats["white_light_squared_bishop"] and not light_square:
-            score += 0.3##
+            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
         if stats["white_dark_squared_bishop"] and light_square:
-            score += 0.3##
+            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
 
         # Passed pawn detection (left/right/center)
         passed_pawn, passed_straight = check_passed_pawn(board, row, col, color)
 
         if passed_pawn and passed_straight:
-            score += 0.7#
-            score += (7 - row) / 7#
+            score += 0.7# * SCORING_MODIFIERS["attack_b"]
+            score += (7 - row) / 7# * SCORING_MODIFIERS["attack_b"]
             if endgame:
                 score += 0.5
                 score += (7 - row) ** 2 / 25
@@ -2911,97 +3183,97 @@ def score_pawn(board, row, col, color, stats):
         if backwards_left and backwards_right:
             if row == 6:
                 if board[7][col] != 'k':
-                    score -= 0.2#
+                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
                     if row > 0 and board[row - 1][col] == 'P':
-                        score -= 0.3#
+                        score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
                     if passed_straight:
-                        score -= 0.5#
+                        score -= 0.5# * SCORING_MODIFIERS["pawn_structure_b"]
                 else:
                     score -= 0.4
                     if row > 0 and board[row - 1][col] == 'p':
-                        score -= 0.5#
+                        score -= 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
                     if passed_straight:
-                        score -= 0.7#
+                        score -= 0.7# * SCORING_MODIFIERS["pawn_structure_w"]
             else:
-                score -= 0.3#
+                score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
                 if row > 0 and board[row - 1][col] == 'P':
-                    score -= 0.4#
+                    score -= 0.4# * SCORING_MODIFIERS["pawn_structure_b"]
                 if passed_straight:
-                    score -= 0.6#
+                    score -= 0.6# * SCORING_MODIFIERS["pawn_structure_b"]
         if (even_left and backwards_right) or (even_right and backwards_left):
             if col != 0 and col != 7:
                 if row != 6:
-                    score -= 0.3#
+                    score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
 
         # Doubled pawn penalty
         for i in range(1, 8):
             r = row - i
             if r < 0: break
             if board[r][col] == 'p':
-                score -= 1#
+                score -= 1# * SCORING_MODIFIERS["pawn_structure_b"]
                 break
 
         if (row, col) == (4, 3) and board[4][4] == 'p':
-            score += 1##
+            score += 1# * SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["centralization_b"]
         if (row, col) in [(5, 2), (4, 2), (5, 5), (4, 5), (5, 3), (5, 4)]:
-            score += 0.6#
+            score += 0.6# * SCORING_MODIFIERS["pawn_structure_b"]
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 1.4#
+            score += 1.4# * SCORING_MODIFIERS["centralization_b"]
             if opening:
-                score += 0.8#
+                score += 0.8# * SCORING_MODIFIERS["centralization_b"]
         if (row, col) == (4, 4):
-            score += 0.3##
+            score += 0.3# * SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["centralization_b"]
 
         # King shielding and central control
         if not endgame:
             if col < 7:
                 if row + 1 <= 7 and board[row+1][col+1] == 'p':
-                    score += 0.2#
+                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
                 if row - 1 >= 0 and board[row-1][col+1] == 'p':
-                    score += 0.2#
+                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
             if col > 0:
                 if row + 1 <= 7 and board[row+1][col-1] == 'p':
-                    score += 0.2#
+                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
                 if row - 1 >= 0 and board[row-1][col-1] == 'p':
-                    score += 0.2#
+                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
 
             if black_king_row == 7 and black_king_col not in {3, 4}:
                 if (row, col) in {(black_king_row - 1, black_king_col),
                                   (black_king_row - 1, black_king_col + 1),
                                   (black_king_row - 1, black_king_col - 1)}:
-                    score += 0.8#
+                    score += 0.8# * SCORING_MODIFIERS["defense_b"]
 
-            score += ((7 - row) / (20 if col in {2, 3, 4, 5} else 30))#
+            score += ((7 - row) / (20 if col in {2, 3, 4, 5} else 30))# * SCORING_MODIFIERS["attack_b"]
 
             if board[7][5] in {'k'} or board[7][6] in {'k'} or board[7][7] in {'k'}:
                 if col in {5, 6, 7}:
-                    score -= ((7 - row) / 15)#
+                    score -= ((7 - row) / 15)# * SCORING_MODIFIERS["attack_b"]
 
             if col + 1 <= 7 and row > 0:
                 if board[row - 1][col + 1] in {'N', 'B', 'R', 'Q', 'K'}:
-                    score += 0.8#
+                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
             if col - 1 >= 0 and row > 0:
                 if board[row - 1][col - 1] in {'N', 'B', 'R', 'Q', 'K'}:
-                    score += 0.8#
+                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
 
         else:
-            score += (7 - row) ** 2 / 20#
+            score += (7 - row) ** 2 / 20# * SCORING_MODIFIERS["attack_b"]
 
     else:
         if stats["white_light_squared_bishop"] and not light_square:
-            score -= 0.3##
+            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
         if stats["white_dark_squared_bishop"] and light_square:
-            score -= 0.3##
+            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
         if stats["black_light_squared_bishop"] and not light_square:
-            score -= 0.3##
+            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
         if stats["black_dark_squared_bishop"] and light_square:
-            score -= 0.3##
+            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
 
         passed_pawn, passed_straight = check_passed_pawn(board, row, col, color)
 
         if passed_pawn and passed_straight:
-            score -= 0.7#
-            score -= row / 7#
+            score -= 0.7# * SCORING_MODIFIERS["attack_w"]
+            score -= row / 7# * SCORING_MODIFIERS["attack_w"]
             if endgame:
                 score -= 0.5
                 score -= row ** 2 / 25
@@ -3035,77 +3307,77 @@ def score_pawn(board, row, col, color, stats):
         if backwards_left and backwards_right:
             if row == 1:
                 if board[0][col] != 'K':
-                    score += 0.2#
+                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
                     if row + 1 <= 7 and board[row + 1][col] == 'p':
-                        score += 0.3#
+                        score += 0.3# * SCORING_MODIFIERS["pawn_structure_w"]
                     if passed_straight:
-                        score += 0.5#
+                        score += 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
                 else:
                     score += 0.4
                     if row + 1 <= 7 and board[row + 1][col] == 'p':
-                        score += 0.5#
+                        score += 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
                     if passed_straight:
-                        score += 0.7#
+                        score += 0.7# * SCORING_MODIFIERS["pawn_structure_w"]
             else:
-                score += 0.3#
+                score += 0.3# * SCORING_MODIFIERS["pawn_structure_w"]
                 if row + 1 <= 7 and board[row + 1][col] == 'p':
-                    score += 0.4#
+                    score += 0.4# * SCORING_MODIFIERS["pawn_structure_w"]
                 if passed_straight:
-                    score += 0.6#
+                    score += 0.6# * SCORING_MODIFIERS["pawn_structure_w"]
         if (even_left and backwards_right) or (even_right and backwards_left):
             if col != 0 and col != 7:
                 if row != 1:
-                    score -= 0.3#
+                    score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
 
         # Doubled pawn penalty
         for i in range(1, 8):
             r = row + i
             if r > 7: break
             if board[r][col] == 'P':
-                score += 1#
+                score += 1# * SCORING_MODIFIERS["pawn_structure_w"]
                 break
 
         if (row, col) == (3, 3) and board[3][4] == 'P':
-            score -= 1##
+            score -= 1# * SCORING_MODIFIERS["pawn_structure_w"]# * SCORING_MODIFIERS["centralization_w"]
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 1.4#
+            score -= 1.4# * SCORING_MODIFIERS["centralization_w"]
             if opening:
-                score -= 0.8#
+                score -= 0.8# * SCORING_MODIFIERS["centralization_w"]
         if (row, col) in [(2, 2), (3, 2), (2, 5), (3, 5), (2, 3), (2, 4)]:
-            score -= 0.6#
+            score -= 0.6# * SCORING_MODIFIERS["pawn_structure_w"]
 
         if not endgame:
             if col < 7:
                 if board[row + 1][col + 1] == 'P':
-                    score -= 0.2#
+                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
                 if board[row - 1][col + 1] == 'P':
-                    score -= 0.2#
+                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
             if col > 0:
                 if board[row + 1][col - 1] == 'P':
-                    score -= 0.2#
+                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
                 if board[row - 1][col - 1] == 'P':
-                    score -= 0.2#
+                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
 
             if white_king_row == 0 and white_king_col not in {3, 4}:
                 if (row, col) in {(white_king_row + 1, white_king_col),
                                   (white_king_row + 1, white_king_col + 1),
                                   (white_king_row + 1, white_king_col - 1)}:
-                    score -= 0.8#
+                    score -= 0.8# * SCORING_MODIFIERS["defense_w"]
 
-            score -= row / (20 if col in {2, 3, 4, 5} else 30)#
+            score -= row / (20 if col in {2, 3, 4, 5} else 30)# * SCORING_MODIFIERS["attack_w"]
 
             if board[0][5] in {'K'} or board[0][6] in {'K'} or board[0][7] in {'K'}:
                 if col in {5, 6, 7}:
-                    score -= row / 15#
+                    score -= row / 15# * SCORING_MODIFIERS["attack_w"]
 
             if col + 1 <= 7 and row < 7:
                 if board[row + 1][col + 1] in {'n', 'b', 'r', 'q', 'k'}:
-                    score -= 0.8#
+                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
             if col - 1 >= 0 and row < 7:
                 if board[row + 1][col - 1] in {'n', 'b', 'r', 'q', 'k'}:
-                    score -= 0.8#
+                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
         else:
-            score -= row ** 2 / 20#
+            score -= row ** 2 / 20# * SCORING_MODIFIERS["attack_w"]
 
     return score
 
@@ -4305,438 +4577,47 @@ def _opening_book_key_piece(board, from_row, from_col, to_row, to_col, next_move
     return src
 
 
-def _opening_moves_from_game(game_moves):
-    """Build a PGN fragment from the in-memory move list (e.g. '1. e4 c5 2. Nf3')."""
-    opening_moves = ""
-    move_number = 0
-    for number in range((len(game_moves) // 2) + 1):
-        if move_number < len(game_moves):
-            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-            move_number += 1
-            if move_number < len(game_moves):
-                opening_moves += game_moves[move_number] + ' '
-                move_number += 1
-        else:
-            break
-    return opening_moves.strip()
-
-
-def _try_opening_book_move(board, openings, opening_moves, engine_side):
-    """
-    If the current game matches an opening line, return the engine's book move key.
-    engine_side: 'white' (best_move_black) or 'black' (best_move_function).
-    Does not mutate the board. Returns None when no book move applies.
-    """
-    global king_move_white
-
-    if not opening_moves or opening_moves == 'none':
-        return None
-
-    normalized_input = normalize_pgn(opening_moves)
-    if engine_side == 'white' and normalized_input == '1. e4':
-        return random.choice([
-            (1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'),
-            (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P'),
-        ])
-
-    piece_on_square = str.upper if engine_side == 'white' else str.lower
-    convert_color = 'w' if engine_side == 'white' else 'b'
-
-    for opening in openings:
-        normalized_opening = normalize_pgn(opening)
-        if not normalized_opening.startswith(normalized_input):
-            continue
-        to_play_list = extract_moves(opening)
-        played_list = extract_moves(opening_moves)
-        next_index = len(played_list)
-        if next_index >= len(to_play_list):
-            continue
-        next_move = to_play_list[next_index]
-        if DEBUG_LOGS:
-            print('NM:', next_move)
-
-        if next_move in {'0-0', 'O-O'}:
-            if engine_side == 'white':
-                if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
-                    if board[0][5] == '0' and board[0][6] == '0':
-                        wkr, wkc = find_king(board, 'w')
-                        if not is_king_in_check(board, wkr, wkc, 'w'):
-                            return '0-0'
-            else:
-                if board[7][4] == 'k' and board[7][7] == 'r':
-                    bkr, bkc = find_king(board, 'b')
-                    if not is_king_in_check(board, bkr, bkc, 'b'):
-                        return '0-0'
-            continue
-
-        if next_move in {'0-0-0', 'O-O-O'}:
-            if engine_side == 'white':
-                if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
-                    if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                        wkr, wkc = find_king(board, 'w')
-                        if not is_king_in_check(board, wkr, wkc, 'w'):
-                            return '0-0-0'
-            else:
-                if board[7][4] == 'k' and board[7][0] == 'r':
-                    bkr, bkc = find_king(board, 'b')
-                    if not is_king_in_check(board, bkr, bkc, 'b'):
-                        return '0-0-0'
-            continue
-
-        if len(clean_move(next_move)) == 5:
-            try:
-                piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
-                pos = str(from_col) + str(from_row)
-                row, col = pos_to_indices(pos)
-                pos = str(to_col) + str(to_row)
-                target_row, target_col = pos_to_indices(pos)
-                if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
-                    if board[row][col] == piece_on_square(piece):
-                        kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
-                        return (row, col, target_row, target_col, kp)
-            except (ValueError, IndexError):
-                pass
-            continue
-
-        if is_pawn_capture(next_move) and len(next_move) >= 4:
-            try:
-                col, row = next_move[2], next_move[3]
-                from_col = pos_to_indices_col(next_move[0])
-                pos = str(col) + str(row)
-                to_row, to_col = pos_to_indices(pos)
-                if engine_side == 'white':
-                    from_row = to_row - 1
-                    src_piece = 'P'
-                else:
-                    from_row = to_row + 1
-                    src_piece = 'p'
-                if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8 and 0 <= from_row < 8:
-                    if board[from_row][from_col] == src_piece:
-                        kp = _opening_book_key_piece(board, from_row, from_col, to_row, to_col, next_move)
-                        return (from_row, from_col, to_row, to_col, kp)
-            except (ValueError, IndexError):
-                pass
-            continue
-
-        try:
-            next_move_clean = clean_move(next_move)
-            piece, to_col, to_row, disambig = parse_move(next_move_clean)
-            if not piece or not to_col or to_row is None:
-                continue
-            pos = str(to_col) + str(to_row)
-            row, col = pos_to_indices(pos)
-            expected = piece_on_square(piece)
-
-            if not disambig:
-                from_row, from_col = convert_move(board, row, col, piece.lower(), convert_color)
-                if from_row is not None and from_col is not None:
-                    if board[from_row][from_col] == expected:
-                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                        return (from_row, from_col, row, col, kp)
-                continue
-
-            from_row = from_col = None
-            for r in range(8):
-                for c in range(8):
-                    if board[r][c] != expected:
-                        continue
-                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
-                        continue
-                    if disambig in "12345678" and str(8 - r) != disambig:
-                        continue
-                    dr = row - r
-                    dc = col - c
-                    ok = False
-                    if piece.lower() == 'n':
-                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
-                    elif piece.lower() == 'k':
-                        ok = max(abs(dr), abs(dc)) == 1
-                    elif piece.lower() in {'r', 'b', 'q'}:
-                        if piece.lower() == 'r':
-                            ok = (dr == 0 or dc == 0)
-                        elif piece.lower() == 'b':
-                            ok = abs(dr) == abs(dc)
-                        else:
-                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
-                        if ok:
-                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
-                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
-                            rr, cc = r + step_r, c + step_c
-                            while (rr, cc) != (row, col):
-                                if board[rr][cc] != '0':
-                                    ok = False
-                                    break
-                                rr += step_r
-                                cc += step_c
-                    if ok:
-                        from_row, from_col = r, c
-                        break
-                if from_row is not None:
-                    break
-            if from_row is not None and from_col is not None and board[from_row][from_col] == expected:
-                kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                return (from_row, from_col, row, col, kp)
-        except (ValueError, IndexError, TypeError):
-            pass
-
-    return None
-
-
-def _run_parallel_move_analysis(tasks, chunk_fn):
-    """Score legal moves with 3-ply search (evaluate_*). Only called when the book misses."""
-    if not tasks:
-        return {}
-    if not ENABLE_MULTIPROCESSING:
-        chunk_results = [chunk_fn(tasks)]
-    else:
-        cpu_count = os.cpu_count() or 4
-        if len(tasks) < max(2, cpu_count // 2):
-            chunk_results = [chunk_fn(tasks)]
-        else:
-            chunk_size = max(1, len(tasks) // cpu_count)
-            chunks = [tasks[i * chunk_size:(i + 1) * chunk_size] for i in range(cpu_count)]
-            if len(tasks) % cpu_count:
-                chunks[-1].extend(tasks[cpu_count * chunk_size:])
-            with Pool(processes=cpu_count) as pool:
-                chunk_results = pool.map(chunk_fn, chunks)
-
-    result_scores = {}
-    for chunk_result in chunk_results:
-        if not chunk_result:
-            continue
-        for key, scoring in chunk_result:
-            if key is not None and scoring is not None:
-                result_scores[key] = scoring
-    return result_scores
-
-
-def _board_after_analyzed_line(board, ply2, ply3):
-    """Board copy after trial move plus predicted reply and follow-up (for debug logs)."""
-    if not ply2:
-        return fast_copy_board(board)
-    br, bc, tr, tc, bp, _cap, _draw = ply2
-    if br == bc == tr == tc == bp == '1':
-        return fast_copy_board(board)
-    line_board = fast_copy_board(board)
-    with _engine_reply_move_ctx(line_board, br, bc, tr, tc, bp):
-        if not ply3:
-            return line_board
-        br2, bc2, tr2, tc2, bp2, _cap2, _draw2 = ply3
-        if br2 == bc2 == tr2 == tc2 == bp2 == '1':
-            return line_board
-        with _engine_reply_move_ctx(line_board, br2, bc2, tr2, tc2, bp2):
-            return line_board
-    return line_board
-
-
-def _snapshot_squares(board, squares):
-    return [(r, c, board[r][c]) for r, c in squares]
-
-
-def _restore_squares(board, snapshot):
-    for r, c, piece in snapshot:
-        board[r][c] = piece
-
-
-@contextlib.contextmanager
-def _preserve_board(board):
-    """Restore the full 8x8 board after search or trial analysis."""
-    saved = fast_copy_board(board)
-    try:
-        yield
-    finally:
-        for r in range(8):
-            board[r][:] = saved[r]
-
-
 def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol):
     """
     During static analysis / predicted lines: place the engine's reply on the board.
-    Returns (source_before, captured_before) for `_undo_engine_reply_move`.
+    `moved_piece_symbol` is the 5th field from best_move2 / best_move2_black (may already
+    be Q/N or q/n after promotion). If that field is still P/p but the source square holds
+    a promoted piece, use the board piece so undo restores correctly.
     """
-    source_before = board[from_row][from_col]
-    captured_before = board[target_row][target_col]
     sym = moved_piece_symbol
-    if sym == 'P' and source_before in WHITE_PROMOTION_PIECES:
-        sym = source_before
-    elif sym == 'p' and source_before in BLACK_PROMOTION_PIECES:
-        sym = source_before
+    actual = board[from_row][from_col]
+    if sym == 'P' and actual in WHITE_PROMOTION_PIECES:
+        sym = actual
+    elif sym == 'p' and actual in BLACK_PROMOTION_PIECES:
+        sym = actual
     board[from_row][from_col] = '0'
     board[target_row][target_col] = sym
-    if source_before == 'P' and target_row == 7:
-        board[target_row][target_col] = sym if sym in WHITE_PROMOTION_PIECES else 'Q'
-    elif source_before == 'p' and target_row == 0:
-        board[target_row][target_col] = sym if sym in BLACK_PROMOTION_PIECES else 'q'
-    return source_before, captured_before
+    if sym == 'P' and target_row == 7:
+        board[target_row][target_col] = 'Q'
+    elif sym == 'p' and target_row == 0:
+        board[target_row][target_col] = 'q'
 
 
-def _undo_engine_reply_move(board, from_row, from_col, target_row, target_col, captured_piece, source_piece_before):
-    board[from_row][from_col] = source_piece_before
+def _source_piece_before_move(moved_piece_symbol, target_row, from_row=None):
+    """
+    Map the piece on the destination after a forward move back to what occupied the source.
+    Q/N on row 7 or q/n on row 0 undo to a pawn only when the move was one step from the
+    pawn's promotion start rank (row 6 for white, row 1 for black).
+    """
+    if from_row is None:
+        return moved_piece_symbol
+    if target_row == 7 and moved_piece_symbol in WHITE_PROMOTION_PIECES and from_row == 6:
+        return 'P'
+    if target_row == 0 and moved_piece_symbol in BLACK_PROMOTION_PIECES and from_row == 1:
+        return 'p'
+    return moved_piece_symbol
+
+
+def _undo_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol, captured_piece):
+    # Use the piece actually on the destination (handles P vs Q/N after promotion on source).
+    effective = board[target_row][target_col]
+    board[from_row][from_col] = _source_piece_before_move(effective, target_row, from_row)
     board[target_row][target_col] = captured_piece
-
-
-@contextlib.contextmanager
-def _engine_reply_move_ctx(board, from_row, from_col, target_row, target_col, moved_piece_symbol):
-    source_before, captured_before = _apply_engine_reply_move(
-        board, from_row, from_col, target_row, target_col, moved_piece_symbol
-    )
-    try:
-        yield
-    finally:
-        _undo_engine_reply_move(
-            board, from_row, from_col, target_row, target_col, captured_before, source_before
-        )
-
-
-@contextlib.contextmanager
-def _analysis_trial_move(board, from_row, from_col, to_row, to_col, placed, captured_piece, position_history):
-    source_before = board[from_row][from_col]
-    board[from_row][from_col] = '0'
-    board[to_row][to_col] = placed
-    pos_hash = board_to_hash(board)
-    position_history[pos_hash] += 1
-    try:
-        yield pos_hash
-    finally:
-        board[from_row][from_col] = source_before
-        board[to_row][to_col] = captured_piece
-        position_history[pos_hash] -= 1
-
-
-_CASTLING_BLACK_OO = ((7, 4), (7, 5), (7, 6), (7, 7))
-_CASTLING_BLACK_OOO = ((7, 0), (7, 1), (7, 2), (7, 3), (7, 4))
-_CASTLING_WHITE_OO = ((0, 4), (0, 5), (0, 6), (0, 7))
-_CASTLING_WHITE_OOO = ((0, 0), (0, 1), (0, 2), (0, 3), (0, 4))
-
-
-@contextlib.contextmanager
-def _analysis_castling_black(board, piece):
-    snap = _snapshot_squares(
-        board, _CASTLING_BLACK_OOO if piece == '0-0-0' else _CASTLING_BLACK_OO
-    )
-    if piece == '0-0':
-        board[7][7] = '0'
-        board[7][5] = 'r'
-        board[7][6] = 'k'
-        board[7][4] = '0'
-    elif piece == '0-0-0':
-        board[7][0] = '0'
-        board[7][3] = 'r'
-        board[7][2] = 'k'
-        board[7][4] = '0'
-    else:
-        raise ValueError(f'unsupported castling piece: {piece!r}')
-    try:
-        yield
-    finally:
-        _restore_squares(board, snap)
-
-
-@contextlib.contextmanager
-def _analysis_castling_white(board, piece):
-    snap = _snapshot_squares(
-        board, _CASTLING_WHITE_OOO if piece == '0-0-0' else _CASTLING_WHITE_OO
-    )
-    if piece == '0-0':
-        board[0][7] = '0'
-        board[0][5] = 'R'
-        board[0][6] = 'K'
-        board[0][4] = '0'
-    elif piece == '0-0-0':
-        board[0][0] = '0'
-        board[0][3] = 'R'
-        board[0][2] = 'K'
-        board[0][4] = '0'
-    else:
-        raise ValueError(f'unsupported castling piece: {piece!r}')
-    try:
-        yield
-    finally:
-        _restore_squares(board, snap)
-
-
-def _simulate_white_reply_line(board, best_row, best_col, target_row, target_col, best_piece,
-                               best_row2, best_col2, target_row2, target_col2, best_piece2):
-    """
-    Play out half-moves 2 and 3 on top of half-move 1 already on `board`, score, then undo both.
-    Leaves `board` exactly as it was before this call (still at position after ply 1 only).
-    """
-    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-        if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == '1':
-            return None, True
-        with _engine_reply_move_ctx(board, best_row2, best_col2, target_row2, target_col2, best_piece2):
-            return score(board, 'w'), False
-
-
-def _simulate_black_reply_line(board, best_row, best_col, target_row, target_col, best_piece,
-                               best_row2, best_col2, target_row2, target_col2, best_piece2):
-    """
-    Play out half-moves 2 and 3 on top of half-move 1 already on `board`, score, then undo both.
-    Leaves `board` exactly as it was before this call (still at position after ply 1 only).
-    """
-    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-        if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == '1':
-            return None, True
-        with _engine_reply_move_ctx(board, best_row2, best_col2, target_row2, target_col2, best_piece2):
-            return score(board, 'b'), False
-
-
-def _analyze_three_half_moves_white(board):
-    """
-    With half-move 1 already on `board`, find plies 2–3, score the line, restore `board` to ply 1 only.
-    Returns (current_score, checkmate_after_ply2, ply2_tuple, ply3_tuple).
-    ply2_tuple: (best_row, best_col, target_row, target_col, best_piece, captured, draw)
-  """
-    with _preserve_board(board):
-        ply2 = best_move_player(board)
-    best_row, best_col, target_row, target_col, best_piece, captured, draw = ply2
-    if draw:
-        return -0.25, False, ply2, None
-    if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-        return -1000, False, ply2, None
-    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-        white_king_row, white_king_col = find_king(board, 'w')
-        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
-            return 10000, False, ply2, None
-        return -0.25, False, ply2, None
-    with _preserve_board(board):
-        ply3 = best_move2(board)
-    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = ply3
-    current_score, checkmate2 = _simulate_white_reply_line(
-        board, best_row, best_col, target_row, target_col, best_piece,
-        best_row2, best_col2, target_row2, target_col2, best_piece2,
-    )
-    if checkmate2:
-        return 10000, True, ply2, ply3
-    return current_score, False, ply2, ply3
-
-
-def _analyze_three_half_moves_black(board):
-    """
-    With half-move 1 already on `board`, find plies 2–3, score the line, restore `board` to ply 1 only.
-    """
-    with _preserve_board(board):
-        ply2 = best_move_player_black(board)
-    best_row, best_col, target_row, target_col, best_piece, captured, draw = ply2
-    if draw:
-        return 0.25, False, ply2, None
-    if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-        return 1000, False, ply2, None
-    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-        black_king_row, black_king_col = find_king(board, 'b')
-        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
-            return -10000, False, ply2, None
-        return 0.25, False, ply2, None
-    with _preserve_board(board):
-        ply3 = best_move2_black(board)
-    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = ply3
-    current_score, checkmate2 = _simulate_black_reply_line(
-        board, best_row, best_col, target_row, target_col, best_piece,
-        best_row2, best_col2, target_row2, target_col2, best_piece2,
-    )
-    if checkmate2:
-        return -10000, True, ply2, ply3
-    return current_score, False, ply2, ply3
 
 
 def players_turn(board, next_move, notation_move):
@@ -5021,9 +4902,20 @@ def best_move_function(board, bots, en_passant):
       start = True
     else:
       start = False
-    opening_moves = _opening_moves_from_game(game_moves)
+    opening_moves = ""
+    move_number = 0
     if DEBUG_LOGS:
         print('GM:', game_moves)
+    for number in range(len(game_moves) // 2):
+        if move_number < len(game_moves):
+            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
+            move_number += 1
+            if move_number < len(game_moves):
+                opening_moves += game_moves[move_number] + ' '
+                move_number += 1
+        else:
+            break
+    if DEBUG_LOGS:
         print('OM:', opening_moves)
 
     good_moves = [(6, 4, 4, 4, 'p', '0'), (6, 3, 4, 3, 'p', '0'), (7, 6, 5, 5, 'n', '0'), (7, 6, 5, 5, 'n', '0'), (5, 3, 1, 7, 'b', 'P'), (7, 5, 4, 2, 'b', '0'), (5, 5, 4, 3, 'n', 'P'), (4, 4, 3, 3, 'p', 'P')]
@@ -5047,17 +4939,106 @@ def best_move_function(board, bots, en_passant):
                 '1. e4 f6 2. d4 g5 3. Qh5',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
     ]
-    # Phase 1: opening book only — skip search when a book move exists.
-    book_move = _try_opening_book_move(board, openings, opening_moves, 'black')
-    if book_move is not None:
-        result_scores[book_move] = score(board, 'w')
+    if opening_moves != 'none':
+        for opening in openings:
+            normalized_opening = normalize_pgn(opening)
+            normalized_input = normalize_pgn(opening_moves)
+            if normalized_input in normalized_opening:
+                to_play_list = extract_moves(opening)
+                played_list = extract_moves(opening_moves)
+                next_index = len(played_list)
+                if next_index < len(to_play_list):
+                    next_move = to_play_list[next_index]
+                    raw_opening_move = next_move
+                    if next_move in {'0-0', 'O-O'}:
+                        previous_score = score(board, 'w')
+                        result_scores[('0-0')] = previous_score
+                    elif next_move in {'0-0-0', 'O-O-O'}:
+                        previous_score = score(board, 'w')
+                        result_scores[('0-0-0')] = previous_score
+                    elif len(clean_move(next_move)) == 5:
+                        piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
+                        pos = str(from_col) + str(from_row)
+                        row, col = pos_to_indices(pos)
+                        pos = str(to_col) + str(to_row)
+                        target_row, target_col = pos_to_indices(pos)
+                        previous_score = score(board, 'w')
+                        kp = _opening_book_key_piece(board, row, col, target_row, target_col, raw_opening_move)
+                        result_scores[(row, col, target_row, target_col, kp)] = previous_score
+                    elif is_pawn_capture(next_move):
+                        col, row = next_move[2], next_move[3]
+                        from_col = pos_to_indices_col(next_move[0])
+                        pos = str(col) + str(row)
+                        to_row, to_col = pos_to_indices(pos)
+                        previous_score = score(board, 'w')
+                        kp = _opening_book_key_piece(board, to_row+1, from_col, to_row, to_col, raw_opening_move)
+                        result_scores[(to_row+1, from_col, to_row, to_col, kp)] = previous_score
+                    else:
+                        next_move_clean = clean_move(next_move)
+                        piece, to_col, to_row, disambig = parse_move(next_move_clean)
+                        if piece and to_col and to_row and not disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
+                            previous_score = score(board, 'w')
+                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                        if piece and to_col and to_row and disambig:
+                            pos = str(to_col) + str(to_row)
+                            row, col = pos_to_indices(pos)
+                            from_row = from_col = None
+
+                            for r in range(8):
+                                for c in range(8):
+                                    if board[r][c] != piece.lower():
+                                        continue
+                                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                        continue
+                                    if disambig in "12345678" and str(8 - r) != disambig:
+                                        continue
+
+                                    dr = row - r
+                                    dc = col - c
+                                    ok = False
+
+                                    if piece.lower() == 'n':
+                                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                    elif piece.lower() == 'k':
+                                        ok = max(abs(dr), abs(dc)) == 1
+                                    elif piece.lower() in {'r', 'b', 'q'}:
+                                        if piece.lower() == 'r':
+                                            ok = (dr == 0 or dc == 0)
+                                        elif piece.lower() == 'b':
+                                            ok = abs(dr) == abs(dc)
+                                        else:
+                                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                        if ok:
+                                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                            rr, cc = r + step_r, c + step_c
+                                            while (rr, cc) != (row, col):
+                                                if board[rr][cc] != '0':
+                                                    ok = False
+                                                    break
+                                                rr += step_r
+                                                cc += step_c
+
+                                    if ok:
+                                        from_row, from_col = r, c
+                                        break
+                                if from_row is not None:
+                                    break
+
+                            if from_row is not None and from_col is not None:
+                                if board[from_row][from_col] == piece.lower():
+                                    previous_score = score(board, 'w')
+                                    kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                                    result_scores[(from_row, from_col, row, col, kp)] = previous_score
     elif start:
         best_options = [(6, 4, 4, 4, 'p')]
-        result_scores[random.choice(best_options)] = score(board, 'b')
-    else:
-        result_scores = {}
+        previous_score = score(board, 'b')
+        result_scores[random.choice(best_options)] = previous_score
 
-    # Phase 2: 3-ply analysis (trial move, best reply, best reply to that, then score board).
     if not result_scores:
         for row in rows:
             for col in cols:
@@ -5113,7 +5094,7 @@ def best_move_function(board, bots, en_passant):
                             board[row][col] = '0'
                             board[row-1][col-1] = 'p'
                             if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player(board)
+                                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     white_king_row, white_king_col = find_king(board, 'w')
                                     if is_king_in_check(board, white_king_row, white_king_col, 'w'):
@@ -5133,8 +5114,8 @@ def best_move_function(board, bots, en_passant):
                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                         else:
                                           print(indices_to_pos(target_row, target_col))
-                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
-                                    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2(board)
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time2 = best_move2(board)
                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                         checkmate2 = True
                                     if not checkmate2:
@@ -5148,15 +5129,15 @@ def best_move_function(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                             else:
                                               print(indices_to_pos(target_row2, target_col2))
-                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                        _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                         current_score = score(board, 'w')
                                         for move in good_moves:
                                             if (row, col, row-1, col-1, 'p', 'P') == move:
                                                 current_score += 0.5
                                         print(current_score)
                                         print()
-                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, row-1, col-1, 'en_passant_minus')]
@@ -5201,7 +5182,7 @@ def best_move_function(board, bots, en_passant):
                             board[row][col] = '0'
                             board[row-1][col+1] = 'p'
                             if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player(board)
+                                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time = best_move_player(board)
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     white_king_row, white_king_col = find_king(board, 'w')
                                     if is_king_in_check(board, white_king_row, white_king_col, 'w'):
@@ -5221,8 +5202,8 @@ def best_move_function(board, bots, en_passant):
                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                         else:
                                           print(indices_to_pos(target_row, target_col))
-                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
-                                    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2(board)
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2, score_time = best_move2(board)
                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                         checkmate2 = True
                                     if not checkmate2:
@@ -5236,15 +5217,15 @@ def best_move_function(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                             else:
                                               print(indices_to_pos(target_row2, target_col2))
-                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                        _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                         current_score = score(board, 'w')
                                         for move in good_moves:
                                             if (row, col, row-1, col+1, 'p', 'P') == move:
                                                 current_score += 0.5
                                         print(current_score)
                                         print()
-                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, row-1, col+1, 'en_passant_plus')]
@@ -5421,7 +5402,36 @@ def best_move_function(board, bots, en_passant):
                                             board[7][4] = 'k'
                                             board[7][3] = '0'
                                             black_king_row, black_king_col = find_king(board, 'b')
-        result_scores = _run_parallel_move_analysis(tasks, evaluate_chunks)
+        # Multiprocessing inside a web request is usually a net loss on shared hosting
+        # (process spawn + pickling). Default to sequential.
+        if not ENABLE_MULTIPROCESSING:
+            results = [evaluate_chunks(tasks)]
+        else:
+            # Optimize multiprocessing - only use if tasks are numerous enough to justify overhead
+            cpu_count = os.cpu_count() or 4
+
+            # For small task lists, process sequentially (multiprocessing overhead not worth it)
+            if len(tasks) < max(2, cpu_count // 2):
+                results = [evaluate_chunks(tasks)]
+            else:
+                # Efficient chunking: divide tasks evenly across processes
+                chunk_size = max(1, len(tasks) // cpu_count)
+                chunks = [tasks[i*chunk_size:(i+1)*chunk_size] for i in range(cpu_count)]
+                # Handle remainder
+                if len(tasks) % cpu_count:
+                    chunks[-1].extend(tasks[cpu_count*chunk_size:])
+
+                # Use context manager for automatic cleanup
+                with Pool(processes=cpu_count) as pool:
+                    results = pool.map(evaluate_chunks, chunks)
+
+        result_scores = {}
+        # Optimized: process results more efficiently
+        for chunk_result in results:
+            if chunk_result:
+                for key, scoring in chunk_result:
+                    if key:
+                        result_scores[key] = scoring
     if result_scores:
         best_move = max(result_scores, key=result_scores.get)
         previous_score = max(result_scores.values())
@@ -5576,14 +5586,10 @@ def best_move_function(board, bots, en_passant):
 
 
 def best_move_player(board):
-    with _preserve_board(board):
-        return _best_move_player_search(board)
-
-
-def _best_move_player_search(board):
     white_king_row, white_king_col = find_king(board, 'w')
     checkmate = False
     promotion = False
+    score_time = 0
     previous_score = 6000
     best_moves = []
     rows = BOARD_ROWS
@@ -5601,13 +5607,16 @@ def _best_move_player_search(board):
                         board[row][col] = '0'
                         board[row+2][col] = 'P'
                         if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
+                            best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                            score_time += score_time2
                             if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                 checkmate = True
                                 # debug removed
                             if not checkmate:
-                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                    current_score = score(board, 'w')
+                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                current_score = score(board, 'w')
+                                score_time += 0
+                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                 if current_score < previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, row+2, col, 'P')]
@@ -5627,7 +5636,7 @@ def _best_move_player_search(board):
                                 board[row][col] = 'P'
                                 board[row+2][col] = '0'
                                 checkmate = False
-                                return '2', '2', '2', '2', '2', '2', False
+                                return '2', '2', '2', '2', '2', '2', False, score_time
                         board[row][col] = 'P'
                         board[row+2][col] = '0'
                         checkmate = False
@@ -5640,12 +5649,15 @@ def _best_move_player_search(board):
                             if row + 1 == 7:
                                 promotion = True
                             if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
+                                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                score_time += score_time2
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'w')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'w')
+                                    score_time += 0
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row+1, col, promoted_piece)]
@@ -5665,7 +5677,7 @@ def _best_move_player_search(board):
                                     board[row][col] = 'P'
                                     board[row+1][col] = '0'
                                     checkmate = False
-                                    return '2', '2', '2', '2', '2', '2', False
+                                    return '2', '2', '2', '2', '2', '2', False, score_time
                         board[row][col] = 'P'
                         board[row+1][col] = '0'
                         checkmate = False
@@ -5679,12 +5691,15 @@ def _best_move_player_search(board):
                             if row + 1 == 7:
                                 promotion = True
                             if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
+                                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                score_time += score_time2
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'w')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'w')
+                                    score_time += 0
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row+1, col-1, promoted_piece)]
@@ -5704,7 +5719,7 @@ def _best_move_player_search(board):
                                     board[row][col] = 'P'
                                     board[row+1][col-1] = captured_piece
                                     checkmate = False
-                                    return '2', '2', '2', '2', '2', '2', False
+                                    return '2', '2', '2', '2', '2', '2', False, score_time
                         board[row][col] = 'P'
                         board[row+1][col-1] = captured_piece
                         checkmate = False
@@ -5718,12 +5733,15 @@ def _best_move_player_search(board):
                             if row + 1 == 7:
                                 promotion = True
                             if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
+                                best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                score_time += score_time2
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'w')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'w')
+                                    score_time += 0
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score < previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row+1, col+1, promoted_piece)]
@@ -5743,7 +5761,7 @@ def _best_move_player_search(board):
                                     board[row][col] = 'P'
                                     board[row+1][col+1] = captured_piece
                                     checkmate = False
-                                    return '2', '2', '2', '2', '2', '2', False
+                                    return '2', '2', '2', '2', '2', '2', False, score_time
                         board[row][col] = 'P'
                         board[row+1][col+1] = captured_piece
                         checkmate = False
@@ -5771,8 +5789,9 @@ def _best_move_player_search(board):
                                     best_moves.append((row, col, new_row, new_col, piece))
                             else:
                                 if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                    if draw2:
+                                    best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                    score_time += score_time2
+                                    if draw:
                                         current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
@@ -5784,8 +5803,10 @@ def _best_move_player_search(board):
                                             checkmate = True
                                             # debug removed
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                current_score = score(board, 'w')
+                                            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                            current_score = score(board, 'w')
+                                            score_time += 0
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, 'N')]
@@ -5805,7 +5826,7 @@ def _best_move_player_search(board):
                                             board[row][col] = 'N'
                                             board[new_row][new_col] = captured_piece
                                             checkmate = False
-                                            return '2', '2', '2', '2', '2', '2', False
+                                            return '2', '2', '2', '2', '2', '2', False, score_time
                             board[row][col] = 'N'
                             board[new_row][new_col] = captured_piece
                             checkmate = False
@@ -5835,8 +5856,9 @@ def _best_move_player_search(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                        best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw2:
+                                        best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                        score_time += score_time2
+                                        if draw:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5848,8 +5870,10 @@ def _best_move_player_search(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'w')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'w')
+                                                score_time += 0
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'B')]
@@ -5869,7 +5893,7 @@ def _best_move_player_search(board):
                                                 board[row][col] = 'B'
                                                 board[new_row][new_col] = captured_piece
                                                 checkmate = False
-                                                return '2', '2', '2', '2', '2', '2', False
+                                                return '2', '2', '2', '2', '2', '2', False, score_time
                                 board[row][col] = 'B'
                                 board[new_row][new_col] = captured_piece
                                 checkmate = False
@@ -5906,8 +5930,9 @@ def _best_move_player_search(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                        best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw2:
+                                        best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                        score_time += score_time2
+                                        if draw:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5929,8 +5954,10 @@ def _best_move_player_search(board):
                                                       analized = ('(' + indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + ')')
                                                     else:
                                                       analized = ('(' + indices_to_pos(target_row, target_col) + ')')
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'w')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'w')
+                                                score_time += 0
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'R')]
@@ -5950,7 +5977,7 @@ def _best_move_player_search(board):
                                                 board[row][col] = 'R'
                                                 board[new_row][new_col] = captured_piece
                                                 checkmate = False
-                                                return '2', '2', '2', '2', '2', '2', False
+                                                return '2', '2', '2', '2', '2', '2', False, score_time
                                 board[row][col] = 'R'
                                 board[new_row][new_col] = captured_piece
                                 checkmate = False
@@ -5986,8 +6013,9 @@ def _best_move_player_search(board):
                                         best_moves.append((row, col, new_row, new_col, piece))
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                        best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw2:
+                                        best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                        score_time += score_time2
+                                        if draw:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5999,8 +6027,10 @@ def _best_move_player_search(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'w')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'w')
+                                                score_time += 0
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score < previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'Q')]
@@ -6020,7 +6050,7 @@ def _best_move_player_search(board):
                                                 board[row][col] = 'Q'
                                                 board[new_row][new_col] = captured_piece
                                                 checkmate = False
-                                                return '2', '2', '2', '2', '2', '2', False
+                                                return '2', '2', '2', '2', '2', '2', False, score_time
                                 board[row][col] = 'Q'
                                 board[new_row][new_col] = captured_piece
                                 checkmate = False
@@ -6056,8 +6086,9 @@ def _best_move_player_search(board):
                             else:
                                 white_king_row, white_king_col = find_king(board, 'w')
                                 if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                    if draw2:
+                                    best_row, best_col, target_row, target_col, best_piece, captured, draw, score_time2 = best_move2(board)
+                                    score_time += score_time2
+                                    if draw:
                                         current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
@@ -6068,8 +6099,10 @@ def _best_move_player_search(board):
                                         if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                             checkmate = True
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                current_score = score(board, 'w')
+                                            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                            current_score = score(board, 'w')
+                                            score_time += 0
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, 'K')]
@@ -6090,7 +6123,7 @@ def _best_move_player_search(board):
                                             board[new_row][new_col] = captured_piece
                                             checkmate = False
                                             white_king_row, white_king_col = find_king(board, 'w')
-                                            return '2', '2', '2', '2', '2', '2', False
+                                            return '2', '2', '2', '2', '2', '2', False, score_time
                             board[row][col] = 'K'
                             board[new_row][new_col] = captured_piece
                             checkmate = False
@@ -6109,20 +6142,16 @@ def _best_move_player_search(board):
         else:
             draw = False
         position_history[pos_hash] -= 1
-        return best_row, best_col, target_row, target_col, best_piece, captured_piece, draw
+        return best_row, best_col, target_row, target_col, best_piece, captured_piece, draw, score_time
     else:
-        return '1', '1', '1', '1', '1', '1', False
+        return '1', '1', '1', '1', '1', '1', False, score_time
 
 def best_move2(board):
-    with _preserve_board(board):
-        return _best_move2_search(board)
-
-
-def _best_move2_search(board):
     black_king_row, black_king_col = find_king(board, 'b')
     promotion = False
     previous_score = -6000
     best_moves = []
+    score_time = 0
     rows = BOARD_ROWS
     cols = BOARD_COLS
 
@@ -6139,6 +6168,7 @@ def _best_move2_search(board):
                         board[row-2][col] = 'p'
                         if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                             current_score = score(board, 'w')
+                            score_time += 0
                             if current_score > previous_score:
                                 previous_score = current_score
                                 best_moves = [(row, col, row-2, col, 'p')]
@@ -6154,6 +6184,7 @@ def _best_move2_search(board):
                             board[row-1][col] = promoted_piece
                             if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                 current_score = score(board, 'w')
+                                score_time += 0
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, row-1, col, promoted_piece)]
@@ -6170,6 +6201,7 @@ def _best_move2_search(board):
                             board[row-1][col-1] = promoted_piece
                             if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                 current_score = score(board, 'w')
+                                score_time += 0
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, row-1, col-1, promoted_piece)]
@@ -6186,6 +6218,7 @@ def _best_move2_search(board):
                             board[row-1][col+1] = promoted_piece
                             if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                 current_score = score(board, 'w')
+                                score_time += 0
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, row-1, col+1, promoted_piece)]
@@ -6218,6 +6251,7 @@ def _best_move2_search(board):
                             else:
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                     current_score = score(board, 'w')
+                                    score_time += 0
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, 'n')]
@@ -6253,6 +6287,7 @@ def _best_move2_search(board):
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         current_score = score(board, 'w')
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'b')]
@@ -6293,6 +6328,7 @@ def _best_move2_search(board):
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         current_score = score(board, 'w')
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'r')]
@@ -6333,6 +6369,7 @@ def _best_move2_search(board):
                                 else:
                                     if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                         current_score = score(board, 'w')
+                                        score_time += 0
                                         if current_score > previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, new_row, new_col, 'q')]
@@ -6373,6 +6410,7 @@ def _best_move2_search(board):
                                 black_king_row, black_king_col = find_king(board, 'b')
                                 if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
                                     current_score = score(board, 'w')
+                                    score_time += 0
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, new_row, new_col, 'k')]
@@ -6387,16 +6425,19 @@ def _best_move2_search(board):
         best_move = random.choice(best_moves)
         best_row2, best_col2, target_row2, target_col2, best_piece2 = best_move
         captured_piece2 = board[target_row2][target_col2]
-        with _engine_reply_move_ctx(
-            board, best_row2, best_col2, target_row2, target_col2, best_piece2
-        ):
-            pos_hash = board_to_hash(board)
-            position_history[pos_hash] += 1
-            draw = position_history[pos_hash] >= 3
-            position_history[pos_hash] -= 1
-        return best_row2, best_col2, target_row2, target_col2, best_piece2, captured_piece2, draw
+        board[best_row2][best_col2] = '0'
+        board[target_row2][target_col2] = best_piece2
+        # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
+        pos_hash = board_to_hash(board)
+        position_history[pos_hash] += 1
+        if position_history[pos_hash] >= 3:
+            draw = True
+        else:
+            draw = False
+        position_history[pos_hash] -= 1
+        return best_row2, best_col2, target_row2, target_col2, best_piece2, captured_piece2, draw, score_time
     else:
-        return '1', '1', '1', '1', '1', '1', False
+        return '1', '1', '1', '1', '1', '1', False, score_time
 
 def best_move_black(board, bots, en_passant):
     global blind
@@ -6422,7 +6463,18 @@ def best_move_black(board, bots, en_passant):
     rows = BOARD_ROWS
     cols = BOARD_COLS
     good_moves = [(0, 1, 2, 2, 'N', '0')]
-    opening_moves = _opening_moves_from_game(game_moves)
+    opening_moves = ""
+    move_number = 0
+    repeat = (len(game_moves) // 2) + 1
+    for number in range(repeat):
+        if move_number < len(game_moves):
+            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
+            move_number += 1
+            if move_number < len(game_moves):
+                opening_moves += game_moves[move_number] + ' '
+                move_number += 1
+        else:
+            break
     openings = ['1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 d6 7. Qb3 Bxc3+ 8. bxc3 Qe7 9. 0-0 Nf6 10. e5 Nxe5 11. Nxe5 dxe5 12. Ba3 c5 13. Bb5+ Bd7 14. Bxd7+ Qxd7 15. Bxc5 Ne4 16. Be3 0-0 17. Rfd1 Qc6',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. 0-0 Qf6 6. d4 exd4 7. Bg5 Qd6 8. Nxd4 Be7 9. Be3 Nf6 10. f3 c5 11. Nb3 b6',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. 0-0 Nxe4 5. Re1 Nd6 6. Nxe5 Nxe5 7. Rxe5+ Be7 8. Bf1 0-0 9. d4 Bf6',
@@ -6465,18 +6517,152 @@ def best_move_black(board, bots, en_passant):
                 '1. Nf3 Nf6 2. Nc3 Nc6 3. Ne4 Ne5 4. Nc3 Nc6 5. Ne4 Ne5 6. Nc3',
                 '1. h3 a6 2. h4 a5 3. h5 b6 4. h6 Bb7 5. hxg7 Ra7',
                 '1. g4 a6 2. g5 f5',
-                '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6',
-                '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
+                '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6'
                 ]
+    # Build tasks for multiprocessing if no opening book move
     tasks = []
     result_scores = {}
 
-    # Phase 1: opening book only — skip search when a book move exists.
-    book_move = _try_opening_book_move(board, openings, opening_moves, 'white')
-    if book_move is not None:
-        result_scores[book_move] = score(board, 'b')
+    normalized_opening = normalize_pgn(opening_moves)
+    if normalized_opening == '1. e4':
+        best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
+        best_option = random.choice(best_options)
+        previous_score = score(board, 'b')
+        result_scores[best_option] = previous_score
+    elif opening_moves != 'none':
+        # OPTIMIZATION: Fixed order - no shuffle needed for opening book
+        for opening in openings:
+            normalized_opening = normalize_pgn(opening)
+            normalized_input = normalize_pgn(opening_moves)
+            # Use prefix matching instead of substring matching to ensure correct position
+            if normalized_opening.startswith(normalized_input):
+                to_play_list = extract_moves(opening)
+                played_list = extract_moves(opening_moves)
+                next_index = len(played_list)
+                if next_index < len(to_play_list):
+                    next_move = to_play_list[next_index]
+                    print("NM:", next_move)
+                    if next_move in {'0-0', 'O-O'}:
+                        # Validate castling is legal before adding to result_scores
+                        if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
+                            if board[0][5] == '0' and board[0][6] == '0':
+                                white_king_row, white_king_col = find_king(board, 'w')
+                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                                    previous_score = score(board, 'b')
+                                    result_scores[('0-0')] = previous_score
+                                    break  # Use first valid opening match
+                    elif next_move in {'0-0-0', 'O-O-O'}:
+                        # Validate castling is legal before adding to result_scores
+                        if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
+                            if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
+                                white_king_row, white_king_col = find_king(board, 'w')
+                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                                    previous_score = score(board, 'b')
+                                    result_scores[('0-0-0')] = previous_score
+                                    break  # Use first valid opening match
+                    elif len(clean_move(next_move)) == 5:
+                        try:
+                            piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
+                            pos = str(from_col) + str(from_row)
+                            row, col = pos_to_indices(pos)
+                            pos = str(to_col) + str(to_row)
+                            target_row, target_col = pos_to_indices(pos)
+                            # Validate the move is legal: piece exists at source, destination is valid
+                            if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
+                                if board[row][col] == piece.upper():
+                                    previous_score = score(board, 'b')
+                                    kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
+                                    result_scores[(row, col, target_row, target_col, kp)] = previous_score
+                                    break  # Use first valid opening match
+                        except (ValueError, IndexError):
+                            pass  # Invalid move format, skip
+                    elif is_pawn_capture(next_move) and len(next_move) >= 4:
+                        try:
+                            col, row = next_move[2], next_move[3]
+                            from_col = pos_to_indices_col(next_move[0])
+                            pos = str(col) + str(row)
+                            to_row, to_col = pos_to_indices(pos)
+                            # Validate the move is legal: pawn exists at source
+                            if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8:
+                                if to_row > 0 and board[to_row-1][from_col] == 'P':
+                                    previous_score = score(board, 'b')
+                                    cap_piece = _opening_book_key_piece(board, to_row-1, from_col, to_row, to_col, next_move)
+                                    result_scores[(to_row-1, from_col, to_row, to_col, cap_piece)] = previous_score
+                                    break  # Use first valid opening match
+                        except (ValueError, IndexError):
+                            pass  # Invalid move format, skip
+                    else:
+                        try:
+                            next_move_clean = clean_move(next_move)
+                            piece, to_col, to_row, disambig = parse_move(next_move_clean)
+                            if piece and to_col and to_row and not disambig:
+                                pos = str(to_col) + str(to_row)
+                                row, col = pos_to_indices(pos)
+                                from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
+                                # Validate the move is legal: piece exists at source
+                                if from_row is not None and from_col is not None:
+                                    if 0 <= from_row < 8 and 0 <= from_col < 8:
+                                        if board[from_row][from_col] == piece.upper():
+                                            previous_score = score(board, 'b')
+                                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                                            break  # Use first valid opening match
+                            if piece and to_col and to_row and disambig:
+                                pos = str(to_col) + str(to_row)
+                                row, col = pos_to_indices(pos)
+                                from_row = from_col = None
 
-    # Phase 2: 3-ply analysis (trial move, best reply, best reply to that, then score board).
+                                # Find source square constrained by SAN disambiguation.
+                                for r in range(8):
+                                    for c in range(8):
+                                        if board[r][c] != piece.upper():
+                                            continue
+                                        if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                            continue
+                                        if disambig in "12345678" and str(8 - r) != disambig:
+                                            continue
+
+                                        dr = row - r
+                                        dc = col - c
+                                        ok = False
+
+                                        if piece.lower() == 'n':
+                                            ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                        elif piece.lower() == 'k':
+                                            ok = max(abs(dr), abs(dc)) == 1
+                                        elif piece.lower() in {'r', 'b', 'q'}:
+                                            if piece.lower() == 'r':
+                                                ok = (dr == 0 or dc == 0)
+                                            elif piece.lower() == 'b':
+                                                ok = abs(dr) == abs(dc)
+                                            else:
+                                                ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                            if ok:
+                                                step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                                step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                                rr, cc = r + step_r, c + step_c
+                                                while (rr, cc) != (row, col):
+                                                    if board[rr][cc] != '0':
+                                                        ok = False
+                                                        break
+                                                    rr += step_r
+                                                    cc += step_c
+
+                                        if ok:
+                                            from_row, from_col = r, c
+                                            break
+                                    if from_row is not None:
+                                        break
+
+                                if from_row is not None and from_col is not None:
+                                    if board[from_row][from_col] == piece.upper():
+                                        previous_score = score(board, 'b')
+                                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                                        result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                                        break  # Use first valid opening match
+                        except (ValueError, IndexError, TypeError):
+                            pass  # Invalid move format, skip
+
     if not result_scores:
         # Quickly collect all legal move tasks for parallel evaluation
         for row in range(8):
@@ -6617,7 +6803,36 @@ def best_move_black(board, bots, en_passant):
                 key_args = (new_board, None, None, None, None, good_moves, '0-0-0', white_king_row, white_king_col, None, position_history)
                 tasks.append(key_args)
 
-        result_scores = _run_parallel_move_analysis(tasks, evaluate_chunks_black)
+        # Multiprocessing inside a web request is usually a net loss on shared hosting
+        # (process spawn + pickling). Default to sequential.
+        if not ENABLE_MULTIPROCESSING:
+            results = [evaluate_chunks_black(tasks)]
+        else:
+            # Optimize multiprocessing - only use if tasks are numerous enough to justify overhead
+            cpu_count = os.cpu_count() or 4
+
+            # For small task lists, process sequentially (multiprocessing overhead not worth it)
+            if len(tasks) < max(2, cpu_count // 2):
+                results = [evaluate_chunks_black(tasks)]
+            else:
+                # Efficient chunking: divide tasks evenly across processes
+                chunk_size = max(1, len(tasks) // cpu_count)
+                chunks = [tasks[i*chunk_size:(i+1)*chunk_size] for i in range(cpu_count)]
+                # Handle remainder
+                if len(tasks) % cpu_count:
+                    chunks[-1].extend(tasks[cpu_count*chunk_size:])
+
+                # Use context manager for automatic cleanup
+                with Pool(processes=cpu_count) as pool:
+                    results = pool.map(evaluate_chunks_black, chunks)
+
+        result_scores = {}
+        # Optimized: process results more efficiently
+        for chunk_result in results:
+            if chunk_result:
+                for key, scoring in chunk_result:
+                    if key:
+                        result_scores[key] = scoring
     if result_scores:
         best_move = min(result_scores, key=result_scores.get)
         previous_score = min(result_scores.values())
@@ -6669,7 +6884,7 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                             else:
                                               print(indices_to_pos(target_row, target_col))
-                                        _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                         best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                             checkmate2 = True
@@ -6684,15 +6899,15 @@ def best_move_black(board, bots, en_passant):
                                                   print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                 else:
                                                   print(indices_to_pos(target_row2, target_col2))
-                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                             current_score = score(board, 'b')
                                             for move in good_moves:
                                                 if (row, col, row+2, col, 'P', '0') == move:
                                                     current_score -= 0.5
                                             print(current_score)
                                             print()
-                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, row+2, col, 'P')]
@@ -6748,7 +6963,7 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                             else:
                                               print(indices_to_pos(target_row, target_col))
-                                        _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                         best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                             checkmate2 = True
@@ -6763,15 +6978,15 @@ def best_move_black(board, bots, en_passant):
                                                   print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                 else:
                                                   print(indices_to_pos(target_row2, target_col2))
-                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                             current_score = score(board, 'b')
                                             for move in good_moves:
                                                 if (row, col, row+1, col, promoted_piece, '0') == move:
                                                     current_score -= 0.5
                                             print(current_score)
                                             print()
-                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, row+1, col, promoted_piece)]
@@ -6827,7 +7042,7 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                             else:
                                               print(indices_to_pos(target_row, target_col))
-                                        _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                         best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                             checkmate2 = True
@@ -6842,15 +7057,15 @@ def best_move_black(board, bots, en_passant):
                                                   print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                 else:
                                                   print(indices_to_pos(target_row2, target_col2))
-                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                             current_score = score(board, 'b')
                                             for move in good_moves:
                                                 if (row, col, row+1, col-1, promoted_piece, captured_piece) == move:
                                                     current_score -= 0.5
                                             print(current_score)
                                             print()
-                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, row+1, col-1, promoted_piece)]
@@ -6905,7 +7120,7 @@ def best_move_black(board, bots, en_passant):
                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                         else:
                                           print(indices_to_pos(target_row, target_col))
-                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                         checkmate2 = True
@@ -6920,15 +7135,15 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                             else:
                                               print(indices_to_pos(target_row2, target_col2))
-                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                        _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                         current_score = score(board, 'b')
                                         for move in good_moves:
                                             if (row, col, row+1, col-1, 'p', 'P') == move:
                                                 current_score += 0.5
                                         print(current_score)
                                         print()
-                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, row+1, col-1, 'en_passant_minus')]
@@ -6985,7 +7200,7 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                             else:
                                               print(indices_to_pos(target_row, target_col))
-                                        _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                        _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                         best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                             checkmate2 = True
@@ -7000,15 +7215,15 @@ def best_move_black(board, bots, en_passant):
                                                   print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                 else:
                                                   print(indices_to_pos(target_row2, target_col2))
-                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                             current_score = score(board, 'b')
                                             for move in good_moves:
                                                 if (row, col, row+1, col+1, promoted_piece, captured_piece) == move:
                                                     current_score -= 0.5
                                             print(current_score)
                                             print()
-                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score < previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, row+1, col+1, promoted_piece)]
@@ -7063,7 +7278,7 @@ def best_move_black(board, bots, en_passant):
                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                         else:
                                           print(indices_to_pos(target_row, target_col))
-                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                         checkmate2 = True
@@ -7078,15 +7293,15 @@ def best_move_black(board, bots, en_passant):
                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                             else:
                                               print(indices_to_pos(target_row2, target_col2))
-                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                        _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                         current_score = score(board, 'b')
                                         for move in good_moves:
                                             if (row, col, row+1, col+1, 'p', 'P') == move:
                                                 current_score += 0.5
                                         print(current_score)
                                         print()
-                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                         if current_score < previous_score:
                                             previous_score = current_score
                                             best_moves = [(row, col, row+1, col+1, 'en_passant_plus')]
@@ -7172,7 +7387,7 @@ def best_move_black(board, bots, en_passant):
                                                     print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                   else:
                                                     print(indices_to_pos(target_row, target_col))
-                                                _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                                 best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                 if draw2:
                                                     current_score = 0.25
@@ -7195,15 +7410,15 @@ def best_move_black(board, bots, en_passant):
                                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                             else:
                                                               print(indices_to_pos(target_row2, target_col2))
-                                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                        _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                                         current_score = score(board, 'b')
                                                         for move in good_moves:
                                                             if (row, col, new_row, new_col, 'N', captured_piece) == move:
                                                                 current_score -= 0.5
                                                         print(current_score)
                                                         print()
-                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [(row, col, new_row, new_col, 'N')]
@@ -7289,7 +7504,7 @@ def best_move_black(board, bots, en_passant):
                                                         print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                       else:
                                                         print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
                                                         current_score = 0.25
@@ -7312,15 +7527,15 @@ def best_move_black(board, bots, en_passant):
                                                                 print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                               else:
                                                                 print(indices_to_pos(target_row2, target_col2))
-                                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                                             current_score = score(board, 'b')
                                                             for move in good_moves:
                                                                 if (row, col, new_row, new_col, 'B', captured_piece) == move:
                                                                     current_score -= 0.5
                                                             print(current_score)
                                                             print()
-                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                             if current_score < previous_score:
                                                                 previous_score = current_score
                                                                 best_moves = [(row, col, new_row, new_col, 'B')]
@@ -7413,7 +7628,7 @@ def best_move_black(board, bots, en_passant):
                                                         print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                       else:
                                                         print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
                                                         current_score = 0.25
@@ -7436,15 +7651,15 @@ def best_move_black(board, bots, en_passant):
                                                                 print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                               else:
                                                                 print(indices_to_pos(target_row2, target_col2))
-                                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                                             current_score = score(board, 'b')
                                                             for move in good_moves:
                                                                 if (row, col, new_row, new_col, 'R', captured_piece) == move:
                                                                     current_score -= 0.5
                                                             print(current_score)
                                                             print()
-                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                             if current_score < previous_score:
                                                                 previous_score = current_score
                                                                 best_moves = [(row, col, new_row, new_col, 'R')]
@@ -7537,7 +7752,7 @@ def best_move_black(board, bots, en_passant):
                                                         print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                       else:
                                                         print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
                                                         current_score = 0.25
@@ -7560,15 +7775,15 @@ def best_move_black(board, bots, en_passant):
                                                                 print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                               else:
                                                                 print(indices_to_pos(target_row2, target_col2))
-                                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                                             current_score = score(board, 'b')
                                                             for move in good_moves:
                                                                 if (row, col, new_row, new_col, 'Q', captured_piece) == move:
                                                                     current_score -= 0.5
                                                             print(current_score)
                                                             print()
-                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                             if current_score < previous_score:
                                                                 previous_score = current_score
                                                                 best_moves = [(row, col, new_row, new_col, 'Q')]
@@ -7662,7 +7877,7 @@ def best_move_black(board, bots, en_passant):
                                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                         else:
                                                           print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if draw2:
                                                         current_score = 0.25
@@ -7685,15 +7900,15 @@ def best_move_black(board, bots, en_passant):
                                                                   print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                                 else:
                                                                   print(indices_to_pos(target_row2, target_col2))
-                                                            _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                            _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
                                                             current_score = score(board, 'b')
                                                             for move in good_moves:
                                                                 if (row, col, new_row, new_col, 'K', captured_piece) == move:
                                                                     current_score -= 0.5
                                                             print(current_score)
                                                             print()
-                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                            _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                             if current_score < previous_score:
                                                                 previous_score = current_score
                                                                 best_moves = [(row, col, new_row, new_col, 'K')]
@@ -7754,7 +7969,8 @@ def best_move_black(board, bots, en_passant):
                                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                         else:
                                                           print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    board[best_row][best_col] = '0'
+                                                    board[target_row][target_col] = best_piece
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                                         checkmate2 = True
@@ -7769,12 +7985,13 @@ def best_move_black(board, bots, en_passant):
                                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                             else:
                                                               print(indices_to_pos(target_row2, target_col2))
-                                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                        board[best_row2][best_col2] = '0'
+                                                        board[target_row2][target_col2] = best_piece2
                                                         current_score = score(board, 'b')
                                                         print(current_score)
                                                         print()
-                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [('0-0')]
@@ -7835,7 +8052,8 @@ def best_move_black(board, bots, en_passant):
                                                           print(indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col))
                                                         else:
                                                           print(indices_to_pos(target_row, target_col))
-                                                    _engine_reply_undo_src, _engine_reply_undo_cap = _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                    board[best_row][best_col] = '0'
+                                                    board[target_row][target_col] = best_piece
                                                     best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
                                                     if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == captured2 == '1':
                                                         checkmate2 = True
@@ -7850,12 +8068,13 @@ def best_move_black(board, bots, en_passant):
                                                               print(indices_to_pos_col(best_col2) + 'x' + indices_to_pos(target_row2, target_col2))
                                                             else:
                                                               print(indices_to_pos(target_row2, target_col2))
-                                                        _engine_reply_undo_src2, _engine_reply_undo_cap2 = _apply_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2)
+                                                        board[best_row2][best_col2] = '0'
+                                                        board[target_row2][target_col2] = best_piece2
                                                         current_score = score(board, 'b')
                                                         print(current_score)
                                                         print()
-                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, _engine_reply_undo_cap2, _engine_reply_undo_src2)
-                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, _engine_reply_undo_cap, _engine_reply_undo_src)
+                                                        _undo_engine_reply_move(board, best_row2, best_col2, target_row2, target_col2, best_piece2, captured2)
+                                                        _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                         if current_score < previous_score:
                                                             previous_score = current_score
                                                             best_moves = [('0-0-0')]
@@ -8049,11 +8268,6 @@ def best_move_black(board, bots, en_passant):
         return move_played
 
 def best_move_player_black(board):
-    with _preserve_board(board):
-        return _best_move_player_black_search(board)
-
-
-def _best_move_player_black_search(board):
     black_king_row, black_king_col = find_king(board, 'b')
     checkmate = False
     promotion = False
@@ -8078,8 +8292,9 @@ def _best_move_player_black_search(board):
                             if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                 checkmate = True
                             if not checkmate:
-                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                    current_score = score(board, 'b')
+                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                current_score = score(board, 'b')
+                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                 if current_score > previous_score:
                                     previous_score = current_score
                                     best_moves = [(row, col, row-2, col, 'p')]
@@ -8116,8 +8331,9 @@ def _best_move_player_black_search(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'b')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'b')
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row-1, col, promoted_piece)]
@@ -8155,8 +8371,9 @@ def _best_move_player_black_search(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'b')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'b')
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row-1, col-1, promoted_piece)]
@@ -8194,8 +8411,9 @@ def _best_move_player_black_search(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                        current_score = score(board, 'b')
+                                    _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                    current_score = score(board, 'b')
+                                    _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                     if current_score > previous_score:
                                         previous_score = current_score
                                         best_moves = [(row, col, row-1, col+1, promoted_piece)]
@@ -8256,8 +8474,9 @@ def _best_move_player_black_search(board):
                                             checkmate = True
                                             # debug removed
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                current_score = score(board, 'b')
+                                            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                            current_score = score(board, 'b')
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score > previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, 'n')]
@@ -8320,8 +8539,9 @@ def _best_move_player_black_search(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'b')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'b')
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score > previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'b')]
@@ -8400,8 +8620,9 @@ def _best_move_player_black_search(board):
                                                       analized = ('(' + indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + ')')
                                                     else:
                                                       analized = ('(' + indices_to_pos(target_row, target_col) + ')')
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'b')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'b')
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score > previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'r')]
@@ -8470,8 +8691,9 @@ def _best_move_player_black_search(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                    current_score = score(board, 'b')
+                                                _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                                current_score = score(board, 'b')
+                                                _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                                 if current_score > previous_score:
                                                     previous_score = current_score
                                                     best_moves = [(row, col, new_row, new_col, 'q')]
@@ -8539,8 +8761,9 @@ def _best_move_player_black_search(board):
                                         if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                             checkmate = True
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
-                                                current_score = score(board, 'b')
+                                            _apply_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece)
+                                            current_score = score(board, 'b')
+                                            _undo_engine_reply_move(board, best_row, best_col, target_row, target_col, best_piece, captured)
                                             if current_score > previous_score:
                                                 previous_score = current_score
                                                 best_moves = [(row, col, new_row, new_col, 'k')]
@@ -8585,11 +8808,6 @@ def _best_move_player_black_search(board):
         return '1', '1', '1', '1', '1', '1', False
 
 def best_move2_black(board):
-    with _preserve_board(board):
-        return _best_move2_black_search(board)
-
-
-def _best_move2_black_search(board):
     white_king_row, white_king_col = find_king(board, 'w')
     promotion = False
     previous_score = 6000
@@ -8674,7 +8892,6 @@ def _best_move2_black_search(board):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if board[new_row][new_col] in {'0', 'p', 'n', 'b', 'r', 'q'}:
                             captured_piece = board[new_row][new_col]
-                            source_piece = board[row][col]
                             board[row][col] = '0'
                             board[new_row][new_col] = 'N'
                             # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
@@ -8695,7 +8912,7 @@ def _best_move2_black_search(board):
                                         best_moves = [(row, col, new_row, new_col, 'N')]
                                     elif current_score == previous_score:
                                         best_moves.append((row, col, new_row, new_col, 'N'))
-                            board[row][col] = source_piece
+                            board[row][col] = 'N'
                             board[new_row][new_col] = captured_piece
                             position_history[pos_hash] -= 1
 
@@ -8789,7 +9006,6 @@ def _best_move2_black_search(board):
                         if 0 <= new_row < 8 and 0 <= new_col < 8:
                             if board[new_row][new_col] in {'0', 'p', 'n', 'b', 'r', 'q'}:
                                 captured_piece = board[new_row][new_col]
-                                source_piece = board[row][col]
                                 board[row][col] = '0'
                                 board[new_row][new_col] = 'Q'
                                 # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
@@ -8810,7 +9026,7 @@ def _best_move2_black_search(board):
                                             best_moves = [(row, col, new_row, new_col, 'Q')]
                                         elif current_score == previous_score:
                                             best_moves.append((row, col, new_row, new_col, 'Q'))
-                                board[row][col] = source_piece
+                                board[row][col] = 'Q'
                                 board[new_row][new_col] = captured_piece
                                 position_history[pos_hash] -= 1
                             else:

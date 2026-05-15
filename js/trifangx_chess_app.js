@@ -7468,7 +7468,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       startTimer();
       
       // Restart engine (rematch — same player, no need to re-check occupancy)
-        sendEngineCommand('start', { username: getTrifangxEngineAccountUsername() }).then((data) => {
+        sendEngineCommand('start', {
+          username: getTrifangxEngineAccountUsername(),
+          player_color: playerColor,
+        }).then((data) => {
         if (data && data.game_id) {
           setEngineGameId(data.game_id);
         }
@@ -11406,6 +11409,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         startData = await sendEngineCommand('start', {
           username: getTrifangxEngineAccountUsername(),
+          player_color: playerColor,
         });
       } catch (startErr) {
         const code = startErr && startErr.statusCode;
@@ -11970,7 +11974,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const moveBody = {
             game_id: gid,
             move: lastMove,
-            color: game.turn() === "w" ? "black" : "white",
+            player_color: playerColor,
+            color: playerColor,
+            history: game.history(),
           };
           const uMv = getTrifangxEngineAccountUsername();
           if (uMv) moveBody.username = uMv;
