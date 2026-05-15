@@ -5455,7 +5455,7 @@ def best_move_player(board):
                                 checkmate = True
                                 # debug removed
                             if not checkmate:
-                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                     current_score = score(board, 'w')
                                 if current_score < previous_score:
                                     previous_score = current_score
@@ -5493,7 +5493,7 @@ def best_move_player(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'w')
                                     if current_score < previous_score:
                                         previous_score = current_score
@@ -5532,7 +5532,7 @@ def best_move_player(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'w')
                                     if current_score < previous_score:
                                         previous_score = current_score
@@ -5571,7 +5571,7 @@ def best_move_player(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'w')
                                     if current_score < previous_score:
                                         previous_score = current_score
@@ -5633,7 +5633,7 @@ def best_move_player(board):
                                             checkmate = True
                                             # debug removed
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                 current_score = score(board, 'w')
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5697,7 +5697,7 @@ def best_move_player(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'w')
                                                 if current_score < previous_score:
                                                     previous_score = current_score
@@ -5778,7 +5778,7 @@ def best_move_player(board):
                                                       analized = ('(' + indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + ')')
                                                     else:
                                                       analized = ('(' + indices_to_pos(target_row, target_col) + ')')
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'w')
                                                 if current_score < previous_score:
                                                     previous_score = current_score
@@ -5848,7 +5848,7 @@ def best_move_player(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'w')
                                                 if current_score < previous_score:
                                                     previous_score = current_score
@@ -5917,7 +5917,7 @@ def best_move_player(board):
                                         if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                             checkmate = True
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                 current_score = score(board, 'w')
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -8095,7 +8095,7 @@ def best_move_player_black(board):
                             if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                 checkmate = True
                             if not checkmate:
-                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                     current_score = score(board, 'b')
                                 if current_score > previous_score:
                                     previous_score = current_score
@@ -8133,7 +8133,7 @@ def best_move_player_black(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'b')
                                     if current_score > previous_score:
                                         previous_score = current_score
@@ -8172,7 +8172,7 @@ def best_move_player_black(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'b')
                                     if current_score > previous_score:
                                         previous_score = current_score
@@ -8211,7 +8211,7 @@ def best_move_player_black(board):
                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                     checkmate = True
                                 if not checkmate:
-                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                    with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                         current_score = score(board, 'b')
                                     if current_score > previous_score:
                                         previous_score = current_score
@@ -8273,7 +8273,7 @@ def best_move_player_black(board):
                                             checkmate = True
                                             # debug removed
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                 current_score = score(board, 'b')
                                             if current_score > previous_score:
                                                 previous_score = current_score
@@ -8337,7 +8337,7 @@ def best_move_player_black(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'b')
                                                 if current_score > previous_score:
                                                     previous_score = current_score
@@ -8417,7 +8417,7 @@ def best_move_player_black(board):
                                                       analized = ('(' + indices_to_pos_col(best_col) + 'x' + indices_to_pos(target_row, target_col) + ')')
                                                     else:
                                                       analized = ('(' + indices_to_pos(target_row, target_col) + ')')
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'b')
                                                 if current_score > previous_score:
                                                     previous_score = current_score
@@ -8487,7 +8487,7 @@ def best_move_player_black(board):
                                                 checkmate = True
                                                 # debug removed
                                             if not checkmate:
-                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                                with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                     current_score = score(board, 'b')
                                                 if current_score > previous_score:
                                                     previous_score = current_score
@@ -8556,7 +8556,7 @@ def best_move_player_black(board):
                                         if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                             checkmate = True
                                         if not checkmate:
-                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece, best_piece):
+                                            with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
                                                 current_score = score(board, 'b')
                                             if current_score > previous_score:
                                                 previous_score = current_score
