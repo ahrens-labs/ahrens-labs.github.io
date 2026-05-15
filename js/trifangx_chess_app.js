@@ -2975,14 +2975,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         wrap.appendChild(g);
       } else if (category === 'pieces' && typeof pieceThemes !== 'undefined' && pieceThemes[item.id]) {
         const tpl = pieceThemes[item.id];
-        const pieces = ['wK', 'bK', 'wQ', 'wp'];
-        pieces.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'shop-preview-pieces';
+        ['wP', 'wN', 'wB', 'wR', 'wQ', 'wK'].forEach(function (p) {
           const img = document.createElement('img');
           img.src = tpl.replace('{piece}', p);
           img.alt = p;
           img.className = 'shop-preview-piece';
-          wrap.appendChild(img);
+          img.loading = 'lazy';
+          row.appendChild(img);
         });
+        wrap.appendChild(row);
       } else if ((category === 'highlightColors' || category === 'arrowColors') && colorMap[item.id]) {
         const swatch = document.createElement('div');
         swatch.className = 'shop-preview-swatch';
@@ -2991,7 +2994,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (category === 'arrowColors') {
           const arr = document.createElement('div');
           arr.className = 'shop-preview-arrow';
-          arr.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + (colorMap[item.id].a || colorMap[item.id].h) + '" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+          const stroke = colorMap[item.id].a || colorMap[item.id].h;
+          arr.innerHTML =
+            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="' +
+            stroke +
+            '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h12M13 8l4 4-4 4"/></svg>';
           wrap.appendChild(arr);
         }
       } else if (category === 'legalMoveDots' && item.color && item.shape) {
