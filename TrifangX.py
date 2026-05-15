@@ -6502,7 +6502,8 @@ def best_move_black(board, bots, en_passant):
                 '1. Nf3 Nf6 2. Nc3 Nc6 3. Ne4 Ne5 4. Nc3 Nc6 5. Ne4 Ne5 6. Nc3',
                 '1. h3 a6 2. h4 a5 3. h5 b6 4. h6 Bb7 5. hxg7 Ra7',
                 '1. g4 a6 2. g5 f5',
-                '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6'
+                '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6',
+                '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
                 ]
     # Build tasks for multiprocessing if no opening book move
     tasks = []
