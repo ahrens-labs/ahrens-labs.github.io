@@ -2265,7 +2265,7 @@
       const achBtn = document.getElementById('dash-open-trifangx-achievements');
       if (shopBtn) shopBtn.addEventListener('click', () => openTrifangxInEmbed('shop'));
       if (settingsBtn) settingsBtn.addEventListener('click', () => openTrifangxInEmbed('settings'));
-      if (achBtn) achBtn.addEventListener('click', () => openTrifangxInEmbed('achievements'));
+      if (achBtn) achBtn.addEventListener('click', () => { window.location.href = 'achievements.html'; });
 
       document.getElementById('dash-logout').addEventListener('click', (e) => {
         e.preventDefault();

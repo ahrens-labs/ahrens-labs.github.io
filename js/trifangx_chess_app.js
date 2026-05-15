@@ -3946,8 +3946,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             closeTrifangxMainModalsSilent();
             if (d.target === 'shop' && typeof showShop === 'function') showShop();
             else if (d.target === 'settings' && typeof showSettings === 'function') showSettings();
-            else if (d.target === 'achievements' && typeof showAllAchievements === 'function') {
-              showAllAchievements(false);
+            else if (d.target === 'achievements') {
+              navigateToAchievementsPage();
             }
           });
         }
@@ -9439,27 +9439,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       showAllAchievements(true);
     }
 
+    function navigateToAchievementsPage() {
+      if (isTrifangxLiveDedicatedPage()) {
+        openTrifangxPageInNewTab('achievements.html');
+      } else {
+        window.location.href = 'achievements.html';
+      }
+    }
+
     function showAllAchievements(allowDuringGameRefresh) {
-      if (isTrifangxLiveDedicatedPage() && !allowDuringGameRefresh) {
-        try {
-          if (window.TRIFANGX_DASHBOARD_EMBED) {
-            /* fall through to modal */
-          } else {
-            openTrifangxPageInNewTab('achievements.html');
-            return;
-          }
-        } catch (eLive) {
-          openTrifangxPageInNewTab('achievements.html');
-          return;
-        }
+      if (!isChessAchievementsPage()) {
+        if (!allowDuringGameRefresh) navigateToAchievementsPage();
+        return;
       }
       try {
-        const onDedicatedPage = isChessAchievementsPage();
-        const modal = onDedicatedPage ? null : document.getElementById('all-achievements-modal');
-        if (!onDedicatedPage && !modal) {
-          console.error('Achievements modal not found');
-          return;
-        }
+        const modal = null;
         const container = document.getElementById('all-achievements-list');
         if (!container) {
           console.error('Achievements list container not found');
@@ -10198,8 +10192,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       updatePlayerStatsDisplay();
       updateTotalPoints();
       
-      // Refresh the achievements modal if it's open
-      if (document.getElementById('all-achievements-modal').classList.contains('show')) {
+      if (isChessAchievementsPage()) {
         showAllAchievements(true);
       }
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
