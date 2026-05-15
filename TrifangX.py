@@ -1069,7 +1069,13 @@ def reset_engine_state():
 
 
 def _compute_engine_move_reply(move_notation, color):
-    """Run one engine reply using current module globals (board, etc.)."""
+    """Apply the human's move, then compute the engine's reply.
+
+    `color` is the human's side from /move. The engine is the other side.
+    `players_turn` applies **white** moves; `players_turn_white` applies **black** moves
+    (legacy naming). White engine moves use `best_move_black`; black engine moves use
+    `best_move_function`.
+    """
     with _engine_stdout_context():
         notation_move = None
         if move_notation:
@@ -1081,20 +1087,6 @@ def _compute_engine_move_reply(move_notation, color):
         if color == 'white':
             if move_notation:
                 if move_notation in {'0-0', 'O-O'}:
-                    players_turn_white(board, '0-0', '0-0')
-                elif move_notation in {'0-0-0', 'O-O-O'}:
-                    players_turn_white(board, '0-0-0', '0-0-0')
-                else:
-                    next_move = move_notation.strip()
-                    players_turn_white(board, next_move, notation_move)
-            return_move = best_move_black(board, 'false', 'false')
-            if return_move:
-                cleaned_return = clean_move(return_move)
-                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
-                    return_move = convert_long_move(return_move)
-        else:
-            if move_notation:
-                if move_notation in {'0-0', 'O-O'}:
                     players_turn(board, '0-0', '0-0')
                 elif move_notation in {'0-0-0', 'O-O-O'}:
                     players_turn(board, '0-0-0', '0-0-0')
@@ -1102,6 +1094,20 @@ def _compute_engine_move_reply(move_notation, color):
                     next_move = move_notation.strip()
                     players_turn(board, next_move, notation_move)
             return_move = best_move_function(board, 'false', 'false')
+            if return_move:
+                cleaned_return = clean_move(return_move)
+                if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
+                    return_move = convert_long_move(return_move)
+        else:
+            if move_notation:
+                if move_notation in {'0-0', 'O-O'}:
+                    players_turn_white(board, '0-0', '0-0')
+                elif move_notation in {'0-0-0', 'O-O-O'}:
+                    players_turn_white(board, '0-0-0', '0-0-0')
+                else:
+                    next_move = move_notation.strip()
+                    players_turn_white(board, next_move, notation_move)
+            return_move = best_move_black(board, 'false', 'false')
             if return_move:
                 cleaned_return = clean_move(return_move)
                 if len(cleaned_return) == 5 and return_move not in {'0-0-0', '0-0'}:
@@ -1401,12 +1407,15 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
                 return 10000
             if ply2 and DEBUG_LOGS:
                 br, bc, tr, tc, bp, cap, _d = ply2
-                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'w')
+                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'w')
                 predicted_move_2 = None
                 if ply3:
                     br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'b')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'b')
+                log_move_analysis(
+                    analyzed_move, predicted_move_1, predicted_move_2, current_score,
+                    _board_after_analyzed_line(board, ply2, ply3),
+                )
             scores[castling_key] = current_score
         return current_score
 
@@ -1435,12 +1444,15 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             return 10000
         if DEBUG_LOGS and ply2:
             br, bc, tr, tc, bp, cap, _d = ply2
-            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'w')
+            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'w')
             predicted_move_2 = None
             if ply3:
                 br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'b')
-            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'b')
+            log_move_analysis(
+                analyzed_move, predicted_move_1, predicted_move_2, current_score,
+                _board_after_analyzed_line(board, ply2, ply3),
+            )
         for move in good_moves:
             if (from_row, from_col, from_row, from_col, piece, '0') == move:
                 current_score += 0.5
@@ -1527,12 +1539,15 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
                 return -10000
             if ply2 and DEBUG_LOGS:
                 br, bc, tr, tc, bp, cap, _d = ply2
-                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'b')
+                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'b')
                 predicted_move_2 = None
                 if ply3:
                     br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'w')
-                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'w')
+                log_move_analysis(
+                    analyzed_move, predicted_move_1, predicted_move_2, current_score,
+                    _board_after_analyzed_line(board, ply2, ply3),
+                )
             scores[castling_key] = current_score
         return current_score
 
@@ -1561,12 +1576,15 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             return -10000
         if DEBUG_LOGS and ply2:
             br, bc, tr, tc, bp, cap, _d = ply2
-            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'b')
+            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, cap, 'b')
             predicted_move_2 = None
             if ply3:
                 br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
-                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'w')
-            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, cap2, 'w')
+            log_move_analysis(
+                analyzed_move, predicted_move_1, predicted_move_2, current_score,
+                _board_after_analyzed_line(board, ply2, ply3),
+            )
         for move in good_moves:
             if (from_row, from_col, from_row, from_col, piece, '0') == move:
                 current_score -= 0.5
@@ -4287,6 +4305,230 @@ def _opening_book_key_piece(board, from_row, from_col, to_row, to_col, next_move
     return src
 
 
+def _opening_moves_from_game(game_moves):
+    """Build a PGN fragment from the in-memory move list (e.g. '1. e4 c5 2. Nf3')."""
+    opening_moves = ""
+    move_number = 0
+    for number in range((len(game_moves) // 2) + 1):
+        if move_number < len(game_moves):
+            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
+            move_number += 1
+            if move_number < len(game_moves):
+                opening_moves += game_moves[move_number] + ' '
+                move_number += 1
+        else:
+            break
+    return opening_moves.strip()
+
+
+def _try_opening_book_move(board, openings, opening_moves, engine_side):
+    """
+    If the current game matches an opening line, return the engine's book move key.
+    engine_side: 'white' (best_move_black) or 'black' (best_move_function).
+    Does not mutate the board. Returns None when no book move applies.
+    """
+    global king_move_white
+
+    if not opening_moves or opening_moves == 'none':
+        return None
+
+    normalized_input = normalize_pgn(opening_moves)
+    if engine_side == 'white' and normalized_input == '1. e4':
+        return random.choice([
+            (1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'),
+            (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P'),
+        ])
+
+    piece_on_square = str.upper if engine_side == 'white' else str.lower
+    convert_color = 'w' if engine_side == 'white' else 'b'
+
+    for opening in openings:
+        normalized_opening = normalize_pgn(opening)
+        if not normalized_opening.startswith(normalized_input):
+            continue
+        to_play_list = extract_moves(opening)
+        played_list = extract_moves(opening_moves)
+        next_index = len(played_list)
+        if next_index >= len(to_play_list):
+            continue
+        next_move = to_play_list[next_index]
+        if DEBUG_LOGS:
+            print('NM:', next_move)
+
+        if next_move in {'0-0', 'O-O'}:
+            if engine_side == 'white':
+                if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
+                    if board[0][5] == '0' and board[0][6] == '0':
+                        wkr, wkc = find_king(board, 'w')
+                        if not is_king_in_check(board, wkr, wkc, 'w'):
+                            return '0-0'
+            else:
+                if board[7][4] == 'k' and board[7][7] == 'r':
+                    bkr, bkc = find_king(board, 'b')
+                    if not is_king_in_check(board, bkr, bkc, 'b'):
+                        return '0-0'
+            continue
+
+        if next_move in {'0-0-0', 'O-O-O'}:
+            if engine_side == 'white':
+                if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
+                    if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
+                        wkr, wkc = find_king(board, 'w')
+                        if not is_king_in_check(board, wkr, wkc, 'w'):
+                            return '0-0-0'
+            else:
+                if board[7][4] == 'k' and board[7][0] == 'r':
+                    bkr, bkc = find_king(board, 'b')
+                    if not is_king_in_check(board, bkr, bkc, 'b'):
+                        return '0-0-0'
+            continue
+
+        if len(clean_move(next_move)) == 5:
+            try:
+                piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
+                pos = str(from_col) + str(from_row)
+                row, col = pos_to_indices(pos)
+                pos = str(to_col) + str(to_row)
+                target_row, target_col = pos_to_indices(pos)
+                if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
+                    if board[row][col] == piece_on_square(piece):
+                        kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
+                        return (row, col, target_row, target_col, kp)
+            except (ValueError, IndexError):
+                pass
+            continue
+
+        if is_pawn_capture(next_move) and len(next_move) >= 4:
+            try:
+                col, row = next_move[2], next_move[3]
+                from_col = pos_to_indices_col(next_move[0])
+                pos = str(col) + str(row)
+                to_row, to_col = pos_to_indices(pos)
+                if engine_side == 'white':
+                    from_row = to_row - 1
+                    src_piece = 'P'
+                else:
+                    from_row = to_row + 1
+                    src_piece = 'p'
+                if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8 and 0 <= from_row < 8:
+                    if board[from_row][from_col] == src_piece:
+                        kp = _opening_book_key_piece(board, from_row, from_col, to_row, to_col, next_move)
+                        return (from_row, from_col, to_row, to_col, kp)
+            except (ValueError, IndexError):
+                pass
+            continue
+
+        try:
+            next_move_clean = clean_move(next_move)
+            piece, to_col, to_row, disambig = parse_move(next_move_clean)
+            if not piece or not to_col or to_row is None:
+                continue
+            pos = str(to_col) + str(to_row)
+            row, col = pos_to_indices(pos)
+            expected = piece_on_square(piece)
+
+            if not disambig:
+                from_row, from_col = convert_move(board, row, col, piece.lower(), convert_color)
+                if from_row is not None and from_col is not None:
+                    if board[from_row][from_col] == expected:
+                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                        return (from_row, from_col, row, col, kp)
+                continue
+
+            from_row = from_col = None
+            for r in range(8):
+                for c in range(8):
+                    if board[r][c] != expected:
+                        continue
+                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                        continue
+                    if disambig in "12345678" and str(8 - r) != disambig:
+                        continue
+                    dr = row - r
+                    dc = col - c
+                    ok = False
+                    if piece.lower() == 'n':
+                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                    elif piece.lower() == 'k':
+                        ok = max(abs(dr), abs(dc)) == 1
+                    elif piece.lower() in {'r', 'b', 'q'}:
+                        if piece.lower() == 'r':
+                            ok = (dr == 0 or dc == 0)
+                        elif piece.lower() == 'b':
+                            ok = abs(dr) == abs(dc)
+                        else:
+                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                        if ok:
+                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                            rr, cc = r + step_r, c + step_c
+                            while (rr, cc) != (row, col):
+                                if board[rr][cc] != '0':
+                                    ok = False
+                                    break
+                                rr += step_r
+                                cc += step_c
+                    if ok:
+                        from_row, from_col = r, c
+                        break
+                if from_row is not None:
+                    break
+            if from_row is not None and from_col is not None and board[from_row][from_col] == expected:
+                kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                return (from_row, from_col, row, col, kp)
+        except (ValueError, IndexError, TypeError):
+            pass
+
+    return None
+
+
+def _run_parallel_move_analysis(tasks, chunk_fn):
+    """Score legal moves with 3-ply search (evaluate_*). Only called when the book misses."""
+    if not tasks:
+        return {}
+    if not ENABLE_MULTIPROCESSING:
+        chunk_results = [chunk_fn(tasks)]
+    else:
+        cpu_count = os.cpu_count() or 4
+        if len(tasks) < max(2, cpu_count // 2):
+            chunk_results = [chunk_fn(tasks)]
+        else:
+            chunk_size = max(1, len(tasks) // cpu_count)
+            chunks = [tasks[i * chunk_size:(i + 1) * chunk_size] for i in range(cpu_count)]
+            if len(tasks) % cpu_count:
+                chunks[-1].extend(tasks[cpu_count * chunk_size:])
+            with Pool(processes=cpu_count) as pool:
+                chunk_results = pool.map(chunk_fn, chunks)
+
+    result_scores = {}
+    for chunk_result in chunk_results:
+        if not chunk_result:
+            continue
+        for key, scoring in chunk_result:
+            if key is not None and scoring is not None:
+                result_scores[key] = scoring
+    return result_scores
+
+
+def _board_after_analyzed_line(board, ply2, ply3):
+    """Board copy after trial move plus predicted reply and follow-up (for debug logs)."""
+    if not ply2:
+        return fast_copy_board(board)
+    br, bc, tr, tc, bp, _cap, _draw = ply2
+    if br == bc == tr == tc == bp == '1':
+        return fast_copy_board(board)
+    line_board = fast_copy_board(board)
+    with _engine_reply_move_ctx(line_board, br, bc, tr, tc, bp):
+        if not ply3:
+            return line_board
+        br2, bc2, tr2, tc2, bp2, _cap2, _draw2 = ply3
+        if br2 == bc2 == tr2 == tc2 == bp2 == '1':
+            return line_board
+        with _engine_reply_move_ctx(line_board, br2, bc2, tr2, tc2, bp2):
+            return line_board
+    return line_board
+
+
 def _snapshot_squares(board, squares):
     return [(r, c, board[r][c]) for r, c in squares]
 
@@ -4779,20 +5021,9 @@ def best_move_function(board, bots, en_passant):
       start = True
     else:
       start = False
-    opening_moves = ""
-    move_number = 0
+    opening_moves = _opening_moves_from_game(game_moves)
     if DEBUG_LOGS:
         print('GM:', game_moves)
-    for number in range(len(game_moves) // 2):
-        if move_number < len(game_moves):
-            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-            move_number += 1
-            if move_number < len(game_moves):
-                opening_moves += game_moves[move_number] + ' '
-                move_number += 1
-        else:
-            break
-    if DEBUG_LOGS:
         print('OM:', opening_moves)
 
     good_moves = [(6, 4, 4, 4, 'p', '0'), (6, 3, 4, 3, 'p', '0'), (7, 6, 5, 5, 'n', '0'), (7, 6, 5, 5, 'n', '0'), (5, 3, 1, 7, 'b', 'P'), (7, 5, 4, 2, 'b', '0'), (5, 5, 4, 3, 'n', 'P'), (4, 4, 3, 3, 'p', 'P')]
@@ -4816,106 +5047,17 @@ def best_move_function(board, bots, en_passant):
                 '1. e4 f6 2. d4 g5 3. Qh5',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
     ]
-    if opening_moves != 'none':
-        for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            if normalized_input in normalized_opening:
-                to_play_list = extract_moves(opening)
-                played_list = extract_moves(opening_moves)
-                next_index = len(played_list)
-                if next_index < len(to_play_list):
-                    next_move = to_play_list[next_index]
-                    raw_opening_move = next_move
-                    if next_move in {'0-0', 'O-O'}:
-                        previous_score = score(board, 'w')
-                        result_scores[('0-0')] = previous_score
-                    elif next_move in {'0-0-0', 'O-O-O'}:
-                        previous_score = score(board, 'w')
-                        result_scores[('0-0-0')] = previous_score
-                    elif len(clean_move(next_move)) == 5:
-                        piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
-                        pos = str(from_col) + str(from_row)
-                        row, col = pos_to_indices(pos)
-                        pos = str(to_col) + str(to_row)
-                        target_row, target_col = pos_to_indices(pos)
-                        previous_score = score(board, 'w')
-                        kp = _opening_book_key_piece(board, row, col, target_row, target_col, raw_opening_move)
-                        result_scores[(row, col, target_row, target_col, kp)] = previous_score
-                    elif is_pawn_capture(next_move):
-                        col, row = next_move[2], next_move[3]
-                        from_col = pos_to_indices_col(next_move[0])
-                        pos = str(col) + str(row)
-                        to_row, to_col = pos_to_indices(pos)
-                        previous_score = score(board, 'w')
-                        kp = _opening_book_key_piece(board, to_row+1, from_col, to_row, to_col, raw_opening_move)
-                        result_scores[(to_row+1, from_col, to_row, to_col, kp)] = previous_score
-                    else:
-                        next_move_clean = clean_move(next_move)
-                        piece, to_col, to_row, disambig = parse_move(next_move_clean)
-                        if piece and to_col and to_row and not disambig:
-                            pos = str(to_col) + str(to_row)
-                            row, col = pos_to_indices(pos)
-                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                            previous_score = score(board, 'w')
-                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                        if piece and to_col and to_row and disambig:
-                            pos = str(to_col) + str(to_row)
-                            row, col = pos_to_indices(pos)
-                            from_row = from_col = None
-
-                            for r in range(8):
-                                for c in range(8):
-                                    if board[r][c] != piece.lower():
-                                        continue
-                                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
-                                        continue
-                                    if disambig in "12345678" and str(8 - r) != disambig:
-                                        continue
-
-                                    dr = row - r
-                                    dc = col - c
-                                    ok = False
-
-                                    if piece.lower() == 'n':
-                                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
-                                    elif piece.lower() == 'k':
-                                        ok = max(abs(dr), abs(dc)) == 1
-                                    elif piece.lower() in {'r', 'b', 'q'}:
-                                        if piece.lower() == 'r':
-                                            ok = (dr == 0 or dc == 0)
-                                        elif piece.lower() == 'b':
-                                            ok = abs(dr) == abs(dc)
-                                        else:
-                                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
-                                        if ok:
-                                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
-                                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
-                                            rr, cc = r + step_r, c + step_c
-                                            while (rr, cc) != (row, col):
-                                                if board[rr][cc] != '0':
-                                                    ok = False
-                                                    break
-                                                rr += step_r
-                                                cc += step_c
-
-                                    if ok:
-                                        from_row, from_col = r, c
-                                        break
-                                if from_row is not None:
-                                    break
-
-                            if from_row is not None and from_col is not None:
-                                if board[from_row][from_col] == piece.lower():
-                                    previous_score = score(board, 'w')
-                                    kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                                    result_scores[(from_row, from_col, row, col, kp)] = previous_score
+    # Phase 1: opening book only — skip search when a book move exists.
+    book_move = _try_opening_book_move(board, openings, opening_moves, 'black')
+    if book_move is not None:
+        result_scores[book_move] = score(board, 'w')
     elif start:
         best_options = [(6, 4, 4, 4, 'p')]
-        previous_score = score(board, 'b')
-        result_scores[random.choice(best_options)] = previous_score
+        result_scores[random.choice(best_options)] = score(board, 'b')
+    else:
+        result_scores = {}
 
+    # Phase 2: 3-ply analysis (trial move, best reply, best reply to that, then score board).
     if not result_scores:
         for row in rows:
             for col in cols:
@@ -5279,36 +5421,7 @@ def best_move_function(board, bots, en_passant):
                                             board[7][4] = 'k'
                                             board[7][3] = '0'
                                             black_king_row, black_king_col = find_king(board, 'b')
-        # Multiprocessing inside a web request is usually a net loss on shared hosting
-        # (process spawn + pickling). Default to sequential.
-        if not ENABLE_MULTIPROCESSING:
-            results = [evaluate_chunks(tasks)]
-        else:
-            # Optimize multiprocessing - only use if tasks are numerous enough to justify overhead
-            cpu_count = os.cpu_count() or 4
-
-            # For small task lists, process sequentially (multiprocessing overhead not worth it)
-            if len(tasks) < max(2, cpu_count // 2):
-                results = [evaluate_chunks(tasks)]
-            else:
-                # Efficient chunking: divide tasks evenly across processes
-                chunk_size = max(1, len(tasks) // cpu_count)
-                chunks = [tasks[i*chunk_size:(i+1)*chunk_size] for i in range(cpu_count)]
-                # Handle remainder
-                if len(tasks) % cpu_count:
-                    chunks[-1].extend(tasks[cpu_count*chunk_size:])
-
-                # Use context manager for automatic cleanup
-                with Pool(processes=cpu_count) as pool:
-                    results = pool.map(evaluate_chunks, chunks)
-
-        result_scores = {}
-        # Optimized: process results more efficiently
-        for chunk_result in results:
-            if chunk_result:
-                for key, scoring in chunk_result:
-                    if key:
-                        result_scores[key] = scoring
+        result_scores = _run_parallel_move_analysis(tasks, evaluate_chunks)
     if result_scores:
         best_move = max(result_scores, key=result_scores.get)
         previous_score = max(result_scores.values())
@@ -6309,18 +6422,7 @@ def best_move_black(board, bots, en_passant):
     rows = BOARD_ROWS
     cols = BOARD_COLS
     good_moves = [(0, 1, 2, 2, 'N', '0')]
-    opening_moves = ""
-    move_number = 0
-    repeat = (len(game_moves) // 2) + 1
-    for number in range(repeat):
-        if move_number < len(game_moves):
-            opening_moves += str(number + 1) + '. ' + game_moves[move_number] + ' '
-            move_number += 1
-            if move_number < len(game_moves):
-                opening_moves += game_moves[move_number] + ' '
-                move_number += 1
-        else:
-            break
+    opening_moves = _opening_moves_from_game(game_moves)
     openings = ['1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 d6 7. Qb3 Bxc3+ 8. bxc3 Qe7 9. 0-0 Nf6 10. e5 Nxe5 11. Nxe5 dxe5 12. Ba3 c5 13. Bb5+ Bd7 14. Bxd7+ Qxd7 15. Bxc5 Ne4 16. Be3 0-0 17. Rfd1 Qc6',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. 0-0 Qf6 6. d4 exd4 7. Bg5 Qd6 8. Nxd4 Be7 9. Be3 Nf6 10. f3 c5 11. Nb3 b6',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. 0-0 Nxe4 5. Re1 Nd6 6. Nxe5 Nxe5 7. Rxe5+ Be7 8. Bf1 0-0 9. d4 Bf6',
@@ -6366,150 +6468,15 @@ def best_move_black(board, bots, en_passant):
                 '1. b4 a5 2. a3 axb4 3. Ra2 bxa3 4. Rb2 a2 5. Nc3 e6 6. Rb3 d6',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
                 ]
-    # Build tasks for multiprocessing if no opening book move
     tasks = []
     result_scores = {}
 
-    normalized_opening = normalize_pgn(opening_moves)
-    if normalized_opening == '1. e4':
-        best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
-        best_option = random.choice(best_options)
-        previous_score = score(board, 'b')
-        result_scores[best_option] = previous_score
-    elif opening_moves != 'none':
-        # OPTIMIZATION: Fixed order - no shuffle needed for opening book
-        for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            # Use prefix matching instead of substring matching to ensure correct position
-            if normalized_opening.startswith(normalized_input):
-                to_play_list = extract_moves(opening)
-                played_list = extract_moves(opening_moves)
-                next_index = len(played_list)
-                if next_index < len(to_play_list):
-                    next_move = to_play_list[next_index]
-                    print("NM:", next_move)
-                    if next_move in {'0-0', 'O-O'}:
-                        # Validate castling is legal before adding to result_scores
-                        if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
-                            if board[0][5] == '0' and board[0][6] == '0':
-                                white_king_row, white_king_col = find_king(board, 'w')
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    previous_score = score(board, 'b')
-                                    result_scores[('0-0')] = previous_score
-                                    break  # Use first valid opening match
-                    elif next_move in {'0-0-0', 'O-O-O'}:
-                        # Validate castling is legal before adding to result_scores
-                        if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
-                            if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                                white_king_row, white_king_col = find_king(board, 'w')
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    previous_score = score(board, 'b')
-                                    result_scores[('0-0-0')] = previous_score
-                                    break  # Use first valid opening match
-                    elif len(clean_move(next_move)) == 5:
-                        try:
-                            piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
-                            pos = str(from_col) + str(from_row)
-                            row, col = pos_to_indices(pos)
-                            pos = str(to_col) + str(to_row)
-                            target_row, target_col = pos_to_indices(pos)
-                            # Validate the move is legal: piece exists at source, destination is valid
-                            if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
-                                if board[row][col] == piece.upper():
-                                    previous_score = score(board, 'b')
-                                    kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
-                                    result_scores[(row, col, target_row, target_col, kp)] = previous_score
-                                    break  # Use first valid opening match
-                        except (ValueError, IndexError):
-                            pass  # Invalid move format, skip
-                    elif is_pawn_capture(next_move) and len(next_move) >= 4:
-                        try:
-                            col, row = next_move[2], next_move[3]
-                            from_col = pos_to_indices_col(next_move[0])
-                            pos = str(col) + str(row)
-                            to_row, to_col = pos_to_indices(pos)
-                            # Validate the move is legal: pawn exists at source
-                            if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8:
-                                if to_row > 0 and board[to_row-1][from_col] == 'P':
-                                    previous_score = score(board, 'b')
-                                    cap_piece = _opening_book_key_piece(board, to_row-1, from_col, to_row, to_col, next_move)
-                                    result_scores[(to_row-1, from_col, to_row, to_col, cap_piece)] = previous_score
-                                    break  # Use first valid opening match
-                        except (ValueError, IndexError):
-                            pass  # Invalid move format, skip
-                    else:
-                        try:
-                            next_move_clean = clean_move(next_move)
-                            piece, to_col, to_row, disambig = parse_move(next_move_clean)
-                            if piece and to_col and to_row and not disambig:
-                                pos = str(to_col) + str(to_row)
-                                row, col = pos_to_indices(pos)
-                                from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
-                                # Validate the move is legal: piece exists at source
-                                if from_row is not None and from_col is not None:
-                                    if 0 <= from_row < 8 and 0 <= from_col < 8:
-                                        if board[from_row][from_col] == piece.upper():
-                                            previous_score = score(board, 'b')
-                                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                                            break  # Use first valid opening match
-                            if piece and to_col and to_row and disambig:
-                                pos = str(to_col) + str(to_row)
-                                row, col = pos_to_indices(pos)
-                                from_row = from_col = None
+    # Phase 1: opening book only — skip search when a book move exists.
+    book_move = _try_opening_book_move(board, openings, opening_moves, 'white')
+    if book_move is not None:
+        result_scores[book_move] = score(board, 'b')
 
-                                # Find source square constrained by SAN disambiguation.
-                                for r in range(8):
-                                    for c in range(8):
-                                        if board[r][c] != piece.upper():
-                                            continue
-                                        if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
-                                            continue
-                                        if disambig in "12345678" and str(8 - r) != disambig:
-                                            continue
-
-                                        dr = row - r
-                                        dc = col - c
-                                        ok = False
-
-                                        if piece.lower() == 'n':
-                                            ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
-                                        elif piece.lower() == 'k':
-                                            ok = max(abs(dr), abs(dc)) == 1
-                                        elif piece.lower() in {'r', 'b', 'q'}:
-                                            if piece.lower() == 'r':
-                                                ok = (dr == 0 or dc == 0)
-                                            elif piece.lower() == 'b':
-                                                ok = abs(dr) == abs(dc)
-                                            else:
-                                                ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
-                                            if ok:
-                                                step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
-                                                step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
-                                                rr, cc = r + step_r, c + step_c
-                                                while (rr, cc) != (row, col):
-                                                    if board[rr][cc] != '0':
-                                                        ok = False
-                                                        break
-                                                    rr += step_r
-                                                    cc += step_c
-
-                                        if ok:
-                                            from_row, from_col = r, c
-                                            break
-                                    if from_row is not None:
-                                        break
-
-                                if from_row is not None and from_col is not None:
-                                    if board[from_row][from_col] == piece.upper():
-                                        previous_score = score(board, 'b')
-                                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                                        result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                                        break  # Use first valid opening match
-                        except (ValueError, IndexError, TypeError):
-                            pass  # Invalid move format, skip
-
+    # Phase 2: 3-ply analysis (trial move, best reply, best reply to that, then score board).
     if not result_scores:
         # Quickly collect all legal move tasks for parallel evaluation
         for row in range(8):
@@ -6650,36 +6617,7 @@ def best_move_black(board, bots, en_passant):
                 key_args = (new_board, None, None, None, None, good_moves, '0-0-0', white_king_row, white_king_col, None, position_history)
                 tasks.append(key_args)
 
-        # Multiprocessing inside a web request is usually a net loss on shared hosting
-        # (process spawn + pickling). Default to sequential.
-        if not ENABLE_MULTIPROCESSING:
-            results = [evaluate_chunks_black(tasks)]
-        else:
-            # Optimize multiprocessing - only use if tasks are numerous enough to justify overhead
-            cpu_count = os.cpu_count() or 4
-
-            # For small task lists, process sequentially (multiprocessing overhead not worth it)
-            if len(tasks) < max(2, cpu_count // 2):
-                results = [evaluate_chunks_black(tasks)]
-            else:
-                # Efficient chunking: divide tasks evenly across processes
-                chunk_size = max(1, len(tasks) // cpu_count)
-                chunks = [tasks[i*chunk_size:(i+1)*chunk_size] for i in range(cpu_count)]
-                # Handle remainder
-                if len(tasks) % cpu_count:
-                    chunks[-1].extend(tasks[cpu_count*chunk_size:])
-
-                # Use context manager for automatic cleanup
-                with Pool(processes=cpu_count) as pool:
-                    results = pool.map(evaluate_chunks_black, chunks)
-
-        result_scores = {}
-        # Optimized: process results more efficiently
-        for chunk_result in results:
-            if chunk_result:
-                for key, scoring in chunk_result:
-                    if key:
-                        result_scores[key] = scoring
+        result_scores = _run_parallel_move_analysis(tasks, evaluate_chunks_black)
     if result_scores:
         best_move = min(result_scores, key=result_scores.get)
         previous_score = min(result_scores.values())
