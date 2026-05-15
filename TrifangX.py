@@ -444,7 +444,7 @@ ENGINE_STATE_KEYS = (
     'edge_up_white_king', 'edge_down_white_king', 'edge_left_white_king', 'edge_right_white_king',
     'number_of_moves', 'white_move_count', 'black_move_count', 'king_move', 'king_move_white',
     'game_moves', 'scores', 'board', 'white_king_row', 'white_king_col', 'black_king_row', 'black_king_col',
-    'position_history', 'engine_running', 'SCORING_VERSION', 'SCORING_MODIFIERS',
+    'position_history', 'engine_running',
 )
 
 
@@ -461,8 +461,6 @@ def _capture_engine_state_to_dict():
         elif key == 'game_moves':
             out[key] = list(v)
         elif key == 'scores':
-            out[key] = dict(v)
-        elif key == 'SCORING_MODIFIERS':
             out[key] = dict(v)
         else:
             out[key] = v
@@ -484,8 +482,6 @@ def _restore_engine_state_from_dict(d):
             g[key] = list(val)
         elif key == 'scores':
             g[key] = dict(val)
-        elif key == 'SCORING_MODIFIERS':
-            g[key] = dict(val)
         else:
             g[key] = val
     g['stop_event'] = threading.Event()
@@ -504,7 +500,7 @@ def _copy_engine_snapshot(snap):
             out[key] = fast_copy_board(val)
         elif key == 'game_moves':
             out[key] = list(val) if val is not None else []
-        elif key in {'scores', 'SCORING_MODIFIERS'}:
+        elif key == 'scores':
             out[key] = dict(val) if val is not None else {}
         else:
             out[key] = val
@@ -534,8 +530,6 @@ def _new_game_snapshot_when_inline_lock_busy():
         _set_fresh_start_snapshot_template(snap0)
         template = _copy_engine_snapshot(snap0)
     out = _copy_engine_snapshot(template)
-    out['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
-    out['SCORING_VERSION'] = SCORING_VERSION
     out['engine_running'] = True
     return out
 
@@ -607,11 +601,6 @@ def _ensure_move_pool():
         except (ValueError, OSError, AttributeError):
             _MOVE_POOL = None
         return _MOVE_POOL
-
-
-def _restart_move_pool_after_modifier_change():
-    """Workers forked at pool creation won't see updated SCORING_MODIFIERS; recycle pool."""
-    _shutdown_move_pool()
 
 
 def _get_mp_ctx():
@@ -1070,9 +1059,7 @@ def reset_engine_state():
     timer_thread = None
     game_moves = []
     scores = {}
-    # Reset caches (new game state)
-    global SCORING_VERSION
-    SCORING_VERSION += 1
+    _clear_engine_caches()
     # Reset king positions to starting squares
     white_king_row = 0
     white_king_col = 4
@@ -1378,41 +1365,6 @@ def move_result(job_id):
         MOVE_JOBS.pop(job_id, None)
         return jsonify({'status': 'done', 'move': rec['move']})
 
-@app.route('/modifiers', methods=['POST', 'GET'])
-def update_modifiers():
-    """Update or retrieve scoring modifiers to adjust engine personality"""
-    if request.method == 'GET':
-        # Return current modifiers
-        return jsonify(SCORING_MODIFIERS)
-
-    # POST - update modifiers
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-
-    # Update any provided modifiers
-    for key, value in data.items():
-        if key in SCORING_MODIFIERS:
-            try:
-                SCORING_MODIFIERS[key] = float(value)
-            except (ValueError, TypeError):
-                return jsonify({'error': f'Invalid value for {key}: {value}'}), 400
-        else:
-            return jsonify({'error': f'Unknown modifier: {key}'}), 400
-
-    # Modifiers affect evaluation; bump version and clear caches
-    global SCORING_VERSION
-    SCORING_VERSION += 1
-    _restart_move_pool_after_modifier_change()
-    _shutdown_all_dedicated_workers()
-    with _GAMES_LOCK:
-        for info in GAMES.values():
-            d = info['snapshot']
-            d['SCORING_MODIFIERS'] = dict(SCORING_MODIFIERS)
-            d['SCORING_VERSION'] = SCORING_VERSION
-
-    return jsonify({'message': 'Modifiers updated', 'modifiers': SCORING_MODIFIERS})
-
 def evaluate_chunks(chunk):
     # Optimized: removed excessive printing for performance
     results = []
@@ -1513,6 +1465,14 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
     return current_score
 
 
+# Cache piece values globally to avoid recreating dict every function call
+PIECE_VALUES = {
+    'p': 4, 'P': -4, 'n': 12, 'N': -12,
+    'b': 12, 'B': -12, 'r': 20, 'R': -20,
+    'q': 36, 'Q': -36, 'k': 1000, 'K': -1000
+}
+
+
 def board_to_hash(board):
     """Convert board to hashable tuple for caching"""
     return (
@@ -1526,17 +1486,11 @@ def board_to_hash(board):
 # `score()` is called extremely frequently (directly and via best-move helpers).
 # Caching it gives a large speedup for repeated positions during search/analysis.
 #
-# We include `castled` flags and a scoring version so cache entries remain valid
-# when game state or SCORING_MODIFIERS change.
-SCORING_VERSION = 0
-
-# Pre-seed new-game snapshot for /start when _INLINE_ENGINE_LOCK is busy. Must run after
-# SCORING_* exist: an earlier capture left None for those keys and _copy_engine_snapshot
-# called dict(None), crashing import and preventing the server from starting.
+# We include `castled` flags so cache entries remain valid when castling state changes.
 _set_fresh_start_snapshot_template(_capture_engine_state_to_dict())
 
 @lru_cache(maxsize=200_000)
-def _score_cached(board_hash, turn, castled, castled_white, scoring_version):
+def _score_cached(board_hash, turn, castled, castled_white):
     # IMPORTANT: many helper functions (eg `is_checkmate`) simulate moves by
     # mutating `board`. Our cache key uses an immutable tuple-of-tuples, but we
     # must evaluate on a mutable 8x8 list-of-lists.
@@ -1653,9 +1607,6 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
     return current_score
 
-
-def evaluate_for_modifiers(board, SCORING_MODIFIERS):
-    pass  # Empty function - removed print for performance
 
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
@@ -1857,7 +1808,7 @@ def _score_uncached(board, turn, castled, castled_white):
         "rook_placed_col_white": rook_placed_col_white, "key_squares": key_squares
     }
     stats["key_squares"] = set_key_squares(board)
-    score += material_score * SCORING_MODIFIERS["material"]
+    score += material_score
     if not endgame:
         score += score_holes(board, stats, w_kr, w_kc, b_kr, b_kc)
     if material_score >= 8:
@@ -1912,9 +1863,9 @@ def _score_uncached(board, turn, castled, castled_white):
                   not_protected_by_ally = is_protected(board, row, col, protected_color)
                   if not not_protected_by_ally:
                       if piece.isupper():
-                          score += VALUES_black[piece] * SCORING_MODIFIERS["material"]
+                          score += VALUES_black[piece]
                       else:
-                          score += VALUES_white[piece] * SCORING_MODIFIERS["material"]
+                          score += VALUES_white[piece]
 
         if turn == 'b':
             if piece in {'N', 'B', 'R', 'Q'}:
@@ -1925,13 +1876,13 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'Q' and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 34 * SCORING_MODIFIERS["material"]
+                                score += 34
                         elif piece == 'R' and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 18 * SCORING_MODIFIERS["material"]
+                                score += 18
                         elif piece in {'N', 'B'} and board[new_row][new_col] == 'p':
                             if is_protected(board, row, col, 'w'):
-                                score += 10 * SCORING_MODIFIERS["material"]
+                                score += 10
             if piece in {'R', 'Q'}:
                 directions = KNIGHT_DELTAS
                 for direction in directions:
@@ -1940,10 +1891,10 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'Q' and board[new_row][new_col] == 'n':
                             if is_protected(board, row, col, 'w'):
-                                score += 30 * SCORING_MODIFIERS["material"]
+                                score += 30
                         elif piece == 'R' and board[new_row][new_col] == 'n':
                             if is_protected(board, row, col, 'w'):
-                                score += 13 * SCORING_MODIFIERS["material"]
+                                score += 13
                 directions = BISHOP_DELTAS
                 for direction in directions:
                     for i in range(1, 8):
@@ -1952,10 +1903,10 @@ def _score_uncached(board, turn, castled, castled_white):
                         if 0 <= new_row < 8 and 0 <= new_col < 8:
                             if piece == 'Q' and board[new_row][new_col] == 'b':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 30 * SCORING_MODIFIERS["material"]
+                                    score += 30
                             elif piece == 'R' and board[new_row][new_col] == 'b':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 13 * SCORING_MODIFIERS["material"]
+                                    score += 13
                             if board[new_row][new_col] != '0':
                                 break
                         else:
@@ -1969,7 +1920,7 @@ def _score_uncached(board, turn, castled, castled_white):
                         if 0 <= new_row < 8 and 0 <= new_col < 8:
                             if board[new_row][new_col] == 'r':
                                 if is_protected(board, row, col, 'w'):
-                                    score += 18 * SCORING_MODIFIERS["material"]
+                                    score += 18
                             if board[new_row][new_col] != '0':
                                 break
                         else:
@@ -1983,14 +1934,14 @@ def _score_uncached(board, turn, castled, castled_white):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'q' and board[new_row][new_col] == 'P' and stats["pawn_take_queen"] == False and is_protected(board, row, col, 'b'):
-                            score -= 34 * SCORING_MODIFIERS["material"]
+                            score -= 34
                             stats["pawn_take_queen"] = True
                         elif piece == 'r' and board[new_row][new_col] == 'P':
                             if is_protected(board, row, col, 'b'):
-                                score -= 18 * SCORING_MODIFIERS["material"]
+                                score -= 18
                         elif piece in {'n', 'b'} and board[new_row][new_col] == 'P':
                             if is_protected(board, row, col, 'b'):
-                                score -= 10 * SCORING_MODIFIERS["material"]
+                                score -= 10
             if piece in {'r', 'q'}:
                 directions = KNIGHT_DELTAS
                 for direction in directions:
@@ -1999,10 +1950,10 @@ def _score_uncached(board, turn, castled, castled_white):
                     if 0 <= new_row < 8 and 0 <= new_col < 8:
                         if piece == 'q' and board[new_row][new_col] == 'N':
                             if is_protected(board, row, col, 'b'):
-                                score -= 30 * SCORING_MODIFIERS["material"]
+                                score -= 30
                         elif piece == 'r' and board[new_row][new_col] == 'N':
                             if is_protected(board, row, col, 'b'):
-                                score -= 13 * SCORING_MODIFIERS["material"]
+                                score -= 13
                 directions = BISHOP_DELTAS
                 for direction in directions:
                   for i in range(1, 8):
@@ -2011,10 +1962,10 @@ def _score_uncached(board, turn, castled, castled_white):
                       if 0 <= new_row < 8 and 0 <= new_col < 8:
                           if piece == 'q' and board[new_row][new_col] == 'B':
                               if is_protected(board, row, col, 'b'):
-                                  score -= 30 * SCORING_MODIFIERS["material"]
+                                  score -= 30
                           elif piece == 'r' and board[new_row][new_col] == 'B':
                               if is_protected(board, row, col, 'b'):
-                                  score -= 13 * SCORING_MODIFIERS["material"]
+                                  score -= 13
                           if board[new_row][new_col] != '0':
                               break
                       else:
@@ -2028,7 +1979,7 @@ def _score_uncached(board, turn, castled, castled_white):
                             if 0 <= new_row < 8 and 0 <= new_col < 8:
                                 if board[new_row][new_col] == 'R':
                                     if is_protected(board, row, col, 'b'):
-                                        score -= 18 * SCORING_MODIFIERS["material"]
+                                        score -= 18
                                 if board[new_row][new_col] != '0':
                                     break
                             else:
@@ -2042,8 +1993,8 @@ def score(board, turn):
     repeated evaluation of identical positions.
     """
     # These globals are part of the evaluation (castling heuristics).
-    global castled, castled_white, SCORING_VERSION
-    return _score_cached(board_to_hash(board), turn, castled, castled_white, SCORING_VERSION)
+    global castled, castled_white
+    return _score_cached(board_to_hash(board), turn, castled, castled_white)
 
 def is_light_square(row, col):
     return (row + col) % 2 == 0
@@ -2218,135 +2169,132 @@ def score_holes(board, stats, white_king_row=None, white_king_col=None, black_ki
     if black_king_row is None or black_king_col is None:
         black_king_row, black_king_col = find_king(board, 'b')
 
-    # Pre-compute modifier products to avoid repeated multiplications
-    psb_db = SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["defense_b"]
-    psw_dw = SCORING_MODIFIERS["pawn_structure_w"]# * SCORING_MODIFIERS["defense_w"]
 
     for col in range(8):
         if not is_protected_pawn(board, 5, col, 'p') and board[5][col] in {'0', 'P', 'N', 'B'}:
             if black_king_col not in {3, 4} and col in {black_king_col, black_king_col+1, black_king_col-1}:
-                score -= 0.75 * psb_db
+                score -= 0.75
             else:
-                score -= 0.3 * psb_db
+                score -= 0.3
             if is_protected_pawn(board, 5, col, 'P'):
-                score -= 0.5 * psb_db
+                score -= 0.5
                 if board[5][col] == 'P':
-                    score -= 0.6 * psb_db
+                    score -= 0.6
                 if board[5][col] == 'N':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.8 * psb_db
+                        score -= 0.8
                     elif col in {1, 6}:
-                        score -= 0.4 * psb_db
+                        score -= 0.4
                 if board[5][col] == 'B':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.4 * psb_db
+                        score -= 0.4
                     else:
-                        score -= 0.2 * psb_db
+                        score -= 0.2
             else:
                 if board[5][col] == 'N':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.5 * psb_db
+                        score -= 0.5
                     elif col in {1, 6}:
-                        score -= 0.25 * psb_db
+                        score -= 0.25
                 if board[5][col] == 'B':
                     if col in {2, 3, 4, 5}:
-                        score -= 0.25 * psb_db
+                        score -= 0.25
                     else:
                         score -= 0.13
         if not is_protected_pawn(board, 4, col, 'p') and board[4][col] == '0':
             if col != 7 and board[6][col+1] != 'p':
                 if col != 0  and board[6][col-1] != 'p':
                     if black_king_col not in {3, 4} and col in {black_king_col, black_king_col+1, black_king_col-1}:
-                        score -= 0.75 * psb_db
+                        score -= 0.75
                     else:
-                        score -= 0.3 * psb_db
+                        score -= 0.3
                     if is_protected_pawn(board, 4, col, 'P'):
-                        score -= 0.5 * psb_db
+                        score -= 0.5
                         if board[4][col] == 'P':
-                            score -= 0.6 * psb_db
+                            score -= 0.6
                         if board[4][col] == 'N':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.8 * psb_db
+                                score -= 0.8
                             elif col in {1, 6}:
-                                score -= 0.4 * psb_db
+                                score -= 0.4
                         elif board[4][col] == 'B':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.4 * psb_db
+                                score -= 0.4
                             else:
-                                score -= 0.2 * psb_db
+                                score -= 0.2
                     else:
                         if board[4][col] == 'N':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.5 * psb_db
+                                score -= 0.5
                             elif col in {1, 6}:
-                                score -= 0.25 * psb_db
+                                score -= 0.25
                         elif board[4][col] == 'B':
                             if col in {2, 3, 4, 5}:
-                                score -= 0.25 * psb_db
+                                score -= 0.25
                             else:
-                                score -= 0.13 * psb_db
+                                score -= 0.13
         if not is_protected_pawn(board, 2, col, 'P') and board[2][col] == '0':
             if white_king_col not in {3, 4} and col in {white_king_col, white_king_col+1, white_king_col-1}:
-                score += 0.75 * psw_dw
+                score += 0.75
             else:
-                score += 0.3 * psw_dw
+                score += 0.3
             if is_protected_pawn(board, 2, col, 'p'):
                 if board[2][col] == 'p':
-                    score += 0.6 * psw_dw
+                    score += 0.6
                 score += 0.5
                 if board[2][col] == 'n':
                     if col in {2, 3, 4, 5}:
-                        score += 0.8 * psw_dw
+                        score += 0.8
                     elif col in {1, 6}:
-                        score += 0.4 * psw_dw
+                        score += 0.4
                 elif board[2][col] == 'b':
                     if col in {2, 3, 4, 5}:
-                        score += 0.4 * psw_dw
+                        score += 0.4
                     else:
-                        score += 0.2 * psw_dw
+                        score += 0.2
             else:
                 if board[2][col] == 'n':
                     if col in {2, 3, 4, 5}:
-                        score += 0.5 * psw_dw
+                        score += 0.5
                     elif col in {1, 6}:
-                        score += 0.25 * psw_dw
+                        score += 0.25
                 elif board[2][col] == 'b':
                     if col in {2, 3, 4, 5}:
-                        score += 0.25 * psw_dw
+                        score += 0.25
                     else:
-                        score += 0.13 * psw_dw
+                        score += 0.13
         if not is_protected_pawn(board, 3, col, 'P') and board[3][col] == '0':
             if col != 7 and board[1][col+1] != 'P':
                 if col != 0 and board[1][col-1] != 'P':
                     if white_king_col not in {3, 4} and col in {white_king_col, white_king_col+1, white_king_col-1}:
-                        score += 0.75 * psw_dw
+                        score += 0.75
                     else:
-                        score += 0.3 * psw_dw
+                        score += 0.3
                     if is_protected_pawn(board, 3, col, 'p'):
-                        score += 0.5 * psw_dw
+                        score += 0.5
                         if board[3][col] == 'p':
-                            score += 0.6 * psw_dw
+                            score += 0.6
                         if board[3][col] == 'n':
                             if col in {2, 3, 4, 5}:
-                                score += 0.8 * psw_dw
+                                score += 0.8
                             elif col in {1, 6}:
-                                score += 0.4 * psw_dw
+                                score += 0.4
                         elif board[3][col] == 'b':
                             if col in {2, 3, 4, 5}:
-                                score += 0.4 * psw_dw
+                                score += 0.4
                             else:
-                                score += 0.2 * psw_dw
+                                score += 0.2
                     else:
                         if board[3][col] == 'n':
                             if col in {2, 3, 4, 5}:
-                                score += 0.5 * psw_dw
+                                score += 0.5
                             elif col in {1, 6}:
-                                score += 0.25 * psw_dw
+                                score += 0.25
                         elif board[3][col] == 'b':
                             if col in {2, 3, 4, 5}:
-                                score += 0.25 * psw_dw
+                                score += 0.25
                             else:
-                                score += 0.13 * psw_dw
+                                score += 0.13
 
     return score
 
@@ -2481,10 +2429,10 @@ def score_king(board, row, col, color, stats):
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score += 7-distance
             if row in {7, 0} or col in {7, 0}:
-                score -= 0.5# * SCORING_MODIFIERS["piece_activity_b"]
+                score -= 0.5#
             if stats["black_bishops"] + stats["black_knights"] + stats["black_rooks"] + stats["black_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
-                score += (7-distance)/2# * SCORING_MODIFIERS["piece_activity_b"]
+                score += (7-distance)/2#
             directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
@@ -2492,7 +2440,7 @@ def score_king(board, row, col, color, stats):
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'P':
                         if not is_protected(board, new_row, new_col, 'b'):
-                            score += 1# * SCORING_MODIFIERS["attack_b"]
+                            score += 1#
 #            if stats["edge_up_white_king"]:
 #                if board[row+2][col] == 'K':
 #                    score -= 1.5
@@ -2510,17 +2458,17 @@ def score_king(board, row, col, color, stats):
 #                    score -= 1.5
 #                score -= (7-col)/15
         if board[7][4] != 'k' and not stats["fake_castled"] and not castled:
-            score -= 2# * SCORING_MODIFIERS["king_safety_b"]
+            score -= 2#
     else:
         if stats["endgame"]:
             if stats["white_pieces"] == 1:
                 distance = abs(row - 3.5) + abs(col - 3.5)
                 score -= 7-distance
             if row in {7, 0} or col in {7, 0}:
-                score += 0.5# * SCORING_MODIFIERS["piece_activity_w"]
+                score += 0.5#
             if stats["white_bishops"] + stats["white_knights"] + stats["white_rooks"] + stats["white_queens"] == 0:
                 distance = abs(row - 3.5) + abs(col - 3.5)
-                score -= (7-distance)/2# * SCORING_MODIFIERS["piece_activity_w"]
+                score -= (7-distance)/2#
             directions = QUEEN_DELTAS
             for direction in directions:
                 new_row = row + direction[0]
@@ -2528,7 +2476,7 @@ def score_king(board, row, col, color, stats):
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'p':
                         if not is_protected(board, new_row, new_col, 'w'):
-                            score -= 1# * SCORING_MODIFIERS["attack_w"]
+                            score -= 1#
 #            if stats["edge_up_black_king"]:
 #                if board[row+2][col] == 'k':
 #                    score -= 1.5
@@ -2546,22 +2494,22 @@ def score_king(board, row, col, color, stats):
 #                    score -= 1.5
 #                score -= (7-col)/15
         if board[0][4] != 'K' and not stats["fake_castled_white"] and not castled_white:
-            score += 2# * SCORING_MODIFIERS["king_safety_b"]
+            score += 2#
     return score
 
 def score_queen(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.4# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.4#
         if board[0][6] == 'K':
             if col in [5, 6, 7]:
-                score += 0.7# * SCORING_MODIFIERS["attack_b"]
+                score += 0.7#
         if not stats["endgame"]:
             if open_file(board, col, 'b'):
-              score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
+              score += 0.3#
             if open_file(board, col, 'w'):
-              score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]
+              score += 0.3#
             directions = QUEEN_DELTAS
             queen_squares = 0
             for direction in directions:
@@ -2574,7 +2522,7 @@ def score_queen(board, row, col, color, stats):
                             break
                     else:
                         break
-            score += queen_squares/27# * SCORING_MODIFIERS["piece_activity_b"]
+            score += queen_squares/27#
         else:
             if stats["black_pieces"] == 2 and stats["white_pieces"] == 1:
                 if is_king_in_check(board, stats["white_king_row"], stats["white_king_col"], 'w'):
@@ -2588,20 +2536,20 @@ def score_queen(board, row, col, color, stats):
                             score += 1.3
         # Opening bonuses with smooth transition to middlegame
         if (row, col) in [(6, 4), (6, 2), (6, 3), (7, 3)]:
-            score += 0.6 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_b"]
+            score += 0.6 * stats["opening_weight"]#
         if (row, col) == (7, 3):
-            score += 1.0 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_b"]
+            score += 1.0 * stats["opening_weight"]#
     else:
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.4# * SCORING_MODIFIERS["centralization_w"]
+            score -= 0.4#
         if board[7][6] == 'k':
             if col in [5, 6, 7]:
-                score += 0.7# * SCORING_MODIFIERS["attack_w"]
+                score += 0.7#
         if not stats["endgame"]:
             if open_file(board, col, 'w'):
-              score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
+              score -= 0.3#
             if open_file(board, col, 'b'):
-              score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]
+              score -= 0.3#
             directions = QUEEN_DELTAS
             bad_queen_squares = 0
             for direction in directions:
@@ -2614,7 +2562,7 @@ def score_queen(board, row, col, color, stats):
                             break
                     else:
                         break
-            score -= bad_queen_squares/27# * SCORING_MODIFIERS["piece_activity_w"]
+            score -= bad_queen_squares/27#
         else:
             if stats["white_pieces"] == 2 and stats["black_pieces"] == 1:
                 if is_king_in_check(board, stats["black_king_row"], stats["black_king_col"], 'b'):
@@ -2660,9 +2608,9 @@ def score_queen(board, row, col, color, stats):
 
         # Opening penalties with smooth transition
         if (row, col) in [(1, 4), (1, 2), (1, 3), (0, 3)]:
-            score -= 0.6 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_w"]
+            score -= 0.6 * stats["opening_weight"]#
         if (row, col) == [(0, 3)]:
-            score -= 1.0 * stats["opening_weight"]# * SCORING_MODIFIERS["defense_w"]
+            score -= 1.0 * stats["opening_weight"]#
     return score
 
 def score_rook(board, row, col, color, stats):
@@ -2670,23 +2618,23 @@ def score_rook(board, row, col, color, stats):
     if color == 'b':
         # Penalty for moving rooks early in the game (not on starting square unless castled)
         if ((row, col) != (7, 7) and board[7][6] != 'k') or ((row, col) != (7, 0) and board[7][2] != 'k'):
-            score -= 0.7 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.7 * stats["opening_weight"]#
 
         if board[0][6] == 'K':
             if col in [5, 6, 7] and row == 5:
-                score += 0.6# * SCORING_MODIFIERS["attack_b"]
+                score += 0.6#
         if open_file(board, col, 'b'):
-            score += 0.5# * SCORING_MODIFIERS["piece_activity_b"]
+            score += 0.5#
             if open_file(board, col, 'w'):
-              score += 0.5# * SCORING_MODIFIERS["piece_activity_b"]
+              score += 0.5#
               if stats["rook_open_file"]:
-                  score += 0.6# * SCORING_MODIFIERS["piece_activity_b"]
+                  score += 0.6#
               stats["rook_open_file"] = True
         if not stats["endgame"]:
             if row == 1:
-                score += 0.5# * SCORING_MODIFIERS["attack_b"]
+                score += 0.5#
                 if stats["rook_7th_rank"]:
-                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
+                    score += 0.8#
                 stats["rook_7th_rank"] = True
             if not is_pinned_to_king(board, row, col, 'b'):
                 rook_squares = 0
@@ -2701,7 +2649,7 @@ def score_rook(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score += rook_squares/14# * SCORING_MODIFIERS["piece_activity_b"]
+                score += rook_squares/14#
         if stats["endgame"]:
             if stats["white_pieces"] == 1:
                 if stats["black_rooks"] == 2:
@@ -2720,23 +2668,23 @@ def score_rook(board, row, col, color, stats):
     else:
         # Penalty for moving rooks early in the game (not on starting rank)
         if ((row, col) != (0, 7) and board[0][6] != 'K') or ((row, col) != (0, 0) and board[0][2] != 'K'):
-            score += 0.7 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.7 * stats["opening_weight"]#
 
         if board[7][6] == 'k':
             if col in [5, 6, 7] and row == 2:
-                score -= 0.6# * SCORING_MODIFIERS["attack_w"]
+                score -= 0.6#
         if open_file(board, col, 'w'):
-            score -= 0.5# * SCORING_MODIFIERS["piece_activity_w"]
+            score -= 0.5#
             if open_file(board, col, 'b'):
-              score -= 0.5# * SCORING_MODIFIERS["piece_activity_w"]
+              score -= 0.5#
               if stats["rook_open_file_black"]:
-                  score -= 0.6# * SCORING_MODIFIERS["piece_activity_w"]
+                  score -= 0.6#
               stats["rook_open_file_black"] = True
         if not stats["endgame"]:
             if row == 6:
-                score -= 0.5# * SCORING_MODIFIERS["attack_w"]
+                score -= 0.5#
                 if stats["rook_7th_rank_black"]:
-                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
+                    score -= 0.8#
                 stats["rook_7th_rank_black"] = True
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_rook_squares = 0
@@ -2751,7 +2699,7 @@ def score_rook(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score -= bad_rook_squares/14# * SCORING_MODIFIERS["piece_activity_w"]
+                score -= bad_rook_squares/14#
         else:
             if stats["black_pieces"] == 1:
                 if stats["white_rooks"] == 2:
@@ -2773,15 +2721,15 @@ def score_knight(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.6# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.6#
         elif (col) == 0 or (col) == 7:
-            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.2#
         if (row) == 0 or (row) == 7:
-            score -= 0.2# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.2#
         elif row in [5, 4, 3, 2]:
-            score += 0.2# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.2#
             if row in [3, 2]:
-                score += 0.3# * SCORING_MODIFIERS["attack_b"]
+                score += 0.3#
         directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
@@ -2789,14 +2737,14 @@ def score_knight(board, row, col, color, stats):
             if 0 <= new_row < 8 and 0 <= new_col < 8:
                 threatened_piece = board[new_row][new_col]
                 if threatened_piece in {'P', 'N', 'B', 'R'}:
-                    score += 0.3# * SCORING_MODIFIERS["attack_b"]
+                    score += 0.3#
                 if threatened_piece in {'Q', 'K'}:
-                    score += 0.5# * SCORING_MODIFIERS["attack_b"]
+                    score += 0.5#
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'p'):
-                score += 0.4# * SCORING_MODIFIERS["defense_b"]
+                score += 0.4#
             if (row, col) == (5, 5) and board[4][4] == 'p':
-                score += 0.5# * SCORING_MODIFIERS["centralization_b"]
+                score += 0.5#
             if not is_pinned_to_king(board, row, col, 'b'):
                 knight_squares = 0
                 directions = KNIGHT_DELTAS
@@ -2805,23 +2753,23 @@ def score_knight(board, row, col, color, stats):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] in {'0', 'P', 'N', 'B', 'R', 'Q'}:
                         knight_squares += 1
-                score += knight_squares/8# * SCORING_MODIFIERS["piece_activity_b"]
+                score += knight_squares/8#
         # Opening penalties with smooth transition
         if (row, col) == (7, 1) or (row, col) == (7, 6):
-            score -= 0.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 0.3 * stats["opening_weight"]#
         if (row, col) == (5, 5) and board[4][5] == 'p':
-            score += 0.5 * stats["opening_weight"]# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.5 * stats["opening_weight"]#
     else:
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.6# * SCORING_MODIFIERS["centralization_w"]
+            score -= 0.6#
         elif (col) == 0 or (col) == 7:
-            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.2#
         if (row) == 0 or (row) == 7:
-            score += 0.2# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.2#
         elif row in [5, 4, 3, 2]:
-            score -= 0.2# * SCORING_MODIFIERS["centralization_w"]
+            score -= 0.2#
             if row in [4, 5]:
-                score -= 0.3# * SCORING_MODIFIERS["attack_w"]
+                score -= 0.3#
         directions = KNIGHT_DELTAS
         for direction in directions:
             new_row = row + direction[0]
@@ -2829,14 +2777,14 @@ def score_knight(board, row, col, color, stats):
             if 0 <= new_row < 8 and 0 <= new_col < 8:
                 threatened_piece = board[new_row][new_col]
                 if threatened_piece in {'p', 'n', 'b', 'r'}:
-                    score -= 0.3# * SCORING_MODIFIERS["attack_w"]
+                    score -= 0.3#
                 if threatened_piece in {'q', 'k'}:
-                    score -= 0.5# * SCORING_MODIFIERS["attack_w"]
+                    score -= 0.5#
         if not stats["endgame"]:
             if (row, col) == (2, 2) and board[3][4] == 'P':
-                score -= 0.5# * SCORING_MODIFIERS["centralization_w"]
+                score -= 0.5#
             if is_protected_pawn(board, row, col, 'P'):
-                score -= 0.4# * SCORING_MODIFIERS["defense_w"]
+                score -= 0.4#
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_knight_squares = 0
                 directions = KNIGHT_DELTAS
@@ -2845,29 +2793,29 @@ def score_knight(board, row, col, color, stats):
                     new_col = col + direction[1]
                     if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] in {'0', 'p', 'n', 'b', 'r', 'q'}:
                         bad_knight_squares += 1
-                score -= bad_knight_squares/8# * SCORING_MODIFIERS["piece_activity_w"]
+                score -= bad_knight_squares/8#
         # Opening bonuses with smooth transition
         if (row, col) == (0, 1) or (row, col) == (0, 6):
-            score += 0.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 0.3 * stats["opening_weight"]#
         if (row, col) == (2, 5) and board[3][5] == 'P':
-            score -= 0.5 * stats["opening_weight"]# * SCORING_MODIFIERS["centralization_w"]
+            score -= 0.5 * stats["opening_weight"]#
     return score
 
 def score_bishop(board, row, col, color, stats):
     score = 0
     if color == 'b':
         if stats["black_bishops"] == 2:
-            score += 0.6# * SCORING_MODIFIERS["piece_activity_b"]
+            score += 0.6#
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 0.3# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.3#
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'p'):
-                score += 0.4# * SCORING_MODIFIERS["defense_b"]
+                score += 0.4#
             if (row, col) == (3, 6):
                 if board[2][5] == 'N' and board[0][3] == 'Q':
-                    score += 0.9# * SCORING_MODIFIERS["piece_activity_b"]
+                    score += 0.9#
                     if board[1][4] == 'B':
-                      score -= 0.3# * SCORING_MODIFIERS["piece_activity_b"]
+                      score -= 0.3#
             if not is_pinned_to_king(board, row, col, 'b'):
                 bishop_squares = 0
                 directions = BISHOP_DELTAS
@@ -2881,23 +2829,23 @@ def score_bishop(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score += bishop_squares/13# * SCORING_MODIFIERS["piece_activity_b"]
+                score += bishop_squares/13#
         # Opening penalties with smooth transition
         if (row, col) == (7, 2) or (row, col) == (7, 5):
-            score -= 1.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_b"]
+            score -= 1.3 * stats["opening_weight"]#
     else:
         if stats["white_bishops"] == 2:
-            score -= 0.6# * SCORING_MODIFIERS["piece_activity_w"]
+            score -= 0.6#
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 0.3# * SCORING_MODIFIERS["centralization_w"]
+            score -= 0.3#
         if not stats["endgame"]:
             if is_protected_pawn(board, row, col, 'P'):
-                score -= 0.4# * SCORING_MODIFIERS["defense_w"]
+                score -= 0.4#
             if (row, col) == (4, 6):
                 if board[5][5] == 'n' and board[7][3] == 'q':
-                    score -= 0.9# * SCORING_MODIFIERS["piece_activity_w"]
+                    score -= 0.9#
                     if board[6][4] == 'b':
-                      score += 0.3# * SCORING_MODIFIERS["piece_activity_w"]
+                      score += 0.3#
             if not is_pinned_to_king(board, row, col, 'w'):
                 bad_bishop_squares = 0
                 directions = BISHOP_DELTAS
@@ -2911,10 +2859,10 @@ def score_bishop(board, row, col, color, stats):
                                 break
                         else:
                             break
-                score -= bad_bishop_squares/13# * SCORING_MODIFIERS["piece_activity_w"]
+                score -= bad_bishop_squares/13#
         # Opening bonuses with smooth transition
         if (row, col) == (0, 2) or (row, col) == (0, 5):
-            score += 1.3 * stats["opening_weight"]# * SCORING_MODIFIERS["piece_activity_w"]
+            score += 1.3 * stats["opening_weight"]#
     return score
 
 def score_pawn(board, row, col, color, stats):
@@ -2941,20 +2889,20 @@ def score_pawn(board, row, col, color, stats):
 
     if color == 'b':
         if stats["black_light_squared_bishop"] and not light_square:
-            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
+            score += 0.3##
         if stats["black_dark_squared_bishop"] and light_square:
-            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
+            score += 0.3##
         if stats["white_light_squared_bishop"] and not light_square:
-            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
+            score += 0.3##
         if stats["white_dark_squared_bishop"] and light_square:
-            score += 0.3# * SCORING_MODIFIERS["piece_activity_b"]# * SCORING_MODIFIERS["pawn_structure_b"]
+            score += 0.3##
 
         # Passed pawn detection (left/right/center)
         passed_pawn, passed_straight = check_passed_pawn(board, row, col, color)
 
         if passed_pawn and passed_straight:
-            score += 0.7# * SCORING_MODIFIERS["attack_b"]
-            score += (7 - row) / 7# * SCORING_MODIFIERS["attack_b"]
+            score += 0.7#
+            score += (7 - row) / 7#
             if endgame:
                 score += 0.5
                 score += (7 - row) ** 2 / 25
@@ -2989,97 +2937,97 @@ def score_pawn(board, row, col, color, stats):
         if backwards_left and backwards_right:
             if row == 6:
                 if board[7][col] != 'k':
-                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score -= 0.2#
                     if row > 0 and board[row - 1][col] == 'P':
-                        score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
+                        score -= 0.3#
                     if passed_straight:
-                        score -= 0.5# * SCORING_MODIFIERS["pawn_structure_b"]
+                        score -= 0.5#
                 else:
                     score -= 0.4
                     if row > 0 and board[row - 1][col] == 'p':
-                        score -= 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score -= 0.5#
                     if passed_straight:
-                        score -= 0.7# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score -= 0.7#
             else:
-                score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
+                score -= 0.3#
                 if row > 0 and board[row - 1][col] == 'P':
-                    score -= 0.4# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score -= 0.4#
                 if passed_straight:
-                    score -= 0.6# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score -= 0.6#
         if (even_left and backwards_right) or (even_right and backwards_left):
             if col != 0 and col != 7:
                 if row != 6:
-                    score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score -= 0.3#
 
         # Doubled pawn penalty
         for i in range(1, 8):
             r = row - i
             if r < 0: break
             if board[r][col] == 'p':
-                score -= 1# * SCORING_MODIFIERS["pawn_structure_b"]
+                score -= 1#
                 break
 
         if (row, col) == (4, 3) and board[4][4] == 'p':
-            score += 1# * SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["centralization_b"]
+            score += 1##
         if (row, col) in [(5, 2), (4, 2), (5, 5), (4, 5), (5, 3), (5, 4)]:
-            score += 0.6# * SCORING_MODIFIERS["pawn_structure_b"]
+            score += 0.6#
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score += 1.4# * SCORING_MODIFIERS["centralization_b"]
+            score += 1.4#
             if opening:
-                score += 0.8# * SCORING_MODIFIERS["centralization_b"]
+                score += 0.8#
         if (row, col) == (4, 4):
-            score += 0.3# * SCORING_MODIFIERS["pawn_structure_b"]# * SCORING_MODIFIERS["centralization_b"]
+            score += 0.3##
 
         # King shielding and central control
         if not endgame:
             if col < 7:
                 if row + 1 <= 7 and board[row+1][col+1] == 'p':
-                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score += 0.2#
                 if row - 1 >= 0 and board[row-1][col+1] == 'p':
-                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score += 0.2#
             if col > 0:
                 if row + 1 <= 7 and board[row+1][col-1] == 'p':
-                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score += 0.2#
                 if row - 1 >= 0 and board[row-1][col-1] == 'p':
-                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score += 0.2#
 
             if black_king_row == 7 and black_king_col not in {3, 4}:
                 if (row, col) in {(black_king_row - 1, black_king_col),
                                   (black_king_row - 1, black_king_col + 1),
                                   (black_king_row - 1, black_king_col - 1)}:
-                    score += 0.8# * SCORING_MODIFIERS["defense_b"]
+                    score += 0.8#
 
-            score += ((7 - row) / (20 if col in {2, 3, 4, 5} else 30))# * SCORING_MODIFIERS["attack_b"]
+            score += ((7 - row) / (20 if col in {2, 3, 4, 5} else 30))#
 
             if board[7][5] in {'k'} or board[7][6] in {'k'} or board[7][7] in {'k'}:
                 if col in {5, 6, 7}:
-                    score -= ((7 - row) / 15)# * SCORING_MODIFIERS["attack_b"]
+                    score -= ((7 - row) / 15)#
 
             if col + 1 <= 7 and row > 0:
                 if board[row - 1][col + 1] in {'N', 'B', 'R', 'Q', 'K'}:
-                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
+                    score += 0.8#
             if col - 1 >= 0 and row > 0:
                 if board[row - 1][col - 1] in {'N', 'B', 'R', 'Q', 'K'}:
-                    score += 0.8# * SCORING_MODIFIERS["attack_b"]
+                    score += 0.8#
 
         else:
-            score += (7 - row) ** 2 / 20# * SCORING_MODIFIERS["attack_b"]
+            score += (7 - row) ** 2 / 20#
 
     else:
         if stats["white_light_squared_bishop"] and not light_square:
-            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
+            score -= 0.3##
         if stats["white_dark_squared_bishop"] and light_square:
-            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
+            score -= 0.3##
         if stats["black_light_squared_bishop"] and not light_square:
-            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
+            score -= 0.3##
         if stats["black_dark_squared_bishop"] and light_square:
-            score -= 0.3# * SCORING_MODIFIERS["piece_activity_w"]# * SCORING_MODIFIERS["pawn_structure_w"]
+            score -= 0.3##
 
         passed_pawn, passed_straight = check_passed_pawn(board, row, col, color)
 
         if passed_pawn and passed_straight:
-            score -= 0.7# * SCORING_MODIFIERS["attack_w"]
-            score -= row / 7# * SCORING_MODIFIERS["attack_w"]
+            score -= 0.7#
+            score -= row / 7#
             if endgame:
                 score -= 0.5
                 score -= row ** 2 / 25
@@ -3113,77 +3061,77 @@ def score_pawn(board, row, col, color, stats):
         if backwards_left and backwards_right:
             if row == 1:
                 if board[0][col] != 'K':
-                    score += 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score += 0.2#
                     if row + 1 <= 7 and board[row + 1][col] == 'p':
-                        score += 0.3# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score += 0.3#
                     if passed_straight:
-                        score += 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score += 0.5#
                 else:
                     score += 0.4
                     if row + 1 <= 7 and board[row + 1][col] == 'p':
-                        score += 0.5# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score += 0.5#
                     if passed_straight:
-                        score += 0.7# * SCORING_MODIFIERS["pawn_structure_w"]
+                        score += 0.7#
             else:
-                score += 0.3# * SCORING_MODIFIERS["pawn_structure_w"]
+                score += 0.3#
                 if row + 1 <= 7 and board[row + 1][col] == 'p':
-                    score += 0.4# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score += 0.4#
                 if passed_straight:
-                    score += 0.6# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score += 0.6#
         if (even_left and backwards_right) or (even_right and backwards_left):
             if col != 0 and col != 7:
                 if row != 1:
-                    score -= 0.3# * SCORING_MODIFIERS["pawn_structure_b"]
+                    score -= 0.3#
 
         # Doubled pawn penalty
         for i in range(1, 8):
             r = row + i
             if r > 7: break
             if board[r][col] == 'P':
-                score += 1# * SCORING_MODIFIERS["pawn_structure_w"]
+                score += 1#
                 break
 
         if (row, col) == (3, 3) and board[3][4] == 'P':
-            score -= 1# * SCORING_MODIFIERS["pawn_structure_w"]# * SCORING_MODIFIERS["centralization_w"]
+            score -= 1##
         if (row, col) in [(4, 3), (4, 4), (3, 3), (3, 4)]:
-            score -= 1.4# * SCORING_MODIFIERS["centralization_w"]
+            score -= 1.4#
             if opening:
-                score -= 0.8# * SCORING_MODIFIERS["centralization_w"]
+                score -= 0.8#
         if (row, col) in [(2, 2), (3, 2), (2, 5), (3, 5), (2, 3), (2, 4)]:
-            score -= 0.6# * SCORING_MODIFIERS["pawn_structure_w"]
+            score -= 0.6#
 
         if not endgame:
             if col < 7:
                 if board[row + 1][col + 1] == 'P':
-                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score -= 0.2#
                 if board[row - 1][col + 1] == 'P':
-                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score -= 0.2#
             if col > 0:
                 if board[row + 1][col - 1] == 'P':
-                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score -= 0.2#
                 if board[row - 1][col - 1] == 'P':
-                    score -= 0.2# * SCORING_MODIFIERS["pawn_structure_w"]
+                    score -= 0.2#
 
             if white_king_row == 0 and white_king_col not in {3, 4}:
                 if (row, col) in {(white_king_row + 1, white_king_col),
                                   (white_king_row + 1, white_king_col + 1),
                                   (white_king_row + 1, white_king_col - 1)}:
-                    score -= 0.8# * SCORING_MODIFIERS["defense_w"]
+                    score -= 0.8#
 
-            score -= row / (20 if col in {2, 3, 4, 5} else 30)# * SCORING_MODIFIERS["attack_w"]
+            score -= row / (20 if col in {2, 3, 4, 5} else 30)#
 
             if board[0][5] in {'K'} or board[0][6] in {'K'} or board[0][7] in {'K'}:
                 if col in {5, 6, 7}:
-                    score -= row / 15# * SCORING_MODIFIERS["attack_w"]
+                    score -= row / 15#
 
             if col + 1 <= 7 and row < 7:
                 if board[row + 1][col + 1] in {'n', 'b', 'r', 'q', 'k'}:
-                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
+                    score -= 0.8#
             if col - 1 >= 0 and row < 7:
                 if board[row + 1][col - 1] in {'n', 'b', 'r', 'q', 'k'}:
-                    score -= 0.8# * SCORING_MODIFIERS["attack_w"]
+                    score -= 0.8#
         else:
-            score -= row ** 2 / 20# * SCORING_MODIFIERS["attack_w"]
+            score -= row ** 2 / 20#
 
     return score
 
