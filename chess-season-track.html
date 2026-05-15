@@ -606,7 +606,7 @@
                 <div class="st-tag">TrifangX · Monthly season</div>
                 <h2>Season track</h2>
                 <p class="st-hero-sub">
-                    One path per calendar month. Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can pay a large chunk of career achievement points to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
+                    One path per calendar month. Each step is a concrete in-game feat (openings, tactics, material, endgames)—not a generic grind. After you claim a step, the next one only counts what you earn <strong>from that point on</strong> in TrifangX, then <strong>claim the step on this page</strong> to add bonus points, cosmetics, and leaderboard flair to your account. (Claiming is what advances the track.) Stuck? You can spend <strong>shop points</strong> (the same balance you use in the TrifangX shop) to skip the in-game requirement for that step and still collect that step’s rewards (the underlying achievement stays unearned until you do it in TrifangX).
                 </p>
             </section>
 
@@ -621,7 +621,7 @@
                   <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-reset-modal-title">
                     <h3 id="st-reset-modal-title" class="st-modal-title">Reset this month’s season track?</h3>
                     <div class="st-modal-body">
-                      <p>This clears <strong>claimed steps</strong> for the month on your save, removes <strong>cosmetics and leaderboard flair</strong> from those claims, subtracts the matching <strong>season bonus career points</strong>, and resets your season earn baseline. Your global TrifangX achievements are <strong>not</strong> removed. Career points spent on step buyouts are <strong>not</strong> refunded.</p>
+                      <p>This clears <strong>claimed steps</strong> for the month on your save, removes <strong>cosmetics and leaderboard flair</strong> from those claims, subtracts the matching <strong>season bonus career points</strong>, and resets your season earn baseline. Your global TrifangX achievements are <strong>not</strong> removed. Shop points spent on step buyouts are <strong>not</strong> refunded.</p>
                       <p><strong>This cannot be undone.</strong></p>
                     </div>
                     <div class="st-modal-actions">
@@ -643,7 +643,7 @@
                 <div id="st-buyout-modal" class="st-modal" aria-hidden="true">
                   <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-buyout-modal"></div>
                   <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-buyout-modal-title">
-                    <h3 id="st-buyout-modal-title" class="st-modal-title st-modal-title--neutral">Skip with career points?</h3>
+                    <h3 id="st-buyout-modal-title" class="st-modal-title st-modal-title--neutral">Skip with shop points?</h3>
                     <div id="st-buyout-modal-body" class="st-modal-body"></div>
                     <div class="st-modal-actions">
                       <button type="button" class="st-modal-cancel" id="st-buyout-modal-cancel">Cancel</button>
@@ -895,6 +895,15 @@
         return { current: cur, target: target, label: label };
       }
 
+      /** Same balance as TrifangX shop: achievement points + cheat minus pointsSpent. */
+      function getShopSpendableFromChess(data) {
+        if (!data || typeof data !== 'object') return 0;
+        var fromAch = Math.max(0, Math.floor(Number(data.points) || 0));
+        var cheat = Math.max(0, Math.floor(Number(data.cheatPoints) || 0));
+        var spent = Math.max(0, Math.floor(Number(data.pointsSpent) || 0));
+        return Math.max(0, fromAch + cheat - spent);
+      }
+
       function formatCountdown(endMs) {
         var now = Date.now();
         if (endMs <= now) return 'This season has ended. A new track starts on the 1st of the month.';
@@ -976,8 +985,9 @@
           nodesDone + ' / ' + nodes.length + '</div></div>';
         html += '<div class="st-stat"><div class="st-stat-label">Season bonus pts</div><div class="st-stat-value">' +
           bonus.toLocaleString() + '</div></div>';
-        html += '<div class="st-stat"><div class="st-stat-label">Career pts (achievements)</div><div class="st-stat-value">' +
-          Math.max(0, Math.floor(Number(data.points) || 0)).toLocaleString() + '</div></div>';
+        var shopSpendable = getShopSpendableFromChess(data);
+        html += '<div class="st-stat"><div class="st-stat-label">Shop pts to spend</div><div class="st-stat-value">' +
+          shopSpendable.toLocaleString() + '</div></div>';
         html += '</div>';
 
         html +=
@@ -1128,10 +1138,10 @@
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
           if (i === nodesDone && nodesDone < nodes.length) {
-            var careerPts = Math.max(0, Math.floor(Number(data.points) || 0));
+            var shopPts = getShopSpendableFromChess(data);
             var buyCost =
               CS && typeof CS.getSeasonStepBuyoutCost === 'function' ? CS.getSeasonStepBuyoutCost(i) : 0;
-            var canBuy = buyCost > 0 && careerPts >= buyCost;
+            var canBuy = buyCost > 0 && shopPts >= buyCost;
             html += '<div class="st-claim-row">';
             html +=
               '<button type="button" class="st-claim-btn" data-st-step="' +
@@ -1155,8 +1165,8 @@
             if (!earnMet && buyCost > 0 && !canBuy) {
               html +=
                 '<p class="st-buyout-note">You have ' +
-                careerPts.toLocaleString() +
-                ' career points. This skip costs ' +
+                shopPts.toLocaleString() +
+                ' shop points to spend. This skip costs ' +
                 buyCost.toLocaleString() +
                 '.</p>';
             }
@@ -1174,7 +1184,7 @@
             '<h4>Reset this month’s season track</h4>' +
             '<p>Clears <strong>claimed steps</strong> for <code>' +
             escapeHtml(currentSid) +
-            '</code>, removes track-granted <strong>cosmetics and leaderboard flair</strong>, subtracts matching <strong>season bonus career points</strong>, and resets your season earn baseline. Global achievements stay; buyout points spent are not refunded.</p>' +
+            '</code>, removes track-granted <strong>cosmetics and leaderboard flair</strong>, subtracts matching <strong>season bonus career points</strong>, and resets your season earn baseline. Global achievements stay; shop points spent on buyouts are not refunded.</p>' +
             '<button type="button" class="st-reset-btn" id="st-reset-season-btn">Reset season progress…</button>' +
             '</div>';
         }
@@ -1237,7 +1247,7 @@
           body.innerHTML =
             '<p>Spend <strong>' +
             escapeHtml(String(cost.toLocaleString())) +
-            '</strong> career achievement points to skip the in-game requirement for this step?</p>' +
+            '</strong> shop points (same balance as the TrifangX shop) to skip the in-game requirement for this step?</p>' +
             '<p>You still get this step’s season rewards and <strong>season bonus points</strong>. The TrifangX achievement for this step stays <strong>locked</strong> until you earn it in-game.</p>';
         }
         stSetModalOpen('st-buyout-modal', true);
@@ -1278,7 +1288,7 @@
             parts.push(
               '<p>You spent <strong>' +
                 buyCost.toLocaleString() +
-                '</strong> achievement points on the skip buyout.</p>'
+                '</strong> shop points on the skip buyout.</p>'
             );
         }
         openStMsgModal(title, parts.join(''));
@@ -1372,7 +1382,7 @@
         if (ok) ok.addEventListener('click', executeSeasonReset);
       })();
 
-      /** Dev cheat (Matt): type the word `points` (not in an input) for +10,000 career achievement points (season step buyouts). */
+      /** Dev cheat (Matt): type the word `points` (not in an input) for +10,000 achievement points (adds to shop spendable balance). */
       (function installDevPointsCheat() {
         var buf = '';
         window.addEventListener(
@@ -1425,7 +1435,7 @@
                 pingTrifangxCosmeticsRefresh();
                 openStMsgModal(
                   'Points added',
-                  '<p>Dev cheat: <strong>+10,000</strong> career achievement points (for season buyouts).</p>'
+                  '<p>Dev cheat: <strong>+10,000</strong> achievement points (adds to your shop spendable balance).</p>'
                 );
               })
               .catch(function (err) {

@@ -3799,6 +3799,14 @@ const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
   500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
 ]);
 
+/** Same pool as TrifangX shop: achievement points + cheat minus pointsSpent (not career/leaderboard total). */
+function getChessShopSpendable(chess) {
+  const fromAch = Math.max(0, Math.floor(Number(chess?.points) || 0));
+  const cheat = Math.max(0, Math.floor(Number(chess?.cheatPoints) || 0));
+  const spent = Math.max(0, Math.floor(Number(chess?.pointsSpent) || 0));
+  return Math.max(0, fromAch + cheat - spent);
+}
+
 function seasonTrackNodesCompletedFromChess(chess) {
   const st = chess?.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
   return Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)));
@@ -6744,9 +6752,12 @@ export class UserAccount {
       if (!Number.isFinite(cost) || cost <= 0) {
         return { success: false, error: 'Buyout unavailable for this step' };
       }
-      const pts = Math.max(0, Math.floor(Number(chess.points) || 0));
-      if (pts < cost) {
-        return { success: false, error: `Not enough career points (need ${cost.toLocaleString('en-US')})` };
+      const spendable = getChessShopSpendable(chess);
+      if (spendable < cost) {
+        return {
+          success: false,
+          error: `Not enough shop points (need ${cost.toLocaleString('en-US')}; you have ${spendable.toLocaleString('en-US')} to spend)`,
+        };
       }
     } else if (!seasonChallengeMetSinceBaseline(chess, earnBaseline, node.challengeAchievementId)) {
       return {
@@ -6764,8 +6775,8 @@ export class UserAccount {
 
     if (buyWithPoints) {
       const cost = SEASON_STEP_BUYOUT_POINTS[stepIndex];
-      const pts = Math.max(0, Math.floor(Number(chess.points) || 0));
-      chess.points = Math.max(0, pts - cost);
+      const spent = Math.max(0, Math.floor(Number(chess.pointsSpent) || 0));
+      chess.pointsSpent = spent + cost;
     }
 
     applySeasonClaimRewardsToChess(chess, node);

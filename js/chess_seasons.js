@@ -17,9 +17,10 @@
  *      have been fully claimed). Next step index = that value. Gating is sequential.
  *    - `seasonTrack.earnBaseline` (games, wins, castlingMoves, …) is updated on each successful claim
  *      so the *next* step only counts stats gained after prior steps were claimed (not retroactive).
- *    - Optional buyout: each step has a large career-points price (`getSeasonStepBuyoutCost`). Paying on
- *      claim skips the season-relative progress check only — it does not unlock the achievement in cloud;
- *      rewards and season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
+ *    - Optional buyout: each step has a shop-points price (`getSeasonStepBuyoutCost`), spent from the same
+ *      pool as the TrifangX shop (achievement points + cheat minus `pointsSpent`). Paying on claim skips
+ *      the season-relative progress check only — it does not unlock the achievement in cloud; rewards and
+ *      season bonus still apply. Must match worker `SEASON_STEP_BUYOUT_POINTS`.
  *
  * 3) Bonus points
  *    - Each step awards `bonusPoints` when claimed (cumulative in `seasonBonusPoints`). They count
@@ -74,7 +75,7 @@
     'Bonus points on claim; leaderboard uses achievement points + season bonus.',
     'Exclusive cosmetics via shopUnlocks ids; flair allowlisted on the worker.',
     'Optional theme: SEASON_THEMES_BY_UTC_MONTH[MM].stepTitles same length as mechanical track.',
-    'Buyout: SEASON_STEP_BUYOUT_POINTS must match worker; spend career points to skip achievement only.',
+    'Buyout: SEASON_STEP_BUYOUT_POINTS must match worker; spend shop points (pointsSpent) to skip achievement only.',
   ]);
 
   function pad2(n) {
@@ -268,7 +269,7 @@
     return SEASON_LB_ROW_PRESET_SWATCHES[id];
   }
 
-  /** Career points to skip the challenge for that step (claim with buyWithPoints). Sync with worker. */
+  /** Shop spendable points to skip the challenge for that step (claim with buyWithPoints). Sync with worker. */
   const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
     500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
   ]);
