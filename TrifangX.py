@@ -116,11 +116,11 @@ def _format_promotion_move(piece, from_row, from_col, to_row, to_col, captured_p
 
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
-    row = 8 - int(pos[1])
+    row = int(pos[1]) - 1
     return row, col
 
 def indices_to_pos(row, col):
-    return chr(ord('a') + col) + str(8 - row)
+    return chr(ord('a') + col) + str(row + 1)
 
 def indices_to_pos_col(col):
     return chr(ord('a') + col)
@@ -2240,17 +2240,17 @@ def is_light_square(row, col):
     return (row + col) % 2 == 0
 
 def pos_to_indices(pos):
-    col = ord(pos[0]) - ord('a')
-    row = 8 - int(pos[1])
+    col = ord(pos[0].lower()) - ord('a')
+    row = int(pos[1]) - 1
     return row, col
 
 def pos_to_indices_col(pos):
-    col = ord(pos[0]) - ord('a')
+    col = ord(pos[0].lower()) - ord('a')
     return col
 
 def indices_to_pos(row, col):
     col_pos = chr(col + ord('a'))
-    row_pos = str(8 - row)
+    row_pos = str(row + 1)
     return col_pos + row_pos
 
 def indices_to_pos_col(col):
@@ -2258,7 +2258,7 @@ def indices_to_pos_col(col):
     return col_pos
 
 def indices_to_pos_row(row):
-    row_pos = str(8 - row)
+    row_pos = str(row + 1)
     return row_pos
 
 def find_king(board, king_color):
@@ -4432,13 +4432,11 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row == 4:
-                if board[to_row+1][to_col] == 'p':
-                    return to_row+1, to_col
-                else:
-                    return to_row+2, to_col
-            else:
-                return to_row+1, to_col
+            for dr in (1, 2, 3):
+                fr = to_row + dr
+                if 0 <= fr < 8 and board[fr][to_col] == 'p':
+                    return fr, to_col
+            return None, None
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
@@ -4497,13 +4495,11 @@ def convert_move(board, to_row, to_col, piece, color):
                     else:
                         break
         elif piece == 'p':
-            if to_row == 3:
-                if board[to_row-1][to_col] == 'P':
-                    return to_row-1, to_col
-                else:
-                    return to_row-2, to_col
-            else:
-                return to_row-1, to_col
+            for dr in (1, 2, 3):
+                fr = to_row - dr
+                if 0 <= fr < 8 and board[fr][to_col] == 'P':
+                    return fr, to_col
+            return None, None
         elif piece == 'k':
               directions = QUEEN_DELTAS
               for direction in directions:
@@ -4931,11 +4927,11 @@ def best_move_function(board, bots, en_passant):
                 '1. e4 f6 2. d4 g5 3. Qh5',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 O-O 10. O-O-O Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
     ]
-    if opening_moves != 'none':
+    normalized_input = normalize_pgn(opening_moves)
+    if opening_moves != 'none' and normalized_input:
         for opening in openings:
             normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            if normalized_input in normalized_opening:
+            if normalized_opening.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
                 played_list = extract_moves(opening_moves)
                 next_index = len(played_list)
@@ -4971,10 +4967,11 @@ def best_move_function(board, bots, en_passant):
                         if piece and to_col and to_row and not disambig:
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
-                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                            previous_score = score(board, 'w')
-                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
+                            if from_row is not None and from_col is not None and board[from_row][from_col] == piece.upper():
+                                previous_score = score(board, 'w')
+                                kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                                result_scores[(from_row, from_col, row, col, kp)] = previous_score
                         if piece and to_col and to_row and disambig:
                             pos = str(to_col) + str(to_row)
                             row, col = pos_to_indices(pos)
@@ -4982,11 +4979,11 @@ def best_move_function(board, bots, en_passant):
 
                             for r in range(8):
                                 for c in range(8):
-                                    if board[r][c] != piece.lower():
+                                    if board[r][c] != piece.upper():
                                         continue
                                     if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
                                         continue
-                                    if disambig in "12345678" and str(8 - r) != disambig:
+                                    if disambig in "12345678" and str(r + 1) != disambig:
                                         continue
 
                                     dr = row - r
@@ -5022,7 +5019,7 @@ def best_move_function(board, bots, en_passant):
                                     break
 
                             if from_row is not None and from_col is not None:
-                                if board[from_row][from_col] == piece.lower():
+                                if board[from_row][from_col] == piece.upper():
                                     previous_score = score(board, 'w')
                                     kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
                                     result_scores[(from_row, from_col, row, col, kp)] = previous_score
@@ -5417,13 +5414,15 @@ def best_move_function(board, bots, en_passant):
                 with Pool(processes=cpu_count) as pool:
                     results = pool.map(evaluate_chunks, chunks)
 
-        result_scores = {}
+        search_scores = {}
         # Optimized: process results more efficiently
         for chunk_result in results:
             if chunk_result:
                 for key, scoring in chunk_result:
                     if key:
-                        result_scores[key] = scoring
+                        search_scores[key] = scoring
+        if search_scores:
+            result_scores = search_scores
     if result_scores:
         best_move = max(result_scores, key=result_scores.get)
         previous_score = max(result_scores.values())
@@ -6486,17 +6485,16 @@ def best_move_black(board, bots, en_passant):
     tasks = []
     result_scores = {}
 
-    normalized_opening = normalize_pgn(opening_moves)
-    if normalized_opening == '1. e4':
+    normalized_input = normalize_pgn(opening_moves)
+    if normalized_input == '1. e4':
         best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
         best_option = random.choice(best_options)
         previous_score = score(board, 'b')
         result_scores[best_option] = previous_score
-    elif opening_moves != 'none':
+    elif normalized_input and opening_moves != 'none':
         # OPTIMIZATION: Fixed order - no shuffle needed for opening book
         for opening in openings:
             normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
             # Use prefix matching instead of substring matching to ensure correct position
             if normalized_opening.startswith(normalized_input):
                 to_play_list = extract_moves(opening)
@@ -6582,7 +6580,7 @@ def best_move_black(board, bots, en_passant):
                                             continue
                                         if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
                                             continue
-                                        if disambig in "12345678" and str(8 - r) != disambig:
+                                        if disambig in "12345678" and str(r + 1) != disambig:
                                             continue
 
                                         dr = row - r
@@ -6789,13 +6787,15 @@ def best_move_black(board, bots, en_passant):
                 with Pool(processes=cpu_count) as pool:
                     results = pool.map(evaluate_chunks_black, chunks)
 
-        result_scores = {}
+        search_scores = {}
         # Optimized: process results more efficiently
         for chunk_result in results:
             if chunk_result:
                 for key, scoring in chunk_result:
                     if key:
-                        result_scores[key] = scoring
+                        search_scores[key] = scoring
+        if search_scores:
+            result_scores = search_scores
     if result_scores:
         best_move = min(result_scores, key=result_scores.get)
         previous_score = min(result_scores.values())
