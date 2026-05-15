@@ -2021,16 +2021,6 @@ def indices_to_pos_row(row):
     row_pos = str(8 - row)
     return row_pos
 
-def find_king(board, king_color):
-    king_symbol = 'K' if king_color == 'w' else 'k'
-    for row in range(8):
-        row_data = board[row]
-        for col in range(8):
-            if row_data[col] == king_symbol:
-                return row, col
-    print_board(board)
-    return None
-
 def check_defenders_lower(board, row, col):
     defenders = 0
     directions = ROOK_DELTAS
@@ -5621,7 +5611,7 @@ def best_move_player(board):
                             else:
                                 if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                    if draw:
+                                    if draw2:
                                         current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
@@ -5685,7 +5675,7 @@ def best_move_player(board):
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw:
+                                        if draw2:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5756,7 +5746,7 @@ def best_move_player(board):
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw:
+                                        if draw2:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5836,7 +5826,7 @@ def best_move_player(board):
                                 else:
                                     if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                         best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                        if draw:
+                                        if draw2:
                                             current_score = 0.25
                                             if current_score < previous_score:
                                                 previous_score = current_score
@@ -5906,7 +5896,7 @@ def best_move_player(board):
                                 white_king_row, white_king_col = find_king(board, 'w')
                                 if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
                                     best_row, best_col, target_row, target_col, best_piece, captured, draw2 = best_move2(board)
-                                    if draw:
+                                    if draw2:
                                         current_score = 0.25
                                         if current_score < previous_score:
                                             previous_score = current_score
@@ -6231,16 +6221,13 @@ def best_move2(board):
         best_move = random.choice(best_moves)
         best_row2, best_col2, target_row2, target_col2, best_piece2 = best_move
         captured_piece2 = board[target_row2][target_col2]
-        board[best_row2][best_col2] = '0'
-        board[target_row2][target_col2] = best_piece2
-        # OPTIMIZATION: Use tuple for faster hashing instead of string concatenation
-        pos_hash = board_to_hash(board)
-        position_history[pos_hash] += 1
-        if position_history[pos_hash] >= 3:
-            draw = True
-        else:
-            draw = False
-        position_history[pos_hash] -= 1
+        with _engine_reply_move_ctx(
+            board, best_row2, best_col2, target_row2, target_col2, best_piece2
+        ):
+            pos_hash = board_to_hash(board)
+            position_history[pos_hash] += 1
+            draw = position_history[pos_hash] >= 3
+            position_history[pos_hash] -= 1
         return best_row2, best_col2, target_row2, target_col2, best_piece2, captured_piece2, draw
     else:
         return '1', '1', '1', '1', '1', '1', False
