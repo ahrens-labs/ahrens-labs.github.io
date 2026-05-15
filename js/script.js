@@ -13,6 +13,7 @@ const AHRENS_API_URL = window.AHRENS_LABS_API_BASE;
 // List of page basenames that require login
 const PROTECTED_PAGE_BASENAMES = [
     'chess_engine',
+    'chess_shop',
     'dungeon_game',
     'classify'
 ];

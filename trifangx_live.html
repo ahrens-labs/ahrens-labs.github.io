@@ -5397,7 +5397,7 @@
         <div id="chess-pregame-tools" style="display: none;" role="navigation" aria-label="Chess menu (modals here; some links open in a new tab)">
             <div class="chess-pregame-tools-inner">
                 <button type="button" class="chess-pregame-tool-btn chess-pregame-ach" onclick="showAllAchievements()">Achievements</button>
-                <button type="button" class="chess-pregame-tool-btn chess-pregame-shop" onclick="showShop()">Shop</button>
+                <a href="chess-shop.html" class="chess-pregame-tool-btn chess-pregame-shop">Shop</a>
                 <a href="chess_engine/game_history/" class="chess-pregame-tool-btn chess-pregame-history" target="_blank" rel="noopener noreferrer">Game history</a>
                 <a href="chess-leaderboard.html" class="chess-pregame-tool-btn chess-pregame-leaderboard" target="_blank" rel="noopener noreferrer">Leaderboard</a>
                 <a href="chess-season-track.html" class="chess-pregame-tool-btn chess-pregame-season" target="_blank" rel="noopener noreferrer">Season track</a>
@@ -5725,7 +5725,7 @@
   <div id="reset-confirm-modal">
     <div class="reset-confirm-dialog">
       <h3 id="reset-confirm-title">⚠️ Warning</h3>
-      <p id="reset-confirm-message">This will reset achievements, points, game history, and the monthly season track (including season bonus points and season shop unlocks).</p>
+      <p id="reset-confirm-message">This will reset all statistics and achievements, game history, and the monthly season track (including season bonus points and season shop unlocks).</p>
       <div id="reset-confirm-list-container"></div>
       <input type="text" id="reset-confirm-input" class="reset-confirm-input" placeholder="Type RESET to confirm" style="display: none;">
       <div class="reset-confirm-buttons">
@@ -5825,7 +5825,7 @@
           <select id="settings-time-control" onchange="applySettingsTimeControl()"></select>
         </div>
         <div class="settings-row" style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e9ecef;">
-          <button id="reset-achievements-btn" style="width: 100%; padding: 12px 20px; background: linear-gradient(135deg, #e67e22, #d35400); color: white; border: none; border-radius: 10px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 1em; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(230, 126, 34, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">Reset All Achievements</button>
+          <button id="reset-achievements-btn" style="width: 100%; padding: 12px 20px; background: linear-gradient(135deg, #e67e22, #d35400); color: white; border: none; border-radius: 10px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 1em; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(230, 126, 34, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">Reset all stats and achievements</button>
         </div>
       </div>
     </div>

@@ -1222,7 +1222,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       // Reset gameStats after committing
       resetGameStats();
     }
-    let lifetimeStats = { // Lifetime statistics
+
+    /** Zeroed career stats — used for new players and full reset (must stay in sync with performReset). */
+    function createFreshLifetimeStats() {
+      return {
       // Captures delivered by your moving piece (by type); not the type of enemy piece taken
       capturesByQueen: 0,
       capturesByRook: 0,
@@ -1286,25 +1289,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
       kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
       pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
-      // Daily achievement tracking
-      dailyStats: {
-        lastResetDate: null,
-        gamesPlayedToday: 0,
-        gamesWonToday: 0,
-        movesMadeToday: 0,
-        capturesToday: 0,
-        checksGivenToday: 0,
-        uniqueSquaresVisitedToday: [],
-        longestGameToday: 0,
-        fastestWinToday: Infinity,
-        promotionsToday: 0,
-        castlingToday: 0,
-        todayDailyIds: [],
-        // New daily challenge tracking
-        bishopMovesInBlindfoldToday: 0,
-        // Personality tracking removed
-        longestStreakNoPiecesLostToday: 0 // Longest streak of moves without losing pieces in one game today
-      },
+      dailyStats: createFreshDailyStats(new Date().toDateString()),
       // Wins by time control
       winsByTimeControl: {
         none: 0,
@@ -1352,10 +1337,26 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       creativeQueenDownWins: 0,
       longestWinStreak: 0,
       currentWinStreak: 0,
-      // Blindfold achievement tracking
-      blindfoldWins: 0, // Total wins in blindfold mode (with or without history)
-      blindfoldWinsNoHistory: 0 // Wins in blindfold mode without move history
-    };
+      daysPlayedInARow: 0,
+      lastPlayDate: null,
+      totalGamesPlayed: 0,
+      gamesWithoutLosingPieces: 0,
+      winsWithOnlyPawns: 0,
+      checkmateWithKnight: 0,
+      checkmateWithBishop: 0,
+      checkmateWithRook: 0,
+      checkmateWithQueen: 0,
+      checkmateWithPawn: 0,
+      underpromotions: 0,
+      gamesAsWhite: 0,
+      gamesAsBlack: 0,
+      winsAsWhite: 0,
+      winsAsBlack: 0,
+      blindfoldWins: 0,
+      blindfoldWinsNoHistory: 0
+      };
+    }
+    let lifetimeStats = createFreshLifetimeStats();
 
     // Engine personality presets removed for performance
 
@@ -1969,6 +1970,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function trifangxAccountReturnFilename() {
+      if (isChessShopPage()) return 'chess-shop.html';
       return isTrifangxLiveDedicatedPage() ? 'trifangx_live.html' : 'chess_engine.html';
     }
 
@@ -2349,12 +2351,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       
       const boardElement = document.getElementById("board");
-      
-      // Remove all theme classes
-      boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
-      
-      // Add new theme class
-      boardElement.classList.add(`board-theme-${style}`);
+      if (boardElement) {
+        boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
+        boardElement.classList.add(`board-theme-${style}`);
+      }
       
       // Save preference to localStorage
       localStorage.setItem('chessboardStyle', style);
@@ -2459,17 +2459,41 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return fromAchievements + getCheatPoints();
     }
     
-    function showShop() {
-      if (!requireChessPregameForNonStatsModal()) return;
-      const modal = document.getElementById('shop-modal');
-      if (!modal) return;
-      
-      modal.classList.add('show');
-      updateShopPoints();
-      renderShopItems();
+    function isChessShopPage() {
+      try {
+        return (
+          window.TRIFANGX_SHOP_PAGE === true ||
+          /chess-shop\.html$/i.test(window.location.pathname || '')
+        );
+      } catch (e) {
+        return false;
+      }
     }
-    
+
+    function showShop() {
+      if (isChessShopPage()) {
+        updateShopPoints();
+        if (typeof renderShopFeatured === 'function') renderShopFeatured();
+        renderShopItems();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      try {
+        if (window.TRIFANGX_DASHBOARD_EMBED) {
+          if (!requireChessPregameForNonStatsModal()) return;
+          const modal = document.getElementById('shop-modal');
+          if (!modal) return;
+          modal.classList.add('show');
+          updateShopPoints();
+          renderShopItems();
+          return;
+        }
+      } catch (eEmbed) {}
+      window.location.href = 'chess-shop.html';
+    }
+
     function closeShop() {
+      if (isChessShopPage()) return;
       const modal = document.getElementById('shop-modal');
       if (modal) {
         modal.classList.remove('show');
@@ -2552,6 +2576,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function requireChessPregameForNonStatsModal() {
+      if (isChessShopPage()) return true;
       try {
         if (window.TRIFANGX_DASHBOARD_EMBED) return true;
       } catch (e) {}
@@ -2610,6 +2635,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     (function initShopConfirmBackdrop() {
       const m = document.getElementById('shop-confirm-modal');
       if (m) m.addEventListener('click', function(e) { if (e.target === m) closeShopConfirm(); });
+      const okBtn = document.getElementById('shop-confirm-ok') || document.getElementById('shop-confirm-buy');
+      const cancelBtn = document.getElementById('shop-confirm-cancel');
+      if (okBtn && !okBtn.dataset.shopBound) {
+        okBtn.dataset.shopBound = '1';
+        okBtn.addEventListener('click', confirmShopPurchase);
+      }
+      if (cancelBtn && !cancelBtn.dataset.shopBound) {
+        cancelBtn.dataset.shopBound = '1';
+        cancelBtn.addEventListener('click', closeShopConfirm);
+      }
     })();
 
     function confirmShopPurchase() {
@@ -2624,13 +2659,209 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
     
     function updateShopPoints() {
+      const spendable = getSpendablePoints();
       const pointsEl = document.getElementById('shop-points-display');
-      if (pointsEl) {
-        pointsEl.textContent = getSpendablePoints();
-      }
+      if (pointsEl) pointsEl.textContent = spendable;
+      if (typeof updateShopPageStats === 'function') updateShopPageStats();
     }
-    
+
     const shopTabOrder = ['boards', 'pieces', 'highlightColors', 'arrowColors', 'legalMoveDots', 'themes', 'checkmateEffects', 'timeControls', 'leaderboardRowColors'];
+    const shopCategoryMeta = {
+      boards: { label: 'Boards', icon: '🎨', tagline: 'Textures & palettes' },
+      pieces: { label: 'Piece sets', icon: '♟', tagline: 'Lichess-style sets' },
+      highlightColors: { label: 'Highlights', icon: '✨', tagline: 'Last-move square tint' },
+      arrowColors: { label: 'Arrows', icon: '↗', tagline: 'Analysis arrow color' },
+      legalMoveDots: { label: 'Move dots', icon: '◎', tagline: 'Legal move markers' },
+      themes: { label: 'Page themes', icon: '🌓', tagline: 'Animated backgrounds' },
+      checkmateEffects: { label: 'Checkmate FX', icon: '🎉', tagline: 'Victory effects' },
+      timeControls: { label: 'Time controls', icon: '⏱', tagline: 'Clock presets' },
+      leaderboardRowColors: { label: 'LB row tints', icon: '📊', tagline: 'Leaderboard row color' },
+    };
+    let shopSearchQuery = '';
+    let shopListFilter = 'all';
+    let shopListSort = 'default';
+
+    function updateShopPageStats() {
+      const spendable = getSpendablePoints();
+      const earned = getTotalPoints();
+      const spent = getSpentPoints();
+      const unlocked = getUnlockedItems();
+      let unlockCount = 0;
+      shopTabOrder.forEach(function (cat) {
+        unlockCount += (unlocked[cat] || []).length;
+      });
+      const setText = function (id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val);
+      };
+      setText('shop-stat-spendable', spendable);
+      setText('shop-stat-earned', earned);
+      setText('shop-stat-spent', spent);
+      setText('shop-stat-unlocked', unlockCount);
+    }
+
+    function buildShopCategoryNav() {
+      const nav = document.getElementById('shop-category-nav');
+      if (!nav) return;
+      nav.innerHTML = '';
+      shopTabOrder.forEach(function (tab) {
+        const meta = shopCategoryMeta[tab] || { label: tab, icon: '•', tagline: '' };
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cs-cat-btn' + (tab === currentShopTab ? ' active' : '');
+        btn.dataset.shopTab = tab;
+        btn.innerHTML =
+          '<span class="cs-cat-icon">' +
+          meta.icon +
+          '</span><span class="cs-cat-text"><strong>' +
+          meta.label +
+          '</strong><small>' +
+          meta.tagline +
+          '</small></span>';
+        btn.addEventListener('click', function () {
+          switchShopTab(tab);
+        });
+        nav.appendChild(btn);
+      });
+    }
+
+    function getFilteredShopItems(category) {
+      let items = (shopItems[category] || []).slice();
+      const q = shopSearchQuery.trim().toLowerCase();
+      const unlocked = getUnlockedItems();
+      const spendable = getSpendablePoints();
+      if (q) {
+        items = items.filter(function (item) {
+          return (
+            (item.name || '').toLowerCase().includes(q) ||
+            (item.description || '').toLowerCase().includes(q)
+          );
+        });
+      }
+      if (shopListFilter === 'locked') {
+        items = items.filter(function (item) {
+          return !(unlocked[category] || []).includes(item.id);
+        });
+      } else if (shopListFilter === 'unlocked') {
+        items = items.filter(function (item) {
+          return (unlocked[category] || []).includes(item.id);
+        });
+      } else if (shopListFilter === 'affordable') {
+        items = items.filter(function (item) {
+          return item.purchasable !== false && item.price > 0 && item.price <= spendable;
+        });
+      }
+      if (shopListSort === 'price-asc') {
+        items.sort(function (a, b) {
+          return (a.price || 0) - (b.price || 0);
+        });
+      } else if (shopListSort === 'price-desc') {
+        items.sort(function (a, b) {
+          return (b.price || 0) - (a.price || 0);
+        });
+      } else if (shopListSort === 'name') {
+        items.sort(function (a, b) {
+          return (a.name || '').localeCompare(b.name || '');
+        });
+      }
+      return items;
+    }
+
+    function renderShopFeatured() {
+      const section = document.getElementById('shop-featured-section');
+      const grid = document.getElementById('shop-featured');
+      if (!grid) return;
+      const spendable = getSpendablePoints();
+      const unlocked = getUnlockedItems();
+      const picks = [];
+      shopTabOrder.forEach(function (cat) {
+        (shopItems[cat] || []).forEach(function (item) {
+          if (item.purchasable === false || item.price <= 0) return;
+          if ((unlocked[cat] || []).includes(item.id)) return;
+          if (item.price <= spendable) {
+            picks.push({ category: cat, item: item, gap: spendable - item.price });
+          }
+        });
+      });
+      picks.sort(function (a, b) {
+        if (a.gap !== b.gap) return a.gap - b.gap;
+        return (b.item.coolness || 0) - (a.item.coolness || 0);
+      });
+      const top = picks.slice(0, 3);
+      grid.innerHTML = '';
+      if (!section || !top.length) {
+        if (section) section.hidden = true;
+        return;
+      }
+      section.hidden = false;
+      top.forEach(function (p) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'cs-featured-card';
+        card.innerHTML =
+          '<h4>' + p.item.name + '</h4><span class="cs-feat-price">' + p.item.price + ' pts</span>';
+        card.addEventListener('click', function () {
+          switchShopTab(p.category);
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    function initChessShopPage() {
+      buildShopCategoryNav();
+      const searchEl = document.getElementById('shop-search');
+      const filterEl = document.getElementById('shop-filter');
+      const sortEl = document.getElementById('shop-sort');
+      if (searchEl && !searchEl.dataset.shopBound) {
+        searchEl.dataset.shopBound = '1';
+        let searchTimer = null;
+        searchEl.addEventListener('input', function () {
+          clearTimeout(searchTimer);
+          searchTimer = setTimeout(function () {
+            shopSearchQuery = searchEl.value || '';
+            renderShopItems();
+          }, 180);
+        });
+      }
+      if (filterEl && !filterEl.dataset.shopBound) {
+        filterEl.dataset.shopBound = '1';
+        filterEl.addEventListener('change', function () {
+          shopListFilter = filterEl.value || 'all';
+          renderShopItems();
+        });
+      }
+      if (sortEl && !sortEl.dataset.shopBound) {
+        sortEl.dataset.shopBound = '1';
+        sortEl.addEventListener('change', function () {
+          shopListSort = sortEl.value || 'default';
+          renderShopItems();
+        });
+      }
+      updateShopPoints();
+      renderShopFeatured();
+      switchShopTab(currentShopTab || 'boards');
+    }
+
+    async function bootstrapChessShopPage() {
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+      const unlocked = getUnlockedItems();
+      if (unlocked.boards.length === 0) unlockItem('boards', 'classic');
+      if (unlocked.pieces.length === 0) unlockItem('pieces', 'classic');
+      if (!(unlocked.highlightColors || []).includes('red')) unlockItem('highlightColors', 'red');
+      if (!(unlocked.arrowColors || []).includes('red')) unlockItem('arrowColors', 'red');
+      if (!(unlocked.legalMoveDots || []).includes('blue-circle')) unlockItem('legalMoveDots', 'blue-circle');
+      if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
+      if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
+      currentPageTheme = localStorage.getItem('pageTheme') || 'light';
+      if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
+      if (isLoggedIn && currentSessionId) applyPageTheme(currentPageTheme);
+      const loading = document.getElementById('cs-loading');
+      const body = document.getElementById('cs-shop-body');
+      if (loading) loading.style.display = 'none';
+      if (body) body.style.display = '';
+      initChessShopPage();
+    }
+
     function switchShopTab(tab) {
       currentShopTab = tab;
       const tabs = document.querySelectorAll('.shop-tab');
@@ -2639,6 +2870,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         t.classList.remove('active');
         if (i === idx) t.classList.add('active');
       });
+      document.querySelectorAll('.cs-cat-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.shopTab === tab);
+      });
+      const meta = shopCategoryMeta[tab];
+      const titleEl = document.getElementById('shop-category-title');
+      if (titleEl && meta) titleEl.textContent = meta.label;
       renderShopItems();
     }
 
@@ -2843,8 +3080,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!container) return;
       
       container.innerHTML = '';
-      const items = shopItems[currentShopTab];
-      if (!items) return;
+      const items = getFilteredShopItems(currentShopTab);
+      const countEl = document.getElementById('shop-category-count');
+      if (countEl) {
+        countEl.textContent =
+          items.length + ' item' + (items.length === 1 ? '' : 's');
+      }
+      if (!items.length) {
+        const empty = document.createElement('div');
+        empty.className = 'cs-empty';
+        empty.textContent = shopSearchQuery.trim()
+          ? 'No items match your search.'
+          : 'No items in this category match the filter.';
+        container.appendChild(empty);
+        return;
+      }
       const unlocked = getUnlockedItems();
       const currentBoardStyle = localStorage.getItem('chessboardStyle') || 'classic';
       const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
@@ -2899,6 +3149,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           badge.className = 'shop-item-badge';
           badge.textContent = '✓';
           itemDiv.appendChild(badge);
+        }
+
+        if (isChessShopPage() && item.coolness) {
+          const rarity = document.createElement('div');
+          rarity.className = 'shop-item-rarity rarity-' + Math.min(10, item.coolness);
+          rarity.textContent =
+            item.coolness >= 9 ? 'Legendary' : item.coolness >= 7 ? 'Epic' : item.coolness >= 5 ? 'Rare' : 'Common';
+          itemDiv.appendChild(rarity);
+        }
+
+        if (isEquipped && isChessShopPage() && !isCheckmateAddon) {
+          const pill = document.createElement('div');
+          pill.className = 'shop-item-equipped-pill';
+          pill.textContent = 'Equipped';
+          itemDiv.appendChild(pill);
         }
         
         const nameDiv = document.createElement('div');
@@ -2992,6 +3257,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         addSpentPoints(price);
         updateShopPoints();
         renderShopItems();
+        if (typeof renderShopFeatured === 'function') renderShopFeatured();
         updateStyleDropdowns();
         if (typeof updateSettingsDropdowns === 'function') updateSettingsDropdowns();
         showNotification(`Unlocked ${displayName}! (-${price} points)`, 'success');
@@ -3699,6 +3965,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         
         console.log("Chess data loaded successfully:", cloudChessData);
+
+        if (isChessShopPage()) {
+          await bootstrapChessShopPage();
+          return;
+        }
         
         // Make sure game UI is visible (lobby only: live page hides #choose-side / title via shell CSS)
         const gameTitle = document.getElementById('game-title');
@@ -3809,7 +4080,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           });
         }
 
-        // Reset All Achievements button (in Settings modal)
+        // Reset all stats and achievements button (in Settings modal)
         const resetBtn = document.getElementById('reset-achievements-btn');
         if (resetBtn && typeof resetAllAchievements === 'function') {
           resetBtn.addEventListener('click', function(e) {
@@ -9663,7 +9934,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         // First warning
         titleEl.textContent = '⚠️ Warning';
         messageEl.textContent =
-          'This will reset ALL achievements and points to zero, clear your saved game history, and reset the monthly season track (bonus points, track progress, and season flair unlocks).\n\nThis action cannot be undone.';
+          'This will reset ALL statistics and achievements to zero, clear your saved game history, and reset the monthly season track (bonus points, track progress, and season flair unlocks).\n\nThis action cannot be undone.';
         messageEl.style.color = '#555';
         listContainer.innerHTML = '';
         inputEl.style.display = 'none';
@@ -9676,7 +9947,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         messageEl.textContent = 'This will delete:';
         messageEl.style.color = '#555';
         listContainer.innerHTML =
-          '<ul><li>All unlocked achievements</li><li>All achievement points</li><li>All game statistics</li><li>All saved game history (last 50 games)</li><li>Season track progress, season bonus points, and season-gated flair unlocks</li><li>Season cosmetic shop unlocks (boards, pieces, highlights from the track)</li></ul>';
+          '<ul><li>All unlocked achievements</li><li>All achievement and shop points</li><li>All lifetime and match statistics (wins, captures, streaks, dailies, etc.)</li><li>All saved game history (last 50 games)</li><li>Season track progress, season bonus points, and season-gated flair unlocks</li><li>Season cosmetic shop unlocks (boards, pieces, highlights from the track)</li></ul>';
         inputEl.style.display = 'none';
         yesBtn.textContent = 'Continue';
         yesBtn.onclick = () => showResetConfirmModal(3);
@@ -9756,7 +10027,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       closeResetConfirmModal();
       
-      // Reset all achievements and stats (keep favorited games in history)
+      // Reset all stats and achievements (keep favorited games in history)
       if (cloudChessData) {
         cloudChessData.gameHistory = (cloudChessData.gameHistory || []).filter(function (r) {
           return r && r.favorite === true;
@@ -9794,129 +10065,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
       }
       playerStats = { wins: 0, losses: 0, draws: 0 };
-      lifetimeStats = {
-        capturesByQueen: 0,
-        capturesByRook: 0,
-        capturesByBishop: 0,
-        capturesByKnight: 0,
-        capturesByPawn: 0,
-        totalCaptures: 0,
-        checksGiven: 0,
-        castlingMoves: 0,
-        promotions: 0,
-        enPassants: 0,
-        longestGame: 0,
-        shortestWin: Infinity,
-        capturedQueens: 0,
-        capturedRooks: 0,
-        capturedBishops: 0,
-        capturedKnights: 0,
-        capturedPawns: 0,
-        movesToE4: 0,
-        movesToD4: 0,
-        movesToE5: 0,
-        movesToD5: 0,
-        knightToF3: 0,
-        knightToC3: 0,
-        knightToF6: 0,
-        knightToC6: 0,
-        movesOnMove1: 0,
-        movesOnMove5: 0,
-        movesOnMove10: 0,
-        movesOnMove20: 0,
-        movesOnMove50: 0,
-        pawnToE4: 0,
-        pawnToD4: 0,
-        queenToD4: 0,
-        queenToE4: 0,
-        bishopToF4: 0,
-        rookToE1: 0,
-        kingToE1: 0,
-        consecutiveSamePiece: 0,
-        castledOnMove10: 0,
-        castledOnMove20: 0,
-        promotedToQueen: 0,
-        promotedToRook: 0,
-        promotedToBishop: 0,
-        promotedToKnight: 0,
-        checkOnMove5: 0,
-        captureOnMove10: 0,
-        movesToE4Multiple: 0,
-        movesToD4Multiple: 0,
-        knightToF3Multiple: 0,
-        knightToC3Multiple: 0,
-        queenToD4Multiple: 0,
-        promotedToQueenMultiple: 0,
-        rookToA1: 0, rookToH1: 0, rookToA8: 0, rookToH8: 0,
-        bishopToC1: 0, bishopToF1: 0, bishopToC8: 0, bishopToF8: 0,
-        knightToG1: 0, knightToB1: 0, knightToG8: 0, knightToB8: 0,
-        queenToA1: 0, queenToH1: 0, queenToA8: 0, queenToH8: 0,
-        kingToG1: 0, kingToC1: 0, kingToG8: 0, kingToC8: 0,
-        pawnToA2: 0, pawnToH2: 0, pawnToA7: 0, pawnToH7: 0,
-        dailyStats: createFreshDailyStats(new Date().toDateString()),
-        winsByTimeControl: {
-          none: 0,
-          '60': 0,
-          '180|2': 0,
-          '300|0': 0,
-          '600|0': 0,
-          '900|5': 0,
-          '3600|0': 0
-        },
-        winsByPersonality: {
-          balanced: 0,
-          aggressive: 0,
-          defensive: 0,
-          positional: 0,
-          material: 0,
-          tactical: 0,
-          custom: 0
-        },
-        winsInUnder10Moves: 0,
-        winsInUnder15Moves: 0,
-        winsInUnder20Moves: 0,
-        winsInOver100Moves: 0,
-        perfectGames: 0,
-        comebackWins: 0,
-        timePressureWins: 0,
-        creativeZwischenzugWins: 0,
-        creativeTriplePromotionWins: 0,
-        creativeQueenGrandTourWins: 0,
-        creativeRookLadderWins: 0,
-        creativeKingMarathonWins: 0,
-        creativeWindmillWins: 0,
-        creativeSacrificeSymphonyWins: 0,
-        creativePinGalleryWins: 0,
-        creativeForkFeastWins: 0,
-        creativeCenterDominationWins: 0,
-        creativePawnStormWins: 0,
-        creativeFullOrchestraWins: 0,
-        creativeEFileOdysseyWins: 0,
-        creativeDiscoveryWins: 0,
-        creativeSkewerSalonWins: 0,
-        creativeRookBatteryWins: 0,
-        creativeQueenDownWins: 0,
-        longestWinStreak: 0,
-        currentWinStreak: 0,
-        // Engagement tracking
-        daysPlayedInARow: 0,
-        lastPlayDate: null,
-        totalGamesPlayed: 0,
-        gamesWithoutLosingPieces: 0,
-        winsWithOnlyPawns: 0,
-        checkmateWithKnight: 0,
-        checkmateWithBishop: 0,
-        checkmateWithRook: 0,
-        checkmateWithQueen: 0,
-        checkmateWithPawn: 0,
-        underpromotions: 0,
-        gamesAsWhite: 0,
-        gamesAsBlack: 0,
-        winsAsWhite: 0,
-        winsAsBlack: 0,
-        blindfoldWins: 0,
-        blindfoldWinsNoHistory: 0
-      };
+      lifetimeStats = createFreshLifetimeStats();
+      resetGameStats();
+      if (cloudChessData) {
+        cloudChessData.points = 0;
+        cloudChessData.pointsSpent = 0;
+        cloudChessData.cheatPoints = 0;
+        if (!cloudChessData.stats) cloudChessData.stats = {};
+        cloudChessData.stats.playerStats = { wins: 0, losses: 0, draws: 0 };
+        cloudChessData.stats.lifetimeStats = JSON.parse(JSON.stringify(lifetimeStats));
+      }
       
       // Reset shop: clear spent points, reset unlocks to defaults
       localStorage.setItem('shopPointsSpent', '0');
@@ -10014,7 +10172,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           titleEl.textContent = '✅ Success!';
           titleEl.style.color = '#2ecc71';
           messageEl.textContent =
-            'All achievements, statistics, game history, and season track progress have been reset successfully!';
+            'All stats, achievements, game history, and season track progress have been reset successfully!';
           messageEl.style.color = '#555';
           listContainer.innerHTML = '';
           inputEl.style.display = 'none';
@@ -12580,16 +12738,28 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const doSave = async () => {
         try {
           if (typeof cloudChessData !== 'undefined' && cloudChessData && dataLoaded) {
-            if (typeof playerStats !== 'undefined' && playerStats) {
-              cloudChessData.stats = cloudChessData.stats || {};
+            cloudChessData.stats = cloudChessData.stats || {};
+            if (fullCareerResetSync) {
+              if (typeof lifetimeStats !== 'undefined' && lifetimeStats) {
+                cloudChessData.stats.lifetimeStats = JSON.parse(JSON.stringify(lifetimeStats));
+              } else {
+                cloudChessData.stats.lifetimeStats = {};
+              }
+              cloudChessData.stats.playerStats = { wins: 0, losses: 0, draws: 0 };
+              cloudChessData.points = 0;
+              cloudChessData.pointsSpent = 0;
+              cloudChessData.cheatPoints = 0;
+            } else if (typeof playerStats !== 'undefined' && playerStats) {
               cloudChessData.stats.playerStats = {
                 wins: Math.max(0, Math.floor(Number(playerStats.wins) || 0)),
                 losses: Math.max(0, Math.floor(Number(playerStats.losses) || 0)),
                 draws: Math.max(0, Math.floor(Number(playerStats.draws) || 0)),
               };
             }
-            if (typeof computeUnlockedAchievementPointsTotal === 'function') {
+            if (!fullCareerResetSync && typeof computeUnlockedAchievementPointsTotal === 'function') {
               cloudChessData.points = computeUnlockedAchievementPointsTotal();
+            } else if (fullCareerResetSync) {
+              cloudChessData.points = 0;
             }
           }
           const payload = { ...cloudChessData };
@@ -12677,7 +12847,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         u.searchParams.delete('open');
         window.history.replaceState({}, '', u.pathname + u.search + u.hash);
         const run = () => {
-          if (open === 'shop' && typeof showShop === 'function') showShop();
+          if (open === 'shop') {
+            window.location.href = 'chess-shop.html';
+            return;
+          }
           else if (open === 'settings' && typeof showSettings === 'function') showSettings();
           else if (open === 'achievements' && typeof showAllAchievements === 'function') showAllAchievements(false);
         };
