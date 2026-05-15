@@ -1396,21 +1396,17 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
         castling_key = piece
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'b') if DEBUG_LOGS else None
         with _analysis_castling_black(board, piece):
-            best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player(board)
-            if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-                return -1000
-            if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-                return 10000
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
-            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2(board)
-            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
-            current_score, checkmate2 = _simulate_white_reply_line(
-                board, best_row, best_col, target_row, target_col, best_piece,
-                best_row2, best_col2, target_row2, target_col2, best_piece2,
-            )
+            current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_white(board)
             if checkmate2:
                 return 10000
-            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+            if ply2 and DEBUG_LOGS:
+                br, bc, tr, tc, bp, cap, _d = ply2
+                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'w')
+                predicted_move_2 = None
+                if ply3:
+                    br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
+                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'b')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
             scores[castling_key] = current_score
         return current_score
 
@@ -1434,33 +1430,20 @@ def evaluate_white(board, from_row, from_col, to_row, to_col, good_moves, scores
             black_king_row, black_king_col = find_king(board, 'b')
         if is_king_in_check(board, black_king_row, black_king_col, 'b'):
             return None
-        best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player(board)
-        if draw:
-            current_score = -0.25
-            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
-        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-            return -1000
-        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-            white_king_row, white_king_col = find_king(board, 'w')
-            if is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                return 10000
-            current_score = -0.25
-            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
-        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'w') if DEBUG_LOGS else None
-        best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2(board)
-        predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'b') if DEBUG_LOGS else None
-        current_score, checkmate2 = _simulate_white_reply_line(
-            board, best_row, best_col, target_row, target_col, best_piece,
-            best_row2, best_col2, target_row2, target_col2, best_piece2,
-        )
+        current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_white(board)
         if checkmate2:
             return 10000
+        if DEBUG_LOGS and ply2:
+            br, bc, tr, tc, bp, cap, _d = ply2
+            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'w')
+            predicted_move_2 = None
+            if ply3:
+                br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
+                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'b')
+            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
         for move in good_moves:
             if (from_row, from_col, from_row, from_col, piece, '0') == move:
                 current_score += 0.5
-        log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
     return current_score
 
@@ -1539,21 +1522,17 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
         castling_key = piece
         analyzed_move = format_debug_move(board, piece, from_row, from_col, to_row, to_col, captured_piece, 'w') if DEBUG_LOGS else None
         with _analysis_castling_white(board, piece):
-            best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
-            if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-                return 1000
-            if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-                return -10000
-            predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
-            best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
-            predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
-            current_score, checkmate2 = _simulate_black_reply_line(
-                board, best_row, best_col, target_row, target_col, best_piece,
-                best_row2, best_col2, target_row2, target_col2, best_piece2,
-            )
+            current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_black(board)
             if checkmate2:
                 return -10000
-            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
+            if ply2 and DEBUG_LOGS:
+                br, bc, tr, tc, bp, cap, _d = ply2
+                predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'b')
+                predicted_move_2 = None
+                if ply3:
+                    br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
+                    predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'w')
+                log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
             scores[castling_key] = current_score
         return current_score
 
@@ -1577,33 +1556,20 @@ def evaluate_black(board, from_row, from_col, to_row, to_col, good_moves, scores
             white_king_row, white_king_col = find_king(board, 'w')
         if is_king_in_check(board, white_king_row, white_king_col, 'w'):
             return None
-        best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
-        if draw:
-            current_score = 0.25
-            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
-        if best_row == best_col == target_row == target_col == best_piece == captured == '2':
-            return 1000
-        if best_row == best_col == target_row == target_col == best_piece == captured == '1':
-            black_king_row, black_king_col = find_king(board, 'b')
-            if is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                return -10000
-            current_score = 0.25
-            scores[(from_row, from_col, to_row, to_col, piece)] = current_score
-            return current_score
-        predicted_move_1 = format_debug_move(board, best_piece, best_row, best_col, target_row, target_col, board[target_row][target_col], 'b') if DEBUG_LOGS else None
-        best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = best_move2_black(board)
-        predicted_move_2 = format_debug_move(board, best_piece2, best_row2, best_col2, target_row2, target_col2, board[target_row2][target_col2], 'w') if DEBUG_LOGS else None
-        current_score, checkmate2 = _simulate_black_reply_line(
-            board, best_row, best_col, target_row, target_col, best_piece,
-            best_row2, best_col2, target_row2, target_col2, best_piece2,
-        )
+        current_score, checkmate2, ply2, ply3 = _analyze_three_half_moves_black(board)
         if checkmate2:
             return -10000
+        if DEBUG_LOGS and ply2:
+            br, bc, tr, tc, bp, cap, _d = ply2
+            predicted_move_1 = format_debug_move(board, bp, br, bc, tr, tc, board[tr][tc], 'b')
+            predicted_move_2 = None
+            if ply3:
+                br2, bc2, tr2, tc2, bp2, cap2, _d2 = ply3
+                predicted_move_2 = format_debug_move(board, bp2, br2, bc2, tr2, tc2, board[tr2][tc2], 'w')
+            log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
         for move in good_moves:
             if (from_row, from_col, from_row, from_col, piece, '0') == move:
                 current_score -= 0.5
-        log_move_analysis(analyzed_move, predicted_move_1, predicted_move_2, current_score, board)
         scores[(from_row, from_col, to_row, to_col, piece)] = current_score
     return current_score
 
@@ -4330,6 +4296,17 @@ def _restore_squares(board, snapshot):
         board[r][c] = piece
 
 
+@contextlib.contextmanager
+def _preserve_board(board):
+    """Restore the full 8x8 board after search or trial analysis."""
+    saved = fast_copy_board(board)
+    try:
+        yield
+    finally:
+        for r in range(8):
+            board[r][:] = saved[r]
+
+
 def _apply_engine_reply_move(board, from_row, from_col, target_row, target_col, moved_piece_symbol):
     """
     During static analysis / predicted lines: place the engine's reply on the board.
@@ -4438,6 +4415,10 @@ def _analysis_castling_white(board, piece):
 
 def _simulate_white_reply_line(board, best_row, best_col, target_row, target_col, best_piece,
                                best_row2, best_col2, target_row2, target_col2, best_piece2):
+    """
+    Play out half-moves 2 and 3 on top of half-move 1 already on `board`, score, then undo both.
+    Leaves `board` exactly as it was before this call (still at position after ply 1 only).
+    """
     with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == '1':
             return None, True
@@ -4447,11 +4428,73 @@ def _simulate_white_reply_line(board, best_row, best_col, target_row, target_col
 
 def _simulate_black_reply_line(board, best_row, best_col, target_row, target_col, best_piece,
                                best_row2, best_col2, target_row2, target_col2, best_piece2):
+    """
+    Play out half-moves 2 and 3 on top of half-move 1 already on `board`, score, then undo both.
+    Leaves `board` exactly as it was before this call (still at position after ply 1 only).
+    """
     with _engine_reply_move_ctx(board, best_row, best_col, target_row, target_col, best_piece):
         if best_row2 == best_col2 == target_row2 == target_col2 == best_piece2 == '1':
             return None, True
         with _engine_reply_move_ctx(board, best_row2, best_col2, target_row2, target_col2, best_piece2):
             return score(board, 'b'), False
+
+
+def _analyze_three_half_moves_white(board):
+    """
+    With half-move 1 already on `board`, find plies 2–3, score the line, restore `board` to ply 1 only.
+    Returns (current_score, checkmate_after_ply2, ply2_tuple, ply3_tuple).
+    ply2_tuple: (best_row, best_col, target_row, target_col, best_piece, captured, draw)
+  """
+    with _preserve_board(board):
+        ply2 = best_move_player(board)
+    best_row, best_col, target_row, target_col, best_piece, captured, draw = ply2
+    if draw:
+        return -0.25, False, ply2, None
+    if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+        return -1000, False, ply2, None
+    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+        white_king_row, white_king_col = find_king(board, 'w')
+        if is_king_in_check(board, white_king_row, white_king_col, 'w'):
+            return 10000, False, ply2, None
+        return -0.25, False, ply2, None
+    with _preserve_board(board):
+        ply3 = best_move2(board)
+    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = ply3
+    current_score, checkmate2 = _simulate_white_reply_line(
+        board, best_row, best_col, target_row, target_col, best_piece,
+        best_row2, best_col2, target_row2, target_col2, best_piece2,
+    )
+    if checkmate2:
+        return 10000, True, ply2, ply3
+    return current_score, False, ply2, ply3
+
+
+def _analyze_three_half_moves_black(board):
+    """
+    With half-move 1 already on `board`, find plies 2–3, score the line, restore `board` to ply 1 only.
+    """
+    with _preserve_board(board):
+        ply2 = best_move_player_black(board)
+    best_row, best_col, target_row, target_col, best_piece, captured, draw = ply2
+    if draw:
+        return 0.25, False, ply2, None
+    if best_row == best_col == target_row == target_col == best_piece == captured == '2':
+        return 1000, False, ply2, None
+    if best_row == best_col == target_row == target_col == best_piece == captured == '1':
+        black_king_row, black_king_col = find_king(board, 'b')
+        if is_king_in_check(board, black_king_row, black_king_col, 'b'):
+            return -10000, False, ply2, None
+        return 0.25, False, ply2, None
+    with _preserve_board(board):
+        ply3 = best_move2_black(board)
+    best_row2, best_col2, target_row2, target_col2, best_piece2, captured2, draw2 = ply3
+    current_score, checkmate2 = _simulate_black_reply_line(
+        board, best_row, best_col, target_row, target_col, best_piece,
+        best_row2, best_col2, target_row2, target_col2, best_piece2,
+    )
+    if checkmate2:
+        return -10000, True, ply2, ply3
+    return current_score, False, ply2, ply3
 
 
 def players_turn(board, next_move, notation_move):
@@ -5420,6 +5463,11 @@ def best_move_function(board, bots, en_passant):
 
 
 def best_move_player(board):
+    with _preserve_board(board):
+        return _best_move_player_search(board)
+
+
+def _best_move_player_search(board):
     white_king_row, white_king_col = find_king(board, 'w')
     checkmate = False
     promotion = False
@@ -5953,6 +6001,11 @@ def best_move_player(board):
         return '1', '1', '1', '1', '1', '1', False
 
 def best_move2(board):
+    with _preserve_board(board):
+        return _best_move2_search(board)
+
+
+def _best_move2_search(board):
     black_king_row, black_king_col = find_king(board, 'b')
     promotion = False
     previous_score = -6000
@@ -8058,6 +8111,11 @@ def best_move_black(board, bots, en_passant):
         return move_played
 
 def best_move_player_black(board):
+    with _preserve_board(board):
+        return _best_move_player_black_search(board)
+
+
+def _best_move_player_black_search(board):
     black_king_row, black_king_col = find_king(board, 'b')
     checkmate = False
     promotion = False
@@ -8589,6 +8647,11 @@ def best_move_player_black(board):
         return '1', '1', '1', '1', '1', '1', False
 
 def best_move2_black(board):
+    with _preserve_board(board):
+        return _best_move2_black_search(board)
+
+
+def _best_move2_black_search(board):
     white_king_row, white_king_col = find_king(board, 'w')
     promotion = False
     previous_score = 6000
