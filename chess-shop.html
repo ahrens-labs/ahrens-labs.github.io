@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahrens Labs — TrifangX Shop</title>
+    <meta name="description" content="Spend achievement points on boards, pieces, themes, effects, and more for TrifangX chess.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/chess-shop.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <script src="js/script.js"></script>
+    <script src="js/chess_seasons.js"></script>
+</head>
+<body>
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs & Projects</a></li>
+                        <li><a href="chess_engine.html">Play TrifangX</a></li>
+                        <li><a href="chess-shop.html" aria-current="page">Shop</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+                    <button id="header-login-btn" type="button" onclick="window.location.href='account.html?return=' + encodeURIComponent('chess-shop.html')" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Login</button>
+                    <button id="header-signup-btn" type="button" onclick="window.location.href='account.html?return=' + encodeURIComponent('chess-shop.html')" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Sign Up</button>
+                    <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em;"></span>
+                </div>
+            </div>
+        </header>
+
+        <main class="cs-main" id="chess-shop-app">
+            <section class="cs-hero">
+                <div class="cs-hero-inner">
+                    <span class="cs-tag">TrifangX · Cosmetics vault</span>
+                    <h2>Shop</h2>
+                    <p class="cs-hero-sub">
+                        Unlock boards, piece sets, page themes, checkmate effects, and more with points you earn from achievements. Equip items here—they sync to your account and apply in the lobby and live game.
+                    </p>
+                    <div class="cs-wallet" role="status" aria-live="polite">
+                        <span class="cs-wallet-label">Available to spend</span>
+                        <span class="cs-wallet-value"><span id="shop-points-display">0</span><span> pts</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="cs-stats" aria-label="Point summary">
+                <div class="cs-stat">
+                    <div class="cs-stat-label">Available</div>
+                    <div class="cs-stat-value cs-stat-value--accent" id="shop-stat-spendable">0</div>
+                </div>
+                <div class="cs-stat">
+                    <div class="cs-stat-label">Total earned</div>
+                    <div class="cs-stat-value" id="shop-stat-earned">0</div>
+                </div>
+                <div class="cs-stat">
+                    <div class="cs-stat-label">Spent</div>
+                    <div class="cs-stat-value" id="shop-stat-spent">0</div>
+                </div>
+                <div class="cs-stat">
+                    <div class="cs-stat-label">Unlocked</div>
+                    <div class="cs-stat-value" id="shop-stat-unlocked">0</div>
+                </div>
+            </div>
+
+            <div id="cs-loading" class="cs-loading">Loading your vault…</div>
+
+            <div class="cs-layout" id="cs-shop-body" style="display: none;">
+                <aside class="cs-sidebar">
+                    <div class="cs-nav-title">Categories</div>
+                    <nav id="shop-category-nav" aria-label="Shop categories"></nav>
+                    <div class="cs-sidebar-links">
+                        <a href="chess_engine.html">← Back to lobby</a>
+                        <a href="chess-season-track.html">Season track rewards</a>
+                        <a href="chess-leaderboard.html">Leaderboard</a>
+                        <a href="account-dashboard.html">Account dashboard</a>
+                    </div>
+                </aside>
+
+                <div class="cs-content">
+                    <div class="cs-toolbar">
+                        <div class="cs-search-wrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                            <input type="search" id="shop-search" placeholder="Search by name…" autocomplete="off" aria-label="Search shop items">
+                        </div>
+                        <select id="shop-filter" aria-label="Filter items">
+                            <option value="all">All items</option>
+                            <option value="locked">Locked only</option>
+                            <option value="unlocked">Unlocked only</option>
+                            <option value="affordable">Can afford</option>
+                        </select>
+                        <select id="shop-sort" aria-label="Sort items">
+                            <option value="default">Default order</option>
+                            <option value="price-asc">Price: low → high</option>
+                            <option value="price-desc">Price: high → low</option>
+                            <option value="name">Name A–Z</option>
+                        </select>
+                    </div>
+
+                    <section class="cs-featured" id="shop-featured-section" hidden>
+                        <div class="cs-section-head">
+                            <h3>Recommended for you</h3>
+                            <p>Unlock next based on your balance</p>
+                        </div>
+                        <div id="shop-featured" class="cs-featured-grid"></div>
+                    </section>
+
+                    <div class="cs-section-head">
+                        <h3 id="shop-category-title">Boards</h3>
+                        <p id="shop-category-count">0 items</p>
+                    </div>
+                    <div id="shop-items-container" class="shop-items-container cs-grid" role="list"></div>
+                </div>
+            </div>
+        </main>
+
+        <div class="push"></div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
+    </footer>
+
+    <!-- Hidden selects for equip / cloud sync -->
+    <div class="cs-stubs" aria-hidden="true">
+        <select id="board-style"><option value="classic">classic</option></select>
+        <select id="piece-style"><option value="classic">classic</option></select>
+        <select id="time-control"><option value="none">none</option></select>
+    </div>
+
+    <div id="shop-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="shop-confirm-title">
+        <div class="shop-confirm-dialog">
+            <h3 id="shop-confirm-title">Confirm purchase</h3>
+            <p id="shop-confirm-message"></p>
+            <div class="shop-confirm-actions">
+                <button type="button" id="shop-confirm-cancel">Cancel</button>
+                <button type="button" id="shop-confirm-ok">Buy now</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification-toast" aria-live="polite"></div>
+
+    <script>window.TRIFANGX_SHOP_PAGE = true;</script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/trifangx_chess_app.js"></script>
+</body>
+</html>
