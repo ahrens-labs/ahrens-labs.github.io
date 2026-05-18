@@ -3845,44 +3845,93 @@ function rebuildPlayerStatsFloorFromGameHistory(gameHistory, existingPs) {
   };
 }
 
+function pickBestChessCareerBackup(chess) {
+  const candidates = [];
+  if (chess.careerStatsBackup && typeof chess.careerStatsBackup === 'object') {
+    candidates.push(chess.careerStatsBackup);
+  }
+  if (Array.isArray(chess.careerStatsBackups)) {
+    for (const b of chess.careerStatsBackups) {
+      if (b && typeof b === 'object') candidates.push(b);
+    }
+  }
+  let best = null;
+  let bestScore = -1;
+  for (const b of candidates) {
+    const s = chessLifetimeCareerScore(b.stats?.lifetimeStats, b.stats?.playerStats);
+    if (s > bestScore) {
+      bestScore = s;
+      best = b;
+    }
+  }
+  return best;
+}
+
+function appendChessCareerBackup(chess, snap) {
+  if (!snap || !chess || typeof chess !== 'object') return;
+  chess.careerStatsBackup = snap;
+  const list = Array.isArray(chess.careerStatsBackups) ? chess.careerStatsBackups.slice() : [];
+  list.push(snap);
+  while (list.length > 8) list.shift();
+  chess.careerStatsBackups = list;
+}
+
+function applyChessCareerBackupToChess(chess, backup) {
+  if (!backup || !chess) return;
+  chess.stats = chess.stats && typeof chess.stats === 'object' ? chess.stats : {};
+  chess.stats.playerStats = { ...(backup.stats?.playerStats || chess.stats.playerStats || {}) };
+  chess.stats.lifetimeStats = mergeLifetimeStatsMonotonic(
+    chess.stats.lifetimeStats,
+    backup.stats?.lifetimeStats || {},
+    false
+  );
+  if (backup.seasonTrack && typeof backup.seasonTrack === 'object') {
+    chess.seasonTrack = JSON.parse(JSON.stringify(backup.seasonTrack));
+  }
+  if (Object.prototype.hasOwnProperty.call(backup, 'seasonBonusPoints')) {
+    chess.seasonBonusPoints = Math.max(
+      Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)),
+      Math.max(0, Math.floor(Number(backup.seasonBonusPoints) || 0))
+    );
+  }
+}
+
 function repairChessCareerStatsInPlace(chess) {
   if (!chess || typeof chess !== 'object') return { repaired: false, source: null };
   chess.stats = chess.stats && typeof chess.stats === 'object' ? chess.stats : {};
   const prevLt = chess.stats.lifetimeStats;
   const prevScore = chessLifetimeCareerScore(prevLt, chess.stats.playerStats);
-  const backup = chess.careerStatsBackup && typeof chess.careerStatsBackup === 'object' ? chess.careerStatsBackup : null;
-  const backupLt = backup?.stats?.lifetimeStats;
-  const backupScore = chessLifetimeCareerScore(backupLt, backup?.stats?.playerStats);
+  const backup = pickBestChessCareerBackup(chess);
+  const backupScore = backup
+    ? chessLifetimeCareerScore(backup.stats?.lifetimeStats, backup.stats?.playerStats)
+    : 0;
 
-  if (prevScore < 80 && backupScore > prevScore + 80) {
-    chess.stats.playerStats = { ...(backup.stats?.playerStats || chess.stats.playerStats || {}) };
-    chess.stats.lifetimeStats = mergeLifetimeStatsMonotonic({}, backupLt || {}, false);
-    if (backup.seasonTrack && typeof backup.seasonTrack === 'object') {
-      chess.seasonTrack = JSON.parse(JSON.stringify(backup.seasonTrack));
-    }
-    if (Object.prototype.hasOwnProperty.call(backup, 'seasonBonusPoints')) {
-      chess.seasonBonusPoints = Math.max(
-        Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)),
-        Math.max(0, Math.floor(Number(backup.seasonBonusPoints) || 0))
-      );
-    }
+  if (backup && backupScore > prevScore + 15 && backupScore >= 40) {
+    applyChessCareerBackupToChess(chess, backup);
     return { repaired: true, source: 'backup' };
   }
 
   const hist = Array.isArray(chess.gameHistory) ? chess.gameHistory : [];
-  if (prevScore < 80 && hist.length >= 3) {
+  const achKeys = chess.achievements && typeof chess.achievements === 'object' ? Object.keys(chess.achievements) : [];
+  const achCount = achKeys.filter((k) => {
+    const v = chess.achievements[k];
+    return v === true || v === 1 || (v && typeof v === 'object');
+  }).length;
+  const looksWiped = prevScore < 150 && (hist.length >= 2 || achCount >= 4);
+
+  if (looksWiped && hist.length >= 2) {
     const floorPs = rebuildPlayerStatsFloorFromGameHistory(hist, chess.stats.playerStats);
     const games = floorPs.wins + floorPs.losses + floorPs.draws;
-    if (games >= 3) {
+    if (games >= 2) {
       chess.stats.playerStats = floorPs;
       const lt = prevLt && typeof prevLt === 'object' ? { ...prevLt } : {};
-      lt.totalGamesPlayed = Math.max(Number(lt.totalGamesPlayed) || 0, games);
+      lt.totalGamesPlayed = Math.max(Number(lt.totalGamesPlayed) || 0, games, hist.length);
       chess.stats.lifetimeStats = lt;
-      return { repaired: true, source: 'gameHistory' };
+      return { repaired: true, source: 'gameHistory-floor', needsClientReplay: true };
     }
   }
 
-  return { repaired: false, source: null };
+  return { repaired: false, source: null, needsClientReplay: looksWiped && hist.length >= 2 };
 }
 
 const CHESS_SEASON_MAX_NODES = 10;
@@ -7165,8 +7214,8 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
     }
 
-    if (fullCareerResetSync && prevCareerScore > 80) {
-      userData.games.chess.careerStatsBackup = snapshotChessCareerStatsBackup(prevChess);
+    if (fullCareerResetSync && prevCareerScore > 40) {
+      appendChessCareerBackup(userData.games.chess, snapshotChessCareerStatsBackup(prevChess));
     }
 
     const mergedStats = mergeChessStatsForSync(prevChess.stats, incomingStats, fullCareerResetSync);
@@ -7224,12 +7273,8 @@ export class UserAccount {
       mergedChess.stats?.lifetimeStats,
       mergedChess.stats?.playerStats
     );
-    if (
-      !fullCareerResetSync &&
-      prevCareerScore > 120 &&
-      nextCareerScore < prevCareerScore * 0.45
-    ) {
-      mergedChess.careerStatsBackup = snapshotChessCareerStatsBackup(prevChess);
+    if (!fullCareerResetSync && prevCareerScore > 80 && nextCareerScore < prevCareerScore * 0.5) {
+      appendChessCareerBackup(mergedChess, snapshotChessCareerStatsBackup(prevChess));
     }
 
     userData.games.chess = mergedChess;
