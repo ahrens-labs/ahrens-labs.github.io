@@ -388,6 +388,10 @@ dragon = True
 middlegame = False
 opening = False
 endgame = False
+# Frozen evaluation bonuses when the position first crosses a phase boundary.
+past_opening = 0.0
+past_middlegame = 0.0
+_scored_game_phase = 'opening'
 bots = False
 fake_castled_black = False
 edge_up_black_king = False
@@ -443,7 +447,8 @@ _FRESH_START_SNAPSHOT_TEMPLATE = None
 _FRESH_START_SNAPSHOT_LOCK = threading.Lock()
 
 ENGINE_STATE_KEYS = (
-    'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
+    'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame',
+    'past_opening', 'past_middlegame', '_scored_game_phase', 'bots',
     'fake_castled_black',
     'edge_up_black_king', 'edge_down_black_king', 'edge_left_black_king', 'edge_right_black_king',
     'edge_up_white_king', 'edge_down_white_king', 'edge_left_white_king', 'edge_right_white_king',
@@ -1035,7 +1040,7 @@ def game_finished():
 
 def reset_engine_state():
     global draws, fifty_move_rule, wins, castled, castled_white
-    global dragon, middlegame, opening, endgame, bots
+    global dragon, middlegame, opening, endgame, past_opening, past_middlegame, _scored_game_phase, bots
     global fake_castled_black, edge_up_black_king, edge_down_black_king
     global edge_left_black_king, edge_right_black_king
     global edge_up_white_king, edge_down_white_king
@@ -1055,6 +1060,9 @@ def reset_engine_state():
     middlegame = False
     opening = False
     endgame = False
+    past_opening = 0.0
+    past_middlegame = 0.0
+    _scored_game_phase = 'opening'
     bots = False
     fake_castled_black = False
     edge_up_black_king = False
@@ -1851,7 +1859,88 @@ def evaluate_for_modifiers(board, SCORING_MODIFIERS):
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
 
-def _score_uncached(board, turn, castled, castled_white):
+def _phase_flags_for_name(phase_name):
+    """Evaluation flags/weights for a named phase (position-independent)."""
+    if phase_name == 'endgame':
+        return {
+            'opening': False,
+            'middlegame': False,
+            'endgame': True,
+            'opening_weight': 0.0,
+            'middlegame_weight': 0.0,
+            'endgame_weight': 1.0,
+        }
+    if phase_name == 'middlegame':
+        return {
+            'opening': False,
+            'middlegame': True,
+            'endgame': False,
+            'opening_weight': 0.3,
+            'middlegame_weight': 1.0,
+            'endgame_weight': 0.0,
+        }
+    return {
+        'opening': True,
+        'middlegame': False,
+        'endgame': False,
+        'opening_weight': 1.0,
+        'middlegame_weight': 0.0,
+        'endgame_weight': 0.0,
+    }
+
+
+def _classify_game_phase(pieces, non_pawn_pieces, developed_count, queens_on_board, has_castled, developement):
+    """Classify phase from the current position (material and development only)."""
+    if pieces < 12:
+        phase_name = 'endgame'
+    elif not queens_on_board and pieces < 18:
+        phase_name = 'endgame'
+    elif non_pawn_pieces < 5:
+        phase_name = 'endgame'
+    elif ((developement and (has_castled or queens_on_board))
+          or (has_castled and pieces > 20)
+          or (developed_count >= 5 and queens_on_board and pieces > 22)):
+        phase_name = 'middlegame'
+    else:
+        phase_name = 'opening'
+    return phase_name, _phase_flags_for_name(phase_name)
+
+
+def _update_phase_carryover(board, turn, castled, castled_white, detected_phase):
+    """Snapshot opening/middlegame-only terms when the position first enters a new phase."""
+    global past_opening, past_middlegame, _scored_game_phase, SCORING_VERSION
+
+    score_kwargs = dict(apply_carryover=False)
+
+    if detected_phase == 'middlegame' and _scored_game_phase == 'opening':
+        score_opening = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='opening', **score_kwargs)
+        score_middlegame = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
+        past_opening = round(score_opening - score_middlegame, 4)
+        SCORING_VERSION += 1
+    elif detected_phase == 'endgame' and _scored_game_phase == 'opening':
+        score_opening = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='opening', **score_kwargs)
+        score_middlegame = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
+        score_endgame = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='endgame', **score_kwargs)
+        past_opening = round(score_opening - score_middlegame, 4)
+        past_middlegame = round(score_middlegame - score_endgame, 4)
+        SCORING_VERSION += 1
+    elif detected_phase == 'endgame' and _scored_game_phase == 'middlegame':
+        score_middlegame = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
+        score_endgame = _score_uncached(
+            board, turn, castled, castled_white, forced_phase='endgame', **score_kwargs)
+        past_middlegame = round(score_middlegame - score_endgame, 4)
+        SCORING_VERSION += 1
+
+    _scored_game_phase = detected_phase
+
+
+def _score_uncached(board, turn, castled, castled_white, forced_phase=None, apply_carryover=True):
 
     # Early checkmate return
     w_kr = w_kc = b_kr = b_kc = -1
@@ -1984,45 +2073,22 @@ def _score_uncached(board, turn, castled, castled_white):
     # Check castling status
     has_castled = castled or fake_castled or castled_white or fake_castled_white
 
-    # More accurate game phase detection using multiple factors
-    # Endgame conditions (highest priority):
-    # 1. Very low material (< 12 pieces) - clear endgame
-    # 2. Queens traded AND low material (< 18 pieces) - likely endgame
-    # 3. Very few non-pawn pieces (< 5) - endgame structure
-    if pieces < 12:
-        endgame = True
-        opening_weight = 0.0
-        middlegame_weight = 0.0
-        endgame_weight = 1.0
-    elif not queens_on_board and pieces < 18:
-        # Queens traded and material reduced - likely endgame
-        endgame = True
-        opening_weight = 0.0
-        middlegame_weight = 0.0
-        endgame_weight = 1.0
-    elif non_pawn_pieces < 5:
-        # Very few pieces left - endgame structure
-        endgame = True
-        opening_weight = 0.0
-        middlegame_weight = 0.0
-        endgame_weight = 1.0
-    # Middlegame conditions:
-    # 1. Pieces developed AND (castling occurred OR queens still on board)
-    # 2. Castling occurred AND reasonable material (> 20 pieces)
-    # 3. Most pieces developed (> 5) AND queens on board AND good material
-    elif (developement and (has_castled or queens_on_board)) or \
-         (has_castled and pieces > 20) or \
-         (developed_count >= 5 and queens_on_board and pieces > 22):
-        middlegame = True
-        opening_weight = 0.3  # Keep some opening principles
-        middlegame_weight = 1.0
-        endgame_weight = 0.0
-    # Opening: everything else (early game, pieces not developed, etc.)
-    else:
-        opening = True
-        opening_weight = 1.0
-        middlegame_weight = 0.0
-        endgame_weight = 0.0
+    detected_phase, phase_flags = _classify_game_phase(
+        pieces, non_pawn_pieces, developed_count, queens_on_board, has_castled, developement)
+
+    if apply_carryover and forced_phase is None:
+        _update_phase_carryover(board, turn, castled, castled_white, detected_phase)
+
+    if forced_phase is not None:
+        phase_flags = _phase_flags_for_name(forced_phase)
+        detected_phase = forced_phase
+
+    opening = phase_flags['opening']
+    middlegame = phase_flags['middlegame']
+    endgame = phase_flags['endgame']
+    opening_weight = phase_flags['opening_weight']
+    middlegame_weight = phase_flags['middlegame_weight']
+    endgame_weight = phase_flags['endgame_weight']
 
     # Rebuild stats dict for piece scoring functions
     stats = {
@@ -2224,6 +2290,13 @@ def _score_uncached(board, turn, castled, castled_white):
                                     break
                             else:
                                 break
+
+    if apply_carryover and forced_phase is None:
+        if detected_phase in ('middlegame', 'endgame'):
+            score += past_opening
+        if detected_phase == 'endgame':
+            score += past_middlegame
+
     return round(score/5, 2)
 
 def score(board, turn):
