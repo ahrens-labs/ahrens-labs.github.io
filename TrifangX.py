@@ -43,8 +43,7 @@ SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
 _DEVNULL = None
 
 # Pre-compile regex for performance
-# Keep KQRBN so SAN like Nxe4 / Qxb2 are not reduced to destination-only squares.
-MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8OxKQRBNkqrnb\-]')
+MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
 
 # Pre-compute sets for membership checks (much faster than creating sets repeatedly)
 WHITE_PIECES = {'P', 'N', 'B', 'R', 'Q'}
@@ -389,10 +388,6 @@ dragon = True
 middlegame = False
 opening = False
 endgame = False
-# Frozen evaluation bonuses when the position first crosses a phase boundary.
-past_opening = 0.0
-past_middlegame = 0.0
-_scored_game_phase = 'opening'
 bots = False
 fake_castled_black = False
 edge_up_black_king = False
@@ -448,8 +443,7 @@ _FRESH_START_SNAPSHOT_TEMPLATE = None
 _FRESH_START_SNAPSHOT_LOCK = threading.Lock()
 
 ENGINE_STATE_KEYS = (
-    'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame',
-    'past_opening', 'past_middlegame', '_scored_game_phase', 'bots',
+    'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
     'fake_castled_black',
     'edge_up_black_king', 'edge_down_black_king', 'edge_left_black_king', 'edge_right_black_king',
     'edge_up_white_king', 'edge_down_white_king', 'edge_left_white_king', 'edge_right_white_king',
@@ -724,11 +718,7 @@ def _game_worker_entry(conn, initial_snap):
                 break
             continue
         try:
-            return_move = _compute_engine_move_reply(
-                msg.get('move'),
-                msg.get('color', 'white'),
-                msg.get('history'),
-            )
+            return_move = _compute_engine_move_reply(msg.get('move'), msg.get('color', 'white'))
             out_snap = _capture_engine_state_to_dict()
             conn.send({'ok': True, 'move': return_move, 'snap': out_snap})
         except Exception as e:
@@ -802,19 +792,14 @@ def _ensure_dedicated_worker(gid):
     return parent_conn, lock
 
 
-def _dedicated_worker_move(gid, move_notation, color, client_history=None):
+def _dedicated_worker_move(gid, move_notation, color):
     """Run one search in gid's subprocess. Returns (move_san_or_None, err_or_None)."""
     conn, lock = _ensure_dedicated_worker(gid)
     if conn is None:
         return None, 'Engine worker failed to start'
     with lock:
         try:
-            conn.send({
-                'cmd': 'move',
-                'move': move_notation,
-                'color': color,
-                'history': client_history,
-            })
+            conn.send({'cmd': 'move', 'move': move_notation, 'color': color})
             resp = conn.recv()
         except (EOFError, BrokenPipeError, OSError) as e:
             _shutdown_dedicated_worker(gid)
@@ -1050,7 +1035,7 @@ def game_finished():
 
 def reset_engine_state():
     global draws, fifty_move_rule, wins, castled, castled_white
-    global dragon, middlegame, opening, endgame, past_opening, past_middlegame, _scored_game_phase, bots
+    global dragon, middlegame, opening, endgame, bots
     global fake_castled_black, edge_up_black_king, edge_down_black_king
     global edge_left_black_king, edge_right_black_king
     global edge_up_white_king, edge_down_white_king
@@ -1070,9 +1055,6 @@ def reset_engine_state():
     middlegame = False
     opening = False
     endgame = False
-    past_opening = 0.0
-    past_middlegame = 0.0
-    _scored_game_phase = 'opening'
     bots = False
     fake_castled_black = False
     edge_up_black_king = False
@@ -1104,90 +1086,7 @@ def reset_engine_state():
     board = initialize_board() # Reset board to initial state
 
 
-def _normalize_client_san(move):
-    if not move:
-        return ''
-    s = str(move).strip()
-    return s.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
-
-
-def _engine_moves_signature(moves):
-    return tuple(_normalize_client_san(m) for m in moves if m and str(m).strip())
-
-
-def _reset_board_for_history_replay():
-    """Reset board and move list to the starting position for SAN replay."""
-    global board, game_moves, number_of_moves, white_king_row, white_king_col
-    global black_king_row, black_king_col, king_move, king_move_white
-    global castled, castled_white, fifty_move_rule
-
-    board = [list(r) for r in initialize_board()]
-    game_moves = []
-    number_of_moves = 0
-    king_move = 0
-    king_move_white = 0
-    castled = False
-    castled_white = False
-    fifty_move_rule = 0
-    white_king_row, white_king_col = 0, 4
-    black_king_row, black_king_col = 7, 4
-
-
-def _replay_client_san(san, is_white):
-    """Apply one SAN move during client-history resync."""
-    san = _normalize_client_san(san)
-    if not san:
-        return
-    cleaned = clean_move(san)
-    if cleaned == 'O-O':
-        if is_white:
-            players_turn(board, 'O-O', san)
-        else:
-            players_turn_white(board, 'O-O', san)
-    elif cleaned == 'O-O-O':
-        if is_white:
-            players_turn(board, 'O-O-O', san)
-        else:
-            players_turn_white(board, 'O-O-O', san)
-    elif is_white:
-        players_turn(board, san, san)
-    else:
-        players_turn_white(board, san, san)
-
-
-def _sync_engine_from_client_history(client_history, pending_move=None):
-    """
-    Align engine board with the client's SAN list (e.g. after page reload).
-    Returns True if the board was modified, False if already in sync.
-    """
-    target = list(_engine_moves_signature(client_history or []))
-    pm = _normalize_client_san(pending_move)
-    if pm and (not target or target[-1] != pm):
-        target.append(pm)
-
-    server = list(_engine_moves_signature(game_moves))
-    if target == server:
-        return False
-
-    if len(target) > len(server) and tuple(target[:len(server)]) == tuple(server):
-        for i, san in enumerate(target[len(server):], start=len(server)):
-            _replay_client_san(san, i % 2 == 0)
-        return True
-
-    _reset_board_for_history_replay()
-    for i, san in enumerate(target):
-        _replay_client_san(san, i % 2 == 0)
-    return True
-
-
-def _human_move_already_applied(move_notation):
-    norm = _normalize_client_san(move_notation)
-    if not norm or not game_moves:
-        return False
-    return _normalize_client_san(game_moves[-1]) == norm
-
-
-def _compute_engine_move_reply(move_notation, color, client_history=None):
+def _compute_engine_move_reply(move_notation, color):
     """Apply the human's move, then compute the engine's reply.
 
     `color` is the human's side. `players_turn` applies white moves;
@@ -1195,20 +1094,16 @@ def _compute_engine_move_reply(move_notation, color, client_history=None):
     (`best_move_function`); human black → engine white (`best_move_black`).
     """
     with _engine_stdout_context():
-        if client_history is not None:
-            _sync_engine_from_client_history(client_history, move_notation)
-
         notation_move = None
         cleaned_move = ''
-        apply_human = move_notation and not _human_move_already_applied(move_notation)
-        if apply_human:
+        if move_notation:
             notation_move = move_notation.strip()
             cleaned_move = clean_move(move_notation)
             if len(cleaned_move) == 4 and cleaned_move != 'O-O-O':
                 move_notation = convert_to_long_algebraic(cleaned_move, board, color[0])
         return_move = None
         if color == 'white':
-            if apply_human:
+            if move_notation:
                 if cleaned_move == 'O-O':
                     players_turn(board, 'O-O', notation_move)
                 elif cleaned_move == 'O-O-O':
@@ -1217,7 +1112,7 @@ def _compute_engine_move_reply(move_notation, color, client_history=None):
                     players_turn(board, move_notation.strip(), notation_move)
             return_move = best_move_function(board, 'false', 'false')
         else:
-            if apply_human:
+            if move_notation:
                 if cleaned_move == 'O-O':
                     players_turn_white(board, 'O-O', notation_move)
                 elif cleaned_move == 'O-O-O':
@@ -1234,27 +1129,21 @@ def _compute_engine_move_reply(move_notation, color, client_history=None):
 
 def _worker_move(bundle):
     """Runs in a forked worker (Linux) so each game can search on a different CPU core."""
-    if len(bundle) >= 4:
-        snapshot, move_notation, color, client_history = bundle
-    else:
-        snapshot, move_notation, color = bundle
-        client_history = None
+    snapshot, move_notation, color = bundle
     _restore_engine_state_from_dict(snapshot)
     _clear_engine_caches()
-    return_move = _compute_engine_move_reply(move_notation, color, client_history)
+    return_move = _compute_engine_move_reply(move_notation, color)
     return _capture_engine_state_to_dict(), return_move
 
 
-def _pool_worker_move_commit(gid, snap, move_notation, color, pool, client_history=None):
+def _pool_worker_move_commit(gid, snap, move_notation, color, pool):
     """Run _worker_move in the fork pool and commit snapshot if the game is still active."""
     if snap is None:
         with _GAMES_LOCK:
             if gid not in GAMES:
                 return None, 'Unknown or expired game_id'
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
-    new_snap, return_move = pool.apply(
-        _worker_move, ((snap, move_notation, color, client_history),)
-    )
+    new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
     with _GAMES_LOCK:
         if gid in GAMES:
             GAMES[gid]['snapshot'] = new_snap
@@ -1274,7 +1163,7 @@ def _normalize_engine_move_for_json(return_move):
     return return_move
 
 
-def _execute_move_core(gid, snap, move_notation, color, client_history=None):
+def _execute_move_core(gid, snap, move_notation, color):
     """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
 
     Prefer one dedicated subprocess per game_id when enabled (any number of games) so each search
@@ -1286,10 +1175,10 @@ def _execute_move_core(gid, snap, move_notation, color, client_history=None):
     """
     move_lock = _get_game_move_lock(gid)
     with move_lock:
-        return _execute_move_core_locked(gid, snap, move_notation, color, client_history)
+        return _execute_move_core_locked(gid, snap, move_notation, color)
 
 
-def _execute_move_core_locked(gid, snap, move_notation, color, client_history=None):
+def _execute_move_core_locked(gid, snap, move_notation, color):
     """Implementation for _execute_move_core; caller holds this game's move lock."""
     try:
         with _GAMES_LOCK:
@@ -1301,9 +1190,7 @@ def _execute_move_core_locked(gid, snap, move_notation, color, client_history=No
 
         # Force fork-pool only (debug / tuning): never try dedicated first.
         if pool is not None and force_pool:
-            out, err = _pool_worker_move_commit(
-                gid, snap, move_notation, color, pool, client_history
-            )
+            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
             if err is None:
                 return out, None
             print(f'TrifangX: fork pool move failed ({err}); no fallback per TRIFANGX_FORCE_MOVE_POOL')
@@ -1311,15 +1198,13 @@ def _execute_move_core_locked(gid, snap, move_notation, color, client_history=No
 
         use_dedicated = os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
         if use_dedicated:
-            out, err = _dedicated_worker_move(gid, move_notation, color, client_history)
+            out, err = _dedicated_worker_move(gid, move_notation, color)
             if err is None:
                 return out, None
             print(f'dedicated worker: {err}; falling back to fork pool or inline')
 
         if pool is not None:
-            out, err = _pool_worker_move_commit(
-                gid, snap, move_notation, color, pool, client_history
-            )
+            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
             if err is None:
                 return out, None
             print(f'TrifangX: fork pool move failed ({err}); falling back to inline')
@@ -1331,7 +1216,7 @@ def _execute_move_core_locked(gid, snap, move_notation, color, client_history=No
                 snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
         with _INLINE_ENGINE_LOCK:
             _restore_engine_state_from_dict(snap)
-            return_move = _compute_engine_move_reply(move_notation, color, client_history)
+            return_move = _compute_engine_move_reply(move_notation, color)
             new_snap = _capture_engine_state_to_dict()
         with _GAMES_LOCK:
             if gid in GAMES:
@@ -1349,14 +1234,12 @@ def _execute_move_core_locked(gid, snap, move_notation, color, client_history=No
         return None, str(e)
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color, client_history=None):
+def _run_move_job(job_id, gid, snap, move_notation, color):
     """Background thread: run search (pool or inline), then publish result for /move_result."""
     err_text = None
     out_move = None
     try:
-        out_move, err_text = _execute_move_core(
-            gid, snap, move_notation, color, client_history
-        )
+        out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
     finally:
         try:
             _MOVE_BG_SEM.release()
@@ -1409,20 +1292,6 @@ def get_move():
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     move_notation = data.get('move')
     color = data.get('color', 'white')
-    client_history = data.get('history')
-    if client_history is not None and isinstance(client_history, list):
-        with _GAMES_LOCK:
-            if gid in GAMES:
-                _restore_engine_state_from_dict(GAMES[gid]['snapshot'])
-                if _sync_engine_from_client_history(client_history, move_notation):
-                    _shutdown_dedicated_worker(gid)
-                GAMES[gid]['snapshot'] = _capture_engine_state_to_dict()
-                if dedicated_ok and not force_pool_move:
-                    snap = None
-                elif multiple_games:
-                    snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
-                else:
-                    snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
 
     if not _MOVE_BG_SEM.acquire(blocking=False):
         return jsonify({
@@ -1432,9 +1301,7 @@ def get_move():
     # Single-game default: same 202 + thread as multi-game (short POST; client polls). Optional sync 200.
     if not multiple_games and os.environ.get('TRIFANGX_SYNC_MOVE_SINGLE') == '1':
         try:
-            out_move, err_text = _execute_move_core(
-                gid, snap, move_notation, color, client_history
-            )
+            out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
             if err_text:
                 return jsonify({'error': err_text}), 500
             return jsonify({'move': out_move}), 200
@@ -1479,7 +1346,7 @@ def get_move():
     try:
         t = threading.Thread(
             target=_run_move_job,
-            args=(job_id, gid, snap, move_notation, color, client_history),
+            args=(job_id, gid, snap, move_notation, color),
             daemon=True,
         )
         t.start()
@@ -1984,88 +1851,7 @@ def evaluate_for_modifiers(board, SCORING_MODIFIERS):
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
 
-def _phase_flags_for_name(phase_name):
-    """Evaluation flags/weights for a named phase (position-independent)."""
-    if phase_name == 'endgame':
-        return {
-            'opening': False,
-            'middlegame': False,
-            'endgame': True,
-            'opening_weight': 0.0,
-            'middlegame_weight': 0.0,
-            'endgame_weight': 1.0,
-        }
-    if phase_name == 'middlegame':
-        return {
-            'opening': False,
-            'middlegame': True,
-            'endgame': False,
-            'opening_weight': 0.3,
-            'middlegame_weight': 1.0,
-            'endgame_weight': 0.0,
-        }
-    return {
-        'opening': True,
-        'middlegame': False,
-        'endgame': False,
-        'opening_weight': 1.0,
-        'middlegame_weight': 0.0,
-        'endgame_weight': 0.0,
-    }
-
-
-def _classify_game_phase(pieces, non_pawn_pieces, developed_count, queens_on_board, has_castled, developement):
-    """Classify phase from the current position (material and development only)."""
-    if pieces < 12:
-        phase_name = 'endgame'
-    elif not queens_on_board and pieces < 18:
-        phase_name = 'endgame'
-    elif non_pawn_pieces < 5:
-        phase_name = 'endgame'
-    elif ((developement and (has_castled or queens_on_board))
-          or (has_castled and pieces > 20)
-          or (developed_count >= 5 and queens_on_board and pieces > 22)):
-        phase_name = 'middlegame'
-    else:
-        phase_name = 'opening'
-    return phase_name, _phase_flags_for_name(phase_name)
-
-
-def _update_phase_carryover(board, turn, castled, castled_white, detected_phase):
-    """Snapshot opening/middlegame-only terms when the position first enters a new phase."""
-    global past_opening, past_middlegame, _scored_game_phase, SCORING_VERSION
-
-    score_kwargs = dict(apply_carryover=False)
-
-    if detected_phase == 'middlegame' and _scored_game_phase == 'opening':
-        score_opening = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='opening', **score_kwargs)
-        score_middlegame = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
-        past_opening = round(score_opening - score_middlegame, 4)
-        SCORING_VERSION += 1
-    elif detected_phase == 'endgame' and _scored_game_phase == 'opening':
-        score_opening = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='opening', **score_kwargs)
-        score_middlegame = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
-        score_endgame = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='endgame', **score_kwargs)
-        past_opening = round(score_opening - score_middlegame, 4)
-        past_middlegame = round(score_middlegame - score_endgame, 4)
-        SCORING_VERSION += 1
-    elif detected_phase == 'endgame' and _scored_game_phase == 'middlegame':
-        score_middlegame = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='middlegame', **score_kwargs)
-        score_endgame = _score_uncached(
-            board, turn, castled, castled_white, forced_phase='endgame', **score_kwargs)
-        past_middlegame = round(score_middlegame - score_endgame, 4)
-        SCORING_VERSION += 1
-
-    _scored_game_phase = detected_phase
-
-
-def _score_uncached(board, turn, castled, castled_white, forced_phase=None, apply_carryover=True):
+def _score_uncached(board, turn, castled, castled_white):
 
     # Early checkmate return
     w_kr = w_kc = b_kr = b_kc = -1
@@ -2198,22 +1984,45 @@ def _score_uncached(board, turn, castled, castled_white, forced_phase=None, appl
     # Check castling status
     has_castled = castled or fake_castled or castled_white or fake_castled_white
 
-    detected_phase, phase_flags = _classify_game_phase(
-        pieces, non_pawn_pieces, developed_count, queens_on_board, has_castled, developement)
-
-    if apply_carryover and forced_phase is None:
-        _update_phase_carryover(board, turn, castled, castled_white, detected_phase)
-
-    if forced_phase is not None:
-        phase_flags = _phase_flags_for_name(forced_phase)
-        detected_phase = forced_phase
-
-    opening = phase_flags['opening']
-    middlegame = phase_flags['middlegame']
-    endgame = phase_flags['endgame']
-    opening_weight = phase_flags['opening_weight']
-    middlegame_weight = phase_flags['middlegame_weight']
-    endgame_weight = phase_flags['endgame_weight']
+    # More accurate game phase detection using multiple factors
+    # Endgame conditions (highest priority):
+    # 1. Very low material (< 12 pieces) - clear endgame
+    # 2. Queens traded AND low material (< 18 pieces) - likely endgame
+    # 3. Very few non-pawn pieces (< 5) - endgame structure
+    if pieces < 12:
+        endgame = True
+        opening_weight = 0.0
+        middlegame_weight = 0.0
+        endgame_weight = 1.0
+    elif not queens_on_board and pieces < 18:
+        # Queens traded and material reduced - likely endgame
+        endgame = True
+        opening_weight = 0.0
+        middlegame_weight = 0.0
+        endgame_weight = 1.0
+    elif non_pawn_pieces < 5:
+        # Very few pieces left - endgame structure
+        endgame = True
+        opening_weight = 0.0
+        middlegame_weight = 0.0
+        endgame_weight = 1.0
+    # Middlegame conditions:
+    # 1. Pieces developed AND (castling occurred OR queens still on board)
+    # 2. Castling occurred AND reasonable material (> 20 pieces)
+    # 3. Most pieces developed (> 5) AND queens on board AND good material
+    elif (developement and (has_castled or queens_on_board)) or \
+         (has_castled and pieces > 20) or \
+         (developed_count >= 5 and queens_on_board and pieces > 22):
+        middlegame = True
+        opening_weight = 0.3  # Keep some opening principles
+        middlegame_weight = 1.0
+        endgame_weight = 0.0
+    # Opening: everything else (early game, pieces not developed, etc.)
+    else:
+        opening = True
+        opening_weight = 1.0
+        middlegame_weight = 0.0
+        endgame_weight = 0.0
 
     # Rebuild stats dict for piece scoring functions
     stats = {
@@ -2415,13 +2224,6 @@ def _score_uncached(board, turn, castled, castled_white, forced_phase=None, appl
                                     break
                             else:
                                 break
-
-    if apply_carryover and forced_phase is None:
-        if detected_phase in ('middlegame', 'endgame'):
-            score += past_opening
-        if detected_phase == 'endgame':
-            score += past_middlegame
-
     return round(score/5, 2)
 
 def score(board, turn):
@@ -4651,6 +4453,7 @@ def convert_move(board, to_row, to_col, piece, color):
                 new_col = to_col + direction[1]
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'N':
+                        print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
             directions = BISHOP_DELTAS
