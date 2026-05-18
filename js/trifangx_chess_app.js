@@ -4517,17 +4517,23 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return c;
     }
 
-    /** Captured-piece lists for the viewed ply (same encoding as `capturedPieces` during live play). */
+    /** Captured-piece lists for the viewed ply — always from this game's SAN list, never cached globals. */
     function getCapturedPiecesForView() {
-      if (currentMoveIndex === -1) {
-        return capturedPieces;
+      if (!game || typeof game.history !== 'function') {
+        return { white: [], black: [] };
       }
-      const n = currentMoveIndex === -2 ? 0 : currentMoveIndex + 1;
+      const hist = game.history();
+      const n =
+        currentMoveIndex === -2
+          ? 0
+          : currentMoveIndex === -1
+            ? hist.length
+            : currentMoveIndex + 1;
       const white = [];
       const black = [];
       const c = new Chess();
-      const hist = game.history();
-      for (let i = 0; i < n && i < hist.length; i++) {
+      const limit = Math.min(n, hist.length);
+      for (let i = 0; i < limit; i++) {
         const mv = c.move(hist[i]);
         if (mv && mv.captured) {
           if (mv.color === 'w') {
@@ -10804,8 +10810,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const savedColor = playerColor;
       const savedGame = typeof game !== 'undefined' ? game : null;
       const savedBlind = blindfoldMode;
+      const savedCaptured = {
+        white: capturedPieces.white.slice(),
+        black: capturedPieces.black.slice(),
+      };
       try {
         resetGameStats();
+        capturedPieces = { white: [], black: [] };
         playerColor = String(playerColorStr || 'white').toLowerCase() === 'black' ? 'black' : 'white';
         blindfoldMode = false;
         game = new Chess();
@@ -10827,6 +10838,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         playerColor = savedColor;
         game = savedGame;
         blindfoldMode = savedBlind;
+        capturedPieces = savedCaptured;
       }
     }
 
@@ -11746,6 +11758,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
 
         applyGameStatsFromLiveSnapshot(snap.gameStats);
+        rebuildCapturedPiecesFromSanList(game.history());
 
         if (snap.isFreshStart) {
           gameOver = false;
