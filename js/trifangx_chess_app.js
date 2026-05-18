@@ -1630,6 +1630,71 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
+
+    /** Read lobby controls before navigating to trifangx_live.html (Start Game handoff). */
+    function readLobbyStartOptionsFromDom() {
+      const sideEl = document.getElementById('color-select');
+      const timeEl = document.getElementById('time-control');
+      const blindEl = document.getElementById('blindfold-mode');
+      const histEl = document.getElementById('show-history');
+      const side = sideEl && sideEl.value ? sideEl.value : 'random';
+      const timeOption = timeEl && timeEl.value ? timeEl.value : 'none';
+      const resolvedColor =
+        side === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : side;
+      const [base, inc] =
+        timeOption === 'none' ? [null, null] : timeOption.split('|').map(Number);
+      const timeLimited = timeOption !== 'none';
+      return {
+        playerColor: resolvedColor === 'black' ? 'black' : 'white',
+        timeOption,
+        blindfoldMode: !!(blindEl && blindEl.checked),
+        showHistoryInBlindfold: !!(histEl && histEl.checked),
+        timeLimited,
+        increment: inc || 0,
+        whiteTime: base ? base * 1000 : 0,
+        blackTime: base ? base * 1000 : 0,
+        currentTimeControl: timeOption,
+      };
+    }
+
+    /** Persist a fresh game for tryResumeLiveTrifangxFromSnapshot on trifangx_live.html after lobby Start Game. */
+    function writeFreshLiveHandoffSnapshot(gameId, opts) {
+      if (!gameId || !opts) return;
+      let fen = '';
+      try {
+        fen = new Chess().fen();
+      } catch (e) {
+        fen = '';
+      }
+      const snap = {
+        v: 2,
+        isFreshStart: true,
+        game_id: String(gameId).trim(),
+        fen,
+        moves: [],
+        playerColor: opts.playerColor,
+        timeLimited: !!opts.timeLimited,
+        increment: opts.increment != null ? opts.increment : 0,
+        whiteTime: opts.whiteTime != null ? opts.whiteTime : 0,
+        blackTime: opts.blackTime != null ? opts.blackTime : 0,
+        blindfoldMode: !!opts.blindfoldMode,
+        showHistoryInBlindfold: !!opts.showHistoryInBlindfold,
+        timeControlOption: opts.timeOption,
+        currentTimeControl: opts.currentTimeControl,
+        moveClockTimes: [],
+        moveHistory: [],
+        lastMoveSquares: { from: null, to: null },
+        capturedPieces: { white: [], black: [] },
+        currentMoveIndex: -1,
+        lastLiveMoveDisplayText: 'None',
+        premoves: [],
+        moveTimerElapsedMs: 0,
+        gameStats: null,
+      };
+      try {
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch (e) {}
+    }
     /** Same-tab reload intent so pagehide can tell reload (keep server game + snapshot) from tab close (POST /stop). */
     const TRIFANGX_RELOAD_INTENT_KEY = 'trifangx_reload_intent';
 
@@ -2863,6 +2928,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     async function bootstrapChessShopPage() {
+      hydrateChessCareerStateFromCloud();
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
       const unlocked = getUnlockedItems();
       if (unlocked.boards.length === 0) unlockItem('boards', 'classic');
@@ -9430,7 +9496,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     async function bootstrapChessAchievementsPage() {
-      resetDailyStatsIfNeeded();
+      hydrateChessCareerStateFromCloud();
       const loading = document.getElementById('ca-loading');
       const body = document.getElementById('ca-body');
       const pointsEl = document.getElementById('ca-total-points');
@@ -10558,21 +10624,376 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
     
-    function loadLifetimeStats() {
+    function chessLifetimeCareerScoreClient(lt, ps) {
+      const stats = lt && typeof lt === 'object' ? lt : {};
+      const player = ps && typeof ps === 'object' ? ps : {};
+      let score = chessLifetimeDetailScoreClient(lt);
+      score += Math.max(0, Number(stats.totalGamesPlayed) || 0) * 5;
+      score +=
+        (Math.max(0, Number(player.wins) || 0) +
+          Math.max(0, Number(player.losses) || 0) +
+          Math.max(0, Number(player.draws) || 0)) *
+        10;
+      return score;
+    }
+
+    /** Lifetime counters only (captures, square visits, etc.) — W/L must not mask a wipe. */
+    function chessLifetimeDetailScoreClient(lt) {
+      const stats = lt && typeof lt === 'object' ? lt : {};
+      let score = 0;
+      score += Math.max(0, Number(stats.totalCaptures) || 0);
+      score += Math.max(0, Number(stats.checksGiven) || 0);
+      score += Math.max(0, Number(stats.promotions) || 0) * 2;
+      score += Math.max(0, Number(stats.castlingMoves) || 0) * 2;
+      score += Math.max(0, Number(stats.knightToF3) || 0) * 3;
+      score += Math.max(0, Number(stats.bishopToF4) || 0) * 3;
+      score += Math.max(0, Number(stats.movesToE4) || 0);
+      score += Math.max(0, Number(stats.movesToD4) || 0);
+      score += Math.max(0, Number(stats.enPassants) || 0) * 5;
+      score += Math.max(0, Number(stats.capturesByQueen) || 0) * 2;
+      return score;
+    }
+
+    function getSanListFromHistoryRecord(rec) {
+      if (!rec || typeof rec !== 'object') return [];
+      if (Array.isArray(rec.historySan) && rec.historySan.length > 0) {
+        return rec.historySan.slice();
+      }
+      const pgn = rec.pgn != null ? String(rec.pgn).trim() : '';
+      if (pgn && typeof Chess !== 'undefined') {
+        try {
+          const c = new Chess();
+          if (c.load_pgn(pgn)) {
+            const h = c.history();
+            if (h && h.length) return h;
+          }
+        } catch (ePgn) {
+          console.warn('getSanListFromHistoryRecord: PGN parse failed', ePgn);
+        }
+      }
+      return [];
+    }
+
+    function countReplayableHistoryGames(gameHistory) {
+      const hist = Array.isArray(gameHistory) ? gameHistory : [];
+      let n = 0;
+      hist.forEach(function (rec) {
+        if (getSanListFromHistoryRecord(rec).length > 0) n++;
+      });
+      return n;
+    }
+
+    const SEASON_EARN_BASELINE_KEYS = [
+      'games',
+      'wins',
+      'castlingMoves',
+      'promotions',
+      'capturedRooks',
+      'checkmateWithQueen',
+      'knightToF3',
+      'bishopToF4',
+      'enPassants',
+      'capturesByQueen',
+      'totalCaptures',
+      'checkmateWithRook',
+    ];
+
+    /** After a wipe, frozen baselines can exceed rebuilt lifetime and force 0/N on season steps. */
+    function repairSeasonEarnBaselineIfCorrupt() {
+      if (!cloudChessData || !cloudChessData.seasonTrack) return false;
+      const st = cloudChessData.seasonTrack;
+      if (!st.earnBaseline || typeof st.earnBaseline !== 'object') return false;
+      const snap =
+        typeof snapshotSeasonEarnBaselineFromLocalStats === 'function'
+          ? snapshotSeasonEarnBaselineFromLocalStats()
+          : {};
+      const b = st.earnBaseline;
+      let dirty = false;
+      SEASON_EARN_BASELINE_KEYS.forEach(function (key) {
+        const cur = Math.max(0, Number(snap[key]) || 0);
+        const base = Math.max(0, Number(b[key]) || 0);
+        if (base > cur) {
+          b[key] = cur;
+          dirty = true;
+        }
+      });
+      return dirty;
+    }
+
+    function mergeLifetimeStatsMonotonicClient(prevLt, incLt) {
+      const prev = prevLt && typeof prevLt === 'object' ? prevLt : {};
+      const inc = incLt && typeof incLt === 'object' ? incLt : {};
+      const merged = { ...prev };
+      const keys = new Set([...Object.keys(prev), ...Object.keys(inc)]);
+      keys.forEach(function (key) {
+        const p = prev[key];
+        const v = inc[key];
+        if (v === undefined) return;
+        if (typeof v === 'number' && typeof p === 'number') {
+          merged[key] = Math.max(p, v);
+        } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+          const pObj = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+          if (key === 'dailyStats') {
+            const pDate = pObj.lastResetDate != null ? String(pObj.lastResetDate) : '';
+            const vDate = v.lastResetDate != null ? String(v.lastResetDate) : '';
+            merged[key] = vDate >= pDate ? { ...pObj, ...v } : { ...v, ...pObj };
+          } else if (key === 'winsByTimeControl' || key === 'winsByPersonality') {
+            const out = { ...pObj };
+            Object.keys(v).forEach(function (sk) {
+              out[sk] = Math.max(Number(pObj[sk]) || 0, Number(v[sk]) || 0);
+            });
+            merged[key] = out;
+          } else {
+            merged[key] = mergeLifetimeStatsMonotonicClient(pObj, v);
+          }
+        } else if (v !== null) {
+          merged[key] = v;
+        }
+      });
+      return merged;
+    }
+
+    /** After cloud load: memory must match server before any save (shop/achievements pages skip the main lobby init). */
+    function hydrateChessCareerStateFromCloud(skipDailyReset) {
+      if (!dataLoaded || !cloudChessData) return;
+      try {
+        const ps0 = cloudChessData.stats && cloudChessData.stats.playerStats;
+        if (ps0 && typeof ps0 === 'object') {
+          playerStats.wins = Math.max(0, Math.floor(Number(ps0.wins) || 0));
+          playerStats.losses = Math.max(0, Math.floor(Number(ps0.losses) || 0));
+          playerStats.draws = Math.max(0, Math.floor(Number(ps0.draws) || 0));
+        }
+      } catch (ePs) {}
+      loadLifetimeStats(!!skipDailyReset);
+    }
+
+    function pickBestClientCareerBackup() {
+      if (!cloudChessData) return null;
+      const candidates = [];
+      if (cloudChessData.careerStatsBackup && typeof cloudChessData.careerStatsBackup === 'object') {
+        candidates.push(cloudChessData.careerStatsBackup);
+      }
+      if (Array.isArray(cloudChessData.careerStatsBackups)) {
+        cloudChessData.careerStatsBackups.forEach(function (b) {
+          if (b && typeof b === 'object') candidates.push(b);
+        });
+      }
+      let best = null;
+      let bestScore = -1;
+      candidates.forEach(function (b) {
+        const s = chessLifetimeCareerScoreClient(b.stats && b.stats.lifetimeStats, b.stats && b.stats.playerStats);
+        if (s > bestScore) {
+          bestScore = s;
+          best = b;
+        }
+      });
+      return best;
+    }
+
+    function addPerGameStatsIntoLifetimeAggregate(agg, gs) {
+      Object.keys(gs).forEach(function (key) {
+        if (typeof gs[key] !== 'number') return;
+        if (key === 'shortestWin') return;
+        agg[key] = (agg[key] || 0) + gs[key];
+      });
+    }
+
+    /** Replay one game using the same trackers as live play (captures, square achievements, etc.). */
+    function replaySanListForPlayerStats(sanList, playerColorStr) {
+      if (typeof Chess === 'undefined') return {};
+      const savedColor = playerColor;
+      const savedGame = typeof game !== 'undefined' ? game : null;
+      const savedBlind = blindfoldMode;
+      try {
+        resetGameStats();
+        playerColor = String(playerColorStr || 'white').toLowerCase() === 'black' ? 'black' : 'white';
+        blindfoldMode = false;
+        game = new Chess();
+        for (let i = 0; i < sanList.length; i++) {
+          const mv = game.move(sanList[i]);
+          if (!mv) break;
+          trackCapturedPiece(mv);
+          trackRandomAchievements(mv, mv.from, mv.to);
+        }
+        const out = {};
+        Object.keys(gameStats).forEach(function (key) {
+          if (key === 'dailyStats' || key === '_isWinGameEnd') return;
+          if (typeof gameStats[key] === 'number' && gameStats[key] !== Infinity) {
+            out[key] = gameStats[key];
+          }
+        });
+        return out;
+      } finally {
+        playerColor = savedColor;
+        game = savedGame;
+        blindfoldMode = savedBlind;
+      }
+    }
+
+    function rebuildLifetimeStatsFromGameHistory(gameHistory) {
+      const agg = createFreshLifetimeStats();
+      const hist = Array.isArray(gameHistory) ? gameHistory : [];
+      const ps = { wins: 0, losses: 0, draws: 0 };
+      let gamesWhite = 0;
+      let gamesBlack = 0;
+      let winsWhite = 0;
+      let winsBlack = 0;
+      let replayed = 0;
+      hist.forEach(function (rec) {
+        const sanList = getSanListFromHistoryRecord(rec);
+        if (!sanList.length) return;
+        replayed++;
+        const pc = String(rec.playerColor || 'white').toLowerCase();
+        if (pc === 'white') gamesWhite++;
+        else gamesBlack++;
+        const gs = replaySanListForPlayerStats(sanList, pc);
+        addPerGameStatsIntoLifetimeAggregate(agg, gs);
+        const result = String(rec.result || '');
+        const won = (result === '1-0' && pc === 'white') || (result === '0-1' && pc === 'black');
+        const lost = (result === '0-1' && pc === 'white') || (result === '1-0' && pc === 'black');
+        const drew = result === '1/2-1/2';
+        if (won) {
+          ps.wins++;
+          if (pc === 'white') winsWhite++;
+          else winsBlack++;
+        } else if (lost) ps.losses++;
+        else if (drew) ps.draws++;
+      });
+      agg.totalGamesPlayed = Math.max(replayed, ps.wins + ps.losses + ps.draws);
+      agg.gamesAsWhite = gamesWhite;
+      agg.gamesAsBlack = gamesBlack;
+      agg.winsAsWhite = winsWhite;
+      agg.winsAsBlack = winsBlack;
+      return {
+        lifetimeStats: agg,
+        playerStats: ps,
+        rebuiltScore: chessLifetimeCareerScoreClient(agg, ps),
+        detailScore: chessLifetimeDetailScoreClient(agg),
+        replayedGames: replayed,
+      };
+    }
+
+    function careerLifetimeCountersNeedReplay() {
+      if (!cloudChessData) return false;
+      const lt = cloudChessData.stats && cloudChessData.stats.lifetimeStats;
+      const detail = chessLifetimeDetailScoreClient(lt);
+      const replayable = countReplayableHistoryGames(cloudChessData.gameHistory);
+      const achN = achievements.length;
+      if (replayable < 1) return false;
+      if (detail < 40) return true;
+      if (achN >= 3 && detail < achN * 8) return true;
+      if (replayable >= 3 && detail < replayable * 4) return true;
+      return false;
+    }
+
+    async function maybeRepairChessCareerFromCloud() {
+      if (!dataLoaded || !cloudChessData) return false;
+      const lt0 = cloudChessData.stats && cloudChessData.stats.lifetimeStats;
+      const ps0 = cloudChessData.stats && cloudChessData.stats.playerStats;
+      let score = chessLifetimeCareerScoreClient(lt0, ps0);
+      let repaired = false;
+      let source = '';
+
+      const backup = pickBestClientCareerBackup();
+      if (backup && backup.stats) {
+        const bs = chessLifetimeCareerScoreClient(backup.stats.lifetimeStats, backup.stats.playerStats);
+        if (bs > score + 15) {
+          if (!cloudChessData.stats) cloudChessData.stats = {};
+          cloudChessData.stats.playerStats = Object.assign({}, backup.stats.playerStats || {});
+          cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
+            {},
+            backup.stats.lifetimeStats || {}
+          );
+          if (backup.seasonTrack && typeof backup.seasonTrack === 'object') {
+            cloudChessData.seasonTrack = Object.assign({}, backup.seasonTrack);
+          }
+          if (Object.prototype.hasOwnProperty.call(backup, 'seasonBonusPoints')) {
+            cloudChessData.seasonBonusPoints = Math.max(
+              Math.max(0, Math.floor(Number(cloudChessData.seasonBonusPoints) || 0)),
+              Math.max(0, Math.floor(Number(backup.seasonBonusPoints) || 0))
+            );
+          }
+          hydrateChessCareerStateFromCloud();
+          score = chessLifetimeCareerScoreClient(cloudChessData.stats.lifetimeStats, cloudChessData.stats.playerStats);
+          repaired = true;
+          source = 'backup';
+        }
+      }
+
+      const hist = cloudChessData.gameHistory || [];
+      const detailBefore = chessLifetimeDetailScoreClient(lt0);
+      if (careerLifetimeCountersNeedReplay() && typeof Chess !== 'undefined') {
+        const rebuilt = rebuildLifetimeStatsFromGameHistory(hist);
+        if (rebuilt.replayedGames > 0 && rebuilt.detailScore > detailBefore) {
+          if (!cloudChessData.stats) cloudChessData.stats = {};
+          cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
+            cloudChessData.stats.lifetimeStats,
+            rebuilt.lifetimeStats
+          );
+          cloudChessData.stats.playerStats = {
+            wins: Math.max(Number(ps0 && ps0.wins) || 0, rebuilt.playerStats.wins),
+            losses: Math.max(Number(ps0 && ps0.losses) || 0, rebuilt.playerStats.losses),
+            draws: Math.max(Number(ps0 && ps0.draws) || 0, rebuilt.playerStats.draws),
+          };
+          hydrateChessCareerStateFromCloud(true);
+          repairSeasonEarnBaselineIfCorrupt();
+          repaired = true;
+          source = source ? source + '+history' : 'history';
+        }
+      } else if (repairSeasonEarnBaselineIfCorrupt()) {
+        hydrateChessCareerStateFromCloud(true);
+        repaired = true;
+        source = source ? source + '+season-baseline' : 'season-baseline';
+      }
+
+      if (repaired) {
+        try {
+          await saveChessDataToCloud(true);
+          if (typeof showNotification === 'function') {
+            showNotification(
+              'Restored career stats from ' +
+                (source.indexOf('history') >= 0 ? 'saved games' : 'your account backup') +
+                '.',
+              'success'
+            );
+          }
+          console.log('Career stats repaired from', source);
+        } catch (eRep) {
+          console.error('Career repair save failed', eRep);
+        }
+      }
+      return repaired;
+    }
+
+    function loadLifetimeStats(skipDailyReset) {
       const saved = localStorage.getItem('lifetimeStats');
       if (saved) {
         const loaded = JSON.parse(saved);
-        // Merge with default stats to ensure all properties exist
-        lifetimeStats = {
-          ...lifetimeStats,
-          ...loaded
-        };
+        lifetimeStats = mergeLifetimeStatsMonotonicClient(lifetimeStats, loaded);
       }
-      // Check if daily stats need reset
-      resetDailyStatsIfNeeded();
+      if (!skipDailyReset) resetDailyStatsIfNeeded();
     }
 
     function saveLifetimeStats() {
+      if (dataLoaded && cloudChessData && cloudChessData.stats) {
+        const cloudLt = cloudChessData.stats.lifetimeStats;
+        const cloudScore = chessLifetimeCareerScoreClient(cloudLt, cloudChessData.stats.playerStats);
+        const memScore = chessLifetimeCareerScoreClient(lifetimeStats, playerStats);
+        if (cloudScore > 80 && memScore < 40) {
+          console.warn('Refusing to save empty local lifetime stats over cloud career data; re-hydrating.');
+          hydrateChessCareerStateFromCloud(true);
+          return;
+        }
+        if (cloudScore < 60 && memScore < 60 && careerLifetimeCountersNeedReplay()) {
+          localStorage.setItem('lifetimeStats', JSON.stringify(lifetimeStats));
+          return;
+        }
+        if (!cloudChessData.stats) cloudChessData.stats = {};
+        cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
+          cloudLt,
+          lifetimeStats
+        );
+      }
       localStorage.setItem('lifetimeStats', JSON.stringify(lifetimeStats));
     }
 
@@ -11326,6 +11747,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         applyGameStatsFromLiveSnapshot(snap.gameStats);
 
+        if (snap.isFreshStart) {
+          gameOver = false;
+          if (typeof resetGameStats === 'function') resetGameStats();
+          if (playerColor === 'white') {
+            lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
+          } else {
+            lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
+          }
+          saveLifetimeStats();
+          if (typeof closeShop === 'function') closeShop();
+          if (typeof closeSettings === 'function') closeSettings();
+          const achModalEl = document.getElementById('all-achievements-modal');
+          if (achModalEl) achModalEl.classList.remove('show');
+          if (isHistoryReplayMode) {
+            isHistoryReplayMode = false;
+            replayModeBackup = null;
+            const banHr = document.getElementById('history-replay-banner');
+            if (banHr) banHr.style.display = 'none';
+          }
+          try {
+            if (typeof clearRightClickHighlights === 'function') clearRightClickHighlights();
+            if (typeof clearArrows === 'function') clearArrows();
+          } catch (eClr) {}
+        }
+
         const choosePanel = document.getElementById('choose-side');
         if (choosePanel) {
           choosePanel.style.display = 'none';
@@ -11391,25 +11837,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       stopPregameStatusPolling();
 
-      // Check if user is logged in
       if (!isLoggedIn || !currentSessionId) {
         showNotification('Please login to play', 'error');
         showLoginPage();
         return;
       }
 
-      // Acquire a game slot via /start only — no extra /status round-trip. The server enforces
-      // MAX_CONCURRENT_GAMES; 503 here shows the same waiting-room UX as /status would.
+      const lobbyOpts = readLobbyStartOptionsFromDom();
 
-      // Acquire a game slot before leaving pregame. /status can disagree with /start (e.g. race or
-      // timing). 503 = max concurrent games; 409 is reserved for legacy conflicts. Show the waiting-room
-      // banner while #choose-side is still visible when start fails for capacity.
       resetStaleEngineSessionFlag();
       let startData;
       try {
         startData = await sendEngineCommand('start', {
           username: getTrifangxEngineAccountUsername(),
-          player_color: playerColor,
+          player_color: lobbyOpts.playerColor,
         });
       } catch (startErr) {
         const code = startErr && startErr.statusCode;
@@ -11440,141 +11881,32 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         return;
       }
-      if (startData && startData.game_id) {
-        setEngineGameId(startData.game_id);
+
+      const gameId =
+        startData && startData.game_id ? String(startData.game_id).trim() : '';
+      if (!gameId) {
+        showNotification('Could not start a game session. Please try again.', 'error');
+        return;
       }
+
+      setEngineGameId(gameId);
       _lastMySlotsFull = false;
       markEngineLockHeldByThisTab();
       startHeartbeat();
       setTrifangxLivePlayUrl();
+      writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
 
-      const pgTools = document.getElementById('chess-pregame-tools');
-      if (pgTools) pgTools.style.display = 'none';
-      closeShop();
-      closeSettings();
-      const achModalEl = document.getElementById('all-achievements-modal');
-      if (achModalEl) achModalEl.classList.remove('show');
-
-      if (isHistoryReplayMode) {
-        isHistoryReplayMode = false;
-        replayModeBackup = null;
-        const banHr = document.getElementById('history-replay-banner');
-        if (banHr) banHr.style.display = 'none';
-      }
-      
-      gameOver = false;
-      
-      // Clear right-click highlights and arrows when starting new game
       try {
-        if (typeof clearRightClickHighlights === 'function') {
-          clearRightClickHighlights();
-        }
-        if (typeof clearArrows === 'function') {
-          clearArrows();
-        }
-      } catch (e) {
-        console.log('Error clearing highlights/arrows:', e);
-      }
+        sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
+      } catch (eHand) {}
 
-      const side = document.getElementById("color-select").value;
-      const timeOption = document.getElementById("time-control").value;
-      blindfoldMode = document.getElementById("blindfold-mode").checked;
-      showHistoryInBlindfold = document.getElementById("show-history").checked;
-      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
-      
-      // Track current game settings for achievements
-      currentTimeControl = timeOption;
-      
-      // Track games as white/black
-      if (playerColor === 'white') {
-        lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
-      } else {
-        lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
-      }
-      saveLifetimeStats();
-      
-      const [base, inc] =
-        timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
-
-      timeLimited = timeOption !== "none";
-      increment = inc || 0;
-      whiteTime = base ? base * 1000 : 0;
-      blackTime = base ? base * 1000 : 0;
-
-      // Show or hide timers based on time control
-      const timersContainer = document.getElementById("timers-container");
-      if (timeLimited) {
-        timersContainer.style.display = "flex";
-      } else {
-        timersContainer.style.display = "none";
-      }
-
-      // Reset game (don't create new, just reset existing)
-      if (!game) {
-        game = new Chess();
-      } else {
-        game.reset();
-      }
-      moveHistory = [];
-      moveClockTimes = [];
-      currentMoveIndex = -1;
-      capturedPieces = { white: [], black: [] };
-      lastMoveSquares = { from: null, to: null };
-      gameStartTime = new Date();
-      resetGameStats();
-      premoves = []; // Clear any premoves
-      selectedSquare = null; // Clear any selection
-      
-      // Hide the options panel with fade effect
-      const choosePanel = document.getElementById("choose-side");
-      choosePanel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-      choosePanel.style.opacity = "0";
-      choosePanel.style.transform = "scale(0.95)";
-      setTimeout(() => {
-        choosePanel.style.display = "none";
-        if (typeof updateChessPregameToolsVisibility === 'function') {
-          updateChessPregameToolsVisibility();
-        }
-      }, 300);
-      
-      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
-
-      updateLastMove(null, "00:00.00", 0, 0);
-      updateTurnDisplay();
-
-      // Destroy preview board and create game board
-      if (board) {
-        disconnectTrifangxImgDragObserver();
-        tearDownRightClickHandlers();
-        board.destroy();
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false;
-        }
-      }
-      
-      // Ensure arrow overlay exists (it may have been removed by board.destroy())
-      ensureArrowOverlay();
-
-      board = Chessboard("board", buildLiveChessboardOptions());
-
-      await finalizeLiveChessboardMountAsync();
-
-      if (!isTrifangxLiveDedicatedPage()) {
+      try {
+        window.location.replace(new URL('trifangx_live.html', window.location.href).href);
+      } catch (eNav) {
         try {
-          persistTrifangxLiveSnapshot();
-        } catch (eSnap) {}
-        try {
-          sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
-        } catch (eHand) {}
-        try {
-          window.location.replace(new URL('trifangx_live.html', window.location.href).href);
-        } catch (eNav) {
-          try {
-            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
-          } catch (eClr) {}
-        }
-        return;
+          sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+        } catch (eClr) {}
+        showNotification('Could not open the live game page. Try again.', 'error');
       }
     }
 
@@ -12565,18 +12897,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         trifangxChessCloudBridge.dataLoaded = true;
         currentUserId = localStorage.getItem('ahrenslabs_userId');
 
+        hydrateChessCareerStateFromCloud(true);
+        await maybeRepairChessCareerFromCloud();
+        resetDailyStatsIfNeeded();
+
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
           saveChessDataToCloud(true);
         }
-        
-        try {
-          const ps0 = cloudChessData.stats && cloudChessData.stats.playerStats;
-          if (ps0 && typeof ps0 === 'object') {
-            playerStats.wins = Math.max(0, Math.floor(Number(ps0.wins) || 0));
-            playerStats.losses = Math.max(0, Math.floor(Number(ps0.losses) || 0));
-            playerStats.draws = Math.max(0, Math.floor(Number(ps0.draws) || 0));
-          }
-        } catch (ePs) {}
         
         // Update username display
         const username = localStorage.getItem('ahrenslabs_username') || 'Player';
@@ -12616,6 +12943,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         if (Object.prototype.hasOwnProperty.call(data, 'points')) {
           cloudChessData.points = Math.max(0, Math.floor(Number(data.points) || 0));
+        }
+        if (data.stats && typeof data.stats === 'object') {
+          cloudChessData.stats = cloudChessData.stats || {};
+          if (data.stats.playerStats && typeof data.stats.playerStats === 'object') {
+            cloudChessData.stats.playerStats = { ...data.stats.playerStats };
+          }
+          if (data.stats.lifetimeStats && typeof data.stats.lifetimeStats === 'object') {
+            cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
+              cloudChessData.stats.lifetimeStats,
+              data.stats.lifetimeStats
+            );
+          }
+          hydrateChessCareerStateFromCloud();
         }
         mergeSeasonClaimedShopRewardsIntoShopUnlocks(cloudChessData);
         if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
@@ -12814,6 +13154,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
                 losses: Math.max(0, Math.floor(Number(playerStats.losses) || 0)),
                 draws: Math.max(0, Math.floor(Number(playerStats.draws) || 0)),
               };
+              if (typeof lifetimeStats !== 'undefined' && lifetimeStats) {
+                cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
+                  cloudChessData.stats.lifetimeStats,
+                  lifetimeStats
+                );
+              }
             }
             if (!fullCareerResetSync && typeof computeUnlockedAchievementPointsTotal === 'function') {
               cloudChessData.points = computeUnlockedAchievementPointsTotal();
