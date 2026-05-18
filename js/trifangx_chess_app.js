@@ -1630,6 +1630,71 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
+
+    /** Read lobby controls before navigating to trifangx_live.html (Start Game handoff). */
+    function readLobbyStartOptionsFromDom() {
+      const sideEl = document.getElementById('color-select');
+      const timeEl = document.getElementById('time-control');
+      const blindEl = document.getElementById('blindfold-mode');
+      const histEl = document.getElementById('show-history');
+      const side = sideEl && sideEl.value ? sideEl.value : 'random';
+      const timeOption = timeEl && timeEl.value ? timeEl.value : 'none';
+      const resolvedColor =
+        side === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : side;
+      const [base, inc] =
+        timeOption === 'none' ? [null, null] : timeOption.split('|').map(Number);
+      const timeLimited = timeOption !== 'none';
+      return {
+        playerColor: resolvedColor === 'black' ? 'black' : 'white',
+        timeOption,
+        blindfoldMode: !!(blindEl && blindEl.checked),
+        showHistoryInBlindfold: !!(histEl && histEl.checked),
+        timeLimited,
+        increment: inc || 0,
+        whiteTime: base ? base * 1000 : 0,
+        blackTime: base ? base * 1000 : 0,
+        currentTimeControl: timeOption,
+      };
+    }
+
+    /** Persist a fresh game for tryResumeLiveTrifangxFromSnapshot on trifangx_live.html after lobby Start Game. */
+    function writeFreshLiveHandoffSnapshot(gameId, opts) {
+      if (!gameId || !opts) return;
+      let fen = '';
+      try {
+        fen = new Chess().fen();
+      } catch (e) {
+        fen = '';
+      }
+      const snap = {
+        v: 2,
+        isFreshStart: true,
+        game_id: String(gameId).trim(),
+        fen,
+        moves: [],
+        playerColor: opts.playerColor,
+        timeLimited: !!opts.timeLimited,
+        increment: opts.increment != null ? opts.increment : 0,
+        whiteTime: opts.whiteTime != null ? opts.whiteTime : 0,
+        blackTime: opts.blackTime != null ? opts.blackTime : 0,
+        blindfoldMode: !!opts.blindfoldMode,
+        showHistoryInBlindfold: !!opts.showHistoryInBlindfold,
+        timeControlOption: opts.timeOption,
+        currentTimeControl: opts.currentTimeControl,
+        moveClockTimes: [],
+        moveHistory: [],
+        lastMoveSquares: { from: null, to: null },
+        capturedPieces: { white: [], black: [] },
+        currentMoveIndex: -1,
+        lastLiveMoveDisplayText: 'None',
+        premoves: [],
+        moveTimerElapsedMs: 0,
+        gameStats: null,
+      };
+      try {
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch (e) {}
+    }
     /** Same-tab reload intent so pagehide can tell reload (keep server game + snapshot) from tab close (POST /stop). */
     const TRIFANGX_RELOAD_INTENT_KEY = 'trifangx_reload_intent';
 
@@ -11682,6 +11747,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         applyGameStatsFromLiveSnapshot(snap.gameStats);
 
+        if (snap.isFreshStart) {
+          gameOver = false;
+          if (typeof resetGameStats === 'function') resetGameStats();
+          if (playerColor === 'white') {
+            lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
+          } else {
+            lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
+          }
+          saveLifetimeStats();
+          if (typeof closeShop === 'function') closeShop();
+          if (typeof closeSettings === 'function') closeSettings();
+          const achModalEl = document.getElementById('all-achievements-modal');
+          if (achModalEl) achModalEl.classList.remove('show');
+          if (isHistoryReplayMode) {
+            isHistoryReplayMode = false;
+            replayModeBackup = null;
+            const banHr = document.getElementById('history-replay-banner');
+            if (banHr) banHr.style.display = 'none';
+          }
+          try {
+            if (typeof clearRightClickHighlights === 'function') clearRightClickHighlights();
+            if (typeof clearArrows === 'function') clearArrows();
+          } catch (eClr) {}
+        }
+
         const choosePanel = document.getElementById('choose-side');
         if (choosePanel) {
           choosePanel.style.display = 'none';
@@ -11747,25 +11837,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       stopPregameStatusPolling();
 
-      // Check if user is logged in
       if (!isLoggedIn || !currentSessionId) {
         showNotification('Please login to play', 'error');
         showLoginPage();
         return;
       }
 
-      // Acquire a game slot via /start only — no extra /status round-trip. The server enforces
-      // MAX_CONCURRENT_GAMES; 503 here shows the same waiting-room UX as /status would.
+      const lobbyOpts = readLobbyStartOptionsFromDom();
 
-      // Acquire a game slot before leaving pregame. /status can disagree with /start (e.g. race or
-      // timing). 503 = max concurrent games; 409 is reserved for legacy conflicts. Show the waiting-room
-      // banner while #choose-side is still visible when start fails for capacity.
       resetStaleEngineSessionFlag();
       let startData;
       try {
         startData = await sendEngineCommand('start', {
           username: getTrifangxEngineAccountUsername(),
-          player_color: playerColor,
+          player_color: lobbyOpts.playerColor,
         });
       } catch (startErr) {
         const code = startErr && startErr.statusCode;
@@ -11796,141 +11881,32 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         return;
       }
-      if (startData && startData.game_id) {
-        setEngineGameId(startData.game_id);
+
+      const gameId =
+        startData && startData.game_id ? String(startData.game_id).trim() : '';
+      if (!gameId) {
+        showNotification('Could not start a game session. Please try again.', 'error');
+        return;
       }
+
+      setEngineGameId(gameId);
       _lastMySlotsFull = false;
       markEngineLockHeldByThisTab();
       startHeartbeat();
       setTrifangxLivePlayUrl();
+      writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
 
-      const pgTools = document.getElementById('chess-pregame-tools');
-      if (pgTools) pgTools.style.display = 'none';
-      closeShop();
-      closeSettings();
-      const achModalEl = document.getElementById('all-achievements-modal');
-      if (achModalEl) achModalEl.classList.remove('show');
-
-      if (isHistoryReplayMode) {
-        isHistoryReplayMode = false;
-        replayModeBackup = null;
-        const banHr = document.getElementById('history-replay-banner');
-        if (banHr) banHr.style.display = 'none';
-      }
-      
-      gameOver = false;
-      
-      // Clear right-click highlights and arrows when starting new game
       try {
-        if (typeof clearRightClickHighlights === 'function') {
-          clearRightClickHighlights();
-        }
-        if (typeof clearArrows === 'function') {
-          clearArrows();
-        }
-      } catch (e) {
-        console.log('Error clearing highlights/arrows:', e);
-      }
+        sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
+      } catch (eHand) {}
 
-      const side = document.getElementById("color-select").value;
-      const timeOption = document.getElementById("time-control").value;
-      blindfoldMode = document.getElementById("blindfold-mode").checked;
-      showHistoryInBlindfold = document.getElementById("show-history").checked;
-      playerColor = side === "random" ? (Math.random() < 0.5 ? "white" : "black") : side;
-      
-      // Track current game settings for achievements
-      currentTimeControl = timeOption;
-      
-      // Track games as white/black
-      if (playerColor === 'white') {
-        lifetimeStats.gamesAsWhite = (lifetimeStats.gamesAsWhite || 0) + 1;
-      } else {
-        lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
-      }
-      saveLifetimeStats();
-      
-      const [base, inc] =
-        timeOption === "none" ? [null, null] : timeOption.split("|").map(Number);
-
-      timeLimited = timeOption !== "none";
-      increment = inc || 0;
-      whiteTime = base ? base * 1000 : 0;
-      blackTime = base ? base * 1000 : 0;
-
-      // Show or hide timers based on time control
-      const timersContainer = document.getElementById("timers-container");
-      if (timeLimited) {
-        timersContainer.style.display = "flex";
-      } else {
-        timersContainer.style.display = "none";
-      }
-
-      // Reset game (don't create new, just reset existing)
-      if (!game) {
-        game = new Chess();
-      } else {
-        game.reset();
-      }
-      moveHistory = [];
-      moveClockTimes = [];
-      currentMoveIndex = -1;
-      capturedPieces = { white: [], black: [] };
-      lastMoveSquares = { from: null, to: null };
-      gameStartTime = new Date();
-      resetGameStats();
-      premoves = []; // Clear any premoves
-      selectedSquare = null; // Clear any selection
-      
-      // Hide the options panel with fade effect
-      const choosePanel = document.getElementById("choose-side");
-      choosePanel.style.transition = "opacity 0.3s ease, transform 0.3s ease";
-      choosePanel.style.opacity = "0";
-      choosePanel.style.transform = "scale(0.95)";
-      setTimeout(() => {
-        choosePanel.style.display = "none";
-        if (typeof updateChessPregameToolsVisibility === 'function') {
-          updateChessPregameToolsVisibility();
-        }
-      }, 300);
-      
-      document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
-
-      updateLastMove(null, "00:00.00", 0, 0);
-      updateTurnDisplay();
-
-      // Destroy preview board and create game board
-      if (board) {
-        disconnectTrifangxImgDragObserver();
-        tearDownRightClickHandlers();
-        board.destroy();
-        const boardEl = document.getElementById('board');
-        if (boardEl) {
-          boardEl._rightClickHandlersInitialized = false;
-        }
-      }
-      
-      // Ensure arrow overlay exists (it may have been removed by board.destroy())
-      ensureArrowOverlay();
-
-      board = Chessboard("board", buildLiveChessboardOptions());
-
-      await finalizeLiveChessboardMountAsync();
-
-      if (!isTrifangxLiveDedicatedPage()) {
+      try {
+        window.location.replace(new URL('trifangx_live.html', window.location.href).href);
+      } catch (eNav) {
         try {
-          persistTrifangxLiveSnapshot();
-        } catch (eSnap) {}
-        try {
-          sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
-        } catch (eHand) {}
-        try {
-          window.location.replace(new URL('trifangx_live.html', window.location.href).href);
-        } catch (eNav) {
-          try {
-            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
-          } catch (eClr) {}
-        }
-        return;
+          sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+        } catch (eClr) {}
+        showNotification('Could not open the live game page. Try again.', 'error');
       }
     }
 

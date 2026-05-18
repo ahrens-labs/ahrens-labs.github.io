@@ -1833,6 +1833,12 @@ async function handleGetUser(request, env, corsHeaders) {
     });
   }
 
+  try {
+    await ensureDigestKvSubscriber(env, userResult.userId, userData);
+  } catch (e) {
+    console.warn('ensureDigestKvSubscriber on getUser failed:', e?.message || e);
+  }
+
   return new Response(JSON.stringify(userData), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -1999,6 +2005,43 @@ async function verifySignupEmailDomain(domain) {
 /** Product / marketing email: only skip accounts that explicitly have not confirmed (new signups). Legacy rows may omit the flag. */
 function hasConfirmedEmailForProductMail(row) {
   return row && row.emailVerified !== false;
+}
+
+/** Keep DAILY_DIGEST_KV `sub:{userId}` in sync when prefs are on (repairs missing keys after deploy). */
+async function ensureDigestKvSubscriber(env, userId, profile) {
+  if (!env.DAILY_DIGEST_KV || !userId || !profile || typeof profile !== 'object') return;
+  const prefs = profile.emailPreferences || {};
+  if (!prefs.dailyChallengeEmails) return;
+  if (!hasConfirmedEmailForProductMail(profile)) return;
+  const email = normalizeEmail(profile.email || '');
+  if (!email || !isLikelyRealEmail(email)) return;
+  const username = profile.username || 'there';
+  const key = `sub:${userId}`;
+  let prev = null;
+  try {
+    prev = await env.DAILY_DIGEST_KV.get(key, 'json');
+  } catch {
+    prev = null;
+  }
+  if (
+    prev &&
+    typeof prev === 'object' &&
+    prev.email === email &&
+    (prev.username || 'there') === username
+  ) {
+    return;
+  }
+  await env.DAILY_DIGEST_KV.put(
+    key,
+    JSON.stringify({
+      email,
+      username,
+      lastDigestLocalYmd:
+        prev && typeof prev === 'object' && typeof prev.lastDigestLocalYmd === 'string'
+          ? prev.lastDigestLocalYmd
+          : undefined,
+    })
+  );
 }
 
 function generateUserId(email) {
@@ -5747,7 +5790,8 @@ async function handleScheduledCron(event, env) {
         const userIdFromKey = name.startsWith('sub:') ? name.slice(4) : '';
         if (userIdFromKey) {
           try {
-            const profileStub = env.USER_ACCOUNT.idFromName(userIdFromKey);
+            const profileDoId = env.USER_ACCOUNT.idFromName(userIdFromKey);
+            const profileStub = env.USER_ACCOUNT.get(profileDoId);
             const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
             const profile = await profRes.json();
             if (!hasConfirmedEmailForProductMail(profile)) {
@@ -5761,8 +5805,9 @@ async function handleScheduledCron(event, env) {
             }
             raw.email = liveEmail;
             if (profile.username) raw.username = profile.username;
-          } catch {
+          } catch (profileErr) {
             skipped++;
+            console.error('Digest cron profile load failed', userIdFromKey, profileErr?.message || profileErr);
             continue;
           }
         } else {

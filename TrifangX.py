@@ -43,7 +43,8 @@ SUPPRESS_ENGINE_STDOUT = os.environ.get('TRIFANGX_ENGINE_STDOUT') != '1'
 _DEVNULL = None
 
 # Pre-compile regex for performance
-MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8Ox-]')
+# Keep KQRBN so SAN like Nxe4 / Qxb2 are not reduced to destination-only squares.
+MOVE_CLEAN_REGEX = re.compile(r'[^a-h1-8OxKQRBNkqrnb\-]')
 
 # Pre-compute sets for membership checks (much faster than creating sets repeatedly)
 WHITE_PIECES = {'P', 'N', 'B', 'R', 'Q'}
@@ -723,7 +724,11 @@ def _game_worker_entry(conn, initial_snap):
                 break
             continue
         try:
-            return_move = _compute_engine_move_reply(msg.get('move'), msg.get('color', 'white'))
+            return_move = _compute_engine_move_reply(
+                msg.get('move'),
+                msg.get('color', 'white'),
+                msg.get('history'),
+            )
             out_snap = _capture_engine_state_to_dict()
             conn.send({'ok': True, 'move': return_move, 'snap': out_snap})
         except Exception as e:
@@ -797,14 +802,19 @@ def _ensure_dedicated_worker(gid):
     return parent_conn, lock
 
 
-def _dedicated_worker_move(gid, move_notation, color):
+def _dedicated_worker_move(gid, move_notation, color, client_history=None):
     """Run one search in gid's subprocess. Returns (move_san_or_None, err_or_None)."""
     conn, lock = _ensure_dedicated_worker(gid)
     if conn is None:
         return None, 'Engine worker failed to start'
     with lock:
         try:
-            conn.send({'cmd': 'move', 'move': move_notation, 'color': color})
+            conn.send({
+                'cmd': 'move',
+                'move': move_notation,
+                'color': color,
+                'history': client_history,
+            })
             resp = conn.recv()
         except (EOFError, BrokenPipeError, OSError) as e:
             _shutdown_dedicated_worker(gid)
@@ -1094,7 +1104,90 @@ def reset_engine_state():
     board = initialize_board() # Reset board to initial state
 
 
-def _compute_engine_move_reply(move_notation, color):
+def _normalize_client_san(move):
+    if not move:
+        return ''
+    s = str(move).strip()
+    return s.replace('0-0-0', 'O-O-O').replace('0-0', 'O-O')
+
+
+def _engine_moves_signature(moves):
+    return tuple(_normalize_client_san(m) for m in moves if m and str(m).strip())
+
+
+def _reset_board_for_history_replay():
+    """Reset board and move list to the starting position for SAN replay."""
+    global board, game_moves, number_of_moves, white_king_row, white_king_col
+    global black_king_row, black_king_col, king_move, king_move_white
+    global castled, castled_white, fifty_move_rule
+
+    board = [list(r) for r in initialize_board()]
+    game_moves = []
+    number_of_moves = 0
+    king_move = 0
+    king_move_white = 0
+    castled = False
+    castled_white = False
+    fifty_move_rule = 0
+    white_king_row, white_king_col = 0, 4
+    black_king_row, black_king_col = 7, 4
+
+
+def _replay_client_san(san, is_white):
+    """Apply one SAN move during client-history resync."""
+    san = _normalize_client_san(san)
+    if not san:
+        return
+    cleaned = clean_move(san)
+    if cleaned == 'O-O':
+        if is_white:
+            players_turn(board, 'O-O', san)
+        else:
+            players_turn_white(board, 'O-O', san)
+    elif cleaned == 'O-O-O':
+        if is_white:
+            players_turn(board, 'O-O-O', san)
+        else:
+            players_turn_white(board, 'O-O-O', san)
+    elif is_white:
+        players_turn(board, san, san)
+    else:
+        players_turn_white(board, san, san)
+
+
+def _sync_engine_from_client_history(client_history, pending_move=None):
+    """
+    Align engine board with the client's SAN list (e.g. after page reload).
+    Returns True if the board was modified, False if already in sync.
+    """
+    target = list(_engine_moves_signature(client_history or []))
+    pm = _normalize_client_san(pending_move)
+    if pm and (not target or target[-1] != pm):
+        target.append(pm)
+
+    server = list(_engine_moves_signature(game_moves))
+    if target == server:
+        return False
+
+    if len(target) > len(server) and tuple(target[:len(server)]) == tuple(server):
+        for i, san in enumerate(target[len(server):], start=len(server)):
+            _replay_client_san(san, i % 2 == 0)
+        return True
+
+    _reset_board_for_history_replay()
+    for i, san in enumerate(target):
+        _replay_client_san(san, i % 2 == 0)
+    return True
+
+
+def _human_move_already_applied(move_notation):
+    norm = _normalize_client_san(move_notation)
+    if not norm or not game_moves:
+        return False
+    return _normalize_client_san(game_moves[-1]) == norm
+
+
+def _compute_engine_move_reply(move_notation, color, client_history=None):
     """Apply the human's move, then compute the engine's reply.
 
     `color` is the human's side. `players_turn` applies white moves;
@@ -1102,16 +1195,20 @@ def _compute_engine_move_reply(move_notation, color):
     (`best_move_function`); human black → engine white (`best_move_black`).
     """
     with _engine_stdout_context():
+        if client_history is not None:
+            _sync_engine_from_client_history(client_history, move_notation)
+
         notation_move = None
         cleaned_move = ''
-        if move_notation:
+        apply_human = move_notation and not _human_move_already_applied(move_notation)
+        if apply_human:
             notation_move = move_notation.strip()
             cleaned_move = clean_move(move_notation)
             if len(cleaned_move) == 4 and cleaned_move != 'O-O-O':
                 move_notation = convert_to_long_algebraic(cleaned_move, board, color[0])
         return_move = None
         if color == 'white':
-            if move_notation:
+            if apply_human:
                 if cleaned_move == 'O-O':
                     players_turn(board, 'O-O', notation_move)
                 elif cleaned_move == 'O-O-O':
@@ -1120,7 +1217,7 @@ def _compute_engine_move_reply(move_notation, color):
                     players_turn(board, move_notation.strip(), notation_move)
             return_move = best_move_function(board, 'false', 'false')
         else:
-            if move_notation:
+            if apply_human:
                 if cleaned_move == 'O-O':
                     players_turn_white(board, 'O-O', notation_move)
                 elif cleaned_move == 'O-O-O':
@@ -1137,21 +1234,27 @@ def _compute_engine_move_reply(move_notation, color):
 
 def _worker_move(bundle):
     """Runs in a forked worker (Linux) so each game can search on a different CPU core."""
-    snapshot, move_notation, color = bundle
+    if len(bundle) >= 4:
+        snapshot, move_notation, color, client_history = bundle
+    else:
+        snapshot, move_notation, color = bundle
+        client_history = None
     _restore_engine_state_from_dict(snapshot)
     _clear_engine_caches()
-    return_move = _compute_engine_move_reply(move_notation, color)
+    return_move = _compute_engine_move_reply(move_notation, color, client_history)
     return _capture_engine_state_to_dict(), return_move
 
 
-def _pool_worker_move_commit(gid, snap, move_notation, color, pool):
+def _pool_worker_move_commit(gid, snap, move_notation, color, pool, client_history=None):
     """Run _worker_move in the fork pool and commit snapshot if the game is still active."""
     if snap is None:
         with _GAMES_LOCK:
             if gid not in GAMES:
                 return None, 'Unknown or expired game_id'
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
-    new_snap, return_move = pool.apply(_worker_move, ((snap, move_notation, color),))
+    new_snap, return_move = pool.apply(
+        _worker_move, ((snap, move_notation, color, client_history),)
+    )
     with _GAMES_LOCK:
         if gid in GAMES:
             GAMES[gid]['snapshot'] = new_snap
@@ -1171,7 +1274,7 @@ def _normalize_engine_move_for_json(return_move):
     return return_move
 
 
-def _execute_move_core(gid, snap, move_notation, color):
+def _execute_move_core(gid, snap, move_notation, color, client_history=None):
     """Run one search and write GAMES[gid] snapshot. Returns (move_san_or_None, error_message_or_None).
 
     Prefer one dedicated subprocess per game_id when enabled (any number of games) so each search
@@ -1183,10 +1286,10 @@ def _execute_move_core(gid, snap, move_notation, color):
     """
     move_lock = _get_game_move_lock(gid)
     with move_lock:
-        return _execute_move_core_locked(gid, snap, move_notation, color)
+        return _execute_move_core_locked(gid, snap, move_notation, color, client_history)
 
 
-def _execute_move_core_locked(gid, snap, move_notation, color):
+def _execute_move_core_locked(gid, snap, move_notation, color, client_history=None):
     """Implementation for _execute_move_core; caller holds this game's move lock."""
     try:
         with _GAMES_LOCK:
@@ -1198,7 +1301,9 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
 
         # Force fork-pool only (debug / tuning): never try dedicated first.
         if pool is not None and force_pool:
-            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
+            out, err = _pool_worker_move_commit(
+                gid, snap, move_notation, color, pool, client_history
+            )
             if err is None:
                 return out, None
             print(f'TrifangX: fork pool move failed ({err}); no fallback per TRIFANGX_FORCE_MOVE_POOL')
@@ -1206,13 +1311,15 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
 
         use_dedicated = os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
         if use_dedicated:
-            out, err = _dedicated_worker_move(gid, move_notation, color)
+            out, err = _dedicated_worker_move(gid, move_notation, color, client_history)
             if err is None:
                 return out, None
             print(f'dedicated worker: {err}; falling back to fork pool or inline')
 
         if pool is not None:
-            out, err = _pool_worker_move_commit(gid, snap, move_notation, color, pool)
+            out, err = _pool_worker_move_commit(
+                gid, snap, move_notation, color, pool, client_history
+            )
             if err is None:
                 return out, None
             print(f'TrifangX: fork pool move failed ({err}); falling back to inline')
@@ -1224,7 +1331,7 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
                 snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
         with _INLINE_ENGINE_LOCK:
             _restore_engine_state_from_dict(snap)
-            return_move = _compute_engine_move_reply(move_notation, color)
+            return_move = _compute_engine_move_reply(move_notation, color, client_history)
             new_snap = _capture_engine_state_to_dict()
         with _GAMES_LOCK:
             if gid in GAMES:
@@ -1242,12 +1349,14 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
         return None, str(e)
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color):
+def _run_move_job(job_id, gid, snap, move_notation, color, client_history=None):
     """Background thread: run search (pool or inline), then publish result for /move_result."""
     err_text = None
     out_move = None
     try:
-        out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
+        out_move, err_text = _execute_move_core(
+            gid, snap, move_notation, color, client_history
+        )
     finally:
         try:
             _MOVE_BG_SEM.release()
@@ -1300,6 +1409,20 @@ def get_move():
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
     move_notation = data.get('move')
     color = data.get('color', 'white')
+    client_history = data.get('history')
+    if client_history is not None and isinstance(client_history, list):
+        with _GAMES_LOCK:
+            if gid in GAMES:
+                _restore_engine_state_from_dict(GAMES[gid]['snapshot'])
+                if _sync_engine_from_client_history(client_history, move_notation):
+                    _shutdown_dedicated_worker(gid)
+                GAMES[gid]['snapshot'] = _capture_engine_state_to_dict()
+                if dedicated_ok and not force_pool_move:
+                    snap = None
+                elif multiple_games:
+                    snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
+                else:
+                    snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
 
     if not _MOVE_BG_SEM.acquire(blocking=False):
         return jsonify({
@@ -1309,7 +1432,9 @@ def get_move():
     # Single-game default: same 202 + thread as multi-game (short POST; client polls). Optional sync 200.
     if not multiple_games and os.environ.get('TRIFANGX_SYNC_MOVE_SINGLE') == '1':
         try:
-            out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
+            out_move, err_text = _execute_move_core(
+                gid, snap, move_notation, color, client_history
+            )
             if err_text:
                 return jsonify({'error': err_text}), 500
             return jsonify({'move': out_move}), 200
@@ -1354,7 +1479,7 @@ def get_move():
     try:
         t = threading.Thread(
             target=_run_move_job,
-            args=(job_id, gid, snap, move_notation, color),
+            args=(job_id, gid, snap, move_notation, color, client_history),
             daemon=True,
         )
         t.start()
@@ -4526,7 +4651,6 @@ def convert_move(board, to_row, to_col, piece, color):
                 new_col = to_col + direction[1]
                 if 0 <= new_row < 8 and 0 <= new_col < 8:
                     if board[new_row][new_col] == 'N':
-                        print(new_row, new_col)
                         return new_row, new_col
         elif piece == 'b':
             directions = BISHOP_DELTAS
