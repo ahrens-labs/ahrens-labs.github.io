@@ -1833,12 +1833,6 @@ async function handleGetUser(request, env, corsHeaders) {
     });
   }
 
-  try {
-    await ensureDigestKvSubscriber(env, userResult.userId, userData);
-  } catch (e) {
-    console.warn('ensureDigestKvSubscriber on getUser failed:', e?.message || e);
-  }
-
   return new Response(JSON.stringify(userData), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
@@ -2005,43 +1999,6 @@ async function verifySignupEmailDomain(domain) {
 /** Product / marketing email: only skip accounts that explicitly have not confirmed (new signups). Legacy rows may omit the flag. */
 function hasConfirmedEmailForProductMail(row) {
   return row && row.emailVerified !== false;
-}
-
-/** Keep DAILY_DIGEST_KV `sub:{userId}` in sync when prefs are on (repairs missing keys after deploy). */
-async function ensureDigestKvSubscriber(env, userId, profile) {
-  if (!env.DAILY_DIGEST_KV || !userId || !profile || typeof profile !== 'object') return;
-  const prefs = profile.emailPreferences || {};
-  if (!prefs.dailyChallengeEmails) return;
-  if (!hasConfirmedEmailForProductMail(profile)) return;
-  const email = normalizeEmail(profile.email || '');
-  if (!email || !isLikelyRealEmail(email)) return;
-  const username = profile.username || 'there';
-  const key = `sub:${userId}`;
-  let prev = null;
-  try {
-    prev = await env.DAILY_DIGEST_KV.get(key, 'json');
-  } catch {
-    prev = null;
-  }
-  if (
-    prev &&
-    typeof prev === 'object' &&
-    prev.email === email &&
-    (prev.username || 'there') === username
-  ) {
-    return;
-  }
-  await env.DAILY_DIGEST_KV.put(
-    key,
-    JSON.stringify({
-      email,
-      username,
-      lastDigestLocalYmd:
-        prev && typeof prev === 'object' && typeof prev.lastDigestLocalYmd === 'string'
-          ? prev.lastDigestLocalYmd
-          : undefined,
-    })
-  );
 }
 
 function generateUserId(email) {
@@ -3770,211 +3727,8 @@ function mergeChessStatsForSync(prevStats, incomingStats, fullReplace) {
       losses: Math.max(0, Math.floor(Number(mergedPs.losses) || 0)),
       draws: Math.max(0, Math.floor(Number(mergedPs.draws) || 0)),
     },
-    lifetimeStats: mergeLifetimeStatsMonotonic(prevLt, incLt, fullReplace),
+    lifetimeStats: { ...prevLt, ...incLt },
   };
-}
-
-/** Numeric career counters must never decrease on sync unless `fullReplace` (explicit reset). */
-function mergeLifetimeStatsMonotonic(prevLt, incLt, fullReplace) {
-  if (fullReplace) {
-    return incLt && typeof incLt === 'object' ? { ...incLt } : {};
-  }
-  const prev = prevLt && typeof prevLt === 'object' ? prevLt : {};
-  const inc = incLt && typeof incLt === 'object' ? incLt : {};
-  const merged = { ...prev };
-  const keys = new Set([...Object.keys(prev), ...Object.keys(inc)]);
-  for (const key of keys) {
-    const p = prev[key];
-    const v = inc[key];
-    if (v === undefined) continue;
-    if (typeof v === 'number' && typeof p === 'number') {
-      merged[key] = Math.max(p, v);
-    } else if (v && typeof v === 'object' && !Array.isArray(v)) {
-      const pObj = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
-      if (key === 'dailyStats') {
-        const pDate = pObj.lastResetDate != null ? String(pObj.lastResetDate) : '';
-        const vDate = v.lastResetDate != null ? String(v.lastResetDate) : '';
-        merged[key] = vDate >= pDate ? { ...pObj, ...v } : { ...v, ...pObj };
-      } else if (key === 'winsByTimeControl' || key === 'winsByPersonality') {
-        const out = { ...pObj };
-        for (const sk of new Set([...Object.keys(pObj), ...Object.keys(v)])) {
-          out[sk] = Math.max(Number(pObj[sk]) || 0, Number(v[sk]) || 0);
-        }
-        merged[key] = out;
-      } else {
-        merged[key] = mergeLifetimeStatsMonotonic(pObj, v, false);
-      }
-    } else if (v !== null) {
-      merged[key] = v;
-    }
-  }
-  return merged;
-}
-
-function mergeSeasonEarnBaselineMonotonic(prevB, incB) {
-  const prev = prevB && typeof prevB === 'object' ? prevB : {};
-  const inc = incB && typeof incB === 'object' ? incB : {};
-  const out = { ...prev };
-  for (const key of new Set([...Object.keys(prev), ...Object.keys(inc)])) {
-    out[key] = Math.max(Number(prev[key]) || 0, Number(inc[key]) || 0);
-  }
-  return out;
-}
-
-/** Heuristic: how much career activity is stored in lifetime stats (+ record W/L). */
-function chessLifetimeCareerScore(lt, playerStats) {
-  const stats = lt && typeof lt === 'object' ? lt : {};
-  const ps = playerStats && typeof playerStats === 'object' ? playerStats : {};
-  let score = 0;
-  score += Math.max(0, Number(stats.totalCaptures) || 0);
-  score += Math.max(0, Number(stats.checksGiven) || 0);
-  score += Math.max(0, Number(stats.promotions) || 0) * 2;
-  score += Math.max(0, Number(stats.castlingMoves) || 0) * 2;
-  score += Math.max(0, Number(stats.totalGamesPlayed) || 0) * 5;
-  score +=
-    (Math.max(0, Number(ps.wins) || 0) + Math.max(0, Number(ps.losses) || 0) + Math.max(0, Number(ps.draws) || 0)) *
-    10;
-  return score;
-}
-
-function snapshotChessCareerStatsBackup(chess) {
-  if (!chess || typeof chess !== 'object') return null;
-  const lt = chess.stats?.lifetimeStats;
-  const st = chess.seasonTrack;
-  return {
-    savedAt: Date.now(),
-    stats: {
-      playerStats: { ...(chess.stats?.playerStats || {}) },
-      lifetimeStats: lt && typeof lt === 'object' ? JSON.parse(JSON.stringify(lt)) : {},
-    },
-    seasonTrack: st && typeof st === 'object' ? JSON.parse(JSON.stringify(st)) : null,
-    seasonBonusPoints: Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)),
-  };
-}
-
-/** Rebuild minimal W/L/draw totals from synced game history when lifetime stats were wiped. */
-function rebuildPlayerStatsFloorFromGameHistory(gameHistory, existingPs) {
-  const ps = {
-    wins: Math.max(0, Math.floor(Number(existingPs?.wins) || 0)),
-    losses: Math.max(0, Math.floor(Number(existingPs?.losses) || 0)),
-    draws: Math.max(0, Math.floor(Number(existingPs?.draws) || 0)),
-  };
-  const hist = Array.isArray(gameHistory) ? gameHistory : [];
-  let hw = 0;
-  let hl = 0;
-  let hd = 0;
-  for (const rec of hist) {
-    if (!rec || typeof rec !== 'object') continue;
-    const color = String(rec.playerColor || '').toLowerCase();
-    const result = String(rec.result || '');
-    if (result === '1/2-1/2') {
-      hd++;
-      continue;
-    }
-    if (result === '1-0') {
-      if (color === 'white') hw++;
-      else if (color === 'black') hl++;
-      continue;
-    }
-    if (result === '0-1') {
-      if (color === 'white') hl++;
-      else if (color === 'black') hw++;
-    }
-  }
-  return {
-    wins: Math.max(ps.wins, hw),
-    losses: Math.max(ps.losses, hl),
-    draws: Math.max(ps.draws, hd),
-  };
-}
-
-function pickBestChessCareerBackup(chess) {
-  const candidates = [];
-  if (chess.careerStatsBackup && typeof chess.careerStatsBackup === 'object') {
-    candidates.push(chess.careerStatsBackup);
-  }
-  if (Array.isArray(chess.careerStatsBackups)) {
-    for (const b of chess.careerStatsBackups) {
-      if (b && typeof b === 'object') candidates.push(b);
-    }
-  }
-  let best = null;
-  let bestScore = -1;
-  for (const b of candidates) {
-    const s = chessLifetimeCareerScore(b.stats?.lifetimeStats, b.stats?.playerStats);
-    if (s > bestScore) {
-      bestScore = s;
-      best = b;
-    }
-  }
-  return best;
-}
-
-function appendChessCareerBackup(chess, snap) {
-  if (!snap || !chess || typeof chess !== 'object') return;
-  chess.careerStatsBackup = snap;
-  const list = Array.isArray(chess.careerStatsBackups) ? chess.careerStatsBackups.slice() : [];
-  list.push(snap);
-  while (list.length > 8) list.shift();
-  chess.careerStatsBackups = list;
-}
-
-function applyChessCareerBackupToChess(chess, backup) {
-  if (!backup || !chess) return;
-  chess.stats = chess.stats && typeof chess.stats === 'object' ? chess.stats : {};
-  chess.stats.playerStats = { ...(backup.stats?.playerStats || chess.stats.playerStats || {}) };
-  chess.stats.lifetimeStats = mergeLifetimeStatsMonotonic(
-    chess.stats.lifetimeStats,
-    backup.stats?.lifetimeStats || {},
-    false
-  );
-  if (backup.seasonTrack && typeof backup.seasonTrack === 'object') {
-    chess.seasonTrack = JSON.parse(JSON.stringify(backup.seasonTrack));
-  }
-  if (Object.prototype.hasOwnProperty.call(backup, 'seasonBonusPoints')) {
-    chess.seasonBonusPoints = Math.max(
-      Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)),
-      Math.max(0, Math.floor(Number(backup.seasonBonusPoints) || 0))
-    );
-  }
-}
-
-function repairChessCareerStatsInPlace(chess) {
-  if (!chess || typeof chess !== 'object') return { repaired: false, source: null };
-  chess.stats = chess.stats && typeof chess.stats === 'object' ? chess.stats : {};
-  const prevLt = chess.stats.lifetimeStats;
-  const prevScore = chessLifetimeCareerScore(prevLt, chess.stats.playerStats);
-  const backup = pickBestChessCareerBackup(chess);
-  const backupScore = backup
-    ? chessLifetimeCareerScore(backup.stats?.lifetimeStats, backup.stats?.playerStats)
-    : 0;
-
-  if (backup && backupScore > prevScore + 15 && backupScore >= 40) {
-    applyChessCareerBackupToChess(chess, backup);
-    return { repaired: true, source: 'backup' };
-  }
-
-  const hist = Array.isArray(chess.gameHistory) ? chess.gameHistory : [];
-  const achKeys = chess.achievements && typeof chess.achievements === 'object' ? Object.keys(chess.achievements) : [];
-  const achCount = achKeys.filter((k) => {
-    const v = chess.achievements[k];
-    return v === true || v === 1 || (v && typeof v === 'object');
-  }).length;
-  const looksWiped = prevScore < 150 && (hist.length >= 2 || achCount >= 4);
-
-  if (looksWiped && hist.length >= 2) {
-    const floorPs = rebuildPlayerStatsFloorFromGameHistory(hist, chess.stats.playerStats);
-    const games = floorPs.wins + floorPs.losses + floorPs.draws;
-    if (games >= 2) {
-      chess.stats.playerStats = floorPs;
-      const lt = prevLt && typeof prevLt === 'object' ? { ...prevLt } : {};
-      lt.totalGamesPlayed = Math.max(Number(lt.totalGamesPlayed) || 0, games, hist.length);
-      chess.stats.lifetimeStats = lt;
-      return { repaired: true, source: 'gameHistory-floor', needsClientReplay: true };
-    }
-  }
-
-  return { repaired: false, source: null, needsClientReplay: looksWiped && hist.length >= 2 };
 }
 
 const CHESS_SEASON_MAX_NODES = 10;
@@ -4360,7 +4114,6 @@ function mergeChessSeasonFieldsForSync(prevChess, incomingSeasonTrack, incomingB
     ...incT,
     seasonId: iSid || pSid || prevT.seasonId,
     nodesCompleted,
-    earnBaseline: mergeSeasonEarnBaselineMonotonic(prevT.earnBaseline, incT.earnBaseline),
     lbFlair: mergedFlair,
     lbFlairUnlocked: mergedOwned,
   };
@@ -5790,8 +5543,7 @@ async function handleScheduledCron(event, env) {
         const userIdFromKey = name.startsWith('sub:') ? name.slice(4) : '';
         if (userIdFromKey) {
           try {
-            const profileDoId = env.USER_ACCOUNT.idFromName(userIdFromKey);
-            const profileStub = env.USER_ACCOUNT.get(profileDoId);
+            const profileStub = env.USER_ACCOUNT.idFromName(userIdFromKey);
             const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
             const profile = await profRes.json();
             if (!hasConfirmedEmailForProductMail(profile)) {
@@ -5805,9 +5557,8 @@ async function handleScheduledCron(event, env) {
             }
             raw.email = liveEmail;
             if (profile.username) raw.username = profile.username;
-          } catch (profileErr) {
+          } catch {
             skipped++;
-            console.error('Digest cron profile load failed', userIdFromKey, profileErr?.message || profileErr);
             continue;
           }
         } else {
@@ -7234,10 +6985,6 @@ export class UserAccount {
     delete restIncoming.fullCareerResetSync;
 
     const prevChess = userData.games.chess;
-    const prevCareerScore = chessLifetimeCareerScore(
-      prevChess?.stats?.lifetimeStats,
-      prevChess?.stats?.playerStats
-    );
     const prevSnap = chessStatsSnapshot(prevChess || {});
     const {
       stats: incomingStats,
@@ -7257,10 +7004,6 @@ export class UserAccount {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, restIncoming.gameHistory);
     } else {
       mergedHistory = mergeChessGameHistoryForSync(prevChess.gameHistory, []);
-    }
-
-    if (fullCareerResetSync && prevCareerScore > 40) {
-      appendChessCareerBackup(userData.games.chess, snapshotChessCareerStatsBackup(prevChess));
     }
 
     const mergedStats = mergeChessStatsForSync(prevChess.stats, incomingStats, fullCareerResetSync);
@@ -7314,20 +7057,7 @@ export class UserAccount {
     delete mergedChess.lbRollBaselineMs;
     delete mergedChess.lbRollBaselineStats;
 
-    const nextCareerScore = chessLifetimeCareerScore(
-      mergedChess.stats?.lifetimeStats,
-      mergedChess.stats?.playerStats
-    );
-    if (!fullCareerResetSync && prevCareerScore > 80 && nextCareerScore < prevCareerScore * 0.5) {
-      appendChessCareerBackup(mergedChess, snapshotChessCareerStatsBackup(prevChess));
-    }
-
     userData.games.chess = mergedChess;
-
-    const repairResult = repairChessCareerStatsInPlace(userData.games.chess);
-    if (repairResult.repaired) {
-      console.log('Repaired chess career stats from', repairResult.source);
-    }
 
     await this.storage.put('userData', userData);
 
@@ -7383,12 +7113,6 @@ export class UserAccount {
     }
     
     const c = userData.games.chess;
-    const repairResult = repairChessCareerStatsInPlace(c);
-    if (repairResult.repaired) {
-      userData.games.chess = c;
-      await this.storage.put('userData', userData);
-      console.log('Auto-repaired chess career stats on load from', repairResult.source);
-    }
     return {
       ...c,
       shopUnlocks: ensureChessShopUnlockBasics(c.shopUnlocks || {}),
