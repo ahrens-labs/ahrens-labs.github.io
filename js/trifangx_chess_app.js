@@ -10562,11 +10562,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function chessLifetimeCareerScoreClient(lt, ps) {
       const stats = lt && typeof lt === 'object' ? lt : {};
       const player = ps && typeof ps === 'object' ? ps : {};
-      let score = 0;
-      score += Math.max(0, Number(stats.totalCaptures) || 0);
-      score += Math.max(0, Number(stats.checksGiven) || 0);
-      score += Math.max(0, Number(stats.promotions) || 0) * 2;
-      score += Math.max(0, Number(stats.castlingMoves) || 0) * 2;
+      let score = chessLifetimeDetailScoreClient(lt);
       score += Math.max(0, Number(stats.totalGamesPlayed) || 0) * 5;
       score +=
         (Math.max(0, Number(player.wins) || 0) +
@@ -10574,6 +10570,89 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           Math.max(0, Number(player.draws) || 0)) *
         10;
       return score;
+    }
+
+    /** Lifetime counters only (captures, square visits, etc.) — W/L must not mask a wipe. */
+    function chessLifetimeDetailScoreClient(lt) {
+      const stats = lt && typeof lt === 'object' ? lt : {};
+      let score = 0;
+      score += Math.max(0, Number(stats.totalCaptures) || 0);
+      score += Math.max(0, Number(stats.checksGiven) || 0);
+      score += Math.max(0, Number(stats.promotions) || 0) * 2;
+      score += Math.max(0, Number(stats.castlingMoves) || 0) * 2;
+      score += Math.max(0, Number(stats.knightToF3) || 0) * 3;
+      score += Math.max(0, Number(stats.bishopToF4) || 0) * 3;
+      score += Math.max(0, Number(stats.movesToE4) || 0);
+      score += Math.max(0, Number(stats.movesToD4) || 0);
+      score += Math.max(0, Number(stats.enPassants) || 0) * 5;
+      score += Math.max(0, Number(stats.capturesByQueen) || 0) * 2;
+      return score;
+    }
+
+    function getSanListFromHistoryRecord(rec) {
+      if (!rec || typeof rec !== 'object') return [];
+      if (Array.isArray(rec.historySan) && rec.historySan.length > 0) {
+        return rec.historySan.slice();
+      }
+      const pgn = rec.pgn != null ? String(rec.pgn).trim() : '';
+      if (pgn && typeof Chess !== 'undefined') {
+        try {
+          const c = new Chess();
+          if (c.load_pgn(pgn)) {
+            const h = c.history();
+            if (h && h.length) return h;
+          }
+        } catch (ePgn) {
+          console.warn('getSanListFromHistoryRecord: PGN parse failed', ePgn);
+        }
+      }
+      return [];
+    }
+
+    function countReplayableHistoryGames(gameHistory) {
+      const hist = Array.isArray(gameHistory) ? gameHistory : [];
+      let n = 0;
+      hist.forEach(function (rec) {
+        if (getSanListFromHistoryRecord(rec).length > 0) n++;
+      });
+      return n;
+    }
+
+    const SEASON_EARN_BASELINE_KEYS = [
+      'games',
+      'wins',
+      'castlingMoves',
+      'promotions',
+      'capturedRooks',
+      'checkmateWithQueen',
+      'knightToF3',
+      'bishopToF4',
+      'enPassants',
+      'capturesByQueen',
+      'totalCaptures',
+      'checkmateWithRook',
+    ];
+
+    /** After a wipe, frozen baselines can exceed rebuilt lifetime and force 0/N on season steps. */
+    function repairSeasonEarnBaselineIfCorrupt() {
+      if (!cloudChessData || !cloudChessData.seasonTrack) return false;
+      const st = cloudChessData.seasonTrack;
+      if (!st.earnBaseline || typeof st.earnBaseline !== 'object') return false;
+      const snap =
+        typeof snapshotSeasonEarnBaselineFromLocalStats === 'function'
+          ? snapshotSeasonEarnBaselineFromLocalStats()
+          : {};
+      const b = st.earnBaseline;
+      let dirty = false;
+      SEASON_EARN_BASELINE_KEYS.forEach(function (key) {
+        const cur = Math.max(0, Number(snap[key]) || 0);
+        const base = Math.max(0, Number(b[key]) || 0);
+        if (base > cur) {
+          b[key] = cur;
+          dirty = true;
+        }
+      });
+      return dirty;
     }
 
     function mergeLifetimeStatsMonotonicClient(prevLt, incLt) {
@@ -10646,156 +10725,44 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return best;
     }
 
-    function createPerGameStatsShellForReplay() {
-      return {
-        capturesByQueen: 0,
-        capturesByRook: 0,
-        capturesByBishop: 0,
-        capturesByKnight: 0,
-        capturesByPawn: 0,
-        totalCaptures: 0,
-        checksGiven: 0,
-        castlingMoves: 0,
-        promotions: 0,
-        enPassants: 0,
-        capturedQueens: 0,
-        capturedRooks: 0,
-        capturedBishops: 0,
-        capturedKnights: 0,
-        capturedPawns: 0,
-        lostQueens: 0,
-        lostRooks: 0,
-        lostBishops: 0,
-        lostKnights: 0,
-        lostPawns: 0,
-        movesToE4: 0,
-        movesToD4: 0,
-        movesToE5: 0,
-        movesToD5: 0,
-        knightToF3: 0,
-        knightToC3: 0,
-        knightToF6: 0,
-        knightToC6: 0,
-        movesOnMove1: 0,
-        movesOnMove5: 0,
-        movesOnMove10: 0,
-        movesOnMove20: 0,
-        movesOnMove50: 0,
-        pawnToE4: 0,
-        pawnToD4: 0,
-        queenToD4: 0,
-        queenToE4: 0,
-        bishopToF4: 0,
-        rookToE1: 0,
-        kingToE1: 0,
-        movesToE4Multiple: 0,
-        movesToD4Multiple: 0,
-        knightToF3Multiple: 0,
-        knightToC3Multiple: 0,
-        queenToD4Multiple: 0,
-        promotedToQueen: 0,
-        promotedToRook: 0,
-        promotedToBishop: 0,
-        promotedToKnight: 0,
-        bishopToC1: 0,
-        bishopToF1: 0,
-        bishopToC8: 0,
-        bishopToF8: 0,
-      };
-    }
-
     function addPerGameStatsIntoLifetimeAggregate(agg, gs) {
       Object.keys(gs).forEach(function (key) {
         if (typeof gs[key] !== 'number') return;
+        if (key === 'shortestWin') return;
         agg[key] = (agg[key] || 0) + gs[key];
       });
     }
 
+    /** Replay one game using the same trackers as live play (captures, square achievements, etc.). */
     function replaySanListForPlayerStats(sanList, playerColorStr) {
-      const gs = createPerGameStatsShellForReplay();
-      if (typeof Chess === 'undefined') return gs;
-      const c = new Chess();
-      const pc = String(playerColorStr || 'white').toLowerCase();
-      let playerMoveNumber = 0;
-      for (let i = 0; i < sanList.length; i++) {
-        const mv = c.move(sanList[i]);
-        if (!mv) break;
-        const isPlayer = (mv.color === 'w' && pc === 'white') || (mv.color === 'b' && pc === 'black');
-        const isOpp = !isPlayer;
-        const target = mv.to;
-        const pieceType = mv.piece ? String(mv.piece).toLowerCase() : '';
-        if (isPlayer) {
-          playerMoveNumber++;
-          if (mv.captured) {
-            gs.totalCaptures++;
-            const vt = String(mv.captured).toLowerCase();
-            if (vt === 'q') gs.capturedQueens++;
-            else if (vt === 'r') gs.capturedRooks++;
-            else if (vt === 'b') gs.capturedBishops++;
-            else if (vt === 'n') gs.capturedKnights++;
-            else if (vt === 'p') gs.capturedPawns++;
-            if (pieceType === 'q') gs.capturesByQueen++;
-            else if (pieceType === 'r') gs.capturesByRook++;
-            else if (pieceType === 'b') gs.capturesByBishop++;
-            else if (pieceType === 'n') gs.capturesByKnight++;
-            else if (pieceType === 'p') gs.capturesByPawn++;
-          }
-          if (mv.flags && mv.flags.includes('k')) gs.castlingMoves++;
-          if (mv.promotion) {
-            gs.promotions++;
-            const pt = String(mv.promotion).toLowerCase();
-            if (pt === 'q') gs.promotedToQueen++;
-            else if (pt === 'r') gs.promotedToRook++;
-            else if (pt === 'b') gs.promotedToBishop++;
-            else if (pt === 'n') gs.promotedToKnight++;
-          }
-          if (mv.flags && mv.flags.includes('e')) gs.enPassants++;
-          if (mv.san && mv.san.includes('+')) gs.checksGiven++;
-          if (target === 'e4') {
-            gs.movesToE4++;
-            gs.movesToE4Multiple++;
-            if (pieceType === 'p') gs.pawnToE4++;
-          }
-          if (target === 'd4') {
-            gs.movesToD4++;
-            gs.movesToD4Multiple++;
-            if (pieceType === 'p') gs.pawnToD4++;
-          }
-          if (target === 'e5') gs.movesToE5++;
-          if (target === 'd5') gs.movesToD5++;
-          if (pieceType === 'n') {
-            if (target === 'f3') {
-              gs.knightToF3++;
-              gs.knightToF3Multiple++;
-            }
-            if (target === 'c3') {
-              gs.knightToC3++;
-              gs.knightToC3Multiple++;
-            }
-            if (target === 'f6') gs.knightToF6++;
-            if (target === 'c6') gs.knightToC6++;
-          }
-          if (playerMoveNumber === 1) gs.movesOnMove1++;
-          if (playerMoveNumber === 5) gs.movesOnMove5++;
-          if (playerMoveNumber === 10) gs.movesOnMove10++;
-          if (pieceType === 'q') {
-            if (target === 'd4') {
-              gs.queenToD4++;
-              gs.queenToD4Multiple++;
-            }
-            if (target === 'e4') gs.queenToE4++;
-          }
-          if (pieceType === 'b' && target === 'f4') gs.bishopToF4++;
-        } else if (isOpp && mv.captured) {
-          const lt = String(mv.captured).toLowerCase();
-          if (lt === 'q') gs.lostQueens++;
-          else if (lt === 'r') gs.lostRooks++;
-          else if (lt === 'b') gs.lostBishops++;
-          else if (lt === 'n') gs.lostKnights++;
-          else if (lt === 'p') gs.lostPawns++;
+      if (typeof Chess === 'undefined') return {};
+      const savedColor = playerColor;
+      const savedGame = typeof game !== 'undefined' ? game : null;
+      const savedBlind = blindfoldMode;
+      try {
+        resetGameStats();
+        playerColor = String(playerColorStr || 'white').toLowerCase() === 'black' ? 'black' : 'white';
+        blindfoldMode = false;
+        game = new Chess();
+        for (let i = 0; i < sanList.length; i++) {
+          const mv = game.move(sanList[i]);
+          if (!mv) break;
+          trackCapturedPiece(mv);
+          trackRandomAchievements(mv, mv.from, mv.to);
         }
+        const out = {};
+        Object.keys(gameStats).forEach(function (key) {
+          if (key === 'dailyStats' || key === '_isWinGameEnd') return;
+          if (typeof gameStats[key] === 'number' && gameStats[key] !== Infinity) {
+            out[key] = gameStats[key];
+          }
+        });
+        return out;
+      } finally {
+        playerColor = savedColor;
+        game = savedGame;
+        blindfoldMode = savedBlind;
       }
-      return gs;
     }
 
     function rebuildLifetimeStatsFromGameHistory(gameHistory) {
@@ -10808,12 +10775,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       let winsBlack = 0;
       let replayed = 0;
       hist.forEach(function (rec) {
-        if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) return;
+        const sanList = getSanListFromHistoryRecord(rec);
+        if (!sanList.length) return;
         replayed++;
         const pc = String(rec.playerColor || 'white').toLowerCase();
         if (pc === 'white') gamesWhite++;
         else gamesBlack++;
-        const gs = replaySanListForPlayerStats(rec.historySan, pc);
+        const gs = replaySanListForPlayerStats(sanList, pc);
         addPerGameStatsIntoLifetimeAggregate(agg, gs);
         const result = String(rec.result || '');
         const won = (result === '1-0' && pc === 'white') || (result === '0-1' && pc === 'black');
@@ -10835,21 +10803,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lifetimeStats: agg,
         playerStats: ps,
         rebuiltScore: chessLifetimeCareerScoreClient(agg, ps),
+        detailScore: chessLifetimeDetailScoreClient(agg),
         replayedGames: replayed,
       };
     }
 
-    function careerStatsLookWiped() {
+    function careerLifetimeCountersNeedReplay() {
       if (!cloudChessData) return false;
       const lt = cloudChessData.stats && cloudChessData.stats.lifetimeStats;
-      const ps = cloudChessData.stats && cloudChessData.stats.playerStats;
-      const score = chessLifetimeCareerScoreClient(lt, ps);
-      const histLen = (cloudChessData.gameHistory || []).length;
+      const detail = chessLifetimeDetailScoreClient(lt);
+      const replayable = countReplayableHistoryGames(cloudChessData.gameHistory);
       const achN = achievements.length;
-      if (score >= 200) return false;
-      if (histLen >= 3 && score < 120) return true;
-      if (achN >= 5 && score < achN * 30) return true;
-      if (achN >= 3 && score < 80) return true;
+      if (replayable < 1) return false;
+      if (detail < 40) return true;
+      if (achN >= 3 && detail < achN * 8) return true;
+      if (replayable >= 3 && detail < replayable * 4) return true;
       return false;
     }
 
@@ -10888,9 +10856,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       const hist = cloudChessData.gameHistory || [];
-      if (careerStatsLookWiped() && hist.length >= 1 && typeof Chess !== 'undefined') {
+      const detailBefore = chessLifetimeDetailScoreClient(lt0);
+      if (careerLifetimeCountersNeedReplay() && typeof Chess !== 'undefined') {
         const rebuilt = rebuildLifetimeStatsFromGameHistory(hist);
-        if (rebuilt.replayedGames > 0 && rebuilt.rebuiltScore > score + 10) {
+        if (rebuilt.replayedGames > 0 && rebuilt.detailScore > detailBefore) {
           if (!cloudChessData.stats) cloudChessData.stats = {};
           cloudChessData.stats.lifetimeStats = mergeLifetimeStatsMonotonicClient(
             cloudChessData.stats.lifetimeStats,
@@ -10901,20 +10870,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             losses: Math.max(Number(ps0 && ps0.losses) || 0, rebuilt.playerStats.losses),
             draws: Math.max(Number(ps0 && ps0.draws) || 0, rebuilt.playerStats.draws),
           };
-          if (
-            cloudChessData.seasonTrack &&
-            typeof cloudChessData.seasonTrack === 'object' &&
-            typeof snapshotSeasonEarnBaselineFromLocalStats === 'function'
-          ) {
-            const nodes = Math.max(0, Math.floor(Number(cloudChessData.seasonTrack.nodesCompleted) || 0));
-            if (nodes > 0 && !cloudChessData.seasonTrack.earnBaseline) {
-              cloudChessData.seasonTrack.earnBaseline = snapshotSeasonEarnBaselineFromLocalStats();
-            }
-          }
-          hydrateChessCareerStateFromCloud();
+          hydrateChessCareerStateFromCloud(true);
+          repairSeasonEarnBaselineIfCorrupt();
           repaired = true;
           source = source ? source + '+history' : 'history';
         }
+      } else if (repairSeasonEarnBaselineIfCorrupt()) {
+        hydrateChessCareerStateFromCloud(true);
+        repaired = true;
+        source = source ? source + '+season-baseline' : 'season-baseline';
       }
 
       if (repaired) {
@@ -10955,7 +10919,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           hydrateChessCareerStateFromCloud(true);
           return;
         }
-        if (cloudScore < 60 && memScore < 60 && careerStatsLookWiped()) {
+        if (cloudScore < 60 && memScore < 60 && careerLifetimeCountersNeedReplay()) {
           localStorage.setItem('lifetimeStats', JSON.stringify(lifetimeStats));
           return;
         }
