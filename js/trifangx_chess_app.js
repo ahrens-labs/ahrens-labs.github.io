@@ -12881,6 +12881,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (Object.prototype.hasOwnProperty.call(data, 'seasonBonusPoints')) {
           cloudChessData.seasonBonusPoints = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
         }
+        if (data.careerStatsBackup && typeof data.careerStatsBackup === 'object') {
+          cloudChessData.careerStatsBackup = data.careerStatsBackup;
+        }
+        if (Array.isArray(data.careerStatsBackups)) {
+          cloudChessData.careerStatsBackups = data.careerStatsBackups.slice();
+        }
         mergeSeasonClaimedShopRewardsIntoShopUnlocks(cloudChessData);
         achievements = Object.keys(cloudChessData.achievements || {}).filter(function (k) {
           const v = cloudChessData.achievements[k];
