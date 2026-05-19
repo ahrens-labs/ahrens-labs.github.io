@@ -1,16 +1,13 @@
-/* Full-page loading overlay for chess_engine.html / trifangx_live.html until bootstrap finishes. */
+/* In-page loading state for chess_engine.html / trifangx_live.html (no full-screen blur). */
 .trifangx-shell-loading {
-  position: fixed;
-  inset: 0;
-  z-index: 12000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1.5rem;
+  min-height: min(380px, 52vh);
+  margin: 0 auto;
+  max-width: 1400px;
+  padding: 2rem 1.5rem;
   box-sizing: border-box;
-  background: rgba(240, 244, 248, 0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .trifangx-shell-loading-inner {
@@ -19,6 +16,11 @@
   align-items: center;
   gap: 1.25rem;
   text-align: center;
+  padding: 1.75rem 2.25rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(52, 152, 219, 0.12);
 }
 
 .trifangx-shell-loading-spinner {
@@ -51,16 +53,25 @@
   display: none !important;
 }
 
+/* Game shell mounts invisibly while loading; shown when the board is ready. */
+#choose-side.trifangx-shell-pending,
+#game-container.trifangx-shell-pending {
+  opacity: 0;
+  pointer-events: none;
+}
+
 @keyframes trifangx-shell-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.page-theme-dark .trifangx-shell-loading,
-.page-theme-midnight .trifangx-shell-loading,
-.page-theme-space .trifangx-shell-loading {
-  background: rgba(15, 20, 28, 0.92);
+.page-theme-dark .trifangx-shell-loading-inner,
+.page-theme-midnight .trifangx-shell-loading-inner,
+.page-theme-space .trifangx-shell-loading-inner {
+  background: rgba(26, 32, 44, 0.94);
+  border-color: rgba(93, 173, 226, 0.2);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
 .page-theme-dark .trifangx-shell-loading-text,

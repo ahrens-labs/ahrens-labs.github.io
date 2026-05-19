@@ -1854,6 +1854,113 @@ def evaluate_for_modifiers(board, SCORING_MODIFIERS):
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
 
+def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, stats):
+    """Largest one-move protected-capture threat for this piece (only one capture per turn)."""
+    mod = SCORING_MODIFIERS["material"]
+    best = 0
+
+    if side_to_move == 'b' and piece in {'N', 'B', 'R', 'Q'}:
+        if not is_protected(board, row, col, 'w'):
+            return 0
+        for direction in WHITE_PAWN_CAPTURE_DELTAS:
+            new_row = row + direction[0]
+            new_col = col + direction[1]
+            if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] == 'p':
+                if piece == 'Q':
+                    best = max(best, 34)
+                elif piece == 'R':
+                    best = max(best, 18)
+                else:
+                    best = max(best, 10)
+        if piece in {'R', 'Q'}:
+            for direction in KNIGHT_DELTAS:
+                new_row = row + direction[0]
+                new_col = col + direction[1]
+                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                    target = board[new_row][new_col]
+                    if piece == 'Q' and target == 'n':
+                        best = max(best, 30)
+                    elif piece == 'R' and target == 'n':
+                        best = max(best, 13)
+            for direction in BISHOP_DELTAS:
+                for i in range(1, 8):
+                    new_row = row + i * direction[0]
+                    new_col = col + i * direction[1]
+                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                        break
+                    target = board[new_row][new_col]
+                    if piece == 'Q' and target == 'b':
+                        best = max(best, 30)
+                    elif piece == 'R' and target == 'b':
+                        best = max(best, 13)
+                    if target != '0':
+                        break
+        if piece == 'Q':
+            for direction in ROOK_DELTAS:
+                for i in range(1, 8):
+                    new_row = row + i * direction[0]
+                    new_col = col + i * direction[1]
+                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                        break
+                    if board[new_row][new_col] == 'r':
+                        best = max(best, 18)
+                    if board[new_row][new_col] != '0':
+                        break
+        return best * mod
+
+    if side_to_move == 'w' and piece in {'n', 'b', 'r', 'q'}:
+        if not is_protected(board, row, col, 'b'):
+            return 0
+        for direction in BLACK_PAWN_CAPTURE_DELTAS:
+            new_row = row + direction[0]
+            new_col = col + direction[1]
+            if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] == 'P':
+                if piece == 'q' and not stats["pawn_take_queen"]:
+                    best = max(best, 34)
+                elif piece == 'r':
+                    best = max(best, 18)
+                elif piece in {'n', 'b'}:
+                    best = max(best, 10)
+        if piece in {'r', 'q'}:
+            for direction in KNIGHT_DELTAS:
+                new_row = row + direction[0]
+                new_col = col + direction[1]
+                if 0 <= new_row < 8 and 0 <= new_col < 8:
+                    target = board[new_row][new_col]
+                    if piece == 'q' and target == 'N':
+                        best = max(best, 30)
+                    elif piece == 'r' and target == 'N':
+                        best = max(best, 13)
+            for direction in BISHOP_DELTAS:
+                for i in range(1, 8):
+                    new_row = row + i * direction[0]
+                    new_col = col + i * direction[1]
+                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                        break
+                    target = board[new_row][new_col]
+                    if piece == 'q' and target == 'B':
+                        best = max(best, 30)
+                    elif piece == 'r' and target == 'B':
+                        best = max(best, 13)
+                    if target != '0':
+                        break
+        if piece == 'q':
+            for direction in ROOK_DELTAS:
+                for i in range(1, 8):
+                    new_row = row + i * direction[0]
+                    new_col = col + i * direction[1]
+                    if not (0 <= new_row < 8 and 0 <= new_col < 8):
+                        break
+                    if board[new_row][new_col] == 'R':
+                        best = max(best, 18)
+                    if board[new_row][new_col] != '0':
+                        break
+        if piece == 'q' and best >= 34 and not stats["pawn_take_queen"]:
+            stats["pawn_take_queen"] = True
+        return -(best * mod)
+
+    return 0
+
 def _score_uncached(board, turn, castled, castled_white):
 
     # Early checkmate return
@@ -2114,123 +2221,7 @@ def _score_uncached(board, turn, castled, castled_white):
                       else:
                           score += VALUES_white[piece] * SCORING_MODIFIERS["material"]
 
-        if turn == 'b':
-            if piece in {'N', 'B', 'R', 'Q'}:
-                directions = WHITE_PAWN_CAPTURE_DELTAS
-                for direction in directions:
-                    new_row = row + direction[0]
-                    new_col = col + direction[1]
-                    if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if piece == 'Q' and board[new_row][new_col] == 'p':
-                            if is_protected(board, row, col, 'w'):
-                                score += 34 * SCORING_MODIFIERS["material"]
-                        elif piece == 'R' and board[new_row][new_col] == 'p':
-                            if is_protected(board, row, col, 'w'):
-                                score += 18 * SCORING_MODIFIERS["material"]
-                        elif piece in {'N', 'B'} and board[new_row][new_col] == 'p':
-                            if is_protected(board, row, col, 'w'):
-                                score += 10 * SCORING_MODIFIERS["material"]
-            if piece in {'R', 'Q'}:
-                directions = KNIGHT_DELTAS
-                for direction in directions:
-                    new_row = row + direction[0]
-                    new_col = col + direction[1]
-                    if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if piece == 'Q' and board[new_row][new_col] == 'n':
-                            if is_protected(board, row, col, 'w'):
-                                score += 30 * SCORING_MODIFIERS["material"]
-                        elif piece == 'R' and board[new_row][new_col] == 'n':
-                            if is_protected(board, row, col, 'w'):
-                                score += 13 * SCORING_MODIFIERS["material"]
-                directions = BISHOP_DELTAS
-                for direction in directions:
-                    for i in range(1, 8):
-                        new_row = row + i * direction[0]
-                        new_col = col + i * direction[1]
-                        if 0 <= new_row < 8 and 0 <= new_col < 8:
-                            if piece == 'Q' and board[new_row][new_col] == 'b':
-                                if is_protected(board, row, col, 'w'):
-                                    score += 30 * SCORING_MODIFIERS["material"]
-                            elif piece == 'R' and board[new_row][new_col] == 'b':
-                                if is_protected(board, row, col, 'w'):
-                                    score += 13 * SCORING_MODIFIERS["material"]
-                            if board[new_row][new_col] != '0':
-                                break
-                        else:
-                            break
-            if piece == 'Q':
-                directions = ROOK_DELTAS
-                for direction in directions:
-                    for i in range(1, 8):
-                        new_row = row + i * direction[0]
-                        new_col = col + i * direction[1]
-                        if 0 <= new_row < 8 and 0 <= new_col < 8:
-                            if board[new_row][new_col] == 'r':
-                                if is_protected(board, row, col, 'w'):
-                                    score += 18 * SCORING_MODIFIERS["material"]
-                            if board[new_row][new_col] != '0':
-                                break
-                        else:
-                            break
-
-        elif turn == 'w':
-            if piece in {'n', 'b', 'r', 'q'}:
-                directions = BLACK_PAWN_CAPTURE_DELTAS
-                for direction in directions:
-                    new_row = row + direction[0]
-                    new_col = col + direction[1]
-                    if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if piece == 'q' and board[new_row][new_col] == 'P' and stats["pawn_take_queen"] == False and is_protected(board, row, col, 'b'):
-                            score -= 34 * SCORING_MODIFIERS["material"]
-                            stats["pawn_take_queen"] = True
-                        elif piece == 'r' and board[new_row][new_col] == 'P':
-                            if is_protected(board, row, col, 'b'):
-                                score -= 18 * SCORING_MODIFIERS["material"]
-                        elif piece in {'n', 'b'} and board[new_row][new_col] == 'P':
-                            if is_protected(board, row, col, 'b'):
-                                score -= 10 * SCORING_MODIFIERS["material"]
-            if piece in {'r', 'q'}:
-                directions = KNIGHT_DELTAS
-                for direction in directions:
-                    new_row = row + direction[0]
-                    new_col = col + direction[1]
-                    if 0 <= new_row < 8 and 0 <= new_col < 8:
-                        if piece == 'q' and board[new_row][new_col] == 'N':
-                            if is_protected(board, row, col, 'b'):
-                                score -= 30 * SCORING_MODIFIERS["material"]
-                        elif piece == 'r' and board[new_row][new_col] == 'N':
-                            if is_protected(board, row, col, 'b'):
-                                score -= 13 * SCORING_MODIFIERS["material"]
-                directions = BISHOP_DELTAS
-                for direction in directions:
-                  for i in range(1, 8):
-                      new_row = row + i * direction[0]
-                      new_col = col + i * direction[1]
-                      if 0 <= new_row < 8 and 0 <= new_col < 8:
-                          if piece == 'q' and board[new_row][new_col] == 'B':
-                              if is_protected(board, row, col, 'b'):
-                                  score -= 30 * SCORING_MODIFIERS["material"]
-                          elif piece == 'r' and board[new_row][new_col] == 'B':
-                              if is_protected(board, row, col, 'b'):
-                                  score -= 13 * SCORING_MODIFIERS["material"]
-                          if board[new_row][new_col] != '0':
-                              break
-                      else:
-                          break
-            if piece == 'q':
-                    directions = ROOK_DELTAS
-                    for direction in directions:
-                        for i in range(1, 8):
-                            new_row = row + i * direction[0]
-                            new_col = col + i * direction[1]
-                            if 0 <= new_row < 8 and 0 <= new_col < 8:
-                                if board[new_row][new_col] == 'R':
-                                    if is_protected(board, row, col, 'b'):
-                                        score -= 18 * SCORING_MODIFIERS["material"]
-                                if board[new_row][new_col] != '0':
-                                    break
-                            else:
-                                break
+        score += _best_protected_capture_adjustment(board, row, col, piece, turn, stats)
     return round(score/5, 2)
 
 def score(board, turn):

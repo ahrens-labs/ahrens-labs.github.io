@@ -4069,6 +4069,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!el || el.dataset.trifangxHiding === '1') return;
       el.dataset.trifangxHiding = '1';
       el.setAttribute('aria-busy', 'false');
+      const chooseSide = document.getElementById('choose-side');
+      const gameContainer = document.getElementById('game-container');
+      if (chooseSide) chooseSide.classList.remove('trifangx-shell-pending');
+      if (gameContainer) gameContainer.classList.remove('trifangx-shell-pending');
       el.classList.add('trifangx-shell-loading--hide');
       window.setTimeout(function () {
         el.classList.add('trifangx-shell-loading--gone');
@@ -4152,8 +4156,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const chooseSide = document.getElementById('choose-side');
       const gameContainer = document.getElementById('game-container');
       if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
-      if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
-      if (gameContainer) gameContainer.style.display = 'block';
+      if (chooseSide) {
+        chooseSide.style.display = isLiveShell ? 'none' : 'block';
+        chooseSide.classList.add('trifangx-shell-pending');
+      }
+      if (gameContainer) {
+        gameContainer.style.display = 'block';
+        gameContainer.classList.add('trifangx-shell-pending');
+      }
       const btc = document.getElementById('board-timers-container');
       if (btc) btc.style.display = 'flex';
     }
