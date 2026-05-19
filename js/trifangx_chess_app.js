@@ -1628,6 +1628,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     const TRIFANGX_START_FEN =
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
+    const TRIFANGX_PENDING_ENGINE_MOVE_MAX_AGE_MS = 5 * 60 * 1000;
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
@@ -1668,7 +1669,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     /** Read lobby controls before navigating to trifangx_live.html (Start Game handoff). */
-    function readLobbyStartOptionsFromDom() {
+    function readLobbyStartOptionsFromDom(resolveRandomSide) {
       const sideEl = document.getElementById('color-select');
       const timeEl = document.getElementById('time-control');
       const blindEl = document.getElementById('blindfold-mode');
@@ -1676,12 +1677,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const side = sideEl && sideEl.value ? sideEl.value : 'random';
       const timeOption = timeEl && timeEl.value ? timeEl.value : 'none';
       const resolvedColor =
-        side === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : side;
+        side === 'random'
+          ? resolveRandomSide
+            ? (Math.random() < 0.5 ? 'white' : 'black')
+            : playerColor
+          : side;
       const [base, inc] =
         timeOption === 'none' ? [null, null] : timeOption.split('|').map(Number);
       const timeLimited = timeOption !== 'none';
       return {
         playerColor: normalizeLobbyPlayerColor(resolvedColor),
+        selectedSide: side === 'black' ? 'black' : side === 'white' ? 'white' : 'random',
         timeOption,
         blindfoldMode: !!(blindEl && blindEl.checked),
         showHistoryInBlindfold: !!(histEl && histEl.checked),
@@ -1697,12 +1703,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function applyLobbyPlayerSideFromDom() {
       const opts = readLobbyStartOptionsFromDom();
       playerColor = opts.playerColor;
-      const sideEl = document.getElementById('color-select');
-      if (sideEl) {
-        if (sideEl.value === 'random') {
-          sideEl.value = playerColor;
-        }
-      }
       if (board && typeof board.orientation === 'function') {
         try {
           board.orientation(playerColor);
@@ -1753,11 +1753,64 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lastLiveMoveDisplayText: 'None',
         premoves: [],
         moveTimerElapsedMs: 0,
+        pendingEngineMove: null,
         gameStats: null,
       };
       try {
         sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
       } catch (e) {}
+    }
+
+    let pendingEngineMove = null;
+
+    function sanitizePendingEngineMove(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const gid = raw.game_id != null ? String(raw.game_id).trim() : '';
+      const move = raw.move != null ? String(raw.move).trim() : '';
+      const color = raw.color != null ? normalizeLobbyPlayerColor(raw.color) : '';
+      const ply = Number(raw.ply);
+      const startedAt = Number(raw.startedAt);
+      const jobId = raw.job_id != null ? String(raw.job_id).trim() : '';
+      if (!gid || !move || !color || !Number.isFinite(ply) || ply < 1) return null;
+      if (!Number.isFinite(startedAt) || Date.now() - startedAt > TRIFANGX_PENDING_ENGINE_MOVE_MAX_AGE_MS) {
+        return null;
+      }
+      return {
+        game_id: gid,
+        move,
+        color,
+        ply,
+        job_id: jobId,
+        startedAt,
+      };
+    }
+
+    function getStoredLiveSnapshotObject() {
+      try {
+        const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function writePendingEngineMoveToSnapshot(pending) {
+      try {
+        const snap = getStoredLiveSnapshotObject();
+        if (!snap || typeof snap !== 'object') return;
+        snap.pendingEngineMove = pending || null;
+        sessionStorage.setItem(TRIFANGX_LIVE_SNAPSHOT_KEY, JSON.stringify(snap));
+      } catch (e) {}
+    }
+
+    function rememberPendingEngineMove(pending) {
+      pendingEngineMove = sanitizePendingEngineMove(pending);
+      writePendingEngineMoveToSnapshot(pendingEngineMove);
+    }
+
+    function clearPendingEngineMove() {
+      pendingEngineMove = null;
+      writePendingEngineMoveToSnapshot(null);
     }
     /** Same-tab reload intent so pagehide can tell reload (keep server game + snapshot) from tab close (POST /stop). */
     const TRIFANGX_RELOAD_INTENT_KEY = 'trifangx_reload_intent';
@@ -2282,6 +2335,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           currentTimeControl: typeof currentTimeControl !== 'undefined' ? currentTimeControl : null,
           timeControlOption: tcEl && tcEl.value ? tcEl.value : null,
           premoves: Array.isArray(premoves) ? premoves.slice() : [],
+          pendingEngineMove: sanitizePendingEngineMove(pendingEngineMove),
           // timerStart = performance.now() - resume can be negative after reload; still valid.
           moveTimerElapsedMs:
             timerInterval != null &&
@@ -3542,18 +3596,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           ') .square-55d63.right-click-highlight.black-3c85d,\n#board :is(' +
           BT +
           ') div.right-click-highlight.black-3c85d';
-        const chW =
-          '#board .square-55d63.highlight-check.white-1e1d7,\n#board div.highlight-check.white-1e1d7,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-check.white-1e1d7,\n#board :is(' +
-          BT +
-          ') div.highlight-check.white-1e1d7';
-        const chB =
-          '#board .square-55d63.highlight-check.black-3c85d,\n#board div.highlight-check.black-3c85d,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-check.black-3c85d,\n#board :is(' +
-          BT +
-          ') div.highlight-check.black-3c85d';
         const grad =
           'linear-gradient(90deg, rgba(255,0,0,0.48), rgba(255,127,0,0.48), rgba(255,255,0,0.48), rgba(0,255,0,0.48), rgba(0,0,255,0.48), rgba(75,0,130,0.48), rgba(148,0,211,0.48))';
         const rainbowBody =
@@ -3564,10 +3606,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           rcW +
           ',\n' +
           rcB +
-          ',\n' +
-          chW +
-          ',\n' +
-          chB +
           ' {\n  ' +
           rainbowBody +
           '\n}\n';
@@ -11983,6 +12021,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lastLiveMoveDisplayText =
           typeof snap.lastLiveMoveDisplayText === 'string' ? snap.lastLiveMoveDisplayText : 'None';
         premoves = Array.isArray(snap.premoves) ? snap.premoves.slice() : [];
+        pendingEngineMove = sanitizePendingEngineMove(snap.pendingEngineMove);
         gameOver = false;
         selectedSquare = null;
         gameStartTime = new Date();
@@ -12119,7 +12158,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         return;
       }
 
-      const lobbyOpts = readLobbyStartOptionsFromDom();
+      const lobbyOpts = readLobbyStartOptionsFromDom(true);
       playerColor = lobbyOpts.playerColor;
       timeLimited = !!lobbyOpts.timeLimited;
       increment = lobbyOpts.increment;
@@ -12570,6 +12609,32 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return next;
     }
 
+    async function pollEngineMoveJob(jobId, signal) {
+      const MOVE_POLL_MS = 40;
+      const MOVE_MAX_WAIT_MS = 180000;
+      const deadline = Date.now() + MOVE_MAX_WAIT_MS;
+      while (Date.now() < deadline) {
+        const pr = await fetch(`${ENGINE_BASE}/move_result/${jobId}`, {
+          method: "GET",
+          signal: signal,
+        });
+        const d = await pr.json().catch(() => ({}));
+        if (d.status === "done" && d.move) {
+          return { move: d.move };
+        }
+        if (d.status === "error" || (pr.status >= 400 && d.error && d.status !== "gone")) {
+          throw new Error(d.error || `Engine error (HTTP ${pr.status})`);
+        }
+        if (d.status === "gone" || (pr.status === 404 && d.status === "gone")) {
+          const goneErr = new Error(d.error || "Move job expired or unknown.");
+          goneErr.engineMoveJobGone = true;
+          throw goneErr;
+        }
+        await new Promise((r) => setTimeout(r, MOVE_POLL_MS));
+      }
+      throw new Error("Engine move timed out while waiting for result.");
+    }
+
     async function engineMove() {
       console.log('=== engineMove START ===');
       console.log('Game over status:', gameOver);
@@ -12583,8 +12648,23 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           console.log('Last move:', lastMove, 'Game turn:', game.turn());
           console.log('Sending request to engine...');
           const gid = getEngineGameId();
-          const MOVE_POLL_MS = 40;
-          const MOVE_MAX_WAIT_MS = 180000;
+          const currentPly = game.history().length;
+          const pending = sanitizePendingEngineMove(pendingEngineMove);
+          if (
+            pending &&
+            pending.job_id &&
+            pending.game_id === gid &&
+            pending.move === lastMove &&
+            pending.color === playerColor &&
+            pending.ply === currentPly
+          ) {
+            try {
+              return await pollEngineMoveJob(pending.job_id, signal);
+            } catch (pollErr) {
+              if (!pollErr || !pollErr.engineMoveJobGone) throw pollErr;
+              clearPendingEngineMove();
+            }
+          }
           const moveBody = {
             game_id: gid,
             move: lastMove,
@@ -12592,6 +12672,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             color: playerColor,
             history: game.history(),
           };
+          rememberPendingEngineMove({
+            game_id: gid,
+            move: lastMove,
+            color: playerColor,
+            ply: currentPly,
+            job_id: '',
+            startedAt: Date.now(),
+          });
           const uMv = getTrifangxEngineAccountUsername();
           if (uMv) moveBody.username = uMv;
           const response = await fetch(`${ENGINE_BASE}/move`, {
@@ -12624,28 +12712,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           const startData = await response.json();
           let out;
           if (response.status === 202 && startData.job_id) {
-            const deadline = Date.now() + MOVE_MAX_WAIT_MS;
-            while (Date.now() < deadline) {
-              const pr = await fetch(`${ENGINE_BASE}/move_result/${startData.job_id}`, {
-                method: "GET",
-                signal: signal,
-              });
-              const d = await pr.json().catch(() => ({}));
-              if (d.status === "done" && d.move) {
-                out = { move: d.move };
-                break;
-              }
-              if (d.status === "error" || (pr.status >= 400 && d.error)) {
-                throw new Error(d.error || `Engine error (HTTP ${pr.status})`);
-              }
-              if (d.status === "gone" || (pr.status === 404 && d.status === "gone")) {
-                throw new Error(d.error || "Move job expired or unknown.");
-              }
-              await new Promise((r) => setTimeout(r, MOVE_POLL_MS));
-            }
-            if (!out) {
-              throw new Error("Engine move timed out while waiting for result.");
-            }
+            rememberPendingEngineMove({
+              game_id: gid,
+              move: lastMove,
+              color: playerColor,
+              ply: currentPly,
+              job_id: startData.job_id,
+              startedAt: pending && pending.startedAt ? pending.startedAt : Date.now(),
+            });
+            out = await pollEngineMoveJob(startData.job_id, signal);
             return out;
           }
           return startData;
@@ -12670,6 +12745,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">Invalid move returned.</span>';
           return;
         }
+        clearPendingEngineMove();
         
         console.log('Move applied to game. New position:', game.fen());
         console.log('Is checkmate?', game.in_checkmate());

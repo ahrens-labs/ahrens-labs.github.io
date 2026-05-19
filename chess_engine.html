@@ -1415,6 +1415,8 @@
     :root {
       --trfx-hl-light: rgba(255, 235, 59, 0.42);
       --trfx-hl-dark: rgba(255, 235, 59, 0.34);
+      --trfx-check-light: rgba(231, 76, 60, 0.72);
+      --trfx-check-dark: rgba(192, 57, 43, 0.78);
     }
 
     /* Board square highlighting — last move uses shop highlight color (see applyHighlightColor) */
@@ -1436,16 +1438,16 @@
     }
 
     .highlight-check {
-      background-color: var(--trfx-hl-dark) !important;
+      background-color: var(--trfx-check-dark) !important;
       animation: checkPulse 1s ease-in-out infinite;
     }
 
     @keyframes checkPulse {
       0%, 100% {
-        background-color: var(--trfx-hl-light) !important;
+        background-color: var(--trfx-check-light) !important;
       }
       50% {
-        background-color: var(--trfx-hl-dark) !important;
+        background-color: var(--trfx-check-dark) !important;
       }
     }
 
