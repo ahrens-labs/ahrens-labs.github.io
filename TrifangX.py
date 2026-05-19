@@ -1919,14 +1919,23 @@ def evaluate_for_modifiers(board, SCORING_MODIFIERS):
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
 
-def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, stats):
-    """Largest one-move protected-capture threat for this piece (only one capture per turn)."""
-    mod = SCORING_MODIFIERS["material"]
-    best = 0
-
+def _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected):
+    """Largest material value for one capture this piece can make on the next move."""
     if side_to_move == 'b' and piece in {'N', 'B', 'R', 'Q'}:
-        if not is_protected(board, row, col, 'w'):
-            return 0
+        attacker_color = 'w'
+    elif side_to_move == 'w' and piece in {'n', 'b', 'r', 'q'}:
+        attacker_color = 'b'
+    else:
+        return 0
+
+    protected = is_protected(board, row, col, attacker_color)
+    if require_protected and not protected:
+        return 0
+    if not require_protected and protected:
+        return 0
+
+    best = 0
+    if side_to_move == 'b':
         for direction in WHITE_PAWN_CAPTURE_DELTAS:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -1971,11 +1980,7 @@ def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, sta
                         best = max(best, 18)
                     if board[new_row][new_col] != '0':
                         break
-        return best * mod
-
-    if side_to_move == 'w' and piece in {'n', 'b', 'r', 'q'}:
-        if not is_protected(board, row, col, 'b'):
-            return 0
+    else:
         for direction in BLACK_PAWN_CAPTURE_DELTAS:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -2022,9 +2027,27 @@ def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, sta
                         break
         if piece == 'q' and best >= 34 and not stats["pawn_take_queen"]:
             stats["pawn_take_queen"] = True
-        return -(best * mod)
+    return best
 
-    return 0
+def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, stats):
+    """Largest one-move protected-capture threat for this piece (only one capture per turn)."""
+    best = _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected=True)
+    if not best:
+        return 0
+    mod = SCORING_MODIFIERS["material"]
+    if side_to_move == 'b':
+        return best * mod
+    return -(best * mod)
+
+def _best_unprotected_capture_adjustment(board, row, col, piece, side_to_move, stats):
+    """Largest one-move unprotected-capture threat for this piece (only one capture per turn)."""
+    best = _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected=False)
+    if not best:
+        return 0
+    mod = SCORING_MODIFIERS["material"]
+    if side_to_move == 'b':
+        return best * mod
+    return -(best * mod)
 
 def _score_uncached(board, turn, castled, castled_white):
 
@@ -2287,6 +2310,7 @@ def _score_uncached(board, turn, castled, castled_white):
                           score += VALUES_white[piece] * SCORING_MODIFIERS["material"]
 
         score += _best_protected_capture_adjustment(board, row, col, piece, turn, stats)
+        score += _best_unprotected_capture_adjustment(board, row, col, piece, turn, stats)
     return round(score/5, 2)
 
 def score(board, turn):
