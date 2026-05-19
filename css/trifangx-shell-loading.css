@@ -1,0 +1,78 @@
+/* Full-page loading overlay for chess_engine.html / trifangx_live.html until bootstrap finishes. */
+.trifangx-shell-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  box-sizing: border-box;
+  background: rgba(240, 244, 248, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.trifangx-shell-loading-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.trifangx-shell-loading-spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(52, 152, 219, 0.18);
+  border-top-color: #3498db;
+  border-right-color: #2980b9;
+  animation: trifangx-shell-spin 0.9s linear infinite;
+  box-shadow: 0 0 24px rgba(52, 152, 219, 0.15);
+}
+
+.trifangx-shell-loading-text {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #5a6a7a;
+  letter-spacing: 0.01em;
+}
+
+.trifangx-shell-loading--hide {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.trifangx-shell-loading--gone {
+  display: none !important;
+}
+
+@keyframes trifangx-shell-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.page-theme-dark .trifangx-shell-loading,
+.page-theme-midnight .trifangx-shell-loading,
+.page-theme-space .trifangx-shell-loading {
+  background: rgba(15, 20, 28, 0.92);
+}
+
+.page-theme-dark .trifangx-shell-loading-text,
+.page-theme-midnight .trifangx-shell-loading-text,
+.page-theme-space .trifangx-shell-loading-text,
+.page-theme-cyber .trifangx-shell-loading-text {
+  color: rgba(236, 240, 241, 0.82);
+}
+
+.page-theme-dark .trifangx-shell-loading-spinner,
+.page-theme-midnight .trifangx-shell-loading-spinner {
+  border-color: rgba(236, 240, 241, 0.12);
+  border-top-color: #5dade2;
+  border-right-color: #3498db;
+}
