@@ -2767,8 +2767,10 @@ def score_king(board, row, col, color, stats):
 #                if board[row][col+2] == 'K':
 #                    score -= 1.5
 #                score -= (7-col)/15
-        if board[7][4] != 'k' and not stats["fake_castled"] and not castled:
+        if can_castle == False and not stats["fake_castled"] and not castled:
             score -= 2# * SCORING_MODIFIERS["king_safety_b"]
+        if not stats["fake_castled"] and not castled:
+            score -= 2
     else:
         if stats["endgame"]:
             if stats["white_pieces"] == 1:
@@ -2805,6 +2807,8 @@ def score_king(board, row, col, color, stats):
 #                score -= (7-col)/15
         if board[0][4] != 'K' and not stats["fake_castled_white"] and not castled_white:
             score += 2# * SCORING_MODIFIERS["king_safety_b"]
+        if not stats["fake_castled_white"] and not castled_white:
+            score += 2    
     return score
 
 def score_queen(board, row, col, color, stats):

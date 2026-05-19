@@ -4048,6 +4048,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    function isTrifangxChessShellPage() {
+      try {
+        const path = window.location.pathname || '';
+        return /chess_engine\.html|trifangx_live\.html/i.test(path);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function setTrifangxShellLoadingMessage(text) {
+      const msg = document.getElementById('trifangx-shell-loading-text');
+      if (msg && typeof text === 'string' && text.trim()) {
+        msg.textContent = text.trim();
+      }
+    }
+
+    function hideTrifangxShellLoading() {
+      const el = document.getElementById('trifangx-shell-loading');
+      if (!el || el.dataset.trifangxHiding === '1') return;
+      el.dataset.trifangxHiding = '1';
+      el.setAttribute('aria-busy', 'false');
+      el.classList.add('trifangx-shell-loading--hide');
+      window.setTimeout(function () {
+        el.classList.add('trifangx-shell-loading--gone');
+      }, 300);
+    }
+
     /** Board + theme classes only — no dropdown rebuild (fast path before Chessboard mounts). */
     function applyQuickBoardCosmeticsFromCloudOrStorage() {
       const settings =
@@ -4232,11 +4259,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const gameContainer = document.getElementById('game-container');
       const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
 
-      if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
-      if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
-      if (gameContainer) gameContainer.style.display = 'block';
-      updateChessPregameToolsVisibility();
-
       applyQuickBoardCosmeticsFromCloudOrStorage();
 
       let liveResumed = false;
@@ -4250,6 +4272,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         !isHistoryReplayMode &&
         (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
       ) {
+        setTrifangxShellLoadingMessage(
+          isLiveShell ? 'Restoring your game…' : 'Connecting to the engine…'
+        );
         liveResumed = await tryResumeLiveTrifangxFromSnapshot();
       }
 
@@ -4261,6 +4286,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         })
         .catch(function () {});
 
+      let showGameShell = false;
       if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
         const no = document.createElement('div');
         no.id = 'trifangx-live-empty';
@@ -4277,14 +4303,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } else {
           document.body.insertBefore(no, document.body.firstChild);
         }
-      } else if (
-        !liveResumed &&
-        (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
-      ) {
-        mountLobbyPreviewBoard();
+      } else {
+        showGameShell = true;
+        if (
+          !liveResumed &&
+          (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
+        ) {
+          setTrifangxShellLoadingMessage('Preparing the board…');
+          mountLobbyPreviewBoard();
+        }
       }
 
       if (pendingReplayIndex !== null) {
+        setTrifangxShellLoadingMessage('Loading saved game…');
         const idxToReplay = pendingReplayIndex;
         await playGameHistoryRecordAt(idxToReplay);
         try {
@@ -4292,27 +4323,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           u.searchParams.delete('replayIndex');
           window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
         } catch (eRp) {}
+        showGameShell = true;
       }
 
-      const btc = document.getElementById('board-timers-container');
-      if (btc && !(isTrifangxLiveDedicatedPage() && !liveResumed)) {
-        btc.style.display = 'flex';
+      if (showGameShell) {
+        if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
+        if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
+        if (gameContainer) gameContainer.style.display = 'block';
+        const btc = document.getElementById('board-timers-container');
+        if (btc) btc.style.display = 'flex';
       }
+
+      updateChessPregameToolsVisibility();
+      hideTrifangxShellLoading();
     }
 
  $(document).ready(async function() {
         console.log("The page has finished loading!");
 
-        (function showGameShellEarly() {
-          try {
-            const path = window.location.pathname || '';
-            if (!/chess_engine\.html|trifangx_live\.html/i.test(path)) return;
-            const gc = document.getElementById('game-container');
-            if (gc) gc.style.display = 'block';
-            const btc = document.getElementById('board-timers-container');
-            if (btc) btc.style.display = 'flex';
-          } catch (eEarly) {}
-        })();
+        if (isTrifangxChessShellPage()) {
+          setTrifangxShellLoadingMessage(
+            typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live'
+              ? 'Restoring your game…'
+              : 'Loading TrifangX…'
+          );
+        }
 
         (function bindGenericConfirmModal() {
           const ok = document.getElementById('generic-confirm-ok');
@@ -4368,9 +4403,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         
         // Load data from cloud (script.js already checked auth and will redirect if needed)
         console.log("Loading chess data from cloud...");
+        if (isTrifangxChessShellPage()) {
+          setTrifangxShellLoadingMessage('Loading your profile…');
+        }
         const loaded = await loadChessDataFromCloud();
         if (!loaded) {
           console.log("Failed to load data, redirect should happen...");
+          hideTrifangxShellLoading();
           if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
             try {
               window.parent.postMessage(
