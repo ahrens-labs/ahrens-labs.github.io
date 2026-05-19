@@ -437,6 +437,43 @@ _PENDING_MOVE_JOB_BY_GAME = {}  # game_id -> job_id
 _FRESH_START_SNAPSHOT_TEMPLATE = None
 _FRESH_START_SNAPSHOT_LOCK = threading.Lock()
 
+
+def _move_request_ply(data):
+    """Client chess.js history length for duplicate reload detection."""
+    hist = data.get('history')
+    if isinstance(hist, list):
+        return len(hist)
+    try:
+        return int(data.get('ply'))
+    except (TypeError, ValueError):
+        return None
+
+
+def _same_move_request(last_result, move_notation, color, request_ply):
+    if not last_result:
+        return False
+    if last_result.get('player_move') != move_notation:
+        return False
+    if last_result.get('reply_color') != color:
+        return False
+    if request_ply is not None and last_result.get('request_ply') != request_ply:
+        return False
+    return bool(last_result.get('move'))
+
+
+def _remember_completed_move_result(gid, move_notation, color, request_ply, out_move):
+    if not out_move:
+        return
+    with _GAMES_LOCK:
+        if gid in GAMES:
+            GAMES[gid]['last_move_result'] = {
+                'player_move': move_notation,
+                'reply_color': color,
+                'request_ply': request_ply,
+                'move': out_move,
+                'created': time.time(),
+            }
+
 ENGINE_STATE_KEYS = (
     'draws', 'fifty_move_rule', 'wins', 'castled', 'castled_white', 'dragon', 'middlegame', 'opening', 'endgame', 'bots',
     'fake_castled_black',
@@ -1229,7 +1266,7 @@ def _execute_move_core_locked(gid, snap, move_notation, color):
         return None, str(e)
 
 
-def _run_move_job(job_id, gid, snap, move_notation, color):
+def _run_move_job(job_id, gid, snap, move_notation, color, request_ply):
     """Background thread: run search (pool or inline), then publish result for /move_result."""
     err_text = None
     out_move = None
@@ -1240,6 +1277,8 @@ def _run_move_job(job_id, gid, snap, move_notation, color):
             _MOVE_BG_SEM.release()
         except ValueError:
             pass
+    if not err_text:
+        _remember_completed_move_result(gid, move_notation, color, request_ply, out_move)
     with _MOVE_JOBS_LOCK:
         rec = MOVE_JOBS.get(job_id)
         if not rec:
@@ -1263,6 +1302,9 @@ def get_move():
     gid = data.get('game_id')
     if not gid or not isinstance(gid, str):
         return jsonify({'error': 'game_id required'}), 400
+    move_notation = data.get('move')
+    color = data.get('color', 'white')
+    request_ply = _move_request_ply(data)
     with _GAMES_LOCK:
         if gid not in GAMES:
             return jsonify({'error': 'Unknown or expired game_id'}), 400
@@ -1273,6 +1315,10 @@ def get_move():
                 return jsonify({'error': 'username required for this game'}), 400
             if claimed != owner:
                 return jsonify({'error': 'Access denied'}), 403
+        last_result = GAMES[gid].get('last_move_result')
+        if _same_move_request(last_result, move_notation, color, request_ply):
+            GAMES[gid]['active_since'] = time.time()
+            return jsonify({'move': last_result['move'], 'dedup': True}), 200
         multiple_games = len(GAMES) > 1
         force_pool_move = os.environ.get('TRIFANGX_FORCE_MOVE_POOL') == '1'
         dedicated_ok = os.environ.get('TRIFANGX_DISABLE_DEDICATED_WORKERS') != '1'
@@ -1285,8 +1331,24 @@ def get_move():
         else:
             # Deep copy so a second overlapping /move cannot share the same dict while the first job runs.
             snap = _copy_engine_snapshot(GAMES[gid]['snapshot'])
-    move_notation = data.get('move')
-    color = data.get('color', 'white')
+
+    with _MOVE_JOBS_LOCK:
+        prev_jid = _PENDING_MOVE_JOB_BY_GAME.get(gid)
+        prev_rec = MOVE_JOBS.get(prev_jid) if prev_jid else None
+        if prev_rec and prev_rec.get('status') == 'pending':
+            if prev_rec.get('player_move') == move_notation and prev_rec.get('reply_color') == color:
+                return jsonify({
+                    'job_id': prev_jid,
+                    'status': 'pending',
+                    'poll': '/move_result/' + prev_jid,
+                    'dedup': True,
+                }), 202
+            return jsonify({
+                'error': (
+                    'Engine is still calculating your previous move; wait for it to finish '
+                    'before sending another.'
+                ),
+            }), 409
 
     if not _MOVE_BG_SEM.acquire(blocking=False):
         return jsonify({
@@ -1297,6 +1359,8 @@ def get_move():
     if not multiple_games and os.environ.get('TRIFANGX_SYNC_MOVE_SINGLE') == '1':
         try:
             out_move, err_text = _execute_move_core(gid, snap, move_notation, color)
+            if not err_text:
+                _remember_completed_move_result(gid, move_notation, color, request_ply, out_move)
             if err_text:
                 return jsonify({'error': err_text}), 500
             return jsonify({'move': out_move}), 200
@@ -1336,12 +1400,13 @@ def get_move():
             'error': None,
             'player_move': move_notation,
             'reply_color': color,
+            'request_ply': request_ply,
         }
         _PENDING_MOVE_JOB_BY_GAME[gid] = job_id
     try:
         t = threading.Thread(
             target=_run_move_job,
-            args=(job_id, gid, snap, move_notation, color),
+            args=(job_id, gid, snap, move_notation, color, request_ply),
             daemon=True,
         )
         t.start()
