@@ -157,6 +157,7 @@ const FALLBACK_DAILY_CHALLENGE_IDS = [
   'daily_rook_quiet_until_10',
   'daily_king_quiet_until_15',
   'daily_bishop_quiet_until_6',
+  'daily_crown_jewel',
 ];
 
 export function utcDateString(d) {
@@ -562,6 +563,11 @@ export const DAILY_CHALLENGE_CARD_INFO = {
   daily_rook_quiet_until_10: { name: '🏰 Rook Restraint', desc: 'Win without moving a rook until your 10th move or later.', points: 275 },
   daily_king_quiet_until_15: { name: '♔ King Safety', desc: 'Win without moving your king until your 15th move or later.', points: 300 },
   daily_bishop_quiet_until_6: { name: '♗ Bishop Delay', desc: 'Win without moving a bishop until your 6th move or later.', points: 265 },
+  daily_crown_jewel: {
+    name: '💎 The Crown Jewel',
+    desc: 'Win one flawless attacking game: deliver checkmate, lose no pieces, castle, and give at least 3 checks.',
+    points: 1000,
+  },
 };
 
 /** Short blurbs for plain-text fallback (subset; unknown IDs still listed by id). */

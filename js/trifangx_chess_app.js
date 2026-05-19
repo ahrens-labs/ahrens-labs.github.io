@@ -6519,6 +6519,27 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       { id: 'daily_bishop_quiet_until_6', name: '♗ Bishop Delay', desc: 'Win without moving a bishop until your 6th move or later.', points: 265, piece: 'b', minMove: 6 },
     ];
 
+    /** Rare capstone daily (#150) — multiple feats in a single win. */
+    const DAILY_SPECIAL_CHALLENGE_DEF = {
+      id: 'daily_crown_jewel',
+      name: '💎 The Crown Jewel',
+      desc: 'Win one flawless attacking game: deliver checkmate, lose no pieces, castle, and give at least 3 checks.',
+      points: 1000,
+    };
+
+    function evaluateCrownJewelDaily() {
+      if (!gameStats._isWinGameEnd || !gameStats._checkmatePiece) return false;
+      const piecesLost =
+        (gameStats.lostQueens || 0) + (gameStats.lostRooks || 0) +
+        (gameStats.lostBishops || 0) + (gameStats.lostKnights || 0) +
+        (gameStats.lostPawns || 0);
+      if (piecesLost > 0) return false;
+      if ((gameStats.castlingMoves || 0) < 1) return false;
+      const checksInGame = (gameStats.dailyStats && gameStats.dailyStats.maxChecksInGame) ||
+        gameStats.checksGiven || 0;
+      return checksInGame >= 3;
+    }
+
     function getCentralTimeParts(when) {
       const d = when instanceof Date ? when : new Date(when || Date.now());
       const parts = new Intl.DateTimeFormat('en-US', {
@@ -6620,6 +6641,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             if (bumpCompletedGameEndDaily(def.id)) changed = true;
           }
         }
+      }
+
+      if (evaluateCrownJewelDaily()) {
+        if (bumpCompletedGameEndDaily(DAILY_SPECIAL_CHALLENGE_DEF.id)) changed = true;
       }
 
       if (changed) {
@@ -9521,6 +9546,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
           },
         })),
+        {
+          id: DAILY_SPECIAL_CHALLENGE_DEF.id,
+          name: DAILY_SPECIAL_CHALLENGE_DEF.name,
+          desc: DAILY_SPECIAL_CHALLENGE_DEF.desc,
+          category: 'Daily',
+          points: DAILY_SPECIAL_CHALLENGE_DEF.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(DAILY_SPECIAL_CHALLENGE_DEF.id) ? 1 : 0, target: 1 };
+          },
+        },
         { id: 'daily_blindfold_rook_ranger', name: '👁️🏰 Blindfold Rook Ranger', desc: 'Make 6 rook moves in blindfold games today (board hidden)', category: 'Daily', points: 260, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 6 };
           resetDailyStatsIfNeeded();
@@ -11008,6 +11047,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_rook_quiet_until_10',
         'daily_king_quiet_until_15',
         'daily_bishop_quiet_until_6',
+        'daily_crown_jewel',
       ].concat(
         comboIds,
         'daily_blindfold_rook_ranger',
