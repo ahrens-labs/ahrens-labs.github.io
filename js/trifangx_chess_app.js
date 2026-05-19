@@ -1642,6 +1642,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (!snap || typeof snap.game_id !== 'string' || !snap.game_id.trim()) return 'none';
         if (snap.isFreshStart === true) return 'fresh';
         const rawMoves = Array.isArray(snap.moves) ? snap.moves : [];
+        const moveHist = Array.isArray(snap.moveHistory) ? snap.moveHistory : [];
+        if (rawMoves.length === 0 && moveHist.length === 0) return 'fresh';
         const fen =
           typeof snap.fen === 'string' && snap.fen.trim().length > 0 ? snap.fen.trim() : '';
         if (!rawMoves.length && !fen) return 'none';
@@ -2241,6 +2243,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     function persistTrifangxLiveSnapshot() {
       try {
+        if (!isTrifangxLiveDedicatedPage()) return;
+        if (sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1') return;
         if (!game || gameOver) return;
         const gid = getEngineGameId();
         if (!gid) return;
@@ -2321,7 +2325,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } catch (e) {}
         const gid = getEngineGameId();
 
-        if (isLockHolder && gid && trifangxLivePlayActiveInUrl()) {
+        const handoffPending =
+          sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1';
+        if (!handoffPending && isLockHolder && gid && trifangxLivePlayActiveInUrl()) {
           persistTrifangxLiveSnapshot();
         }
 
@@ -12171,12 +12177,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       _lastMySlotsFull = false;
       markEngineLockHeldByThisTab();
       startHeartbeat();
-      setTrifangxLivePlayUrl();
-      writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
-
       try {
         sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
       } catch (eHand) {}
+      writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
 
       try {
         window.location.replace(new URL('trifangx_live.html', window.location.href).href);

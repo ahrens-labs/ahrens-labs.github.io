@@ -6517,7 +6517,9 @@ def best_move_black(board, bots, en_passant):
     normalized_opening = normalize_pgn(opening_moves)
     if normalized_opening == '1. e4':
         best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
+        # e5, c5, d5, e6, c6
         best_option = random.choice(best_options)
+        best_option = (1, 2, 2, 2, 'P')
         previous_score = score(board, 'b')
         result_scores[best_option] = previous_score
     elif opening_moves != 'none':
