@@ -4075,6 +4075,91 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }, 300);
     }
 
+    function waitForTrifangxBoardPaint() {
+      return new Promise(function (resolve) {
+        trifangxAfterBoardPaint(resolve);
+      });
+    }
+
+    function waitForBoardPieceImages(rootEl, timeoutMs) {
+      return new Promise(function (resolve) {
+        const root = rootEl || document.getElementById('board');
+        if (!root) {
+          resolve();
+          return;
+        }
+        const imgs = root.querySelectorAll('img');
+        if (!imgs.length) {
+          resolve();
+          return;
+        }
+        let pending = 0;
+        let settled = false;
+        const finish = function () {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        const maxMs = typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 6000;
+        const timer = window.setTimeout(finish, maxMs);
+        imgs.forEach(function (img) {
+          if (img.complete && img.naturalWidth > 0) return;
+          pending++;
+          const done = function () {
+            pending--;
+            if (pending <= 0) {
+              window.clearTimeout(timer);
+              finish();
+            }
+          };
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true });
+        });
+        if (pending === 0) {
+          window.clearTimeout(timer);
+          finish();
+        }
+      });
+    }
+
+    /** Wait until chessboard.js has painted squares and piece images (lobby / live / replay). */
+    async function waitForTrifangxBoardReady() {
+      if (board && typeof board.resize === 'function') {
+        try {
+          board.resize();
+        } catch (eRs) {}
+      }
+      await waitForTrifangxBoardPaint();
+      const boardEl = document.getElementById('board');
+      await waitForBoardPieceImages(boardEl, 6000);
+      if (boardEl && !boardEl.querySelector('img')) {
+        await waitForTrifangxBoardPaint();
+        await new Promise(function (r) {
+          window.setTimeout(r, 48);
+        });
+        await waitForBoardPieceImages(boardEl, 4000);
+      }
+      if (board && typeof board.resize === 'function') {
+        try {
+          board.resize();
+        } catch (eRs2) {}
+      }
+      await waitForTrifangxBoardPaint();
+    }
+
+    function revealTrifangxGameShellUnderLoading(isLiveShell) {
+      const gameTitle = document.getElementById('game-title');
+      const chooseSide = document.getElementById('choose-side');
+      const gameContainer = document.getElementById('game-container');
+      if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
+      if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
+      if (gameContainer) gameContainer.style.display = 'block';
+      const btc = document.getElementById('board-timers-container');
+      if (btc) btc.style.display = 'flex';
+    }
+
+    let _lobbyDeferredStylesApplied = false;
+
     /** Board + theme classes only — no dropdown rebuild (fast path before Chessboard mounts). */
     function applyQuickBoardCosmeticsFromCloudOrStorage() {
       const settings =
@@ -4137,6 +4222,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function applyDeferredLobbyStyleAndSettings() {
+      if (_lobbyDeferredStylesApplied) return;
+      _lobbyDeferredStylesApplied = true;
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
 
       const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
@@ -4254,28 +4341,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex) {
-      const gameTitle = document.getElementById('game-title');
-      const chooseSide = document.getElementById('choose-side');
-      const gameContainer = document.getElementById('game-container');
       const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
+      const isLobbyShell = !isTrifangxLiveDedicatedPage();
+      const willTryLiveResume =
+        pendingReplayIndex === null &&
+        !isHistoryReplayMode &&
+        (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage());
 
       applyQuickBoardCosmeticsFromCloudOrStorage();
 
       let liveResumed = false;
+      let needsBoardReady = false;
+
       if (isTrifangxLiveDedicatedPage()) {
         try {
           sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
         } catch (eNav) {}
-      }
-      if (
-        pendingReplayIndex === null &&
-        !isHistoryReplayMode &&
-        (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
-      ) {
-        setTrifangxShellLoadingMessage(
-          isLiveShell ? 'Restoring your game…' : 'Connecting to the engine…'
-        );
-        liveResumed = await tryResumeLiveTrifangxFromSnapshot();
       }
 
       checkEngineStatus()
@@ -4286,7 +4367,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         })
         .catch(function () {});
 
-      let showGameShell = false;
+      if (willTryLiveResume) {
+        revealTrifangxGameShellUnderLoading(isLiveShell);
+        setTrifangxShellLoadingMessage(
+          isLiveShell ? 'Restoring your game…' : 'Connecting to the engine…'
+        );
+        liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+        if (liveResumed) {
+          needsBoardReady = true;
+        }
+      }
+
       if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
         const no = document.createElement('div');
         no.id = 'trifangx-live-empty';
@@ -4303,35 +4394,38 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } else {
           document.body.insertBefore(no, document.body.firstChild);
         }
-      } else {
-        showGameShell = true;
-        if (
-          !liveResumed &&
-          (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
-        ) {
-          setTrifangxShellLoadingMessage('Preparing the board…');
-          mountLobbyPreviewBoard();
-        }
+      } else if (
+        isLobbyShell &&
+        !liveResumed &&
+        pendingReplayIndex === null &&
+        !isHistoryReplayMode
+      ) {
+        revealTrifangxGameShellUnderLoading(isLiveShell);
+        applyDeferredLobbyStyleAndSettings();
+        setTrifangxShellLoadingMessage('Preparing the board…');
+        mountLobbyPreviewBoard();
+        needsBoardReady = true;
       }
 
       if (pendingReplayIndex !== null) {
+        revealTrifangxGameShellUnderLoading(isLiveShell);
+        if (!board) {
+          applyDeferredLobbyStyleAndSettings();
+          mountLobbyPreviewBoard();
+        }
         setTrifangxShellLoadingMessage('Loading saved game…');
-        const idxToReplay = pendingReplayIndex;
-        await playGameHistoryRecordAt(idxToReplay);
+        await playGameHistoryRecordAt(pendingReplayIndex);
         try {
           const u = new URL(window.location.href);
           u.searchParams.delete('replayIndex');
           window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
         } catch (eRp) {}
-        showGameShell = true;
+        needsBoardReady = true;
       }
 
-      if (showGameShell) {
-        if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
-        if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
-        if (gameContainer) gameContainer.style.display = 'block';
-        const btc = document.getElementById('board-timers-container');
-        if (btc) btc.style.display = 'flex';
+      if (needsBoardReady) {
+        setTrifangxShellLoadingMessage('Preparing the board…');
+        await waitForTrifangxBoardReady();
       }
 
       updateChessPregameToolsVisibility();
