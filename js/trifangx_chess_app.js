@@ -3986,8 +3986,293 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
     }
 
+    function trifangxScheduleDeferredTask(fn) {
+      const run = function () {
+        try {
+          fn();
+        } catch (e) {
+          console.warn('trifangxScheduleDeferredTask', e);
+        }
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(run, { timeout: 2000 });
+      } else {
+        setTimeout(run, 1);
+      }
+    }
+
+    function trifangxAfterBoardPaint(fn) {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(fn);
+        });
+      } else {
+        setTimeout(fn, 0);
+      }
+    }
+
+    /** Board + theme classes only — no dropdown rebuild (fast path before Chessboard mounts). */
+    function applyQuickBoardCosmeticsFromCloudOrStorage() {
+      const settings =
+        dataLoaded && cloudChessData && cloudChessData.settings ? cloudChessData.settings : {};
+      let boardStyle = settings.boardStyle || localStorage.getItem('chessboardStyle') || 'classic';
+      let pieceStyle = settings.pieceStyle || localStorage.getItem('chessPieceStyle') || 'classic';
+      if (dataLoaded && typeof isUnlocked === 'function') {
+        if (!isUnlocked('boards', boardStyle)) boardStyle = 'classic';
+        if (!isUnlocked('pieces', pieceStyle)) pieceStyle = 'classic';
+      }
+      currentPieceStyle = pieceStyle;
+      const boardElement = document.getElementById('board');
+      if (boardElement) {
+        boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
+        boardElement.classList.add('board-theme-' + boardStyle);
+      }
+      currentHighlightColor = settings.highlightColor || localStorage.getItem('highlightColor') || 'red';
+      currentArrowColor = settings.arrowColor || localStorage.getItem('arrowColor') || 'red';
+      applyHighlightColor(currentHighlightColor);
+      applyArrowColor(currentArrowColor);
+      const legalDot =
+        settings.legalMoveDotStyle || localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
+      applyLegalMoveDotStyle(legalDot);
+      currentPageTheme = settings.pageTheme || localStorage.getItem('pageTheme') || 'light';
+      currentMoveEffect = settings.moveEffect || localStorage.getItem('moveEffect') || 'default';
+      if (isLoggedIn && currentSessionId) {
+        applyPageTheme(currentPageTheme);
+      }
+      applyMoveEffect(currentMoveEffect);
+    }
+
+    function mountLobbyPreviewBoard() {
+      game = new Chess();
+      gameOver = false;
+      playerColor = 'white';
+      board = Chessboard('board', {
+        draggable: false,
+        position: 'start',
+        orientation: 'white',
+        snapSpeed: 50,
+        snapbackSpeed: 50,
+        appearSpeed: 0,
+        moveSpeed: 100,
+        trashSpeed: 50,
+        pieceTheme: pieceThemes[currentPieceStyle],
+      });
+      applyMoveEffect(currentMoveEffect);
+      const boardEl = document.getElementById('board');
+      if (boardEl) {
+        boardEl._rightClickHandlersInitialized = false;
+      }
+      ensureArrowOverlay();
+      trifangxAfterBoardPaint(function () {
+        const bel = document.getElementById('board');
+        if (bel) bel._rightClickHandlersInitialized = false;
+        ensureArrowOverlay();
+        initRightClickHandlers();
+      });
+    }
+
+    function applyDeferredLobbyStyleAndSettings() {
+      if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
+
+      const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
+      const bsEl = document.getElementById('board-style');
+      if (bsEl) {
+        if (!isUnlocked('boards', savedStyle)) {
+          localStorage.setItem('chessboardStyle', 'classic');
+          bsEl.value = 'classic';
+        } else {
+          bsEl.value = savedStyle;
+        }
+        changeBoardStyle();
+      }
+
+      const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
+      const psEl = document.getElementById('piece-style');
+      if (psEl) {
+        if (!isUnlocked('pieces', savedPieceStyle)) {
+          localStorage.setItem('chessPieceStyle', 'classic');
+          currentPieceStyle = 'classic';
+          psEl.value = 'classic';
+        } else {
+          currentPieceStyle = savedPieceStyle;
+          psEl.value = savedPieceStyle;
+        }
+      }
+
+      const unlocked = getUnlockedItems();
+      currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
+      currentArrowColor = localStorage.getItem('arrowColor') || 'red';
+      const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
+      if (!(unlocked.highlightColors || []).includes(currentHighlightColor) && currentHighlightColor !== 'red') {
+        currentHighlightColor = 'red';
+        localStorage.setItem('highlightColor', 'red');
+      }
+      if (!(unlocked.arrowColors || []).includes(currentArrowColor) && currentArrowColor !== 'red') {
+        currentArrowColor = 'red';
+        localStorage.setItem('arrowColor', 'red');
+      }
+      if (!(unlocked.legalMoveDots || []).includes(currentLegalDot) && currentLegalDot !== 'blue-circle') {
+        localStorage.setItem('legalMoveDotStyle', 'blue-circle');
+      }
+      applyHighlightColor(currentHighlightColor);
+      applyArrowColor(currentArrowColor);
+      applyLegalMoveDotStyle(currentLegalDot);
+
+      currentPageTheme = localStorage.getItem('pageTheme') || 'light';
+      currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
+      if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
+      if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
+      if (isLoggedIn && currentSessionId) {
+        applyPageTheme(currentPageTheme);
+      }
+      applyMoveEffect(currentMoveEffect);
+
+      if (unlocked.boards.length === 0) unlockItem('boards', 'classic');
+      if (unlocked.pieces.length === 0) unlockItem('pieces', 'classic');
+      if (!(unlocked.highlightColors || []).includes('red')) unlockItem('highlightColors', 'red');
+      if (!(unlocked.arrowColors || []).includes('red')) unlockItem('arrowColors', 'red');
+      if (!(unlocked.legalMoveDots || []).includes('blue-circle')) unlockItem('legalMoveDots', 'blue-circle');
+      if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
+      if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
+      if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
+
+      updateStyleDropdowns();
+
+      const savedTime = localStorage.getItem('timeControl') || 'none';
+      const tcSelect = document.getElementById('time-control');
+      if (tcSelect && (unlocked.timeControls || []).includes(savedTime)) {
+        tcSelect.value = savedTime;
+      }
+      if (tcSelect && !tcSelect.dataset.trifangxTcBound) {
+        tcSelect.dataset.trifangxTcBound = '1';
+        tcSelect.addEventListener('change', function () {
+          const v = this.value;
+          if (typeof isUnlocked === 'function' && isUnlocked('timeControls', v)) {
+            localStorage.setItem('timeControl', v);
+          }
+        });
+      }
+
+      const resetBtn = document.getElementById('reset-achievements-btn');
+      if (resetBtn && !resetBtn.dataset.trifangxBound && typeof resetAllAchievements === 'function') {
+        resetBtn.dataset.trifangxBound = '1';
+        resetBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          resetAllAchievements();
+        });
+      }
+    }
+
+    function loadDeferredSidebarStatsAndAchievements() {
+      const savedSound = localStorage.getItem('soundEnabled');
+      const soundEl = document.getElementById('sound-effects');
+      if (savedSound !== null && soundEl) {
+        soundEl.checked = savedSound === 'true';
+        soundEnabled = savedSound === 'true';
+      }
+      if (soundEl && !soundEl.dataset.trifangxBound) {
+        soundEl.dataset.trifangxBound = '1';
+        soundEl.addEventListener('change', function () {
+          soundEnabled = this.checked;
+          localStorage.setItem('soundEnabled', soundEnabled);
+        });
+      }
+      loadPlayerStats();
+      loadAchievements();
+      loadLifetimeStats();
+      updatePlayerStatsDisplay();
+      updateAchievementsDisplay();
+      updateTotalPoints();
+    }
+
+    async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex) {
+      const gameTitle = document.getElementById('game-title');
+      const chooseSide = document.getElementById('choose-side');
+      const gameContainer = document.getElementById('game-container');
+      const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
+
+      if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
+      if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
+      if (gameContainer) gameContainer.style.display = 'block';
+      updateChessPregameToolsVisibility();
+
+      applyQuickBoardCosmeticsFromCloudOrStorage();
+
+      let liveResumed = false;
+      if (isTrifangxLiveDedicatedPage()) {
+        try {
+          sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+        } catch (eNav) {}
+      }
+      if (
+        pendingReplayIndex === null &&
+        !isHistoryReplayMode &&
+        (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
+      ) {
+        liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+      }
+
+      checkEngineStatus()
+        .then(function () {
+          if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+            ensurePregameStatusPolling();
+          }
+        })
+        .catch(function () {});
+
+      if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
+        const no = document.createElement('div');
+        no.id = 'trifangx-live-empty';
+        no.setAttribute('role', 'status');
+        no.style.cssText =
+          'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
+        no.innerHTML =
+          '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
+          '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
+          '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
+        const btc = document.getElementById('board-timers-container');
+        if (btc && btc.parentNode) {
+          btc.parentNode.insertBefore(no, btc);
+        } else {
+          document.body.insertBefore(no, document.body.firstChild);
+        }
+      } else if (
+        !liveResumed &&
+        (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
+      ) {
+        mountLobbyPreviewBoard();
+      }
+
+      if (pendingReplayIndex !== null) {
+        const idxToReplay = pendingReplayIndex;
+        await playGameHistoryRecordAt(idxToReplay);
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('replayIndex');
+          window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+        } catch (eRp) {}
+      }
+
+      const btc = document.getElementById('board-timers-container');
+      if (btc && !(isTrifangxLiveDedicatedPage() && !liveResumed)) {
+        btc.style.display = 'flex';
+      }
+    }
+
  $(document).ready(async function() {
         console.log("The page has finished loading!");
+
+        (function showGameShellEarly() {
+          try {
+            const path = window.location.pathname || '';
+            if (!/chess_engine\.html|trifangx_live\.html/i.test(path)) return;
+            const gc = document.getElementById('game-container');
+            if (gc) gc.style.display = 'block';
+            const btc = document.getElementById('board-timers-container');
+            if (btc) btc.style.display = 'flex';
+          } catch (eEarly) {}
+        })();
 
         (function bindGenericConfirmModal() {
           const ok = document.getElementById('generic-confirm-ok');
@@ -4068,250 +4353,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           await bootstrapChessAchievementsPage();
           return;
         }
-        
-        // Make sure game UI is visible (lobby only: live page hides #choose-side / title via shell CSS)
-        const gameTitle = document.getElementById('game-title');
-        const chooseSide = document.getElementById('choose-side');
-        const gameContainer = document.getElementById('game-container');
-        const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
 
-        if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
-        if (chooseSide) chooseSide.style.display = isLiveShell ? 'none' : 'block';
-        if (gameContainer) gameContainer.style.display = 'block';
-        updateChessPregameToolsVisibility();
+        await bootstrapTrifangxGameShell(urlParams, pendingReplayIndex);
 
-        // Rebuild style <select>s from cloud unlocks *before* applying saved styles. Static HTML omits
-        // shop-only boards (e.g. season_awakening); assigning .value without a matching <option> leaves
-        // an invalid value so changeBoardStyle() reads '' and wrongly reports locked.
-        if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
-
-        // Load saved board style
-        const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
-        // Ensure saved style is unlocked, otherwise use classic (isUnlocked matches equipped settings via bridge)
-        if (!isUnlocked('boards', savedStyle)) {
-          localStorage.setItem('chessboardStyle', 'classic');
-          document.getElementById('board-style').value = 'classic';
-        } else {
-        document.getElementById('board-style').value = savedStyle;
-        }
-        changeBoardStyle();
-
-        // Load saved piece style
-        const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
-        // Ensure saved style is unlocked, otherwise use classic
-        if (!isUnlocked('pieces', savedPieceStyle)) {
-          localStorage.setItem('chessPieceStyle', 'classic');
-          currentPieceStyle = 'classic';
-          document.getElementById('piece-style').value = 'classic';
-        } else {
-        currentPieceStyle = savedPieceStyle;
-        document.getElementById('piece-style').value = savedPieceStyle;
-        }
-        
-        const unlocked = getUnlockedItems();
-        
-        // Load saved colors and apply theme
-        currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
-        currentArrowColor = localStorage.getItem('arrowColor') || 'red';
-        const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
-        if (!(unlocked.highlightColors || []).includes(currentHighlightColor) && currentHighlightColor !== 'red') {
-          currentHighlightColor = 'red';
-          localStorage.setItem('highlightColor', 'red');
-        }
-        if (!(unlocked.arrowColors || []).includes(currentArrowColor) && currentArrowColor !== 'red') {
-          currentArrowColor = 'red';
-          localStorage.setItem('arrowColor', 'red');
-        }
-        if (!(unlocked.legalMoveDots || []).includes(currentLegalDot) && currentLegalDot !== 'blue-circle') {
-          localStorage.setItem('legalMoveDotStyle', 'blue-circle');
-        }
-        applyHighlightColor(currentHighlightColor);
-        applyArrowColor(currentArrowColor);
-        applyLegalMoveDotStyle(currentLegalDot);
-
-        // Load saved page theme, move effect (but don't apply theme until logged in)
-        currentPageTheme = localStorage.getItem('pageTheme') || 'light';
-        currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
-        if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
-        if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
-        // Only apply theme if logged in
-        if (isLoggedIn && currentSessionId) {
-          applyPageTheme(currentPageTheme);
-        }
-        applyMoveEffect(currentMoveEffect);
-        
-        // Initialize unlocked items if needed
-        if (unlocked.boards.length === 0) {
-          unlockItem('boards', 'classic');
-        }
-        if (unlocked.pieces.length === 0) {
-          unlockItem('pieces', 'classic');
-        }
-        if (!(unlocked.highlightColors || []).includes('red')) {
-          unlockItem('highlightColors', 'red');
-        }
-        if (!(unlocked.arrowColors || []).includes('red')) {
-          unlockItem('arrowColors', 'red');
-        }
-        if (!(unlocked.legalMoveDots || []).includes('blue-circle')) {
-          unlockItem('legalMoveDots', 'blue-circle');
-        }
-        if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
-        if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
-        if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
-        
-        // Update dropdowns to only show unlocked items
-        updateStyleDropdowns();
-
-        // Restore saved time control if unlocked
-        const savedTime = localStorage.getItem('timeControl') || 'none';
-        const tcSelect = document.getElementById('time-control');
-        if (tcSelect && (unlocked.timeControls || []).includes(savedTime)) {
-          tcSelect.value = savedTime;
-        }
-        if (tcSelect) {
-          tcSelect.addEventListener('change', function() {
-            const v = this.value;
-            if (typeof isUnlocked === 'function' && isUnlocked('timeControls', v)) {
-              localStorage.setItem('timeControl', v);
-            }
-          });
-        }
-
-        // Reset all stats and achievements button (in Settings modal)
-        const resetBtn = document.getElementById('reset-achievements-btn');
-        if (resetBtn && typeof resetAllAchievements === 'function') {
-          resetBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            resetAllAchievements();
-          });
-        }
-
-        // Engine personality loading removed
-
-        let liveResumed = false;
-        if (isTrifangxLiveDedicatedPage()) {
-          try {
-            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
-          } catch (eNav) {}
-        }
-        if (
-          pendingReplayIndex === null &&
-          !isHistoryReplayMode &&
-          (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage())
-        ) {
-          liveResumed = await tryResumeLiveTrifangxFromSnapshot();
-        }
-
-        // Poll /status after any live resume attempt so this does not run before tryResume (reload-safe).
-        // Does not call stop/start; Start Game still acquires the slot.
-        checkEngineStatus()
-          .then(function () {
-            if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
-              ensurePregameStatusPolling();
-            }
-          })
-          .catch(function () {});
-
-        if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
-          const no = document.createElement('div');
-          no.id = 'trifangx-live-empty';
-          no.setAttribute('role', 'status');
-          no.style.cssText =
-            'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
-          no.innerHTML =
-            '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
-            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
-            '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
-          const btc = document.getElementById('board-timers-container');
-          if (btc && btc.parentNode) {
-            btc.parentNode.insertBefore(no, btc);
-          } else {
-            document.body.insertBefore(no, document.body.firstChild);
-          }
-        } else if (
-          !liveResumed &&
-          (pendingReplayIndex !== null || (!isTrifangxLiveDedicatedPage() && !isHistoryReplayMode))
-        ) {
-          // Initialize game object for preview board (or before ?replayIndex= applyHistory replay)
-          game = new Chess();
-          gameOver = false;
-          playerColor = "white"; // Default for preview
-
-          // Create preview board with dragging enabled
-          board = Chessboard('board', {
-            draggable: false,
-            position: 'start',
-            orientation: 'white',
-            snapSpeed: 50,
-            snapbackSpeed: 50,
-            appearSpeed: 0,
-            moveSpeed: 100,
-            trashSpeed: 50,
-            pieceTheme: pieceThemes[currentPieceStyle]
-          });
-          applyMoveEffect(currentMoveEffect);
-
-          // Reset right-click handler flag
-          const boardEl = document.getElementById('board');
-          if (boardEl) {
-            boardEl._rightClickHandlersInitialized = false;
-          }
-
-          // Ensure arrow overlay exists
-          ensureArrowOverlay();
-
-          // Initialize right-click handlers after board is created
-          setTimeout(() => {
-            const bel = document.getElementById('board');
-            if (bel) {
-              bel._rightClickHandlersInitialized = false; // Reset flag
-            }
-            ensureArrowOverlay(); // Ensure again after a delay
-            initRightClickHandlers();
-          }, 100);
-
-          console.log('Preview board created with config:', {
-            draggable: false
-          });
-        }
-
-        if (pendingReplayIndex !== null) {
-          const idxToReplay = pendingReplayIndex;
-          pendingReplayIndex = null;
-          await playGameHistoryRecordAt(idxToReplay);
-          try {
-            const u = new URL(window.location.href);
-            u.searchParams.delete('replayIndex');
-            window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
-          } catch (eRp) {}
-        }
-
-        if (!(isTrifangxLiveDedicatedPage() && !liveResumed)) {
-          document.getElementById('board-timers-container').style.display = 'flex';
-        }
-
-        // Load sound settings
-        const savedSound = localStorage.getItem('soundEnabled');
-        if (savedSound !== null) {
-          document.getElementById('sound-effects').checked = savedSound === 'true';
-          soundEnabled = savedSound === 'true';
-        }
-
-        // Add event listener for sound toggle
-        document.getElementById('sound-effects').addEventListener('change', function() {
-          soundEnabled = this.checked;
-          localStorage.setItem('soundEnabled', soundEnabled);
+        trifangxScheduleDeferredTask(function () {
+          applyDeferredLobbyStyleAndSettings();
+          loadDeferredSidebarStatsAndAchievements();
         });
-
-        // Load statistics and achievements
-        loadPlayerStats();
-        loadAchievements();
-        loadLifetimeStats();
-        updatePlayerStatsDisplay();
-        updateAchievementsDisplay();
-        updateTotalPoints();
 
         if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
           try {
@@ -11391,12 +11439,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
 
-      setTimeout(() => {
+      trifangxAfterBoardPaint(function () {
         ensureArrowOverlay();
         initRightClickHandlers();
-      }, 100);
+      });
 
-      setTimeout(() => {
+      trifangxAfterBoardPaint(function () {
         let mouseDownSquare = null;
 
         $('#board').off('.trifangxLiveCt').on('mousedown.trifangxLiveCt', function(e) {
@@ -11467,7 +11515,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           
           mouseDownSquare = null;
         });
-      }, 100);
+      });
 
       premoveJustSet = false;
       $(document)
@@ -11492,7 +11540,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           premoveJustSet = false;
         });
 
-      setTimeout(() => {
+      trifangxScheduleDeferredTask(function () {
         disconnectTrifangxImgDragObserver();
         $('#board img').off('dragstart.trifangxLiveImgDirect');
         $('#board img').on('dragstart.trifangxLiveImgDirect', function (e) {
@@ -11532,7 +11580,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           observer.observe(bel, { childList: true, subtree: true });
           window.__trifangxImgDragObserver = observer;
         }
-      }, 200);
+      });
 
       $('#board').on('dragstart.trifangxLiveDlg', 'img', function (e) {
         e.preventDefault();
@@ -11551,18 +11599,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       document.getElementById("achievements-panel").style.display = "block";
       document.getElementById("opening-display").style.display = "none";
       
-      // Load sound settings
-      soundEnabled = document.getElementById("sound-effects").checked;
-      
-      // Load and display statistics
-      loadPlayerStats();
-      loadAchievements();
-      loadLifetimeStats();
-      updatePlayerStatsDisplay();
-      updateAchievementsDisplay();
-      updateTotalPoints();
-      
-      // Initialize stats
+      const soundFxEl = document.getElementById('sound-effects');
+      if (soundFxEl) soundEnabled = soundFxEl.checked;
+
+      trifangxScheduleDeferredTask(function () {
+        loadDeferredSidebarStatsAndAchievements();
+      });
+
       updateGameStats();
       updateOpeningDisplay();
 
@@ -12917,11 +12960,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         currentUserId = localStorage.getItem('ahrenslabs_userId');
 
         hydrateChessCareerStateFromCloud(true);
-        await maybeRepairChessCareerFromCloud();
         resetDailyStatsIfNeeded();
+        trifangxScheduleDeferredTask(function () {
+          maybeRepairChessCareerFromCloud();
+        });
 
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
-          saveChessDataToCloud(true);
+          trifangxScheduleDeferredTask(function () {
+            saveChessDataToCloud(true);
+          });
         }
         
         // Update username display
