@@ -3542,18 +3542,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           ') .square-55d63.right-click-highlight.black-3c85d,\n#board :is(' +
           BT +
           ') div.right-click-highlight.black-3c85d';
-        const chW =
-          '#board .square-55d63.highlight-check.white-1e1d7,\n#board div.highlight-check.white-1e1d7,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-check.white-1e1d7,\n#board :is(' +
-          BT +
-          ') div.highlight-check.white-1e1d7';
-        const chB =
-          '#board .square-55d63.highlight-check.black-3c85d,\n#board div.highlight-check.black-3c85d,\n#board :is(' +
-          BT +
-          ') .square-55d63.highlight-check.black-3c85d,\n#board :is(' +
-          BT +
-          ') div.highlight-check.black-3c85d';
         const grad =
           'linear-gradient(90deg, rgba(255,0,0,0.48), rgba(255,127,0,0.48), rgba(255,255,0,0.48), rgba(0,255,0,0.48), rgba(0,0,255,0.48), rgba(75,0,130,0.48), rgba(148,0,211,0.48))';
         const rainbowBody =
@@ -3564,10 +3552,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           rcW +
           ',\n' +
           rcB +
-          ',\n' +
-          chW +
-          ',\n' +
-          chB +
           ' {\n  ' +
           rainbowBody +
           '\n}\n';
