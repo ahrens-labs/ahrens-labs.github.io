@@ -1633,6 +1633,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
 
+    /** `'fresh'` = lobby Start Game handoff; `'resume'` = reload mid-game; `'none'` = no valid snapshot. */
+    function peekTrifangxLiveSnapshotKind() {
+      try {
+        const raw = sessionStorage.getItem(TRIFANGX_LIVE_SNAPSHOT_KEY);
+        if (!raw) return 'none';
+        const snap = JSON.parse(raw);
+        if (!snap || typeof snap.game_id !== 'string' || !snap.game_id.trim()) return 'none';
+        if (snap.isFreshStart === true) return 'fresh';
+        const rawMoves = Array.isArray(snap.moves) ? snap.moves : [];
+        const fen =
+          typeof snap.fen === 'string' && snap.fen.trim().length > 0 ? snap.fen.trim() : '';
+        if (!rawMoves.length && !fen) return 'none';
+        return 'resume';
+      } catch (e) {
+        return 'none';
+      }
+    }
+
+    function getTrifangxLiveHandoffLoadingMessage() {
+      const kind = peekTrifangxLiveSnapshotKind();
+      if (kind === 'fresh') return 'Starting your game…';
+      if (kind === 'resume') return 'Restoring your game…';
+      return 'Loading TrifangX…';
+    }
+
     function normalizeLobbyPlayerColor(raw) {
       const s = String(raw || '')
         .trim()
@@ -4379,9 +4404,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
       if (willTryLiveResume) {
         revealTrifangxGameShellUnderLoading(isLiveShell);
-        setTrifangxShellLoadingMessage(
-          isLiveShell ? 'Restoring your game…' : 'Connecting to the engine…'
-        );
+        setTrifangxShellLoadingMessage(getTrifangxLiveHandoffLoadingMessage());
         liveResumed = await tryResumeLiveTrifangxFromSnapshot();
         if (liveResumed) {
           needsBoardReady = true;
@@ -4448,7 +4471,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (isTrifangxChessShellPage()) {
           setTrifangxShellLoadingMessage(
             typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live'
-              ? 'Restoring your game…'
+              ? getTrifangxLiveHandoffLoadingMessage()
               : 'Loading TrifangX…'
           );
         }
