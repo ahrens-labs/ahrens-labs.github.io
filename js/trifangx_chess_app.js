@@ -1625,11 +1625,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     /** Server-issued UUID for this tab's TrifangX session (multi-game API). */
     const ENGINE_GAME_ID_KEY = 'trifangx_engine_game_id';
     /** Persisted mid-game state for reload (trifangx_live.html or ?txlive=1): game_id, FEN, moves, clocks, gameStats. */
+    const TRIFANGX_START_FEN =
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     const TRIFANGX_LIVE_SNAPSHOT_KEY = 'trifangx_live_snapshot';
     /** URL flag for an in-progress engine game (legacy; primary flow uses `trifangx_live.html`). */
     const TRIFANGX_LIVE_URL_PARAM = 'txlive';
     /** Set only immediately before `location.replace(trifangx_live.html)` so lobby pagehide does not /stop mid-handoff. */
     const TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY = 'trifangx_live_handoff_pending';
+
+    function normalizeLobbyPlayerColor(raw) {
+      const s = String(raw || '')
+        .trim()
+        .toLowerCase();
+      return s === 'black' ? 'black' : 'white';
+    }
 
     /** Read lobby controls before navigating to trifangx_live.html (Start Game handoff). */
     function readLobbyStartOptionsFromDom() {
@@ -1645,7 +1654,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         timeOption === 'none' ? [null, null] : timeOption.split('|').map(Number);
       const timeLimited = timeOption !== 'none';
       return {
-        playerColor: resolvedColor === 'black' ? 'black' : 'white',
+        playerColor: normalizeLobbyPlayerColor(resolvedColor),
         timeOption,
         blindfoldMode: !!(blindEl && blindEl.checked),
         showHistoryInBlindfold: !!(histEl && histEl.checked),
@@ -1657,14 +1666,42 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       };
     }
 
+    /** Apply #color-select to `playerColor` and flip the lobby preview board when present. */
+    function applyLobbyPlayerSideFromDom() {
+      const opts = readLobbyStartOptionsFromDom();
+      playerColor = opts.playerColor;
+      const sideEl = document.getElementById('color-select');
+      if (sideEl) {
+        if (sideEl.value === 'random') {
+          sideEl.value = playerColor;
+        }
+      }
+      if (board && typeof board.orientation === 'function') {
+        try {
+          board.orientation(playerColor);
+        } catch (eO) {}
+      }
+      return opts;
+    }
+
+    function bindLobbySideSelect() {
+      const sideEl = document.getElementById('color-select');
+      if (!sideEl || sideEl.dataset.trifangxSideBound) return;
+      sideEl.dataset.trifangxSideBound = '1';
+      sideEl.addEventListener('change', function () {
+        applyLobbyPlayerSideFromDom();
+        if (typeof setupTimerDisplayOrder === 'function') setupTimerDisplayOrder();
+      });
+    }
+
     /** Persist a fresh game for tryResumeLiveTrifangxFromSnapshot on trifangx_live.html after lobby Start Game. */
     function writeFreshLiveHandoffSnapshot(gameId, opts) {
       if (!gameId || !opts) return;
-      let fen = '';
+      let fen = TRIFANGX_START_FEN;
       try {
-        fen = new Chess().fen();
+        fen = new Chess().fen() || TRIFANGX_START_FEN;
       } catch (e) {
-        fen = '';
+        fen = TRIFANGX_START_FEN;
       }
       const snap = {
         v: 2,
@@ -4043,13 +4080,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function mountLobbyPreviewBoard() {
+      bindLobbySideSelect();
+      const lobbySide = applyLobbyPlayerSideFromDom();
       game = new Chess();
       gameOver = false;
-      playerColor = 'white';
       board = Chessboard('board', {
         draggable: false,
         position: 'start',
-        orientation: 'white',
+        orientation: lobbySide.playerColor,
         snapSpeed: 50,
         snapbackSpeed: 50,
         appearSpeed: 0,
@@ -4152,6 +4190,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           }
         });
       }
+
+      bindLobbySideSelect();
 
       const resetBtn = document.getElementById('reset-achievements-btn');
       if (resetBtn && !resetBtn.dataset.trifangxBound && typeof resetAllAchievements === 'function') {
@@ -11676,11 +11716,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const gid = snap && typeof snap.game_id === 'string' ? snap.game_id.trim() : '';
         const rawMoves = snap && Array.isArray(snap.moves) ? snap.moves : [];
         const fen =
-          snap && typeof snap.fen === 'string' && snap.fen.trim().length > 0 ? snap.fen.trim() : '';
+          snap && typeof snap.fen === 'string' && snap.fen.trim().length > 0
+            ? snap.fen.trim()
+            : snap && snap.isFreshStart
+              ? TRIFANGX_START_FEN
+              : '';
         if (!snap || !gid) {
           return false;
         }
-        if (rawMoves.length === 0 && !fen) {
+        if (!snap.isFreshStart && rawMoves.length === 0 && !fen) {
           return false;
         }
 
@@ -11724,7 +11768,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           pgTools.style.display = 'none';
         }
 
-        playerColor = snap.playerColor === 'black' ? 'black' : 'white';
+        playerColor = normalizeLobbyPlayerColor(snap.playerColor);
+        const sideElResume = document.getElementById('color-select');
+        if (sideElResume) {
+          sideElResume.value = playerColor;
+        }
         timeLimited = !!snap.timeLimited;
         increment = snap.increment != null ? Number(snap.increment) : 0;
         whiteTime = snap.whiteTime != null ? snap.whiteTime : 0;
@@ -11900,6 +11948,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       const lobbyOpts = readLobbyStartOptionsFromDom();
+      playerColor = lobbyOpts.playerColor;
+      timeLimited = !!lobbyOpts.timeLimited;
+      increment = lobbyOpts.increment;
+      whiteTime = lobbyOpts.whiteTime;
+      blackTime = lobbyOpts.blackTime;
+      blindfoldMode = lobbyOpts.blindfoldMode;
+      showHistoryInBlindfold = lobbyOpts.showHistoryInBlindfold;
+      currentTimeControl = lobbyOpts.currentTimeControl;
 
       resetStaleEngineSessionFlag();
       let startData;
