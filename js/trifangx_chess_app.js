@@ -760,6 +760,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e) {}
     }
     
+    function bumpDailyGameStartedForPlayerColor() {
+      if (!lifetimeStats || !lifetimeStats.dailyStats) return;
+      resetDailyStatsIfNeeded();
+      if (playerColor === 'black') {
+        lifetimeStats.dailyStats.gamesStartedAsBlackToday =
+          (lifetimeStats.dailyStats.gamesStartedAsBlackToday || 0) + 1;
+      }
+    }
+
     function trackWinStats(moveCount, checkmatePiece = null) {
       gameStats._isWinGameEnd = true;
       // Track wins by time control
@@ -6435,6 +6444,27 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       { id: 'daily_duo_rc7_qc2', name: '🏰 Seventh Echo', desc: 'Rook c7 and queen c2 in the same game.', points: 230, legs: [['r', 'c7'], ['q', 'c2']], mode: 'none' },
       { id: 'daily_duo_nf3_bc4', name: '🍝 Italian Pair', desc: 'Knight f3 and bishop c4 in the same game.', points: 210, legs: [['n', 'f3'], ['b', 'c4']], mode: 'none' },
       { id: 'daily_duo_pd4_pe4', name: '📌 Central Pawns', desc: 'Pawn to d4 and pawn to e4 in the same game.', points: 225, legs: [['p', 'd4'], ['p', 'e4']], mode: 'none' },
+      // Black-favorable routes (natural second-player squares on ranks 5–7)
+      { id: 'daily_triad_pe5_nf6_be7', name: '🐴 French Triangle', desc: 'Pawn e5, knight f6, bishop e7 in one game.', points: 275, legs: [['p', 'e5'], ['n', 'f6'], ['b', 'e7']], mode: 'none' },
+      { id: 'daily_triad_pg6_nf6_bg7', name: '🦁 King\'s Indian Shell', desc: 'Pawn g6, knight f6, bishop g7 in one game.', points: 280, legs: [['p', 'g6'], ['n', 'f6'], ['b', 'g7']], mode: 'none' },
+      { id: 'daily_triad_pd5_nc6_qb6', name: '♟️ Nimzo Queue', desc: 'Pawn d5, knight c6, queen b6 in one game.', points: 285, legs: [['p', 'd5'], ['n', 'c6'], ['q', 'b6']], mode: 'none' },
+      { id: 'daily_triad_pe6_nf6_be7', name: '🏛️ Caro Stack', desc: 'Pawn e6, knight f6, bishop e7 in one game.', points: 270, legs: [['p', 'e6'], ['n', 'f6'], ['b', 'e7']], mode: 'none' },
+      { id: 'daily_triad_pc6_nd7_qb6', name: '🌀 Queenside Nest', desc: 'Pawn c6, knight d7, queen b6 in one game.', points: 275, legs: [['p', 'c6'], ['n', 'd7'], ['q', 'b6']], mode: 'none' },
+      { id: 'daily_triad_pa6_bg7_nf6', name: '🌙 Queen\'s Indian Veil', desc: 'Pawn a6, bishop g7, knight f6 in one game.', points: 285, legs: [['p', 'a6'], ['b', 'g7'], ['n', 'f6']], mode: 'none' },
+      { id: 'daily_triad_pd6_nc6_bf5', name: '🗡️ Old Indian Spike', desc: 'Pawn d6, knight c6, bishop f5 in one game.', points: 280, legs: [['p', 'd6'], ['n', 'c6'], ['b', 'f5']], mode: 'none' },
+      { id: 'daily_triad_pc5_bb6_qc7', name: '🌊 Slav Mirror', desc: 'Pawn c5, bishop b6, queen c7 in one game.', points: 285, legs: [['p', 'c5'], ['b', 'b6'], ['q', 'c7']], mode: 'none' },
+      { id: 'daily_triad_pf6_ng7_be5', name: '🏯 Leningrad Wall', desc: 'Pawn f6, knight g7, bishop e5 in one game.', points: 290, legs: [['p', 'f6'], ['n', 'g7'], ['b', 'e5']], mode: 'none' },
+      { id: 'daily_triad_pe7_ng6_bf5', name: '🛡️ Hedgehog Lite', desc: 'Pawn e7, knight g6, bishop f5 in one game.', points: 275, legs: [['p', 'e7'], ['n', 'g6'], ['b', 'f5']], mode: 'none' },
+      { id: 'daily_triad_pg5_nf6_bg7', name: '⚡ Benoni Burst', desc: 'Pawn g5, knight f6, bishop g7 in one game.', points: 280, legs: [['p', 'g5'], ['n', 'f6'], ['b', 'g7']], mode: 'none' },
+      { id: 'daily_triad_pa5_nc6_qa5', name: '🎯 Queenside Pinch', desc: 'Pawn a5, knight c6, queen a5 in one game.', points: 270, legs: [['p', 'a5'], ['n', 'c6'], ['q', 'a5']], mode: 'none' },
+      { id: 'daily_duo_nf6_bg7', name: '🦁 KID Pair', desc: 'Knight f6 and bishop g7 in the same game.', points: 215, legs: [['n', 'f6'], ['b', 'g7']], mode: 'none' },
+      { id: 'daily_duo_pe5_nc6', name: '⚔️ Open Counter', desc: 'Pawn e5 and knight c6 in the same game.', points: 210, legs: [['p', 'e5'], ['n', 'c6']], mode: 'none' },
+      { id: 'daily_duo_pd5_nf6', name: '🏁 d5 Anchor', desc: 'Pawn d5 and knight f6 in the same game.', points: 205, legs: [['p', 'd5'], ['n', 'f6']], mode: 'none' },
+      { id: 'daily_bf_pg6_nf6_bg7', name: '👁️ Blind KID', desc: 'Blindfold: pawn g6, knight f6, bishop g7 in one game.', points: 325, legs: [['p', 'g6'], ['n', 'f6'], ['b', 'g7']], mode: 'blindfold' },
+      { id: 'daily_bf_pe5_nf6_be7', name: '👁️ Blind French', desc: 'Blindfold: pawn e5, knight f6, bishop e7 in one game.', points: 320, legs: [['p', 'e5'], ['n', 'f6'], ['b', 'e7']], mode: 'blindfold' },
+      { id: 'daily_bf_pd5_nc6_qb6', name: '👁️ Blind Queenside', desc: 'Blindfold: pawn d5, knight c6, queen b6 in one game.', points: 330, legs: [['p', 'd5'], ['n', 'c6'], ['q', 'b6']], mode: 'blindfold' },
+      { id: 'daily_pure_pe5_nf6_be7', name: '🌑 Pure French', desc: 'Pure blindfold: pawn e5, knight f6, bishop e7.', points: 385, legs: [['p', 'e5'], ['n', 'f6'], ['b', 'e7']], mode: 'pure' },
+      { id: 'daily_pure_pg6_nf6_bg7', name: '🌑 Pure KID', desc: 'Pure blindfold: pawn g6, knight f6, bishop g7.', points: 390, legs: [['p', 'g6'], ['n', 'f6'], ['b', 'g7']], mode: 'pure' },
     ];
 
     function bumpVerifiableComboDailies(pieceType, target, ctx) {
@@ -7798,6 +7828,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       premoves = [];
       selectedSquare = null;
       resetGameStats();
+      bumpDailyGameStartedForPlayerColor();
       
       // Reset UI
       document.getElementById("move-timer-container").innerHTML = 'Time for this move: <span id="timer">00:00.00</span>';
@@ -8938,6 +8969,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
           resetDailyStatsIfNeeded();
           return { current: Math.min(2, lifetimeStats.dailyStats.winsAsBlackToday || 0), target: 2 };
+        }},
+        { id: 'daily_black_win', name: '⚫ Black Victory', desc: 'Win 1 game as Black today', category: 'Daily', points: 180, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+          resetDailyStatsIfNeeded();
+          return { current: Math.min(1, lifetimeStats.dailyStats.winsAsBlackToday || 0), target: 1 };
+        }},
+        { id: 'daily_play_as_black', name: '⚫ Black Session', desc: 'Start 2 games as Black today', category: 'Daily', points: 160, isDaily: true, progress: () => {
+          if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 2 };
+          resetDailyStatsIfNeeded();
+          return {
+            current: Math.min(2, lifetimeStats.dailyStats.gamesStartedAsBlackToday || 0),
+            target: 2,
+          };
         }},
         
         // Daily Achievements - UNIQUE AND CREATIVE CHALLENGES
@@ -10668,6 +10712,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_piece_hunter',          // 24 captures today
         'daily_white_duo',             // 2 wins as White today
         'daily_black_duo',             // 2 wins as Black today
+        'daily_black_win',             // 1 win as Black today
+        'daily_play_as_black',         // Start 2 games as Black today
         // UNIQUE AND CREATIVE DAILY CHALLENGES
         'daily_blindfold_knight',      // Make 7 knight moves in pure blindfold (no history)
         'daily_pawn_promotion_chain',  // 5 promotions today
@@ -10800,6 +10846,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         gamesWonToday: 0,
         winsAsWhiteToday: 0,
         winsAsBlackToday: 0,
+        gamesStartedAsBlackToday: 0,
         quickWinsToday: 0,
         fastWins30Today: 0,
         kingMovesToday: 0,
@@ -12070,6 +12117,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           } else {
             lifetimeStats.gamesAsBlack = (lifetimeStats.gamesAsBlack || 0) + 1;
           }
+          bumpDailyGameStartedForPlayerColor();
           saveLifetimeStats();
           if (typeof closeShop === 'function') closeShop();
           if (typeof closeSettings === 'function') closeSettings();

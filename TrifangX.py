@@ -1919,9 +1919,16 @@ def evaluate_for_modifiers(board, SCORING_MODIFIERS):
 # NOTE: `_score_uncached` is the original (expensive) implementation. A cached
 # wrapper `score()` is defined right after it.
 
-def _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected):
+def _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected, own_piece=False):
     """Largest material value for one capture this piece can make on the next move."""
-    if side_to_move == 'b' and piece in {'N', 'B', 'R', 'Q'}:
+    if own_piece:
+        if side_to_move == 'b' and piece in {'n', 'b', 'r', 'q'}:
+            attacker_color = 'b'
+        elif side_to_move == 'w' and piece in {'N', 'B', 'R', 'Q'}:
+            attacker_color = 'w'
+        else:
+            return 0
+    elif side_to_move == 'b' and piece in {'N', 'B', 'R', 'Q'}:
         attacker_color = 'w'
     elif side_to_move == 'w' and piece in {'n', 'b', 'r', 'q'}:
         attacker_color = 'b'
@@ -1935,7 +1942,7 @@ def _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, re
         return 0
 
     best = 0
-    if side_to_move == 'b':
+    if attacker_color == 'w':
         for direction in WHITE_PAWN_CAPTURE_DELTAS:
             new_row = row + direction[0]
             new_col = col + direction[1]
@@ -2041,7 +2048,9 @@ def _best_protected_capture_adjustment(board, row, col, piece, side_to_move, sta
 
 def _best_unprotected_capture_adjustment(board, row, col, piece, side_to_move, stats):
     """Largest one-move unprotected-capture threat for this piece (only one capture per turn)."""
-    best = _best_one_move_capture_value(board, row, col, piece, side_to_move, stats, require_protected=False)
+    best = _best_one_move_capture_value(
+        board, row, col, piece, side_to_move, stats, require_protected=False, own_piece=True
+    )
     if not best:
         return 0
     mod = SCORING_MODIFIERS["material"]
