@@ -729,7 +729,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           rookMovesInBlindfoldToday: 0,
           queenMovesInBlindfoldToday: 0,
           pawnMovesInPureBlindfoldToday: 0,
-          castledByMove12ThisGame: false
+          castledByMove12ThisGame: false,
+          pieceFirstMovePl: {}
         }
       };
     }
@@ -829,6 +830,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       // Track checkmate piece
       if (checkmatePiece) {
+        gameStats._checkmatePiece = checkmatePiece;
         const pieceType = checkmatePiece.toLowerCase();
         if (pieceType === 'n') lifetimeStats.checkmateWithKnight = (lifetimeStats.checkmateWithKnight || 0) + 1;
         else if (pieceType === 'b') lifetimeStats.checkmateWithBishop = (lifetimeStats.checkmateWithBishop || 0) + 1;
@@ -1227,6 +1229,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lifetimeStats.dailyStats.gamesCastledByMove12Today = (lifetimeStats.dailyStats.gamesCastledByMove12Today || 0) + 1;
       }
 
+      evaluateGameEndDailyChallenges();
+
       saveLifetimeStats();
       // Reset gameStats after committing
       resetGameStats();
@@ -1413,6 +1417,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       "e4 e5 Nf3 Nf6": "Petrov's Defense (Russian Game)",
       "e4 c5": "Sicilian Defense",
       "e4 c5 Nf3 d6": "Sicilian Defense: Open Variation",
+      "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3": "Sicilian Defense: Open Variation",
       "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6": "Sicilian Defense: Najdorf Variation",
       "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6": "Sicilian Defense: Dragon Variation",
       "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 e6": "Sicilian Defense: Scheveningen Variation",
@@ -6467,6 +6472,166 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       { id: 'daily_pure_pg6_nf6_bg7', name: '🌑 Pure KID', desc: 'Pure blindfold: pawn g6, knight f6, bishop g7.', points: 390, legs: [['p', 'g6'], ['n', 'f6'], ['b', 'g7']], mode: 'pure' },
     ];
 
+    /** Finish time windows — all times America/Chicago (Central). */
+    const DAILY_TIME_WINDOW_DEFS = [
+      { id: 'daily_finish_early_bird_ct', name: '🐦 Early Bird (CT)', desc: 'Finish a game before 7:00 AM Central Time.', points: 220, match: (t) => t.hour < 7 },
+      { id: 'daily_finish_before_10am_ct', name: '🌅 Morning Finish (CT)', desc: 'Finish a game before 10:00 AM Central Time.', points: 210, match: (t) => t.hour < 10 },
+      { id: 'daily_finish_lunch_ct', name: '🥪 Lunch Break (CT)', desc: 'Finish a game between 1:00 PM and 2:00 PM Central Time.', points: 230, match: (t) => t.hour === 13 },
+      { id: 'daily_finish_afternoon_ct', name: '☀️ Afternoon Session (CT)', desc: 'Finish a game between 3:00 PM and 5:00 PM Central Time.', points: 215, match: (t) => t.hour >= 15 && t.hour < 17 },
+      { id: 'daily_finish_night_owl_ct', name: '🦉 Night Owl (CT)', desc: 'Finish a game after 9:00 PM Central Time.', points: 225, match: (t) => t.hour >= 21 },
+    ];
+
+    /** End-of-game board requirements (player pieces on listed squares). */
+    const DAILY_END_POSITION_DEFS = [
+      { id: 'daily_end_queen_home', name: '👑 Queen Home', desc: 'Finish a game with your queen still on d1 (White) or d8 (Black).', points: 240, squares: (pc) => [pc === 'white' ? 'd1' : 'd8'], piece: 'q' },
+      { id: 'daily_end_castled_king', name: '🏠 Castled King', desc: 'Finish with your king on g1 or c1 (White) or g8 or c8 (Black).', points: 250, squares: (pc) => (pc === 'white' ? ['g1', 'c1'] : ['g8', 'c8']), piece: 'k' },
+      { id: 'daily_end_center_knight', name: '🎯 Center Knight', desc: 'Finish with your knight on d4, e4, d5, or e5.', points: 235, squares: () => ['d4', 'e4', 'd5', 'e5'], piece: 'n' },
+      { id: 'daily_end_corner_rook', name: '🏰 Corner Rook', desc: 'Finish with a rook on a1 or h1 (White) or a8 or h8 (Black).', points: 245, squares: (pc) => (pc === 'white' ? ['a1', 'h1'] : ['a8', 'h8']), piece: 'r' },
+      { id: 'daily_end_light_bishop_home', name: '♗ Light Bishop Home', desc: 'Finish with your light-squared bishop on f1 (White) or f8 (Black).', points: 230, squares: (pc) => [pc === 'white' ? 'f1' : 'f8'], piece: 'b' },
+    ];
+
+    /** Opening lines — bookPrefix must match openingBook; engine plays from TrifangX.py openings list. */
+    const DAILY_OPENING_CHALLENGE_DEFS = [
+      { id: 'daily_opening_italian', name: '🇮🇹 Italian Game', desc: 'Play the Italian Game today (engine follows the book): 1.e4 e5 2.Nf3 Nc6 3.Bc4', points: 260, bookPrefix: 'e4 e5 Nf3 Nc6 Bc4', movesDisplay: '1.e4 e5 2.Nf3 Nc6 3.Bc4', openingName: 'Italian Game' },
+      { id: 'daily_opening_roy_lopez', name: '🇪🇸 Ruy Lopez', desc: 'Play the Ruy Lopez today (engine follows the book): 1.e4 e5 2.Nf3 Nc6 3.Bb5', points: 270, bookPrefix: 'e4 e5 Nf3 Nc6 Bb5', movesDisplay: '1.e4 e5 2.Nf3 Nc6 3.Bb5', openingName: 'Ruy Lopez (Spanish Opening)' },
+      { id: 'daily_opening_sicilian', name: '🐉 Sicilian Main Line', desc: 'Play this Sicilian line today (engine follows the book): 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3', points: 290, bookPrefix: 'e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3', movesDisplay: '1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3', openingName: 'Sicilian Defense: Open Variation' },
+      { id: 'daily_opening_kings_indian', name: '🦁 King\'s Indian', desc: 'Play the King\'s Indian Classical today (engine follows the book): 1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6', points: 285, bookPrefix: 'd4 Nf6 c4 g6 Nc3 Bg7 e4 d6', movesDisplay: '1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6', openingName: 'King\'s Indian Defense: Classical Variation' },
+      { id: 'daily_opening_qgd', name: '♛ Queen\'s Gambit Declined', desc: 'Play the Queen\'s Gambit Declined today (engine follows the book): 1.d4 d5 2.c4 e6', points: 255, bookPrefix: 'd4 d5 c4 e6', movesDisplay: '1.d4 d5 2.c4 e6', openingName: 'Queen\'s Gambit Declined' },
+      { id: 'daily_opening_french', name: '🇫🇷 French Classical', desc: 'Play the French Classical today (engine follows the book): 1.e4 e6 2.d4 d5 3.Nc3', points: 265, bookPrefix: 'e4 e6 d4 d5 Nc3', movesDisplay: '1.e4 e6 2.d4 d5 3.Nc3', openingName: 'French Defense: Classical Variation' },
+      { id: 'daily_opening_caro_kann', name: '🏛️ Caro-Kann Classical', desc: 'Play the Caro-Kann Classical today (engine follows the book): 1.e4 c6 2.d4 d5 3.Nc3', points: 265, bookPrefix: 'e4 c6 d4 d5 Nc3', movesDisplay: '1.e4 c6 2.d4 d5 3.Nc3', openingName: 'Caro-Kann Defense: Classical Variation' },
+      { id: 'daily_opening_scandinavian', name: '🛡️ Scandinavian Main', desc: 'Play the Scandinavian Main Line today (engine follows the book): 1.e4 d5 2.exd5 Qxd5', points: 275, bookPrefix: 'e4 d5 exd5 Qxd5', movesDisplay: '1.e4 d5 2.exd5 Qxd5', openingName: 'Scandinavian Defense: Main Line' },
+    ];
+
+    /** Win by checkmate with a specific piece type. */
+    const DAILY_MATE_PIECE_DEFS = [
+      { id: 'daily_mate_with_knight', name: '🐴 Knight Mate', desc: 'Win a game by delivering checkmate with your knight.', points: 320, piece: 'n' },
+      { id: 'daily_mate_with_bishop', name: '♗ Bishop Mate', desc: 'Win a game by delivering checkmate with your bishop.', points: 310, piece: 'b' },
+      { id: 'daily_mate_with_rook', name: '🏰 Rook Mate', desc: 'Win a game by delivering checkmate with your rook.', points: 300, piece: 'r' },
+      { id: 'daily_mate_with_queen', name: '👑 Queen Mate', desc: 'Win a game by delivering checkmate with your queen.', points: 280, piece: 'q' },
+      { id: 'daily_mate_with_pawn', name: '♟️ Pawn Mate', desc: 'Win a game by delivering checkmate with your pawn.', points: 400, piece: 'p' },
+    ];
+
+    /** First move of piece type must be on or after minMove (player move number). Win required. */
+    const DAILY_DELAYED_PIECE_DEFS = [
+      { id: 'daily_queen_quiet_until_8', name: '👑 Patient Queen', desc: 'Win without moving your queen until your 8th move or later.', points: 290, piece: 'q', minMove: 8 },
+      { id: 'daily_rook_quiet_until_10', name: '🏰 Rook Restraint', desc: 'Win without moving a rook until your 10th move or later.', points: 275, piece: 'r', minMove: 10 },
+      { id: 'daily_king_quiet_until_15', name: '♔ King Safety', desc: 'Win without moving your king until your 15th move or later.', points: 300, piece: 'k', minMove: 15 },
+      { id: 'daily_bishop_quiet_until_6', name: '♗ Bishop Delay', desc: 'Win without moving a bishop until your 6th move or later.', points: 265, piece: 'b', minMove: 6 },
+    ];
+
+    function getCentralTimeParts(when) {
+      const d = when instanceof Date ? when : new Date(when || Date.now());
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: false,
+      }).formatToParts(d);
+      let hour = 0;
+      let minute = 0;
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i].type === 'hour') hour = parseInt(parts[i].value, 10);
+        if (parts[i].type === 'minute') minute = parseInt(parts[i].value, 10);
+      }
+      return { hour, minute };
+    }
+
+    function boardPieceAtSquare(board, square) {
+      const file = square.charCodeAt(0) - 97;
+      const rank = 8 - parseInt(square[1], 10);
+      if (rank < 0 || rank > 7 || file < 0 || file > 7) return null;
+      return board[rank][file];
+    }
+
+    function playerPieceOnSquare(board, square, pieceType) {
+      const pc = playerColor === 'white' ? 'w' : 'b';
+      const p = boardPieceAtSquare(board, square);
+      return !!(p && p.type === pieceType && p.color === pc);
+    }
+
+    function historyStartsWithBookPrefix(prefix) {
+      if (!game || !prefix) return false;
+      const h = game.history().join(' ');
+      return h === prefix || h.startsWith(prefix + ' ');
+    }
+
+    function bumpCompletedGameEndDaily(id) {
+      if (!lifetimeStats || !lifetimeStats.dailyStats || !id) return false;
+      const ds = lifetimeStats.dailyStats;
+      if (!Array.isArray(ds.completedGameEndDailiesToday)) ds.completedGameEndDailiesToday = [];
+      if (ds.completedGameEndDailiesToday.includes(id)) return false;
+      ds.completedGameEndDailiesToday.push(id);
+      return true;
+    }
+
+    function evaluateGameEndDailyChallenges() {
+      if (!lifetimeStats || !lifetimeStats.dailyStats || !game) return;
+      resetDailyStatsIfNeeded();
+      const ds = lifetimeStats.dailyStats;
+      if (!Array.isArray(ds.completedGameEndDailiesToday)) ds.completedGameEndDailiesToday = [];
+      const isWin = !!gameStats._isWinGameEnd;
+      const checkmatePiece = (gameStats._checkmatePiece || '').toLowerCase();
+      const ct = getCentralTimeParts(new Date());
+      let changed = false;
+
+      for (let i = 0; i < DAILY_TIME_WINDOW_DEFS.length; i++) {
+        const def = DAILY_TIME_WINDOW_DEFS[i];
+        if (ds.completedGameEndDailiesToday.includes(def.id)) continue;
+        if (def.match(ct) && bumpCompletedGameEndDaily(def.id)) changed = true;
+      }
+
+      const board = game.board();
+      const pc = playerColor === 'white' ? 'white' : 'black';
+      for (let i = 0; i < DAILY_END_POSITION_DEFS.length; i++) {
+        const def = DAILY_END_POSITION_DEFS[i];
+        if (ds.completedGameEndDailiesToday.includes(def.id)) continue;
+        const squares = def.squares(pc);
+        let ok = false;
+        for (let j = 0; j < squares.length; j++) {
+          if (playerPieceOnSquare(board, squares[j], def.piece)) {
+            ok = true;
+            break;
+          }
+        }
+        if (ok && bumpCompletedGameEndDaily(def.id)) changed = true;
+      }
+
+      for (let i = 0; i < DAILY_OPENING_CHALLENGE_DEFS.length; i++) {
+        const def = DAILY_OPENING_CHALLENGE_DEFS[i];
+        if (ds.completedGameEndDailiesToday.includes(def.id)) continue;
+        if (historyStartsWithBookPrefix(def.bookPrefix) && bumpCompletedGameEndDaily(def.id)) changed = true;
+      }
+
+      if (isWin && checkmatePiece) {
+        for (let i = 0; i < DAILY_MATE_PIECE_DEFS.length; i++) {
+          const def = DAILY_MATE_PIECE_DEFS[i];
+          if (ds.completedGameEndDailiesToday.includes(def.id)) continue;
+          if (checkmatePiece === def.piece && bumpCompletedGameEndDaily(def.id)) changed = true;
+        }
+      }
+
+      if (isWin && gameStats.dailyStats && gameStats.dailyStats.pieceFirstMovePl) {
+        const pfm = gameStats.dailyStats.pieceFirstMovePl;
+        for (let i = 0; i < DAILY_DELAYED_PIECE_DEFS.length; i++) {
+          const def = DAILY_DELAYED_PIECE_DEFS[i];
+          if (ds.completedGameEndDailiesToday.includes(def.id)) continue;
+          const first = pfm[def.piece];
+          if (first == null || first >= def.minMove) {
+            if (bumpCompletedGameEndDaily(def.id)) changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        saveLifetimeStats();
+        try {
+          checkAndUnlockAchievements();
+        } catch (e) {
+          console.warn('evaluateGameEndDailyChallenges: achievement check failed', e);
+        }
+      }
+    }
+
     function bumpVerifiableComboDailies(pieceType, target, ctx) {
       if (!gameStats || !gameStats.dailyStats || !lifetimeStats) return;
       const ds = gameStats.dailyStats;
@@ -6518,6 +6683,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         : Math.floor(gameMoveNumber / 2);        // Black plays on even moves: 2,4,6... -> 1,2,3...
       
       const pieceType = move.piece.toLowerCase();
+
+      if (gameStats.dailyStats) {
+        if (!gameStats.dailyStats.pieceFirstMovePl) gameStats.dailyStats.pieceFirstMovePl = {};
+        if (gameStats.dailyStats.pieceFirstMovePl[pieceType] == null) {
+          gameStats.dailyStats.pieceFirstMovePl[pieceType] = playerMoveNumber;
+        }
+      }
       
       if (pieceType === 'p' && gameStats.dailyStats) {
         gameStats.dailyStats.pawnMovesToday = (gameStats.dailyStats.pawnMovesToday || 0) + 1;
@@ -9279,6 +9451,76 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
           },
         })),
+        ...DAILY_TIME_WINDOW_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
+        ...DAILY_END_POSITION_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
+        ...DAILY_OPENING_CHALLENGE_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
+        ...DAILY_MATE_PIECE_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
+        ...DAILY_DELAYED_PIECE_DEFS.map((def) => ({
+          id: def.id,
+          name: def.name,
+          desc: def.desc,
+          category: 'Daily',
+          points: def.points,
+          isDaily: true,
+          progress: () => {
+            if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 1 };
+            resetDailyStatsIfNeeded();
+            const arr = lifetimeStats.dailyStats.completedGameEndDailiesToday || [];
+            return { current: arr.includes(def.id) ? 1 : 0, target: 1 };
+          },
+        })),
         { id: 'daily_blindfold_rook_ranger', name: '👁️🏰 Blindfold Rook Ranger', desc: 'Make 6 rook moves in blindfold games today (board hidden)', category: 'Daily', points: 260, isDaily: true, progress: () => {
           if (!lifetimeStats || !lifetimeStats.dailyStats) return { current: 0, target: 6 };
           resetDailyStatsIfNeeded();
@@ -10739,6 +10981,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'daily_checkmate_maestro',
         'daily_double_play',
         'daily_sixty_moves',
+        'daily_finish_early_bird_ct',
+        'daily_finish_before_10am_ct',
+        'daily_finish_lunch_ct',
+        'daily_finish_afternoon_ct',
+        'daily_finish_night_owl_ct',
+        'daily_end_queen_home',
+        'daily_end_castled_king',
+        'daily_end_center_knight',
+        'daily_end_corner_rook',
+        'daily_end_light_bishop_home',
+        'daily_opening_italian',
+        'daily_opening_roy_lopez',
+        'daily_opening_sicilian',
+        'daily_opening_kings_indian',
+        'daily_opening_qgd',
+        'daily_opening_french',
+        'daily_opening_caro_kann',
+        'daily_opening_scandinavian',
+        'daily_mate_with_knight',
+        'daily_mate_with_bishop',
+        'daily_mate_with_rook',
+        'daily_mate_with_queen',
+        'daily_mate_with_pawn',
+        'daily_queen_quiet_until_8',
+        'daily_rook_quiet_until_10',
+        'daily_king_quiet_until_15',
+        'daily_bishop_quiet_until_6',
       ].concat(
         comboIds,
         'daily_blindfold_rook_ranger',
@@ -10904,7 +11173,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         rookMovesInBlindfoldToday: 0,
         queenMovesInBlindfoldToday: 0,
         pawnMovesInPureBlindfoldToday: 0,
-        gamesCastledByMove12Today: 0
+        gamesCastledByMove12Today: 0,
+        completedGameEndDailiesToday: []
       };
     }
 
@@ -10970,6 +11240,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         if (lifetimeStats.dailyStats && lifetimeStats.dailyStats.gamesCastledByMove12Today === undefined) {
           lifetimeStats.dailyStats.gamesCastledByMove12Today = 0;
+        }
+        if (lifetimeStats.dailyStats && !Array.isArray(lifetimeStats.dailyStats.completedGameEndDailiesToday)) {
+          lifetimeStats.dailyStats.completedGameEndDailiesToday = [];
         }
         saveLifetimeStats();
       }
