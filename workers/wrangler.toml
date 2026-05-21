@@ -25,8 +25,8 @@ id = "64db75c8a01b42229806b59cb30cae80"
 # Then paste the id below and in ~/innovation/sports_digest/wrangler.toml
 [[kv_namespaces]]
 binding = "SPORTS_DIGEST_KV"
-id = "REPLACE_WITH_SPORTS_DIGEST_KV_ID"
-preview_id = "REPLACE_WITH_SPORTS_DIGEST_KV_PREVIEW_ID"
+id = "29b3422cca1545fd815bb16a9fad6032"
+preview_id = "338768d8505548c996c3b6d1d8d74136"
 
 # TrifangX career achievement points leaderboard (username + points; updated on chess sync / username change).
 [[kv_namespaces]]
