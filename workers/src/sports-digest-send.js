@@ -70,27 +70,40 @@ export function getSportsDigestCronTick(event) {
 }
 
 export async function fetchSportsDigestEmailContent(env, { teams, username }) {
-  const base = String(env.SPORTS_DIGEST_BUILD_URL || 'https://sports-digest.matthewahrens.workers.dev').replace(
-    /\/$/,
-    ''
-  );
   const secret = env.SPORTS_DIGEST_INTERNAL_SECRET || env.TEST_SECRET;
   if (!secret) {
     throw new Error('Set SPORTS_DIGEST_INTERNAL_SECRET or TEST_SECRET for sports digest content builds');
   }
-  const res = await fetch(`${base}/api/build-email`, {
+  const init = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Internal-Secret': secret,
     },
     body: JSON.stringify({ teams, username }),
-  });
+  };
+
+  let res;
+  if (env.SPORTS_DIGEST && typeof env.SPORTS_DIGEST.fetch === 'function') {
+    res = await env.SPORTS_DIGEST.fetch(new Request('https://sports-digest/api/build-email', init));
+  } else {
+    const base = String(env.SPORTS_DIGEST_BUILD_URL || 'https://sports-digest.matthewahrens.workers.dev').replace(
+      /\/$/,
+      ''
+    );
+    res = await fetch(`${base}/api/build-email`, init);
+  }
+
   const raw = await res.text();
   let data;
   try {
     data = JSON.parse(raw);
   } catch {
+    if (raw.includes('1042')) {
+      throw new Error(
+        'Sports digest build blocked (Cloudflare 1042) — redeploy chess-accounts with SPORTS_DIGEST service binding'
+      );
+    }
     throw new Error(`build-email invalid JSON (${res.status}): ${raw.slice(0, 200)}`);
   }
   if (!res.ok || !data?.subject || !data?.html) {

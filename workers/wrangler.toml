@@ -59,6 +59,11 @@ deleted_classes = []
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
 
+# Sports Digest HTML builder — use service binding (workers cannot fetch *.workers.dev from another worker; error 1042).
+[[services]]
+binding = "SPORTS_DIGEST"
+service = "sports-digest"
+
 # Use binding name EMAIL_TRANSACTIONAL (not "EMAIL") so a dashboard allowlist stuck on an old EMAIL binding does not apply.
 # Must NOT set allowed_destination_addresses or destination_address — those cause E_RECIPIENT_NOT_ALLOWED for arbitrary users.
 # Omit `remote = true` on deployed Workers (that flag is for wrangler dev hitting real Email Service). Add it back only for local dev if needed.
