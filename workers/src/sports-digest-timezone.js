@@ -1,58 +1,61 @@
-/** Sports Digest schedules are always wall-clock America/Chicago (Central), never UTC. */
+/**
+ * Sports Digest schedule times are Central (CT). Sends fire at UTC = CT − 5 hours
+ * (e.g. 3:30 PM CT → 10:30 UTC). Fixed offset — not DST-aware America/Chicago.
+ */
 
 export const SPORTS_DIGEST_TIME_ZONE = 'America/Chicago';
+export const SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS = 5;
 
-const WEEKDAY_MAP = {
-  Sunday: 0,
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
-};
+const CENTRAL_OFFSET_MS = SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS * 60 * 60 * 1000;
 
-function chicagoParts(ms) {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: SPORTS_DIGEST_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'long',
-    hour: 'numeric',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(ms));
+function pad2(n) {
+  return String(n).padStart(2, '0');
 }
 
-function part(parts, type) {
-  return parts.find((p) => p.type === type)?.value ?? '';
+function normalizeHm(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t).trim());
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return `${pad2(h)}:${pad2(min)}`;
 }
 
+function centralDateFromUtcMs(ms) {
+  return new Date(ms + CENTRAL_OFFSET_MS);
+}
+
+export function utcTimeHm(ms) {
+  const d = new Date(ms);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+/** Central wall clock derived from a UTC instant (CT = UTC + 5h). */
 export function chicagoDateYmd(ms) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: SPORTS_DIGEST_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(ms));
+  const d = centralDateFromUtcMs(ms);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
 }
 
 export function chicagoTimeHm(ms) {
-  const parts = chicagoParts(ms);
-  let hour = parseInt(part(parts, 'hour'), 10);
-  const minute = part(parts, 'minute');
-  if (Number.isNaN(hour)) hour = 0;
-  if (hour === 24) hour = 0;
-  return `${String(hour).padStart(2, '0')}:${minute.padStart(2, '0')}`;
+  const d = centralDateFromUtcMs(ms);
+  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
 
 export function chicagoWeekdayIndex(ms) {
-  const name = part(chicagoParts(ms), 'weekday');
-  return WEEKDAY_MAP[name] ?? -1;
+  return centralDateFromUtcMs(ms).getUTCDay();
 }
 
-export function isChicagoQuarterHour(hm) {
+/** Convert a Central schedule HH:MM to the UTC HH:MM when the cron should send. */
+export function centralToUtcHm(ctHm) {
+  const norm = normalizeHm(ctHm);
+  if (!norm) return null;
+  const [h, min] = norm.split(':').map((x) => parseInt(x, 10));
+  let utcH = h - SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS;
+  if (utcH < 0) utcH += 24;
+  return `${pad2(utcH)}:${pad2(min)}`;
+}
+
+export function isQuarterHourHm(hm) {
   return /^([01]?\d|2[0-3]):(00|15|30|45)$/.test(hm);
 }
 
@@ -63,6 +66,8 @@ export function chicagoNow() {
     ymd: chicagoDateYmd(ms),
     hm: chicagoTimeHm(ms),
     weekday: chicagoWeekdayIndex(ms),
+    utcHm: utcTimeHm(ms),
     timeZone: SPORTS_DIGEST_TIME_ZONE,
+    utcOffsetHours: -SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
   };
 }

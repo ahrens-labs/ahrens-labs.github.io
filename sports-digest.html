@@ -346,7 +346,8 @@
           <h1>Sports Digest</h1>
           <p class="sd-sub">
             Schedules, headlines, and beat-writer posts for the teams you pick —
-            delivered on your schedule. All send times are <strong>Central Time</strong>.
+            delivered on your schedule. Send times are <strong>Central (CT)</strong> — the server fires
+            <strong>5 hours earlier in UTC</strong> (e.g. 3:30 PM CT → 10:30 UTC).
           </p>
         </div>
       </section>
@@ -503,7 +504,7 @@
             ? (' Central clock now: ' + formatTime12(status.chicagoNow.hm) + '.')
             : '';
           el.innerHTML = '<strong>Scheduled sends are active.</strong> Emails go out at ' +
-            summary + ' — times are Central (Chicago), not UTC.' + nowCt;
+            summary + ' (server sends at UTC − 5h).' + nowCt;
           return;
         }
         el.className = 'sd-schedule-status err';
