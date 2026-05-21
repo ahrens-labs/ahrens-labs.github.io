@@ -1894,6 +1894,15 @@ async function syncSportsDigestKv(env, userId, profile, prefs) {
         : [],
   };
   await env.SPORTS_DIGEST_KV.put(key, JSON.stringify(record));
+  try {
+    const check = await env.SPORTS_DIGEST_KV.get(key, 'json');
+    if (!check || check.email !== email || !Array.isArray(check.teams) || !check.teams.length) {
+      return { ok: false, reason: 'kv_write_verify_failed' };
+    }
+  } catch {
+    return { ok: false, reason: 'kv_write_verify_failed' };
+  }
+  console.log('sports-digest KV synced', key, record.frequency, record.customTimes);
   return { ok: true, action: 'put', key };
 }
 
@@ -2056,11 +2065,20 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
   try {
     kvSync = await syncSportsDigestKv(env, auth.userId, fresh, validated.prefs);
     if (validated.prefs.enabled && !kvSync.ok) {
-      console.warn('sports-digest KV sync skipped:', auth.userId, kvSync.reason);
-      warning =
-        'Preferences saved, but scheduled email could not be registered (' +
-        (kvSync.reason || 'unknown') +
-        '). Open this page again after confirming your email, or contact support.';
+      console.warn('sports-digest KV sync failed:', auth.userId, kvSync.reason);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            'Preferences saved to your account, but scheduled email registration failed (' +
+            (kvSync.reason || 'unknown') +
+            '). Try reloading and saving again.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
   } catch (e) {
     console.error('sports-digest KV update failed:', e?.message || e);

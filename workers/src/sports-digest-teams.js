@@ -77,24 +77,24 @@ export function normalizeSportsDigestPrefs(raw) {
   const teams = Array.isArray(src.teams)
     ? [...new Set(src.teams.map(mapLegacyTeamId).filter(Boolean))]
     : [];
+  const customTimes = normalizeCustomTimes(src.customTimes);
+  const customDays = normalizeCustomDays(src.customDays);
   let frequency =
     typeof src.frequency === 'string' && PRESET_ID_SET.has(src.frequency)
       ? src.frequency
       : DEFAULT_SPORTS_DIGEST_PREFS.frequency;
-  if (frequency === 'custom' && normalizeCustomTimes(src.customTimes).length === 0) {
+  // Any non-empty custom times always use the custom schedule (ignore preset frequency).
+  if (customTimes.length > 0) {
+    frequency = 'custom';
+  } else if (frequency === 'custom') {
     frequency = 'twice_daily';
   }
   return {
     enabled: src.enabled === true,
     teams,
     frequency,
-    customTimes:
-      frequency === 'custom'
-        ? normalizeCustomTimes(src.customTimes)
-        : normalizeCustomTimes(src.customTimes).length
-          ? normalizeCustomTimes(src.customTimes)
-          : DEFAULT_SPORTS_DIGEST_PREFS.customTimes,
-    customDays: normalizeCustomDays(src.customDays),
+    customTimes: frequency === 'custom' ? customTimes : customTimes,
+    customDays,
   };
 }
 

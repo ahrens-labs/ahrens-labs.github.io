@@ -696,10 +696,12 @@
       }
 
       function collectPrefs() {
+        let frequency = document.getElementById('sd-frequency').value;
+        if (customTimes.length > 0) frequency = 'custom';
         return {
           enabled: document.getElementById('sd-enabled').checked,
           teams: [...selectedTeamIds],
-          frequency: document.getElementById('sd-frequency').value,
+          frequency: frequency,
           customTimes: customTimes.slice(),
           customDays: customDays.slice(),
         };
