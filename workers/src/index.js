@@ -17,12 +17,7 @@ import {
   resolveScheduleTimes,
   validateSportsDigestSave,
 } from './sports-digest-teams.js';
-import {
-  centralToUtcHm,
-  chicagoNow,
-  SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
-  SPORTS_DIGEST_TIME_ZONE,
-} from './sports-digest-timezone.js';
+import { SPORTS_DIGEST_TIME_ZONE } from './sports-digest-timezone.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -1831,10 +1826,6 @@ function handleSportsDigestCatalog(corsHeaders) {
       maxTeams: SPORTS_DIGEST_MAX_TEAMS,
       maxCustomTimes: SPORTS_DIGEST_MAX_CUSTOM_TIMES,
       timeZone: 'America/Chicago',
-      scheduleTimeZone: SPORTS_DIGEST_TIME_ZONE,
-      centralUtcOffsetHours: SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
-      note:
-        'Schedule times are Central (CT). Emails send at UTC = CT + 5 hours (e.g. 3:30 PM CT → 20:30 UTC).',
       timeStepMinutes: 15,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1976,17 +1967,13 @@ async function handleSportsDigestStatus(request, env, corsHeaders) {
   }
 
   const schedule = resolveScheduleTimes(prefs);
-  const utcSendTimes = schedule.times.map((t) => centralToUtcHm(t)).filter(Boolean);
   return new Response(
     JSON.stringify({
       prefs,
       kvSynced,
       syncReason,
       schedule,
-      utcSendTimes,
-      centralUtcOffsetHours: SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
       timeZone: SPORTS_DIGEST_TIME_ZONE,
-      chicagoNow: chicagoNow(),
       kvRecord: kvRecord
         ? {
             frequency: kvRecord.frequency,

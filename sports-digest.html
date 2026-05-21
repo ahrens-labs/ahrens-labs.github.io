@@ -346,8 +346,7 @@
           <h1>Sports Digest</h1>
           <p class="sd-sub">
             Schedules, headlines, and beat-writer posts for the teams you pick —
-            delivered on your schedule. Send times are <strong>Central (CT)</strong> — the server fires at
-            <strong>UTC = CT + 5 hours</strong> (e.g. 3:30 PM CT → 8:30 PM UTC).
+            delivered on your schedule. All send times are <strong>Central Time</strong>.
           </p>
         </div>
       </section>
@@ -500,11 +499,7 @@
         const summary = formatScheduleSummary(status.schedule);
         if (status.kvSynced) {
           el.className = 'sd-schedule-status ok';
-          const nowCt = status.chicagoNow && status.chicagoNow.hm
-            ? (' Central clock now: ' + formatTime12(status.chicagoNow.hm) + '.')
-            : '';
-          el.innerHTML = '<strong>Scheduled sends are active.</strong> Emails go out at ' +
-            summary + ' (server sends at UTC = CT + 5h).' + nowCt;
+          el.innerHTML = '<strong>Scheduled sends are active.</strong> Next emails at ' + summary + '.';
           return;
         }
         el.className = 'sd-schedule-status err';
