@@ -18,6 +18,12 @@ import {
   validateSportsDigestSave,
 } from './sports-digest-teams.js';
 import { SPORTS_DIGEST_TIME_ZONE } from './sports-digest-timezone.js';
+import {
+  applySendKey,
+  fetchSportsDigestEmailContent,
+  getSportsDigestCronTick,
+  subscriberSendKey,
+} from './sports-digest-send.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -178,7 +184,10 @@ export default {
 
   scheduled(controller, env, ctx) {
     ctx.waitUntil(
-      handleScheduledCron(controller, env).catch((err) => {
+      (async () => {
+        await handleScheduledCron(controller, env);
+        await handleSportsDigestScheduledCron(controller, env);
+      })().catch((err) => {
         console.error('scheduled cron failed', err?.stack || err?.message || err);
       })
     );
@@ -6181,6 +6190,103 @@ async function handleScheduledCron(event, env) {
     cron: cronExpr,
     digestDate: digestYmd,
     digestUtcHM: `${target.hour}:${String(target.minute).padStart(2, '0')}`,
+  });
+}
+
+/** Sports Digest — same delivery path as daily challenge mail (EMAIL_TRANSACTIONAL + dispatchTransactionalEmail). */
+async function handleSportsDigestScheduledCron(event, env) {
+  if (!env.SPORTS_DIGEST_KV) {
+    console.log('sports-digest cron: SPORTS_DIGEST_KV not bound');
+    return;
+  }
+  const tick = getSportsDigestCronTick(event);
+  if (!tick) return;
+
+  const cronExpr = event && typeof event.cron === 'string' ? event.cron : '';
+  let cursor;
+  let sent = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  do {
+    const list = await env.SPORTS_DIGEST_KV.list({ prefix: 'sub:', cursor });
+    for (const { name } of list.keys) {
+      try {
+        const raw = await env.SPORTS_DIGEST_KV.get(name, 'json');
+        if (!raw || typeof raw !== 'object' || !Array.isArray(raw.teams) || !raw.teams.length) {
+          skipped++;
+          continue;
+        }
+
+        const userIdFromKey = name.startsWith('sub:') ? name.slice(4) : '';
+        if (userIdFromKey && env.USER_ACCOUNT) {
+          try {
+            const profileDoId = env.USER_ACCOUNT.idFromName(userIdFromKey);
+            const profileStub = env.USER_ACCOUNT.get(profileDoId);
+            const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
+            const profile = await profRes.json();
+            if (!hasConfirmedEmailForProductMail(profile)) {
+              skipped++;
+              continue;
+            }
+            const liveEmail = normalizeEmail(profile.email || raw.email || '');
+            if (!liveEmail || !isLikelyRealEmail(liveEmail)) {
+              skipped++;
+              continue;
+            }
+            raw.email = liveEmail;
+            if (profile.username) raw.username = profile.username;
+          } catch (profileErr) {
+            skipped++;
+            console.error('Sports digest profile load failed', userIdFromKey, profileErr?.message || profileErr);
+            continue;
+          }
+        } else {
+          const legacyTo = normalizeEmail(raw.email || '');
+          if (!legacyTo || !isLikelyRealEmail(legacyTo)) {
+            skipped++;
+            continue;
+          }
+          raw.email = legacyTo;
+        }
+
+        const sendKey = subscriberSendKey(raw, tick.ymd, tick.hm, tick.weekday);
+        if (!sendKey) {
+          skipped++;
+          continue;
+        }
+
+        const content = await fetchSportsDigestEmailContent(env, {
+          teams: raw.teams,
+          username: raw.username,
+        });
+        await dispatchTransactionalEmail(env, {
+          to: raw.email,
+          subject: content.subject,
+          html: content.html,
+          text: content.text,
+          fromAddr: 'caleb@ahrenslabs.com',
+          fromName: 'Sports Digest',
+        });
+        const updated = applySendKey(raw, sendKey);
+        await env.SPORTS_DIGEST_KV.put(name, JSON.stringify({ ...updated, email: raw.email, username: raw.username }));
+        sent++;
+        console.log('Sports digest sent', { to: raw.email, sendKey, teams: raw.teams.length });
+      } catch (e) {
+        failed++;
+        console.error('Sports digest send failed', name, e?.message || e);
+      }
+    }
+    cursor = list.list_complete ? undefined : list.cursor;
+  } while (cursor);
+
+  console.log('Sports digest cron', {
+    sent,
+    failed,
+    skipped,
+    cron: cronExpr,
+    central: `${tick.ymd} ${tick.hm}`,
+    utcHm: tick.utcHm,
   });
 }
 

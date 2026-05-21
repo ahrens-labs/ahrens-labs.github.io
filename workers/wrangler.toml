@@ -35,8 +35,9 @@ id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
 # Daily digest: Worker gates sends to DIGEST_SEND_UTC_HOUR:MINUTE (defaults 07:00 UTC). Cron should fire in that window.
+# Sports Digest: every 15 min UTC; sends via EMAIL_TRANSACTIONAL (same as daily challenges).
 [triggers]
-crons = ["0 7 * * *", "15 7 * * *"]
+crons = ["0 7 * * *", "15 7 * * *", "0,15,30,45 * * * *"]
 
 [durable_objects]
 bindings = [
@@ -82,4 +83,7 @@ VERIFICATION_LINK_BASE = "https://ahrenslabs.com"
 VERIFICATION_LANDING_PATH = "/account.html"
 # Path that handles ?reset=&email= (password reset from email).
 PASSWORD_RESET_LANDING_PATH = "/reset-password.html"
+# Sports digest HTML builder (separate worker — no email send there in production).
+# Set the same secret on both workers: wrangler secret put TEST_SECRET
+SPORTS_DIGEST_BUILD_URL = "https://sports-digest.matthewahrens.workers.dev"
 # JWT_SECRET will be set via wrangler secret put
