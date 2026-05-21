@@ -35,8 +35,8 @@ const LEGACY_TEAM_ID_MAP = {
 const TEAM_ID_SET = new Set(SPORTS_DIGEST_TEAM_CATALOG.map((t) => t.id));
 const PRESET_ID_SET = new Set(SPORTS_DIGEST_PRESETS.map((p) => p.id));
 
-/** Any minute 00–59 (Central Time). Cron runs every minute. */
-const CUSTOM_TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+/** Central Time HH:MM on 15-minute grid (:00, :15, :30, :45). Cron runs every 15 minutes. */
+const CUSTOM_TIME_RE = /^([01]?\d|2[0-3]):(00|15|30|45)$/;
 
 export const DEFAULT_SPORTS_DIGEST_PREFS = {
   enabled: false,
@@ -134,8 +134,19 @@ export function validateSportsDigestSave(body) {
       : DEFAULT_SPORTS_DIGEST_PREFS.frequency;
   const customTimes = normalizeCustomTimes(body.customTimes);
   const customDays = normalizeCustomDays(body.customDays);
-  if (body.enabled && frequency === 'custom' && customTimes.length === 0) {
-    return { ok: false, error: 'Add at least one custom time (Central Time, HH:MM).' };
+  if (body.enabled && Array.isArray(body.customTimes)) {
+    for (const t of body.customTimes) {
+      if (typeof t === 'string' && t.trim() && !CUSTOM_TIME_RE.test(t.trim())) {
+        return {
+          ok: false,
+          error: 'Custom times must be on 15-minute marks (:00, :15, :30, :45 Central Time).',
+        };
+      }
+    }
+  }
+  const usesCustomSchedule = frequency === 'custom' || customTimes.length > 0;
+  if (body.enabled && usesCustomSchedule && customTimes.length === 0) {
+    return { ok: false, error: 'Add at least one custom time (Central Time, every 15 minutes — :00, :15, :30, or :45).' };
   }
   return {
     ok: true,

@@ -258,12 +258,11 @@
       font-size: 1rem; line-height: 1; padding: 0;
     }
     .sd-add-time { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .sd-add-time select,
-    .sd-time-input {
+    .sd-add-time select {
       padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px;
       font-size: 0.88rem; font-family: inherit; background: #fff;
     }
-    .sd-time-input:focus {
+    .sd-add-time select:focus {
       outline: none; border-color: #3b82f6;
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
     }
@@ -395,13 +394,13 @@
           <p class="sd-freq-detail" id="sd-freq-detail"></p>
 
           <div class="sd-custom-panel" id="sd-custom-panel">
-            <p class="sd-hint" style="margin-top:0;">Choose <strong>Custom</strong> above, then add send times (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
+            <p class="sd-hint" style="margin-top:0;">Choose <strong>Custom</strong> above, then add send times on 15-minute marks (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Days</label>
             <div class="sd-days" id="sd-custom-days"></div>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Times</label>
             <div class="sd-time-chips" id="sd-time-chips"></div>
             <div class="sd-add-time">
-              <input type="time" id="sd-add-time-input" class="sd-time-input" aria-label="Pick a send time">
+              <select id="sd-add-time-select" aria-label="Pick a send time"></select>
               <button type="button" class="sd-mini-btn" id="sd-add-time-btn">Add time</button>
             </div>
           </div>
@@ -451,7 +450,23 @@
         const h = parseInt(m[1], 10);
         const min = parseInt(m[2], 10);
         if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+        if (min % 15 !== 0) return null;
         return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+      }
+
+      function buildTimeOptions() {
+        const select = document.getElementById('sd-add-time-select');
+        if (!select) return;
+        select.innerHTML = '';
+        for (let h = 0; h < 24; h += 1) {
+          for (let min = 0; min < 60; min += 15) {
+            const hm = String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+            const opt = document.createElement('option');
+            opt.value = hm;
+            opt.textContent = formatTime12(hm) + ' CT';
+            select.appendChild(opt);
+          }
+        }
       }
 
       function formatTime12(hm) {
@@ -684,7 +699,7 @@
           document.getElementById('sd-frequency').value = prefs.frequency;
         }
         customTimes = Array.isArray(prefs && prefs.customTimes) && prefs.customTimes.length
-          ? prefs.customTimes.slice()
+          ? prefs.customTimes.map(normalizeHmInput).filter(Boolean)
           : ['09:00'];
         customDays = Array.isArray(prefs && prefs.customDays) && prefs.customDays.length
           ? prefs.customDays.slice()
@@ -738,6 +753,7 @@
 
         document.getElementById('sd-max-teams').textContent = String(catalog.maxTeams || 25);
         document.getElementById('sd-max-times').textContent = String(catalog.maxCustomTimes || 6);
+        buildTimeOptions();
 
         document.getElementById('sd-loading').style.display = 'none';
         document.getElementById('sd-panel').style.display = 'block';
@@ -772,10 +788,10 @@
           renderTeamGrid();
         });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {
-          const input = document.getElementById('sd-add-time-input');
-          const hm = normalizeHmInput(input.value);
+          const select = document.getElementById('sd-add-time-select');
+          const hm = normalizeHmInput(select.value);
           if (!hm) {
-            setStatus('Pick a valid time to add.', 'err');
+            setStatus('Pick a valid time on a 15-minute mark (:00, :15, :30, :45).', 'err');
             return;
           }
           document.getElementById('sd-frequency').value = 'custom';
@@ -791,7 +807,6 @@
           customTimes.push(hm);
           customTimes.sort();
           renderTimeChips();
-          input.value = '';
           setStatus('Added ' + formatTime12(hm) + ' CT. Save preferences to activate.', 'ok');
         });
 
