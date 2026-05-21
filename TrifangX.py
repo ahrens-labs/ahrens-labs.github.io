@@ -4628,8 +4628,106 @@ def convert_move(board, to_row, to_col, piece, color):
     return None, None
 
 def extract_moves(pgn_str):
-    pattern = r'\b(?:0-0-0|0-0|[a-hRNBQK][a-h1-8x=+#]*)\b'
-    return re.findall(pattern, pgn_str)
+    pattern = r'\b(?:O-O-O|O-O|0-0-0|0-0|[a-hRNBQK][a-h1-8x=+#]*)\b'
+    moves = re.findall(pattern, pgn_str)
+    return [m.replace('O-O-O', '0-0-0').replace('O-O', '0-0') for m in moves]
+
+
+def _split_opening_main_and_variations(pgn_str):
+    """Split PGN into alternating main-line text and parenthetical sideline segments."""
+    segments = []
+    buf = []
+    i = 0
+    while i < len(pgn_str):
+        ch = pgn_str[i]
+        if ch == '(':
+            if buf:
+                segments.append(('main', ''.join(buf)))
+                buf = []
+            depth = 1
+            j = i + 1
+            while j < len(pgn_str) and depth:
+                if pgn_str[j] == '(':
+                    depth += 1
+                elif pgn_str[j] == ')':
+                    depth -= 1
+                j += 1
+            segments.append(('var', pgn_str[i + 1:j - 1]))
+            i = j
+        else:
+            buf.append(ch)
+            i += 1
+    if buf:
+        segments.append(('main', ''.join(buf)))
+    return segments
+
+
+def _opening_variation_branch_len(var_text):
+    """Return ply count before a sideline, from a leading move number (e.g. 3... or 4.)."""
+    text = var_text.strip()
+    m = re.match(r'^(\d+)\s*\.\s*\.{2,3}\s*', text)
+    if m:
+        move_no = int(m.group(1))
+        return (move_no - 1) * 2 + 1
+    m = re.match(r'^(\d+)\s*\.\s+', text)
+    if m:
+        move_no = int(m.group(1))
+        return (move_no - 1) * 2
+    return None
+
+
+def _canonical_opening_moves(moves):
+    """Normalize SAN tokens for opening-book comparison."""
+    out = []
+    for move in moves:
+        token = clean_move(move)
+        token = token.replace('O-O-O', '0-0-0').replace('O-O', '0-0')
+        out.append(token)
+    return out
+
+
+def _build_opening_book_lines(pgn_str):
+    """Build main line and sideline move lists from PGN with parenthetical variations."""
+    segments = _split_opening_main_and_variations(pgn_str)
+    main_text = ''.join(text for kind, text in segments if kind == 'main')
+    main_line = _canonical_opening_moves(extract_moves(main_text))
+
+    variations = []
+    main_so_far = ''
+    for kind, text in segments:
+        if kind == 'main':
+            main_so_far += text
+            continue
+        main_before = _canonical_opening_moves(extract_moves(main_so_far))
+        branch_len = _opening_variation_branch_len(text)
+        var_moves = _canonical_opening_moves(extract_moves(text))
+        if branch_len is None:
+            branch_len = len(main_before)
+        branch = main_before[:branch_len]
+        variations.append(branch + var_moves)
+
+    return {'main_line': main_line, 'variations': variations}
+
+
+def opening_book_next_move(pgn_str, played_moves):
+    """
+    Return the next book move for `played_moves`, or None if off-book.
+
+    Supports parenthetical sidelines, e.g.:
+      1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3...Nf6 4. O-O Nxe4 5. Re1) 4. Ba4
+    """
+    played = _canonical_opening_moves(played_moves)
+    structure = _build_opening_book_lines(pgn_str)
+
+    for line in structure['variations']:
+        if len(played) < len(line) and played == line[:len(played)]:
+            return line[len(played)]
+
+    main_line = structure['main_line']
+    if len(played) < len(main_line) and played == main_line[:len(played)]:
+        return main_line[len(played)]
+
+    return None
 
 
 def _promotion_piece_from_notation(move_notation, is_white_piece):
@@ -5029,100 +5127,96 @@ def best_move_function(board, bots, en_passant):
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
     ]
     if opening_moves != 'none':
+        played_list = extract_moves(opening_moves)
         for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            if normalized_input in normalized_opening:
-                to_play_list = extract_moves(opening)
-                played_list = extract_moves(opening_moves)
-                next_index = len(played_list)
-                if next_index < len(to_play_list):
-                    next_move = to_play_list[next_index]
-                    raw_opening_move = next_move
-                    if next_move in {'0-0', 'O-O'}:
-                        previous_score = score(board, 'w')
-                        result_scores[('0-0')] = previous_score
-                    elif next_move in {'0-0-0', 'O-O-O'}:
-                        previous_score = score(board, 'w')
-                        result_scores[('0-0-0')] = previous_score
-                    elif len(clean_move(next_move)) == 5:
-                        piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
-                        pos = str(from_col) + str(from_row)
-                        row, col = pos_to_indices(pos)
+            next_move = opening_book_next_move(opening, played_list)
+            if next_move is not None:
+                raw_opening_move = next_move
+                if next_move in {'0-0', 'O-O'}:
+                    previous_score = score(board, 'w')
+                    result_scores[('0-0')] = previous_score
+                elif next_move in {'0-0-0', 'O-O-O'}:
+                    previous_score = score(board, 'w')
+                    result_scores[('0-0-0')] = previous_score
+                elif len(clean_move(next_move)) == 5:
+                    piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
+                    pos = str(from_col) + str(from_row)
+                    row, col = pos_to_indices(pos)
+                    pos = str(to_col) + str(to_row)
+                    target_row, target_col = pos_to_indices(pos)
+                    previous_score = score(board, 'w')
+                    kp = _opening_book_key_piece(board, row, col, target_row, target_col, raw_opening_move)
+                    result_scores[(row, col, target_row, target_col, kp)] = previous_score
+                elif is_pawn_capture(next_move):
+                    col, row = next_move[2], next_move[3]
+                    from_col = pos_to_indices_col(next_move[0])
+                    pos = str(col) + str(row)
+                    to_row, to_col = pos_to_indices(pos)
+                    previous_score = score(board, 'w')
+                    kp = _opening_book_key_piece(board, to_row+1, from_col, to_row, to_col, raw_opening_move)
+                    result_scores[(to_row+1, from_col, to_row, to_col, kp)] = previous_score
+                else:
+                    next_move_clean = clean_move(next_move)
+                    piece, to_col, to_row, disambig = parse_move(next_move_clean)
+                    if piece and to_col and to_row and not disambig:
                         pos = str(to_col) + str(to_row)
-                        target_row, target_col = pos_to_indices(pos)
+                        row, col = pos_to_indices(pos)
+                        from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
                         previous_score = score(board, 'w')
-                        kp = _opening_book_key_piece(board, row, col, target_row, target_col, raw_opening_move)
-                        result_scores[(row, col, target_row, target_col, kp)] = previous_score
-                    elif is_pawn_capture(next_move):
-                        col, row = next_move[2], next_move[3]
-                        from_col = pos_to_indices_col(next_move[0])
-                        pos = str(col) + str(row)
-                        to_row, to_col = pos_to_indices(pos)
-                        previous_score = score(board, 'w')
-                        kp = _opening_book_key_piece(board, to_row+1, from_col, to_row, to_col, raw_opening_move)
-                        result_scores[(to_row+1, from_col, to_row, to_col, kp)] = previous_score
-                    else:
-                        next_move_clean = clean_move(next_move)
-                        piece, to_col, to_row, disambig = parse_move(next_move_clean)
-                        if piece and to_col and to_row and not disambig:
-                            pos = str(to_col) + str(to_row)
-                            row, col = pos_to_indices(pos)
-                            from_row, from_col = convert_move(board, row, col, piece.lower(), 'b')
-                            previous_score = score(board, 'w')
-                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                        if piece and to_col and to_row and disambig:
-                            pos = str(to_col) + str(to_row)
-                            row, col = pos_to_indices(pos)
-                            from_row = from_col = None
+                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                        result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                    if piece and to_col and to_row and disambig:
+                        pos = str(to_col) + str(to_row)
+                        row, col = pos_to_indices(pos)
+                        from_row = from_col = None
 
-                            for r in range(8):
-                                for c in range(8):
-                                    if board[r][c] != piece.lower():
-                                        continue
-                                    if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
-                                        continue
-                                    if disambig in "12345678" and str(8 - r) != disambig:
-                                        continue
+                        for r in range(8):
+                            for c in range(8):
+                                if board[r][c] != piece.lower():
+                                    continue
+                                if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                    continue
+                                if disambig in "12345678" and str(8 - r) != disambig:
+                                    continue
 
-                                    dr = row - r
-                                    dc = col - c
-                                    ok = False
+                                dr = row - r
+                                dc = col - c
+                                ok = False
 
-                                    if piece.lower() == 'n':
-                                        ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
-                                    elif piece.lower() == 'k':
-                                        ok = max(abs(dr), abs(dc)) == 1
-                                    elif piece.lower() in {'r', 'b', 'q'}:
-                                        if piece.lower() == 'r':
-                                            ok = (dr == 0 or dc == 0)
-                                        elif piece.lower() == 'b':
-                                            ok = abs(dr) == abs(dc)
-                                        else:
-                                            ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
-                                        if ok:
-                                            step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
-                                            step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
-                                            rr, cc = r + step_r, c + step_c
-                                            while (rr, cc) != (row, col):
-                                                if board[rr][cc] != '0':
-                                                    ok = False
-                                                    break
-                                                rr += step_r
-                                                cc += step_c
-
+                                if piece.lower() == 'n':
+                                    ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                elif piece.lower() == 'k':
+                                    ok = max(abs(dr), abs(dc)) == 1
+                                elif piece.lower() in {'r', 'b', 'q'}:
+                                    if piece.lower() == 'r':
+                                        ok = (dr == 0 or dc == 0)
+                                    elif piece.lower() == 'b':
+                                        ok = abs(dr) == abs(dc)
+                                    else:
+                                        ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
                                     if ok:
-                                        from_row, from_col = r, c
-                                        break
-                                if from_row is not None:
-                                    break
+                                        step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                        step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                        rr, cc = r + step_r, c + step_c
+                                        while (rr, cc) != (row, col):
+                                            if board[rr][cc] != '0':
+                                                ok = False
+                                                break
+                                            rr += step_r
+                                            cc += step_c
 
-                            if from_row is not None and from_col is not None:
-                                if board[from_row][from_col] == piece.lower():
-                                    previous_score = score(board, 'w')
-                                    kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
-                                    result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                                if ok:
+                                    from_row, from_col = r, c
+                                    break
+                            if from_row is not None:
+                                break
+
+                        if from_row is not None and from_col is not None:
+                            if board[from_row][from_col] == piece.lower():
+                                previous_score = score(board, 'w')
+                                kp = _opening_book_key_piece(board, from_row, from_col, row, col, raw_opening_move)
+                                result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                break
     elif start:
         best_options = [(6, 4, 4, 4, 'p')]
         previous_score = score(board, 'b')
@@ -6620,138 +6714,132 @@ def best_move_black(board, bots, en_passant):
         previous_score = score(board, 'b')
         result_scores[best_option] = previous_score
     elif opening_moves != 'none':
-        # OPTIMIZATION: Fixed order - no shuffle needed for opening book
+        played_list = extract_moves(opening_moves)
         for opening in openings:
-            normalized_opening = normalize_pgn(opening)
-            normalized_input = normalize_pgn(opening_moves)
-            # Use prefix matching instead of substring matching to ensure correct position
-            if normalized_opening.startswith(normalized_input):
-                to_play_list = extract_moves(opening)
-                played_list = extract_moves(opening_moves)
-                next_index = len(played_list)
-                if next_index < len(to_play_list):
-                    next_move = to_play_list[next_index]
-                    print("NM:", next_move)
-                    if next_move in {'0-0', 'O-O'}:
-                        # Validate castling is legal before adding to result_scores
-                        if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
-                            if board[0][5] == '0' and board[0][6] == '0':
-                                white_king_row, white_king_col = find_king(board, 'w')
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+            next_move = opening_book_next_move(opening, played_list)
+            if next_move is None:
+                continue
+            print("NM:", next_move)
+            if next_move in {'0-0', 'O-O'}:
+                # Validate castling is legal before adding to result_scores
+                if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
+                    if board[0][5] == '0' and board[0][6] == '0':
+                        white_king_row, white_king_col = find_king(board, 'w')
+                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            previous_score = score(board, 'b')
+                            result_scores[('0-0')] = previous_score
+                            break  # Use first valid opening match
+            elif next_move in {'0-0-0', 'O-O-O'}:
+                # Validate castling is legal before adding to result_scores
+                if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
+                    if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
+                        white_king_row, white_king_col = find_king(board, 'w')
+                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            previous_score = score(board, 'b')
+                            result_scores[('0-0-0')] = previous_score
+                            break  # Use first valid opening match
+            elif len(clean_move(next_move)) == 5:
+                try:
+                    piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
+                    pos = str(from_col) + str(from_row)
+                    row, col = pos_to_indices(pos)
+                    pos = str(to_col) + str(to_row)
+                    target_row, target_col = pos_to_indices(pos)
+                    # Validate the move is legal: piece exists at source, destination is valid
+                    if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
+                        if board[row][col] == piece.upper():
+                            previous_score = score(board, 'b')
+                            kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
+                            result_scores[(row, col, target_row, target_col, kp)] = previous_score
+                            break  # Use first valid opening match
+                except (ValueError, IndexError):
+                    pass  # Invalid move format, skip
+            elif is_pawn_capture(next_move) and len(next_move) >= 4:
+                try:
+                    col, row = next_move[2], next_move[3]
+                    from_col = pos_to_indices_col(next_move[0])
+                    pos = str(col) + str(row)
+                    to_row, to_col = pos_to_indices(pos)
+                    # Validate the move is legal: pawn exists at source
+                    if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8:
+                        if to_row > 0 and board[to_row-1][from_col] == 'P':
+                            previous_score = score(board, 'b')
+                            cap_piece = _opening_book_key_piece(board, to_row-1, from_col, to_row, to_col, next_move)
+                            result_scores[(to_row-1, from_col, to_row, to_col, cap_piece)] = previous_score
+                            break  # Use first valid opening match
+                except (ValueError, IndexError):
+                    pass  # Invalid move format, skip
+            else:
+                try:
+                    next_move_clean = clean_move(next_move)
+                    piece, to_col, to_row, disambig = parse_move(next_move_clean)
+                    if piece and to_col and to_row and not disambig:
+                        pos = str(to_col) + str(to_row)
+                        row, col = pos_to_indices(pos)
+                        from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
+                        # Validate the move is legal: piece exists at source
+                        if from_row is not None and from_col is not None:
+                            if 0 <= from_row < 8 and 0 <= from_col < 8:
+                                if board[from_row][from_col] == piece.upper():
                                     previous_score = score(board, 'b')
-                                    result_scores[('0-0')] = previous_score
+                                    kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                                    result_scores[(from_row, from_col, row, col, kp)] = previous_score
                                     break  # Use first valid opening match
-                    elif next_move in {'0-0-0', 'O-O-O'}:
-                        # Validate castling is legal before adding to result_scores
-                        if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
-                            if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                                white_king_row, white_king_col = find_king(board, 'w')
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    previous_score = score(board, 'b')
-                                    result_scores[('0-0-0')] = previous_score
-                                    break  # Use first valid opening match
-                    elif len(clean_move(next_move)) == 5:
-                        try:
-                            piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
-                            pos = str(from_col) + str(from_row)
-                            row, col = pos_to_indices(pos)
-                            pos = str(to_col) + str(to_row)
-                            target_row, target_col = pos_to_indices(pos)
-                            # Validate the move is legal: piece exists at source, destination is valid
-                            if 0 <= row < 8 and 0 <= col < 8 and 0 <= target_row < 8 and 0 <= target_col < 8:
-                                if board[row][col] == piece.upper():
-                                    previous_score = score(board, 'b')
-                                    kp = _opening_book_key_piece(board, row, col, target_row, target_col, next_move)
-                                    result_scores[(row, col, target_row, target_col, kp)] = previous_score
-                                    break  # Use first valid opening match
-                        except (ValueError, IndexError):
-                            pass  # Invalid move format, skip
-                    elif is_pawn_capture(next_move) and len(next_move) >= 4:
-                        try:
-                            col, row = next_move[2], next_move[3]
-                            from_col = pos_to_indices_col(next_move[0])
-                            pos = str(col) + str(row)
-                            to_row, to_col = pos_to_indices(pos)
-                            # Validate the move is legal: pawn exists at source
-                            if 0 <= to_row < 8 and 0 <= to_col < 8 and 0 <= from_col < 8:
-                                if to_row > 0 and board[to_row-1][from_col] == 'P':
-                                    previous_score = score(board, 'b')
-                                    cap_piece = _opening_book_key_piece(board, to_row-1, from_col, to_row, to_col, next_move)
-                                    result_scores[(to_row-1, from_col, to_row, to_col, cap_piece)] = previous_score
-                                    break  # Use first valid opening match
-                        except (ValueError, IndexError):
-                            pass  # Invalid move format, skip
-                    else:
-                        try:
-                            next_move_clean = clean_move(next_move)
-                            piece, to_col, to_row, disambig = parse_move(next_move_clean)
-                            if piece and to_col and to_row and not disambig:
-                                pos = str(to_col) + str(to_row)
-                                row, col = pos_to_indices(pos)
-                                from_row, from_col = convert_move(board, row, col, piece.lower(), 'w')
-                                # Validate the move is legal: piece exists at source
-                                if from_row is not None and from_col is not None:
-                                    if 0 <= from_row < 8 and 0 <= from_col < 8:
-                                        if board[from_row][from_col] == piece.upper():
-                                            previous_score = score(board, 'b')
-                                            kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                                            result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                                            break  # Use first valid opening match
-                            if piece and to_col and to_row and disambig:
-                                pos = str(to_col) + str(to_row)
-                                row, col = pos_to_indices(pos)
-                                from_row = from_col = None
+                    if piece and to_col and to_row and disambig:
+                        pos = str(to_col) + str(to_row)
+                        row, col = pos_to_indices(pos)
+                        from_row = from_col = None
 
-                                # Find source square constrained by SAN disambiguation.
-                                for r in range(8):
-                                    for c in range(8):
-                                        if board[r][c] != piece.upper():
-                                            continue
-                                        if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
-                                            continue
-                                        if disambig in "12345678" and str(8 - r) != disambig:
-                                            continue
+                        # Find source square constrained by SAN disambiguation.
+                        for r in range(8):
+                            for c in range(8):
+                                if board[r][c] != piece.upper():
+                                    continue
+                                if disambig in "abcdefgh" and indices_to_pos_col(c) != disambig:
+                                    continue
+                                if disambig in "12345678" and str(8 - r) != disambig:
+                                    continue
 
-                                        dr = row - r
-                                        dc = col - c
-                                        ok = False
+                                dr = row - r
+                                dc = col - c
+                                ok = False
 
-                                        if piece.lower() == 'n':
-                                            ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
-                                        elif piece.lower() == 'k':
-                                            ok = max(abs(dr), abs(dc)) == 1
-                                        elif piece.lower() in {'r', 'b', 'q'}:
-                                            if piece.lower() == 'r':
-                                                ok = (dr == 0 or dc == 0)
-                                            elif piece.lower() == 'b':
-                                                ok = abs(dr) == abs(dc)
-                                            else:
-                                                ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
-                                            if ok:
-                                                step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
-                                                step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
-                                                rr, cc = r + step_r, c + step_c
-                                                while (rr, cc) != (row, col):
-                                                    if board[rr][cc] != '0':
-                                                        ok = False
-                                                        break
-                                                    rr += step_r
-                                                    cc += step_c
+                                if piece.lower() == 'n':
+                                    ok = (abs(dr), abs(dc)) in {(2, 1), (1, 2)}
+                                elif piece.lower() == 'k':
+                                    ok = max(abs(dr), abs(dc)) == 1
+                                elif piece.lower() in {'r', 'b', 'q'}:
+                                    if piece.lower() == 'r':
+                                        ok = (dr == 0 or dc == 0)
+                                    elif piece.lower() == 'b':
+                                        ok = abs(dr) == abs(dc)
+                                    else:
+                                        ok = (dr == 0 or dc == 0 or abs(dr) == abs(dc))
+                                    if ok:
+                                        step_r = 0 if dr == 0 else (1 if dr > 0 else -1)
+                                        step_c = 0 if dc == 0 else (1 if dc > 0 else -1)
+                                        rr, cc = r + step_r, c + step_c
+                                        while (rr, cc) != (row, col):
+                                            if board[rr][cc] != '0':
+                                                ok = False
+                                                break
+                                            rr += step_r
+                                            cc += step_c
 
-                                        if ok:
-                                            from_row, from_col = r, c
-                                            break
-                                    if from_row is not None:
-                                        break
+                                if ok:
+                                    from_row, from_col = r, c
+                                    break
+                            if from_row is not None:
+                                break
 
-                                if from_row is not None and from_col is not None:
-                                    if board[from_row][from_col] == piece.upper():
-                                        previous_score = score(board, 'b')
-                                        kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
-                                        result_scores[(from_row, from_col, row, col, kp)] = previous_score
-                                        break  # Use first valid opening match
-                        except (ValueError, IndexError, TypeError):
-                            pass  # Invalid move format, skip
+                        if from_row is not None and from_col is not None:
+                            if board[from_row][from_col] == piece.upper():
+                                previous_score = score(board, 'b')
+                                kp = _opening_book_key_piece(board, from_row, from_col, row, col, next_move)
+                                result_scores[(from_row, from_col, row, col, kp)] = previous_score
+                                break  # Use first valid opening match
+                except (ValueError, IndexError, TypeError):
+                    pass  # Invalid move format, skip
 
     if not result_scores:
         # Quickly collect all legal move tasks for parallel evaluation
