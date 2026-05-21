@@ -1,6 +1,6 @@
 /** Sports Digest scheduled sends — subscriber matching + content fetch from sports-digest worker. */
 
-import { SPORTS_DIGEST_PRESETS } from './sports-digest-teams.js';
+import { resolveScheduleTimes } from './sports-digest-teams.js';
 import {
   chicagoDateYmd,
   chicagoTimeHm,
@@ -8,8 +8,6 @@ import {
   isQuarterHourHm,
   utcTimeHm,
 } from './sports-digest-timezone.js';
-
-const QUARTER_HM = /^([01]?\d|2[0-3]):(00|15|30|45)$/;
 
 function normalizeHm(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
@@ -20,35 +18,8 @@ function normalizeHm(t) {
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
 
-function normalizeTimeList(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const t of raw) {
-    const norm = normalizeHm(t);
-    if (norm && QUARTER_HM.test(norm) && !out.includes(norm)) out.push(norm);
-  }
-  return out;
-}
-
-function normalizeDays(raw) {
-  if (!Array.isArray(raw)) return [0, 1, 2, 3, 4, 5, 6];
-  const out = [...new Set(raw.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort((a, b) => a - b);
-  return out.length ? out : [0, 1, 2, 3, 4, 5, 6];
-}
-
 export function resolveSubscriberSchedule(sub) {
-  const customTimes = normalizeTimeList(sub.customTimes);
-  if (customTimes.length > 0) {
-    return { times: customTimes, days: normalizeDays(sub.customDays) };
-  }
-  if (sub.frequency === 'custom') {
-    return { times: [], days: [0, 1, 2, 3, 4, 5, 6] };
-  }
-  const preset = SPORTS_DIGEST_PRESETS.find((p) => p.id === sub.frequency);
-  if (preset) {
-    return { times: normalizeTimeList(preset.times), days: preset.days };
-  }
-  return { times: normalizeTimeList(['06:00', '18:00']), days: [0, 1, 2, 3, 4, 5, 6] };
+  return resolveScheduleTimes(sub);
 }
 
 export function buildSendKey(ymd, hm) {

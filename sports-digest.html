@@ -287,6 +287,11 @@
     }
     .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 28px rgba(37, 99, 235, 0.34); }
     .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btn-ghost {
+      background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;
+    }
+    .btn-ghost:hover { background: #e2e8f0; }
+    .btn-ghost:disabled { opacity: 0.55; cursor: not-allowed; }
     .sd-status { font-size: 0.86rem; margin-top: 12px; min-height: 1.2em; color: #64748b; font-weight: 600; }
     .sd-status.ok { color: #047857; }
     .sd-status.err { color: #b91c1c; }
@@ -407,6 +412,7 @@
         </div>
 
         <button type="button" class="btn btn-primary" id="sd-save">Save preferences</button>
+        <button type="button" class="btn btn-ghost" id="sd-send-now" style="margin-left:10px;">Send preview now</button>
         <p class="sd-status" id="sd-status"></p>
       </div>
     </main>
@@ -710,8 +716,7 @@
       }
 
       function collectPrefs() {
-        let frequency = document.getElementById('sd-frequency').value;
-        if (customTimes.length > 0) frequency = 'custom';
+        const frequency = document.getElementById('sd-frequency').value;
         return {
           enabled: document.getElementById('sd-enabled').checked,
           teams: [...selectedTeamIds],
@@ -885,6 +890,37 @@
         } finally {
           btn.disabled = false;
           btn.textContent = 'Save preferences';
+        }
+      });
+
+      document.getElementById('sd-send-now').addEventListener('click', async function () {
+        const sessionId = getSessionId();
+        const btn = document.getElementById('sd-send-now');
+        setStatus('Building and sending preview… this can take up to a minute.', '');
+        btn.disabled = true;
+        try {
+          const res = await fetch(API_BASE + '/api/sports-digest-send-now', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + sessionId },
+          });
+          const data = await res.json().catch(function () { return {}; });
+          if (res.ok && data.success) {
+            setStatus('Preview sent to ' + (data.to || 'your email') + '. Check your inbox (and spam).', 'ok');
+            if (data.kvSynced) {
+              try {
+                const statusRes = await fetch(API_BASE + '/api/sports-digest-status', {
+                  headers: { Authorization: 'Bearer ' + sessionId },
+                });
+                if (statusRes.ok) renderScheduleStatus(await statusRes.json());
+              } catch {
+                // ignore
+              }
+            }
+          } else {
+            setStatus(data.error || 'Could not send preview.', 'err');
+          }
+        } finally {
+          btn.disabled = false;
         }
       });
 

@@ -83,17 +83,14 @@ export function normalizeSportsDigestPrefs(raw) {
     typeof src.frequency === 'string' && PRESET_ID_SET.has(src.frequency)
       ? src.frequency
       : DEFAULT_SPORTS_DIGEST_PREFS.frequency;
-  // Any non-empty custom times always use the custom schedule (ignore preset frequency).
-  if (customTimes.length > 0) {
-    frequency = 'custom';
-  } else if (frequency === 'custom') {
-    frequency = 'twice_daily';
+  if (frequency === 'custom' && customTimes.length === 0) {
+    frequency = DEFAULT_SPORTS_DIGEST_PREFS.frequency;
   }
   return {
     enabled: src.enabled === true,
     teams,
     frequency,
-    customTimes: frequency === 'custom' ? customTimes : customTimes,
+    customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
     customDays,
   };
 }
@@ -144,7 +141,7 @@ export function validateSportsDigestSave(body) {
       }
     }
   }
-  const usesCustomSchedule = frequency === 'custom' || customTimes.length > 0;
+  const usesCustomSchedule = frequency === 'custom';
   if (body.enabled && usesCustomSchedule && customTimes.length === 0) {
     return { ok: false, error: 'Add at least one custom time (Central Time, every 15 minutes — :00, :15, :30, or :45).' };
   }
@@ -154,7 +151,7 @@ export function validateSportsDigestSave(body) {
       enabled: body.enabled,
       teams,
       frequency,
-      customTimes: frequency === 'custom' ? customTimes : customTimes,
+      customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
       customDays,
     },
   };

@@ -71,6 +71,8 @@ export default {
         return handleSportsDigestPreferences(request, env, corsHeaders);
       } else if (path === '/api/sports-digest-status' && request.method === 'GET') {
         return handleSportsDigestStatus(request, env, corsHeaders);
+      } else if (path === '/api/sports-digest-send-now' && request.method === 'POST') {
+        return handleSportsDigestSendNow(request, env, corsHeaders);
       } else if (path === '/api/resend-welcome-email' && request.method === 'POST') {
         return handleResendWelcomeEmail(request, env, corsHeaders);
       } else if (path === '/api/send-daily-challenges-now' && request.method === 'POST') {
@@ -1896,7 +1898,7 @@ async function syncSportsDigestKv(env, userId, profile, prefs) {
     username,
     teams: normalized.teams,
     frequency: normalized.frequency,
-    customTimes: normalized.customTimes,
+    customTimes: normalized.frequency === 'custom' ? normalized.customTimes : [],
     customDays: normalized.customDays,
     scheduleTimeZone: SPORTS_DIGEST_TIME_ZONE,
     lastSentKeys:
@@ -1996,6 +1998,68 @@ async function handleSportsDigestStatus(request, env, corsHeaders) {
   );
 }
 
+async function handleSportsDigestSendNow(request, env, corsHeaders) {
+  const auth = await resolveAuthedUserAccount(request, env);
+  if (auth.error) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: auth.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (auth.profile.emailVerified === false) {
+    return new Response(JSON.stringify({ error: 'Confirm your email before sending a preview.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const prefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
+  if (!prefs.teams.length) {
+    return new Response(JSON.stringify({ error: 'Choose at least one team, save, then try again.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const email = normalizeEmail(auth.profile.email || '');
+  if (!email || !isLikelyRealEmail(email)) {
+    return new Response(JSON.stringify({ error: 'Your account needs a valid email address.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const content = await fetchSportsDigestEmailContent(env, {
+      teams: prefs.teams,
+      username: auth.profile.username,
+    });
+    await dispatchTransactionalEmail(env, {
+      to: email,
+      subject: `[Preview] ${content.subject}`,
+      html: content.html,
+      text: content.text,
+      fromAddr: 'caleb@ahrenslabs.com',
+      fromName: 'Sports Digest',
+    });
+    let kvSynced = false;
+    if (prefs.enabled) {
+      const sync = await syncSportsDigestKv(env, auth.userId, auth.profile, prefs);
+      kvSynced = sync.ok === true;
+    }
+    return new Response(
+      JSON.stringify({ success: true, to: email, kvSynced }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ success: false, error: e?.message || String(e) }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
 async function handleSportsDigestPreferences(request, env, corsHeaders) {
   let body;
   try {
@@ -2074,7 +2138,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
   let warning;
   let kvSync = { ok: false, reason: 'not_attempted' };
   try {
-    kvSync = await syncSportsDigestKv(env, auth.userId, fresh, validated.prefs);
+    kvSync = await syncSportsDigestKv(env, auth.userId, fresh, prefs);
     if (validated.prefs.enabled && !kvSync.ok) {
       console.warn('sports-digest KV sync failed:', auth.userId, kvSync.reason);
       return new Response(
