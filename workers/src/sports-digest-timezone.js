@@ -1,6 +1,6 @@
 /**
- * Sports Digest schedule times are Central (CT). Sends fire at UTC = CT − 5 hours
- * (e.g. 3:30 PM CT → 10:30 UTC). Fixed offset — not DST-aware America/Chicago.
+ * Sports Digest schedule times are Central (CT). Sends fire at UTC = CT + 5 hours
+ * (e.g. 3:30 PM CT → 20:30 UTC). Fixed offset — Central is UTC−5.
  */
 
 export const SPORTS_DIGEST_TIME_ZONE = 'America/Chicago';
@@ -22,7 +22,7 @@ function normalizeHm(t) {
 }
 
 function centralDateFromUtcMs(ms) {
-  return new Date(ms + CENTRAL_OFFSET_MS);
+  return new Date(ms - CENTRAL_OFFSET_MS);
 }
 
 export function utcTimeHm(ms) {
@@ -30,7 +30,7 @@ export function utcTimeHm(ms) {
   return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
 }
 
-/** Central wall clock derived from a UTC instant (CT = UTC + 5h). */
+/** Central wall clock derived from a UTC instant (CT = UTC − 5h). */
 export function chicagoDateYmd(ms) {
   const d = centralDateFromUtcMs(ms);
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
@@ -50,8 +50,8 @@ export function centralToUtcHm(ctHm) {
   const norm = normalizeHm(ctHm);
   if (!norm) return null;
   const [h, min] = norm.split(':').map((x) => parseInt(x, 10));
-  let utcH = h - SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS;
-  if (utcH < 0) utcH += 24;
+  let utcH = h + SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS;
+  if (utcH >= 24) utcH -= 24;
   return `${pad2(utcH)}:${pad2(min)}`;
 }
 

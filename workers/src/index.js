@@ -1834,7 +1834,7 @@ function handleSportsDigestCatalog(corsHeaders) {
       scheduleTimeZone: SPORTS_DIGEST_TIME_ZONE,
       centralUtcOffsetHours: SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
       note:
-        'Schedule times are Central (CT). Emails send at UTC = CT − 5 hours (e.g. 3:30 PM CT → 10:30 UTC).',
+        'Schedule times are Central (CT). Emails send at UTC = CT + 5 hours (e.g. 3:30 PM CT → 20:30 UTC).',
       timeStepMinutes: 15,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
