@@ -14,6 +14,7 @@ import {
   SPORTS_DIGEST_MAX_TEAMS,
   SPORTS_DIGEST_MAX_CUSTOM_TIMES,
   normalizeSportsDigestPrefs,
+  resolveScheduleTimes,
   validateSportsDigestSave,
 } from './sports-digest-teams.js';
 
@@ -61,6 +62,8 @@ export default {
         return handleSportsDigestCatalog(corsHeaders);
       } else if (path === '/api/sports-digest-preferences' && request.method === 'POST') {
         return handleSportsDigestPreferences(request, env, corsHeaders);
+      } else if (path === '/api/sports-digest-status' && request.method === 'GET') {
+        return handleSportsDigestStatus(request, env, corsHeaders);
       } else if (path === '/api/resend-welcome-email' && request.method === 'POST') {
         return handleResendWelcomeEmail(request, env, corsHeaders);
       } else if (path === '/api/send-daily-challenges-now' && request.method === 'POST') {
@@ -1898,7 +1901,79 @@ async function ensureSportsDigestKvSubscriber(env, userId, profile) {
   if (!env.SPORTS_DIGEST_KV || !userId || !profile || typeof profile !== 'object') return;
   const prefs = normalizeSportsDigestPrefs(profile.emailPreferences?.sportsDigest);
   if (!prefs.enabled) return;
-  await syncSportsDigestKv(env, userId, profile, prefs);
+  const sync = await syncSportsDigestKv(env, userId, profile, prefs);
+  if (!sync.ok) {
+    console.warn('sports-digest KV repair skipped:', userId, sync.reason);
+  }
+}
+
+async function handleSportsDigestStatus(request, env, corsHeaders) {
+  const auth = await resolveAuthedUserAccount(request, env);
+  if (auth.error) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: auth.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const prefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
+  let kvRecord = null;
+  let kvSynced = false;
+  let syncReason = null;
+
+  if (env.SPORTS_DIGEST_KV && auth.userId) {
+    try {
+      kvRecord = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
+      kvSynced = !!(
+        kvRecord &&
+        typeof kvRecord === 'object' &&
+        kvRecord.email &&
+        Array.isArray(kvRecord.teams) &&
+        kvRecord.teams.length
+      );
+    } catch {
+      kvRecord = null;
+    }
+  }
+
+  if (prefs.enabled && !kvSynced) {
+    const sync = await syncSportsDigestKv(env, auth.userId, auth.profile, prefs);
+    syncReason = sync.reason || sync.action || null;
+    if (sync.ok) {
+      try {
+        kvRecord = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
+        kvSynced = !!(
+          kvRecord &&
+          typeof kvRecord === 'object' &&
+          kvRecord.email &&
+          Array.isArray(kvRecord.teams) &&
+          kvRecord.teams.length
+        );
+      } catch {
+        kvSynced = false;
+      }
+    }
+  }
+
+  const schedule = resolveScheduleTimes(prefs);
+  return new Response(
+    JSON.stringify({
+      prefs,
+      kvSynced,
+      syncReason,
+      schedule,
+      timeZone: 'America/Chicago',
+      kvRecord: kvRecord
+        ? {
+            frequency: kvRecord.frequency,
+            customTimes: kvRecord.customTimes,
+            customDays: kvRecord.customDays,
+            teamCount: kvRecord.teams.length,
+          }
+        : null,
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 async function handleSportsDigestPreferences(request, env, corsHeaders) {

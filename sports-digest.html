@@ -96,6 +96,19 @@
       display: none; padding: 12px 14px; background: #fffbeb; border: 1px solid #fcd34d;
       border-radius: 12px; color: #92400e; margin: 0 0 16px; font-size: 0.88rem; line-height: 1.45;
     }
+    .sd-schedule-status {
+      display: none; margin: 0 0 16px; padding: 12px 14px; border-radius: 12px;
+      font-size: 0.86rem; line-height: 1.45; font-weight: 600;
+    }
+    .sd-schedule-status.ok {
+      display: block; background: #ecfdf5; border: 1px solid #86efac; color: #166534;
+    }
+    .sd-schedule-status.warn {
+      display: block; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
+    }
+    .sd-schedule-status.err {
+      display: block; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+    }
     .sd-selected-strip {
       display: none; align-items: center; gap: 10px; flex-wrap: wrap;
       margin: 0 0 14px; padding: 12px 14px;
@@ -348,6 +361,8 @@
           <strong>Confirm your email</strong> — open the link we sent when you signed up. Sports Digest stays off until your address is verified.
         </div>
 
+        <div class="sd-schedule-status" id="sd-schedule-status"></div>
+
         <div class="sd-toggle">
           <input type="checkbox" id="sd-enabled">
           <div>
@@ -380,7 +395,7 @@
           <p class="sd-freq-detail" id="sd-freq-detail"></p>
 
           <div class="sd-custom-panel" id="sd-custom-panel">
-            <p class="sd-hint" style="margin-top:0;">Pick days and any send times (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
+            <p class="sd-hint" style="margin-top:0;">Choose <strong>Custom</strong> above, then add send times (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Days</label>
             <div class="sd-days" id="sd-custom-days"></div>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Times</label>
@@ -447,6 +462,36 @@
         h = h % 12;
         if (h === 0) h = 12;
         return h + ':' + min + ' ' + ampm;
+      }
+
+      function formatScheduleSummary(schedule) {
+        if (!schedule || !Array.isArray(schedule.times) || !schedule.times.length) return '';
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const days = Array.isArray(schedule.days) && schedule.days.length < 7
+          ? schedule.days.map(function (d) { return dayNames[d]; }).join(', ')
+          : 'every day';
+        const times = schedule.times.map(formatTime12).join(', ');
+        return times + ' CT · ' + days;
+      }
+
+      function renderScheduleStatus(status) {
+        const el = document.getElementById('sd-schedule-status');
+        if (!status || !status.prefs || !status.prefs.enabled) {
+          el.className = 'sd-schedule-status';
+          el.textContent = '';
+          return;
+        }
+        const summary = formatScheduleSummary(status.schedule);
+        if (status.kvSynced) {
+          el.className = 'sd-schedule-status ok';
+          el.innerHTML = '<strong>Scheduled sends are active.</strong> Next emails go out at ' +
+            summary + ' (only at those exact times).';
+          return;
+        }
+        el.className = 'sd-schedule-status err';
+        el.innerHTML = '<strong>Not registered for scheduled email yet.</strong> ' +
+          (status.syncReason ? ('Reason: ' + status.syncReason + '. ') : '') +
+          'Save again after confirming your email. Your chosen schedule: ' + summary + '.';
       }
 
       function leagueEmoji(league) {
@@ -731,6 +776,8 @@
             setStatus('Pick a valid time to add.', 'err');
             return;
           }
+          document.getElementById('sd-frequency').value = 'custom';
+          updateFreqDetail();
           if (customTimes.indexOf(hm) >= 0) {
             setStatus('That time is already on your schedule.', 'err');
             return;
@@ -743,11 +790,22 @@
           customTimes.sort();
           renderTimeChips();
           input.value = '';
-          setStatus('', '');
+          setStatus('Added ' + formatTime12(hm) + ' CT. Save preferences to activate.', 'ok');
         });
 
         const prefs = (userProfile.emailPreferences && userProfile.emailPreferences.sportsDigest) || {};
         applyPrefs(prefs);
+
+        try {
+          const statusRes = await fetch(API_BASE + '/api/sports-digest-status', {
+            headers: { Authorization: 'Bearer ' + sessionId },
+          });
+          if (statusRes.ok) {
+            renderScheduleStatus(await statusRes.json());
+          }
+        } catch {
+          // ignore status fetch errors
+        }
       }
 
       document.getElementById('sd-save').addEventListener('click', async function () {
@@ -795,6 +853,16 @@
             }
             setStatus(msg, data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok');
             if (data.sportsDigest) applyPrefs(data.sportsDigest);
+            if (prefs.enabled) {
+              try {
+                const statusRes = await fetch(API_BASE + '/api/sports-digest-status', {
+                  headers: { Authorization: 'Bearer ' + sessionId },
+                });
+                if (statusRes.ok) renderScheduleStatus(await statusRes.json());
+              } catch {
+                // ignore
+              }
+            }
           } else {
             setStatus(data.error || 'Could not save preferences.', 'err');
           }
