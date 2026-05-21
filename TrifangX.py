@@ -5194,7 +5194,7 @@ def best_move_function(board, bots, en_passant):
                 '1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4 Bf5 6. Ne5',
                 '1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. e5 Nfd7 5. f4 c5 6. Nf3 Nc6 7. Be3 cxd4 8. Nxd4 Bc5 9. Qd2 Bxd4 10. Bxd4 Nxd4 11. Qxd4 Qb6 12. Nb5',
                 '1. e4 f5 2. exf5 d5 3. Qh5+ g6 4. fxg6 Kd7 5. Qxd5+',
-                '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7 8. h5 Bh7 9. Bd3 Bxd3 10. Qxd3 e6 11. Bf4',
+                '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 (4...Nf6 5. Nxf6+ exf6 6. c3) 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7 8. h5 Bh7 9. Bd3 Bxd3 10. Qxd3 e6 11. Bf4',
                 '1. e4 d6 2. d4 Nf6 3. Nc3 g6 4.f4',
                 '1. e4 f6 2. d4 g5 3. Qh5',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 Nc6 8. a3 Nxd4 9. Qxd4 0-0 10. 0-0-0 Ng4 11. Qd3 Nxe3 12. Qxe3 Bd7 13. Be2 Rc8 14. Nd5'
@@ -6736,7 +6736,7 @@ def best_move_black(board, bots, en_passant):
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. 0-0 Nxe4 5. Re1 Nd6 6. Nxe5 Nxe5 7. Rxe5+ Be7 8. Bf1 0-0 9. d4 Bf6',
                 '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6 6. Be3 Bg7 7. f3 0-0 8. Qd2 Nc6 9. Bc4 Bd7 10. 0-0-0 Ne5 11. Bb3 Qa5 12. Kb1 Rfc8 13. g4 b5 14. h4 b4 15. Nce2 Nc4 16. Bxc4 Rxc4 17. Bh6 Bxh6 18. Qxh6 Qe5 19. h5 g5 20. Nf5 Bxf5 21. Qxg5+ Bg6 22. Qxe5 dxe5 23. hxg6 hxg6',
                 '1. e4 c5 2. d4 cxd4 3. c3 dxc3 4. Nxc3 e6 5. Bc4 Nc6',
-                '1. e4 d5 2. exd5 Nf6 3. d4 Bg4 4. f3 Bf5 5. c4 e6 6. dxe6 Nc6 7. exf7+ Kxf7 8. Be3 Bb4+ (8. Ne2 Bb4+) 9. Kf2 Re8 10. Nc3 Rxe3 11. Kxe3 Nxd4 (12. Kf2 Bc5 13. Na4 Bc2 14. Nxc5 Bxd1) (12. Qxd4 Qe7+ 13. Kf4 Nh5+ 14. Kxf5 Qe6+ 15. Kg5 Be7+ 16. Kxh5)',
+                '1. e4 d5 2. exd5 Nf6 3. d4 Bg4 4. f3 Bf5 5. c4 e6 6. dxe6 Nc6 7. exf7+ Kxf7 8. Be3 Bb4+ (8. Ne2 Nb4 9. Nbc3 Bc2) 9. Kf2 Re8 10. Nc3 Rxe3 11. Kxe3 Nxd4 (12. Kf2 Bc5 13. Na4 Bc2 14. Nxc5 Bxd1) (12. Qxd4 Qe7+ 13. Kf4 Nh5+ 14. Kxf5 Qe6+ 15. Kg5 Be7+ 16. Kxh5)',
                 '1. e4 d5 2. exd5 Nf6 3. c4 e6 4. dxe6 Bxe6 5. d4 Bb4+ 6. Bd2 Qe7 (6. Nc3 Ne4)',
                 '1. e4 d5 2. exd5 Nf6 3. Nc3 Nxd5 4. Bc4 c6 5. Qf3 e6',
                 '1. e4 d5 2. exd5 Nf6 3. Bb5+ Nbd7 4. c4 a6 5. Ba4 b5',
