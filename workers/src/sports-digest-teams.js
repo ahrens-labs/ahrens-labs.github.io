@@ -13,7 +13,7 @@ export const SPORTS_DIGEST_LEAGUES = [
   { id: 'nba', label: 'NBA', sport: 'NBA', emoji: '🏀' },
 ];
 
-/** Preset send schedules — all times America/Chicago (Central), 24h HH:MM. */
+/** Preset send schedules — all times America/Chicago (Central), 24h HH:MM. Never UTC. */
 export const SPORTS_DIGEST_PRESETS = [
   { id: 'twice_daily', label: 'Twice daily', detail: '6:00 AM & 6:00 PM Central', times: ['06:00', '18:00'], days: [0, 1, 2, 3, 4, 5, 6] },
   { id: 'morning', label: 'Once daily — morning', detail: '6:00 AM Central', times: ['06:00'], days: [0, 1, 2, 3, 4, 5, 6] },

@@ -499,8 +499,11 @@
         const summary = formatScheduleSummary(status.schedule);
         if (status.kvSynced) {
           el.className = 'sd-schedule-status ok';
-          el.innerHTML = '<strong>Scheduled sends are active.</strong> Next emails go out at ' +
-            summary + ' (only at those exact times).';
+          const nowCt = status.chicagoNow && status.chicagoNow.hm
+            ? (' Central clock now: ' + formatTime12(status.chicagoNow.hm) + '.')
+            : '';
+          el.innerHTML = '<strong>Scheduled sends are active.</strong> Emails go out at ' +
+            summary + ' — times are Central (Chicago), not UTC.' + nowCt;
           return;
         }
         el.className = 'sd-schedule-status err';
