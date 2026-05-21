@@ -896,12 +896,21 @@
       document.getElementById('sd-send-now').addEventListener('click', async function () {
         const sessionId = getSessionId();
         const btn = document.getElementById('sd-send-now');
+        const prefs = collectPrefs();
+        if (!prefs.teams.length) {
+          setStatus('Choose at least one team first.', 'err');
+          return;
+        }
         setStatus('Building and sending preview… this can take up to a minute.', '');
         btn.disabled = true;
         try {
           const res = await fetch(API_BASE + '/api/sports-digest-send-now', {
             method: 'POST',
-            headers: { Authorization: 'Bearer ' + sessionId },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+            },
+            body: JSON.stringify({ teams: prefs.teams }),
           });
           const data = await res.json().catch(function () { return {}; });
           if (res.ok && data.success) {
@@ -917,7 +926,10 @@
               }
             }
           } else {
-            setStatus(data.error || 'Could not send preview.', 'err');
+            let msg = data.error || data.hint || 'Could not send preview.';
+            if (data.step === 'build') msg = 'Could not build digest: ' + msg;
+            if (data.step === 'send') msg = 'Digest built but email failed: ' + msg;
+            setStatus(msg, 'err');
           }
         } finally {
           btn.disabled = false;

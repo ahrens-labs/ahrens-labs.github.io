@@ -94,6 +94,11 @@ export async function fetchSportsDigestEmailContent(env, { teams, username }) {
     throw new Error(`build-email invalid JSON (${res.status}): ${raw.slice(0, 200)}`);
   }
   if (!res.ok || !data?.subject || !data?.html) {
+    if (res.status === 401) {
+      throw new Error(
+        'Sports digest build unauthorized — TEST_SECRET on chess-accounts must match sports-digest worker'
+      );
+    }
     throw new Error(data?.error || `build-email failed (${res.status})`);
   }
   return { subject: data.subject, html: data.html, text: data.text || '' };
