@@ -1852,16 +1852,25 @@ async function resolveAuthedUserAccount(request, env) {
 }
 
 async function syncSportsDigestKv(env, userId, profile, prefs) {
-  if (!env.SPORTS_DIGEST_KV || !userId) return;
+  if (!env.SPORTS_DIGEST_KV || !userId) {
+    return { ok: false, reason: 'kv_not_configured' };
+  }
   const key = `sub:${userId}`;
   const normalized = normalizeSportsDigestPrefs(prefs);
   if (!normalized.enabled) {
     await env.SPORTS_DIGEST_KV.delete(key);
-    return;
+    return { ok: true, action: 'deleted' };
   }
-  if (!hasConfirmedEmailForProductMail(profile)) return;
+  if (!hasConfirmedEmailForProductMail(profile)) {
+    return { ok: false, reason: 'email_not_verified' };
+  }
   const email = normalizeEmail(profile.email || '');
-  if (!email || !isLikelyRealEmail(email)) return;
+  if (!email || !isLikelyRealEmail(email)) {
+    return { ok: false, reason: 'invalid_email' };
+  }
+  if (!normalized.teams.length) {
+    return { ok: false, reason: 'no_teams' };
+  }
   const username = profile.username || 'there';
   let prev = null;
   try {
@@ -1869,21 +1878,20 @@ async function syncSportsDigestKv(env, userId, profile, prefs) {
   } catch {
     prev = null;
   }
-  await env.SPORTS_DIGEST_KV.put(
-    key,
-    JSON.stringify({
-      email,
-      username,
-      teams: normalized.teams,
-      frequency: normalized.frequency,
-      customTimes: normalized.customTimes,
-      customDays: normalized.customDays,
-      lastSentKeys:
-        prev && typeof prev === 'object' && Array.isArray(prev.lastSentKeys)
-          ? prev.lastSentKeys.slice(-40)
-          : [],
-    })
-  );
+  const record = {
+    email,
+    username,
+    teams: normalized.teams,
+    frequency: normalized.frequency,
+    customTimes: normalized.customTimes,
+    customDays: normalized.customDays,
+    lastSentKeys:
+      prev && typeof prev === 'object' && Array.isArray(prev.lastSentKeys)
+        ? prev.lastSentKeys.slice(-40)
+        : [],
+  };
+  await env.SPORTS_DIGEST_KV.put(key, JSON.stringify(record));
+  return { ok: true, action: 'put', key };
 }
 
 async function ensureSportsDigestKvSubscriber(env, userId, profile) {
@@ -1969,11 +1977,19 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
   const prefs = normalizeSportsDigestPrefs(fresh?.emailPreferences?.sportsDigest);
 
   let warning;
+  let kvSync = { ok: false, reason: 'not_attempted' };
   try {
-    await syncSportsDigestKv(env, auth.userId, fresh, prefs);
+    kvSync = await syncSportsDigestKv(env, auth.userId, fresh, validated.prefs);
+    if (validated.prefs.enabled && !kvSync.ok) {
+      console.warn('sports-digest KV sync skipped:', auth.userId, kvSync.reason);
+      warning =
+        'Preferences saved, but scheduled email could not be registered (' +
+        (kvSync.reason || 'unknown') +
+        '). Open this page again after confirming your email, or contact support.';
+    }
   } catch (e) {
     console.error('sports-digest KV update failed:', e?.message || e);
-    if (prefs.enabled) {
+    if (validated.prefs.enabled) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -1987,7 +2003,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
     }
   }
 
-  if (!env.SPORTS_DIGEST_KV && prefs.enabled) {
+  if (!env.SPORTS_DIGEST_KV && validated.prefs.enabled) {
     warning =
       'Sports Digest list storage is not configured on this Worker; preferences saved but scheduled sends require SPORTS_DIGEST_KV.';
   }
@@ -2001,6 +2017,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
         sportsDigest: prefs,
       },
       ...(warning ? { warning } : {}),
+      kvSynced: kvSync.ok === true,
     }),
     {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -6390,6 +6407,12 @@ async function handleVerifyEmail(request, env, corsHeaders, executionCtx) {
     } else {
       await welcome();
     }
+  }
+
+  try {
+    await ensureSportsDigestKvSubscriber(env, userId, userRow);
+  } catch (e) {
+    console.warn('ensureSportsDigestKvSubscriber after verify failed:', e?.message || e);
   }
 
   return new Response(

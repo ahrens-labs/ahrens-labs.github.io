@@ -790,7 +790,10 @@
               ? 'Saved. You will receive Sports Digest emails on your chosen schedule.'
               : 'Saved. Sports Digest is off.';
             if (data.warning) msg += ' ' + data.warning;
-            setStatus(msg, data.warning ? 'err' : 'ok');
+            if (prefs.enabled && data.kvSynced === false && !data.warning) {
+              msg += ' Scheduled sends may not work until you save again or reload this page.';
+            }
+            setStatus(msg, data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok');
             if (data.sportsDigest) applyPrefs(data.sportsDigest);
           } else {
             setStatus(data.error || 'Could not save preferences.', 'err');
