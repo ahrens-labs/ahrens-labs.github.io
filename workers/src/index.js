@@ -8,8 +8,11 @@ import {
 } from './daily-challenge-picker.js';
 import { DISPOSABLE_EMAIL_DOMAINS } from './disposable-email-domains.js';
 import {
-  SPORTS_DIGEST_TEAMS,
-  SPORTS_DIGEST_FREQUENCIES,
+  SPORTS_DIGEST_TEAM_CATALOG,
+  SPORTS_DIGEST_LEAGUES,
+  SPORTS_DIGEST_PRESETS,
+  SPORTS_DIGEST_MAX_TEAMS,
+  SPORTS_DIGEST_MAX_CUSTOM_TIMES,
   normalizeSportsDigestPrefs,
   validateSportsDigestSave,
 } from './sports-digest-teams.js';
@@ -1812,8 +1815,14 @@ async function handleEmailPreferences(request, env, corsHeaders) {
 function handleSportsDigestCatalog(corsHeaders) {
   return new Response(
     JSON.stringify({
-      teams: SPORTS_DIGEST_TEAMS,
-      frequencies: SPORTS_DIGEST_FREQUENCIES,
+      teams: SPORTS_DIGEST_TEAM_CATALOG,
+      leagues: SPORTS_DIGEST_LEAGUES,
+      presets: SPORTS_DIGEST_PRESETS.filter((p) => p.id !== 'custom'),
+      schedulePresets: SPORTS_DIGEST_PRESETS,
+      maxTeams: SPORTS_DIGEST_MAX_TEAMS,
+      maxCustomTimes: SPORTS_DIGEST_MAX_CUSTOM_TIMES,
+      timeZone: 'America/Chicago',
+      timeStepMinutes: 15,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
@@ -1867,18 +1876,12 @@ async function syncSportsDigestKv(env, userId, profile, prefs) {
       username,
       teams: normalized.teams,
       frequency: normalized.frequency,
-      lastSentMorningYmd:
-        prev && typeof prev === 'object' && typeof prev.lastSentMorningYmd === 'string'
-          ? prev.lastSentMorningYmd
-          : undefined,
-      lastSentEveningYmd:
-        prev && typeof prev === 'object' && typeof prev.lastSentEveningYmd === 'string'
-          ? prev.lastSentEveningYmd
-          : undefined,
-      lastSentWeeklyYmd:
-        prev && typeof prev === 'object' && typeof prev.lastSentWeeklyYmd === 'string'
-          ? prev.lastSentWeeklyYmd
-          : undefined,
+      customTimes: normalized.customTimes,
+      customDays: normalized.customDays,
+      lastSentKeys:
+        prev && typeof prev === 'object' && Array.isArray(prev.lastSentKeys)
+          ? prev.lastSentKeys.slice(-40)
+          : [],
     })
   );
 }

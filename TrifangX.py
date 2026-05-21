@@ -4686,48 +4686,122 @@ def _canonical_opening_moves(moves):
     return out
 
 
-def _build_opening_book_lines(pgn_str):
-    """Build main line and sideline move lists from PGN with parenthetical variations."""
+def _strip_variation_prefix(var_text):
+    """Remove a leading move-number prefix from variation text."""
+    text = var_text.strip()
+    m = re.match(r'^(\d+)\s*\.\s*\.{2,3}\s*', text)
+    if m:
+        return text[m.end():]
+    m = re.match(r'^(\d+)\s*\.\s+', text)
+    if m:
+        return text[m.end():]
+    return text
+
+
+def _opening_book_walk(pgn_str, prefix_moves, played):
+    """
+    Walk PGN main line and variations; return next book move for `played`.
+    A sideline is active only after its branch move appears in `played`.
+    """
     segments = _split_opening_main_and_variations(pgn_str)
     main_text = ''.join(text for kind, text in segments if kind == 'main')
-    main_line = _canonical_opening_moves(extract_moves(main_text))
+    main_moves = prefix_moves + _canonical_opening_moves(extract_moves(main_text))
 
-    variations = []
+    main_so_far = ''
+    fork_var_first_moves = []
+    for kind, text in segments:
+        if kind == 'main':
+            main_so_far += text
+            continue
+
+        branch_base = prefix_moves + _canonical_opening_moves(extract_moves(main_so_far))
+        branch_len = _opening_variation_branch_len(text)
+        if branch_len is None:
+            branch_len = len(branch_base)
+        branch_prefix = branch_base[:branch_len]
+
+        if len(played) < branch_len or played[:branch_len] != branch_prefix:
+            continue
+
+        var_body = _strip_variation_prefix(text)
+        var_first = _canonical_opening_moves(extract_moves(var_body))
+        if not var_first:
+            continue
+
+        if len(played) > branch_len and played[branch_len] != var_first[0]:
+            continue
+
+        if len(played) == branch_len:
+            fork_var_first_moves.append(var_first[0])
+            continue
+
+        if '(' in var_body:
+            var_next = _opening_book_walk(var_body, branch_prefix, played)
+        else:
+            var_line = branch_prefix + var_first
+            if len(played) < len(var_line) and played == var_line[:len(played)]:
+                var_next = var_line[len(played)]
+            else:
+                var_next = None
+
+        if var_next is not None:
+            return var_next
+
+    if len(played) < len(main_moves) and played == main_moves[:len(played)]:
+        return main_moves[len(played)]
+
+    if len(played) == len(main_moves) and fork_var_first_moves:
+        return fork_var_first_moves[0]
+
+    return None
+
+
+def _all_opening_book_lines(pgn_str, prefix_moves=None):
+    """
+    Recursively expand parenthetical PGN into ordered complete move sequences.
+    """
+    prefix_moves = prefix_moves or []
+    segments = _split_opening_main_and_variations(pgn_str)
+    lines = []
+
+    main_text = ''.join(text for kind, text in segments if kind == 'main')
+    main_moves = prefix_moves + _canonical_opening_moves(extract_moves(main_text))
+
     main_so_far = ''
     for kind, text in segments:
         if kind == 'main':
             main_so_far += text
             continue
-        main_before = _canonical_opening_moves(extract_moves(main_so_far))
-        branch_len = _opening_variation_branch_len(text)
-        var_moves = _canonical_opening_moves(extract_moves(text))
-        if branch_len is None:
-            branch_len = len(main_before)
-        branch = main_before[:branch_len]
-        variations.append(branch + var_moves)
 
-    return {'main_line': main_line, 'variations': variations}
+        branch_base = prefix_moves + _canonical_opening_moves(extract_moves(main_so_far))
+        branch_len = _opening_variation_branch_len(text)
+        if branch_len is None:
+            branch_len = len(branch_base)
+        branch_prefix = branch_base[:branch_len]
+
+        var_body = _strip_variation_prefix(text)
+        if '(' in var_body:
+            lines.extend(_all_opening_book_lines(var_body, branch_prefix))
+        else:
+            var_moves = _canonical_opening_moves(extract_moves(var_body))
+            if var_moves:
+                lines.append(branch_prefix + var_moves)
+
+    if main_moves:
+        lines.append(main_moves)
+
+    return lines
 
 
 def opening_book_next_move(pgn_str, played_moves):
     """
     Return the next book move for `played_moves`, or None if off-book.
 
-    Supports parenthetical sidelines, e.g.:
+    Supports parenthetical sidelines (including nested), e.g.:
       1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3...Nf6 4. O-O Nxe4 5. Re1) 4. Ba4
     """
     played = _canonical_opening_moves(played_moves)
-    structure = _build_opening_book_lines(pgn_str)
-
-    for line in structure['variations']:
-        if len(played) < len(line) and played == line[:len(played)]:
-            return line[len(played)]
-
-    main_line = structure['main_line']
-    if len(played) < len(main_line) and played == main_line[:len(played)]:
-        return main_line[len(played)]
-
-    return None
+    return _opening_book_walk(pgn_str, [], played)
 
 
 def _promotion_piece_from_notation(move_notation, is_white_piece):

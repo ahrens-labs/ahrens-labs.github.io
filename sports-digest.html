@@ -11,7 +11,7 @@
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
   <style>
-    .sd-wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 56px; font-family: Inter, system-ui, sans-serif; }
+    .sd-wrap { max-width: 820px; margin: 0 auto; padding: 28px 20px 56px; font-family: Inter, system-ui, sans-serif; }
     .sd-wrap h1 { margin: 0 0 8px; color: #0f172a; font-size: 1.85rem; }
     .sd-sub { color: #64748b; margin: 0 0 24px; line-height: 1.5; font-size: 0.98rem; }
     .sd-card {
@@ -19,27 +19,77 @@
       padding: 24px 24px 22px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
     }
     .sd-card h2 { margin: 0 0 10px; font-size: 1.1rem; color: #0f172a; }
-    .sd-hint { margin: 0 0 16px; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
+    .sd-hint { margin: 0 0 12px; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
     .sd-verify {
       display: none; padding: 12px 14px; background: #fffbeb; border: 1px solid #fcd34d;
       border-radius: 10px; color: #92400e; margin: 0 0 16px; font-size: 0.88rem; line-height: 1.45;
     }
-    .sd-team-grid { display: grid; gap: 10px; margin: 0 0 20px; }
-    @media (min-width: 520px) { .sd-team-grid { grid-template-columns: 1fr 1fr; } }
+    .sd-toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
+    }
+    .sd-search {
+      flex: 1 1 180px; min-width: 140px; padding: 9px 12px; border: 1px solid #cbd5e1;
+      border-radius: 10px; font-size: 0.92rem; font-family: inherit;
+    }
+    .sd-league-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .sd-tab {
+      padding: 7px 12px; border-radius: 999px; border: 1px solid #cbd5e1; background: #f8fafc;
+      font-size: 0.84rem; font-weight: 600; color: #475569; cursor: pointer; font-family: inherit;
+    }
+    .sd-tab.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .sd-mini-btn {
+      padding: 7px 11px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff;
+      font-size: 0.8rem; font-weight: 600; color: #334155; cursor: pointer; font-family: inherit;
+    }
+    .sd-mini-btn:hover { background: #f1f5f9; }
+    .sd-team-count { font-size: 0.82rem; color: #64748b; margin: 0 0 10px; }
+    .sd-team-count.warn { color: #b45309; font-weight: 600; }
+    .sd-team-grid {
+      display: grid; gap: 8px; margin: 0 0 20px;
+      max-height: 360px; overflow-y: auto; padding-right: 4px;
+    }
+    @media (min-width: 620px) { .sd-team-grid { grid-template-columns: 1fr 1fr; } }
     .sd-team {
-      display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
-      border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; background: #fafafa;
+      display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+      border: 1px solid #e2e8f0; border-radius: 10px; cursor: pointer; background: #fafafa;
       transition: border-color 0.12s ease, background 0.12s ease;
     }
     .sd-team:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
-    .sd-team input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
-    .sd-team-label { font-weight: 600; color: #0f172a; font-size: 0.95rem; }
-    .sd-team-sport { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+    .sd-team input { width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0; }
+    .sd-team-label { font-weight: 600; color: #0f172a; font-size: 0.9rem; line-height: 1.25; }
+    .sd-team-sport { font-size: 0.76rem; color: #64748b; margin-top: 2px; }
     .sd-form-row { margin-bottom: 16px; }
     .sd-form-row label { display: block; font-weight: 600; font-size: 0.88rem; color: #334155; margin-bottom: 6px; }
     .sd-form-row select {
       width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1;
       border-radius: 10px; font-size: 0.95rem; font-family: inherit; background: #fff;
+    }
+    .sd-custom-panel {
+      display: none; margin-top: 12px; padding: 14px; border: 1px solid #e2e8f0;
+      border-radius: 12px; background: #f8fafc;
+    }
+    .sd-custom-panel.open { display: block; }
+    .sd-days { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .sd-day {
+      display: flex; align-items: center; gap: 4px; padding: 6px 10px;
+      border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+      font-size: 0.82rem; font-weight: 600; color: #334155; cursor: pointer;
+    }
+    .sd-day:has(input:checked) { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+    .sd-day input { width: 14px; height: 14px; margin: 0; }
+    .sd-time-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 32px; }
+    .sd-time-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+      border-radius: 999px; background: #dbeafe; color: #1e40af; font-size: 0.82rem; font-weight: 600;
+    }
+    .sd-time-chip button {
+      border: none; background: transparent; color: #1e3a8a; cursor: pointer;
+      font-size: 1rem; line-height: 1; padding: 0;
+    }
+    .sd-add-time { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .sd-add-time select {
+      padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: 0.88rem; font-family: inherit; background: #fff;
     }
     .sd-toggle {
       display: flex; align-items: flex-start; gap: 10px; margin: 0 0 20px;
@@ -79,7 +129,6 @@
             <li><a href="index.html">Home</a></li>
             <li><a href="labs.html">Labs &amp; Projects</a></li>
             <li><a href="account-dashboard.html">Account</a></li>
-            <li><a href="sports-digest.html" class="active">Sports Digest</a></li>
             <li><a href="chess_engine.html">Chess Engine</a></li>
           </ul>
         </nav>
@@ -93,8 +142,8 @@
     <main class="sd-wrap">
       <h1>Sports Digest</h1>
       <p class="sd-sub">
-        Wisconsin sports in your inbox — schedules, headlines, and beat-writer posts for the teams you pick.
-        All times are <strong>Central Time</strong>.
+        NFL, NBA, and MLB in your inbox — schedules, headlines, and beat-writer posts for the teams you pick.
+        All send times are <strong>Central Time</strong> (America/Chicago).
       </p>
 
       <div id="sd-loading" class="sd-loading">Loading your account…</div>
@@ -115,13 +164,33 @@
         </div>
 
         <h2>Teams</h2>
-        <p class="sd-hint">Choose one or more. Each email includes only the teams you select.</p>
+        <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams. Each email includes only the teams you select.</p>
+
+        <div class="sd-league-tabs" id="sd-league-tabs"></div>
+        <div class="sd-toolbar">
+          <input type="search" class="sd-search" id="sd-search" placeholder="Search teams…" autocomplete="off">
+          <button type="button" class="sd-mini-btn" id="sd-select-visible">Select visible</button>
+          <button type="button" class="sd-mini-btn" id="sd-clear-visible">Clear visible</button>
+        </div>
+        <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
         <div class="sd-team-grid" id="sd-team-grid"></div>
 
         <div class="sd-form-row">
-          <label for="sd-frequency">How often</label>
+          <label for="sd-frequency">Schedule</label>
           <select id="sd-frequency" aria-describedby="sd-freq-detail"></select>
           <p class="sd-freq-detail" id="sd-freq-detail"></p>
+
+          <div class="sd-custom-panel" id="sd-custom-panel">
+            <p class="sd-hint" style="margin-top:0;">Pick days and times (every 15 minutes). Up to <span id="sd-max-times">6</span> times.</p>
+            <label class="sd-hint" style="font-weight:600;color:#334155;">Days</label>
+            <div class="sd-days" id="sd-custom-days"></div>
+            <label class="sd-hint" style="font-weight:600;color:#334155;">Times</label>
+            <div class="sd-time-chips" id="sd-time-chips"></div>
+            <div class="sd-add-time">
+              <select id="sd-add-time-select" aria-label="Add a send time"></select>
+              <button type="button" class="sd-mini-btn" id="sd-add-time-btn">Add time</button>
+            </div>
+          </div>
         </div>
 
         <button type="button" class="btn btn-primary" id="sd-save">Save preferences</button>
@@ -133,6 +202,8 @@
   <script>
     (function () {
       const API_BASE = window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL;
+      const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const LEAGUE_EMOJI = { mlb: '⚾', nfl: '🏈', nba: '🏀' };
 
       function getSessionId() {
         return localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
@@ -144,38 +215,176 @@
         el.className = 'sd-status' + (kind ? ' ' + kind : '');
       }
 
-      let catalog = { teams: [], frequencies: [] };
+      let catalog = {
+        teams: [],
+        leagues: [],
+        schedulePresets: [],
+        maxTeams: 25,
+        maxCustomTimes: 6,
+        timeStepMinutes: 15,
+      };
       let userProfile = null;
+      let activeLeague = 'all';
+      let customTimes = ['09:00'];
+      let customDays = [0, 1, 2, 3, 4, 5, 6];
+      let allTimeOptions = [];
 
-      function renderCatalog() {
+      function buildTimeOptions() {
+        const step = catalog.timeStepMinutes || 15;
+        const out = [];
+        for (let h = 0; h < 24; h++) {
+          for (let m = 0; m < 60; m += step) {
+            out.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
+          }
+        }
+        return out;
+      }
+
+      function formatTime12(hm) {
+        const parts = hm.split(':');
+        let h = parseInt(parts[0], 10);
+        const min = parts[1];
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        if (h === 0) h = 12;
+        return h + ':' + min + ' ' + ampm;
+      }
+
+      function leagueEmoji(league) {
+        return LEAGUE_EMOJI[league] || '';
+      }
+
+      function filteredTeams() {
+        const q = (document.getElementById('sd-search').value || '').trim().toLowerCase();
+        return catalog.teams.filter(function (t) {
+          if (activeLeague !== 'all' && t.league !== activeLeague) return false;
+          if (!q) return true;
+          return (t.label || '').toLowerCase().includes(q) ||
+            (t.abbr || '').toLowerCase().includes(q) ||
+            (t.sport || '').toLowerCase().includes(q);
+        });
+      }
+
+      function updateTeamCount() {
+        const n = document.querySelectorAll('input[name="sd-team"]:checked').length;
+        const el = document.getElementById('sd-team-count');
+        el.textContent = n + ' team' + (n === 1 ? '' : 's') + ' selected';
+        el.className = 'sd-team-count' + (n > catalog.maxTeams ? ' warn' : '');
+      }
+
+      function renderLeagueTabs() {
+        const tabs = document.getElementById('sd-league-tabs');
+        tabs.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.type = 'button';
+        allBtn.className = 'sd-tab' + (activeLeague === 'all' ? ' active' : '');
+        allBtn.textContent = 'All leagues';
+        allBtn.addEventListener('click', function () { activeLeague = 'all'; renderLeagueTabs(); renderTeamGrid(); });
+        tabs.appendChild(allBtn);
+        (catalog.leagues || []).forEach(function (lg) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'sd-tab' + (activeLeague === lg.id ? ' active' : '');
+          btn.textContent = (lg.emoji || leagueEmoji(lg.id)) + ' ' + lg.label;
+          btn.addEventListener('click', function () { activeLeague = lg.id; renderLeagueTabs(); renderTeamGrid(); });
+          tabs.appendChild(btn);
+        });
+      }
+
+      function renderTeamGrid() {
         const grid = document.getElementById('sd-team-grid');
+        const selected = new Set();
+        document.querySelectorAll('input[name="sd-team"]:checked').forEach(function (cb) {
+          selected.add(cb.value);
+        });
         grid.innerHTML = '';
-        catalog.teams.forEach(function (t) {
+        filteredTeams().forEach(function (t) {
           const label = document.createElement('label');
           label.className = 'sd-team';
+          label.dataset.teamId = t.id;
+          const em = leagueEmoji(t.league);
           label.innerHTML =
-            '<input type="checkbox" name="sd-team" value="' + t.id + '">' +
-            '<div><div class="sd-team-label">' + (t.emoji ? t.emoji + ' ' : '') + t.label + '</div>' +
-            '<div class="sd-team-sport">' + t.sport + '</div></div>';
+            '<input type="checkbox" name="sd-team" value="' + t.id + '"' +
+            (selected.has(t.id) ? ' checked' : '') + '>' +
+            '<div><div class="sd-team-label">' + (em ? em + ' ' : '') + t.label + '</div>' +
+            '<div class="sd-team-sport">' + t.sport + (t.abbr ? ' · ' + t.abbr : '') + '</div></div>';
+          label.querySelector('input').addEventListener('change', updateTeamCount);
           grid.appendChild(label);
         });
+        updateTeamCount();
+      }
 
+      function renderFrequencySelect() {
         const sel = document.getElementById('sd-frequency');
         sel.innerHTML = '';
-        catalog.frequencies.forEach(function (f) {
+        (catalog.schedulePresets || catalog.presets || []).forEach(function (f) {
           const opt = document.createElement('option');
           opt.value = f.id;
-          opt.textContent = f.label + ' (' + f.detail + ')';
+          opt.textContent = f.label + (f.detail ? ' — ' + f.detail : '');
           sel.appendChild(opt);
         });
-        sel.addEventListener('change', updateFreqDetail);
-        updateFreqDetail();
+      }
+
+      function renderCustomDays() {
+        const wrap = document.getElementById('sd-custom-days');
+        wrap.innerHTML = '';
+        DAY_LABELS.forEach(function (name, idx) {
+          const lbl = document.createElement('label');
+          lbl.className = 'sd-day';
+          lbl.innerHTML = '<input type="checkbox" name="sd-custom-day" value="' + idx + '"> ' + name;
+          const cb = lbl.querySelector('input');
+          cb.checked = customDays.indexOf(idx) >= 0;
+          cb.addEventListener('change', function () {
+            customDays = [];
+            document.querySelectorAll('input[name="sd-custom-day"]:checked').forEach(function (x) {
+              customDays.push(parseInt(x.value, 10));
+            });
+            customDays.sort(function (a, b) { return a - b; });
+          });
+          wrap.appendChild(lbl);
+        });
+      }
+
+      function renderTimeChips() {
+        const wrap = document.getElementById('sd-time-chips');
+        wrap.innerHTML = '';
+        customTimes.slice().sort().forEach(function (hm) {
+          const chip = document.createElement('span');
+          chip.className = 'sd-time-chip';
+          chip.innerHTML = formatTime12(hm) + ' <button type="button" aria-label="Remove ' + hm + '">&times;</button>';
+          chip.querySelector('button').addEventListener('click', function () {
+            customTimes = customTimes.filter(function (x) { return x !== hm; });
+            renderTimeChips();
+            refreshAddTimeSelect();
+          });
+          wrap.appendChild(chip);
+        });
+        refreshAddTimeSelect();
+      }
+
+      function refreshAddTimeSelect() {
+        const sel = document.getElementById('sd-add-time-select');
+        sel.innerHTML = '';
+        allTimeOptions.forEach(function (hm) {
+          if (customTimes.indexOf(hm) >= 0) return;
+          const opt = document.createElement('option');
+          opt.value = hm;
+          opt.textContent = formatTime12(hm);
+          sel.appendChild(opt);
+        });
       }
 
       function updateFreqDetail() {
         const id = document.getElementById('sd-frequency').value;
-        const f = catalog.frequencies.find(function (x) { return x.id === id; });
+        const presets = catalog.schedulePresets || catalog.presets || [];
+        const f = presets.find(function (x) { return x.id === id; });
         document.getElementById('sd-freq-detail').textContent = f ? f.detail : '';
+        const customPanel = document.getElementById('sd-custom-panel');
+        if (id === 'custom') {
+          customPanel.classList.add('open');
+        } else {
+          customPanel.classList.remove('open');
+        }
       }
 
       function applyPrefs(prefs) {
@@ -187,7 +396,16 @@
         if (prefs && prefs.frequency) {
           document.getElementById('sd-frequency').value = prefs.frequency;
         }
+        customTimes = Array.isArray(prefs && prefs.customTimes) && prefs.customTimes.length
+          ? prefs.customTimes.slice()
+          : ['09:00'];
+        customDays = Array.isArray(prefs && prefs.customDays) && prefs.customDays.length
+          ? prefs.customDays.slice()
+          : [0, 1, 2, 3, 4, 5, 6];
+        renderCustomDays();
+        renderTimeChips();
         updateFreqDetail();
+        updateTeamCount();
       }
 
       function collectPrefs() {
@@ -199,6 +417,8 @@
           enabled: document.getElementById('sd-enabled').checked,
           teams: teams,
           frequency: document.getElementById('sd-frequency').value,
+          customTimes: customTimes.slice(),
+          customDays: customDays.slice(),
         };
       }
 
@@ -219,8 +439,19 @@
           return;
         }
 
-        catalog = await catRes.json().catch(function () { return { teams: [], frequencies: [] }; });
+        catalog = await catRes.json().catch(function () {
+          return { teams: [], leagues: [], schedulePresets: [], maxTeams: 25, maxCustomTimes: 6 };
+        });
+        if (!catalog.schedulePresets && catalog.presets) {
+          catalog.schedulePresets = catalog.presets.concat(
+            (catalog.presets.some(function (p) { return p.id === 'custom'; }) ? [] : [{ id: 'custom', label: 'Custom', detail: 'Pick your own times and days' }])
+          );
+        }
         userProfile = await userRes.json();
+        allTimeOptions = buildTimeOptions();
+
+        document.getElementById('sd-max-teams').textContent = String(catalog.maxTeams || 25);
+        document.getElementById('sd-max-times').textContent = String(catalog.maxCustomTimes || 6);
 
         document.getElementById('sd-loading').style.display = 'none';
         document.getElementById('sd-panel').style.display = 'block';
@@ -235,7 +466,42 @@
           document.getElementById('sd-verify-banner').style.display = 'block';
         }
 
-        renderCatalog();
+        renderLeagueTabs();
+        renderFrequencySelect();
+        renderCustomDays();
+        renderTimeChips();
+        document.getElementById('sd-frequency').addEventListener('change', updateFreqDetail);
+
+        document.getElementById('sd-search').addEventListener('input', renderTeamGrid);
+        document.getElementById('sd-select-visible').addEventListener('click', function () {
+          filteredTeams().forEach(function (t) {
+            const cb = document.querySelector('input[name="sd-team"][value="' + t.id + '"]');
+            if (cb) cb.checked = true;
+          });
+          updateTeamCount();
+        });
+        document.getElementById('sd-clear-visible').addEventListener('click', function () {
+          filteredTeams().forEach(function (t) {
+            const cb = document.querySelector('input[name="sd-team"][value="' + t.id + '"]');
+            if (cb) cb.checked = false;
+          });
+          updateTeamCount();
+        });
+        document.getElementById('sd-add-time-btn').addEventListener('click', function () {
+          const sel = document.getElementById('sd-add-time-select');
+          const hm = sel.value;
+          if (!hm || customTimes.indexOf(hm) >= 0) return;
+          if (customTimes.length >= (catalog.maxCustomTimes || 6)) {
+            setStatus('At most ' + (catalog.maxCustomTimes || 6) + ' custom times.', 'err');
+            return;
+          }
+          customTimes.push(hm);
+          customTimes.sort();
+          renderTimeChips();
+          setStatus('', '');
+        });
+
+        renderTeamGrid();
         const prefs = (userProfile.emailPreferences && userProfile.emailPreferences.sportsDigest) || {};
         applyPrefs(prefs);
       }
@@ -247,6 +513,20 @@
         if (prefs.enabled && prefs.teams.length === 0) {
           setStatus('Choose at least one team when Sports Digest is on.', 'err');
           return;
+        }
+        if (prefs.enabled && prefs.teams.length > (catalog.maxTeams || 25)) {
+          setStatus('Choose at most ' + (catalog.maxTeams || 25) + ' teams.', 'err');
+          return;
+        }
+        if (prefs.enabled && prefs.frequency === 'custom') {
+          if (!prefs.customTimes.length) {
+            setStatus('Add at least one custom send time.', 'err');
+            return;
+          }
+          if (!prefs.customDays.length) {
+            setStatus('Choose at least one day for your custom schedule.', 'err');
+            return;
+          }
         }
         const btn = document.getElementById('sd-save');
         btn.disabled = true;
