@@ -35,8 +35,8 @@ const LEGACY_TEAM_ID_MAP = {
 const TEAM_ID_SET = new Set(SPORTS_DIGEST_TEAM_CATALOG.map((t) => t.id));
 const PRESET_ID_SET = new Set(SPORTS_DIGEST_PRESETS.map((p) => p.id));
 
-/** Minutes must align with sports-digest cron (every 15 minutes). */
-const CUSTOM_TIME_RE = /^([01]?\d|2[0-3]):(00|15|30|45)$/;
+/** Any minute 00–59 (Central Time). Cron runs every minute. */
+const CUSTOM_TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
 export const DEFAULT_SPORTS_DIGEST_PREFS = {
   enabled: false,
@@ -135,7 +135,7 @@ export function validateSportsDigestSave(body) {
   const customTimes = normalizeCustomTimes(body.customTimes);
   const customDays = normalizeCustomDays(body.customDays);
   if (body.enabled && frequency === 'custom' && customTimes.length === 0) {
-    return { ok: false, error: 'Add at least one custom time (Central Time, every 15 minutes).' };
+    return { ok: false, error: 'Add at least one custom time (Central Time, HH:MM).' };
   }
   return {
     ok: true,

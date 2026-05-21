@@ -15,12 +15,13 @@
       --sd-mlb: #c41230;
       --sd-nfl: #013369;
       --sd-nba: #17408b;
-      --sd-ink: #0b1220;
+      --sd-ink: #0f172a;
       --sd-muted: #64748b;
-      --sd-card: rgba(255, 255, 255, 0.92);
-      --sd-line: rgba(148, 163, 184, 0.35);
+      --sd-card: #ffffff;
+      --sd-line: #e2e8f0;
+      --sd-page-bg: #f1f5f9;
     }
-    body.sd-page { background: #0b1220; }
+    body.sd-page { background: var(--sd-page-bg); }
     body.sd-page .wrapper { background: transparent; }
     .sd-hero {
       position: relative;
@@ -29,29 +30,31 @@
       overflow: hidden;
       border-radius: 0 0 28px 28px;
       background:
-        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(59, 130, 246, 0.35), transparent 55%),
-        radial-gradient(ellipse 70% 55% at 90% 10%, rgba(16, 185, 129, 0.28), transparent 50%),
-        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(244, 114, 182, 0.22), transparent 55%),
-        linear-gradient(145deg, #0f172a 0%, #111827 45%, #0b1220 100%);
-      color: #e2e8f0;
-      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+        radial-gradient(ellipse 80% 60% at 15% 0%, rgba(59, 130, 246, 0.14), transparent 55%),
+        radial-gradient(ellipse 70% 55% at 90% 10%, rgba(16, 185, 129, 0.12), transparent 50%),
+        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(244, 114, 182, 0.08), transparent 55%),
+        linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #eef2ff 100%);
+      color: var(--sd-ink);
+      border: 1px solid var(--sd-line);
+      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
     }
     .sd-hero::before {
       content: "";
       position: absolute;
       inset: 0;
-      background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px);
       background-size: 18px 18px;
-      opacity: 0.35;
+      opacity: 0.5;
       pointer-events: none;
     }
     .sd-hero-inner { position: relative; z-index: 1; max-width: 760px; }
     .sd-kicker {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 6px 12px; border-radius: 999px;
-      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+      background: #fff; border: 1px solid var(--sd-line);
       font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      color: #cbd5e1; margin-bottom: 14px;
+      color: #475569; margin-bottom: 14px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
     }
     .sd-hero h1 {
       margin: 0 0 10px;
@@ -59,15 +62,15 @@
       font-size: clamp(1.85rem, 4vw, 2.45rem);
       font-weight: 900;
       letter-spacing: 0.02em;
-      background: linear-gradient(90deg, #fff 0%, #93c5fd 45%, #6ee7b7 100%);
+      background: linear-gradient(90deg, #0f172a 0%, #2563eb 42%, #059669 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
     }
     .sd-sub {
-      color: #94a3b8; margin: 0; line-height: 1.55; font-size: 1rem; max-width: 58ch;
+      color: var(--sd-muted); margin: 0; line-height: 1.55; font-size: 1rem; max-width: 58ch;
     }
-    .sd-sub strong { color: #e2e8f0; }
+    .sd-sub strong { color: var(--sd-ink); }
     .sd-wrap {
       max-width: 900px; margin: 0 auto; padding: 20px 20px 64px;
       font-family: Inter, system-ui, sans-serif;
@@ -77,8 +80,7 @@
       border: 1px solid var(--sd-line);
       border-radius: 22px;
       padding: 26px 26px 24px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255,255,255,0.6) inset;
-      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.07);
     }
     .sd-section-title {
       display: flex; align-items: center; gap: 10px;
@@ -243,9 +245,14 @@
       font-size: 1rem; line-height: 1; padding: 0;
     }
     .sd-add-time { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .sd-add-time select {
+    .sd-add-time select,
+    .sd-time-input {
       padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px;
       font-size: 0.88rem; font-family: inherit; background: #fff;
+    }
+    .sd-time-input:focus {
+      outline: none; border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
     }
     .sd-toggle {
       display: flex; align-items: flex-start; gap: 12px; margin: 0 0 22px;
@@ -278,7 +285,7 @@
     .sd-account-line a { color: #2563eb; font-weight: 700; text-decoration: none; }
     .sd-account-line a:hover { text-decoration: underline; }
     .sd-loading {
-      color: #94a3b8; padding: 48px 0; text-align: center; font-weight: 600;
+      color: #64748b; padding: 48px 0; text-align: center; font-weight: 600;
     }
     .sd-loading::after {
       content: ""; display: block; width: 36px; height: 36px; margin: 14px auto 0;
@@ -290,9 +297,9 @@
     .sd-back {
       display: inline-flex; align-items: center; gap: 6px;
       margin-bottom: 16px; font-size: 0.84rem; font-weight: 700;
-      color: #93c5fd; text-decoration: none;
+      color: #2563eb; text-decoration: none;
     }
-    .sd-back:hover { color: #bfdbfe; text-decoration: underline; }
+    .sd-back:hover { color: #1d4ed8; text-decoration: underline; }
   </style>
 </head>
 <body class="sd-page">
@@ -373,13 +380,13 @@
           <p class="sd-freq-detail" id="sd-freq-detail"></p>
 
           <div class="sd-custom-panel" id="sd-custom-panel">
-            <p class="sd-hint" style="margin-top:0;">Pick days and times (every 15 minutes). Up to <span id="sd-max-times">6</span> times.</p>
+            <p class="sd-hint" style="margin-top:0;">Pick days and any send times (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Days</label>
             <div class="sd-days" id="sd-custom-days"></div>
             <label class="sd-hint" style="font-weight:700;color:#334155;">Times</label>
             <div class="sd-time-chips" id="sd-time-chips"></div>
             <div class="sd-add-time">
-              <select id="sd-add-time-select" aria-label="Add a send time"></select>
+              <input type="time" id="sd-add-time-input" class="sd-time-input" aria-label="Pick a send time">
               <button type="button" class="sd-mini-btn" id="sd-add-time-btn">Add time</button>
             </div>
           </div>
@@ -415,23 +422,21 @@
         schedulePresets: [],
         maxTeams: 25,
         maxCustomTimes: 6,
-        timeStepMinutes: 15,
       };
       let userProfile = null;
       let activeLeague = 'all';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
-      let allTimeOptions = [];
+      let selectedTeamIds = new Set();
 
-      function buildTimeOptions() {
-        const step = catalog.timeStepMinutes || 15;
-        const out = [];
-        for (let h = 0; h < 24; h++) {
-          for (let m = 0; m < 60; m += step) {
-            out.push(String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'));
-          }
-        }
-        return out;
+      function normalizeHmInput(val) {
+        if (!val || typeof val !== 'string') return null;
+        const m = /^(\d{1,2}):(\d{2})$/.exec(val.trim());
+        if (!m) return null;
+        const h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+        if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+        return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
       }
 
       function formatTime12(hm) {
@@ -484,7 +489,7 @@
       }
 
       function updateTeamCount() {
-        const n = document.querySelectorAll('input[name="sd-team"]:checked').length;
+        const n = selectedTeamIds.size;
         const el = document.getElementById('sd-team-count');
         el.textContent = n + ' team' + (n === 1 ? '' : 's') + ' selected';
         el.className = 'sd-team-count' + (n > catalog.maxTeams ? ' warn' : '');
@@ -494,11 +499,9 @@
       function renderSelectedStrip() {
         const strip = document.getElementById('sd-selected-strip');
         const wrap = document.getElementById('sd-selected-logos');
-        const checked = [];
-        document.querySelectorAll('input[name="sd-team"]:checked').forEach(function (cb) {
-          const t = teamById.get(cb.value);
-          if (t) checked.push(t);
-        });
+        const checked = [...selectedTeamIds]
+          .map(function (id) { return teamById.get(id); })
+          .filter(Boolean);
         if (!checked.length) {
           strip.classList.remove('visible');
           wrap.innerHTML = '';
@@ -544,10 +547,6 @@
 
       function renderTeamGrid() {
         const grid = document.getElementById('sd-team-grid');
-        const selected = new Set();
-        document.querySelectorAll('input[name="sd-team"]:checked').forEach(function (cb) {
-          selected.add(cb.value);
-        });
         grid.innerHTML = '';
         filteredTeams().forEach(function (t) {
           const label = document.createElement('label');
@@ -556,7 +555,7 @@
           label.style.setProperty('--team-accent', leagueAccent(t.league, t.color));
           label.innerHTML =
             '<input type="checkbox" name="sd-team" value="' + escapeHtml(t.id) + '"' +
-            (selected.has(t.id) ? ' checked' : '') + '>' +
+            (selectedTeamIds.has(t.id) ? ' checked' : '') + '>' +
             '<span class="sd-team-logo-wrap">' + teamLogoMarkup(t) + '</span>' +
             '<div class="sd-team-meta">' +
               '<div class="sd-team-label">' + escapeHtml(t.label) + '</div>' +
@@ -564,7 +563,11 @@
                 (t.abbr ? ' · ' + escapeHtml(t.abbr) : '') + '</div>' +
             '</div>' +
             '<span class="sd-team-check" aria-hidden="true">✓</span>';
-          label.querySelector('input').addEventListener('change', updateTeamCount);
+          label.querySelector('input').addEventListener('change', function (e) {
+            if (e.target.checked) selectedTeamIds.add(t.id);
+            else selectedTeamIds.delete(t.id);
+            updateTeamCount();
+          });
           grid.appendChild(label);
         });
         updateTeamCount();
@@ -611,22 +614,8 @@
           chip.querySelector('button').addEventListener('click', function () {
             customTimes = customTimes.filter(function (x) { return x !== hm; });
             renderTimeChips();
-            refreshAddTimeSelect();
           });
           wrap.appendChild(chip);
-        });
-        refreshAddTimeSelect();
-      }
-
-      function refreshAddTimeSelect() {
-        const sel = document.getElementById('sd-add-time-select');
-        sel.innerHTML = '';
-        allTimeOptions.forEach(function (hm) {
-          if (customTimes.indexOf(hm) >= 0) return;
-          const opt = document.createElement('option');
-          opt.value = hm;
-          opt.textContent = formatTime12(hm);
-          sel.appendChild(opt);
         });
       }
 
@@ -645,10 +634,7 @@
 
       function applyPrefs(prefs) {
         document.getElementById('sd-enabled').checked = !!(prefs && prefs.enabled);
-        const selected = new Set((prefs && prefs.teams) || []);
-        document.querySelectorAll('input[name="sd-team"]').forEach(function (cb) {
-          cb.checked = selected.has(cb.value);
-        });
+        selectedTeamIds = new Set((prefs && prefs.teams) || []);
         if (prefs && prefs.frequency) {
           document.getElementById('sd-frequency').value = prefs.frequency;
         }
@@ -661,17 +647,13 @@
         renderCustomDays();
         renderTimeChips();
         updateFreqDetail();
-        updateTeamCount();
+        renderTeamGrid();
       }
 
       function collectPrefs() {
-        const teams = [];
-        document.querySelectorAll('input[name="sd-team"]:checked').forEach(function (cb) {
-          teams.push(cb.value);
-        });
         return {
           enabled: document.getElementById('sd-enabled').checked,
-          teams: teams,
+          teams: [...selectedTeamIds],
           frequency: document.getElementById('sd-frequency').value,
           customTimes: customTimes.slice(),
           customDays: customDays.slice(),
@@ -704,7 +686,6 @@
           );
         }
         userProfile = await userRes.json();
-        allTimeOptions = buildTimeOptions();
         teamById.clear();
         (catalog.teams || []).forEach(function (t) { teamById.set(t.id, t); });
 
@@ -733,22 +714,27 @@
         document.getElementById('sd-search').addEventListener('input', renderTeamGrid);
         document.getElementById('sd-select-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
-            const cb = document.querySelector('input[name="sd-team"][value="' + t.id + '"]');
-            if (cb) cb.checked = true;
+            selectedTeamIds.add(t.id);
           });
-          updateTeamCount();
+          renderTeamGrid();
         });
         document.getElementById('sd-clear-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
-            const cb = document.querySelector('input[name="sd-team"][value="' + t.id + '"]');
-            if (cb) cb.checked = false;
+            selectedTeamIds.delete(t.id);
           });
-          updateTeamCount();
+          renderTeamGrid();
         });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {
-          const sel = document.getElementById('sd-add-time-select');
-          const hm = sel.value;
-          if (!hm || customTimes.indexOf(hm) >= 0) return;
+          const input = document.getElementById('sd-add-time-input');
+          const hm = normalizeHmInput(input.value);
+          if (!hm) {
+            setStatus('Pick a valid time to add.', 'err');
+            return;
+          }
+          if (customTimes.indexOf(hm) >= 0) {
+            setStatus('That time is already on your schedule.', 'err');
+            return;
+          }
           if (customTimes.length >= (catalog.maxCustomTimes || 6)) {
             setStatus('At most ' + (catalog.maxCustomTimes || 6) + ' custom times.', 'err');
             return;
@@ -756,10 +742,10 @@
           customTimes.push(hm);
           customTimes.sort();
           renderTimeChips();
+          input.value = '';
           setStatus('', '');
         });
 
-        renderTeamGrid();
         const prefs = (userProfile.emailPreferences && userProfile.emailPreferences.sportsDigest) || {};
         applyPrefs(prefs);
       }

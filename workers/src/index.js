@@ -1822,7 +1822,7 @@ function handleSportsDigestCatalog(corsHeaders) {
       maxTeams: SPORTS_DIGEST_MAX_TEAMS,
       maxCustomTimes: SPORTS_DIGEST_MAX_CUSTOM_TIMES,
       timeZone: 'America/Chicago',
-      timeStepMinutes: 15,
+      timeStepMinutes: 1,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
