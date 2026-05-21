@@ -16,7 +16,8 @@ const PROTECTED_PAGE_BASENAMES = [
     'chess_shop',
     'achievements',
     'dungeon_game',
-    'classify'
+    'classify',
+    'sports-digest'
 ];
 
 // Check if current page requires login

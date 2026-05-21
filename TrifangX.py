@@ -6594,7 +6594,7 @@ def best_move_black(board, bots, en_passant):
                 '1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Be2 0-0 6. Nf3 Nbd7 7. Be3 e5 8. d5 Ng4 9. Bg5 f6 10. Bd2 f5 11. h3 Nxf2 12. Kxf2 fxe4 13. Nxe4 Qh4+ 14. Ke3 Bh6+ 15. Kd3 Qxe4+ 16. Kxe4 Nc5#',
                 '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. Nc3 b5 6. Bb3 Be7 7. a4 b4 8. Nd5 0-0 9. Nxf6+ Bxf6',
                 '1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. e5 Nfd7 5. f4 c5 6. Nf3 Nc6 7. Be3 cxd4 8. Nxd4 Bc5 9. Qd2 Bxd4 10. Bxd4 Nxd4 11. Qxd4 Qb6 12. Qd2 Qxb2 13. Rb1 Qa3 14. Nb5 Qxa2 15. Nd6+ Ke7 16. Rc1',
-                '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nf6 8. Ne5 Bh7 9. Bd3 Qxd4',
+                '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7',
                 '1. e4 c6 2. d4 d5 3. e5 c5 4. dxc5 e6 5. a3 Bxc5 6. b4 Be7 7. Nf3 f6 8. Bb2 a5 9. b5 Nd7 10. Bd3 Nh6 11. Nbd2 Nf7 12. exf6 Bxf6 13. Bxf6 Qxf6 14. c4 Nc5 15. Bc2 a4',
                 '1. e4 c6 2. d4 d5 3. e5 c5 4. dxc5 e6 5. Be3 Nd7 6. Bb5 Ne7 7. c3 a6 8. Bxd7+ Bxd7 9. Nf3 Nf5 10. Bd4 Nxd4 11. cxd4 b6 12. cxb6 Qxb6',
                 '1. e4 c6 2. d4 d5 3. e5 c5 4. c3 Nc6 5. Nf3 cxd4 6. cxd4 Bg4 7. Be2 e6 8. 0-0 Nge7 9. Nc3 Nf5',
@@ -6617,7 +6617,6 @@ def best_move_black(board, bots, en_passant):
         best_options = [(1, 4, 3, 4, 'P'), (1, 2, 3, 2, 'P'), (1, 3, 3, 3, 'P'), (1, 4, 2, 4, 'P'), (1, 2, 2, 2, 'P')]
         # e5, c5, d5, e6, c6
         best_option = random.choice(best_options)
-        best_option = (1, 2, 2, 2, 'P')
         previous_score = score(board, 'b')
         result_scores[best_option] = previous_score
     elif opening_moves != 'none':

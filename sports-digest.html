@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sports Digest — Ahrens Labs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <script src="js/script.js"></script>
+  <style>
+    .sd-wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 56px; font-family: Inter, system-ui, sans-serif; }
+    .sd-wrap h1 { margin: 0 0 8px; color: #0f172a; font-size: 1.85rem; }
+    .sd-sub { color: #64748b; margin: 0 0 24px; line-height: 1.5; font-size: 0.98rem; }
+    .sd-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 24px 24px 22px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    }
+    .sd-card h2 { margin: 0 0 10px; font-size: 1.1rem; color: #0f172a; }
+    .sd-hint { margin: 0 0 16px; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
+    .sd-verify {
+      display: none; padding: 12px 14px; background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 10px; color: #92400e; margin: 0 0 16px; font-size: 0.88rem; line-height: 1.45;
+    }
+    .sd-team-grid { display: grid; gap: 10px; margin: 0 0 20px; }
+    @media (min-width: 520px) { .sd-team-grid { grid-template-columns: 1fr 1fr; } }
+    .sd-team {
+      display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px;
+      border: 1px solid #e2e8f0; border-radius: 12px; cursor: pointer; background: #fafafa;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+    .sd-team:has(input:checked) { border-color: #2563eb; background: #eff6ff; }
+    .sd-team input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
+    .sd-team-label { font-weight: 600; color: #0f172a; font-size: 0.95rem; }
+    .sd-team-sport { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+    .sd-form-row { margin-bottom: 16px; }
+    .sd-form-row label { display: block; font-weight: 600; font-size: 0.88rem; color: #334155; margin-bottom: 6px; }
+    .sd-form-row select {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1;
+      border-radius: 10px; font-size: 0.95rem; font-family: inherit; background: #fff;
+    }
+    .sd-toggle {
+      display: flex; align-items: flex-start; gap: 10px; margin: 0 0 20px;
+      padding: 14px 16px; border-radius: 12px; background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+      border: 1px solid #bbf7d0;
+    }
+    .sd-toggle input { width: 18px; height: 18px; margin-top: 2px; }
+    .sd-toggle label { margin: 0; font-weight: 600; color: #14532d; }
+    .sd-toggle p { margin: 4px 0 0; font-size: 0.82rem; color: #166534; font-weight: 400; }
+    .btn {
+      display: inline-block; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 0.92rem;
+      border: none; cursor: pointer; font-family: inherit;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .sd-status { font-size: 0.86rem; margin-top: 12px; min-height: 1.2em; color: #64748b; }
+    .sd-status.ok { color: #047857; }
+    .sd-status.err { color: #b91c1c; }
+    .sd-account-line { font-size: 0.88rem; color: #475569; margin: 0 0 20px; }
+    .sd-account-line a { color: #2563eb; font-weight: 600; text-decoration: none; }
+    .sd-account-line a:hover { text-decoration: underline; }
+    .sd-loading { color: #64748b; padding: 24px 0; text-align: center; }
+    .sd-freq-detail { font-size: 0.82rem; color: #64748b; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <div class="header-content">
+        <a href="index.html" class="logo-link">
+          <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+        </a>
+        <h1>Ahrens Labs</h1>
+        <nav>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="labs.html">Labs &amp; Projects</a></li>
+            <li><a href="account-dashboard.html">Account</a></li>
+            <li><a href="sports-digest.html" class="active">Sports Digest</a></li>
+            <li><a href="chess_engine.html">Chess Engine</a></li>
+          </ul>
+        </nav>
+        <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
+          <button id="header-login-btn" onclick="window.location.href='account.html?return=sports-digest.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Login</button>
+          <button id="header-signup-btn" onclick="window.location.href='account.html?return=sports-digest.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Sign Up</button>
+          <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em;"></span>
+        </div>
+      </div>
+    </header>
+    <main class="sd-wrap">
+      <h1>Sports Digest</h1>
+      <p class="sd-sub">
+        Wisconsin sports in your inbox — schedules, headlines, and beat-writer posts for the teams you pick.
+        All times are <strong>Central Time</strong>.
+      </p>
+
+      <div id="sd-loading" class="sd-loading">Loading your account…</div>
+
+      <div id="sd-panel" class="sd-card" style="display:none;">
+        <p class="sd-account-line" id="sd-account-line"></p>
+
+        <div class="sd-verify" id="sd-verify-banner">
+          <strong>Confirm your email</strong> — open the link we sent when you signed up. Sports Digest stays off until your address is verified.
+        </div>
+
+        <div class="sd-toggle">
+          <input type="checkbox" id="sd-enabled">
+          <div>
+            <label for="sd-enabled">Email me the Sports Digest</label>
+            <p id="sd-enabled-hint">Turn on to receive updates at your account email.</p>
+          </div>
+        </div>
+
+        <h2>Teams</h2>
+        <p class="sd-hint">Choose one or more. Each email includes only the teams you select.</p>
+        <div class="sd-team-grid" id="sd-team-grid"></div>
+
+        <div class="sd-form-row">
+          <label for="sd-frequency">How often</label>
+          <select id="sd-frequency" aria-describedby="sd-freq-detail"></select>
+          <p class="sd-freq-detail" id="sd-freq-detail"></p>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="sd-save">Save preferences</button>
+        <p class="sd-status" id="sd-status"></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const API_BASE = window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL;
+
+      function getSessionId() {
+        return localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
+      }
+
+      function setStatus(msg, kind) {
+        const el = document.getElementById('sd-status');
+        el.textContent = msg || '';
+        el.className = 'sd-status' + (kind ? ' ' + kind : '');
+      }
+
+      let catalog = { teams: [], frequencies: [] };
+      let userProfile = null;
+
+      function renderCatalog() {
+        const grid = document.getElementById('sd-team-grid');
+        grid.innerHTML = '';
+        catalog.teams.forEach(function (t) {
+          const label = document.createElement('label');
+          label.className = 'sd-team';
+          label.innerHTML =
+            '<input type="checkbox" name="sd-team" value="' + t.id + '">' +
+            '<div><div class="sd-team-label">' + (t.emoji ? t.emoji + ' ' : '') + t.label + '</div>' +
+            '<div class="sd-team-sport">' + t.sport + '</div></div>';
+          grid.appendChild(label);
+        });
+
+        const sel = document.getElementById('sd-frequency');
+        sel.innerHTML = '';
+        catalog.frequencies.forEach(function (f) {
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.label + ' (' + f.detail + ')';
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change', updateFreqDetail);
+        updateFreqDetail();
+      }
+
+      function updateFreqDetail() {
+        const id = document.getElementById('sd-frequency').value;
+        const f = catalog.frequencies.find(function (x) { return x.id === id; });
+        document.getElementById('sd-freq-detail').textContent = f ? f.detail : '';
+      }
+
+      function applyPrefs(prefs) {
+        document.getElementById('sd-enabled').checked = !!(prefs && prefs.enabled);
+        const selected = new Set((prefs && prefs.teams) || []);
+        document.querySelectorAll('input[name="sd-team"]').forEach(function (cb) {
+          cb.checked = selected.has(cb.value);
+        });
+        if (prefs && prefs.frequency) {
+          document.getElementById('sd-frequency').value = prefs.frequency;
+        }
+        updateFreqDetail();
+      }
+
+      function collectPrefs() {
+        const teams = [];
+        document.querySelectorAll('input[name="sd-team"]:checked').forEach(function (cb) {
+          teams.push(cb.value);
+        });
+        return {
+          enabled: document.getElementById('sd-enabled').checked,
+          teams: teams,
+          frequency: document.getElementById('sd-frequency').value,
+        };
+      }
+
+      async function loadAll() {
+        const sessionId = getSessionId();
+        if (!sessionId) {
+          window.location.href = 'account.html?return=sports-digest.html';
+          return;
+        }
+
+        const [catRes, userRes] = await Promise.all([
+          fetch(API_BASE + '/api/sports-digest-catalog'),
+          fetch(API_BASE + '/api/user', { headers: { Authorization: 'Bearer ' + sessionId } }),
+        ]);
+
+        if (!userRes.ok) {
+          window.location.href = 'account.html?return=sports-digest.html';
+          return;
+        }
+
+        catalog = await catRes.json().catch(function () { return { teams: [], frequencies: [] }; });
+        userProfile = await userRes.json();
+
+        document.getElementById('sd-loading').style.display = 'none';
+        document.getElementById('sd-panel').style.display = 'block';
+
+        const email = userProfile.email || 'your account email';
+        const uname = userProfile.username || 'there';
+        document.getElementById('sd-account-line').innerHTML =
+          'Signed in as <strong>' + uname + '</strong> · mail goes to <strong>' + email + '</strong> · ' +
+          '<a href="account-dashboard.html">Account dashboard</a>';
+
+        if (userProfile.emailVerified === false) {
+          document.getElementById('sd-verify-banner').style.display = 'block';
+        }
+
+        renderCatalog();
+        const prefs = (userProfile.emailPreferences && userProfile.emailPreferences.sportsDigest) || {};
+        applyPrefs(prefs);
+      }
+
+      document.getElementById('sd-save').addEventListener('click', async function () {
+        const sessionId = getSessionId();
+        const prefs = collectPrefs();
+        setStatus('', '');
+        if (prefs.enabled && prefs.teams.length === 0) {
+          setStatus('Choose at least one team when Sports Digest is on.', 'err');
+          return;
+        }
+        const btn = document.getElementById('sd-save');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try {
+          const res = await fetch(API_BASE + '/api/sports-digest-preferences', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + sessionId,
+            },
+            body: JSON.stringify(prefs),
+          });
+          const data = await res.json().catch(function () { return {}; });
+          if (res.ok && data.success) {
+            let msg = prefs.enabled
+              ? 'Saved. You will receive Sports Digest emails on your chosen schedule.'
+              : 'Saved. Sports Digest is off.';
+            if (data.warning) msg += ' ' + data.warning;
+            setStatus(msg, data.warning ? 'err' : 'ok');
+            if (data.sportsDigest) applyPrefs(data.sportsDigest);
+          } else {
+            setStatus(data.error || 'Could not save preferences.', 'err');
+          }
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save preferences';
+        }
+      });
+
+      loadAll();
+    })();
+  </script>
+</body>
+</html>

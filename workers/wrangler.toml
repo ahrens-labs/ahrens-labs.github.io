@@ -20,6 +20,14 @@ compatibility_date = "2025-05-01"
 binding = "DAILY_DIGEST_KV"
 id = "64db75c8a01b42229806b59cb30cae80"
 
+# Sports Digest subscribers — must use the SAME namespace id as the sports-digest worker.
+# Create once: cd workers && npx wrangler kv namespace create SPORTS_DIGEST_KV
+# Then paste the id below and in ~/innovation/sports_digest/wrangler.toml
+[[kv_namespaces]]
+binding = "SPORTS_DIGEST_KV"
+id = "REPLACE_WITH_SPORTS_DIGEST_KV_ID"
+preview_id = "REPLACE_WITH_SPORTS_DIGEST_KV_PREVIEW_ID"
+
 # TrifangX career achievement points leaderboard (username + points; updated on chess sync / username change).
 [[kv_namespaces]]
 binding = "CHESS_LEADERBOARD_KV"
