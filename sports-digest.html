@@ -140,6 +140,9 @@
       width: 24px; height: 24px; border-radius: 50%; object-fit: contain; flex-shrink: 0;
     }
     .sd-pick-chip .sd-team-logo-fallback { font-size: 0.58rem; }
+    .sd-pick-chip .sd-pick-sport {
+      font-size: 0.95rem; line-height: 1; flex-shrink: 0;
+    }
     .sd-pick-chip button {
       border: none; background: #f1f5f9; color: #64748b; width: 20px; height: 20px;
       border-radius: 50%; cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0;
@@ -657,6 +660,7 @@
             : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
               escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
           return '<span class="sd-pick-chip">' + logo +
+            '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
             '<span>' + escapeHtml(t.label) + '</span>' +
             '<button type="button" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
