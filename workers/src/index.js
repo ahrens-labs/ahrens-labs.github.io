@@ -22,6 +22,7 @@ import {
   applySendKey,
   fetchSportsDigestEmailContent,
   getSportsDigestCronTick,
+  resolveSubscriberSinceMs,
   subscriberSendKey,
 } from './sports-digest-send.js';
 
@@ -2042,10 +2043,20 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   }
 
   let content;
+  let kvRecord = null;
+  if (env.SPORTS_DIGEST_KV && auth.userId) {
+    try {
+      kvRecord = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
+    } catch {
+      kvRecord = null;
+    }
+  }
+  const sinceMs = resolveSubscriberSinceMs(kvRecord);
   try {
     content = await fetchSportsDigestEmailContent(env, {
       teams,
       username: auth.profile.username,
+      sinceMs,
     });
   } catch (e) {
     const msg = e?.message || String(e);
@@ -6350,9 +6361,11 @@ async function handleSportsDigestScheduledCron(event, env) {
           continue;
         }
 
+        const sinceMs = resolveSubscriberSinceMs(raw, tick.scheduledMs);
         const content = await fetchSportsDigestEmailContent(env, {
           teams: raw.teams,
           username: raw.username,
+          sinceMs,
         });
         await dispatchTransactionalEmail(env, {
           to: raw.email,

@@ -6,8 +6,12 @@ import {
   chicagoTimeHm,
   chicagoWeekdayIndex,
   isQuarterHourHm,
+  SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS,
   utcTimeHm,
 } from './sports-digest-timezone.js';
+
+const CENTRAL_OFFSET_MS = SPORTS_DIGEST_CENTRAL_UTC_OFFSET_HOURS * 60 * 60 * 1000;
+const DEFAULT_DIGEST_SINCE_MS = 12 * 60 * 60 * 1000;
 
 function normalizeHm(t) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim());
@@ -52,6 +56,41 @@ export function applySendKey(sub, sendKey) {
   return { ...sub, lastSentKeys: keys.slice(-40) };
 }
 
+/** Parse `ymd|HH:MM` (Central schedule) to UTC epoch ms. */
+export function parseSendKeyToUtcMs(sendKey) {
+  const m = /^(\d{4}-\d{2}-\d{2})\|(\d{2}:\d{2})$/.exec(String(sendKey || '').trim());
+  if (!m) return null;
+  const [y, mo, d] = m[1].split('-').map((x) => parseInt(x, 10));
+  const [h, min] = m[2].split(':').map((x) => parseInt(x, 10));
+  if (![y, mo, d, h, min].every(Number.isFinite)) return null;
+  return Date.UTC(y, mo - 1, d, h, min) + CENTRAL_OFFSET_MS;
+}
+
+/** News/social window start: last successful send, or 12h fallback for first digest. */
+export function resolveSubscriberSinceMs(sub, nowMs = Date.now()) {
+  if (!sub || typeof sub !== 'object') return nowMs - DEFAULT_DIGEST_SINCE_MS;
+  let best = null;
+  const keys = Array.isArray(sub.lastSentKeys) ? sub.lastSentKeys : [];
+  for (const k of keys) {
+    const ms = parseSendKeyToUtcMs(k);
+    if (ms !== null && ms <= nowMs && (best === null || ms > best)) best = ms;
+  }
+  if (sub.lastSentMorningYmd) {
+    const ms = parseSendKeyToUtcMs(`${sub.lastSentMorningYmd}|06:00`);
+    if (ms !== null && ms <= nowMs && (best === null || ms > best)) best = ms;
+  }
+  if (sub.lastSentEveningYmd) {
+    const ms = parseSendKeyToUtcMs(`${sub.lastSentEveningYmd}|18:00`);
+    if (ms !== null && ms <= nowMs && (best === null || ms > best)) best = ms;
+  }
+  if (sub.lastSentWeeklyYmd) {
+    const ms = parseSendKeyToUtcMs(`${sub.lastSentWeeklyYmd}|06:00`);
+    if (ms !== null && ms <= nowMs && (best === null || ms > best)) best = ms;
+  }
+  if (best === null) return nowMs - DEFAULT_DIGEST_SINCE_MS;
+  return best;
+}
+
 /** @returns {{ ymd: string, hm: string, weekday: number, utcHm: string } | null} */
 export function getSportsDigestCronTick(event) {
   const scheduledMs =
@@ -69,10 +108,14 @@ export function getSportsDigestCronTick(event) {
   };
 }
 
-export async function fetchSportsDigestEmailContent(env, { teams, username }) {
+export async function fetchSportsDigestEmailContent(env, { teams, username, sinceMs }) {
   const secret = env.SPORTS_DIGEST_INTERNAL_SECRET || env.TEST_SECRET;
   if (!secret) {
     throw new Error('Set SPORTS_DIGEST_INTERNAL_SECRET or TEST_SECRET for sports digest content builds');
+  }
+  const payload = { teams, username };
+  if (typeof sinceMs === 'number' && Number.isFinite(sinceMs)) {
+    payload.sinceMs = sinceMs;
   }
   const init = {
     method: 'POST',
@@ -80,7 +123,7 @@ export async function fetchSportsDigestEmailContent(env, { teams, username }) {
       'Content-Type': 'application/json',
       'X-Internal-Secret': secret,
     },
-    body: JSON.stringify({ teams, username }),
+    body: JSON.stringify(payload),
   };
 
   let res;
