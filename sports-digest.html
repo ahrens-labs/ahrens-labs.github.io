@@ -660,8 +660,8 @@
             : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
               escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
           return '<span class="sd-pick-chip">' + logo +
-            '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
             '<span>' + escapeHtml(t.label) + '</span>' +
+            '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
             '<button type="button" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
