@@ -86,12 +86,18 @@ async function checkLoginStatus() {
         });
         
         if (response.ok) {
+            const userData = await response.json().catch(() => null);
+            if (window.AhrensHeaderNav) {
+                if (userData && Array.isArray(userData.headerNavItems)) {
+                    window.AhrensHeaderNav.syncFromProfile(userData.headerNavItems);
+                }
+            }
             // Logged in: hide login/signup; show username when present (logout lives on account page)
             loginBtn.style.display = 'none';
             signupBtn.style.display = 'none';
             if (usernameSpan) {
                 usernameSpan.style.display = 'inline-block';
-                usernameSpan.textContent = username || 'Signed in';
+                usernameSpan.textContent = (userData && userData.username) || username || 'Signed in';
             }
             return;
         } else {

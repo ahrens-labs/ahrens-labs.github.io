@@ -31,6 +31,45 @@ export { TetherProject } from './tether.js';
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
 
+const HEADER_NAV_DEFAULT_IDS = ['home', 'labs', 'account'];
+const HEADER_NAV_ALLOWED_IDS = new Set([
+  'home',
+  'labs',
+  'account',
+  'chessEngine',
+  'chessShop',
+  'chessLeaderboard',
+  'chessSeasonTrack',
+  'achievements',
+  'trifangx',
+  'codingLab',
+  'roboticsLab',
+  'musicLab',
+  'languageLab',
+  'writingLab',
+  'dungeonGame',
+  'classify',
+  'tether',
+  'sportsDigest',
+  'spud',
+  'lotr',
+  'kyrachyng',
+  'contact',
+]);
+
+function sanitizeHeaderNavItems(raw) {
+  if (!Array.isArray(raw)) return HEADER_NAV_DEFAULT_IDS.slice();
+  const seen = new Set();
+  const out = [];
+  for (const id of raw) {
+    if (typeof id === 'string' && HEADER_NAV_ALLOWED_IDS.has(id) && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out.length ? out : HEADER_NAV_DEFAULT_IDS.slice();
+}
+
 /** Only this logged-in account may POST /api/admin/broadcast-email */
 const ADMIN_BROADCAST_ACCOUNT_EMAIL = 'calebahrens2011@gmail.com';
 /** From header for those messages (must be verified in Resend / Cloudflare Email Sending). */
@@ -68,6 +107,8 @@ export default {
         return handleGetUser(request, env, corsHeaders);
       } else if (path === '/api/email-preferences' && request.method === 'POST') {
         return handleEmailPreferences(request, env, corsHeaders);
+      } else if (path === '/api/header-nav-preferences' && request.method === 'POST') {
+        return handleHeaderNavPreferences(request, env, corsHeaders);
       } else if (path === '/api/sports-digest-catalog' && request.method === 'GET') {
         return handleSportsDigestCatalog(corsHeaders);
       } else if (path === '/api/sports-digest-preferences' && request.method === 'POST') {
@@ -2208,6 +2249,75 @@ async function handleEmailPreferences(request, env, corsHeaders) {
       emailPreferences: prefs,
       ...(warning ? { warning } : {}),
       ...(digestWelcomeSent ? { digestWelcomeSent: true } : {}),
+    }),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
+}
+
+async function handleHeaderNavPreferences(request, env, corsHeaders) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!body || !Array.isArray(body.items)) {
+    return new Response(JSON.stringify({ error: 'Send items (array of nav id strings)' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const getUserReq = new Request('http://do/getUserId', { method: 'GET' });
+  const userRes = await session.fetch(getUserReq);
+  const userResult = await userRes.json();
+
+  if (!userResult.userId) {
+    return new Response(JSON.stringify({ error: 'Invalid session' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const userId = userResult.userId;
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+
+  const doReq = new Request('http://do/setHeaderNavItems', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items: body.items }),
+  });
+  const doRes = await userAccount.fetch(doReq);
+  const result = await doRes.json();
+
+  if (!result.success) {
+    return new Response(JSON.stringify({ error: result.error || 'Could not save header links' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      headerNavItems: result.headerNavItems,
     }),
     {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -7870,6 +7980,13 @@ export class UserAccount {
         return new Response(JSON.stringify(result), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/setHeaderNavItems' && request.method === 'POST') {
+        const body = await request.json();
+        const result = await this.setHeaderNavItems(body);
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/setSportsDigestPreferences' && request.method === 'POST') {
         const body = await request.json();
         const result = await this.setSportsDigestPreferences(body);
@@ -8203,6 +8320,9 @@ export class UserAccount {
       ...safeData,
       emailPreferences,
     };
+    if (Array.isArray(userData.headerNavItems) && userData.headerNavItems.length > 0) {
+      out.headerNavItems = sanitizeHeaderNavItems(userData.headerNavItems);
+    }
     const chessForLb = out.games?.chess;
     if (userData.leaderboardRowColor == null || userData.leaderboardRowColor === '') {
       out.leaderboardRowColor = null;
@@ -8401,6 +8521,20 @@ export class UserAccount {
     userData.leaderboardRowColor = normalized;
     await this.storage.put('userData', userData);
     return { success: true, leaderboardRowColor: normalized };
+  }
+
+  async setHeaderNavItems(body) {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!body || !Array.isArray(body.items)) {
+      return { success: false, error: 'Send items (array of nav id strings)' };
+    }
+    const sanitized = sanitizeHeaderNavItems(body.items);
+    userData.headerNavItems = sanitized;
+    await this.storage.put('userData', userData);
+    return { success: true, headerNavItems: sanitized };
   }
 
   async changeUsername(newUsernameDisplay, password) {
