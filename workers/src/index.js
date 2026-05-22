@@ -2026,7 +2026,7 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   const requestedTeams = Array.isArray(body.teams)
     ? [...new Set(body.teams.filter((t) => typeof t === 'string'))]
     : [];
-  const teams = (requestedTeams.length ? requestedTeams : prefs.teams).slice(0, 8);
+  const teams = (requestedTeams.length ? requestedTeams : prefs.teams).slice(0, SPORTS_DIGEST_MAX_TEAMS);
   if (!teams.length) {
     return new Response(JSON.stringify({ error: 'Choose at least one team, then try again.' }), {
       status: 400,
