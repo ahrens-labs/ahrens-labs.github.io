@@ -2830,6 +2830,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return true;
     }
 
+    function notifyTrifangxDashboardEmbedModalOpened() {
+      try {
+        if (!window.TRIFANGX_DASHBOARD_EMBED || window.parent === window) return;
+        window.parent.postMessage(
+          { source: 'trifangx-embed', type: 'modal-opened' },
+          window.location.origin
+        );
+      } catch (e) {}
+    }
+
     function notifyTrifangxDashboardEmbedModalClosed() {
       try {
         if (!window.TRIFANGX_DASHBOARD_EMBED || window.parent === window) return;
@@ -3866,6 +3876,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
       updateSettingsDropdowns();
       modal.classList.add('show');
+      notifyTrifangxDashboardEmbedModalOpened();
     }
 
     function closeSettings() {
@@ -4567,8 +4578,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             const d = ev.data;
             if (!d || d.source !== 'ahrens-dashboard' || d.type !== 'trifangx-open') return;
             closeTrifangxMainModalsSilent();
-            if (d.target === 'shop' && typeof showShop === 'function') showShop();
-            else if (d.target === 'settings' && typeof showSettings === 'function') showSettings();
+            if (d.target === 'shop') {
+              if (window.parent !== window) {
+                try {
+                  window.parent.location.href = 'chess-shop.html';
+                  return;
+                } catch (eNav) {}
+              }
+              if (typeof showShop === 'function') showShop();
+            } else if (d.target === 'settings' && typeof showSettings === 'function') showSettings();
             else if (d.target === 'achievements') {
               navigateToAchievementsPage();
             }

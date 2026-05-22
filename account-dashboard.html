@@ -613,7 +613,7 @@
 
         <div class="dash-card">
           <h2>Chess store &amp; TrifangX</h2>
-          <p class="hint">Spend points on boards, pieces, and more. Open the store, settings, or achievements here without leaving this page.</p>
+          <p class="hint">Spend points on boards, pieces, and more. <strong>Chess store</strong> opens the full shop page; <strong>TrifangX settings</strong> opens right here on the dashboard.</p>
           <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
             <p class="dash-trifangx-points-label">Total points (achievements)</p>
             <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
@@ -2631,7 +2631,33 @@
         trifangxIframe.style.pointerEvents = on ? 'auto' : 'none';
       }
 
+      function openTrifangxSettingsInEmbed() {
+        if (trifangxEmbedLoadFailed) {
+          window.location.href = 'chess_engine.html?open=settings';
+          return;
+        }
+        if (!trifangxIframe || !trifangxIframe.contentWindow) return;
+        if (!trifangxEmbedReady) {
+          trifangxPendingOpen = 'settings';
+          return;
+        }
+        trifangxPendingOpen = null;
+        trifangxIframe.contentWindow.postMessage(
+          { source: 'ahrens-dashboard', type: 'trifangx-open', target: 'settings' },
+          window.location.origin
+        );
+        setTrifangxIframeInteractive(true);
+      }
+
       function openTrifangxInEmbed(target) {
+        if (target === 'shop') {
+          window.location.href = 'chess-shop.html';
+          return;
+        }
+        if (target === 'settings') {
+          openTrifangxSettingsInEmbed();
+          return;
+        }
         if (trifangxEmbedLoadFailed) {
           window.location.href =
             'chess_engine.html?open=' + encodeURIComponent(target);
@@ -2660,13 +2686,23 @@
           if (trifangxPendingOpen && !trifangxEmbedLoadFailed) {
             const t = trifangxPendingOpen;
             trifangxPendingOpen = null;
-            openTrifangxInEmbed(t);
+            if (t === 'shop') {
+              window.location.href = 'chess-shop.html';
+            } else {
+              openTrifangxInEmbed(t);
+            }
           } else if (trifangxPendingOpen && trifangxEmbedLoadFailed) {
             const t = trifangxPendingOpen;
             trifangxPendingOpen = null;
-            window.location.href =
-              'chess_engine.html?open=' + encodeURIComponent(t);
+            if (t === 'shop') {
+              window.location.href = 'chess-shop.html';
+            } else {
+              window.location.href =
+                'chess_engine.html?open=' + encodeURIComponent(t);
+            }
           }
+        } else if (d.type === 'modal-opened') {
+          setTrifangxIframeInteractive(true);
         } else if (d.type === 'modal-closed') {
           setTrifangxIframeInteractive(false);
           loadTrifangxPointsForDashboard();
@@ -2676,8 +2712,8 @@
       const shopBtn = document.getElementById('dash-open-trifangx-shop');
       const settingsBtn = document.getElementById('dash-open-trifangx-settings');
       const achBtn = document.getElementById('dash-open-trifangx-achievements');
-      if (shopBtn) shopBtn.addEventListener('click', () => openTrifangxInEmbed('shop'));
-      if (settingsBtn) settingsBtn.addEventListener('click', () => openTrifangxInEmbed('settings'));
+      if (shopBtn) shopBtn.addEventListener('click', () => { window.location.href = 'chess-shop.html'; });
+      if (settingsBtn) settingsBtn.addEventListener('click', () => openTrifangxSettingsInEmbed());
       if (achBtn) achBtn.addEventListener('click', () => { window.location.href = 'achievements.html'; });
 
       document.getElementById('dash-logout').addEventListener('click', (e) => {
