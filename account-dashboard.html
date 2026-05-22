@@ -599,11 +599,11 @@
             One line per account: <strong>email</strong>, <strong>username</strong>, <strong>verified</strong>, and actions.
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
-            Use <strong>Load next page</strong> until “end of list”. CSV includes a stable account id.
+            Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
           </p>
           <div class="admin-accounts-toolbar">
-            <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
+            <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load all accounts</button>
             <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-csv">Copy CSV</button>
             <div class="admin-accounts-filter-wrap">
@@ -2067,7 +2067,7 @@
             setStatus(st, 'Nothing more to load.', 'err');
             return;
           }
-          setStatus(st, 'Loading…', '');
+          setStatus(st, reset ? 'Loading all accounts…' : 'Loading…', '');
           try {
             const res = await fetch(`${API_BASE_URL}/api/admin/list-accounts`, {
               method: 'POST',
@@ -2076,7 +2076,8 @@
                 Authorization: `Bearer ${sessionId}`,
               },
               body: JSON.stringify({
-                ...(cursorForReq ? { listCursor: cursorForReq } : {}),
+                ...(reset ? { loadAll: true } : {}),
+                ...(cursorForReq ? { listCursor: cursorForReq, loadAll: false } : {}),
               }),
             });
             const { ok, status, data } = await readApiJsonResponse(res);
@@ -2087,21 +2088,46 @@
             const batch = Array.isArray(data.accounts) ? data.accounts : [];
             const byUid = new Map();
             for (const a of adminAccountsAccum) {
-              const k = (a.userId || a.email || '').trim();
+              const k = (a.userId || a.email || a.doUserId || '').trim().toLowerCase();
               if (k) byUid.set(k, a);
             }
             for (const a of batch) {
-              const k = (a.userId || a.email || '').trim();
-              if (k) byUid.set(k, a);
+              const keys = [
+                (a.userId || '').trim().toLowerCase(),
+                (a.email || '').trim().toLowerCase(),
+                (a.doUserId || '').trim().toLowerCase(),
+              ].filter(Boolean);
+              let hit = null;
+              for (const k of keys) {
+                if (byUid.has(k)) {
+                  hit = byUid.get(k);
+                  break;
+                }
+              }
+              if (hit) {
+                Object.assign(hit, a);
+                for (const k of keys) byUid.set(k, hit);
+              } else {
+                const primary = keys[0] || `row_${byUid.size}`;
+                byUid.set(primary, a);
+              }
             }
-            adminAccountsAccum = Array.from(byUid.values());
+            adminAccountsAccum = Array.from(new Set(byUid.values()));
             adminListNextCursor = data.nextListCursor || null;
             adminListHasMore = !!data.hasMore;
             const skipped = Number(data.skippedMissingData) || 0;
             renderAdminAccountsTable();
-            let msg = `Loaded ${batch.length} in this page (${adminAccountsAccum.length} total).`;
+            let msg = data.loadAll
+              ? `Loaded all ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'}.`
+              : `Loaded ${batch.length} in this page (${adminAccountsAccum.length} total).`;
+            if (data.enumStoppedEarly) {
+              msg += ' Directory scan hit the server cap — some accounts may be missing.';
+            }
             if (skipped) msg += ` ${skipped} stub(s) had no profile data.`;
             setStatus(st, msg, 'ok');
+            if (adminListHasMore && !data.loadAll) {
+              await adminAccountsFetchPage(false);
+            }
           } catch (e) {
             console.error(e);
             setStatus(st, e?.message ? `Failed: ${e.message}` : 'Failed (network).', 'err');
@@ -2276,6 +2302,20 @@
               return;
             }
             renderAdminSignupCheckResult(data);
+            if (data.accountExists && data.email) {
+              const exists = adminAccountsAccum.some(
+                (a) => (a.email || '').trim().toLowerCase() === String(data.email).trim().toLowerCase()
+              );
+              if (!exists) {
+                adminAccountsAccum.push({
+                  userId: data.userId || '',
+                  username: data.accountUsername || '',
+                  email: data.email,
+                  emailVerified: data.accountEmailVerified ?? null,
+                });
+                renderAdminAccountsTable();
+              }
+            }
             setStatus(st, data.canSignup ? 'Signup would allow this email.' : 'Signup would block this email.', data.canSignup ? 'ok' : 'err');
           } catch (e) {
             console.error(e);

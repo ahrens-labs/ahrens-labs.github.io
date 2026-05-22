@@ -271,7 +271,7 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
   try {
     const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
     const row = await dataRes.json();
-    if (row && typeof row === 'object') {
+    if (userAccountProfileExists(row)) {
       accountExists = true;
       accountUsername = row.username != null ? String(row.username) : '';
       if (row.emailVerified === true) accountEmailVerified = true;
@@ -3516,27 +3516,124 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
   });
 }
 
+/** True when a UserAccount DO has a real saved profile (not an empty stub). */
+function userAccountProfileExists(row) {
+  if (!row || typeof row !== 'object') return false;
+  if (row.email != null && normalizeEmail(String(row.email))) return true;
+  if (row.username != null && String(row.username).trim()) return true;
+  if (row.passwordHash) return true;
+  if (row.createdAt != null && Number(row.createdAt) > 0) return true;
+  return false;
+}
+
+function adminAccountRowFromProfile(row) {
+  if (!userAccountProfileExists(row)) return null;
+  const emailRaw = row.email != null ? String(row.email) : '';
+  const emailNorm = emailRaw ? normalizeEmail(emailRaw) : '';
+  let ev = null;
+  if (row.emailVerified === true) ev = true;
+  else if (row.emailVerified === false) ev = false;
+  const slotUserId = emailNorm ? generateUserId(emailNorm) : '';
+  const doUserId = row.userId != null ? String(row.userId).trim() : '';
+  return {
+    userId: slotUserId || doUserId,
+    doUserId,
+    username: row.username != null ? String(row.username) : '',
+    email: emailNorm,
+    emailVerified: ev,
+  };
+}
+
+async function resolveAdminAccountRowsFromStubs(stubs) {
+  const accounts = [];
+  let skippedMissingData = 0;
+  const batch = 10;
+  for (let i = 0; i < stubs.length; i += batch) {
+    const slice = stubs.slice(i, i + batch);
+    const rows = await Promise.all(
+      slice.map(async (stub) => {
+        if (!stub) return null;
+        try {
+          const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+          return await dataRes.json();
+        } catch {
+          return null;
+        }
+      })
+    );
+    for (const row of rows) {
+      const entry = adminAccountRowFromProfile(row);
+      if (!entry) {
+        skippedMissingData++;
+        continue;
+      }
+      accounts.push(entry);
+    }
+  }
+  return { accounts, skippedMissingData };
+}
+
+function mergeAdminAccountRows(existing, incoming) {
+  const byKey = new Map();
+  for (const a of existing || []) {
+    const k = (a.userId || a.email || a.doUserId || '').trim().toLowerCase();
+    if (k) byKey.set(k, a);
+  }
+  for (const a of incoming || []) {
+    const keys = [
+      (a.userId || '').trim().toLowerCase(),
+      (a.email || '').trim().toLowerCase(),
+      (a.doUserId || '').trim().toLowerCase(),
+    ].filter(Boolean);
+    let hit = null;
+    for (const k of keys) {
+      if (byKey.has(k)) {
+        hit = byKey.get(k);
+        break;
+      }
+    }
+    if (hit) {
+      Object.assign(hit, a);
+      for (const k of keys) byKey.set(k, hit);
+    } else {
+      const primary = keys[0] || `row_${byKey.size}`;
+      byKey.set(primary, a);
+    }
+  }
+  return Array.from(new Set(byKey.values()));
+}
+
 /** Cursor for admin account directory: union of DO list, username registry, and digest KV `sub:` keys. */
 function parseAdminAccountListCursor(raw) {
   const fresh = () => ({
-    v: 2,
+    v: 3,
     do: { done: false, cursor: null },
     reg: { done: false, cursor: null },
     kv: { done: false, cursor: null },
+    sports: { done: false, cursor: null },
   });
   if (!raw || !String(raw).trim()) return fresh();
   const s = String(raw).trim();
   try {
     const j = JSON.parse(s);
-    if (j && j.v === 2 && j.do && j.reg && j.kv) return j;
+    if (j && j.v === 3 && j.do && j.reg && j.kv) {
+      if (!j.sports) j.sports = { done: false, cursor: null };
+      return j;
+    }
+    if (j && j.v === 2 && j.do && j.reg && j.kv) {
+      j.v = 3;
+      j.sports = { done: false, cursor: null };
+      return j;
+    }
   } catch {
     /* legacy: opaque DO list cursor from older deploys */
   }
   return {
-    v: 2,
+    v: 3,
     do: { done: false, cursor: s },
     reg: { done: false, cursor: null },
     kv: { done: false, cursor: null },
+    sports: { done: false, cursor: null },
   };
 }
 
@@ -3652,11 +3749,33 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
         continue;
       }
 
+      if (!state.sports.done && env.SPORTS_DIGEST_KV) {
+        const listKv = await env.SPORTS_DIGEST_KV.list({
+          prefix: 'sub:',
+          limit: Math.min(1000, need),
+          ...(state.sports.cursor ? { cursor: state.sports.cursor } : {}),
+        });
+        for (const { name } of listKv.keys) {
+          if (stubs.length >= pageSize) break;
+          const uid = name.startsWith('sub:') ? name.slice(4) : '';
+          if (!uid) continue;
+          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+        }
+        if (listKv.list_complete) {
+          state.sports.done = true;
+          state.sports.cursor = null;
+        } else {
+          state.sports.cursor = listKv.cursor || null;
+        }
+        continue;
+      }
+
       state.kv.done = true;
+      state.sports.done = true;
       break;
     }
 
-    const allDone = state.do.done && state.reg.done && state.kv.done;
+    const allDone = state.do.done && state.reg.done && state.kv.done && state.sports.done;
     const nextListCursor = allDone ? null : JSON.stringify(state);
     return { stubs, nextListCursor, listError: null };
   } catch (e) {
@@ -3667,6 +3786,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
 /**
  * Admin: page through all user accounts (same enumeration as broadcast) and return directory fields only.
  * Response rows omit passwords, tokens, and game payloads — only userId, username, email, emailVerified.
+ * Set loadAll:true (default on first load) to walk every account stub before returning.
  */
 async function handleAdminListAccounts(request, env, corsHeaders) {
   let body = {};
@@ -3691,6 +3811,59 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
 
   const listCursor =
     typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
+  const loadAll = body.loadAll === true || (!listCursor && body.loadAll !== false);
+  const ensureEmails = Array.isArray(body.ensureEmails)
+    ? body.ensureEmails
+        .filter((e) => typeof e === 'string')
+        .map((e) => normalizeEmail(e))
+        .filter(Boolean)
+    : [];
+
+  if (loadAll) {
+    let stubs = [];
+    let enumStoppedEarly = false;
+    try {
+      const enumerated = await enumerateAllUserAccountStubsForLeaderboard(env);
+      stubs = enumerated.stubs;
+      enumStoppedEarly = !!enumerated.stoppedEarly;
+    } catch (listError) {
+      console.error('admin list-accounts loadAll failed', listError?.message || listError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Could not list user accounts: ' + (listError?.message || String(listError)),
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    for (const emailNorm of ensureEmails) {
+      const uid = generateUserId(emailNorm);
+      stubs.push(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+    }
+
+    const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
+    const merged = mergeAdminAccountRows([], accounts);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        accounts: merged,
+        nextListCursor: null,
+        hasMore: false,
+        loadAll: true,
+        totalDiscovered: stubs.length,
+        enumStoppedEarly,
+        pageStubCount: stubs.length,
+        skippedMissingData,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
 
   const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsAdminUnified(
@@ -3712,40 +3885,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     );
   }
 
-  const accounts = [];
-  let skippedMissingData = 0;
-
-  for (const stub of stubs) {
-    if (!stub) {
-      skippedMissingData++;
-      continue;
-    }
-    let row;
-    try {
-      const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
-      row = await dataRes.json();
-    } catch {
-      skippedMissingData++;
-      continue;
-    }
-    if (!row || typeof row !== 'object') {
-      skippedMissingData++;
-      continue;
-    }
-
-    const emailRaw = row.email != null ? String(row.email) : '';
-    const emailNorm = emailRaw ? normalizeEmail(emailRaw) : '';
-    let ev = null;
-    if (row.emailVerified === true) ev = true;
-    else if (row.emailVerified === false) ev = false;
-
-    accounts.push({
-      userId: row.userId != null ? String(row.userId) : '',
-      username: row.username != null ? String(row.username) : '',
-      email: emailNorm,
-      emailVerified: ev,
-    });
-  }
+  const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
 
   return new Response(
     JSON.stringify({
