@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Refresh MLB/NFL/NBA/NHL/EPL team list from ESPN → workers + sports_digest catalogs. */
+/** Refresh team list from ESPN → workers + sports_digest catalogs. */
 import { writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -13,6 +13,55 @@ const TWITTER = {
   'nba-15': ['NathanMarzion', 'eric_nehm'],
 };
 
+const LEAGUE_UNION =
+  '"mlb" | "nfl" | "nba" | "nhl" | "epl" | "cfb-b10" | "cfb-sec" | "cbb-b10" | "cbb-sec"';
+
+/** ESPN core API conference groups (FBS / D-I). */
+const CONFERENCES = [
+  {
+    sportPath: 'football',
+    leaguePath: 'college-football',
+    groupId: 5,
+    leagueKey: 'cfb-b10',
+    sportLabel: 'Big Ten Football',
+    season: 2025,
+  },
+  {
+    sportPath: 'football',
+    leaguePath: 'college-football',
+    groupId: 8,
+    leagueKey: 'cfb-sec',
+    sportLabel: 'SEC Football',
+    season: 2025,
+  },
+  {
+    sportPath: 'basketball',
+    leaguePath: 'mens-college-basketball',
+    groupId: 7,
+    leagueKey: 'cbb-b10',
+    sportLabel: 'Big Ten Basketball',
+    season: 2026,
+  },
+  {
+    sportPath: 'basketball',
+    leaguePath: 'mens-college-basketball',
+    groupId: 23,
+    leagueKey: 'cbb-sec',
+    sportLabel: 'SEC Basketball',
+    season: 2026,
+  },
+];
+
+function pickLogo(logos) {
+  if (!Array.isArray(logos)) return '';
+  const light =
+    logos.find((l) => Array.isArray(l.rel) && l.rel.includes('default') && l.rel.includes('full')) ||
+    logos.find((l) => typeof l.href === 'string' && l.href.includes('/500/') && !l.href.includes('-dark')) ||
+    logos.find((l) => typeof l.href === 'string' && l.href.includes('teamlogos')) ||
+    logos[0];
+  return light?.href || '';
+}
+
 async function fetchLeague(leaguePath, leagueKey, sportLabel) {
   const url = `https://site.api.espn.com/apis/site/v2/sports/${leaguePath}/teams?limit=100`;
   const res = await fetch(url);
@@ -23,11 +72,6 @@ async function fetchLeague(leaguePath, leagueKey, sportLabel) {
     .map(({ team: tm }) => {
       const eid = String(tm.id);
       const id = `${leagueKey}-${eid}`;
-      const logos = Array.isArray(tm.logos) ? tm.logos : [];
-      const defaultLogo =
-        logos.find((l) => Array.isArray(l.rel) && l.rel.includes('default') && l.rel.includes('full')) ||
-        logos.find((l) => Array.isArray(l.rel) && l.rel.includes('default')) ||
-        logos[0];
       return {
         id,
         league: leagueKey,
@@ -37,11 +81,42 @@ async function fetchLeague(leaguePath, leagueKey, sportLabel) {
         sport: sportLabel,
         googleQuery: `"${tm.displayName}" ${sportLabel}`,
         twitterHandles: TWITTER[id] || [],
-        logoUrl: defaultLogo?.href || '',
+        logoUrl: pickLogo(tm.logos),
         color: typeof tm.color === 'string' ? tm.color : '',
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+async function fetchConference(conf) {
+  const listUrl =
+    `https://sports.core.api.espn.com/v2/sports/${conf.sportPath}/leagues/${conf.leaguePath}` +
+    `/seasons/${conf.season}/types/2/groups/${conf.groupId}/teams?limit=30`;
+  const listRes = await fetch(listUrl);
+  if (!listRes.ok) throw new Error(`ESPN ${conf.leagueKey} group ${conf.groupId}: ${listRes.status}`);
+  const listData = await listRes.json();
+  const refs = (listData.items || []).map((item) => item.$ref).filter(Boolean);
+  const teams = [];
+  for (const ref of refs) {
+    const teamRes = await fetch(ref);
+    if (!teamRes.ok) continue;
+    const tm = await teamRes.json();
+    const eid = String(tm.id);
+    const id = `${conf.leagueKey}-${eid}`;
+    teams.push({
+      id,
+      league: conf.leagueKey,
+      espnTeamId: eid,
+      label: tm.displayName || tm.name || '',
+      abbr: tm.abbreviation || '',
+      sport: conf.sportLabel,
+      googleQuery: `"${tm.displayName || tm.name}" ${conf.sportLabel}`,
+      twitterHandles: TWITTER[id] || [],
+      logoUrl: pickLogo(tm.logos),
+      color: typeof tm.color === 'string' ? tm.color : '',
+    });
+  }
+  return teams.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 const catalog = [
@@ -50,6 +125,10 @@ const catalog = [
   ...(await fetchLeague('basketball/nba', 'nba', 'NBA')),
   ...(await fetchLeague('hockey/nhl', 'nhl', 'NHL')),
   ...(await fetchLeague('soccer/eng.1', 'epl', 'Premier League')),
+  ...(await fetchConference(CONFERENCES[0])),
+  ...(await fetchConference(CONFERENCES[1])),
+  ...(await fetchConference(CONFERENCES[2])),
+  ...(await fetchConference(CONFERENCES[3])),
 ];
 
 writeFileSync(join(root, 'scripts/sports-digest-catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
@@ -62,7 +141,7 @@ const sportsDigestTs = '/home/matt/innovation/sports_digest/src/teamCatalog.ts';
 try {
   writeFileSync(
     sportsDigestTs,
-    `/** Auto-generated — sync from ahrens-labs scripts/sports-digest-catalog.json */\nexport type CatalogTeam = {\n  id: string;\n  league: "mlb" | "nfl" | "nba" | "nhl" | "epl";\n  espnTeamId: string;\n  label: string;\n  abbr: string;\n  sport: string;\n  googleQuery: string;\n  twitterHandles: string[];\n  logoUrl: string;\n  color: string;\n};\n\nexport const TEAM_CATALOG: CatalogTeam[] = ${JSON.stringify(catalog, null, 2)};\n`
+    `/** Auto-generated — sync from ahrens-labs scripts/sports-digest-catalog.json */\nexport type CatalogTeam = {\n  id: string;\n  league: ${LEAGUE_UNION};\n  espnTeamId: string;\n  label: string;\n  abbr: string;\n  sport: string;\n  googleQuery: string;\n  twitterHandles: string[];\n  logoUrl: string;\n  color: string;\n};\n\nexport const TEAM_CATALOG: CatalogTeam[] = ${JSON.stringify(catalog, null, 2)};\n`
   );
 } catch (e) {
   console.warn('Could not write sports_digest teamCatalog.ts:', e.message);

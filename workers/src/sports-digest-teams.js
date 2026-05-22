@@ -13,6 +13,10 @@ export const SPORTS_DIGEST_LEAGUES = [
   { id: 'nba', label: 'NBA', sport: 'NBA', emoji: '🏀' },
   { id: 'nhl', label: 'NHL', sport: 'NHL', emoji: '🏒' },
   { id: 'epl', label: 'Premier League', sport: 'Premier League', emoji: '⚽' },
+  { id: 'cfb-b10', label: 'Big Ten Football', sport: 'Big Ten Football', emoji: '🏈' },
+  { id: 'cfb-sec', label: 'SEC Football', sport: 'SEC Football', emoji: '🏈' },
+  { id: 'cbb-b10', label: 'Big Ten Basketball', sport: 'Big Ten Basketball', emoji: '🏀' },
+  { id: 'cbb-sec', label: 'SEC Basketball', sport: 'SEC Basketball', emoji: '🏀' },
 ];
 
 /** Preset send schedules — Central (CT) HH:MM. Worker sends at UTC = CT + 5 hours. */
