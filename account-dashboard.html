@@ -280,6 +280,51 @@
       opacity: 0.45;
       cursor: not-allowed;
     }
+    .btn-admin-row-danger {
+      background: #fff;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+    .btn-admin-row-danger:hover { background: #fef2f2; }
+    .btn-danger {
+      background: #b91c1c;
+      color: #fff;
+      border-color: #b91c1c;
+    }
+    .btn-danger:hover { background: #991b1b; }
+    .admin-delete-target {
+      margin: 0 0 14px 0;
+      padding: 12px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #7f1d1d;
+    }
+    .admin-delete-target dt {
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #991b1b;
+      margin-top: 8px;
+    }
+    .admin-delete-target dt:first-child { margin-top: 0; }
+    .admin-delete-target dd {
+      margin: 2px 0 0 0;
+      word-break: break-word;
+    }
+    .admin-delete-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 0 0 4px 0;
+      font-size: 0.84rem;
+      color: #475569;
+      line-height: 1.45;
+    }
+    .admin-delete-check input { margin-top: 3px; }
     .dash-modal-panel-wide {
       max-width: 520px;
     }
@@ -726,6 +771,28 @@
         <button type="button" class="btn btn-ghost" id="admin-bulk-confirm-cancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="admin-bulk-confirm-ok">Confirm</button>
       </div>
+    </div>
+  </div>
+
+  <div id="admin-delete-account-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-delete-account-title">
+    <div class="dash-modal-panel" role="document">
+      <h2 id="admin-delete-account-title" class="dash-modal-title">Delete account</h2>
+      <p class="dash-modal-body" style="margin-bottom:12px;">
+        This permanently removes the account, sessions, username reservation, and saved game data. It cannot be undone.
+      </p>
+      <dl class="admin-delete-target" id="admin-delete-target-summary"></dl>
+      <label class="admin-delete-check" id="admin-delete-send-email-wrap" hidden>
+        <input type="checkbox" id="admin-delete-send-email">
+        <span>Send a “your account was deleted” email to this address</span>
+      </label>
+      <input type="hidden" id="admin-delete-userid" value="">
+      <input type="hidden" id="admin-delete-email" value="">
+      <input type="hidden" id="admin-delete-username" value="">
+      <div class="dash-modal-actions">
+        <button type="button" class="btn btn-ghost" id="admin-delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="admin-delete-confirm">Delete account</button>
+      </div>
+      <p class="status" id="admin-delete-status" style="margin-top:12px;"></p>
     </div>
   </div>
 
@@ -2047,6 +2114,124 @@
           if (modal) modal.hidden = true;
         }
 
+        function removeAdminAccountFromLocal(target) {
+          const uid = (target.userId || '').trim().toLowerCase();
+          const em = (target.email || '').trim().toLowerCase();
+          const un = (target.username || '').trim().toLowerCase();
+          const doId = (target.doUserId || '').trim().toLowerCase();
+          adminAccountsAccum = adminAccountsAccum.filter((a) => {
+            const aUid = (a.userId || '').trim().toLowerCase();
+            const aEm = (a.email || '').trim().toLowerCase();
+            const aUn = (a.username || '').trim().toLowerCase();
+            const aDo = (a.doUserId || '').trim().toLowerCase();
+            if (uid && (aUid === uid || aDo === uid)) return false;
+            if (em && aEm === em) return false;
+            if (un && aUn === un && !em && !uid) return false;
+            return true;
+          });
+        }
+
+        function openAdminDeleteAccountModal({ userId, email, username }) {
+          const modal = document.getElementById('admin-delete-account-modal');
+          const summary = document.getElementById('admin-delete-target-summary');
+          const sendWrap = document.getElementById('admin-delete-send-email-wrap');
+          const sendCb = document.getElementById('admin-delete-send-email');
+          const uidInp = document.getElementById('admin-delete-userid');
+          const emInp = document.getElementById('admin-delete-email');
+          const unInp = document.getElementById('admin-delete-username');
+          const st = document.getElementById('admin-delete-status');
+          const confirmBtn = document.getElementById('admin-delete-confirm');
+          if (!modal || !summary) return;
+          const uid = (userId || '').trim();
+          const em = (email || '').trim();
+          const un = (username || '').trim();
+          if (!uid && !em && !un) return;
+          if (em && isAdminBroadcastAccount(em)) {
+            const rowSt = document.getElementById('admin-accounts-status');
+            setStatus(rowSt, 'Cannot delete the broadcast admin account from this panel.', 'err');
+            return;
+          }
+          uidInp.value = uid;
+          emInp.value = em;
+          unInp.value = un;
+          setStatus(st, '', '');
+          let html = '';
+          if (un) html += '<dt>Username</dt><dd>' + escHtml(un) + '</dd>';
+          if (em) html += '<dt>Email</dt><dd>' + escHtml(em) + '</dd>';
+          else html += '<dt>Email</dt><dd><em>Not saved on profile (legacy)</em></dd>';
+          if (uid) html += '<dt>User id</dt><dd><code>' + escHtml(uid) + '</code></dd>';
+          summary.innerHTML = html;
+          if (sendWrap && sendCb) {
+            if (em) {
+              sendWrap.hidden = false;
+              sendCb.checked = false;
+            } else {
+              sendWrap.hidden = true;
+              sendCb.checked = false;
+            }
+          }
+          if (confirmBtn) confirmBtn.disabled = false;
+          modal.hidden = false;
+          document.getElementById('admin-delete-cancel')?.focus();
+        }
+
+        function closeAdminDeleteAccountModal() {
+          const modal = document.getElementById('admin-delete-account-modal');
+          if (modal) modal.hidden = true;
+        }
+
+        async function confirmAdminDeleteAccount() {
+          const st = document.getElementById('admin-delete-status');
+          const rowSt = document.getElementById('admin-accounts-status');
+          const confirmBtn = document.getElementById('admin-delete-confirm');
+          const uid = (document.getElementById('admin-delete-userid')?.value || '').trim();
+          const em = (document.getElementById('admin-delete-email')?.value || '').trim();
+          const un = (document.getElementById('admin-delete-username')?.value || '').trim();
+          const sendEmail = !!document.getElementById('admin-delete-send-email')?.checked;
+          const sessionId = getSessionId();
+          if (!uid && !em && !un) {
+            setStatus(st, 'Nothing to delete.', 'err');
+            return;
+          }
+          if (!sessionId) {
+            setStatus(st, 'Not signed in.', 'err');
+            return;
+          }
+          if (confirmBtn) confirmBtn.disabled = true;
+          setStatus(st, 'Deleting…', '');
+          try {
+            const body = {
+              ...(uid ? { userId: uid } : {}),
+              ...(em ? { email: em } : {}),
+              ...(un ? { username: un } : {}),
+              sendEmail,
+            };
+            const res = await fetch(`${API_BASE_URL}/api/admin/delete-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(body),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              if (confirmBtn) confirmBtn.disabled = false;
+              return;
+            }
+            removeAdminAccountFromLocal({ userId: uid || data.userId, email: em || data.email, username: un || data.username });
+            renderAdminAccountsTable();
+            closeAdminDeleteAccountModal();
+            const label = data.username || data.email || data.userId || 'Account';
+            setStatus(rowSt, `Deleted ${label}.`, 'ok');
+          } catch (e) {
+            console.error(e);
+            setStatus(st, e?.message || 'Delete failed.', 'err');
+            if (confirmBtn) confirmBtn.disabled = false;
+          }
+        }
+
         function renderAdminAccountsTable() {
           const tbody = document.getElementById('admin-accounts-tbody');
           const meta = document.getElementById('admin-accounts-meta');
@@ -2090,12 +2275,13 @@
                     : `<button type="button" class="btn-admin-row admin-acct-verify" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Verify</button>`;
                 const welcomeBtn = `<button type="button" class="btn-admin-row btn-admin-row-primary admin-acct-welcome" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Welcome</button>`;
                 const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
+                const deleteBtn = `<button type="button" class="btn-admin-row btn-admin-row-danger admin-acct-delete" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Delete</button>`;
                 return (
                   `<tr class="admin-acct-line">` +
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
-                  `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}</td></tr>`
+                  `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');
@@ -2175,13 +2361,19 @@
           const verify = e.target && e.target.closest && e.target.closest('.admin-acct-verify');
           const welcome = e.target && e.target.closest && e.target.closest('.admin-acct-welcome');
           const custom = e.target && e.target.closest && e.target.closest('.admin-acct-custom');
-          const btn = verify || welcome || custom;
+          const del = e.target && e.target.closest && e.target.closest('.admin-acct-delete');
+          const btn = verify || welcome || custom || del;
           if (!btn) return;
           const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
           const em = (btn.getAttribute('data-admin-email') || '').trim();
+          const un = (btn.getAttribute('data-admin-username') || '').trim();
           const payload = {};
           if (uid) payload.userId = uid;
           if (em) payload.email = em;
+          if (del) {
+            openAdminDeleteAccountModal({ userId: uid, email: em, username: un });
+            return;
+          }
           if (!payload.userId && !payload.email) return;
           if (verify) {
             adminVerifyEmailForUser(payload);
@@ -2192,9 +2384,19 @@
             return;
           }
           if (custom) {
-            const un = btn.getAttribute('data-admin-username') || '';
             openAdminCustomEmailModal({ userId: uid, email: em, username: un });
           }
+        });
+
+        const adminDeleteModal = document.getElementById('admin-delete-account-modal');
+        document.getElementById('admin-delete-cancel')?.addEventListener('click', () => {
+          closeAdminDeleteAccountModal();
+        });
+        adminDeleteModal?.addEventListener('click', (e) => {
+          if (e.target === adminDeleteModal) closeAdminDeleteAccountModal();
+        });
+        document.getElementById('admin-delete-confirm')?.addEventListener('click', () => {
+          confirmAdminDeleteAccount();
         });
 
         const adminCustomModal = document.getElementById('admin-custom-email-modal');
