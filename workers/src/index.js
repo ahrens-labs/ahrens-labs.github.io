@@ -3677,15 +3677,13 @@ async function resolveAdminAccountRowsFromStubs(stubsOrEntries) {
 
 function mergeAdminAccountRows(existing, incoming) {
   const byKey = new Map();
-  for (const a of existing || []) {
-    const k = (a.userId || a.email || a.doUserId || '').trim().toLowerCase();
-    if (k) byKey.set(k, a);
-  }
-  for (const a of incoming || []) {
+  function indexAccount(a) {
+    if (!a || typeof a !== 'object') return;
     const keys = [
       (a.userId || '').trim().toLowerCase(),
       (a.email || '').trim().toLowerCase(),
       (a.doUserId || '').trim().toLowerCase(),
+      (a.username || '').trim().toLowerCase(),
     ].filter(Boolean);
     let hit = null;
     for (const k of keys) {
@@ -3700,9 +3698,96 @@ function mergeAdminAccountRows(existing, incoming) {
     } else {
       const primary = keys[0] || `row_${byKey.size}`;
       byKey.set(primary, a);
+      for (const k of keys) byKey.set(k, a);
     }
   }
+  for (const a of existing || []) indexAccount(a);
+  for (const a of incoming || []) indexAccount(a);
   return Array.from(new Set(byKey.values()));
+}
+
+/** Walk the full username registry (not capped by a single admin list page). */
+async function listAllRegistryUserIds(env) {
+  if (!env.USERNAME_REGISTRY) return [];
+  const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+  const userIds = [];
+  const seen = new Set();
+  let startAfter;
+  for (let pages = 0; pages < 500; pages++) {
+    let res;
+    try {
+      res = await registry.fetch(
+        new Request('http://do/listUserIdsPage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            limit: 100,
+            ...(startAfter ? { startAfter } : {}),
+          }),
+        })
+      );
+    } catch {
+      break;
+    }
+    const txt = await res.text();
+    if (!res.ok) break;
+    let data = {};
+    try {
+      data = txt ? JSON.parse(txt) : {};
+    } catch {
+      break;
+    }
+    if (data.error && typeof data.error === 'string') break;
+    const batch = Array.isArray(data.userIds) ? data.userIds : [];
+    for (const uid of batch) {
+      const id = uid != null ? String(uid).trim() : '';
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      userIds.push(id);
+    }
+    if (!data.nextListCursor) break;
+    startAfter = data.nextListCursor;
+  }
+  return userIds;
+}
+
+async function resolveAdminAccountRowFromUserId(env, userIdRaw, opts = {}) {
+  const uid = userIdRaw != null ? String(userIdRaw).trim() : '';
+  if (!uid) return null;
+  const stub = userAccountStubFromUserId(env, uid);
+  if (!stub) return null;
+  try {
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    return adminAccountRowFromProfile(row, {
+      slotUserId: uid,
+      lookupEmail: opts.lookupEmail,
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Merge registry + explicit email-slot lookups into a directory result. */
+async function supplementAdminAccountRows(env, accounts, ensureEmails = []) {
+  let rows = Array.isArray(accounts) ? accounts.slice() : [];
+  const registryIds = await listAllRegistryUserIds(env);
+  const batch = 10;
+  for (let i = 0; i < registryIds.length; i += batch) {
+    const slice = registryIds.slice(i, i + batch);
+    const fetched = await Promise.all(slice.map((uid) => resolveAdminAccountRowFromUserId(env, uid)));
+    for (const r of fetched) {
+      if (r) rows = mergeAdminAccountRows(rows, [r]);
+    }
+  }
+  const emailNorms = [
+    ...new Set((ensureEmails || []).map((e) => normalizeEmail(e)).filter(Boolean)),
+  ];
+  for (const emailNorm of emailNorms) {
+    const slotRow = await fetchAdminAccountByEmailSlot(env, emailNorm);
+    if (slotRow) rows = mergeAdminAccountRows(rows, [slotRow]);
+  }
+  return rows;
 }
 
 /** Cursor for admin account directory: union of DO list, username registry, and digest KV `sub:` keys. */
@@ -3774,6 +3859,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
       const need = pageSize - stubs.length;
 
       if (!state.do.done && typeof env.USER_ACCOUNT.list === 'function') {
+        const prevDoCursor = state.do.cursor;
         const listResult = await env.USER_ACCOUNT.list({
           limit: need,
           ...(state.do.cursor ? { cursor: state.do.cursor } : {}),
@@ -3786,6 +3872,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
         }
         state.do.cursor = cursor;
         if (!cursor) state.do.done = true;
+        else if (!objects.length && cursor === prevDoCursor) state.do.done = true;
         continue;
       }
 
@@ -3944,10 +4031,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
       );
     }
 
-    const emailSlotRows = [];
     for (const emailNorm of ensureEmails) {
-      const slotRow = await fetchAdminAccountByEmailSlot(env, emailNorm);
-      if (slotRow) emailSlotRows.push(slotRow);
       stubs.push({
         stub: userAccountStubFromUserId(env, generateUserId(emailNorm)),
         slotUserId: generateUserId(emailNorm),
@@ -3955,7 +4039,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     }
 
     const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
-    const merged = mergeAdminAccountRows(accounts, emailSlotRows);
+    const merged = await supplementAdminAccountRows(env, accounts, ensureEmails);
 
     return new Response(
       JSON.stringify({
@@ -3968,6 +4052,7 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
         enumStoppedEarly,
         pageStubCount: stubs.length,
         skippedMissingData,
+        registrySupplement: true,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -3995,11 +4080,15 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   }
 
   const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
+  const merged =
+    ensureEmails.length > 0
+      ? await supplementAdminAccountRows(env, accounts, ensureEmails)
+      : accounts;
 
   return new Response(
     JSON.stringify({
       success: true,
-      accounts,
+      accounts: merged,
       nextListCursor: nextCursor || null,
       hasMore: Boolean(nextCursor),
       pageStubCount: stubs.length,

@@ -646,7 +646,7 @@
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
-            Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username).
+            Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
           </p>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load all accounts</button>
@@ -1944,6 +1944,30 @@
         let adminAccountsAccum = [];
         let adminListNextCursor = null;
         let adminListHasMore = false;
+        const ADMIN_ENSURE_EMAILS_KEY = 'adminAccountEnsureEmails';
+
+        function loadAdminEnsureEmails() {
+          try {
+            const raw = localStorage.getItem(ADMIN_ENSURE_EMAILS_KEY);
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr)
+              ? arr
+                  .filter((e) => typeof e === 'string')
+                  .map((e) => e.trim().toLowerCase())
+                  .filter(Boolean)
+              : [];
+          } catch {
+            return [];
+          }
+        }
+
+        function rememberAdminEnsureEmail(email) {
+          const em = String(email || '').trim().toLowerCase();
+          if (!em) return;
+          const set = new Set(loadAdminEnsureEmails());
+          set.add(em);
+          localStorage.setItem(ADMIN_ENSURE_EMAILS_KEY, JSON.stringify(Array.from(set)));
+        }
 
         function escHtml(s) {
           return String(s)
@@ -2318,7 +2342,17 @@
               ...(reset ? { loadAll: true } : {}),
               ...(cursorForReq ? { listCursor: cursorForReq, loadAll: false } : {}),
             };
-            if (Array.isArray(opts.ensureEmails) && opts.ensureEmails.length) {
+            if (reset) {
+              const reqEnsure = Array.isArray(opts.ensureEmails) ? opts.ensureEmails : [];
+              const mergedEnsure = [
+                ...new Set(
+                  [...loadAdminEnsureEmails(), ...reqEnsure.map((e) => String(e).trim().toLowerCase())].filter(
+                    Boolean
+                  )
+                ),
+              ];
+              if (mergedEnsure.length) body.ensureEmails = mergedEnsure;
+            } else if (Array.isArray(opts.ensureEmails) && opts.ensureEmails.length) {
               body.ensureEmails = opts.ensureEmails;
             }
             const res = await fetch(`${API_BASE_URL}/api/admin/list-accounts`, {
@@ -2547,6 +2581,7 @@
             renderAdminSignupCheckResult(data);
             if (data.accountExists && data.email) {
               const needsEnsure = !!data.legacyEmailNotOnFile;
+              rememberAdminEnsureEmail(data.email);
               mergeAdminAccountsLocal([
                 {
                   userId: data.userId || '',
@@ -2557,9 +2592,7 @@
                 },
               ]);
               renderAdminAccountsTable();
-              if (needsEnsure) {
-                await adminAccountsFetchPage(true, { ensureEmails: [data.email] });
-              }
+              await adminAccountsFetchPage(true, { ensureEmails: [data.email] });
             }
             setStatus(st, data.canSignup ? 'Signup would allow this email.' : 'Signup would block this email.', data.canSignup ? 'ok' : 'err');
           } catch (e) {
