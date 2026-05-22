@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tether — Ahrens Labs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <script src="js/script.js"></script>
+  <style>
+    :root {
+      --th-ink: #0f172a;
+      --th-muted: #64748b;
+      --th-line: #e2e8f0;
+      --th-card: #ffffff;
+      --th-bg: #f1f5f9;
+      --th-accent: #4f46e5;
+      --th-accent-soft: #eef2ff;
+      --th-green: #059669;
+      --th-green-soft: #ecfdf5;
+      --th-orange: #ea580c;
+      --th-orange-soft: #fff7ed;
+    }
+    body.th-page { background: var(--th-bg); }
+    body.th-page .wrapper { background: transparent; }
+    .th-hero {
+      margin: -8px -20px 20px;
+      padding: 28px 24px 24px;
+      border-radius: 0 0 24px 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #eef2ff 55%, #ecfdf5 100%);
+      border: 1px solid var(--th-line);
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+    }
+    .th-hero h1 {
+      margin: 0 0 6px;
+      font-family: Orbitron, Inter, sans-serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.1rem);
+      font-weight: 900;
+      color: var(--th-ink);
+    }
+    .th-hero p { margin: 0; color: var(--th-muted); max-width: 62ch; line-height: 1.5; }
+    .th-shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 16px;
+      min-height: 520px;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    @media (max-width: 900px) {
+      .th-shell { grid-template-columns: 1fr; }
+      .th-sidebar { order: 2; }
+    }
+    .th-card {
+      background: var(--th-card);
+      border: 1px solid var(--th-line);
+      border-radius: 18px;
+      box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06);
+    }
+    .th-sidebar { padding: 16px; }
+    .th-sidebar-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .th-sidebar-head h2 { margin: 0; font-size: 0.95rem; color: var(--th-ink); }
+    .th-project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .th-project-item {
+      width: 100%; text-align: left; border: 1px solid transparent; background: #f8fafc;
+      border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .th-project-item:hover { border-color: #c7d2fe; background: #fff; }
+    .th-project-item.active { border-color: var(--th-accent); background: var(--th-accent-soft); }
+    .th-project-item strong { display: block; font-size: 0.88rem; color: var(--th-ink); }
+    .th-project-item span { font-size: 0.75rem; color: var(--th-muted); }
+    .th-main { padding: 20px; min-height: 480px; }
+    .th-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 420px; text-align: center; color: var(--th-muted); gap: 12px;
+    }
+    .th-empty h3 { margin: 0; color: var(--th-ink); }
+    .th-toolbar {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 12px; margin-bottom: 16px;
+    }
+    .th-toolbar h2 { margin: 0; font-size: 1.25rem; color: var(--th-ink); }
+    .th-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .th-view-toggle {
+      display: inline-flex; border: 1px solid var(--th-line); border-radius: 10px; overflow: hidden;
+    }
+    .th-view-toggle button {
+      border: none; background: #fff; padding: 7px 14px; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; color: var(--th-muted);
+    }
+    .th-view-toggle button.active { background: var(--th-accent-soft); color: var(--th-accent); }
+    .th-btn {
+      border: none; border-radius: 10px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .th-btn-primary { background: var(--th-accent); color: #fff; }
+    .th-btn-primary:hover { filter: brightness(1.05); }
+    .th-btn-ghost { background: #fff; border: 1px solid var(--th-line); color: var(--th-ink); }
+    .th-btn-danger { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+    .th-dod {
+      margin: 0 0 18px; padding: 14px 16px; border-radius: 14px;
+      background: linear-gradient(135deg, #f8fafc, #eef2ff);
+      border: 1px solid var(--th-line);
+    }
+    .th-dod label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--th-muted); margin-bottom: 6px; }
+    .th-dod p { margin: 0; white-space: pre-wrap; line-height: 1.5; color: var(--th-ink); font-size: 0.9rem; }
+    .th-members {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+    }
+    .th-member-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+      border-radius: 999px; background: #f1f5f9; font-size: 0.78rem; color: var(--th-ink);
+    }
+    .th-member-chip.owner { background: var(--th-green-soft); color: #065f46; }
+    .th-member-chip button {
+      border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 0 2px;
+      font-size: 0.9rem; line-height: 1;
+    }
+    .th-table-wrap { overflow-x: auto; border: 1px solid var(--th-line); border-radius: 14px; }
+    table.th-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .th-table th, .th-table td {
+      padding: 10px 12px; border-bottom: 1px solid var(--th-line); text-align: left; vertical-align: top;
+    }
+    .th-table th { background: #f8fafc; font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--th-muted); }
+    .th-table tr:last-child td { border-bottom: none; }
+    .th-status {
+      display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+    }
+    .th-status.todo { background: #f1f5f9; color: #475569; }
+    .th-status.in_progress { background: var(--th-orange-soft); color: var(--th-orange); }
+    .th-status.done { background: var(--th-green-soft); color: var(--th-green); }
+    .th-task-actions { display: flex; gap: 6px; }
+    .th-task-actions button {
+      border: none; background: transparent; color: var(--th-accent); cursor: pointer;
+      font-size: 0.78rem; font-weight: 600; padding: 0;
+    }
+    .th-gantt { border: 1px solid var(--th-line); border-radius: 14px; overflow: hidden; }
+    .th-gantt-scroll { overflow-x: auto; position: relative; }
+    .th-gantt-head {
+      display: flex; background: #15803d; color: #fff; font-size: 0.72rem; font-weight: 700;
+      min-width: max-content;
+    }
+    .th-gantt-label-col {
+      width: 200px; min-width: 200px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px; position: sticky; left: 0; z-index: 3; background: #15803d;
+    }
+    .th-gantt-week {
+      border-right: 1px solid rgba(255,255,255,0.15);
+    }
+    .th-gantt-week-title {
+      text-align: center; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    .th-gantt-days { display: flex; }
+    .th-gantt-day {
+      width: 28px; min-width: 28px; text-align: center; padding: 4px 0;
+      border-right: 1px solid rgba(255,255,255,0.08); font-size: 0.65rem;
+    }
+    .th-gantt-day.today { background: rgba(251, 191, 36, 0.35); }
+    .th-gantt-body { min-width: max-content; position: relative; }
+    .th-gantt-row {
+      display: flex; border-bottom: 1px solid var(--th-line); min-height: 36px; align-items: stretch;
+    }
+    .th-gantt-row-label {
+      width: 200px; min-width: 200px; flex-shrink: 0; padding: 8px 10px; font-size: 0.8rem;
+      border-right: 1px solid var(--th-line); background: #fff; position: sticky; left: 0; z-index: 2;
+      display: flex; align-items: center;
+    }
+    .th-gantt-row-track {
+      position: relative; flex: 1; min-height: 36px; background: repeating-linear-gradient(
+        90deg, transparent, transparent 27px, #f1f5f9 27px, #f1f5f9 28px
+      );
+    }
+    .th-gantt-bar {
+      position: absolute; top: 7px; height: 22px; border-radius: 6px; font-size: 0.65rem;
+      color: #fff; font-weight: 600; display: flex; align-items: center; padding: 0 6px;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .th-gantt-bar.todo { background: #6366f1; }
+    .th-gantt-bar.in_progress { background: #ea580c; }
+    .th-gantt-bar.done { background: #059669; opacity: 0.85; }
+    .th-gantt-today-line {
+      position: absolute; top: 0; bottom: 0; width: 2px; background: #f59e0b; z-index: 1; pointer-events: none;
+    }
+    .th-gantt-deps {
+      position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    }
+    .th-modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
+      z-index: 5000; align-items: center; justify-content: center; padding: 20px;
+    }
+    .th-modal-backdrop.open { display: flex; }
+    .th-modal {
+      width: min(520px, 100%); max-height: 90vh; overflow-y: auto;
+      background: #fff; border-radius: 18px; padding: 22px; box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+    }
+    .th-modal h3 { margin: 0 0 14px; color: var(--th-ink); }
+    .th-field { margin-bottom: 12px; }
+    .th-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--th-muted); margin-bottom: 4px; }
+    .th-field input, .th-field textarea, .th-field select {
+      width: 100%; box-sizing: border-box; border: 1px solid var(--th-line); border-radius: 10px;
+      padding: 9px 11px; font: inherit; font-size: 0.88rem;
+    }
+    .th-field textarea { min-height: 80px; resize: vertical; }
+    .th-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .th-check-group { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto;
+      border: 1px solid var(--th-line); border-radius: 10px; padding: 8px; }
+    .th-check-group label { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; cursor: pointer; }
+    .th-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .th-banner {
+      display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 12px; font-size: 0.86rem;
+    }
+    .th-banner.err { display: block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .th-banner.ok { display: block; background: #ecfdf5; border: 1px solid #86efac; color: #166534; }
+  </style>
+</head>
+<body class="th-page">
+  <div class="wrapper">
+    <header>
+      <div class="header-content">
+        <a href="index.html" class="logo-link">
+          <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+        </a>
+        <h1>Ahrens Labs</h1>
+        <nav>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="labs.html">Labs & Projects</a></li>
+            <li><a href="coding-lab.html">Coding Lab</a></li>
+            <li><a href="account-dashboard.html">Account</a></li>
+          </ul>
+        </nav>
+        <div id="header-auth-buttons" style="position:absolute;top:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:1000;">
+          <button id="header-login-btn" onclick="window.location.href='account.html'" style="padding:6px 14px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Login</button>
+          <button id="header-signup-btn" onclick="window.location.href='account.html'" style="padding:6px 14px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Sign Up</button>
+          <span id="header-username" style="display:none;padding:6px 14px;color:white;font-weight:600;font-size:0.9em;"></span>
+        </div>
+      </div>
+    </header>
+
+    <main style="max-width:1200px;margin:0 auto;padding:20px;">
+      <section class="th-hero">
+        <h1>Tether</h1>
+        <p>Organize projects and tasks with definitions of done, due dates, assignees, dependencies, and shared access for Ahrens Labs teammates.</p>
+      </section>
+
+      <div id="th-banner" class="th-banner"></div>
+
+      <div class="th-shell">
+        <aside class="th-card th-sidebar">
+          <div class="th-sidebar-head">
+            <h2>Projects</h2>
+            <button type="button" class="th-btn th-btn-primary" id="btn-new-project">+ New</button>
+          </div>
+          <ul class="th-project-list" id="project-list"></ul>
+        </aside>
+
+        <section class="th-card th-main" id="main-panel">
+          <div class="th-empty" id="empty-state">
+            <h3>Select or create a project</h3>
+            <p>Projects can be shared with other Ahrens Labs users by username or email.</p>
+            <button type="button" class="th-btn th-btn-primary" id="btn-new-project-empty">Create project</button>
+          </div>
+
+          <div id="project-view" style="display:none;">
+            <div class="th-toolbar">
+              <h2 id="project-title"></h2>
+              <div class="th-toolbar-actions">
+                <div class="th-view-toggle">
+                  <button type="button" data-view="list" class="active" id="view-list">List</button>
+                  <button type="button" data-view="gantt" id="view-gantt">Gantt</button>
+                </div>
+                <button type="button" class="th-btn th-btn-ghost" id="btn-share">Share</button>
+                <button type="button" class="th-btn th-btn-ghost" id="btn-edit-project">Edit</button>
+                <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task</button>
+                <button type="button" class="th-btn th-btn-danger" id="btn-delete-project" style="display:none;">Delete</button>
+              </div>
+            </div>
+
+            <div class="th-dod">
+              <label>Definition of done</label>
+              <p id="project-dod"></p>
+            </div>
+
+            <div class="th-members" id="member-chips"></div>
+
+            <div id="list-view"></div>
+            <div id="gantt-view" style="display:none;"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <div class="push"></div>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
+  </footer>
+
+  <!-- Project modal -->
+  <div class="th-modal-backdrop" id="modal-project">
+    <div class="th-modal">
+      <h3 id="modal-project-title">New project</h3>
+      <div class="th-field">
+        <label for="project-name-input">Project name</label>
+        <input type="text" id="project-name-input" maxlength="120">
+      </div>
+      <div class="th-field">
+        <label for="project-dod-input">Definition of done</label>
+        <textarea id="project-dod-input" placeholder="How will you know this project is complete?"></textarea>
+      </div>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-project">Cancel</button>
+        <button type="button" class="th-btn th-btn-primary" id="save-project-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task modal -->
+  <div class="th-modal-backdrop" id="modal-task">
+    <div class="th-modal">
+      <h3 id="modal-task-title">New task</h3>
+      <div class="th-field">
+        <label for="task-title-input">Task</label>
+        <input type="text" id="task-title-input" maxlength="200">
+      </div>
+      <div class="th-field">
+        <label for="task-dod-input">Definition of done</label>
+        <textarea id="task-dod-input"></textarea>
+      </div>
+      <div class="th-field-row">
+        <div class="th-field">
+          <label for="task-start-input">Start date</label>
+          <input type="date" id="task-start-input">
+        </div>
+        <div class="th-field">
+          <label for="task-due-input">Due date</label>
+          <input type="date" id="task-due-input">
+        </div>
+      </div>
+      <div class="th-field">
+        <label for="task-status-input">Status</label>
+        <select id="task-status-input">
+          <option value="todo">To do</option>
+          <option value="in_progress">In progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="th-field">
+        <label>Assignees</label>
+        <div class="th-check-group" id="task-assignees"></div>
+      </div>
+      <div class="th-field">
+        <label>Depends on</label>
+        <div class="th-check-group" id="task-deps"></div>
+      </div>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-task">Cancel</button>
+        <button type="button" class="th-btn th-btn-primary" id="save-task-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share modal -->
+  <div class="th-modal-backdrop" id="modal-share">
+    <div class="th-modal">
+      <h3>Share project</h3>
+      <p style="margin:0 0 12px;font-size:0.88rem;color:var(--th-muted);">Enter an Ahrens Labs username or email. They will be able to view and edit tasks.</p>
+      <div class="th-field">
+        <label for="share-input">Username or email</label>
+        <input type="text" id="share-input" placeholder="username or person@email.com">
+      </div>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-share">Cancel</button>
+        <button type="button" class="th-btn th-btn-primary" id="share-btn">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const API = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  let sessionId = localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
+  let currentUser = null;
+  let projects = [];
+  let activeProject = null;
+  let viewMode = 'list';
+  let editingTaskId = null;
+  let editingProjectMode = 'create';
+
+  function authHeaders() {
+    return { Authorization: 'Bearer ' + sessionId, 'Content-Type': 'application/json' };
+  }
+
+  function showBanner(msg, type) {
+    const el = document.getElementById('th-banner');
+    el.textContent = msg;
+    el.className = 'th-banner ' + (type || 'err');
+    if (type === 'ok') setTimeout(() => { el.className = 'th-banner'; }, 3500);
+  }
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
+  });
+
+  async function api(path, opts) {
+    const res = await fetch(API + path, { ...opts, headers: { ...authHeaders(), ...(opts && opts.headers || {}) } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  async function loadUser() {
+    const data = await api('/api/user', { method: 'GET' });
+    currentUser = data;
+  }
+
+  async function loadProjects() {
+    const data = await api('/api/tether/projects', { method: 'GET' });
+    projects = data.projects || [];
+    renderProjectList();
+  }
+
+  async function loadProject(projectId) {
+    const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'GET' });
+    activeProject = data.project;
+    renderProjectView();
+  }
+
+  async function saveProject(project) {
+    const data = await api('/api/tether/project', {
+      method: 'PUT',
+      body: JSON.stringify({
+        projectId: project.id,
+        title: project.title,
+        definitionOfDone: project.definitionOfDone,
+        tasks: project.tasks,
+      }),
+    });
+    activeProject = data.project;
+    await loadProjects();
+    renderProjectView();
+  }
+
+  function renderProjectList() {
+    const list = document.getElementById('project-list');
+    if (!projects.length) {
+      list.innerHTML = '<li style="font-size:0.82rem;color:var(--th-muted);padding:8px;">No projects yet</li>';
+      return;
+    }
+    list.innerHTML = projects.map(p => `
+      <li>
+        <button type="button" class="th-project-item${activeProject && activeProject.id === p.id ? ' active' : ''}"
+          data-id="${escapeAttr(p.id)}">
+          <strong>${escapeHtml(p.title)}</strong>
+          <span>${p.taskCount || 0} tasks · ${p.memberCount || 1} members</span>
+        </button>
+      </li>
+    `).join('');
+    list.querySelectorAll('.th-project-item').forEach(btn => {
+      btn.addEventListener('click', () => loadProject(btn.getAttribute('data-id')));
+    });
+  }
+
+  function renderProjectView() {
+    const empty = document.getElementById('empty-state');
+    const view = document.getElementById('project-view');
+    if (!activeProject) {
+      empty.style.display = 'flex';
+      view.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    view.style.display = 'block';
+    document.getElementById('project-title').textContent = activeProject.title;
+    document.getElementById('project-dod').textContent = activeProject.definitionOfDone || '(No definition of done yet)';
+    const isOwner = activeProject.ownerUserId === currentUser.userId;
+    document.getElementById('btn-delete-project').style.display = isOwner ? 'inline-block' : 'none';
+
+    const chips = document.getElementById('member-chips');
+    chips.innerHTML = (activeProject.members || []).map(m => `
+      <span class="th-member-chip${m.role === 'owner' ? ' owner' : ''}">
+        ${escapeHtml(m.username || m.email || m.userId)}
+        ${isOwner && m.role !== 'owner' ? `<button type="button" data-unshare="${escapeAttr(m.userId)}" title="Remove">×</button>` : ''}
+      </span>
+    `).join('');
+    chips.querySelectorAll('[data-unshare]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remove this member?')) return;
+        try {
+          const data = await api('/api/tether/unshare', {
+            method: 'POST',
+            body: JSON.stringify({ projectId: activeProject.id, userId: btn.getAttribute('data-unshare') }),
+          });
+          activeProject = data.project;
+          renderProjectView();
+          showBanner('Member removed', 'ok');
+        } catch (e) { showBanner(e.message); }
+      });
+    });
+
+    renderProjectList();
+    if (viewMode === 'list') renderListView();
+    else renderGanttView();
+  }
+
+  function renderListView() {
+    document.getElementById('list-view').style.display = 'block';
+    document.getElementById('gantt-view').style.display = 'none';
+    const tasks = sortTasks(activeProject.tasks || []);
+    if (!tasks.length) {
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks yet. Add one to get started.</p>';
+      return;
+    }
+    const memberMap = memberLabelMap();
+    document.getElementById('list-view').innerHTML = `
+      <div class="th-table-wrap">
+        <table class="th-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Status</th>
+              <th>Due</th>
+              <th>Assignees</th>
+              <th>Depends on</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tasks.map(t => `
+              <tr>
+                <td>
+                  <strong>${escapeHtml(t.title)}</strong>
+                  ${t.definitionOfDone ? `<div style="font-size:0.78rem;color:var(--th-muted);margin-top:4px;">${escapeHtml(t.definitionOfDone)}</div>` : ''}
+                </td>
+                <td><span class="th-status ${t.status || 'todo'}">${statusLabel(t.status)}</span></td>
+                <td>${formatDate(t.dueDate)}</td>
+                <td>${(t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</td>
+                <td>${depLabels(t.dependsOnTaskIds, tasks)}</td>
+                <td class="th-task-actions">
+                  <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
+                  <button type="button" data-del-task="${escapeAttr(t.id)}" style="color:#b91c1c;">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    document.getElementById('list-view').querySelectorAll('[data-edit-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
+    });
+    document.getElementById('list-view').querySelectorAll('[data-del-task]').forEach(btn => {
+      btn.addEventListener('click', () => deleteTask(btn.getAttribute('data-del-task')));
+    });
+  }
+
+  function renderGanttView() {
+    document.getElementById('list-view').style.display = 'none';
+    document.getElementById('gantt-view').style.display = 'block';
+    const tasks = sortTasks(activeProject.tasks || []);
+    const range = ganttRange(tasks);
+    const days = daysBetween(range.start, range.end);
+    const weeks = groupDaysByWeek(days);
+    const dayWidth = 28;
+    const trackWidth = days.length * dayWidth;
+    const todayStr = isoDate(new Date());
+
+    let headWeeks = weeks.map(w => `
+      <div class="th-gantt-week" style="width:${w.days.length * dayWidth}px">
+        <div class="th-gantt-week-title">Week of ${formatShort(w.days[0])}</div>
+        <div class="th-gantt-days">
+          ${w.days.map(d => `<div class="th-gantt-day${d === todayStr ? ' today' : ''}">${d.slice(8)}</div>`).join('')}
+        </div>
+      </div>
+    `).join('');
+
+    const barPositions = {};
+    let rowsHtml = tasks.map(t => {
+      const start = taskStart(t);
+      const end = taskDue(t);
+      const left = dayIndex(range.start, start) * dayWidth;
+      const width = Math.max(dayWidth, (dayIndex(start, end) + 1) * dayWidth);
+      barPositions[t.id] = { left: 200 + left + width / 2, top: 0, rowIndex: tasks.indexOf(t) };
+      return `
+        <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}">
+          <div class="th-gantt-row-label">${escapeHtml(t.title)}</div>
+          <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px">
+            <div class="th-gantt-bar ${t.status || 'todo'}" style="left:${left}px;width:${width}px"
+              title="${escapeHtml(t.title)}" data-gantt-bar="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (!tasks.length) {
+      document.getElementById('gantt-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;padding:12px;">Add tasks with start and due dates to see the timeline.</p>';
+      return;
+    }
+
+    const todayLeft = dayIndex(range.start, todayStr) * dayWidth;
+    document.getElementById('gantt-view').innerHTML = `
+      <div class="th-gantt">
+        <div class="th-gantt-scroll" id="gantt-scroll">
+          <div class="th-gantt-head">
+            <div class="th-gantt-label-col">Task</div>
+            ${headWeeks}
+          </div>
+          <div class="th-gantt-body" id="gantt-body" style="position:relative;">
+            ${rowsHtml}
+            <div class="th-gantt-today-line" style="left:${200 + todayLeft}px"></div>
+            <svg class="th-gantt-deps" id="gantt-deps-svg" width="${200 + trackWidth}" height="${tasks.length * 36}"></svg>
+          </div>
+        </div>
+      </div>
+    `;
+
+    requestAnimationFrame(() => drawDependencyArrows(tasks, barPositions, dayWidth, range));
+  }
+
+  function drawDependencyArrows(tasks, barPositions, dayWidth, range) {
+    const svg = document.getElementById('gantt-deps-svg');
+    if (!svg) return;
+    const body = document.getElementById('gantt-body');
+    const rowEls = body.querySelectorAll('.th-gantt-row');
+    const positions = {};
+    rowEls.forEach((row, i) => {
+      const id = row.getAttribute('data-task-row');
+      const bar = row.querySelector('.th-gantt-bar');
+      if (!bar) return;
+      const rowRect = row.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      positions[id] = {
+        x1: barRect.left - bodyRect.left,
+        y1: rowRect.top - bodyRect.top + rowRect.height / 2,
+        x2: barRect.left - bodyRect.left + barRect.width,
+        y2: rowRect.top - bodyRect.top + rowRect.height / 2,
+      };
+    });
+
+    let paths = '';
+    tasks.forEach(t => {
+      (t.dependsOnTaskIds || []).forEach(depId => {
+        const from = positions[depId];
+        const to = positions[t.id];
+        if (!from || !to) return;
+        const x1 = from.x2;
+        const y1 = from.y1;
+        const x2 = to.x1;
+        const y2 = to.y1;
+        const mx = (x1 + x2) / 2;
+        paths += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+      });
+    });
+    svg.innerHTML = `<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#334155"/></marker></defs>${paths}`;
+  }
+
+  function openProjectModal(mode) {
+    editingProjectMode = mode;
+    document.getElementById('modal-project-title').textContent = mode === 'create' ? 'New project' : 'Edit project';
+    if (mode === 'create') {
+      document.getElementById('project-name-input').value = '';
+      document.getElementById('project-dod-input').value = '';
+    } else if (activeProject) {
+      document.getElementById('project-name-input').value = activeProject.title;
+      document.getElementById('project-dod-input').value = activeProject.definitionOfDone || '';
+    }
+    openModal('modal-project');
+  }
+
+  function openTaskModal(taskId) {
+    editingTaskId = taskId || null;
+    document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
+    const tasks = activeProject.tasks || [];
+    const task = taskId ? tasks.find(t => t.id === taskId) : null;
+    document.getElementById('task-title-input').value = task ? task.title : '';
+    document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
+    document.getElementById('task-start-input').value = task ? (task.startDate || '') : isoDate(new Date());
+    document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
+    document.getElementById('task-status-input').value = task ? (task.status || 'todo') : 'todo';
+
+    const assigneesEl = document.getElementById('task-assignees');
+    assigneesEl.innerHTML = (activeProject.members || []).map(m => `
+      <label><input type="checkbox" value="${escapeAttr(m.userId)}"
+        ${task && (task.assigneeUserIds || []).includes(m.userId) ? 'checked' : ''}>
+        ${escapeHtml(m.username || m.email)}</label>
+    `).join('');
+
+    const depsEl = document.getElementById('task-deps');
+    const otherTasks = tasks.filter(t => t.id !== taskId);
+    depsEl.innerHTML = otherTasks.length ? otherTasks.map(t => `
+      <label><input type="checkbox" value="${escapeAttr(t.id)}"
+        ${task && (task.dependsOnTaskIds || []).includes(t.id) ? 'checked' : ''}>
+        ${escapeHtml(t.title)}</label>
+    `).join('') : '<span style="font-size:0.82rem;color:var(--th-muted);">No other tasks yet</span>';
+
+    openModal('modal-task');
+  }
+
+  async function deleteTask(taskId) {
+    if (!confirm('Delete this task?')) return;
+    activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
+    activeProject.tasks.forEach(t => {
+      t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
+    });
+    try {
+      await saveProject(activeProject);
+      showBanner('Task deleted', 'ok');
+    } catch (e) { showBanner(e.message); }
+  }
+
+  function sortTasks(tasks) {
+    return [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.title.localeCompare(b.title));
+  }
+
+  function memberLabelMap() {
+    const map = {};
+    (activeProject.members || []).forEach(m => { map[m.userId] = m.username || m.email || m.userId; });
+    return map;
+  }
+
+  function statusLabel(s) {
+    if (s === 'in_progress') return 'In progress';
+    if (s === 'done') return 'Done';
+    return 'To do';
+  }
+
+  function depLabels(depIds, tasks) {
+    if (!depIds || !depIds.length) return '—';
+    const titles = depIds.map(id => {
+      const t = tasks.find(x => x.id === id);
+      return t ? t.title : id;
+    });
+    return escapeHtml(titles.join(', '));
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+
+  function formatDate(d) {
+    if (!d) return '—';
+    try { return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch { return d; }
+  }
+  function formatShort(iso) {
+    try { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+    catch { return iso; }
+  }
+  function isoDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  function parseIso(s) { return s ? new Date(s + 'T12:00:00') : null; }
+  function daysBetween(startIso, endIso) {
+    const out = [];
+    const cur = parseIso(startIso);
+    const end = parseIso(endIso);
+    while (cur <= end) {
+      out.push(isoDate(cur));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  }
+  function dayIndex(fromIso, toIso) {
+    const from = parseIso(fromIso);
+    const to = parseIso(toIso);
+    return Math.round((to - from) / 86400000);
+  }
+  function groupDaysByWeek(days) {
+    const weeks = [];
+    let current = null;
+    days.forEach(d => {
+      const dt = parseIso(d);
+      const day = dt.getDay();
+      const mondayOffset = (day + 6) % 7;
+      const monday = new Date(dt);
+      monday.setDate(dt.getDate() - mondayOffset);
+      const key = isoDate(monday);
+      if (!current || current.key !== key) {
+        current = { key, days: [] };
+        weeks.push(current);
+      }
+      current.days.push(d);
+    });
+    return weeks;
+  }
+  function taskStart(t) {
+    if (t.startDate) return t.startDate;
+    if (t.dueDate) {
+      const d = parseIso(t.dueDate);
+      d.setDate(d.getDate() - 3);
+      return isoDate(d);
+    }
+    return isoDate(new Date());
+  }
+  function taskDue(t) {
+    return t.dueDate || taskStart(t);
+  }
+  function ganttRange(tasks) {
+    const today = isoDate(new Date());
+    if (!tasks.length) {
+      const end = new Date();
+      end.setDate(end.getDate() + 14);
+      return { start: today, end: isoDate(end) };
+    }
+    let min = today, max = today;
+    tasks.forEach(t => {
+      const s = taskStart(t);
+      const e = taskDue(t);
+      if (s < min) min = s;
+      if (e > max) max = e;
+    });
+    const startD = parseIso(min);
+    startD.setDate(startD.getDate() - 2);
+    const endD = parseIso(max);
+    endD.setDate(endD.getDate() + 7);
+    return { start: isoDate(startD), end: isoDate(endD) };
+  }
+
+  document.getElementById('btn-new-project').addEventListener('click', () => openProjectModal('create'));
+  document.getElementById('btn-new-project-empty').addEventListener('click', () => openProjectModal('create'));
+  document.getElementById('btn-edit-project').addEventListener('click', () => openProjectModal('edit'));
+  document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
+  document.getElementById('btn-share').addEventListener('click', () => {
+    document.getElementById('share-input').value = '';
+    openModal('modal-share');
+  });
+
+  document.getElementById('save-project-btn').addEventListener('click', async () => {
+    const title = document.getElementById('project-name-input').value.trim();
+    const definitionOfDone = document.getElementById('project-dod-input').value.trim();
+    if (!title) { showBanner('Project name is required'); return; }
+    try {
+      if (editingProjectMode === 'create') {
+        const data = await api('/api/tether/projects', {
+          method: 'POST',
+          body: JSON.stringify({ title, definitionOfDone }),
+        });
+        activeProject = data.project;
+        closeModal('modal-project');
+        await loadProjects();
+        renderProjectView();
+        showBanner('Project created', 'ok');
+      } else {
+        activeProject.title = title;
+        activeProject.definitionOfDone = definitionOfDone;
+        await saveProject(activeProject);
+        closeModal('modal-project');
+        showBanner('Project updated', 'ok');
+      }
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('save-task-btn').addEventListener('click', async () => {
+    const title = document.getElementById('task-title-input').value.trim();
+    if (!title) { showBanner('Task title is required'); return; }
+    const task = {
+      id: editingTaskId || crypto.randomUUID(),
+      title,
+      definitionOfDone: document.getElementById('task-dod-input').value.trim(),
+      startDate: document.getElementById('task-start-input').value,
+      dueDate: document.getElementById('task-due-input').value,
+      status: document.getElementById('task-status-input').value,
+      assigneeUserIds: [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
+      dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
+      sortOrder: editingTaskId ? undefined : (activeProject.tasks || []).length,
+    };
+    if (editingTaskId) {
+      const idx = activeProject.tasks.findIndex(t => t.id === editingTaskId);
+      if (idx >= 0) {
+        task.sortOrder = activeProject.tasks[idx].sortOrder;
+        activeProject.tasks[idx] = task;
+      }
+    } else {
+      activeProject.tasks = activeProject.tasks || [];
+      activeProject.tasks.push(task);
+    }
+    try {
+      await saveProject(activeProject);
+      closeModal('modal-task');
+      showBanner('Task saved', 'ok');
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('share-btn').addEventListener('click', async () => {
+    const usernameOrEmail = document.getElementById('share-input').value.trim();
+    if (!usernameOrEmail) { showBanner('Enter a username or email'); return; }
+    try {
+      const data = await api('/api/tether/share', {
+        method: 'POST',
+        body: JSON.stringify({ projectId: activeProject.id, usernameOrEmail }),
+      });
+      activeProject = data.project;
+      renderProjectView();
+      closeModal('modal-share');
+      showBanner('Project shared', 'ok');
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('btn-delete-project').addEventListener('click', async () => {
+    if (!confirm('Delete this project permanently?')) return;
+    try {
+      await api('/api/tether/project?projectId=' + encodeURIComponent(activeProject.id), { method: 'DELETE' });
+      activeProject = null;
+      await loadProjects();
+      document.getElementById('empty-state').style.display = 'flex';
+      document.getElementById('project-view').style.display = 'none';
+      showBanner('Project deleted', 'ok');
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('view-list').addEventListener('click', () => {
+    viewMode = 'list';
+    document.getElementById('view-list').classList.add('active');
+    document.getElementById('view-gantt').classList.remove('active');
+    renderListView();
+  });
+  document.getElementById('view-gantt').addEventListener('click', () => {
+    viewMode = 'gantt';
+    document.getElementById('view-gantt').classList.add('active');
+    document.getElementById('view-list').classList.remove('active');
+    renderGanttView();
+  });
+
+  async function init() {
+    if (!sessionId) return;
+    try {
+      await loadUser();
+      await loadProjects();
+    } catch (e) {
+      showBanner(e.message || 'Could not load Tether');
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+  </script>
+</body>
+</html>

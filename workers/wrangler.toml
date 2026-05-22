@@ -43,7 +43,8 @@ crons = ["0 7 * * *", "15 7 * * *", "0,15,30,45 * * * *"]
 bindings = [
   { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },
   { name = "SESSION", class_name = "Session", script_name = "chess-accounts" },
-  { name = "USERNAME_REGISTRY", class_name = "UsernameRegistry", script_name = "chess-accounts" }
+  { name = "USERNAME_REGISTRY", class_name = "UsernameRegistry", script_name = "chess-accounts" },
+  { name = "TETHER_PROJECT", class_name = "TetherProject", script_name = "chess-accounts" }
 ]
 
 [[migrations]]
@@ -58,6 +59,10 @@ deleted_classes = []
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["UsernameRegistry"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["TetherProject"]
 
 # Sports Digest HTML builder — use service binding (workers cannot fetch *.workers.dev from another worker; error 1042).
 [[services]]

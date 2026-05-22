@@ -17,7 +17,8 @@ const PROTECTED_PAGE_BASENAMES = [
     'achievements',
     'dungeon_game',
     'classify',
-    'sports-digest'
+    'sports-digest',
+    'tether'
 ];
 
 // Check if current page requires login

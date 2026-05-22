@@ -25,6 +25,8 @@ import {
   resolveSubscriberSinceMs,
   subscriberSendKey,
 } from './sports-digest-send.js';
+import { handleTetherRequest } from './tether.js';
+export { TetherProject } from './tether.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -146,6 +148,13 @@ export default {
         return handleKyrachyngProgressSync(request, env, corsHeaders);
       } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
         return handleKyrachyngProgressLoad(request, env, corsHeaders);
+      } else if (path.startsWith('/api/tether/')) {
+        const tetherRes = await handleTetherRequest(request, env, corsHeaders, path);
+        if (tetherRes) return tetherRes;
+        return new Response(JSON.stringify({ error: 'Not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -7963,6 +7972,23 @@ export class UserAccount {
         return new Response(JSON.stringify(progress), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getTetherProjectIds' && request.method === 'GET') {
+        const projectIds = await this.getTetherProjectIds();
+        return new Response(JSON.stringify({ projectIds }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/addTetherProjectId' && request.method === 'POST') {
+        const { projectId } = await request.json();
+        await this.addTetherProjectId(projectId);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/removeTetherProjectId' && request.method === 'POST') {
+        const { projectId } = await request.json();
+        await this.removeTetherProjectId(projectId);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -8067,11 +8093,49 @@ export class UserAccount {
         kyrachyng: {
           lessonsCompleted: []
         }
+      },
+      tether: {
+        projectIds: []
       }
     };
 
     await this.storage.put('userData', userData);
     return { success: true };
+  }
+
+  async getTetherProjectIds() {
+    const userData = await this.storage.get('userData');
+    if (!userData) return [];
+    if (!userData.tether || !Array.isArray(userData.tether.projectIds)) {
+      return [];
+    }
+    return userData.tether.projectIds.filter((id) => typeof id === 'string' && id.trim());
+  }
+
+  async addTetherProjectId(projectId) {
+    const pid = projectId != null ? String(projectId).trim() : '';
+    if (!pid) return;
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [] };
+    }
+    if (!Array.isArray(userData.tether.projectIds)) {
+      userData.tether.projectIds = [];
+    }
+    if (!userData.tether.projectIds.includes(pid)) {
+      userData.tether.projectIds.push(pid);
+      await this.storage.put('userData', userData);
+    }
+  }
+
+  async removeTetherProjectId(projectId) {
+    const pid = projectId != null ? String(projectId).trim() : '';
+    if (!pid) return;
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.tether || !Array.isArray(userData.tether.projectIds)) return;
+    userData.tether.projectIds = userData.tether.projectIds.filter((id) => id !== pid);
+    await this.storage.put('userData', userData);
   }
 
   async authenticate(password) {

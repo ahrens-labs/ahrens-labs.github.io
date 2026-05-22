@@ -1,0 +1,407 @@
+// Tether — shared project & task management (Durable Object + API handlers)
+
+function parseBearerToken(authHeader) {
+  if (!authHeader || typeof authHeader !== 'string') return null;
+  const m = authHeader.match(/^Bearer\s+(\S+)/i);
+  return m ? m[1] : null;
+}
+
+function normalizeEmail(email) {
+  if (email == null || typeof email !== 'string') return '';
+  return email.trim().toLowerCase();
+}
+
+function normalizeUsername(username) {
+  if (username == null || typeof username !== 'string') return '';
+  return username.trim().toLowerCase();
+}
+
+function generateUserId(email) {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    const char = email.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return `user_${Math.abs(hash)}`;
+}
+
+function jsonResponse(body, corsHeaders, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function tetherProjectStub(env, projectId) {
+  if (!env.TETHER_PROJECT || !projectId) return null;
+  return env.TETHER_PROJECT.get(env.TETHER_PROJECT.idFromName(String(projectId)));
+}
+
+function userAccountStub(env, userId) {
+  if (!env.USER_ACCOUNT || !userId) return null;
+  return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(String(userId)));
+}
+
+async function sessionUserId(env, sessionId) {
+  if (!sessionId) return null;
+  const session = env.SESSION.get(env.SESSION.idFromName(sessionId));
+  const res = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const data = await res.json();
+  return data.userId || null;
+}
+
+async function fetchUserProfile(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return null;
+  try {
+    const res = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || (!data.username && !data.email)) return null;
+    return {
+      userId,
+      username: String(data.username || data.email || userId),
+      email: normalizeEmail(data.email || ''),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getTetherProjectIds(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return [];
+  const res = await stub.fetch(new Request('http://do/getTetherProjectIds', { method: 'GET' }));
+  const data = await res.json();
+  return Array.isArray(data.projectIds) ? data.projectIds : [];
+}
+
+async function addTetherProjectId(env, userId, projectId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return;
+  await stub.fetch(
+    new Request('http://do/addTetherProjectId', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    })
+  );
+}
+
+async function removeTetherProjectId(env, userId, projectId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return;
+  await stub.fetch(
+    new Request('http://do/removeTetherProjectId', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    })
+  );
+}
+
+async function fetchProject(env, projectId) {
+  const stub = tetherProjectStub(env, projectId);
+  if (!stub) return null;
+  const res = await stub.fetch(new Request('http://do/get', { method: 'GET' }));
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function userCanAccessProject(project, userId) {
+  if (!project || !userId) return false;
+  if (project.ownerUserId === userId) return true;
+  return Array.isArray(project.members) && project.members.some((m) => m.userId === userId);
+}
+
+function userIsOwner(project, userId) {
+  return project && project.ownerUserId === userId;
+}
+
+async function resolveShareTarget(env, usernameOrEmail) {
+  const raw = String(usernameOrEmail || '').trim();
+  if (!raw) return { error: 'Enter a username or email', status: 400 };
+
+  let userId = '';
+  if (raw.includes('@')) {
+    const email = normalizeEmail(raw);
+    if (!email) return { error: 'Invalid email', status: 400 };
+    userId = generateUserId(email);
+  } else {
+    const username = normalizeUsername(raw);
+    if (!username) return { error: 'Invalid username', status: 400 };
+    const registry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+    const res = await registry.fetch(
+      new Request('http://do/resolve', {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+      })
+    );
+    const data = await res.json();
+    if (!data.success || !data.userId) {
+      return { error: 'User not found', status: 404 };
+    }
+    userId = data.userId;
+  }
+
+  const profile = await fetchUserProfile(env, userId);
+  if (!profile) return { error: 'User not found', status: 404 };
+  return { profile };
+}
+
+function newProjectId() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+export async function handleTetherRequest(request, env, corsHeaders, path) {
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const userId = await sessionUserId(env, sessionId);
+  if (!userId) {
+    return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+  }
+
+  if (path === '/api/tether/projects' && request.method === 'GET') {
+    const projectIds = await getTetherProjectIds(env, userId);
+    const projects = [];
+    for (const pid of projectIds) {
+      const project = await fetchProject(env, pid);
+      if (!project || !userCanAccessProject(project, userId)) continue;
+      projects.push({
+        id: project.id,
+        title: project.title,
+        definitionOfDone: project.definitionOfDone,
+        ownerUserId: project.ownerUserId,
+        memberCount: Array.isArray(project.members) ? project.members.length : 0,
+        taskCount: Array.isArray(project.tasks) ? project.tasks.length : 0,
+        updatedAt: project.updatedAt,
+      });
+    }
+    return jsonResponse({ projects }, corsHeaders);
+  }
+
+  if (path === '/api/tether/projects' && request.method === 'POST') {
+    const body = await request.json();
+    const title = String(body.title || '').trim();
+    const definitionOfDone = String(body.definitionOfDone || '').trim();
+    if (!title) return jsonResponse({ error: 'Project title is required' }, corsHeaders, 400);
+
+    const profile = await fetchUserProfile(env, userId);
+    if (!profile) return jsonResponse({ error: 'Account profile not found' }, corsHeaders, 400);
+
+    const projectId = newProjectId();
+    const now = Date.now();
+    const project = {
+      id: projectId,
+      title,
+      definitionOfDone,
+      ownerUserId: userId,
+      members: [
+        {
+          userId,
+          username: profile.username,
+          email: profile.email,
+          role: 'owner',
+          addedAt: now,
+        },
+      ],
+      tasks: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(
+      new Request('http://do/create', {
+        method: 'POST',
+        body: JSON.stringify(project),
+      })
+    );
+    await addTetherProjectId(env, userId, projectId);
+    return jsonResponse({ project }, corsHeaders, 201);
+  }
+
+  if (path === '/api/tether/project' && request.method === 'GET') {
+    const url = new URL(request.url);
+    const projectId = String(url.searchParams.get('projectId') || '').trim();
+    if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userCanAccessProject(project, userId)) {
+      return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+    }
+    return jsonResponse({ project }, corsHeaders);
+  }
+
+  if (path === '/api/tether/project' && request.method === 'PUT') {
+    const body = await request.json();
+    const projectId = String(body.projectId || '').trim();
+    if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+
+    const existing = await fetchProject(env, projectId);
+    if (!existing) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userCanAccessProject(existing, userId)) {
+      return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+    }
+
+    const updated = {
+      ...existing,
+      title: body.title != null ? String(body.title).trim() : existing.title,
+      definitionOfDone:
+        body.definitionOfDone != null
+          ? String(body.definitionOfDone).trim()
+          : existing.definitionOfDone,
+      tasks: Array.isArray(body.tasks) ? body.tasks : existing.tasks,
+      updatedAt: Date.now(),
+    };
+
+    if (!updated.title) return jsonResponse({ error: 'Project title is required' }, corsHeaders, 400);
+
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(
+      new Request('http://do/save', {
+        method: 'POST',
+        body: JSON.stringify(updated),
+      })
+    );
+    return jsonResponse({ project: updated }, corsHeaders);
+  }
+
+  if (path === '/api/tether/project' && request.method === 'DELETE') {
+    const url = new URL(request.url);
+    const projectId = String(url.searchParams.get('projectId') || '').trim();
+    if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userIsOwner(project, userId)) {
+      return jsonResponse({ error: 'Only the project owner can delete it' }, corsHeaders, 403);
+    }
+
+    for (const member of project.members || []) {
+      if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
+    }
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+    return jsonResponse({ success: true }, corsHeaders);
+  }
+
+  if (path === '/api/tether/share' && request.method === 'POST') {
+    const body = await request.json();
+    const projectId = String(body.projectId || '').trim();
+    const usernameOrEmail = String(body.usernameOrEmail || '').trim();
+    if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userIsOwner(project, userId)) {
+      return jsonResponse({ error: 'Only the project owner can share' }, corsHeaders, 403);
+    }
+
+    const resolved = await resolveShareTarget(env, usernameOrEmail);
+    if (resolved.error) return jsonResponse({ error: resolved.error }, corsHeaders, resolved.status);
+
+    const target = resolved.profile;
+    if (target.userId === userId) {
+      return jsonResponse({ error: 'You already have access to this project' }, corsHeaders, 400);
+    }
+
+    const members = Array.isArray(project.members) ? [...project.members] : [];
+    if (members.some((m) => m.userId === target.userId)) {
+      return jsonResponse({ error: 'User already has access' }, corsHeaders, 409);
+    }
+
+    members.push({
+      userId: target.userId,
+      username: target.username,
+      email: target.email,
+      role: 'member',
+      addedAt: Date.now(),
+    });
+
+    const updated = { ...project, members, updatedAt: Date.now() };
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(
+      new Request('http://do/save', {
+        method: 'POST',
+        body: JSON.stringify(updated),
+      })
+    );
+    await addTetherProjectId(env, target.userId, projectId);
+    return jsonResponse({ project: updated }, corsHeaders);
+  }
+
+  if (path === '/api/tether/unshare' && request.method === 'POST') {
+    const body = await request.json();
+    const projectId = String(body.projectId || '').trim();
+    const removeUserId = String(body.userId || '').trim();
+    if (!projectId || !removeUserId) {
+      return jsonResponse({ error: 'projectId and userId required' }, corsHeaders, 400);
+    }
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userIsOwner(project, userId)) {
+      return jsonResponse({ error: 'Only the project owner can remove members' }, corsHeaders, 403);
+    }
+    if (removeUserId === project.ownerUserId) {
+      return jsonResponse({ error: 'Cannot remove the project owner' }, corsHeaders, 400);
+    }
+
+    const members = (project.members || []).filter((m) => m.userId !== removeUserId);
+    const updated = { ...project, members, updatedAt: Date.now() };
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(
+      new Request('http://do/save', {
+        method: 'POST',
+        body: JSON.stringify(updated),
+      })
+    );
+    await removeTetherProjectId(env, removeUserId, projectId);
+    return jsonResponse({ project: updated }, corsHeaders);
+  }
+
+  return null;
+}
+
+export class TetherProject {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.storage = state.storage;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    try {
+      if (path === '/create' && request.method === 'POST') {
+        const project = await request.json();
+        await this.storage.put('project', project);
+        return jsonResponse({ success: true }, {});
+      }
+      if (path === '/get' && request.method === 'GET') {
+        const project = await this.storage.get('project');
+        if (!project) return jsonResponse({ error: 'Not found' }, {}, 404);
+        return jsonResponse(project, {});
+      }
+      if (path === '/save' && request.method === 'POST') {
+        const project = await request.json();
+        await this.storage.put('project', project);
+        return jsonResponse({ success: true }, {});
+      }
+      if (path === '/delete' && request.method === 'POST') {
+        await this.storage.deleteAll();
+        return jsonResponse({ success: true }, {});
+      }
+      return jsonResponse({ error: 'Not found' }, {}, 404);
+    } catch (err) {
+      return jsonResponse({ error: err.message || 'Internal error' }, {}, 500);
+    }
+  }
+}
