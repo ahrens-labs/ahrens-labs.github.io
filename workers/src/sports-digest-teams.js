@@ -11,6 +11,7 @@ export const SPORTS_DIGEST_LEAGUES = [
   { id: 'mlb', label: 'MLB', sport: 'MLB', emoji: '⚾' },
   { id: 'nfl', label: 'NFL', sport: 'NFL', emoji: '🏈' },
   { id: 'nba', label: 'NBA', sport: 'NBA', emoji: '🏀' },
+  { id: 'epl', label: 'Premier League', sport: 'Premier League', emoji: '⚽' },
 ];
 
 /** Preset send schedules — Central (CT) HH:MM. Worker sends at UTC = CT + 5 hours. */
