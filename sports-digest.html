@@ -179,6 +179,7 @@
     .sd-tab.active[data-league="mlb"] { background: linear-gradient(135deg, #c41230, #0d2c54); }
     .sd-tab.active[data-league="nfl"] { background: linear-gradient(135deg, #013369, #d50a0a); }
     .sd-tab.active[data-league="nba"] { background: linear-gradient(135deg, #17408b, #f58426); }
+    .sd-tab.active[data-league="nhl"] { background: linear-gradient(135deg, #111827, #c8102e); }
     .sd-tab.active[data-league="epl"] { background: linear-gradient(135deg, #3d195b, #00ff85); }
     .sd-mini-btn {
       padding: 8px 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff;
@@ -378,7 +379,7 @@
 
       <section class="sd-hero">
         <div class="sd-hero-inner">
-          <div class="sd-kicker">⚾ 🏈 🏀 ⚽ MLB · NFL · NBA · Premier League</div>
+          <div class="sd-kicker">⚾ 🏈 🏀 🏒 ⚽ MLB · NFL · NBA · NHL · Premier League</div>
           <h1>Sports Digest</h1>
           <p class="sd-sub">
             Schedules and headlines for the teams you pick —
@@ -462,8 +463,8 @@
     (function () {
       const API_BASE = window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL;
       const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const LEAGUE_EMOJI = { mlb: '⚾', nfl: '🏈', nba: '🏀', epl: '⚽' };
-      const LEAGUE_ACCENT = { mlb: '#c41230', nfl: '#013369', nba: '#17408b', epl: '#3d195b' };
+      const LEAGUE_EMOJI = { mlb: '⚾', nfl: '🏈', nba: '🏀', nhl: '🏒', epl: '⚽' };
+      const LEAGUE_ACCENT = { mlb: '#c41230', nfl: '#013369', nba: '#17408b', nhl: '#c8102e', epl: '#3d195b' };
       const teamById = new Map();
 
       function getSessionId() {

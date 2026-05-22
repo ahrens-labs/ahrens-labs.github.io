@@ -11,6 +11,7 @@ export const SPORTS_DIGEST_LEAGUES = [
   { id: 'mlb', label: 'MLB', sport: 'MLB', emoji: '⚾' },
   { id: 'nfl', label: 'NFL', sport: 'NFL', emoji: '🏈' },
   { id: 'nba', label: 'NBA', sport: 'NBA', emoji: '🏀' },
+  { id: 'nhl', label: 'NHL', sport: 'NHL', emoji: '🏒' },
   { id: 'epl', label: 'Premier League', sport: 'Premier League', emoji: '⚽' },
 ];
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Refresh MLB/NFL/NBA/EPL team list from ESPN → workers + sports_digest catalogs. */
+/** Refresh MLB/NFL/NBA/NHL/EPL team list from ESPN → workers + sports_digest catalogs. */
 import { writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -48,6 +48,7 @@ const catalog = [
   ...(await fetchLeague('baseball/mlb', 'mlb', 'MLB')),
   ...(await fetchLeague('football/nfl', 'nfl', 'NFL')),
   ...(await fetchLeague('basketball/nba', 'nba', 'NBA')),
+  ...(await fetchLeague('hockey/nhl', 'nhl', 'NHL')),
   ...(await fetchLeague('soccer/eng.1', 'epl', 'Premier League')),
 ];
 
@@ -61,7 +62,7 @@ const sportsDigestTs = '/home/matt/innovation/sports_digest/src/teamCatalog.ts';
 try {
   writeFileSync(
     sportsDigestTs,
-    `/** Auto-generated — sync from ahrens-labs scripts/sports-digest-catalog.json */\nexport type CatalogTeam = {\n  id: string;\n  league: "mlb" | "nfl" | "nba" | "epl";\n  espnTeamId: string;\n  label: string;\n  abbr: string;\n  sport: string;\n  googleQuery: string;\n  twitterHandles: string[];\n  logoUrl: string;\n  color: string;\n};\n\nexport const TEAM_CATALOG: CatalogTeam[] = ${JSON.stringify(catalog, null, 2)};\n`
+    `/** Auto-generated — sync from ahrens-labs scripts/sports-digest-catalog.json */\nexport type CatalogTeam = {\n  id: string;\n  league: "mlb" | "nfl" | "nba" | "nhl" | "epl";\n  espnTeamId: string;\n  label: string;\n  abbr: string;\n  sport: string;\n  googleQuery: string;\n  twitterHandles: string[];\n  logoUrl: string;\n  color: string;\n};\n\nexport const TEAM_CATALOG: CatalogTeam[] = ${JSON.stringify(catalog, null, 2)};\n`
   );
 } catch (e) {
   console.warn('Could not write sports_digest teamCatalog.ts:', e.message);
