@@ -268,14 +268,18 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
   let accountExists = false;
   let accountUsername = '';
   let accountEmailVerified = null;
+  let legacyEmailNotOnFile = false;
   try {
     const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
     const row = await dataRes.json();
     if (userAccountProfileExists(row)) {
       accountExists = true;
       accountUsername = row.username != null ? String(row.username) : '';
+      const storedEmail = row.email != null ? normalizeEmail(String(row.email)) : '';
+      legacyEmailNotOnFile = !storedEmail;
       if (row.emailVerified === true) accountEmailVerified = true;
       else if (row.emailVerified === false) accountEmailVerified = false;
+      else if (legacyEmailNotOnFile) accountEmailVerified = null;
     }
   } catch {
     accountExists = false;
@@ -285,10 +289,13 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
     steps.push({
       id: 'account_slot',
       ok: false,
-      message: 'User already exists',
+      message: legacyEmailNotOnFile
+        ? 'User already exists (legacy account — email not saved on profile yet)'
+        : 'User already exists',
       userId,
       username: accountUsername,
       emailVerified: accountEmailVerified,
+      legacyEmailNotOnFile,
     });
     return {
       ok: false,
@@ -297,6 +304,7 @@ async function evaluateSignupEmailForCreate(env, emailRaw) {
       accountExists: true,
       accountUsername,
       accountEmailVerified,
+      legacyEmailNotOnFile,
       steps,
       signupError: 'User already exists',
     };
@@ -1015,7 +1023,11 @@ function testSecretOk(env, request) {
 }
 
 async function forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail = false } = {}) {
-  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(resolved.userId));
+  const stub = userAccountStubFromUserId(env, resolved.userId);
+  if (!stub) {
+    return { success: false, error: 'Account not found' };
+  }
+  const userAccount = stub;
   const userDataReq = new Request('http://do/getData', { method: 'GET' });
   const userDataRes = await userAccount.fetch(userDataReq);
   const userData = await userDataRes.json();
@@ -1066,14 +1078,15 @@ async function findAccountsMatchingUsernames(env, wantedUsernames) {
   for (let i = 0; i < stubs.length; i += batch) {
     const slice = stubs.slice(i, i + batch);
     const rows = await Promise.all(
-      slice.map(async (stub) => {
+      slice.map(async (stubOrEntry) => {
+        const stub = unwrapUserAccountStub(stubOrEntry);
         try {
           const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
           const row = await dataRes.json();
-          const stubUserId = userAccountStubIdString(stub);
+          const stubUserId = userAccountStubIdString(stubOrEntry);
           return { row, stubUserId };
         } catch {
-          return { row: null, stubUserId: userAccountStubIdString(stub) };
+          return { row: null, stubUserId: userAccountStubIdString(stubOrEntry) };
         }
       })
     );
@@ -1238,13 +1251,14 @@ async function handleTestSearchAccounts(request, env, corsHeaders) {
   for (let i = 0; i < stubs.length; i += batch) {
     const slice = stubs.slice(i, i + batch);
     const rows = await Promise.all(
-      slice.map(async (stub) => {
+      slice.map(async (stubOrEntry) => {
+        const stub = unwrapUserAccountStub(stubOrEntry);
         try {
           const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
           const row = await dataRes.json();
-          return { row, stubUserId: userAccountStubIdString(stub) };
+          return { row, stubUserId: userAccountStubIdString(stubOrEntry) };
         } catch {
-          return { row: null, stubUserId: userAccountStubIdString(stub) };
+          return { row: null, stubUserId: userAccountStubIdString(stubOrEntry) };
         }
       })
     );
@@ -3116,11 +3130,20 @@ function parseDoNamespaceListPage(listResult) {
 function userAccountStubFromListEntry(env, obj) {
   if (!obj || typeof obj !== 'object') return null;
   const name = obj.name != null ? String(obj.name).trim() : '';
-  if (name && typeof env.USER_ACCOUNT.getByName === 'function') {
-    try {
-      return env.USER_ACCOUNT.getByName(name);
-    } catch {
-      /* fall through to id */
+  if (name) {
+    if (/^user_\d+$/i.test(name) || name.startsWith('sess_')) {
+      try {
+        return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(name));
+      } catch {
+        /* fall through */
+      }
+    }
+    if (typeof env.USER_ACCOUNT.getByName === 'function') {
+      try {
+        return env.USER_ACCOUNT.getByName(name);
+      } catch {
+        /* fall through to id */
+      }
     }
   }
   if (obj.id != null) {
@@ -3206,7 +3229,7 @@ async function listUserAccountStubsForBroadcast(env, pageSize, listCursor) {
     const stubs = [];
     for (const uid of userIds) {
       if (!uid) continue;
-      stubs.push(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+      stubs.push(userAccountStubFromUserId(env, uid));
     }
     return { stubs, nextListCursor: data.nextListCursor || null, listError: null };
   } catch (e) {
@@ -3523,35 +3546,112 @@ function userAccountProfileExists(row) {
   if (row.username != null && String(row.username).trim()) return true;
   if (row.passwordHash) return true;
   if (row.createdAt != null && Number(row.createdAt) > 0) return true;
+  const games = row.games;
+  if (games && typeof games === 'object') {
+    const chess = games.chess;
+    if (chess && typeof chess === 'object') {
+      if (Number(chess.points) > 0) return true;
+      const ach = chess.achievements;
+      if (ach && typeof ach === 'object' && Object.keys(ach).length > 0) return true;
+      const hist = chess.gameHistory;
+      if (Array.isArray(hist) && hist.length > 0) return true;
+    }
+    const dungeon = games.dungeon;
+    if (dungeon && typeof dungeon === 'object') {
+      const slots = dungeon.saveSlots;
+      if (slots && typeof slots === 'object' && Object.values(slots).some(Boolean)) return true;
+    }
+  }
   return false;
 }
 
-function adminAccountRowFromProfile(row) {
+/** Resolve a UserAccount stub from a stored user id (named slot or legacy hex DO id). */
+function userAccountStubFromUserId(env, userIdRaw) {
+  const uid = userIdRaw != null ? String(userIdRaw).trim() : '';
+  if (!uid || !env.USER_ACCOUNT) return null;
+  if (/^user_\d+$/i.test(uid) || uid.startsWith('sess_')) {
+    return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid));
+  }
+  if (typeof env.USER_ACCOUNT.idFromString === 'function' && /^[0-9a-f]{64}$/i.test(uid)) {
+    try {
+      return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromString(uid));
+    } catch {
+      /* fall through */
+    }
+  }
+  try {
+    return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid));
+  } catch {
+    return null;
+  }
+}
+
+function adminAccountRowFromProfile(row, opts) {
   if (!userAccountProfileExists(row)) return null;
+  const lookupEmail =
+    opts && opts.lookupEmail != null ? normalizeEmail(String(opts.lookupEmail)) : '';
+  const slotHint =
+    opts && opts.slotUserId != null ? String(opts.slotUserId).trim() : '';
   const emailRaw = row.email != null ? String(row.email) : '';
-  const emailNorm = emailRaw ? normalizeEmail(emailRaw) : '';
+  let emailNorm = emailRaw ? normalizeEmail(emailRaw) : '';
+  let legacyEmailInferred = false;
+  if (!emailNorm && lookupEmail) {
+    emailNorm = lookupEmail;
+    legacyEmailInferred = true;
+  }
   let ev = null;
   if (row.emailVerified === true) ev = true;
   else if (row.emailVerified === false) ev = false;
-  const slotUserId = emailNorm ? generateUserId(emailNorm) : '';
+  else if (legacyEmailInferred) ev = null;
+  const slotFromEmail = emailNorm ? generateUserId(emailNorm) : '';
+  const slotFromHint = /^user_\d+$/i.test(slotHint) ? slotHint : '';
   const doUserId = row.userId != null ? String(row.userId).trim() : '';
   return {
-    userId: slotUserId || doUserId,
+    userId: slotFromEmail || slotFromHint || doUserId,
     doUserId,
     username: row.username != null ? String(row.username) : '',
     email: emailNorm,
     emailVerified: ev,
+    legacyEmailInferred: legacyEmailInferred || undefined,
   };
 }
 
-async function resolveAdminAccountRowsFromStubs(stubs) {
+async function fetchAdminAccountByEmailSlot(env, normalizedEmail) {
+  const emailNorm = normalizeEmail(normalizedEmail);
+  if (!emailNorm) return null;
+  const stub = userAccountStubFromUserId(env, generateUserId(emailNorm));
+  if (!stub) return null;
+  try {
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    return adminAccountRowFromProfile(row, { lookupEmail: emailNorm });
+  } catch {
+    return null;
+  }
+}
+
+function normalizeAdminStubEntries(stubsOrEntries) {
+  if (!Array.isArray(stubsOrEntries)) return [];
+  return stubsOrEntries.map((item) => {
+    if (item && typeof item === 'object' && item.stub) {
+      return {
+        stub: item.stub,
+        slotUserId: item.slotUserId != null ? String(item.slotUserId).trim() : '',
+      };
+    }
+    return { stub: item, slotUserId: '' };
+  });
+}
+
+async function resolveAdminAccountRowsFromStubs(stubsOrEntries) {
+  const entries = normalizeAdminStubEntries(stubsOrEntries);
   const accounts = [];
   let skippedMissingData = 0;
   const batch = 10;
-  for (let i = 0; i < stubs.length; i += batch) {
-    const slice = stubs.slice(i, i + batch);
+  for (let i = 0; i < entries.length; i += batch) {
+    const slice = entries.slice(i, i + batch);
     const rows = await Promise.all(
-      slice.map(async (stub) => {
+      slice.map(async ({ stub }) => {
         if (!stub) return null;
         try {
           const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
@@ -3561,8 +3661,10 @@ async function resolveAdminAccountRowsFromStubs(stubs) {
         }
       })
     );
-    for (const row of rows) {
-      const entry = adminAccountRowFromProfile(row);
+    for (let j = 0; j < rows.length; j++) {
+      const row = rows[j];
+      const slotUserId = slice[j]?.slotUserId || '';
+      const entry = adminAccountRowFromProfile(row, { slotUserId });
       if (!entry) {
         skippedMissingData++;
         continue;
@@ -3651,7 +3753,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
   const stubs = [];
   const seenStubIds = new Set();
 
-  function pushStub(st) {
+  function pushStub(st, slotUserId) {
     if (!st) return;
     let idStr = '';
     try {
@@ -3663,7 +3765,8 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
       if (seenStubIds.has(idStr)) return;
       seenStubIds.add(idStr);
     }
-    stubs.push(st);
+    const hint = slotUserId != null ? String(slotUserId).trim() : '';
+    stubs.push({ stub: st, slotUserId: hint });
   }
 
   try {
@@ -3678,7 +3781,8 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
         const { objects, cursor } = parseDoNamespaceListPage(listResult);
         for (const obj of objects) {
           if (stubs.length >= pageSize) break;
-          pushStub(userAccountStubFromListEntry(env, obj));
+          const listName = obj && obj.name != null ? String(obj.name).trim() : '';
+          pushStub(userAccountStubFromListEntry(env, obj), listName);
         }
         state.do.cursor = cursor;
         if (!cursor) state.do.done = true;
@@ -3721,7 +3825,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
         for (const uid of userIds) {
           if (stubs.length >= pageSize) break;
           if (!uid) continue;
-          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(String(uid))));
+          pushStub(userAccountStubFromUserId(env, uid), uid);
         }
         state.reg.cursor = data.nextListCursor || null;
         if (!data.nextListCursor) state.reg.done = true;
@@ -3738,7 +3842,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
           if (stubs.length >= pageSize) break;
           const uid = name.startsWith('sub:') ? name.slice(4) : '';
           if (!uid) continue;
-          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+          pushStub(userAccountStubFromUserId(env, uid), uid);
         }
         if (listKv.list_complete) {
           state.kv.done = true;
@@ -3759,7 +3863,7 @@ async function listUserAccountStubsAdminUnified(env, pageSize, listCursorInput) 
           if (stubs.length >= pageSize) break;
           const uid = name.startsWith('sub:') ? name.slice(4) : '';
           if (!uid) continue;
-          pushStub(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+          pushStub(userAccountStubFromUserId(env, uid), uid);
         }
         if (listKv.list_complete) {
           state.sports.done = true;
@@ -3840,13 +3944,18 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
       );
     }
 
+    const emailSlotRows = [];
     for (const emailNorm of ensureEmails) {
-      const uid = generateUserId(emailNorm);
-      stubs.push(env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid)));
+      const slotRow = await fetchAdminAccountByEmailSlot(env, emailNorm);
+      if (slotRow) emailSlotRows.push(slotRow);
+      stubs.push({
+        stub: userAccountStubFromUserId(env, generateUserId(emailNorm)),
+        slotUserId: generateUserId(emailNorm),
+      });
     }
 
     const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
-    const merged = mergeAdminAccountRows([], accounts);
+    const merged = mergeAdminAccountRows(accounts, emailSlotRows);
 
     return new Response(
       JSON.stringify({
@@ -3957,8 +4066,9 @@ async function resolveAdminUserTarget(env, body) {
 
   for (const uid of tryIds) {
     try {
-      const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(uid));
-      const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+      const stub = userAccountStubFromUserId(env, uid);
+      if (!stub) continue;
+      const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
       const candidate = await dataRes.json();
       if (!candidate || typeof candidate !== 'object') continue;
       const rowEmail = candidate.email != null ? normalizeEmail(String(candidate.email)) : '';
@@ -3975,18 +4085,25 @@ async function resolveAdminUserTarget(env, body) {
     return { ok: false, error: 'Account not found' };
   }
 
-  const emailNorm = row.email != null ? normalizeEmail(String(row.email)) : '';
-  if (!emailNorm || !isEmailOnFileForAdminProfile(emailNorm)) {
+  const storedEmail = row.email != null ? normalizeEmail(String(row.email)) : '';
+  const effectiveEmail = storedEmail || emailNormWant || '';
+  if (!effectiveEmail) {
+    return { ok: false, error: 'No email on file — pass the signup email so admin tools can target this legacy account' };
+  }
+  if (storedEmail && !isEmailOnFileForAdminProfile(storedEmail)) {
     return { ok: false, error: 'No valid email on file' };
   }
 
-  const canonicalUserId = row.userId != null ? String(row.userId).trim() : matchedUserId;
+  const slotUserId =
+    /^user_\d+$/i.test(matchedUserId) ? matchedUserId : emailNormWant ? generateUserId(emailNormWant) : matchedUserId;
 
   return {
     ok: true,
-    userId: canonicalUserId || matchedUserId,
-    email: emailNorm,
+    userId: slotUserId,
+    doUserId: row.userId != null ? String(row.userId).trim() : '',
+    email: effectiveEmail,
     username: row.username != null ? String(row.username) : 'there',
+    legacyEmailNotOnFile: !storedEmail && !!emailNormWant,
   };
 }
 
@@ -4023,11 +4140,20 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
     });
   }
 
-  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(resolved.userId));
+  const stub = userAccountStubFromUserId(env, resolved.userId);
+  if (!stub) {
+    return new Response(JSON.stringify({ success: false, error: 'Account not found' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
   let result;
   try {
-    const doRes = await userAccount.fetch(
-      new Request('http://do/adminForceVerifyEmail', { method: 'POST', body: '{}' })
+    const doRes = await stub.fetch(
+      new Request('http://do/adminForceVerifyEmail', {
+        method: 'POST',
+        body: JSON.stringify({ email: resolved.email }),
+      })
     );
     result = await doRes.json();
   } catch (e) {
@@ -4097,6 +4223,7 @@ async function handleAdminCheckSignupEmail(request, env, corsHeaders) {
       accountExists: !!evalResult.accountExists,
       accountUsername: evalResult.accountUsername || '',
       accountEmailVerified: evalResult.accountEmailVerified ?? null,
+      legacyEmailNotOnFile: !!evalResult.legacyEmailNotOnFile,
       signupError: evalResult.signupError || null,
       steps: evalResult.steps || [],
       summary: canSignup
@@ -6076,13 +6203,20 @@ const LEADERBOARD_MAX_PROFILE_FETCHES = 500;
 /** Pages of `listUserAccountStubsAdminUnified` when walking every account stub. */
 const LEADERBOARD_ENUM_MAX_PAGES = 250;
 
-function userAccountStubIdString(stub) {
+function userAccountStubIdString(stubOrEntry) {
+  const stub =
+    stubOrEntry && typeof stubOrEntry === 'object' && stubOrEntry.stub ? stubOrEntry.stub : stubOrEntry;
   try {
     if (stub && stub.id != null && typeof stub.id.toString === 'function') return String(stub.id.toString());
   } catch {
     /* ignore */
   }
   return '';
+}
+
+function unwrapUserAccountStub(stubOrEntry) {
+  if (stubOrEntry && typeof stubOrEntry === 'object' && stubOrEntry.stub) return stubOrEntry.stub;
+  return stubOrEntry;
 }
 
 async function enumerateAllUserAccountStubsForLeaderboard(env) {
@@ -6095,21 +6229,21 @@ async function enumerateAllUserAccountStubsForLeaderboard(env) {
     pages++;
     const { stubs: pageStubs, nextListCursor, listError } = await listUserAccountStubsAdminUnified(env, 80, cursor);
     if (listError) throw listError;
-    for (const st of pageStubs) {
-      const idStr = userAccountStubIdString(st);
+    for (const entry of pageStubs) {
+      const idStr = userAccountStubIdString(entry);
       if (!idStr || seen.has(idStr)) continue;
       seen.add(idStr);
-      stubs.push(st);
+      stubs.push(entry);
     }
     if (!nextListCursor) break;
     cursor = nextListCursor;
-    if (!pageStubs.length) break;
   }
   if (pages >= LEADERBOARD_ENUM_MAX_PAGES && cursor) stoppedEarly = true;
   return { stubs, stoppedEarly };
 }
 
-async function fetchChessLeaderboardRowFromStub(stub) {
+async function fetchChessLeaderboardRowFromStub(stubOrEntry) {
+  const stub = unwrapUserAccountStub(stubOrEntry);
   try {
     const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
     const row = await dataRes.json();
@@ -7555,7 +7689,13 @@ export class UserAccount {
           headers: { 'Content-Type': 'application/json' }
         });
       } else if (path === '/adminForceVerifyEmail' && request.method === 'POST') {
-        const result = await this.adminForceVerifyEmail();
+        let body = {};
+        try {
+          body = await request.json();
+        } catch {
+          body = {};
+        }
+        const result = await this.adminForceVerifyEmail(body);
         return new Response(JSON.stringify(result), {
           status: result.success ? 200 : 400,
           headers: { 'Content-Type': 'application/json' },
@@ -7935,19 +8075,30 @@ export class UserAccount {
   }
 
   /** Called only from the Worker after admin auth — same end state as successful token verification. */
-  async adminForceVerifyEmail() {
+  async adminForceVerifyEmail(body = {}) {
     const userData = await this.storage.get('userData');
     if (!userData) {
       return { success: false, error: 'User not found' };
     }
+    const backfillEmail =
+      body && body.email != null ? normalizeEmail(String(body.email)) : '';
+    if (backfillEmail && !normalizeEmail(userData.email || '')) {
+      userData.email = backfillEmail;
+    }
     if (userData.emailVerified === true) {
-      return { success: true, alreadyVerified: true };
+      let emailBackfilled = false;
+      if (backfillEmail && !normalizeEmail(userData.email || '')) {
+        userData.email = backfillEmail;
+        await this.storage.put('userData', userData);
+        emailBackfilled = true;
+      }
+      return { success: true, alreadyVerified: true, emailBackfilled };
     }
     userData.emailVerified = true;
     userData.verificationToken = null;
     userData.verificationTokenExpiry = null;
     await this.storage.put('userData', userData);
-    return { success: true, alreadyVerified: false };
+    return { success: true, alreadyVerified: false, emailBackfilled: !!backfillEmail };
   }
 
   async setPasswordResetToken(token) {

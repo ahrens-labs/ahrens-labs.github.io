@@ -601,6 +601,7 @@
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
+            Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username).
           </p>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load all accounts</button>
@@ -1884,6 +1885,57 @@
             .replace(/"/g, '&quot;');
         }
 
+        function mergeAdminAccountsLocal(incoming) {
+          const byKey = new Map();
+          for (const a of adminAccountsAccum) {
+            const keys = [
+              (a.userId || '').trim().toLowerCase(),
+              (a.email || '').trim().toLowerCase(),
+              (a.doUserId || '').trim().toLowerCase(),
+              (a.username || '').trim().toLowerCase(),
+            ].filter(Boolean);
+            const primary = keys[0] || `row_${byKey.size}`;
+            byKey.set(primary, a);
+            for (const k of keys) byKey.set(k, a);
+          }
+          for (const a of incoming || []) {
+            const keys = [
+              (a.userId || '').trim().toLowerCase(),
+              (a.email || '').trim().toLowerCase(),
+              (a.doUserId || '').trim().toLowerCase(),
+              (a.username || '').trim().toLowerCase(),
+            ].filter(Boolean);
+            let hit = null;
+            for (const k of keys) {
+              if (byKey.has(k)) {
+                hit = byKey.get(k);
+                break;
+              }
+            }
+            if (hit) {
+              Object.assign(hit, a);
+              for (const k of keys) byKey.set(k, hit);
+            } else {
+              const primary = keys[0] || `row_${byKey.size}`;
+              byKey.set(primary, a);
+              for (const k of keys) byKey.set(k, a);
+            }
+          }
+          adminAccountsAccum = Array.from(new Set(byKey.values()));
+        }
+
+        function adminAccountMatchesLoaded(data) {
+          if (!data || !data.email) return false;
+          const em = String(data.email).trim().toLowerCase();
+          const uid = String(data.userId || '').trim().toLowerCase();
+          return adminAccountsAccum.some((a) => {
+            const aEm = (a.email || '').trim().toLowerCase();
+            const aUid = (a.userId || '').trim().toLowerCase();
+            const aDo = (a.doUserId || '').trim().toLowerCase();
+            return (em && aEm === em) || (uid && (aUid === uid || aDo === uid));
+          });
+        }
+
         function verifiedLabel(ev) {
           if (ev === true) return 'Yes';
           if (ev === false) return 'No';
@@ -2008,7 +2060,8 @@
                 const em = (a.email || '').toLowerCase();
                 const un = (a.username || '').toLowerCase();
                 const id = (a.userId || '').toLowerCase();
-                return em.includes(q) || un.includes(q) || id.includes(q);
+                const doId = (a.doUserId || '').toLowerCase();
+                return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q);
               });
           rows.sort((a, b) =>
             (a.email || '').localeCompare(b.email || '', undefined, { sensitivity: 'base' })
@@ -2024,8 +2077,13 @@
                 const uidAttr = escHtml(a.userId || '');
                 const emAttr = escHtml(a.email || '');
                 const unAttr = escHtml(a.username || '');
-                const emTitle = escHtml(a.email || '');
+                const emTitle = escHtml(a.email || (a.legacyEmailInferred ? 'Legacy — inferred from signup check' : ''));
                 const unTitle = escHtml(a.username || '');
+                const emailCell = a.email
+                  ? escHtml(a.email)
+                  : a.legacyEmailInferred
+                    ? '<span title="Email inferred from signup slot lookup">— (legacy)</span>'
+                    : '—';
                 const verifyBtn =
                   a.emailVerified === true
                     ? '<button type="button" class="btn-admin-row" disabled title="Already verified">Verify</button>'
@@ -2034,7 +2092,7 @@
                 const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
                 return (
                   `<tr class="admin-acct-line">` +
-                  `<td class="c-email" title="${emTitle}">${escHtml(a.email || '—')}</td>` +
+                  `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
                   `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}</td></tr>`
@@ -2049,7 +2107,8 @@
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
         }
 
-        async function adminAccountsFetchPage(reset) {
+        async function adminAccountsFetchPage(reset, opts) {
+          opts = opts || {};
           const st = document.getElementById('admin-accounts-status');
           const sessionId = getSessionId();
           if (!sessionId) {
@@ -2069,16 +2128,20 @@
           }
           setStatus(st, reset ? 'Loading all accounts…' : 'Loading…', '');
           try {
+            const body = {
+              ...(reset ? { loadAll: true } : {}),
+              ...(cursorForReq ? { listCursor: cursorForReq, loadAll: false } : {}),
+            };
+            if (Array.isArray(opts.ensureEmails) && opts.ensureEmails.length) {
+              body.ensureEmails = opts.ensureEmails;
+            }
             const res = await fetch(`${API_BASE_URL}/api/admin/list-accounts`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${sessionId}`,
               },
-              body: JSON.stringify({
-                ...(reset ? { loadAll: true } : {}),
-                ...(cursorForReq ? { listCursor: cursorForReq, loadAll: false } : {}),
-              }),
+              body: JSON.stringify(body),
             });
             const { ok, status, data } = await readApiJsonResponse(res);
             if (!ok || !data.success) {
@@ -2086,33 +2149,7 @@
               return;
             }
             const batch = Array.isArray(data.accounts) ? data.accounts : [];
-            const byUid = new Map();
-            for (const a of adminAccountsAccum) {
-              const k = (a.userId || a.email || a.doUserId || '').trim().toLowerCase();
-              if (k) byUid.set(k, a);
-            }
-            for (const a of batch) {
-              const keys = [
-                (a.userId || '').trim().toLowerCase(),
-                (a.email || '').trim().toLowerCase(),
-                (a.doUserId || '').trim().toLowerCase(),
-              ].filter(Boolean);
-              let hit = null;
-              for (const k of keys) {
-                if (byUid.has(k)) {
-                  hit = byUid.get(k);
-                  break;
-                }
-              }
-              if (hit) {
-                Object.assign(hit, a);
-                for (const k of keys) byUid.set(k, hit);
-              } else {
-                const primary = keys[0] || `row_${byUid.size}`;
-                byUid.set(primary, a);
-              }
-            }
-            adminAccountsAccum = Array.from(new Set(byUid.values()));
+            mergeAdminAccountsLocal(batch);
             adminListNextCursor = data.nextListCursor || null;
             adminListHasMore = !!data.hasMore;
             const skipped = Number(data.skippedMissingData) || 0;
@@ -2258,6 +2295,10 @@
               esc(data.accountUsername) +
               '</strong></div>';
           }
+          if (data.legacyEmailNotOnFile) {
+            html +=
+              '<div style="margin-top:6px;font-size:0.82rem;">Legacy account — email is tied to the signup slot but was never saved on the profile. It is being added to the directory below; use <strong>Mark email verified</strong> to save it on the account.</div>';
+          }
           const steps = Array.isArray(data.steps) ? data.steps : [];
           if (steps.length) {
             html += '<ul>';
@@ -2303,17 +2344,19 @@
             }
             renderAdminSignupCheckResult(data);
             if (data.accountExists && data.email) {
-              const exists = adminAccountsAccum.some(
-                (a) => (a.email || '').trim().toLowerCase() === String(data.email).trim().toLowerCase()
-              );
-              if (!exists) {
-                adminAccountsAccum.push({
+              const needsEnsure = !!data.legacyEmailNotOnFile;
+              mergeAdminAccountsLocal([
+                {
                   userId: data.userId || '',
                   username: data.accountUsername || '',
                   email: data.email,
                   emailVerified: data.accountEmailVerified ?? null,
-                });
-                renderAdminAccountsTable();
+                  legacyEmailInferred: needsEnsure,
+                },
+              ]);
+              renderAdminAccountsTable();
+              if (needsEnsure) {
+                await adminAccountsFetchPage(true, { ensureEmails: [data.email] });
               }
             }
             setStatus(st, data.canSignup ? 'Signup would allow this email.' : 'Signup would block this email.', data.canSignup ? 'ok' : 'err');
