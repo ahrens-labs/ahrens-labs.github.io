@@ -86,6 +86,8 @@ export default {
         return handleAdminListAccounts(request, env, corsHeaders);
       } else if (path === '/api/admin/verify-user-email' && request.method === 'POST') {
         return handleAdminVerifyUserEmail(request, env, corsHeaders);
+      } else if (path === '/api/admin/check-signup-email' && request.method === 'POST') {
+        return handleAdminCheckSignupEmail(request, env, corsHeaders);
       } else if (path === '/api/admin/delete-user' && request.method === 'POST') {
         return handleAdminDeleteUser(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/admin/send-welcome-to-user' && request.method === 'POST') {
@@ -204,6 +206,114 @@ export default {
 };
 
 // Signup handler
+/** Same email gates as POST /api/signup (format, disposable list, MX) plus account slot check. */
+async function evaluateSignupEmailForCreate(env, emailRaw) {
+  const normalizedEmail = normalizeEmail(emailRaw);
+  const steps = [];
+
+  if (!normalizedEmail) {
+    steps.push({ id: 'email', ok: false, message: 'Missing required fields' });
+    return {
+      ok: false,
+      normalizedEmail: '',
+      userId: '',
+      accountExists: false,
+      steps,
+      signupError: 'Missing required fields',
+    };
+  }
+
+  steps.push({ id: 'email', ok: true, normalizedEmail });
+
+  if (!isLikelyRealEmail(normalizedEmail)) {
+    const domain = normalizedEmail.slice(normalizedEmail.indexOf('@') + 1);
+    steps.push({
+      id: 'real_email',
+      ok: false,
+      message: 'Please use a real email address',
+      disposableDomain: DISPOSABLE_EMAIL_DOMAINS.has(domain),
+    });
+    return {
+      ok: false,
+      normalizedEmail,
+      userId: generateUserId(normalizedEmail),
+      accountExists: false,
+      steps,
+      signupError: 'Please use a real email address',
+    };
+  }
+
+  steps.push({ id: 'real_email', ok: true });
+
+  const signupDomain = normalizedEmail.slice(normalizedEmail.indexOf('@') + 1);
+  const domainOk = await verifySignupEmailDomain(signupDomain);
+  if (!domainOk) {
+    const mxMessage =
+      'That email domain is not set up to receive mail (no working mail servers / MX records). Use a real inbox (Gmail, iCloud, Outlook, your school/work, etc.).';
+    steps.push({ id: 'mx', ok: false, message: mxMessage, domain: signupDomain });
+    return {
+      ok: false,
+      normalizedEmail,
+      userId: generateUserId(normalizedEmail),
+      accountExists: false,
+      steps,
+      signupError: mxMessage,
+    };
+  }
+
+  steps.push({ id: 'mx', ok: true, domain: signupDomain });
+
+  const userId = generateUserId(normalizedEmail);
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(userId));
+  let accountExists = false;
+  let accountUsername = '';
+  let accountEmailVerified = null;
+  try {
+    const dataRes = await userAccount.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    if (row && typeof row === 'object') {
+      accountExists = true;
+      accountUsername = row.username != null ? String(row.username) : '';
+      if (row.emailVerified === true) accountEmailVerified = true;
+      else if (row.emailVerified === false) accountEmailVerified = false;
+    }
+  } catch {
+    accountExists = false;
+  }
+
+  if (accountExists) {
+    steps.push({
+      id: 'account_slot',
+      ok: false,
+      message: 'User already exists',
+      userId,
+      username: accountUsername,
+      emailVerified: accountEmailVerified,
+    });
+    return {
+      ok: false,
+      normalizedEmail,
+      userId,
+      accountExists: true,
+      accountUsername,
+      accountEmailVerified,
+      steps,
+      signupError: 'User already exists',
+    };
+  }
+
+  steps.push({ id: 'account_slot', ok: true, userId, message: 'No account for this email yet' });
+
+  return {
+    ok: true,
+    normalizedEmail,
+    userId,
+    accountExists: false,
+    steps,
+    signupError: null,
+  };
+}
+
 async function handleSignup(request, env, corsHeaders) {
   const { email, password, username } = await request.json();
   const normalizedEmail = normalizeEmail(email);
@@ -216,30 +326,15 @@ async function handleSignup(request, env, corsHeaders) {
     });
   }
 
-  if (!isLikelyRealEmail(normalizedEmail)) {
-    return new Response(JSON.stringify({ error: 'Please use a real email address' }), {
+  const emailEval = await evaluateSignupEmailForCreate(env, normalizedEmail);
+  if (!emailEval.ok) {
+    return new Response(JSON.stringify({ error: emailEval.signupError || 'Invalid email' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const signupDomain = normalizedEmail.slice(normalizedEmail.indexOf('@') + 1);
-  const domainOk = await verifySignupEmailDomain(signupDomain);
-  if (!domainOk) {
-    return new Response(
-      JSON.stringify({
-        error:
-          'That email domain is not set up to receive mail (no working mail servers / MX records). Use a real inbox (Gmail, iCloud, Outlook, your school/work, etc.).',
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  // Get user account DO
-  const userId = generateUserId(normalizedEmail);
+  const userId = emailEval.userId;
   console.log('Signup - email:', normalizedEmail, 'userId:', userId);
 
   // Reserve username globally (case-insensitive) before creating the user.
@@ -3815,6 +3910,61 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
   return new Response(JSON.stringify({ success: true, alreadyVerified: !!result.alreadyVerified }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Admin: run the same email checks as signup (real inbox, MX, no existing account).
+ * Body: `{ "email": "someone@example.com" }`
+ */
+async function handleAdminCheckSignupEmail(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const emailRaw = body.email != null ? String(body.email).trim() : '';
+  if (!emailRaw) {
+    return new Response(JSON.stringify({ success: false, error: 'email is required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const evalResult = await evaluateSignupEmailForCreate(env, emailRaw);
+  const canSignup = !!evalResult.ok;
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      email: evalResult.normalizedEmail || normalizeEmail(emailRaw),
+      userId: evalResult.userId || '',
+      canSignup,
+      accountExists: !!evalResult.accountExists,
+      accountUsername: evalResult.accountUsername || '',
+      accountEmailVerified: evalResult.accountEmailVerified ?? null,
+      signupError: evalResult.signupError || null,
+      steps: evalResult.steps || [],
+      summary: canSignup
+        ? 'Signup would accept this email (username and password still required).'
+        : evalResult.signupError || 'Signup would reject this email.',
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 /** Admin: permanently delete an account (no password). Body: `{ "userId": "..." }` and/or `{ "email": "..." }`. */

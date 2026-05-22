@@ -180,6 +180,31 @@
       border-radius: 10px;
       font-size: 0.9rem;
     }
+    .admin-signup-check-result {
+      margin: 0 0 12px 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #334155;
+    }
+    .admin-signup-check-result.ok {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .admin-signup-check-result.err {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+    .admin-signup-check-result ul {
+      margin: 8px 0 0 0;
+      padding-left: 1.25rem;
+    }
+    .admin-signup-check-result li { margin: 4px 0; }
     .admin-accounts-meta {
       font-size: 0.82rem;
       color: #64748b;
@@ -575,6 +600,7 @@
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load next page</strong> until “end of list”. CSV includes a stable account id.
+            <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
           </p>
           <div class="admin-accounts-toolbar">
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load from beginning</button>
@@ -589,6 +615,12 @@
             <input type="text" id="admin-verify-email-input" autocomplete="off" placeholder="Type email or user id…" aria-label="Email or user id to mark verified">
             <button type="button" class="btn btn-ghost" id="btn-admin-verify-email-submit">Mark email verified</button>
           </div>
+          <div class="admin-accounts-verify-row">
+            <label for="admin-signup-check-input" class="admin-accounts-verify-label">Signup check</label>
+            <input type="email" id="admin-signup-check-input" autocomplete="off" placeholder="Email to test signup rules…" aria-label="Email to check against signup validation">
+            <button type="button" class="btn btn-ghost" id="btn-admin-signup-check-submit">Check signup</button>
+          </div>
+          <p class="admin-signup-check-result" id="admin-signup-check-result" hidden role="status"></p>
           <p class="admin-accounts-meta" id="admin-accounts-meta">Not loaded yet.</p>
           <div class="admin-accounts-table-wrap">
             <table class="admin-accounts-table admin-accounts-compact">
@@ -2169,6 +2201,88 @@
           if (ok && inp) inp.value = '';
         }
 
+        function renderAdminSignupCheckResult(data) {
+          const box = document.getElementById('admin-signup-check-result');
+          if (!box) return;
+          if (!data) {
+            box.hidden = true;
+            box.textContent = '';
+            return;
+          }
+          const can = !!data.canSignup;
+          box.hidden = false;
+          box.className = 'admin-signup-check-result ' + (can ? 'ok' : 'err');
+          const esc = (s) =>
+            String(s == null ? '' : s)
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+          let html =
+            '<strong>' +
+            esc(data.summary || (can ? 'Can sign up' : 'Cannot sign up')) +
+            '</strong>';
+          if (data.email) {
+            html += '<div style="margin-top:6px;font-size:0.82rem;color:inherit;opacity:0.92;">Normalized: <code>' + esc(data.email) + '</code>';
+            if (data.userId) html += ' · user id <code>' + esc(data.userId) + '</code>';
+            html += '</div>';
+          }
+          if (data.accountExists && data.accountUsername) {
+            html +=
+              '<div style="margin-top:4px;font-size:0.82rem;">Existing account username: <strong>' +
+              esc(data.accountUsername) +
+              '</strong></div>';
+          }
+          const steps = Array.isArray(data.steps) ? data.steps : [];
+          if (steps.length) {
+            html += '<ul>';
+            for (const step of steps) {
+              const mark = step.ok ? '✓' : '✗';
+              const msg = step.message || (step.ok ? 'OK' : 'Failed');
+              html += '<li>' + mark + ' ' + esc(msg) + '</li>';
+            }
+            html += '</ul>';
+          }
+          box.innerHTML = html;
+        }
+
+        async function submitAdminSignupCheck() {
+          const inp = document.getElementById('admin-signup-check-input');
+          const email = (inp?.value || '').trim();
+          const st = document.getElementById('admin-accounts-status');
+          const sessionId = getSessionId();
+          if (!email) {
+            setStatus(st, 'Enter an email to check.', 'err');
+            renderAdminSignupCheckResult(null);
+            return;
+          }
+          if (!sessionId) {
+            setStatus(st, 'Not signed in.', 'err');
+            return;
+          }
+          setStatus(st, 'Checking signup rules…', '');
+          renderAdminSignupCheckResult(null);
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/check-signup-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({ email }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            renderAdminSignupCheckResult(data);
+            setStatus(st, data.canSignup ? 'Signup would allow this email.' : 'Signup would block this email.', data.canSignup ? 'ok' : 'err');
+          } catch (e) {
+            console.error(e);
+            setStatus(st, e?.message || 'Check failed.', 'err');
+          }
+        }
+
         document.getElementById('btn-admin-accounts-refresh')?.addEventListener('click', () => {
           adminAccountsFetchPage(true);
         });
@@ -2185,6 +2299,15 @@
           if (e.key === 'Enter') {
             e.preventDefault();
             submitAdminVerifyTyped();
+          }
+        });
+        document.getElementById('btn-admin-signup-check-submit')?.addEventListener('click', () => {
+          submitAdminSignupCheck();
+        });
+        document.getElementById('admin-signup-check-input')?.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitAdminSignupCheck();
           }
         });
         document.getElementById('btn-admin-accounts-csv')?.addEventListener('click', async () => {
