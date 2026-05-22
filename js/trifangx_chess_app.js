@@ -2147,6 +2147,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    /** Career replay/repair is expensive — run only on the main TrifangX lobby page. */
+    function shouldRunChessCareerRepairOnThisPage() {
+      try {
+        if (window.TRIFANGX_DASHBOARD_EMBED) return false;
+        if (isChessShopPage() || isChessAchievementsPage()) return false;
+        if (isTrifangxLiveDedicatedPage()) return false;
+        return /chess_engine\.html$/i.test(window.location.pathname || '');
+      } catch (e) {
+        return false;
+      }
+    }
+
     /**
      * True when the main engine game UI is active (past the side chooser), not preview.
      * On trifangx_live.html, #choose-side is hidden only via CSS — do not rely on its inline style.display.
@@ -4623,6 +4635,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         trifangxScheduleDeferredTask(function () {
           applyDeferredLobbyStyleAndSettings();
           loadDeferredSidebarStatsAndAchievements();
+          if (isTrifangxLiveDedicatedPage()) {
+            showSeasonTrackToastsOnSessionOpen();
+          }
         });
 
         if (window.TRIFANGX_DASHBOARD_EMBED && window.parent !== window) {
@@ -4767,7 +4782,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       trackLossStats();
       commitGameStatsToLifetime();
-      checkAndUnlockAchievements();
+      checkAndUnlockAchievements({ includeSeasonToasts: true });
                 notifyGameFinishedToEngine('loss');
                 releaseEngineOnGameEnd();
                 // Show rematch modal
@@ -7941,7 +7956,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       trackLossStats();
       commitGameStatsToLifetime();
-      checkAndUnlockAchievements();
+      checkAndUnlockAchievements({ includeSeasonToasts: true });
       notifyGameFinishedToEngine('loss');
       releaseEngineOnGameEnd();
       // Show rematch modal
@@ -8501,7 +8516,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return newAchievements; // Return new achievements instead of showing immediately
     }
     
-    function checkAndUnlockAchievements() {
+    function checkAndUnlockAchievements(opts) {
+      const includeSeasonToasts = !!(opts && opts.includeSeasonToasts);
       // Run until no new unlocks: outer loop handles dependencies list order cannot express;
       // inner loop also grows totalPoints as achievements unlock so gates can cascade in one pass.
       const aggregatedNew = [];
@@ -8522,8 +8538,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const unlockedOrdered = orderAchievementNotificationsForDisplay(aggregatedNew);
       const seasonUnlocks = unlockedOrdered.filter((a) => a.__notifySeason);
       const nonSeason = unlockedOrdered.filter((a) => !a.__notifySeason);
-      const progressFiltered = buildSeasonTrackProgressNotifications(unlockedIdsThisRun);
-      const readyFiltered = buildSeasonTrackReadyToClaimNotifications(unlockedIdsThisRun);
+      const progressFiltered = includeSeasonToasts
+        ? buildSeasonTrackProgressNotifications(unlockedIdsThisRun)
+        : [];
+      const readyFiltered = includeSeasonToasts
+        ? buildSeasonTrackReadyToClaimNotifications(unlockedIdsThisRun)
+        : [];
       const finalNotifyList = [...seasonUnlocks, ...progressFiltered, ...readyFiltered, ...nonSeason];
       if (finalNotifyList.length > 0) {
         showAchievementNotificationsSequentially(finalNotifyList);
@@ -8531,6 +8551,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (typeof saveChessDataToCloud === 'function') {
         saveChessDataToCloud(false);
       }
+    }
+
+    /** Season X/Y and ready-to-claim toasts when opening trifangx_live.html (not other pages). */
+    function showSeasonTrackToastsOnSessionOpen() {
+      if (typeof isLoggedIn === 'undefined' || !isLoggedIn) return;
+      if (!isTrifangxLiveDedicatedPage()) return;
+      const empty = new Set();
+      const list = [
+        ...buildSeasonTrackProgressNotifications(empty),
+        ...buildSeasonTrackReadyToClaimNotifications(empty),
+      ];
+      if (list.length) showAchievementNotificationsSequentially(list);
     }
 
     function loadAchievements() {
@@ -12688,7 +12720,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           lifetimeStats.dailyStats.longestGameToday = moveCount;
         }
         commitGameStatsToLifetime();
-        checkAndUnlockAchievements();
+        checkAndUnlockAchievements({ includeSeasonToasts: true });
         notifyGameFinishedToEngine('draw');
         releaseEngineOnGameEnd();
         // Show rematch modal
@@ -12899,7 +12931,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
-        checkAndUnlockAchievements();
+        checkAndUnlockAchievements({ includeSeasonToasts: true });
         notifyGameFinishedToEngine('win');
         releaseEngineOnGameEnd();
         // Show rematch modal
@@ -13175,7 +13207,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             lifetimeStats.dailyStats.longestGameToday = moveCount;
           }
           commitGameStatsToLifetime();
-          checkAndUnlockAchievements();
+          checkAndUnlockAchievements({ includeSeasonToasts: true });
           notifyGameFinishedToEngine('loss');
           releaseEngineOnGameEnd();
           // Show rematch modal
@@ -13256,7 +13288,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
               let checkmatePiece = premoveAttempt ? premoveAttempt.piece : null;
               trackWinStats(moveCount, checkmatePiece);
               commitGameStatsToLifetime();
-              checkAndUnlockAchievements();
+              checkAndUnlockAchievements({ includeSeasonToasts: true });
               notifyGameFinishedToEngine('win');
               releaseEngineOnGameEnd();
               // Show rematch modal
@@ -13403,7 +13435,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         trackWinStats(moveCount, checkmatePiece);
         commitGameStatsToLifetime();
-        checkAndUnlockAchievements();
+        checkAndUnlockAchievements({ includeSeasonToasts: true });
         notifyGameFinishedToEngine('win');
         releaseEngineOnGameEnd();
         // Show rematch modal
@@ -13624,9 +13656,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         hydrateChessCareerStateFromCloud(true);
         resetDailyStatsIfNeeded();
-        trifangxScheduleDeferredTask(function () {
-          maybeRepairChessCareerFromCloud();
-        });
+        if (shouldRunChessCareerRepairOnThisPage()) {
+          trifangxScheduleDeferredTask(function () {
+            maybeRepairChessCareerFromCloud();
+          });
+        }
 
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
           trifangxScheduleDeferredTask(function () {

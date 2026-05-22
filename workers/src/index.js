@@ -86,6 +86,8 @@ export default {
         return handleAdminListAccounts(request, env, corsHeaders);
       } else if (path === '/api/admin/verify-user-email' && request.method === 'POST') {
         return handleAdminVerifyUserEmail(request, env, corsHeaders);
+      } else if (path === '/api/admin/delete-user' && request.method === 'POST') {
+        return handleAdminDeleteUser(request, env, corsHeaders, executionCtx);
       } else if (path === '/api/admin/send-welcome-to-user' && request.method === 'POST') {
         return handleAdminSendWelcomeToUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-custom-email-to-user' && request.method === 'POST') {
@@ -112,6 +114,10 @@ export default {
         return handleResetPassword(request, env, corsHeaders);
       } else if ((path === '/send-test' || path === '/api/send-test') && request.method === 'POST') {
         return handleSendTest(request, env, corsHeaders);
+      } else if (path === '/api/test/delete-accounts-by-email' && request.method === 'POST') {
+        return handleTestDeleteAccountsByEmail(request, env, corsHeaders, executionCtx);
+      } else if (path === '/api/test/search-accounts' && request.method === 'POST') {
+        return handleTestSearchAccounts(request, env, corsHeaders);
       } else if (path === '/api/chess/sync' && request.method === 'POST') {
         return handleChessSync(request, env, corsHeaders);
       } else if (path === '/api/chess/season-claim' && request.method === 'POST') {
@@ -848,29 +854,7 @@ async function handleDeleteAccount(request, env, corsHeaders, executionCtx) {
     });
   }
 
-  if (env.DAILY_DIGEST_KV) {
-    try {
-      await env.DAILY_DIGEST_KV.delete(`sub:${userResult.userId}`);
-    } catch (e) {
-      console.error('delete digest KV key failed', e?.message || e);
-    }
-  }
-
-  if (env.SPORTS_DIGEST_KV) {
-    try {
-      await env.SPORTS_DIGEST_KV.delete(`sub:${userResult.userId}`);
-    } catch (e) {
-      console.error('delete sports digest KV key failed', e?.message || e);
-    }
-  }
-
-  if (env.CHESS_LEADERBOARD_KV) {
-    try {
-      await removeChessLeaderboardUser(env.CHESS_LEADERBOARD_KV, userResult.userId);
-    } catch (e) {
-      console.error('delete chess leaderboard KV failed', e?.message || e);
-    }
-  }
+  await purgeAccountSideEffects(env, userResult.userId, usernameForRelease);
 
   const notifyDeleted = () =>
     sendAccountDeletedEmail(env, emailForDeletionNotice, displayNameForDeletionNotice).catch((err) => {
@@ -883,20 +867,305 @@ async function handleDeleteAccount(request, env, corsHeaders, executionCtx) {
     await notifyDeleted();
   }
 
+  const destroyReq = new Request('http://do/destroy', { method: 'POST' });
+  await session.fetch(destroyReq);
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+async function purgeAccountSideEffects(env, userId, usernameForRelease) {
+  if (env.DAILY_DIGEST_KV) {
+    try {
+      await env.DAILY_DIGEST_KV.delete(`sub:${userId}`);
+    } catch (e) {
+      console.error('delete digest KV key failed', e?.message || e);
+    }
+  }
+
+  if (env.SPORTS_DIGEST_KV) {
+    try {
+      await env.SPORTS_DIGEST_KV.delete(`sub:${userId}`);
+    } catch (e) {
+      console.error('delete sports digest KV key failed', e?.message || e);
+    }
+  }
+
+  if (env.CHESS_LEADERBOARD_KV) {
+    try {
+      await removeChessLeaderboardUser(env.CHESS_LEADERBOARD_KV, userId);
+    } catch (e) {
+      console.error('delete chess leaderboard KV failed', e?.message || e);
+    }
+  }
+
   if (usernameForRelease) {
     const usernameRegistryId = env.USERNAME_REGISTRY.idFromName('global');
     const usernameRegistry = env.USERNAME_REGISTRY.get(usernameRegistryId);
     const releaseUsernameReq = new Request('http://do/release', {
       method: 'POST',
-      body: JSON.stringify({ username: usernameForRelease, userId: userResult.userId }),
+      body: JSON.stringify({ username: usernameForRelease, userId }),
     });
     await usernameRegistry.fetch(releaseUsernameReq);
   }
+}
 
-  const destroyReq = new Request('http://do/destroy', { method: 'POST' });
-  await session.fetch(destroyReq);
+function testSecretOk(env, request) {
+  const provided = request.headers.get('X-Test-Secret') || '';
+  for (const key of [env.ACCOUNT_DELETE_SECRET, env.TEST_SECRET]) {
+    if (typeof key === 'string' && key && timingSafeEqualStrings(provided, key)) return true;
+  }
+  return false;
+}
 
-  return new Response(JSON.stringify({ success: true }), {
+async function forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail = false } = {}) {
+  const userAccount = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(resolved.userId));
+  const userDataReq = new Request('http://do/getData', { method: 'GET' });
+  const userDataRes = await userAccount.fetch(userDataReq);
+  const userData = await userDataRes.json();
+  const usernameForRelease = normalizeUsernameForIndex(userData?.username);
+  const emailForDeletionNotice = normalizeEmail(userData?.email || resolved.email || '');
+  const displayNameForDeletionNotice = userData?.username || resolved.username || 'there';
+
+  const delRes = await userAccount.fetch(
+    new Request('http://do/adminForceDeleteAccount', { method: 'POST', body: '{}' })
+  );
+  const result = await delRes.json();
+  if (!result.success) {
+    return { success: false, error: result.error || 'Could not delete account' };
+  }
+
+  await purgeAccountSideEffects(env, resolved.userId, usernameForRelease);
+
+  if (sendEmail && emailForDeletionNotice) {
+    const notifyDeleted = () =>
+      sendAccountDeletedEmail(env, emailForDeletionNotice, displayNameForDeletionNotice).catch((err) => {
+        const w = summarizeEmailSendError(err);
+        console.error('Account deleted email failed:', w.code, w.message, w.hint || '');
+      });
+    if (executionCtx && typeof executionCtx.waitUntil === 'function') {
+      executionCtx.waitUntil(notifyDeleted());
+    } else {
+      await notifyDeleted();
+    }
+  }
+
+  return {
+    success: true,
+    userId: resolved.userId,
+    email: emailForDeletionNotice,
+    username: displayNameForDeletionNotice,
+  };
+}
+
+async function findAccountsMatchingUsernames(env, wantedUsernames) {
+  const targets = new Set(wantedUsernames.map((u) => normalizeUsernameForIndex(u)).filter(Boolean));
+  if (!targets.size) return [];
+
+  const { stubs } = await enumerateAllUserAccountStubsForLeaderboard(env);
+  const matches = [];
+  const seenUserIds = new Set();
+  const batch = 10;
+
+  for (let i = 0; i < stubs.length; i += batch) {
+    const slice = stubs.slice(i, i + batch);
+    const rows = await Promise.all(
+      slice.map(async (stub) => {
+        try {
+          const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+          const row = await dataRes.json();
+          const stubUserId = userAccountStubIdString(stub);
+          return { row, stubUserId };
+        } catch {
+          return { row: null, stubUserId: userAccountStubIdString(stub) };
+        }
+      })
+    );
+
+    for (const { row, stubUserId } of rows) {
+      if (!row || typeof row !== 'object') continue;
+      const userId = row.userId != null ? String(row.userId).trim() : stubUserId;
+      if (!userId || seenUserIds.has(userId)) continue;
+
+      const un = normalizeUsernameForIndex(row.username);
+      const emailNorm = normalizeEmail(row.email || '');
+      const emailLocal = emailNorm.includes('@') ? emailNorm.split('@')[0] : emailNorm;
+      const emailLocalNorm = normalizeUsernameForIndex(emailLocal);
+
+      let matchedUsername = '';
+      if (un && targets.has(un)) matchedUsername = String(row.username || un);
+      else if (emailLocalNorm && targets.has(emailLocalNorm)) matchedUsername = String(row.username || emailLocal);
+
+      if (!matchedUsername) continue;
+
+      seenUserIds.add(userId);
+      matches.push({
+        ok: true,
+        userId,
+        email: emailNorm,
+        username: row.username != null ? String(row.username) : matchedUsername,
+        matchedUsername,
+      });
+    }
+  }
+
+  return matches;
+}
+
+/** TEST_SECRET: delete one or more accounts by email without password. Body: { "emails": ["a@b.com"], "sendEmail": false } */
+async function handleTestDeleteAccountsByEmail(request, env, corsHeaders, executionCtx) {
+  if (!testSecretOk(env, request)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  const emails = Array.isArray(body.emails)
+    ? body.emails
+        .filter((e) => typeof e === 'string')
+        .map((e) => normalizeEmail(e))
+        .filter(Boolean)
+    : [];
+  const usernames = Array.isArray(body.usernames)
+    ? body.usernames.filter((u) => typeof u === 'string').map((u) => String(u).trim()).filter(Boolean)
+    : [];
+  const userIds = Array.isArray(body.userIds)
+    ? body.userIds.filter((u) => typeof u === 'string').map((u) => String(u).trim()).filter(Boolean)
+    : [];
+  if (!emails.length && !usernames.length && !userIds.length) {
+    return new Response(
+      JSON.stringify({
+        error: 'Send { "emails": ["you@example.com"] }, { "usernames": ["name"] }, and/or { "userIds": ["..."] }',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const sendEmail = body.sendEmail === true;
+  const results = [];
+  const unresolvedUsernames = [];
+
+  for (const userId of userIds) {
+    const resolved = await resolveAdminUserTarget(env, { userId });
+    if (!resolved.ok) {
+      results.push({ userId, success: false, error: resolved.error });
+      continue;
+    }
+    const del = await forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail });
+    results.push({ userId, ...del });
+  }
+
+  for (const email of emails) {
+    const resolved = await resolveAdminUserTarget(env, { email });
+    if (!resolved.ok) {
+      results.push({ email, success: false, error: resolved.error });
+      continue;
+    }
+    const del = await forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail });
+    results.push({ email, ...del });
+  }
+
+  for (const username of usernames) {
+    const resolved = await resolveAdminUserTarget(env, { username });
+    if (!resolved.ok) {
+      unresolvedUsernames.push(username);
+      continue;
+    }
+    const del = await forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail });
+    results.push({ username, ...del });
+  }
+
+  if (unresolvedUsernames.length) {
+    const scanMatches = await findAccountsMatchingUsernames(env, unresolvedUsernames);
+    const matchedKeys = new Set(scanMatches.map((m) => normalizeUsernameForIndex(m.matchedUsername)));
+    for (const username of unresolvedUsernames) {
+      const key = normalizeUsernameForIndex(username);
+      const hit = scanMatches.find(
+        (m) =>
+          normalizeUsernameForIndex(m.matchedUsername) === key ||
+          normalizeUsernameForIndex(m.username) === key
+      );
+      if (!hit) {
+        results.push({ username, success: false, error: 'Account not found' });
+        continue;
+      }
+      const del = await forceDeleteUserRecord(env, hit, executionCtx, { sendEmail });
+      results.push({ username, ...del });
+      matchedKeys.delete(key);
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, results }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** TEST_SECRET: search accounts by substring in username or email. Body: { "query": "matthew" } */
+async function handleTestSearchAccounts(request, env, corsHeaders) {
+  if (!testSecretOk(env, request)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  const query = body.query != null ? String(body.query).trim().toLowerCase() : '';
+  if (!query) {
+    return new Response(JSON.stringify({ error: 'Send { "query": "matthew" }' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { stubs } = await enumerateAllUserAccountStubsForLeaderboard(env);
+  const matches = [];
+  const batch = 10;
+
+  for (let i = 0; i < stubs.length; i += batch) {
+    const slice = stubs.slice(i, i + batch);
+    const rows = await Promise.all(
+      slice.map(async (stub) => {
+        try {
+          const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+          const row = await dataRes.json();
+          return { row, stubUserId: userAccountStubIdString(stub) };
+        } catch {
+          return { row: null, stubUserId: userAccountStubIdString(stub) };
+        }
+      })
+    );
+
+    for (const { row, stubUserId } of rows) {
+      if (!row || typeof row !== 'object') continue;
+      const userId = row.userId != null ? String(row.userId).trim() : stubUserId;
+      const username = row.username != null ? String(row.username) : '';
+      const email = normalizeEmail(row.email || '');
+      const hay = `${username} ${email} ${userId}`.toLowerCase();
+      if (!hay.includes(query)) continue;
+      matches.push({ userId, username, email });
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, query, count: matches.length, matches }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -3414,6 +3683,7 @@ function isEmailOnFileForAdminProfile(email) {
 async function resolveAdminUserTarget(env, body) {
   const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
   const emailRaw = body.email != null ? String(body.email).trim() : '';
+  const usernameRaw = body.username != null ? String(body.username).trim() : '';
   const emailNormWant = emailRaw ? normalizeEmail(emailRaw) : '';
 
   const tryIds = [];
@@ -3422,9 +3692,29 @@ async function resolveAdminUserTarget(env, body) {
     const fromEmail = generateUserId(emailNormWant);
     if (!tryIds.includes(fromEmail)) tryIds.push(fromEmail);
   }
+  if (usernameRaw && env.USERNAME_REGISTRY) {
+    const normalizedUsernameKey = normalizeUsernameForIndex(usernameRaw);
+    if (normalizedUsernameKey) {
+      try {
+        const usernameRegistry = env.USERNAME_REGISTRY.get(env.USERNAME_REGISTRY.idFromName('global'));
+        const resolveRes = await usernameRegistry.fetch(
+          new Request('http://do/resolve', {
+            method: 'POST',
+            body: JSON.stringify({ username: normalizedUsernameKey }),
+          })
+        );
+        const resolveData = await resolveRes.json();
+        if (resolveRes.ok && resolveData?.userId && !tryIds.includes(resolveData.userId)) {
+          tryIds.push(String(resolveData.userId));
+        }
+      } catch {
+        /* try other ids */
+      }
+    }
+  }
 
   if (!tryIds.length) {
-    return { ok: false, error: 'Provide userId or email' };
+    return { ok: false, error: 'Provide userId, email, or username' };
   }
 
   let row = null;
@@ -3523,6 +3813,50 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
   }
 
   return new Response(JSON.stringify({ success: true, alreadyVerified: !!result.alreadyVerified }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+/** Admin: permanently delete an account (no password). Body: `{ "userId": "..." }` and/or `{ "email": "..." }`. */
+async function handleAdminDeleteUser(request, env, corsHeaders, executionCtx) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const resolved = await resolveAdminUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sendEmail = body.sendEmail === true;
+  const del = await forceDeleteUserRecord(env, resolved, executionCtx, { sendEmail });
+  if (!del.success) {
+    return new Response(JSON.stringify({ success: false, error: del.error || 'Could not delete account' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true, userId: del.userId, email: del.email, username: del.username }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
@@ -6936,6 +7270,12 @@ export class UserAccount {
           status: result.success ? 200 : 400,
           headers: { 'Content-Type': 'application/json' },
         });
+      } else if (path === '/adminForceDeleteAccount' && request.method === 'POST') {
+        const result = await this.adminForceDeleteAccount();
+        return new Response(JSON.stringify(result), {
+          status: result.success ? 200 : 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       } else if (path === '/setPasswordResetToken' && request.method === 'POST') {
         const { token } = await request.json();
         await this.setPasswordResetToken(token);
@@ -7529,6 +7869,14 @@ export class UserAccount {
     const ok = await verifyStoredPassword(password, userData.passwordHash);
     if (!ok) {
       return { success: false, error: 'Password is incorrect' };
+    }
+    return this.adminForceDeleteAccount();
+  }
+
+  async adminForceDeleteAccount() {
+    const userData = await this.storage.get('userData');
+    if (!userData) {
+      return { success: false, error: 'Account not found' };
     }
     const userId = this.state.id.toString();
     if (this.env.CHESS_LEADERBOARD_KV) {
