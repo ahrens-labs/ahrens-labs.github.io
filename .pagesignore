@@ -1,0 +1,14 @@
+.git/
+.github/
+node_modules/
+workers/
+.venv-test/
+venv/
+__pycache__/
+*.py[cod]
+.vscode/
+.idea/
+.DS_Store
+*.log
+workers/node_modules/
+workers/.wrangler/
