@@ -110,34 +110,70 @@
       display: block; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
     }
     .sd-selected-strip {
-      display: none; align-items: center; gap: 10px; flex-wrap: wrap;
-      margin: 0 0 14px; padding: 12px 14px;
-      border-radius: 14px; border: 1px dashed #93c5fd;
+      display: none; flex-direction: column; align-items: stretch; gap: 10px;
+      margin: 0 0 16px; padding: 14px 16px;
+      border-radius: 14px; border: 1px solid #bfdbfe;
       background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
     }
     .sd-selected-strip.visible { display: flex; }
+    .sd-selected-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+    }
     .sd-selected-label {
       font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-      color: #475569; margin-right: 4px;
+      color: #475569;
     }
-    .sd-selected-logos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .sd-selected-logo {
-      width: 34px; height: 34px; border-radius: 50%;
-      background: #fff; border: 2px solid #fff;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-      object-fit: contain; padding: 3px;
+    .sd-selected-clear {
+      border: none; background: transparent; color: #2563eb; font-size: 0.78rem;
+      font-weight: 700; cursor: pointer; font-family: inherit; padding: 4px 0;
     }
-    .sd-selected-more {
-      font-size: 0.78rem; font-weight: 700; color: #64748b;
-      padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.85);
+    .sd-selected-clear:hover { text-decoration: underline; }
+    .sd-selected-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sd-pick-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px 6px 6px; border-radius: 999px;
+      background: #fff; border: 1px solid #cbd5e1;
+      font-size: 0.82rem; font-weight: 700; color: #0f172a;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
     }
+    .sd-pick-chip img, .sd-pick-chip .sd-team-logo-fallback {
+      width: 24px; height: 24px; border-radius: 50%; object-fit: contain; flex-shrink: 0;
+    }
+    .sd-pick-chip .sd-team-logo-fallback { font-size: 0.58rem; }
+    .sd-pick-chip button {
+      border: none; background: #f1f5f9; color: #64748b; width: 20px; height: 20px;
+      border-radius: 50%; cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sd-pick-chip button:hover { background: #fee2e2; color: #b91c1c; }
+    .sd-browse-panel {
+      margin: 0 0 22px; padding: 16px; border-radius: 16px;
+      border: 1px solid #e2e8f0; background: #f8fafc;
+    }
+    .sd-browse-title {
+      margin: 0 0 12px; font-size: 0.92rem; font-weight: 700; color: #334155;
+    }
+    .sd-quick-picks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+    .sd-quick-label {
+      font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      color: #64748b; margin-right: 4px;
+    }
+    .sd-quick-btn {
+      padding: 7px 12px; border-radius: 999px; border: 1px solid #cbd5e1;
+      background: #fff; font-size: 0.8rem; font-weight: 700; color: #334155;
+      cursor: pointer; font-family: inherit;
+    }
+    .sd-quick-btn:hover { border-color: #93c5fd; background: #eff6ff; }
+    .sd-quick-btn.added { border-color: #86efac; background: #ecfdf5; color: #166534; }
+    .sd-selected-logos { display: none; }
+    .sd-selected-more { display: none; }
     .sd-toolbar {
       display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;
     }
     .sd-search {
-      flex: 1 1 180px; min-width: 140px; padding: 10px 14px;
+      flex: 1 1 200px; min-width: 0; padding: 11px 14px;
       border: 1px solid #cbd5e1; border-radius: 12px;
-      font-size: 0.92rem; font-family: inherit; background: #fff;
+      font-size: 0.95rem; font-family: inherit; background: #fff;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .sd-search:focus {
@@ -163,64 +199,71 @@
       transition: background 0.12s ease, transform 0.12s ease;
     }
     .sd-mini-btn:hover { background: #f1f5f9; transform: translateY(-1px); }
-    .sd-team-count { font-size: 0.82rem; color: #64748b; margin: 0 0 10px; font-weight: 600; }
+    .sd-team-count { font-size: 0.82rem; color: #64748b; margin: 0 0 8px; font-weight: 600; }
     .sd-team-count.warn { color: #b45309; }
-    .sd-team-grid {
-      display: grid; gap: 10px; margin: 0 0 22px;
-      max-height: 420px; overflow-y: auto; padding: 4px 6px 4px 2px;
+    .sd-browse-meta {
+      font-size: 0.8rem; color: #64748b; margin: 0 0 10px; font-weight: 500;
+    }
+    .sd-team-list {
+      display: flex; flex-direction: column; gap: 0;
+      max-height: 360px; overflow-y: auto; padding: 2px 4px 2px 0;
       scrollbar-width: thin; scrollbar-color: #94a3b8 transparent;
+      border: 1px solid #e2e8f0; border-radius: 12px; background: #fff;
     }
-    @media (min-width: 640px) { .sd-team-grid { grid-template-columns: 1fr 1fr; } }
-    @media (min-width: 860px) { .sd-team-grid { grid-template-columns: 1fr 1fr 1fr; } }
-    .sd-team {
-      position: relative;
-      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
-      padding: 12px 14px; border: 2px solid #e2e8f0; border-radius: 14px;
+    .sd-alpha-header {
+      position: sticky; top: 0; z-index: 1;
+      padding: 6px 12px; font-size: 0.72rem; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #64748b;
+      background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+    }
+    .sd-browse-empty {
+      padding: 28px 16px; text-align: center; color: #64748b;
+      font-size: 0.88rem; line-height: 1.5;
+    }
+    .sd-team-grid { display: none; }
+    .sd-team-row {
+      display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+      padding: 9px 12px; border-bottom: 1px solid #f1f5f9;
       cursor: pointer; background: #fff;
-      transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+      transition: background 0.12s ease;
     }
-    .sd-team:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
-      border-color: #cbd5e1;
-    }
-    .sd-team input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-    .sd-team:has(input:checked) {
+    .sd-team-row:last-child { border-bottom: none; }
+    .sd-team-row:hover { background: #f8fafc; }
+    .sd-team-row input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    .sd-team-row:has(input:checked) { background: #eff6ff; }
+    .sd-team-row:has(input:checked) .sd-team-check {
       border-color: var(--team-accent, #2563eb);
-      background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(239,246,255,0.95) 100%);
-      box-shadow: 0 0 0 1px var(--team-accent, #2563eb), 0 12px 28px rgba(37, 99, 235, 0.14);
+      background: var(--team-accent, #2563eb);
+      color: #fff;
     }
-    .sd-team-logo-wrap {
-      width: 46px; height: 46px; border-radius: 12px;
+    .sd-team-row .sd-team-logo-wrap {
+      width: 36px; height: 36px; border-radius: 10px;
+    }
+    .sd-team-row .sd-team-logo { width: 28px; height: 28px; }
+    .sd-team-row .sd-team-logo-fallback { width: 28px; height: 28px; font-size: 0.62rem; }
+    .sd-team-row .sd-team-label { font-size: 0.86rem; }
+    .sd-team-row .sd-team-sport { font-size: 0.72rem; }
+    .sd-team-row .sd-team-check { width: 20px; height: 20px; font-size: 0.65rem; }
+    .sd-team-row .sd-team-logo-wrap {
       background: linear-gradient(145deg, #f8fafc, #eef2ff);
       border: 1px solid #e2e8f0;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden; flex-shrink: 0;
     }
-    .sd-team-logo { width: 38px; height: 38px; object-fit: contain; display: block; }
-    .sd-team-logo-fallback {
-      width: 38px; height: 38px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.72rem; font-weight: 800; color: #fff;
-      background: var(--team-accent, #64748b);
-    }
-    .sd-team-meta { min-width: 0; }
-    .sd-team-label {
-      font-weight: 700; color: #0f172a; font-size: 0.88rem; line-height: 1.25;
+    .sd-team-row .sd-team-meta { min-width: 0; }
+    .sd-team-row .sd-team-label {
+      font-weight: 700; color: #0f172a; line-height: 1.25;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .sd-team-sport { font-size: 0.74rem; color: #64748b; margin-top: 2px; font-weight: 600; }
-    .sd-team-check {
-      width: 22px; height: 22px; border-radius: 50%;
-      border: 2px solid #cbd5e1; background: #fff;
+    .sd-team-row .sd-team-check {
+      border-radius: 50%; border: 2px solid #cbd5e1; background: #fff;
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.72rem; font-weight: 900; color: transparent;
-      transition: all 0.15s ease;
+      font-weight: 900; color: transparent; transition: all 0.15s ease;
     }
-    .sd-team:has(input:checked) .sd-team-check {
-      border-color: var(--team-accent, #2563eb);
-      background: var(--team-accent, #2563eb);
-      color: #fff;
+    .sd-team-logo { object-fit: contain; display: block; }
+    .sd-team-logo-fallback {
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 800; color: #fff; background: var(--team-accent, #64748b);
     }
     .sd-schedule-block {
       margin-top: 8px; padding-top: 20px;
@@ -350,7 +393,7 @@
           <div class="sd-kicker">⚾ 🏈 🏀 NFL · NBA · MLB</div>
           <h1>Sports Digest</h1>
           <p class="sd-sub">
-            Schedules, headlines, and beat-writer posts for the teams you pick —
+            Schedules and headlines for the teams you pick —
             delivered on your schedule. All send times are <strong>Central Time</strong>.
           </p>
         </div>
@@ -376,21 +419,33 @@
         </div>
 
         <h2 class="sd-section-title"><span>🏟</span> Pick your teams</h2>
-        <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams. Each email includes only the teams you select.</p>
+        <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams. Search by name or browse one league at a time.</p>
 
         <div class="sd-selected-strip" id="sd-selected-strip">
-          <span class="sd-selected-label">Your picks</span>
-          <div class="sd-selected-logos" id="sd-selected-logos"></div>
-        </div>
-
-        <div class="sd-league-tabs" id="sd-league-tabs"></div>
-        <div class="sd-toolbar">
-          <input type="search" class="sd-search" id="sd-search" placeholder="Search teams…" autocomplete="off">
-          <button type="button" class="sd-mini-btn" id="sd-select-visible">Select visible</button>
-          <button type="button" class="sd-mini-btn" id="sd-clear-visible">Clear visible</button>
+          <div class="sd-selected-head">
+            <span class="sd-selected-label">Your teams</span>
+            <button type="button" class="sd-selected-clear" id="sd-clear-all">Clear all</button>
+          </div>
+          <div class="sd-selected-chips" id="sd-selected-chips"></div>
         </div>
         <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
-        <div class="sd-team-grid" id="sd-team-grid"></div>
+
+        <div class="sd-browse-panel">
+          <p class="sd-browse-title">Add teams</p>
+          <div class="sd-toolbar">
+            <input type="search" class="sd-search" id="sd-search" placeholder="Search all teams…" autocomplete="off">
+          </div>
+          <div class="sd-quick-picks" id="sd-quick-picks">
+            <span class="sd-quick-label">Quick add</span>
+          </div>
+          <div class="sd-league-tabs" id="sd-league-tabs"></div>
+          <p class="sd-browse-meta" id="sd-browse-meta"></p>
+          <div class="sd-toolbar" style="margin-bottom:8px;">
+            <button type="button" class="sd-mini-btn" id="sd-select-visible">Select all shown</button>
+            <button type="button" class="sd-mini-btn" id="sd-clear-visible">Clear shown</button>
+          </div>
+          <div class="sd-team-list" id="sd-team-list"></div>
+        </div>
 
         <div class="sd-schedule-block sd-form-row">
           <h2 class="sd-section-title"><span>🕐</span> Delivery schedule</h2>
@@ -424,6 +479,7 @@
       const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const LEAGUE_EMOJI = { mlb: '⚾', nfl: '🏈', nba: '🏀' };
       const LEAGUE_ACCENT = { mlb: '#c41230', nfl: '#013369', nba: '#17408b' };
+      const QUICK_PICK_IDS = ['mlb-8', 'nfl-9', 'nba-15'];
       const teamById = new Map();
 
       function getSessionId() {
@@ -444,7 +500,7 @@
         maxCustomTimes: 6,
       };
       let userProfile = null;
-      let activeLeague = 'all';
+      let activeLeague = 'mlb';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
       let selectedTeamIds = new Set();
@@ -544,13 +600,33 @@
 
       function filteredTeams() {
         const q = (document.getElementById('sd-search').value || '').trim().toLowerCase();
-        return catalog.teams.filter(function (t) {
-          if (activeLeague !== 'all' && t.league !== activeLeague) return false;
-          if (!q) return true;
-          return (t.label || '').toLowerCase().includes(q) ||
-            (t.abbr || '').toLowerCase().includes(q) ||
-            (t.sport || '').toLowerCase().includes(q);
+        let list = catalog.teams.slice();
+        if (q) {
+          list = list.filter(function (t) {
+            return (t.label || '').toLowerCase().includes(q) ||
+              (t.abbr || '').toLowerCase().includes(q) ||
+              (t.sport || '').toLowerCase().includes(q) ||
+              (t.league || '').toLowerCase().includes(q);
+          });
+        } else if (activeLeague) {
+          list = list.filter(function (t) { return t.league === activeLeague; });
+        }
+        list.sort(function (a, b) {
+          return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
         });
+        return list;
+      }
+
+      function browseMetaText(list) {
+        const q = (document.getElementById('sd-search').value || '').trim();
+        if (q) {
+          return list.length
+            ? list.length + ' match' + (list.length === 1 ? '' : 'es') + ' for “' + q + '”'
+            : 'No teams match “' + q + '”. Try another name or abbreviation.';
+        }
+        const lg = (catalog.leagues || []).find(function (x) { return x.id === activeLeague; });
+        const name = lg ? lg.label : (activeLeague || '').toUpperCase();
+        return list.length + ' ' + name + ' team' + (list.length === 1 ? '' : 's') + ' · A–Z';
       }
 
       function updateTeamCount() {
@@ -563,79 +639,139 @@
 
       function renderSelectedStrip() {
         const strip = document.getElementById('sd-selected-strip');
-        const wrap = document.getElementById('sd-selected-logos');
+        const wrap = document.getElementById('sd-selected-chips');
+        const clearBtn = document.getElementById('sd-clear-all');
         const checked = [...selectedTeamIds]
           .map(function (id) { return teamById.get(id); })
-          .filter(Boolean);
+          .filter(Boolean)
+          .sort(function (a, b) {
+            return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
+          });
         if (!checked.length) {
           strip.classList.remove('visible');
           wrap.innerHTML = '';
+          if (clearBtn) clearBtn.style.display = 'none';
           return;
         }
         strip.classList.add('visible');
-        const maxShow = 12;
-        wrap.innerHTML = checked.slice(0, maxShow).map(function (t) {
-          if (t.logoUrl) {
-            return '<img class="sd-selected-logo" src="' + escapeHtml(t.logoUrl) + '" alt="' +
-              escapeHtml(t.label) + '" title="' + escapeHtml(t.label) + '" loading="lazy">';
-          }
+        if (clearBtn) clearBtn.style.display = '';
+        wrap.innerHTML = checked.map(function (t) {
           const accent = leagueAccent(t.league, t.color);
-          return '<span class="sd-selected-logo sd-team-logo-fallback" style="background:' +
-            escapeHtml(accent) + '" title="' + escapeHtml(t.label) + '">' +
-            escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
+          const logo = t.logoUrl
+            ? '<img src="' + escapeHtml(t.logoUrl) + '" alt="">'
+            : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
+              escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
+          return '<span class="sd-pick-chip">' + logo +
+            '<span>' + escapeHtml(t.label) + '</span>' +
+            '<button type="button" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
+            escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
-        if (checked.length > maxShow) {
-          wrap.innerHTML += '<span class="sd-selected-more">+' + (checked.length - maxShow) + ' more</span>';
-        }
+        wrap.querySelectorAll('button[data-remove]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            selectedTeamIds.delete(btn.getAttribute('data-remove'));
+            renderTeamList();
+          });
+        });
+        renderQuickPicks();
+      }
+
+      function renderQuickPicks() {
+        const wrap = document.getElementById('sd-quick-picks');
+        if (!wrap) return;
+        wrap.innerHTML = '<span class="sd-quick-label">Quick add</span>';
+        QUICK_PICK_IDS.forEach(function (id) {
+          const t = teamById.get(id);
+          if (!t) return;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'sd-quick-btn' + (selectedTeamIds.has(id) ? ' added' : '');
+          btn.textContent = (t.abbr || t.label) + (selectedTeamIds.has(id) ? ' ✓' : '');
+          btn.title = t.label;
+          btn.addEventListener('click', function () {
+            if (selectedTeamIds.has(id)) selectedTeamIds.delete(id);
+            else selectedTeamIds.add(id);
+            renderTeamList();
+          });
+          wrap.appendChild(btn);
+        });
       }
 
       function renderLeagueTabs() {
         const tabs = document.getElementById('sd-league-tabs');
+        const q = (document.getElementById('sd-search').value || '').trim();
         tabs.innerHTML = '';
-        const allBtn = document.createElement('button');
-        allBtn.type = 'button';
-        allBtn.dataset.league = 'all';
-        allBtn.className = 'sd-tab' + (activeLeague === 'all' ? ' active' : '');
-        allBtn.textContent = 'All leagues';
-        allBtn.addEventListener('click', function () { activeLeague = 'all'; renderLeagueTabs(); renderTeamGrid(); });
-        tabs.appendChild(allBtn);
+        if (q) {
+          tabs.style.display = 'none';
+          return;
+        }
+        tabs.style.display = '';
         (catalog.leagues || []).forEach(function (lg) {
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.dataset.league = lg.id;
           btn.className = 'sd-tab' + (activeLeague === lg.id ? ' active' : '');
           btn.textContent = (lg.emoji || leagueEmoji(lg.id)) + ' ' + lg.label;
-          btn.addEventListener('click', function () { activeLeague = lg.id; renderLeagueTabs(); renderTeamGrid(); });
+          btn.addEventListener('click', function () {
+            activeLeague = lg.id;
+            renderLeagueTabs();
+            renderTeamList();
+          });
           tabs.appendChild(btn);
         });
       }
 
-      function renderTeamGrid() {
-        const grid = document.getElementById('sd-team-grid');
-        grid.innerHTML = '';
-        filteredTeams().forEach(function (t) {
-          const label = document.createElement('label');
-          label.className = 'sd-team sd-team--' + t.league;
-          label.dataset.teamId = t.id;
-          label.style.setProperty('--team-accent', leagueAccent(t.league, t.color));
-          label.innerHTML =
-            '<input type="checkbox" name="sd-team" value="' + escapeHtml(t.id) + '"' +
-            (selectedTeamIds.has(t.id) ? ' checked' : '') + '>' +
-            '<span class="sd-team-logo-wrap">' + teamLogoMarkup(t) + '</span>' +
-            '<div class="sd-team-meta">' +
-              '<div class="sd-team-label">' + escapeHtml(t.label) + '</div>' +
-              '<div class="sd-team-sport">' + escapeHtml(t.sport) +
-                (t.abbr ? ' · ' + escapeHtml(t.abbr) : '') + '</div>' +
-            '</div>' +
-            '<span class="sd-team-check" aria-hidden="true">✓</span>';
-          label.querySelector('input').addEventListener('change', function (e) {
+      function teamRowHtml(t) {
+        return '<input type="checkbox" name="sd-team" value="' + escapeHtml(t.id) + '"' +
+          (selectedTeamIds.has(t.id) ? ' checked' : '') + '>' +
+          '<span class="sd-team-logo-wrap">' + teamLogoMarkup(t) + '</span>' +
+          '<div class="sd-team-meta">' +
+            '<div class="sd-team-label">' + escapeHtml(t.label) + '</div>' +
+            '<div class="sd-team-sport">' + escapeHtml(t.sport) +
+              (t.abbr ? ' · ' + escapeHtml(t.abbr) : '') + '</div>' +
+          '</div>' +
+          '<span class="sd-team-check" aria-hidden="true">✓</span>';
+      }
+
+      function renderTeamList() {
+        const list = document.getElementById('sd-team-list');
+        const meta = document.getElementById('sd-browse-meta');
+        const teams = filteredTeams();
+        renderLeagueTabs();
+        if (meta) meta.textContent = browseMetaText(teams);
+        list.innerHTML = '';
+        if (!teams.length) {
+          list.innerHTML = '<div class="sd-browse-empty">' +
+            escapeHtml(browseMetaText(teams)) + '</div>';
+          updateTeamCount();
+          return;
+        }
+        let lastLetter = '';
+        teams.forEach(function (t) {
+          const letter = ((t.label || '?').charAt(0) || '#').toUpperCase();
+          if (letter !== lastLetter) {
+            lastLetter = letter;
+            const hdr = document.createElement('div');
+            hdr.className = 'sd-alpha-header';
+            hdr.textContent = letter;
+            list.appendChild(hdr);
+          }
+          const row = document.createElement('label');
+          row.className = 'sd-team-row sd-team-row--' + t.league;
+          row.dataset.teamId = t.id;
+          row.style.setProperty('--team-accent', leagueAccent(t.league, t.color));
+          row.innerHTML = teamRowHtml(t);
+          row.querySelector('input').addEventListener('change', function (e) {
             if (e.target.checked) selectedTeamIds.add(t.id);
             else selectedTeamIds.delete(t.id);
             updateTeamCount();
           });
-          grid.appendChild(label);
+          list.appendChild(row);
         });
         updateTeamCount();
+      }
+
+      function renderTeamGrid() {
+        renderTeamList();
       }
 
       function renderFrequencySelect() {
@@ -773,23 +909,28 @@
         }
 
         renderLeagueTabs();
+        renderQuickPicks();
         renderFrequencySelect();
         renderCustomDays();
         renderTimeChips();
         document.getElementById('sd-frequency').addEventListener('change', updateFreqDetail);
 
-        document.getElementById('sd-search').addEventListener('input', renderTeamGrid);
+        document.getElementById('sd-search').addEventListener('input', renderTeamList);
         document.getElementById('sd-select-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
             selectedTeamIds.add(t.id);
           });
-          renderTeamGrid();
+          renderTeamList();
         });
         document.getElementById('sd-clear-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
             selectedTeamIds.delete(t.id);
           });
-          renderTeamGrid();
+          renderTeamList();
+        });
+        document.getElementById('sd-clear-all').addEventListener('click', function () {
+          selectedTeamIds.clear();
+          renderTeamList();
         });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {
           const select = document.getElementById('sd-add-time-select');
