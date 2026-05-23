@@ -175,6 +175,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         title: project.title,
         definitionOfDone: project.definitionOfDone,
         ownerUserId: project.ownerUserId,
+        isOwner: userIsOwner(project, userId),
         memberCount: Array.isArray(project.members) ? project.members.length : 0,
         taskCount: Array.isArray(project.tasks) ? project.tasks.length : 0,
         updatedAt: project.updatedAt,
@@ -221,7 +222,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await addTetherProjectId(env, userId, projectId);
-    return jsonResponse({ project }, corsHeaders, 201);
+    return jsonResponse({ project: { ...project, isOwner: true } }, corsHeaders, 201);
   }
 
   if (path === '/api/tether/project' && request.method === 'GET') {
@@ -234,7 +235,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     if (!userCanAccessProject(project, userId)) {
       return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
     }
-    return jsonResponse({ project }, corsHeaders);
+    return jsonResponse({ project: { ...project, isOwner: userIsOwner(project, userId) } }, corsHeaders);
   }
 
   if (path === '/api/tether/project' && request.method === 'PUT') {
@@ -268,7 +269,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         body: JSON.stringify(updated),
       })
     );
-    return jsonResponse({ project: updated }, corsHeaders);
+    return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
   if (path === '/api/tether/project' && request.method === 'DELETE') {
@@ -332,7 +333,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await addTetherProjectId(env, target.userId, projectId);
-    return jsonResponse({ project: updated }, corsHeaders);
+    return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
   if (path === '/api/tether/unshare' && request.method === 'POST') {
@@ -362,7 +363,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await removeTetherProjectId(env, removeUserId, projectId);
-    return jsonResponse({ project: updated }, corsHeaders);
+    return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
   return null;

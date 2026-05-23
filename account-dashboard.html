@@ -2874,7 +2874,7 @@
             if (t === 'shop') {
               window.location.href = 'chess-shop.html';
             } else {
-              openTrifangxInEmbed(t);
+            openTrifangxInEmbed(t);
             }
           } else if (trifangxPendingOpen && trifangxEmbedLoadFailed) {
             const t = trifangxPendingOpen;
@@ -2882,9 +2882,9 @@
             if (t === 'shop') {
               window.location.href = 'chess-shop.html';
             } else {
-              window.location.href =
-                'chess_engine.html?open=' + encodeURIComponent(t);
-            }
+            window.location.href =
+              'chess_engine.html?open=' + encodeURIComponent(t);
+          }
           }
         } else if (d.type === 'modal-opened') {
           setTrifangxIframeInteractive(true);
