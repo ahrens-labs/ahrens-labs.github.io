@@ -193,65 +193,73 @@
       border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 0 2px;
       font-size: 0.9rem; line-height: 1;
     }
-    .th-task-cards { display: flex; flex-direction: column; gap: 6px; }
+    .th-task-cards { display: flex; flex-direction: column; gap: 4px; }
     .th-task-card {
-      background: #fff; border: 1px solid var(--th-line); border-radius: 12px;
-      padding: 8px 12px; transition: border-color 0.15s, box-shadow 0.15s;
-      border-left: 3px solid #cbd5e1;
+      background: #fff; border: 1px solid var(--th-line); border-radius: 10px;
+      padding: 6px 10px; transition: border-color 0.15s, box-shadow 0.15s;
+      border-left: 2px solid #cbd5e1;
     }
-    .th-task-card:hover { border-color: #c7d2fe; box-shadow: 0 6px 20px rgba(79, 70, 229, 0.07); }
+    .th-task-card:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.06); }
     .th-task-card.status-todo { border-left-color: #94a3b8; }
     .th-task-card.status-in_progress { border-left-color: var(--th-orange); }
     .th-task-card.status-done { border-left-color: var(--th-green); opacity: 0.92; }
     .th-task-card.status-done .th-task-link { color: var(--th-muted); text-decoration: line-through; }
-    .th-task-card-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 2px; }
-    .th-task-card-head h4 { margin: 0; flex: 1; min-width: 0; font-size: 0.92rem; }
+    .th-task-card-row { display: flex; align-items: flex-start; gap: 6px; }
+    .th-task-card-main { flex: 1; min-width: 0; }
+    .th-task-card-headline {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    }
+    .th-task-card-headline h4 { margin: 0; flex: 1; min-width: 0; font-size: 0.84rem; font-weight: 700; line-height: 1.25; }
+    .th-task-card-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
     .th-task-dod-preview {
-      margin: 0 0 4px; font-size: 0.78rem; color: var(--th-muted); line-height: 1.35;
+      margin: 2px 0 0; font-size: 0.72rem; color: var(--th-muted); line-height: 1.3;
       display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
     }
     .th-task-notes-preview {
-      margin: 0 0 4px; font-size: 0.76rem; color: var(--th-slate); line-height: 1.35;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      margin: 1px 0 0; font-size: 0.7rem; color: var(--th-slate); line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
     }
-    .th-task-card-meta { font-size: 0.72rem; color: var(--th-muted); margin-bottom: 6px; line-height: 1.3; }
-    .th-task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-    .th-task-card h4 { margin: 0; font-size: 0.92rem; font-weight: 700; }
+    .th-task-card-bottom {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 4px 8px; margin-top: 3px;
+    }
+    .th-task-card-meta { font-size: 0.68rem; color: var(--th-muted); margin: 0; line-height: 1.25; }
+    .th-task-card-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+    .th-task-card-actions button {
+      border: 1px solid var(--th-line); background: #f8fafc; border-radius: 6px;
+      padding: 2px 6px; font-size: 0.66rem; font-weight: 600; cursor: pointer; color: var(--th-slate);
+    }
+    .th-task-card-actions button:hover { background: #fff; border-color: #c7d2fe; color: var(--th-accent); }
+    .th-task-card-actions button.danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
+    .th-task-card-actions button.danger:hover { background: #fef2f2; }
     .th-complete-btn {
-      width: 24px; height: 24px; margin-top: 1px; border-radius: 999px; border: 2px solid #cbd5e1;
+      width: 18px; height: 18px; margin-top: 1px; border-radius: 999px; border: 2px solid #cbd5e1;
       background: #fff; cursor: pointer; flex-shrink: 0; padding: 0;
       display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s;
     }
     .th-complete-btn:hover { border-color: var(--th-green); background: var(--th-green-soft); }
     .th-complete-btn.checked { background: var(--th-green); border-color: var(--th-green); }
     .th-complete-btn.checked::after {
-      content: '✓'; color: #fff; font-size: 0.8rem; font-weight: 800; line-height: 1;
+      content: '✓'; color: #fff; font-size: 0.65rem; font-weight: 800; line-height: 1;
     }
-    .th-complete-btn-sm { width: 20px; height: 20px; margin-top: 0; }
-    .th-complete-btn-sm.checked::after { font-size: 0.7rem; }
+    .th-complete-btn-sm { width: 16px; height: 16px; margin-top: 0; }
+    .th-complete-btn-sm.checked::after { font-size: 0.6rem; }
     .th-complete-btn.blocked:not(.checked) {
       border-color: #e2e8f0; background: #f8fafc; cursor: not-allowed; opacity: 0.55;
     }
     .th-complete-btn.blocked:not(.checked):hover { border-color: #e2e8f0; background: #f8fafc; }
     .th-task-card-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
     #task-detail-complete:disabled { opacity: 0.55; cursor: not-allowed; }
-    .th-task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-    .th-task-card h4 { margin: 0 0 6px; font-size: 0.98rem; font-weight: 700; }
-    .th-task-dod-preview {
-      margin: 0 0 10px; font-size: 0.82rem; color: var(--th-muted); line-height: 1.45;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-    }
-    .th-task-card-meta { font-size: 0.76rem; color: var(--th-muted); margin-bottom: 10px; line-height: 1.4; }
-    .th-task-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .th-task-card-actions button {
-      border: 1px solid var(--th-line); background: #f8fafc; border-radius: 8px;
-      padding: 3px 8px; font-size: 0.72rem; font-weight: 600; cursor: pointer; color: var(--th-slate);
-    }
-    .th-task-card-actions button:hover { background: #fff; border-color: #c7d2fe; color: var(--th-accent); }
-    .th-task-card-actions button.danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
-    .th-task-card-actions button.danger:hover { background: #fef2f2; }
-    .th-task-due-badge { font-size: 0.72rem; font-weight: 700; color: var(--th-muted); }
+    .th-task-due-badge { font-size: 0.66rem; font-weight: 700; color: var(--th-muted); white-space: nowrap; }
     .th-task-due-badge.soon { color: var(--th-orange); }
+    .th-task-due-badge.overdue { color: #dc2626; }
+    .th-status {
+      display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 0.64rem; font-weight: 700;
+      white-space: nowrap;
+    }
+    .th-status.todo { background: #f1f5f9; color: #475569; }
+    .th-status.in_progress { background: var(--th-orange-soft); color: var(--th-orange); }
+    .th-status.done { background: var(--th-green-soft); color: var(--th-green); }
     .th-table-wrap { overflow-x: auto; border: 1px solid var(--th-line); border-radius: 14px; }
     table.th-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
     .th-table th, .th-table td {
@@ -260,12 +268,6 @@
     .th-table th { background: #f8fafc; font-size: 0.72rem; text-transform: uppercase;
       letter-spacing: 0.04em; color: var(--th-muted); }
     .th-table tr:last-child td { border-bottom: none; }
-    .th-status {
-      display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
-    }
-    .th-status.todo { background: #f1f5f9; color: #475569; }
-    .th-status.in_progress { background: var(--th-orange-soft); color: var(--th-orange); }
-    .th-status.done { background: var(--th-green-soft); color: var(--th-green); }
     .th-task-actions { display: flex; gap: 6px; }
     .th-task-actions button {
       border: none; background: transparent; color: var(--th-accent); cursor: pointer;
@@ -570,14 +572,41 @@
       display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 12px; font-size: 0.86rem;
     }
     .th-banner.err { display: block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .th-my-tasks-list { display: flex; flex-direction: column; gap: 8px; }
-    .th-my-task-item {
-      border: 1px solid var(--th-line); border-radius: 12px; padding: 10px 12px; background: #fff;
-      cursor: pointer; transition: border-color 0.15s;
+    .th-my-tasks-list { display: flex; flex-direction: column; gap: 4px; }
+    .th-my-tasks-summary {
+      display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;
     }
-    .th-my-task-item:hover { border-color: #c7d2fe; }
-    .th-my-task-item strong { display: block; font-size: 0.92rem; margin-bottom: 4px; color: var(--th-ink); }
-    .th-my-task-item span { font-size: 0.76rem; color: var(--th-muted); }
+    .th-my-tasks-summary .th-stat-pill { padding: 3px 8px; font-size: 0.68rem; }
+    .th-my-task-item {
+      border: 1px solid var(--th-line); border-radius: 10px; padding: 6px 10px; background: #fff;
+      cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+      border-left: 2px solid #cbd5e1;
+    }
+    .th-my-task-item:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.06); }
+    .th-my-task-item.status-todo { border-left-color: #94a3b8; }
+    .th-my-task-item.status-in_progress { border-left-color: var(--th-orange); }
+    .th-my-task-item.status-done { border-left-color: var(--th-green); opacity: 0.92; }
+    .th-my-task-item.status-done .th-my-task-title { color: var(--th-muted); text-decoration: line-through; }
+    .th-my-task-headline {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    }
+    .th-my-task-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .th-my-task-project {
+      font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+      color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 999px;
+      padding: 1px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .th-my-task-title {
+      margin: 0; font-size: 0.84rem; font-weight: 700; color: var(--th-ink); line-height: 1.25;
+      flex: 1; min-width: 0;
+    }
+    .th-my-task-subline {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 5px 8px;
+      margin-top: 2px; font-size: 0.68rem; color: var(--th-muted); line-height: 1.25;
+    }
+    .th-my-task-blocked { color: #c2410c; font-weight: 600; }
+    .th-my-task-item .th-task-dod-preview,
+    .th-my-task-item .th-task-notes-preview { margin-top: 2px; }
     .th-banner.ok { display: block; background: #ecfdf5; border: 1px solid #86efac; color: #166534; }
   </style>
 </head>
@@ -893,31 +922,47 @@
     return copy;
   }
 
-  function tetherPageUrl(projectId, taskId) {
+  function tetherPageUrl(opts) {
+    const state = typeof opts === 'string' || opts == null
+      ? { projectId: opts, taskId: arguments[1] }
+      : (opts || {});
     const u = new URL(window.location.href.split('#')[0]);
     u.searchParams.delete('project');
     u.searchParams.delete('task');
-    if (projectId) u.searchParams.set('project', projectId);
-    if (taskId) u.searchParams.set('task', taskId);
+    u.searchParams.delete('view');
+    if (state.view === 'my-tasks') {
+      u.searchParams.set('view', 'my-tasks');
+    } else {
+      if (state.projectId) u.searchParams.set('project', state.projectId);
+      if (state.taskId) u.searchParams.set('task', state.taskId);
+    }
     return u.toString();
   }
 
-  function syncUrlState(projectId, taskId) {
-    const next = tetherPageUrl(projectId || null, taskId || null);
+  function syncUrlState(state) {
+    const next = tetherPageUrl(state);
     if (window.location.href.split('#')[0] !== next) {
       history.replaceState({}, '', next);
     }
   }
 
-  function setAppTab(tab) {
+  function setAppTab(tab, opts) {
+    const skipUrlSync = opts && opts.skipUrlSync;
+    const skipLoad = opts && opts.skipLoad;
     appTab = tab;
     document.getElementById('tab-projects').classList.toggle('active', tab === 'projects');
     document.getElementById('tab-my-tasks').classList.toggle('active', tab === 'my-tasks');
     document.getElementById('shell-projects').style.display = tab === 'projects' ? 'grid' : 'none';
     document.getElementById('my-tasks-panel').style.display = tab === 'my-tasks' ? 'block' : 'none';
     if (tab === 'my-tasks') {
-      syncUrlState(null, null);
-      loadMyTasks();
+      if (!skipUrlSync) syncUrlState({ view: 'my-tasks' });
+      if (!skipLoad) loadMyTasks();
+    } else if (!skipUrlSync) {
+      if (activeProject) {
+        syncUrlState({ projectId: activeProject.id, taskId: viewingTaskId || null });
+      } else {
+        syncUrlState({});
+      }
     }
   }
 
@@ -930,6 +975,53 @@
   function visibleMyTasks() {
     if (myTasksShowCompleted) return myTasks;
     return myTasks.filter(t => (t.status || 'todo') !== 'done');
+  }
+
+  function isDueOverdue(iso, status) {
+    if (!iso || status === 'done') return false;
+    return iso < isoDate(new Date());
+  }
+
+  function myTaskSummaryHtml(tasks) {
+    const open = tasks.filter(t => (t.status || 'todo') !== 'done');
+    const dueSoon = open.filter(t => isDueSoon(t.dueDate)).length;
+    const overdue = open.filter(t => isDueOverdue(t.dueDate, t.status)).length;
+    const blocked = open.filter(t => (t.blockedByIncomplete || []).length > 0).length;
+    const pills = [
+      `<span class="th-stat-pill"><em>${tasks.length}</em> shown</span>`,
+      `<span class="th-stat-pill accent"><em>${open.length}</em> open</span>`,
+    ];
+    if (dueSoon) pills.push(`<span class="th-stat-pill warn"><em>${dueSoon}</em> due soon</span>`);
+    if (overdue) pills.push(`<span class="th-stat-pill warn"><em>${overdue}</em> overdue</span>`);
+    if (blocked) pills.push(`<span class="th-stat-pill"><em>${blocked}</em> blocked</span>`);
+    return `<div class="th-my-tasks-summary">${pills.join('')}</div>`;
+  }
+
+  function renderMyTaskCard(t) {
+    const st = t.status || 'todo';
+    const overdue = isDueOverdue(t.dueDate, st);
+    const dueCls = overdue ? ' overdue' : (isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '');
+    const dueText = t.dueDate
+      ? (overdue ? 'Overdue · ' : 'Due ') + formatDate(t.dueDate)
+      : 'No due date';
+    const blocked = (t.blockedByIncomplete || []).length > 0;
+    const deps = t.dependsOnTitles || [];
+    return `<article class="th-my-task-item status-${st}" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
+      <div class="th-my-task-headline">
+        <h3 class="th-my-task-title">${escapeHtml(t.title)}</h3>
+        <div class="th-my-task-badges">
+          <span class="th-status ${st}">${statusLabel(st)}</span>
+          <span class="th-task-due-badge${dueCls}">${dueText}</span>
+        </div>
+      </div>
+      <div class="th-my-task-subline">
+        <span class="th-my-task-project">${escapeHtml(t.projectTitle || 'Project')}</span>
+        ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.join(', '))}</span>` : ''}
+        ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
+      </div>
+      ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
+      ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+    </article>`;
   }
 
   function renderMyTasksView() {
@@ -945,19 +1037,12 @@
       el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No open tasks assigned to you. Check “Show completed” to include finished work.</p>';
       return;
     }
-    el.innerHTML = `<div class="th-my-tasks-list">${tasks.map(t => {
-      const st = t.status || 'todo';
-      const due = t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date';
-      return `<article class="th-my-task-item" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
-        <strong>${escapeHtml(t.title)}</strong>
-        <span><span class="th-status ${st}">${statusLabel(st)}</span> · ${escapeHtml(t.projectTitle || 'Project')} · ${due}</span>
-      </article>`;
-    }).join('')}</div>`;
+    el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async () => {
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
-        setAppTab('projects');
+        setAppTab('projects', { skipUrlSync: true });
         await loadProject(pid);
         openTaskDetailModal(tid);
       });
@@ -1054,7 +1139,7 @@
       else projects.push(listItem);
       writeProjectsCache(projects);
       renderProjectView();
-      syncUrlState(activeProject.id, taskIdFromUrl || viewingTaskId || null);
+      syncUrlState({ projectId: activeProject.id, taskId: taskIdFromUrl || viewingTaskId || null });
       renderProjectList();
       if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
     } catch (e) {
@@ -1152,7 +1237,7 @@
     if (activeProject && activeProject.id === projectId) {
       activeProject = null;
       viewingTaskId = null;
-      syncUrlState(null, null);
+      syncUrlState({});
       document.getElementById('empty-state').style.display = 'flex';
       document.getElementById('project-view').style.display = 'none';
     }
@@ -1253,29 +1338,35 @@
           const blocked = isTaskCompletionBlocked(t, tasks);
           return `
           <article class="th-task-card status-${st}">
-            <div class="th-task-card-top">
-              <span class="th-status ${st}">${statusLabel(st)}</span>
-              <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
-            </div>
-            <div class="th-task-card-head">
+            <div class="th-task-card-row">
               ${completeBtnHtml(t.id, st, false, blocked)}
-              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
-            </div>
-            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
-            ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
-            <div class="th-task-card-meta">
-              ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
-              ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
-            </div>
-            <div class="th-task-card-actions">
-              ${st !== 'done'
-                ? (blocked
-                  ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
-                  : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark complete</button>`)
-                : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
-              <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
-              <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
-              <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
+              <div class="th-task-card-main">
+                <div class="th-task-card-headline">
+                  <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+                  <div class="th-task-card-badges">
+                    <span class="th-status ${st}">${statusLabel(st)}</span>
+                    <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
+                  </div>
+                </div>
+                ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
+                ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+                <div class="th-task-card-bottom">
+                  <div class="th-task-card-meta">
+                    ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
+                    ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
+                  </div>
+                  <div class="th-task-card-actions">
+                    ${st !== 'done'
+                      ? (blocked
+                        ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
+                        : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Complete</button>`)
+                      : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
+                    <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
+                    <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
+                    <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </article>`;
         }).join('')}
@@ -1705,7 +1796,7 @@
       completeBtn.title = '';
     }
     openModal('modal-task-detail');
-    syncUrlState(activeProject.id, taskId);
+    syncUrlState({ projectId: activeProject.id, taskId });
   }
 
   function openDeleteTaskModal(taskId, taskTitle) {
@@ -1886,7 +1977,7 @@
   document.querySelectorAll('[data-close="modal-task-detail"]').forEach(btn => {
     btn.addEventListener('click', () => {
       viewingTaskId = null;
-      if (activeProject) syncUrlState(activeProject.id, null);
+      if (activeProject) syncUrlState({ projectId: activeProject.id, taskId: null });
     });
   });
 
@@ -1898,15 +1989,18 @@
       renderProjectList();
     }
     const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
     const projectId = params.get('project');
     const taskId = params.get('task');
-    if (projectId) {
-      setAppTab('projects');
+    if (view === 'my-tasks') {
+      setAppTab('my-tasks', { skipUrlSync: true });
+    } else if (projectId) {
+      setAppTab('projects', { skipUrlSync: true });
       showProjectLoadingPreview(projectId);
     }
     try {
       const jobs = [loadUser(), loadProjects()];
-      if (projectId) jobs.push(loadProject(projectId, taskId || null));
+      if (projectId && view !== 'my-tasks') jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
@@ -1944,7 +2038,10 @@
   document.getElementById('btn-share').addEventListener('click', () => {
     document.getElementById('share-input').value = '';
     if (activeProject) {
-      document.getElementById('share-link-input').value = tetherPageUrl(activeProject.id, viewingTaskId || null);
+      document.getElementById('share-link-input').value = tetherPageUrl({
+        projectId: activeProject.id,
+        taskId: viewingTaskId || null,
+      });
     }
     openModal('modal-share');
   });
@@ -1977,7 +2074,7 @@
         activeProject = data.project;
         await loadProjects();
         renderProjectView();
-        syncUrlState(activeProject.id, null);
+        syncUrlState({ projectId: activeProject.id, taskId: null });
         showBanner('Project created', 'ok');
       } else {
         activeProject.title = title;

@@ -301,12 +301,22 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const accessible = await fetchAccessibleProjects(env, projectIds, userId);
     const tasks = [];
     for (const project of accessible) {
-      for (const task of project.tasks || []) {
+      const projectTasks = project.tasks || [];
+      const byId = new Map(projectTasks.map((t) => [t.id, t]));
+      for (const task of projectTasks) {
         if (!(task.assigneeUserIds || []).includes(userId)) continue;
+        const depIds = task.dependsOnTaskIds || [];
+        const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
+        const blockedByIncomplete = depIds
+          .map((id) => byId.get(id))
+          .filter((dep) => dep && (dep.status || 'todo') !== 'done')
+          .map((dep) => dep.title);
         tasks.push({
           ...task,
           projectId: project.id,
           projectTitle: project.title,
+          dependsOnTitles,
+          blockedByIncomplete,
         });
       }
     }
