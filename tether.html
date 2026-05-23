@@ -675,6 +675,10 @@
       <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:22px 24px;">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
+          <label class="th-gantt-filter">
+            <input type="checkbox" id="my-tasks-show-completed" checked>
+            Show completed
+          </label>
         </div>
         <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Tasks assigned to you across all projects.</p>
         <div id="my-tasks-list"></div>
@@ -864,6 +868,7 @@
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let ganttTodayLeft = 0;
   let ganttShowCompleted = true;
+  let myTasksShowCompleted = true;
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
 
@@ -922,13 +927,25 @@
     renderMyTasksView();
   }
 
+  function visibleMyTasks() {
+    if (myTasksShowCompleted) return myTasks;
+    return myTasks.filter(t => (t.status || 'todo') !== 'done');
+  }
+
   function renderMyTasksView() {
     const el = document.getElementById('my-tasks-list');
+    const filterEl = document.getElementById('my-tasks-show-completed');
+    if (filterEl) filterEl.checked = myTasksShowCompleted;
     if (!myTasks.length) {
       el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks assigned to you yet. Assign yourself on a project task to see it here.</p>';
       return;
     }
-    el.innerHTML = `<div class="th-my-tasks-list">${myTasks.map(t => {
+    const tasks = visibleMyTasks();
+    if (!tasks.length) {
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No open tasks assigned to you. Check “Show completed” to include finished work.</p>';
+      return;
+    }
+    el.innerHTML = `<div class="th-my-tasks-list">${tasks.map(t => {
       const st = t.status || 'todo';
       const due = t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date';
       return `<article class="th-my-task-item" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
@@ -1857,6 +1874,10 @@
 
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
+  document.getElementById('my-tasks-show-completed').addEventListener('change', (e) => {
+    myTasksShowCompleted = e.target.checked;
+    renderMyTasksView();
+  });
   document.getElementById('project-sort').addEventListener('change', (e) => {
     projectSort = e.target.value;
     renderProjectList();
