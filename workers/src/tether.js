@@ -117,6 +117,30 @@ function userIsOwner(project, userId) {
   return project && project.ownerUserId === userId;
 }
 
+function projectDescription(project) {
+  if (!project) return '';
+  if (project.description != null && String(project.description).trim()) {
+    return String(project.description).trim();
+  }
+  if (project.definitionOfDone != null && String(project.definitionOfDone).trim()) {
+    return String(project.definitionOfDone).trim();
+  }
+  return '';
+}
+
+function projectListItem(project, userId) {
+  return {
+    id: project.id,
+    title: project.title,
+    description: projectDescription(project),
+    ownerUserId: project.ownerUserId,
+    isOwner: userIsOwner(project, userId),
+    memberCount: Array.isArray(project.members) ? project.members.length : 0,
+    taskCount: Array.isArray(project.tasks) ? project.tasks.length : 0,
+    updatedAt: project.updatedAt,
+  };
+}
+
 /** Reject saves where a done task still has incomplete dependencies. */
 function validateTaskDependencyCompletion(tasks) {
   if (!Array.isArray(tasks)) return null;
@@ -191,24 +215,41 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     for (const pid of projectIds) {
       const project = await fetchProject(env, pid);
       if (!project || !userCanAccessProject(project, userId)) continue;
-      projects.push({
-        id: project.id,
-        title: project.title,
-        definitionOfDone: project.definitionOfDone,
-        ownerUserId: project.ownerUserId,
-        isOwner: userIsOwner(project, userId),
-        memberCount: Array.isArray(project.members) ? project.members.length : 0,
-        taskCount: Array.isArray(project.tasks) ? project.tasks.length : 0,
-        updatedAt: project.updatedAt,
-      });
+      projects.push(projectListItem(project, userId));
     }
     return jsonResponse({ projects }, corsHeaders);
+  }
+
+  if (path === '/api/tether/my-tasks' && request.method === 'GET') {
+    const projectIds = await getTetherProjectIds(env, userId);
+    const tasks = [];
+    for (const pid of projectIds) {
+      const project = await fetchProject(env, pid);
+      if (!project || !userCanAccessProject(project, userId)) continue;
+      for (const task of project.tasks || []) {
+        if (!(task.assigneeUserIds || []).includes(userId)) continue;
+        tasks.push({
+          ...task,
+          projectId: project.id,
+          projectTitle: project.title,
+        });
+      }
+    }
+    tasks.sort((a, b) => {
+      const da = a.dueDate || '';
+      const db = b.dueDate || '';
+      if (da && db && da !== db) return da.localeCompare(db);
+      if (da && !db) return -1;
+      if (!da && db) return 1;
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+    return jsonResponse({ tasks }, corsHeaders);
   }
 
   if (path === '/api/tether/projects' && request.method === 'POST') {
     const body = await request.json();
     const title = String(body.title || '').trim();
-    const definitionOfDone = String(body.definitionOfDone || '').trim();
+    const description = String(body.description ?? body.definitionOfDone ?? '').trim();
     if (!title) return jsonResponse({ error: 'Project title is required' }, corsHeaders, 400);
 
     const profile = await fetchUserProfile(env, userId);
@@ -219,7 +260,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const project = {
       id: projectId,
       title,
-      definitionOfDone,
+      description,
       ownerUserId: userId,
       members: [
         {
@@ -273,13 +314,16 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const updated = {
       ...existing,
       title: body.title != null ? String(body.title).trim() : existing.title,
-      definitionOfDone:
-        body.definitionOfDone != null
-          ? String(body.definitionOfDone).trim()
-          : existing.definitionOfDone,
+      description:
+        body.description != null
+          ? String(body.description).trim()
+          : body.definitionOfDone != null
+            ? String(body.definitionOfDone).trim()
+            : projectDescription(existing),
       tasks: Array.isArray(body.tasks) ? body.tasks : existing.tasks,
       updatedAt: Date.now(),
     };
+    delete updated.definitionOfDone;
 
     if (!updated.title) return jsonResponse({ error: 'Project title is required' }, corsHeaders, 400);
 
