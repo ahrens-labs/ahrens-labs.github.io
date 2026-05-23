@@ -183,7 +183,22 @@
     .th-gantt-row-label {
       width: 200px; min-width: 200px; flex-shrink: 0; padding: 8px 10px; font-size: 0.8rem;
       border-right: 1px solid var(--th-line); background: #fff; position: sticky; left: 0; z-index: 2;
-      display: flex; align-items: center;
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .th-gantt-row-label:hover { background: #f8fafc; }
+    .th-gantt-row-label-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .th-gantt-row-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+    .th-gantt-row:hover .th-gantt-row-actions { opacity: 1; }
+    .th-gantt-icon-btn {
+      width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent;
+      color: var(--th-muted); cursor: pointer; font-size: 0.75rem; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .th-gantt-icon-btn:hover { background: #eef2ff; color: var(--th-accent); }
+    .th-gantt-icon-btn.danger:hover { background: #fef2f2; color: #b91c1c; }
+    .th-gantt-hint {
+      margin: 0 0 10px; font-size: 0.8rem; color: var(--th-muted);
     }
     .th-gantt-row-track {
       position: relative; flex: 1; min-height: var(--gantt-row-px, 44px);
@@ -199,8 +214,10 @@
       );
     }
     .th-gantt-due-highlight {
-      position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none;
+      position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: auto; cursor: pointer;
+      transition: filter 0.15s;
     }
+    .th-gantt-due-highlight:hover { filter: brightness(0.95); }
     .th-gantt-due-highlight.todo { background: rgba(99, 102, 241, 0.14); }
     .th-gantt-due-highlight.in_progress { background: rgba(234, 88, 12, 0.14); }
     .th-gantt-due-highlight.done { background: rgba(5, 150, 105, 0.12); }
@@ -330,6 +347,22 @@
       background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
       border-top: 1px solid var(--th-line);
     }
+    .th-task-link {
+      border: none; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--th-ink);
+      cursor: pointer; text-align: left; text-decoration: underline; text-decoration-color: transparent;
+      transition: color 0.15s, text-decoration-color 0.15s;
+    }
+    .th-task-link:hover { color: var(--th-accent); text-decoration-color: #a5b4fc; }
+    .th-detail-grid { display: grid; gap: 10px; }
+    .th-detail-row {
+      display: grid; grid-template-columns: 108px 1fr; gap: 10px; align-items: start;
+      padding: 8px 0; border-bottom: 1px solid var(--th-line); font-size: 0.88rem;
+    }
+    .th-detail-row:last-child { border-bottom: none; }
+    .th-detail-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--th-muted); padding-top: 2px; }
+    .th-detail-value { color: var(--th-ink); line-height: 1.45; white-space: pre-wrap; }
+    .th-task-modal-foot .th-btn-danger { margin-right: auto; }
     .th-task-modal-foot .th-btn-primary {
       padding: 10px 20px; border-radius: 12px;
       background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
@@ -411,6 +444,7 @@
             </div>
 
             <div class="th-members" id="member-chips"></div>
+            <div id="project-owner-actions" style="display:none;margin-bottom:14px;"></div>
 
             <div id="list-view"></div>
             <div id="gantt-view" style="display:none;"></div>
@@ -515,8 +549,43 @@
         </section>
       </div>
       <div class="th-task-modal-foot">
+        <button type="button" class="th-btn th-btn-danger" id="delete-task-from-edit" style="display:none;">Delete task</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task">Cancel</button>
         <button type="button" class="th-btn th-btn-primary" id="save-task-btn">Save task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task detail modal -->
+  <div class="th-modal-backdrop" id="modal-task-detail">
+    <div class="th-modal th-task-modal">
+      <div class="th-task-modal-head">
+        <button type="button" class="th-modal-close" data-close="modal-task-detail" aria-label="Close">&times;</button>
+        <span class="th-task-modal-kicker">✦ Task details</span>
+        <h3 id="task-detail-title"></h3>
+        <p id="task-detail-subtitle" class="th-task-modal-sub"></p>
+      </div>
+      <div class="th-task-modal-body">
+        <div class="th-detail-grid" id="task-detail-body"></div>
+      </div>
+      <div class="th-task-modal-foot">
+        <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
+        <button type="button" class="th-btn th-btn-primary" id="task-detail-edit">Edit task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete task modal -->
+  <div class="th-modal-backdrop" id="modal-delete-task">
+    <div class="th-modal">
+      <h3>Delete task?</h3>
+      <p style="margin:0 0 8px;font-size:0.9rem;color:var(--th-ink);line-height:1.5;">
+        <strong id="delete-task-name"></strong> will be permanently removed from this project.
+      </p>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-delete-task">Cancel</button>
+        <button type="button" class="th-btn th-btn-danger" id="confirm-delete-task">Delete task</button>
       </div>
     </div>
   </div>
@@ -548,6 +617,8 @@
   let editingTaskId = null;
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
+  let pendingDeleteTaskId = null;
+  let viewingTaskId = null;
 
   const GANTT_DAY_PX = 44;
   const GANTT_ROW_PX = 44;
@@ -671,6 +742,17 @@
     document.getElementById('project-dod').textContent = activeProject.definitionOfDone || '(No definition of done yet)';
     const isOwner = activeProject.ownerUserId === currentUser.userId;
     document.getElementById('btn-delete-project').style.display = isOwner ? 'inline-block' : 'none';
+    const ownerActions = document.getElementById('project-owner-actions');
+    if (isOwner) {
+      ownerActions.style.display = 'block';
+      ownerActions.innerHTML = `<button type="button" class="th-btn th-btn-ghost" id="btn-delete-project-quick" style="color:#b91c1c;border-color:#fecaca;">Delete this project</button>`;
+      document.getElementById('btn-delete-project-quick').addEventListener('click', () => {
+        openDeleteProjectModal(activeProject.id, activeProject.title);
+      });
+    } else {
+      ownerActions.style.display = 'none';
+      ownerActions.innerHTML = '';
+    }
 
     const chips = document.getElementById('member-chips');
     chips.innerHTML = (activeProject.members || []).map(m => `
@@ -725,7 +807,7 @@
             ${tasks.map(t => `
               <tr>
                 <td>
-                  <strong>${escapeHtml(t.title)}</strong>
+                  <button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button>
                   ${t.definitionOfDone ? `<div style="font-size:0.78rem;color:var(--th-muted);margin-top:4px;">${escapeHtml(t.definitionOfDone)}</div>` : ''}
                 </td>
                 <td><span class="th-status ${t.status || 'todo'}">${statusLabel(t.status)}</span></td>
@@ -733,6 +815,7 @@
                 <td>${(t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</td>
                 <td>${depLabels(t.dependsOnTaskIds, tasks)}</td>
                 <td class="th-task-actions">
+                  <button type="button" data-view-task="${escapeAttr(t.id)}">View</button>
                   <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                   <button type="button" data-del-task="${escapeAttr(t.id)}" style="color:#b91c1c;">Delete</button>
                 </td>
@@ -742,11 +825,38 @@
         </table>
       </div>
     `;
+    document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task')));
+    });
     document.getElementById('list-view').querySelectorAll('[data-edit-task]').forEach(btn => {
       btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
     });
     document.getElementById('list-view').querySelectorAll('[data-del-task]').forEach(btn => {
-      btn.addEventListener('click', () => deleteTask(btn.getAttribute('data-del-task')));
+      btn.addEventListener('click', () => {
+        const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-del-task'));
+        openDeleteTaskModal(task.id, task.title);
+      });
+    });
+  }
+
+  function wireGanttTaskInteractions() {
+    const body = document.getElementById('gantt-body');
+    if (!body) return;
+    body.querySelectorAll('.th-gantt-row-actions button').forEach(btn => {
+      btn.addEventListener('click', (e) => e.stopPropagation());
+    });
+    body.querySelectorAll('[data-view-task]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-gantt-delete]')) return;
+        openTaskDetailModal(el.getAttribute('data-view-task'));
+      });
+    });
+    body.querySelectorAll('[data-gantt-delete]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-gantt-delete'));
+        if (task) openDeleteTaskModal(task.id, task.title);
+      });
     });
   }
 
@@ -784,10 +894,17 @@
       const status = t.status || 'todo';
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
-          <div class="th-gantt-row-label">${escapeHtml(t.title)}</div>
+          <div class="th-gantt-row-label" data-view-task="${escapeAttr(t.id)}" title="View task details">
+            <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
+            <span class="th-gantt-row-actions">
+              <button type="button" class="th-gantt-icon-btn" data-view-task="${escapeAttr(t.id)}" title="View details">⋯</button>
+              <button type="button" class="th-gantt-icon-btn danger" data-gantt-delete="${escapeAttr(t.id)}" title="Delete task">×</button>
+            </span>
+          </div>
           <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px;min-height:${rowHeight}px">
             <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
-            <div class="th-gantt-due-highlight ${status}" style="left:${dueLeft}px;width:${dayWidth}px" title="Due ${formatDate(end)}"></div>
+            <div class="th-gantt-due-highlight ${status}" data-view-task="${escapeAttr(t.id)}"
+              style="left:${dueLeft}px;width:${dayWidth}px" title="Due ${formatDate(end)} — click for details"></div>
           </div>
         </div>
       `;
@@ -802,6 +919,7 @@
     document.getElementById('gantt-view').style.setProperty('--gantt-day-px', dayWidth + 'px');
     document.getElementById('gantt-view').style.setProperty('--gantt-row-px', rowHeight + 'px');
     document.getElementById('gantt-view').innerHTML = `
+      <p class="th-gantt-hint">Click a task name or due-date square to view details.</p>
       <div class="th-gantt">
         <div class="th-gantt-scroll" id="gantt-scroll">
           <div class="th-gantt-head">
@@ -817,7 +935,10 @@
       </div>
     `;
 
-    requestAnimationFrame(() => drawDependencyArrows(tasks));
+    requestAnimationFrame(() => {
+      drawDependencyArrows(tasks);
+      wireGanttTaskInteractions();
+    });
   }
 
   function drawDependencyArrows(tasks) {
@@ -876,6 +997,50 @@
     openModal('modal-project');
   }
 
+  function getTaskById(taskId) {
+    return (activeProject.tasks || []).find(t => t.id === taskId) || null;
+  }
+
+  function openTaskDetailModal(taskId) {
+    const task = getTaskById(taskId);
+    if (!task) return;
+    viewingTaskId = taskId;
+    const tasks = activeProject.tasks || [];
+    const memberMap = memberLabelMap();
+    document.getElementById('task-detail-title').textContent = task.title;
+    document.getElementById('task-detail-subtitle').textContent = activeProject
+      ? 'In project · ' + activeProject.title
+      : '';
+    document.getElementById('task-detail-body').innerHTML = `
+      <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${task.status || 'todo'}">${statusLabel(task.status)}</span></div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Start</div><div class="th-detail-value">${formatDate(task.startDate || taskStart(task))}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(task.dueDate || taskDue(task))}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Definition of done</div><div class="th-detail-value">${escapeHtml(task.definitionOfDone || '—')}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(task.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Depends on</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
+    `;
+    openModal('modal-task-detail');
+  }
+
+  function openDeleteTaskModal(taskId, taskTitle) {
+    pendingDeleteTaskId = taskId;
+    document.getElementById('delete-task-name').textContent = taskTitle || 'This task';
+    openModal('modal-delete-task');
+  }
+
+  async function deleteTaskById(taskId) {
+    activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
+    activeProject.tasks.forEach(t => {
+      t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
+    });
+    if (viewingTaskId === taskId) {
+      viewingTaskId = null;
+      closeModal('modal-task-detail');
+    }
+    await saveProject(activeProject);
+    showBanner('Task deleted', 'ok');
+  }
+
   function setTaskStatusPill(status) {
     const val = status || 'todo';
     document.getElementById('task-status-input').value = val;
@@ -896,6 +1061,7 @@
     document.getElementById('modal-task-subtitle').textContent = activeProject
       ? 'In project · ' + activeProject.title
       : '';
+    document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = activeProject.tasks || [];
     const task = taskId ? tasks.find(t => t.id === taskId) : null;
     document.getElementById('task-title-input').value = task ? task.title : '';
@@ -932,15 +1098,8 @@
   }
 
   async function deleteTask(taskId) {
-    if (!confirm('Delete this task?')) return;
-    activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
-    activeProject.tasks.forEach(t => {
-      t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
-    });
-    try {
-      await saveProject(activeProject);
-      showBanner('Task deleted', 'ok');
-    } catch (e) { showBanner(e.message); }
+    const task = getTaskById(taskId);
+    if (task) openDeleteTaskModal(taskId, task.title);
   }
 
   function sortTasks(tasks) {
@@ -1136,6 +1295,35 @@
       renderProjectView();
       closeModal('modal-share');
       showBanner('Project shared', 'ok');
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('task-detail-edit').addEventListener('click', () => {
+    if (!viewingTaskId) return;
+    closeModal('modal-task-detail');
+    openTaskModal(viewingTaskId);
+  });
+
+  document.getElementById('task-detail-delete').addEventListener('click', () => {
+    if (!viewingTaskId) return;
+    const task = getTaskById(viewingTaskId);
+    closeModal('modal-task-detail');
+    openDeleteTaskModal(viewingTaskId, task ? task.title : '');
+  });
+
+  document.getElementById('delete-task-from-edit').addEventListener('click', () => {
+    if (!editingTaskId) return;
+    const task = getTaskById(editingTaskId);
+    closeModal('modal-task');
+    openDeleteTaskModal(editingTaskId, task ? task.title : '');
+  });
+
+  document.getElementById('confirm-delete-task').addEventListener('click', async () => {
+    if (!pendingDeleteTaskId) return;
+    try {
+      await deleteTaskById(pendingDeleteTaskId);
+      pendingDeleteTaskId = null;
+      closeModal('modal-delete-task');
     } catch (e) { showBanner(e.message); }
   });
 
