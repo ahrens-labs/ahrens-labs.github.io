@@ -204,14 +204,6 @@
     .th-gantt-due-highlight.todo { background: rgba(99, 102, 241, 0.14); }
     .th-gantt-due-highlight.in_progress { background: rgba(234, 88, 12, 0.14); }
     .th-gantt-due-highlight.done { background: rgba(5, 150, 105, 0.12); }
-    .th-gantt-bar {
-      position: absolute; top: 8px; height: calc(var(--gantt-row-px, 44px) - 16px); border-radius: 8px;
-      cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 1px 4px rgba(0,0,0,0.12);
-      z-index: 2;
-    }
-    .th-gantt-bar.todo { background: #6366f1; }
-    .th-gantt-bar.in_progress { background: #ea580c; }
-    .th-gantt-bar.done { background: #059669; opacity: 0.88; }
     .th-gantt-today-col {
       position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none;
       background: rgba(251, 191, 36, 0.1);
@@ -668,11 +660,7 @@
     `).join('');
 
     let rowsHtml = tasks.map(t => {
-      const start = taskStart(t);
       const end = taskDue(t);
-      const left = dayIndex(range.start, start) * dayWidth;
-      const spanDays = Math.max(1, dayIndex(start, end) + 1);
-      const width = spanDays * dayWidth - 4;
       const dueLeft = dayIndex(range.start, end) * dayWidth;
       const status = t.status || 'todo';
       return `
@@ -681,9 +669,6 @@
           <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px;min-height:${rowHeight}px">
             <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
             <div class="th-gantt-due-highlight ${status}" style="left:${dueLeft}px;width:${dayWidth}px" title="Due ${formatDate(end)}"></div>
-            <div class="th-gantt-bar ${status}" style="left:${left + 2}px;width:${width}px"
-              title="${escapeHtml(t.title)}" aria-label="${escapeHtml(t.title)}" data-gantt-bar="${escapeAttr(t.id)}"
-              role="img"></div>
           </div>
         </div>
       `;
@@ -722,18 +707,19 @@
     const body = document.getElementById('gantt-body');
     const rowEls = body.querySelectorAll('.th-gantt-row');
     const positions = {};
-    rowEls.forEach((row, i) => {
+    rowEls.forEach((row) => {
       const id = row.getAttribute('data-task-row');
-      const bar = row.querySelector('.th-gantt-bar');
-      if (!bar) return;
+      const dueCell = row.querySelector('.th-gantt-due-highlight');
+      if (!dueCell) return;
       const rowRect = row.getBoundingClientRect();
-      const barRect = bar.getBoundingClientRect();
+      const dueRect = dueCell.getBoundingClientRect();
       const bodyRect = body.getBoundingClientRect();
+      const y = rowRect.top - bodyRect.top + rowRect.height / 2;
       positions[id] = {
-        x1: barRect.left - bodyRect.left,
-        y1: rowRect.top - bodyRect.top + rowRect.height / 2,
-        x2: barRect.left - bodyRect.left + barRect.width,
-        y2: rowRect.top - bodyRect.top + rowRect.height / 2,
+        x1: dueRect.left - bodyRect.left,
+        x2: dueRect.left - bodyRect.left + dueRect.width,
+        y1: y,
+        y2: y,
       };
     });
 
@@ -939,6 +925,7 @@
     const title = document.getElementById('project-name-input').value.trim();
     const definitionOfDone = document.getElementById('project-dod-input').value.trim();
     if (!title) { showBanner('Project name is required'); return; }
+    closeModal('modal-project');
     try {
       if (editingProjectMode === 'create') {
         const data = await api('/api/tether/projects', {
@@ -946,7 +933,6 @@
           body: JSON.stringify({ title, definitionOfDone }),
         });
         activeProject = data.project;
-        closeModal('modal-project');
         await loadProjects();
         renderProjectView();
         showBanner('Project created', 'ok');
@@ -954,7 +940,6 @@
         activeProject.title = title;
         activeProject.definitionOfDone = definitionOfDone;
         await saveProject(activeProject);
-        closeModal('modal-project');
         showBanner('Project updated', 'ok');
       }
     } catch (e) { showBanner(e.message); }
@@ -984,9 +969,9 @@
       activeProject.tasks = activeProject.tasks || [];
       activeProject.tasks.push(task);
     }
+    closeModal('modal-task');
     try {
       await saveProject(activeProject);
-      closeModal('modal-task');
       showBanner('Task saved', 'ok');
     } catch (e) { showBanner(e.message); }
   });
