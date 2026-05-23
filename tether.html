@@ -146,7 +146,7 @@
     }
     .th-stat-pill em { font-style: normal; font-weight: 800; color: var(--th-ink); }
     .th-stat-pill.accent { background: var(--th-accent-soft); border-color: #c7d2fe; color: #4338ca; }
-    .th-stat-pill.incomplete { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .th-stat-pill.active-stat { background: #f1f5f9; border-color: #e2e8f0; color: var(--th-slate); }
     .th-stat-pill.warn { background: var(--th-orange-soft); border-color: #fed7aa; color: #c2410c; }
     .th-stat-pill.ok { background: var(--th-green-soft); border-color: #86efac; color: #047857; }
     .th-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -233,6 +233,12 @@
     .th-task-card-actions button:hover { background: #fff; border-color: #c7d2fe; color: var(--th-accent); }
     .th-task-card-actions button.danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
     .th-task-card-actions button.danger:hover { background: #fef2f2; }
+    .th-task-start-btn {
+      border: 1px solid #fed7aa; background: var(--th-orange-soft); color: #c2410c;
+      border-radius: 6px; padding: 2px 6px; font-size: 0.66rem; font-weight: 600; cursor: pointer;
+    }
+    .th-task-start-btn:hover { background: #ffedd5; border-color: #fdba74; }
+    .th-my-task-actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
     .th-complete-btn {
       width: 18px; height: 18px; margin-top: 1px; border-radius: 999px; border: 2px solid #cbd5e1;
       background: #fff; cursor: pointer; flex-shrink: 0; padding: 0;
@@ -253,7 +259,7 @@
     #task-detail-complete:disabled { opacity: 0.55; cursor: not-allowed; }
     .th-task-due-badge { font-size: 0.66rem; font-weight: 700; color: var(--th-muted); white-space: nowrap; }
     .th-task-due-badge.soon { color: var(--th-orange); }
-    .th-task-due-badge.overdue { color: #dc2626; }
+    .th-task-due-badge.overdue { color: #c2410c; }
     .th-status {
       display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 0.64rem; font-weight: 700;
       white-space: nowrap;
@@ -391,7 +397,8 @@
     .th-gantt-row-label-dates {
       display: block; font-size: 0.68rem; color: var(--th-muted); margin-top: 2px; line-height: 1.2;
     }
-    .th-gantt-row-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+    .th-gantt-row-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; align-items: center; }
+    .th-gantt-row-actions .th-task-start-btn { padding: 1px 5px; font-size: 0.62rem; }
     .th-gantt-row:hover .th-gantt-row-actions { opacity: 1; }
     .th-gantt-icon-btn {
       width: 24px; height: 24px; border: none; border-radius: 6px; background: transparent;
@@ -983,19 +990,39 @@
     return iso < isoDate(new Date());
   }
 
+  function countProjectsInProgress(taskList) {
+    const ids = new Set();
+    for (const t of taskList) {
+      if (t.status === 'in_progress' && t.projectId) ids.add(t.projectId);
+    }
+    return ids.size;
+  }
+
   function myTaskSummaryHtml(tasks) {
-    const incomplete = tasks.filter(t => (t.status || 'todo') !== 'done');
-    const dueSoon = incomplete.filter(t => isDueSoon(t.dueDate)).length;
-    const overdue = incomplete.filter(t => isDueOverdue(t.dueDate, t.status)).length;
-    const blocked = incomplete.filter(t => (t.blockedByIncomplete || []).length > 0).length;
+    const activeTasks = tasks.filter(t => (t.status || 'todo') !== 'done');
+    const projectsInProgress = countProjectsInProgress(tasks);
+    const dueSoon = activeTasks.filter(t => isDueSoon(t.dueDate)).length;
+    const overdue = activeTasks.filter(t => isDueOverdue(t.dueDate, t.status)).length;
+    const blocked = activeTasks.filter(t => (t.blockedByIncomplete || []).length > 0).length;
     const pills = [
       `<span class="th-stat-pill"><em>${tasks.length}</em> shown</span>`,
-      `<span class="th-stat-pill incomplete"><em>${incomplete.length}</em> incomplete</span>`,
     ];
+    if (activeTasks.length) pills.push(`<span class="th-stat-pill active-stat"><em>${activeTasks.length}</em> active</span>`);
+    if (projectsInProgress) {
+      pills.push(`<span class="th-stat-pill warn"><em>${projectsInProgress}</em> ${projectsInProgress === 1 ? 'project' : 'projects'} in progress</span>`);
+    }
     if (dueSoon) pills.push(`<span class="th-stat-pill warn"><em>${dueSoon}</em> due soon</span>`);
     if (overdue) pills.push(`<span class="th-stat-pill warn"><em>${overdue}</em> overdue</span>`);
     if (blocked) pills.push(`<span class="th-stat-pill"><em>${blocked}</em> blocked</span>`);
     return `<div class="th-my-tasks-summary">${pills.join('')}</div>`;
+  }
+
+  function startTaskBtnHtml(taskId, status, projectId) {
+    if ((status || 'todo') !== 'todo') return '';
+    const attrs = projectId
+      ? ` data-start-task="${escapeAttr(taskId)}" data-start-project="${escapeAttr(projectId)}"`
+      : ` data-start-task="${escapeAttr(taskId)}"`;
+    return `<button type="button" class="th-task-start-btn"${attrs}>Start</button>`;
   }
 
   function renderMyTaskCard(t) {
@@ -1022,6 +1049,7 @@
       </div>
       ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
       ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+      ${st === 'todo' ? `<div class="th-my-task-actions">${startTaskBtnHtml(t.id, st, t.projectId)}</div>` : ''}
     </article>`;
   }
 
@@ -1035,10 +1063,11 @@
     }
     const tasks = visibleMyTasks();
     if (!tasks.length) {
-      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No incomplete tasks assigned to you. Check “Show completed” to include finished work.</p>';
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now. Check “Show completed” to include finished work.</p>';
       return;
     }
     el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
+    wireStartButtons(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async () => {
         const pid = item.getAttribute('data-my-project');
@@ -1301,9 +1330,9 @@
       return;
     }
     el.innerHTML = `
-      <span class="th-stat-pill incomplete"><em>${total - done}</em> incomplete</span>
+      <span class="th-stat-pill active-stat"><em>${total - done}</em> active</span>
       <span class="th-stat-pill ok"><em>${done}</em> completed</span>
-      ${inProg ? `<span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>` : ''}
+      <span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>
       ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
     `;
   }
@@ -1357,6 +1386,7 @@
                     ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
                   </div>
                   <div class="th-task-card-actions">
+                    ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                     ${st !== 'done'
                       ? (blocked
                         ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
@@ -1386,6 +1416,7 @@
       });
     });
     wireCompleteButtons(document.getElementById('list-view'));
+    wireStartButtons(document.getElementById('list-view'));
   }
 
   function wireGanttTaskInteractions() {
@@ -1408,6 +1439,7 @@
       });
     });
     wireCompleteButtons(body);
+    wireStartButtons(body);
   }
 
   function ganttDueMetrics(t, range, dayWidth) {
@@ -1515,6 +1547,7 @@
               <span class="th-gantt-row-label-dates">${t.dueDate ? 'Due ' + formatShort(t.dueDate) : 'No due date'}</span>
             </div>
             <span class="th-gantt-row-actions">
+              ${status === 'todo' ? startTaskBtnHtml(t.id, status) : ''}
               <button type="button" class="th-gantt-icon-btn" data-view-task="${escapeAttr(t.id)}" title="View details">⋯</button>
               <button type="button" class="th-gantt-icon-btn danger" data-gantt-delete="${escapeAttr(t.id)}" title="Delete task">×</button>
             </span>
@@ -1531,7 +1564,7 @@
 
     if (!tasks.length) {
       const emptyMsg = allTasks.length && !ganttShowCompleted
-        ? 'No incomplete tasks on the timeline. Check "Show completed" to include finished work.'
+        ? 'No active tasks on the timeline. Check "Show completed" to include finished work.'
         : 'Add tasks with due dates to see the timeline.';
       document.getElementById('gantt-view').innerHTML = `
         <div class="th-gantt-toolbar">
@@ -1705,9 +1738,57 @@
     const done = status === 'done';
     const isBlocked = !done && blocked;
     const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '') + (isBlocked ? ' blocked' : '');
-    const label = done ? 'Mark incomplete' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
+    const label = done ? 'Reopen task' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
     const disabled = isBlocked ? ' disabled' : '';
     return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"${disabled}></button>`;
+  }
+
+  function wireStartButtons(root) {
+    (root || document).querySelectorAll('[data-start-task]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const projectId = btn.getAttribute('data-start-project');
+        try {
+          if (projectId) {
+            await setMyTaskStatus(projectId, btn.getAttribute('data-start-task'), 'in_progress');
+          } else {
+            await setTaskStatus(btn.getAttribute('data-start-task'), 'in_progress');
+          }
+        } catch (err) { showBanner(err.message); }
+      });
+    });
+  }
+
+  async function setTaskStatus(taskId, status) {
+    const task = getTaskById(taskId);
+    if (!task || task.status === status) return;
+    task.status = status;
+    await saveProject(activeProject);
+    showBanner(status === 'in_progress' ? 'Task marked in progress' : 'Task updated', 'ok');
+  }
+
+  async function setMyTaskStatus(projectId, taskId, status) {
+    const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId));
+    const project = data.project;
+    const task = (project.tasks || []).find(t => t.id === taskId);
+    if (!task) throw new Error('Task not found');
+    task.status = status;
+    const saveData = await api('/api/tether/project', {
+      method: 'PUT',
+      body: JSON.stringify({
+        projectId: project.id,
+        title: project.title,
+        description: projectDescription(project),
+        tasks: project.tasks,
+      }),
+    });
+    const local = myTasks.find(t => t.id === taskId && t.projectId === projectId);
+    if (local) local.status = status;
+    if (activeProject && activeProject.id === projectId) {
+      activeProject = saveData.project;
+    }
+    renderMyTasksView();
+    showBanner(status === 'in_progress' ? 'Task marked in progress' : 'Task updated', 'ok');
   }
 
   function wireCompleteButtons(root) {
