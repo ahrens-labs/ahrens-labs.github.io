@@ -174,12 +174,12 @@
     .th-dod label { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
       letter-spacing: 0.07em; color: var(--th-accent); margin-bottom: 8px; }
     .th-dod p { margin: 0; white-space: pre-wrap; line-height: 1.5; color: var(--th-ink); font-size: 0.9rem; }
-    .th-share-url {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    .th-share-link-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 6px;
     }
-    .th-share-url input {
-      flex: 1; min-width: 180px; border: 1px solid var(--th-line); border-radius: 10px;
-      padding: 7px 10px; font-size: 0.78rem; color: var(--th-muted); background: #f8fafc;
+    .th-share-link-row input {
+      flex: 1; min-width: 0; border: 1px solid var(--th-line); border-radius: 10px;
+      padding: 9px 11px; font-size: 0.82rem; color: var(--th-muted); background: #f8fafc;
     }
     .th-members {
       display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
@@ -663,11 +663,6 @@
               <p id="project-description"></p>
             </div>
 
-            <div class="th-share-url" id="share-url-row" style="display:none;">
-              <input type="text" id="share-url-input" readonly aria-label="Project link">
-              <button type="button" class="th-btn th-btn-ghost" id="btn-copy-url">Copy link</button>
-            </div>
-
             <div class="th-members" id="member-chips"></div>
 
             <div id="list-view"></div>
@@ -824,7 +819,14 @@
   <div class="th-modal-backdrop" id="modal-share">
     <div class="th-modal">
       <h3>Share project</h3>
-      <p style="margin:0 0 12px;font-size:0.88rem;color:var(--th-muted);">Enter an Ahrens Labs username or email. They will be able to view and edit tasks.</p>
+      <p style="margin:0 0 12px;font-size:0.88rem;color:var(--th-muted);">Invite someone on Ahrens Labs, or copy a link to this project.</p>
+      <div class="th-field">
+        <label for="share-link-input">Project link</label>
+        <div class="th-share-link-row">
+          <input type="text" id="share-link-input" readonly aria-label="Project link">
+          <button type="button" class="th-btn th-btn-ghost" id="share-copy-link">Copy link</button>
+        </div>
+      </div>
       <div class="th-field">
         <label for="share-input">Username or email</label>
         <input type="text" id="share-input" placeholder="username or person@email.com">
@@ -893,17 +895,6 @@
     if (window.location.href.split('#')[0] !== next) {
       history.replaceState({}, '', next);
     }
-  }
-
-  function updateShareUrlRow() {
-    const row = document.getElementById('share-url-row');
-    const input = document.getElementById('share-url-input');
-    if (!activeProject) {
-      row.style.display = 'none';
-      return;
-    }
-    row.style.display = 'flex';
-    input.value = tetherPageUrl(activeProject.id, viewingTaskId || null);
   }
 
   function setAppTab(tab) {
@@ -990,7 +981,6 @@
     activeProject = data.project;
     renderProjectView();
     syncUrlState(activeProject.id, taskIdFromUrl || viewingTaskId || null);
-    updateShareUrlRow();
     if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
   }
 
@@ -1114,7 +1104,6 @@
       });
     });
 
-    updateShareUrlRow();
     renderProjectList();
     if (viewMode === 'list') renderListView();
     else renderGanttView();
@@ -1622,7 +1611,6 @@
     }
     openModal('modal-task-detail');
     syncUrlState(activeProject.id, taskId);
-    updateShareUrlRow();
   }
 
   function openDeleteTaskModal(taskId, taskTitle) {
@@ -1795,25 +1783,11 @@
     projectSort = e.target.value;
     renderProjectList();
   });
-  document.getElementById('btn-copy-url').addEventListener('click', async () => {
-    const input = document.getElementById('share-url-input');
-    try {
-      await navigator.clipboard.writeText(input.value);
-      showBanner('Link copied', 'ok');
-    } catch {
-      input.select();
-      document.execCommand('copy');
-      showBanner('Link copied', 'ok');
-    }
-  });
 
   document.querySelectorAll('[data-close="modal-task-detail"]').forEach(btn => {
     btn.addEventListener('click', () => {
       viewingTaskId = null;
-      if (activeProject) {
-        syncUrlState(activeProject.id, null);
-        updateShareUrlRow();
-      }
+      if (activeProject) syncUrlState(activeProject.id, null);
     });
   });
 
@@ -1864,7 +1838,24 @@
   });
   document.getElementById('btn-share').addEventListener('click', () => {
     document.getElementById('share-input').value = '';
+    if (activeProject) {
+      document.getElementById('share-link-input').value = tetherPageUrl(activeProject.id, viewingTaskId || null);
+    }
     openModal('modal-share');
+  });
+
+  document.getElementById('share-copy-link').addEventListener('click', async () => {
+    const input = document.getElementById('share-link-input');
+    const text = input.value.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      showBanner('Link copied', 'ok');
+    } catch {
+      input.select();
+      document.execCommand('copy');
+      showBanner('Link copied', 'ok');
+    }
   });
 
   document.getElementById('save-project-btn').addEventListener('click', async () => {
