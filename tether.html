@@ -176,6 +176,21 @@
     .th-task-card.status-todo { border-left-color: #94a3b8; }
     .th-task-card.status-in_progress { border-left-color: var(--th-orange); }
     .th-task-card.status-done { border-left-color: var(--th-green); opacity: 0.92; }
+    .th-task-card.status-done .th-task-link { color: var(--th-muted); text-decoration: line-through; }
+    .th-task-card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+    .th-task-card-head h4 { margin: 0; flex: 1; min-width: 0; }
+    .th-complete-btn {
+      width: 24px; height: 24px; margin-top: 1px; border-radius: 999px; border: 2px solid #cbd5e1;
+      background: #fff; cursor: pointer; flex-shrink: 0; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .th-complete-btn:hover { border-color: var(--th-green); background: var(--th-green-soft); }
+    .th-complete-btn.checked { background: var(--th-green); border-color: var(--th-green); }
+    .th-complete-btn.checked::after {
+      content: '✓'; color: #fff; font-size: 0.8rem; font-weight: 800; line-height: 1;
+    }
+    .th-complete-btn-sm { width: 20px; height: 20px; margin-top: 0; }
+    .th-complete-btn-sm.checked::after { font-size: 0.7rem; }
     .th-task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .th-task-card h4 { margin: 0 0 6px; font-size: 0.98rem; font-weight: 700; }
     .th-task-dod-preview {
@@ -422,6 +437,7 @@
       letter-spacing: 0.05em; color: var(--th-muted); padding-top: 2px; }
     .th-detail-value { color: var(--th-ink); line-height: 1.45; white-space: pre-wrap; }
     .th-task-modal-foot .th-btn-danger { margin-right: auto; }
+    #task-detail-complete:not(.done-toggle) { color: #047857; border-color: #86efac; background: var(--th-green-soft); }
     .th-task-modal-foot .th-btn-primary {
       padding: 10px 20px; border-radius: 12px;
       background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
@@ -631,6 +647,7 @@
         <div class="th-detail-grid" id="task-detail-body"></div>
       </div>
       <div class="th-task-modal-foot">
+        <button type="button" class="th-btn th-btn-ghost" id="task-detail-complete" style="margin-right:auto;">Mark complete</button>
         <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
         <button type="button" class="th-btn th-btn-primary" id="task-detail-edit">Edit task</button>
@@ -906,13 +923,17 @@
               <span class="th-status ${st}">${statusLabel(st)}</span>
               <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
             </div>
-            <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+            <div class="th-task-card-head">
+              ${completeBtnHtml(t.id, st, false)}
+              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+            </div>
             ${t.definitionOfDone ? `<p class="th-task-dod-preview">${escapeHtml(t.definitionOfDone)}</p>` : ''}
             <div class="th-task-card-meta">
               ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
               ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
             </div>
             <div class="th-task-card-actions">
+              ${st !== 'done' ? `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark complete</button>` : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
               <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
               <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
               <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
@@ -933,6 +954,7 @@
         openDeleteTaskModal(task.id, task.title);
       });
     });
+    wireCompleteButtons(document.getElementById('list-view'));
   }
 
   function wireGanttTaskInteractions() {
@@ -943,7 +965,7 @@
     });
     body.querySelectorAll('[data-view-task]').forEach(el => {
       el.addEventListener('click', (e) => {
-        if (e.target.closest('[data-gantt-delete]')) return;
+        if (e.target.closest('[data-gantt-delete]') || e.target.closest('[data-complete-task]')) return;
         openTaskDetailModal(el.getAttribute('data-view-task'));
       });
     });
@@ -954,6 +976,7 @@
         if (task) openDeleteTaskModal(task.id, task.title);
       });
     });
+    wireCompleteButtons(body);
   }
 
   function renderGanttView() {
@@ -991,6 +1014,7 @@
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
           <div class="th-gantt-row-label" data-view-task="${escapeAttr(t.id)}" title="View task details">
+            ${completeBtnHtml(t.id, status, true)}
             <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
             <span class="th-gantt-row-actions">
               <button type="button" class="th-gantt-icon-btn" data-view-task="${escapeAttr(t.id)}" title="View details">⋯</button>
@@ -1093,6 +1117,35 @@
     openModal('modal-project');
   }
 
+  function completeBtnHtml(taskId, status, small) {
+    const done = status === 'done';
+    const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '');
+    const label = done ? 'Mark incomplete' : 'Mark complete';
+    return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"></button>`;
+  }
+
+  function wireCompleteButtons(root) {
+    (root || document).querySelectorAll('[data-complete-task]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTaskComplete(btn.getAttribute('data-complete-task'));
+      });
+    });
+  }
+
+  async function toggleTaskComplete(taskId) {
+    const task = getTaskById(taskId);
+    if (!task) return;
+    task.status = task.status === 'done' ? 'todo' : 'done';
+    try {
+      await saveProject(activeProject);
+      showBanner(task.status === 'done' ? 'Task marked complete' : 'Task reopened', 'ok');
+      if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
+        openTaskDetailModal(taskId);
+      }
+    } catch (e) { showBanner(e.message); }
+  }
+
   function getTaskById(taskId) {
     return (activeProject.tasks || []).find(t => t.id === taskId) || null;
   }
@@ -1115,6 +1168,14 @@
       <div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(task.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
     `;
+    const completeBtn = document.getElementById('task-detail-complete');
+    if (task.status === 'done') {
+      completeBtn.textContent = 'Reopen task';
+      completeBtn.classList.add('done-toggle');
+    } else {
+      completeBtn.textContent = 'Mark complete';
+      completeBtn.classList.remove('done-toggle');
+    }
     openModal('modal-task-detail');
   }
 
@@ -1392,6 +1453,11 @@
       closeModal('modal-share');
       showBanner('Project shared', 'ok');
     } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('task-detail-complete').addEventListener('click', () => {
+    if (!viewingTaskId) return;
+    toggleTaskComplete(viewingTaskId);
   });
 
   document.getElementById('task-detail-edit').addEventListener('click', () => {
