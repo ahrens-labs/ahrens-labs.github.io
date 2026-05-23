@@ -160,13 +160,16 @@
     }
     .th-gantt-days { display: flex; }
     .th-gantt-day {
-      width: 28px; min-width: 28px; text-align: center; padding: 4px 0;
-      border-right: 1px solid rgba(255,255,255,0.08); font-size: 0.65rem;
+      width: var(--gantt-day-px, 44px); min-width: var(--gantt-day-px, 44px); text-align: center; padding: 6px 0;
+      border-right: 1px solid rgba(255,255,255,0.08); font-size: 0.72rem; line-height: 1.2;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     }
+    .th-gantt-dow { font-size: 0.62rem; font-weight: 700; opacity: 0.85; text-transform: uppercase; }
+    .th-gantt-dom { font-size: 0.78rem; font-weight: 700; }
     .th-gantt-day.today { background: rgba(251, 191, 36, 0.35); }
     .th-gantt-body { min-width: max-content; position: relative; }
     .th-gantt-row {
-      display: flex; border-bottom: 1px solid var(--th-line); min-height: 36px; align-items: stretch;
+      display: flex; border-bottom: 1px solid var(--th-line); min-height: var(--gantt-row-px, 44px); align-items: stretch;
     }
     .th-gantt-row-label {
       width: 200px; min-width: 200px; flex-shrink: 0; padding: 8px 10px; font-size: 0.8rem;
@@ -174,19 +177,26 @@
       display: flex; align-items: center;
     }
     .th-gantt-row-track {
-      position: relative; flex: 1; min-height: 36px; background: repeating-linear-gradient(
-        90deg, transparent, transparent 27px, #f1f5f9 27px, #f1f5f9 28px
+      position: relative; flex: 1; min-height: var(--gantt-row-px, 44px);
+    }
+    .th-gantt-grid-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(
+        90deg,
+        #fff,
+        #fff calc(var(--gantt-day-px, 44px) - 1px),
+        #e2e8f0 calc(var(--gantt-day-px, 44px) - 1px),
+        #e2e8f0 var(--gantt-day-px, 44px)
       );
     }
     .th-gantt-bar {
-      position: absolute; top: 7px; height: 22px; border-radius: 6px; font-size: 0.65rem;
-      color: #fff; font-weight: 600; display: flex; align-items: center; padding: 0 6px;
-      overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      position: absolute; top: 8px; height: calc(var(--gantt-row-px, 44px) - 16px); border-radius: 8px;
+      cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 1px 4px rgba(0,0,0,0.12);
+      z-index: 2;
     }
     .th-gantt-bar.todo { background: #6366f1; }
     .th-gantt-bar.in_progress { background: #ea580c; }
-    .th-gantt-bar.done { background: #059669; opacity: 0.85; }
+    .th-gantt-bar.done { background: #059669; opacity: 0.88; }
     .th-gantt-today-line {
       position: absolute; top: 0; bottom: 0; width: 2px; background: #f59e0b; z-index: 1; pointer-events: none;
     }
@@ -396,6 +406,11 @@
   let editingTaskId = null;
   let editingProjectMode = 'create';
 
+  const GANTT_DAY_PX = 44;
+  const GANTT_ROW_PX = 44;
+  const GANTT_LABEL_PX = 200;
+  const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   function authHeaders() {
     return { Authorization: 'Bearer ' + sessionId, 'Content-Type': 'application/json' };
   }
@@ -573,32 +588,41 @@
     const range = ganttRange(tasks);
     const days = daysBetween(range.start, range.end);
     const weeks = groupDaysByWeek(days);
-    const dayWidth = 28;
+    const dayWidth = GANTT_DAY_PX;
+    const rowHeight = GANTT_ROW_PX;
     const trackWidth = days.length * dayWidth;
     const todayStr = isoDate(new Date());
 
     let headWeeks = weeks.map(w => `
-      <div class="th-gantt-week" style="width:${w.days.length * dayWidth}px">
+      <div class="th-gantt-week" style="width:${7 * dayWidth}px;min-width:${7 * dayWidth}px">
         <div class="th-gantt-week-title">Week of ${formatShort(w.days[0])}</div>
         <div class="th-gantt-days">
-          ${w.days.map(d => `<div class="th-gantt-day${d === todayStr ? ' today' : ''}">${d.slice(8)}</div>`).join('')}
+          ${w.days.map(d => {
+            const dt = parseIso(d);
+            const dow = GANTT_DOW_LABELS[dt.getDay()];
+            return `<div class="th-gantt-day${d === todayStr ? ' today' : ''}" style="width:${dayWidth}px;min-width:${dayWidth}px">
+              <span class="th-gantt-dow">${dow}</span>
+              <span class="th-gantt-dom">${dt.getDate()}</span>
+            </div>`;
+          }).join('')}
         </div>
       </div>
     `).join('');
 
-    const barPositions = {};
     let rowsHtml = tasks.map(t => {
       const start = taskStart(t);
       const end = taskDue(t);
       const left = dayIndex(range.start, start) * dayWidth;
-      const width = Math.max(dayWidth, (dayIndex(start, end) + 1) * dayWidth);
-      barPositions[t.id] = { left: 200 + left + width / 2, top: 0, rowIndex: tasks.indexOf(t) };
+      const spanDays = Math.max(1, dayIndex(start, end) + 1);
+      const width = spanDays * dayWidth - 4;
       return `
-        <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}">
+        <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
           <div class="th-gantt-row-label">${escapeHtml(t.title)}</div>
-          <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px">
-            <div class="th-gantt-bar ${t.status || 'todo'}" style="left:${left}px;width:${width}px"
-              title="${escapeHtml(t.title)}" data-gantt-bar="${escapeAttr(t.id)}">${escapeHtml(t.title)}</div>
+          <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px;min-height:${rowHeight}px">
+            <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
+            <div class="th-gantt-bar ${t.status || 'todo'}" style="left:${left + 2}px;width:${width}px"
+              title="${escapeHtml(t.title)}" aria-label="${escapeHtml(t.title)}" data-gantt-bar="${escapeAttr(t.id)}"
+              role="img"></div>
           </div>
         </div>
       `;
@@ -610,6 +634,8 @@
     }
 
     const todayLeft = dayIndex(range.start, todayStr) * dayWidth;
+    document.getElementById('gantt-view').style.setProperty('--gantt-day-px', dayWidth + 'px');
+    document.getElementById('gantt-view').style.setProperty('--gantt-row-px', rowHeight + 'px');
     document.getElementById('gantt-view').innerHTML = `
       <div class="th-gantt">
         <div class="th-gantt-scroll" id="gantt-scroll">
@@ -619,17 +645,17 @@
           </div>
           <div class="th-gantt-body" id="gantt-body" style="position:relative;">
             ${rowsHtml}
-            <div class="th-gantt-today-line" style="left:${200 + todayLeft}px"></div>
-            <svg class="th-gantt-deps" id="gantt-deps-svg" width="${200 + trackWidth}" height="${tasks.length * 36}"></svg>
+            <div class="th-gantt-today-line" style="left:${GANTT_LABEL_PX + todayLeft + dayWidth / 2}px"></div>
+            <svg class="th-gantt-deps" id="gantt-deps-svg" width="${GANTT_LABEL_PX + trackWidth}" height="${tasks.length * rowHeight}"></svg>
           </div>
         </div>
       </div>
     `;
 
-    requestAnimationFrame(() => drawDependencyArrows(tasks, barPositions, dayWidth, range));
+    requestAnimationFrame(() => drawDependencyArrows(tasks));
   }
 
-  function drawDependencyArrows(tasks, barPositions, dayWidth, range) {
+  function drawDependencyArrows(tasks) {
     const svg = document.getElementById('gantt-deps-svg');
     if (!svg) return;
     const body = document.getElementById('gantt-body');
@@ -782,22 +808,23 @@
     const to = parseIso(toIso);
     return Math.round((to - from) / 86400000);
   }
+  function startOfWeekSunday(iso) {
+    const d = parseIso(iso);
+    d.setDate(d.getDate() - d.getDay());
+    return isoDate(d);
+  }
+
+  function endOfWeekSaturday(iso) {
+    const d = parseIso(iso);
+    d.setDate(d.getDate() + (6 - d.getDay()));
+    return isoDate(d);
+  }
+
   function groupDaysByWeek(days) {
     const weeks = [];
-    let current = null;
-    days.forEach(d => {
-      const dt = parseIso(d);
-      const day = dt.getDay();
-      const mondayOffset = (day + 6) % 7;
-      const monday = new Date(dt);
-      monday.setDate(dt.getDate() - mondayOffset);
-      const key = isoDate(monday);
-      if (!current || current.key !== key) {
-        current = { key, days: [] };
-        weeks.push(current);
-      }
-      current.days.push(d);
-    });
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push({ key: days[i], days: days.slice(i, i + 7) });
+    }
     return weeks;
   }
   function taskStart(t) {
@@ -814,23 +841,24 @@
   }
   function ganttRange(tasks) {
     const today = isoDate(new Date());
+    let min = today;
+    let max = today;
     if (!tasks.length) {
       const end = new Date();
-      end.setDate(end.getDate() + 14);
-      return { start: today, end: isoDate(end) };
+      end.setDate(end.getDate() + 13);
+      max = isoDate(end);
+    } else {
+      tasks.forEach(t => {
+        const s = taskStart(t);
+        const e = taskDue(t);
+        if (s < min) min = s;
+        if (e > max) max = e;
+      });
     }
-    let min = today, max = today;
-    tasks.forEach(t => {
-      const s = taskStart(t);
-      const e = taskDue(t);
-      if (s < min) min = s;
-      if (e > max) max = e;
-    });
-    const startD = parseIso(min);
-    startD.setDate(startD.getDate() - 2);
-    const endD = parseIso(max);
-    endD.setDate(endD.getDate() + 7);
-    return { start: isoDate(startD), end: isoDate(endD) };
+    return {
+      start: startOfWeekSunday(min),
+      end: endOfWeekSaturday(max),
+    };
   }
 
   document.getElementById('btn-new-project').addEventListener('click', () => openProjectModal('create'));
