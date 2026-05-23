@@ -162,6 +162,31 @@ function validateTaskDependencyCompletion(tasks) {
   return null;
 }
 
+async function addMemberToProject(env, project, profile) {
+  if (!project || !profile?.userId) return project;
+  const members = Array.isArray(project.members) ? [...project.members] : [];
+  if (members.some((m) => m.userId === profile.userId)) return project;
+
+  members.push({
+    userId: profile.userId,
+    username: profile.username,
+    email: profile.email,
+    role: 'member',
+    addedAt: Date.now(),
+  });
+
+  const updated = { ...project, members, updatedAt: Date.now() };
+  const stub = tetherProjectStub(env, project.id);
+  await stub.fetch(
+    new Request('http://do/save', {
+      method: 'POST',
+      body: JSON.stringify(updated),
+    })
+  );
+  await addTetherProjectId(env, profile.userId, project.id);
+  return updated;
+}
+
 async function resolveShareTarget(env, usernameOrEmail) {
   const raw = String(usernameOrEmail || '').trim();
   if (!raw) return { error: 'Enter a username or email', status: 400 };
@@ -292,10 +317,12 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const projectId = String(url.searchParams.get('projectId') || '').trim();
     if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
 
-    const project = await fetchProject(env, projectId);
+    let project = await fetchProject(env, projectId);
     if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
     if (!userCanAccessProject(project, userId)) {
-      return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+      const profile = await fetchUserProfile(env, userId);
+      if (!profile) return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+      project = await addMemberToProject(env, project, profile);
     }
     return jsonResponse({ project: { ...project, isOwner: userIsOwner(project, userId) } }, corsHeaders);
   }
@@ -379,28 +406,11 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       return jsonResponse({ error: 'You already have access to this project' }, corsHeaders, 400);
     }
 
-    const members = Array.isArray(project.members) ? [...project.members] : [];
-    if (members.some((m) => m.userId === target.userId)) {
+    if ((project.members || []).some((m) => m.userId === target.userId)) {
       return jsonResponse({ error: 'User already has access' }, corsHeaders, 409);
     }
 
-    members.push({
-      userId: target.userId,
-      username: target.username,
-      email: target.email,
-      role: 'member',
-      addedAt: Date.now(),
-    });
-
-    const updated = { ...project, members, updatedAt: Date.now() };
-    const stub = tetherProjectStub(env, projectId);
-    await stub.fetch(
-      new Request('http://do/save', {
-        method: 'POST',
-        body: JSON.stringify(updated),
-      })
-    );
-    await addTetherProjectId(env, target.userId, projectId);
+    const updated = await addMemberToProject(env, project, target);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 

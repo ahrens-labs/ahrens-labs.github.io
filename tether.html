@@ -441,6 +441,7 @@
     .th-modal h3 { margin: 0 0 14px; color: var(--th-ink); }
     .th-field { margin-bottom: 12px; }
     .th-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--th-muted); margin-bottom: 4px; }
+    .th-field-hint { margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--th-muted); }
     .th-field input, .th-field textarea, .th-field select {
       width: 100%; box-sizing: border-box; border: 1px solid var(--th-line); border-radius: 10px;
       padding: 9px 11px; font: inherit; font-size: 0.88rem;
@@ -819,17 +820,19 @@
   <div class="th-modal-backdrop" id="modal-share">
     <div class="th-modal">
       <h3>Share project</h3>
-      <p style="margin:0 0 12px;font-size:0.88rem;color:var(--th-muted);">Invite someone on Ahrens Labs, or copy a link to this project.</p>
+      <p style="margin:0 0 12px;font-size:0.88rem;color:var(--th-muted);">Share with other Ahrens Labs users so they can view and edit tasks in this project.</p>
       <div class="th-field">
         <label for="share-link-input">Project link</label>
         <div class="th-share-link-row">
           <input type="text" id="share-link-input" readonly aria-label="Project link">
           <button type="button" class="th-btn th-btn-ghost" id="share-copy-link">Copy link</button>
         </div>
+        <p class="th-field-hint">Send this link to another Ahrens Labs user. When they open it while signed in, they are added to the project and can view and edit it.</p>
       </div>
       <div class="th-field">
-        <label for="share-input">Username or email</label>
+        <label for="share-input">Or add by username or email</label>
         <input type="text" id="share-input" placeholder="username or person@email.com">
+        <p class="th-field-hint">Adds them immediately without needing the link.</p>
       </div>
       <div class="th-modal-actions">
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-share">Cancel</button>
@@ -979,6 +982,7 @@
   async function loadProject(projectId, taskIdFromUrl) {
     const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'GET' });
     activeProject = data.project;
+    if (!projects.some(p => p.id === projectId)) await loadProjects();
     renderProjectView();
     syncUrlState(activeProject.id, taskIdFromUrl || viewingTaskId || null);
     if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
