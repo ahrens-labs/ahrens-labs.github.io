@@ -1020,7 +1020,7 @@
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
       </div>
-      ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
+      ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
       ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
     </article>`;
   }
