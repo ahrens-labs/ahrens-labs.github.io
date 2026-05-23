@@ -2570,7 +2570,7 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
       html: content.html,
       text: content.text,
       fromAddr: 'caleb@ahrenslabs.com',
-      fromName: 'Sports Digest',
+      fromName: 'Digest',
     });
   } catch (e) {
     const summary = summarizeEmailSendError(e);
@@ -2629,7 +2629,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
     return new Response(
       JSON.stringify({
         error:
-          'Confirm your email address before turning on Sports Digest. Use the link in the message we sent when you signed up.',
+          'Confirm your email address before turning on Digest. Use the link in the message we sent when you signed up.',
       }),
       {
         status: 400,
@@ -2644,7 +2644,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
       return new Response(
         JSON.stringify({
           error:
-            'Your account needs a deliverable email address before Sports Digest can be turned on.',
+            'Your account needs a deliverable email address before Digest can be turned on.',
         }),
         {
           status: 400,
@@ -2699,7 +2699,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Could not update Sports Digest subscription storage. Try again later.',
+          error: 'Could not update Digest subscription storage. Try again later.',
         }),
         {
           status: 500,
@@ -2711,7 +2711,7 @@ async function handleSportsDigestPreferences(request, env, corsHeaders) {
 
   if (!env.SPORTS_DIGEST_KV && validated.prefs.enabled) {
     warning =
-      'Sports Digest list storage is not configured on this Worker; preferences saved but scheduled sends require SPORTS_DIGEST_KV.';
+      'Digest list storage is not configured on this Worker; preferences saved but scheduled sends require SPORTS_DIGEST_KV.';
   }
 
   return new Response(
@@ -6728,9 +6728,9 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 20px 0;">
                 <tr>
                   <td style="padding:14px 16px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;">
-                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">Sports Digest</p>
-                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Optional email updates for the teams you follow across <strong>MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC</strong>. Pick up to 25 teams, choose how often you hear from us (daily, weekly, or custom times in <strong>Central Time</strong>), and get schedules plus headlines in one message. Turn it on from <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Sports Digest</a> (linked from the <a href="${codingLabUrl}" style="color:#2563eb;font-weight:600;">Coding Lab</a>) once your email is confirmed.</p>
-                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Set up Sports Digest →</a></p>
+                    <p style="margin:0 0 6px 0;font-size:15px;font-weight:700;color:#0f172a;">Digest</p>
+                    <p style="margin:0;font-size:14px;line-height:1.55;color:#475569;">Optional email updates for the teams you follow across <strong>MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC</strong>. Pick up to 25 teams, choose how often you hear from us (daily, weekly, or custom times in <strong>Central Time</strong>), and get schedules plus headlines in one message. Turn it on from <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a> (linked from the <a href="${codingLabUrl}" style="color:#2563eb;font-weight:600;">Coding Lab</a>) once your email is confirmed.</p>
+                    <p style="margin:10px 0 0 0;font-size:14px;"><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Set up Digest →</a></p>
                   </td>
                 </tr>
               </table>
@@ -6782,7 +6782,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                       <li style="margin:0 0 8px 0;"><strong>Achievements &amp; points</strong> — a large catalog spanning tactics, speed, material, blindfold milestones, time controls, and unusual feats. Points feed <strong>Total Points</strong> and unlock rarer goals.</li>
                       <li style="margin:0 0 8px 0;"><strong>Shop &amp; cosmetics</strong> — spend earned points on boards, piece sets, highlights, arrows, themes, move and checkmate flair, and time controls. Purchases stay on your profile across devices.</li>
                       <li style="margin:0 0 8px 0;"><strong>Daily challenges &amp; roundup</strong> — three rotating achievements refresh each day in TrifangX. In your <a href="${dashUrl}" style="color:#2563eb;font-weight:600;">dashboard</a>, turn on the <strong>daily challenge roundup email</strong> (sent once per day) or use <strong>email today’s challenges now</strong> anytime.</li>
-                      <li style="margin:0 0 8px 0;"><strong>Sports Digest</strong> — separate optional mail for your favorite teams’ schedules and headlines; configure teams and send times on the <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Sports Digest</a> page.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Digest</strong> — separate optional mail for your favorite teams’ schedules and headlines; configure teams and send times on the <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a> page.</li>
                       <li style="margin:0 0 8px 0;"><strong>Board tools</strong> — legal-move hints, arrows and highlights, premoves, and blindfold or mental-board modes for training or variety.</li>
                       <li style="margin:0 0 8px 0;"><strong>Game history &amp; replay</strong> — reopen recent games from the cloud on the board and step through move-by-move.</li>
                       <li style="margin:0;"><strong>Modes</strong> — casual engine sparring, clocked games with increments, and optional live-engine play from the lobby when you enable it.</li>
@@ -6833,12 +6833,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 16px 0;">
                 <tr>
                   <td style="padding:16px 18px;border:1px solid #e2e8f0;border-radius:12px;background:#ffffff;">
-                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Sports Digest</p>
+                    <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Digest</p>
                     <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
                       <li style="margin:0 0 8px 0;"><strong>Your teams</strong> — MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC; search or browse by league.</li>
                       <li style="margin:0 0 8px 0;"><strong>Your schedule</strong> — daily, weekly, or custom delivery on 15-minute marks in Central Time.</li>
                       <li style="margin:0 0 8px 0;"><strong>What you get</strong> — upcoming games and headlines for the teams you picked, in one email.</li>
-                      <li style="margin:0;"><strong>Opt-in only</strong> — off by default; enable anytime after email confirmation at <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Sports Digest</a>.</li>
+                      <li style="margin:0;"><strong>Opt-in only</strong> — off by default; enable anytime after email confirmation at <a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a>.</li>
                     </ul>
                   </td>
                 </tr>
@@ -6862,7 +6862,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                     <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">Account dashboard</p>
                     <ul style="margin:0;padding:0 0 0 18px;font-size:14px;line-height:1.65;color:#475569;">
                       <li style="margin:0 0 8px 0;"><strong>Profile &amp; sign-in</strong> — change <strong>password</strong> or <strong>username</strong> (username changes need your current password).</li>
-                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — toggle the <strong>daily challenge roundup</strong>, set up <strong><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Sports Digest</a></strong> for your teams, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
+                      <li style="margin:0 0 8px 0;"><strong>Email</strong> — toggle the <strong>daily challenge roundup</strong>, set up <strong><a href="${sportsDigestUrl}" style="color:#2563eb;font-weight:600;">Digest</a></strong> for your teams, <strong>resend this welcome guide</strong>, or <strong>email today’s challenges now</strong>.</li>
                       <li style="margin:0 0 8px 0;"><strong>TrifangX shortcuts</strong> — open <strong>shop, settings, or achievements</strong> straight from the dashboard.</li>
                       <li style="margin:0;"><strong>Delete account</strong> — start removal when you want cloud data wiped; you get a confirmation email when it finishes.</li>
                     </ul>
@@ -6870,7 +6870,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
                   </td>
                 </tr>
               </table>
-              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll message you to <strong>confirm your address</strong> and for account security (for example password reset). Optional TrifangX roundup, <strong>Sports Digest</strong>, and milestone mail — change anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a> or on the <a href="${sportsDigestUrl}" style="color:#1d4ed8;font-weight:600;">Sports Digest</a> page.</p>
+              <p style="margin:24px 0 0 0;padding:16px;background:#eff6ff;border-radius:12px;font-size:14px;line-height:1.6;color:#1e3a8a;border-left:4px solid #2563eb;"><strong>Email from us:</strong> we’ll message you to <strong>confirm your address</strong> and for account security (for example password reset). Optional TrifangX roundup, <strong>Digest</strong>, and milestone mail — change anytime in <a href="${dashUrl}" style="color:#1d4ed8;font-weight:600;">your dashboard</a> or on the <a href="${sportsDigestUrl}" style="color:#1d4ed8;font-weight:600;">Digest</a> page.</p>
               <p style="margin:24px 0 0 0;font-size:15px;line-height:1.65;color:#334155;">Questions, ideas, or bug reports? Email <a href="mailto:caleb@ahrenslabs.com" style="color:#2563eb;font-weight:600;">caleb@ahrenslabs.com</a>.</p>
               <p style="margin:24px 0 0 0;font-size:13px;line-height:1.55;color:#94a3b8;">All links point to <a href="${homeUrl}" style="color:#64748b;">ahrenslabs.com</a>. If you didn’t create this account, you can ignore this email.</p>
             </td>
@@ -6905,7 +6905,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     'TrifangX chess —',
     'Spar with a strong engine, unlock hundreds of achievements, spend points in a cosmetic shop (boards, pieces, themes, effects), and complete three daily challenges that refresh each day on your device. From your account dashboard you can opt into a daily roundup email or request today’s list anytime.',
     '',
-    'Sports Digest —',
+    'Digest —',
     'Optional email for the teams you follow across MLB, NFL, NBA, NHL, Premier League, Big Ten, and SEC. Pick teams, choose daily/weekly/custom send times (Central Time), and get schedules plus headlines. Turn it on after email confirmation:',
     sportsDigestUrl,
     '',
@@ -6932,7 +6932,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '• Achievements & points — large catalog (tactics, speed, material, blindfold, time controls, unusual feats). Points feed Total Points and rarer goals.',
     '• Shop & cosmetics — boards, piece sets, highlights, arrows, themes, move and checkmate flair, time controls. Purchases stay on your profile across devices.',
     `• Daily challenges & roundup — three rotating achievements each day. Dashboard: daily roundup email (once per day) or email today’s challenges now.`,
-    `• Sports Digest — optional team schedules and headlines; pick teams and send times at ${sportsDigestUrl}`,
+    `• Digest — optional team schedules and headlines; pick teams and send times at ${sportsDigestUrl}`,
     '• Board tools — legal-move hints, arrows and highlights, premoves, blindfold or mental-board modes.',
     '• Game history & replay — reopen recent games from the cloud and step through move-by-move.',
     '• Modes — casual engine sparring, clocked games with increments, optional live-engine play from the lobby when enabled.',
@@ -6957,7 +6957,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '• Saved progress — resume on any device.',
     '• For curious learners — conlangs, puzzles, short daily study.',
     '',
-    'Sports Digest:',
+    'Digest:',
     '• Your teams — MLB, NFL, NBA, NHL, Premier League, Big Ten, SEC.',
     '• Your schedule — daily, weekly, or custom times in Central Time.',
     '• What you get — upcoming games and headlines for picked teams.',
@@ -6971,12 +6971,12 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
     '',
     'Account dashboard:',
     `• Profile & sign-in — change password or username (username needs current password).`,
-    '• Email — daily challenge roundup, Sports Digest for your teams, resend this welcome guide, email today’s challenges now.',
+    '• Email — daily challenge roundup, Digest for your teams, resend this welcome guide, email today’s challenges now.',
     '• TrifangX shortcuts — open shop, settings, or achievements from the dashboard.',
     '• Delete account — start removal when you want cloud data wiped; confirmation email when it finishes.',
     'One email and password for every product above.',
     '',
-    'Email from us: we will message you to confirm your address and for account security (for example password reset). Optional TrifangX roundup, Sports Digest, and milestone mail — change anytime in your dashboard or Sports Digest page:',
+    'Email from us: we will message you to confirm your address and for account security (for example password reset). Optional TrifangX roundup, Digest, and milestone mail — change anytime in your dashboard or Digest page:',
     dashUrl,
     sportsDigestUrl,
     '',
@@ -7301,7 +7301,7 @@ async function handleScheduledCron(event, env) {
   });
 }
 
-/** Sports Digest — same delivery path as daily challenge mail (EMAIL_TRANSACTIONAL + dispatchTransactionalEmail). */
+/** Digest — same delivery path as daily challenge mail (EMAIL_TRANSACTIONAL + dispatchTransactionalEmail). */
 async function handleSportsDigestScheduledCron(event, env) {
   if (!env.SPORTS_DIGEST_KV) {
     console.log('sports-digest cron: SPORTS_DIGEST_KV not bound');
@@ -7376,7 +7376,7 @@ async function handleSportsDigestScheduledCron(event, env) {
           html: content.html,
           text: content.text,
           fromAddr: 'caleb@ahrenslabs.com',
-          fromName: 'Sports Digest',
+          fromName: 'Digest',
         });
         const updated = applySendKey(raw, sendKey);
         await env.SPORTS_DIGEST_KV.put(name, JSON.stringify({ ...updated, email: raw.email, username: raw.username }));

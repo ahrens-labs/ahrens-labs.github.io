@@ -123,7 +123,7 @@ export function validateSportsDigestSave(body) {
   }
   const teams = [...new Set(body.teams.map(mapLegacyTeamId).filter(Boolean))];
   if (body.enabled && teams.length === 0) {
-    return { ok: false, error: 'Choose at least one team when Sports Digest is on.' };
+    return { ok: false, error: 'Choose at least one team when Digest is on.' };
   }
   if (body.enabled && teams.length > SPORTS_DIGEST_MAX_TEAMS) {
     return {

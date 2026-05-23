@@ -23,7 +23,7 @@
     { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html', group: 'Projects' },
     { id: 'classify', label: 'Classify Planner', href: 'classify.html', group: 'Projects' },
     { id: 'tether', label: 'Tether', href: 'tether.html', group: 'Projects' },
-    { id: 'sportsDigest', label: 'Sports Digest', href: 'sports-digest.html', group: 'Projects' },
+    { id: 'sportsDigest', label: 'Digest', href: 'sports-digest.html', group: 'Projects' },
     { id: 'spud', label: 'Spud', href: 'spud.html', group: 'Projects' },
     { id: 'lotr', label: 'LOTR', href: 'lotr.html', group: 'Projects' },
     { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html', group: 'Projects' },

@@ -54,7 +54,7 @@ Cloudflare is rejecting the **To** address. Your `/api/debug` can show `transact
 
 **Lighter fix:** only `RESEND_API_KEY` (no `TRANSACTIONAL_EMAIL_VIA`) — the Worker falls back to Resend after Cloudflare errors, including `E_RECIPIENT_NOT_ALLOWED`.
 
-## Sports Digest subscriptions
+## Digest subscriptions
 
 The site page `sports-digest.html` saves preferences via `POST /api/sports-digest-preferences` and stores subscriber rows in **KV** for the separate `sports-digest` worker.
 

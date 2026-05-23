@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sports Digest — Ahrens Labs</title>
+  <title>Digest — Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
@@ -388,7 +388,7 @@
       <section class="sd-hero">
         <div class="sd-hero-inner">
           <div class="sd-kicker">⚾ 🏈 🏀 🏒 ⚽ MLB · NFL · NBA · NHL · Premier League · Big Ten · SEC</div>
-          <h1>Sports Digest</h1>
+          <h1>Digest</h1>
           <p class="sd-sub">
             Schedules and headlines for the teams you pick —
             delivered on your schedule. All send times are <strong>Central Time</strong>.
@@ -402,7 +402,7 @@
         <p class="sd-account-line" id="sd-account-line"></p>
 
         <div class="sd-verify" id="sd-verify-banner">
-          <strong>Confirm your email</strong> — open the link we sent when you signed up. Sports Digest stays off until your address is verified.
+          <strong>Confirm your email</strong> — open the link we sent when you signed up. Digest stays off until your address is verified.
         </div>
 
         <div class="sd-schedule-status" id="sd-schedule-status"></div>
@@ -410,7 +410,7 @@
         <div class="sd-toggle">
           <input type="checkbox" id="sd-enabled">
           <div>
-            <label for="sd-enabled">Email me the Sports Digest</label>
+            <label for="sd-enabled">Email me the Digest</label>
             <p id="sd-enabled-hint">Turn on to receive updates at your account email.</p>
           </div>
         </div>
@@ -936,7 +936,7 @@
         const prefs = collectPrefs();
         setStatus('', '');
         if (prefs.enabled && prefs.teams.length === 0) {
-          setStatus('Choose at least one team when Sports Digest is on.', 'err');
+          setStatus('Choose at least one team when Digest is on.', 'err');
           return;
         }
         if (prefs.enabled && prefs.teams.length > (catalog.maxTeams || 25)) {
@@ -968,8 +968,8 @@
           const data = await res.json().catch(function () { return {}; });
           if (res.ok && data.success) {
             let msg = prefs.enabled
-              ? 'Saved. You will receive Sports Digest emails on your chosen schedule.'
-              : 'Saved. Sports Digest is off.';
+              ? 'Saved. You will receive Digest emails on your chosen schedule.'
+              : 'Saved. Digest is off.';
             if (data.warning) msg += ' ' + data.warning;
             if (prefs.enabled && data.kvSynced === false && !data.warning) {
               msg += ' Scheduled sends may not work until you save again or reload this page.';
