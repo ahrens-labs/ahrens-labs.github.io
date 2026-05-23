@@ -1451,6 +1451,12 @@
     });
   }
 
+  function scrollGanttToStart(smooth) {
+    const scrollEl = document.getElementById('gantt-scroll');
+    if (!scrollEl) return;
+    scrollEl.scrollTo({ left: 0, behavior: smooth ? 'smooth' : 'auto' });
+  }
+
   function scrollGanttToToday(smooth) {
     const scrollEl = document.getElementById('gantt-scroll');
     if (!scrollEl) return;
@@ -1597,7 +1603,7 @@
     requestAnimationFrame(() => {
       drawDependencyArrows(tasks);
       wireGanttTaskInteractions();
-      scrollGanttToToday(false);
+      scrollGanttToStart(false);
     });
   }
 
