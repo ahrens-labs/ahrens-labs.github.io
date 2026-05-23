@@ -146,6 +146,7 @@
     }
     .th-stat-pill em { font-style: normal; font-weight: 800; color: var(--th-ink); }
     .th-stat-pill.accent { background: var(--th-accent-soft); border-color: #c7d2fe; color: #4338ca; }
+    .th-stat-pill.incomplete { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
     .th-stat-pill.warn { background: var(--th-orange-soft); border-color: #fed7aa; color: #c2410c; }
     .th-stat-pill.ok { background: var(--th-green-soft); border-color: #86efac; color: #047857; }
     .th-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -989,7 +990,7 @@
     const blocked = incomplete.filter(t => (t.blockedByIncomplete || []).length > 0).length;
     const pills = [
       `<span class="th-stat-pill"><em>${tasks.length}</em> shown</span>`,
-      `<span class="th-stat-pill accent"><em>${incomplete.length}</em> incomplete</span>`,
+      `<span class="th-stat-pill incomplete"><em>${incomplete.length}</em> incomplete</span>`,
     ];
     if (dueSoon) pills.push(`<span class="th-stat-pill warn"><em>${dueSoon}</em> due soon</span>`);
     if (overdue) pills.push(`<span class="th-stat-pill warn"><em>${overdue}</em> overdue</span>`);
@@ -1300,7 +1301,7 @@
       return;
     }
     el.innerHTML = `
-      <span class="th-stat-pill accent"><em>${total - done}</em> incomplete</span>
+      <span class="th-stat-pill incomplete"><em>${total - done}</em> incomplete</span>
       <span class="th-stat-pill ok"><em>${done}</em> completed</span>
       ${inProg ? `<span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>` : ''}
       ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
