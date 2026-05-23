@@ -864,6 +864,10 @@
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let ganttTodayLeft = 0;
   let ganttShowCompleted = true;
+  let projectsLoadPromise = null;
+  let activeProjectLoadId = 0;
+
+  const projectsCacheKey = () => 'tether_projects_' + (sessionId || 'none');
 
   function ganttTrackLeft() { return GANTT_LABEL_PX; }
 
@@ -973,19 +977,92 @@
     currentUser = data;
   }
 
+  function readProjectsCache() {
+    try {
+      const raw = sessionStorage.getItem(projectsCacheKey());
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return Array.isArray(data.projects) ? data.projects : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeProjectsCache(list) {
+    try {
+      sessionStorage.setItem(projectsCacheKey(), JSON.stringify({ projects: list, at: Date.now() }));
+    } catch {}
+  }
+
   async function loadProjects() {
-    const data = await api('/api/tether/projects', { method: 'GET' });
-    projects = data.projects || [];
+    if (projectsLoadPromise) return projectsLoadPromise;
+    projectsLoadPromise = (async () => {
+      const data = await api('/api/tether/projects', { method: 'GET' });
+      projects = data.projects || [];
+      writeProjectsCache(projects);
+      renderProjectList();
+    })();
+    try {
+      await projectsLoadPromise;
+    } finally {
+      projectsLoadPromise = null;
+    }
+  }
+
+  function showProjectLoadingPreview(projectId) {
+    const preview = projects.find(p => p.id === projectId);
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('project-view').style.display = 'block';
+    document.getElementById('project-title').textContent = preview ? preview.title : 'Loading project…';
+    document.getElementById('project-description').textContent = preview?.description || 'Loading…';
+    document.getElementById('project-stats').innerHTML = '';
+    document.getElementById('member-chips').innerHTML = '';
+    document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);padding:12px 0;font-size:0.88rem;">Loading project…</p>';
+    document.getElementById('gantt-view').innerHTML = '';
+    document.getElementById('gantt-view').style.display = 'none';
+    document.getElementById('list-view').style.display = 'block';
     renderProjectList();
   }
 
   async function loadProject(projectId, taskIdFromUrl) {
-    const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'GET' });
-    activeProject = data.project;
-    if (!projects.some(p => p.id === projectId)) await loadProjects();
-    renderProjectView();
-    syncUrlState(activeProject.id, taskIdFromUrl || viewingTaskId || null);
-    if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
+    const loadId = ++activeProjectLoadId;
+    showProjectLoadingPreview(projectId);
+    try {
+      const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'GET' });
+      if (loadId !== activeProjectLoadId) return;
+      activeProject = data.project;
+      const listItem = projectListItemFromProject(activeProject);
+      const idx = projects.findIndex(p => p.id === projectId);
+      if (idx >= 0) projects[idx] = { ...projects[idx], ...listItem };
+      else projects.push(listItem);
+      writeProjectsCache(projects);
+      renderProjectView();
+      syncUrlState(activeProject.id, taskIdFromUrl || viewingTaskId || null);
+      renderProjectList();
+      if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
+    } catch (e) {
+      if (loadId !== activeProjectLoadId) return;
+      activeProject = null;
+      document.getElementById('project-view').style.display = 'none';
+      document.getElementById('empty-state').style.display = 'flex';
+      renderProjectList();
+      throw e;
+    }
+  }
+
+  function projectListItemFromProject(project) {
+    const tasks = project.tasks || [];
+    return {
+      id: project.id,
+      title: project.title,
+      description: projectDescription(project),
+      ownerUserId: project.ownerUserId,
+      isOwner: project.isOwner,
+      memberCount: (project.members || []).length,
+      taskCount: tasks.length,
+      tasksDoneCount: tasks.filter(t => (t.status || 'todo') === 'done').length,
+      updatedAt: project.updatedAt,
+    };
   }
 
   async function saveProject(project) {
@@ -1023,16 +1100,13 @@
       return;
     }
     list.innerHTML = sortedProjects(projects).map(p => {
-      let progressHtml = '';
-      if (activeProject && activeProject.id === p.id && activeProject.tasks) {
-        const total = activeProject.tasks.length;
-        const done = activeProject.tasks.filter(t => t.status === 'done').length;
-        const pct = total ? Math.round((done / total) * 100) : 0;
-        progressHtml = `<div class="th-project-progress"><span style="width:${pct}%"></span></div>
-          <span class="meta">${done}/${total} done · ${p.memberCount || 1} on board</span>`;
-      } else {
-        progressHtml = `<span class="meta">${p.taskCount || 0} tasks · ${p.memberCount || 1} on board</span>`;
-      }
+      const total = p.taskCount || 0;
+      const done = p.tasksDoneCount || 0;
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      const progressHtml = total
+        ? `<div class="th-project-progress"><span style="width:${pct}%"></span></div>
+          <span class="meta">${done}/${total} done · ${p.memberCount || 1} on board</span>`
+        : `<span class="meta">${total} tasks · ${p.memberCount || 1} on board</span>`;
       return `
       <li>
         <button type="button" class="th-project-item${activeProject && activeProject.id === p.id ? ' active' : ''}"
@@ -1797,16 +1871,22 @@
 
   async function init() {
     if (!sessionId) return;
+    const cached = readProjectsCache();
+    if (cached && cached.length) {
+      projects = cached;
+      renderProjectList();
+    }
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get('project');
+    const taskId = params.get('task');
+    if (projectId) {
+      setAppTab('projects');
+      showProjectLoadingPreview(projectId);
+    }
     try {
-      await loadUser();
-      await loadProjects();
-      const params = new URLSearchParams(window.location.search);
-      const projectId = params.get('project');
-      const taskId = params.get('task');
-      if (projectId) {
-        setAppTab('projects');
-        await loadProject(projectId, taskId || null);
-      }
+      const jobs = [loadUser(), loadProjects()];
+      if (projectId) jobs.push(loadProject(projectId, taskId || null));
+      await Promise.all(jobs);
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
     }

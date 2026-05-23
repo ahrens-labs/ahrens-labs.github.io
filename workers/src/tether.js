@@ -110,6 +110,9 @@ async function fetchProject(env, projectId) {
 function userCanAccessProject(project, userId) {
   if (!project || !userId) return false;
   if (project.ownerUserId === userId) return true;
+  if (Array.isArray(project.memberUserIds)) {
+    return project.memberUserIds.includes(userId);
+  }
   return Array.isArray(project.members) && project.members.some((m) => m.userId === userId);
 }
 
@@ -129,16 +132,69 @@ function projectDescription(project) {
 }
 
 function projectListItem(project, userId) {
+  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
+  const taskCount = project.taskCount != null ? project.taskCount : tasks.length;
+  const tasksDoneCount =
+    project.tasksDoneCount != null
+      ? project.tasksDoneCount
+      : tasks.filter((t) => (t.status || 'todo') === 'done').length;
+  return {
+    id: project.id,
+    title: project.title,
+    description: project.description != null ? project.description : projectDescription(project),
+    ownerUserId: project.ownerUserId,
+    isOwner: userIsOwner(project, userId),
+    memberCount: project.memberCount != null ? project.memberCount : (Array.isArray(project.members) ? project.members.length : 0),
+    taskCount,
+    tasksDoneCount,
+    updatedAt: project.updatedAt,
+  };
+}
+
+function buildListMeta(project) {
+  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
+  const members = Array.isArray(project.members) ? project.members : [];
   return {
     id: project.id,
     title: project.title,
     description: projectDescription(project),
     ownerUserId: project.ownerUserId,
-    isOwner: userIsOwner(project, userId),
-    memberCount: Array.isArray(project.members) ? project.members.length : 0,
-    taskCount: Array.isArray(project.tasks) ? project.tasks.length : 0,
+    memberUserIds: members.map((m) => m.userId).filter(Boolean),
+    memberCount: members.length,
+    taskCount: tasks.length,
+    tasksDoneCount: tasks.filter((t) => (t.status || 'todo') === 'done').length,
     updatedAt: project.updatedAt,
   };
+}
+
+async function fetchProjectListMeta(env, projectId) {
+  const stub = tetherProjectStub(env, projectId);
+  if (!stub) return null;
+  const res = await stub.fetch(new Request('http://do/get-list-meta', { method: 'GET' }));
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function fetchAccessibleProjectSummaries(env, projectIds, userId) {
+  const results = await Promise.all(
+    projectIds.map(async (pid) => {
+      const meta = await fetchProjectListMeta(env, pid);
+      if (!meta || !userCanAccessProject(meta, userId)) return null;
+      return projectListItem(meta, userId);
+    })
+  );
+  return results.filter(Boolean);
+}
+
+async function fetchAccessibleProjects(env, projectIds, userId) {
+  const results = await Promise.all(
+    projectIds.map(async (pid) => {
+      const project = await fetchProject(env, pid);
+      if (!project || !userCanAccessProject(project, userId)) return null;
+      return project;
+    })
+  );
+  return results.filter(Boolean);
 }
 
 /** Reject saves where a done task still has incomplete dependencies. */
@@ -236,21 +292,15 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
 
   if (path === '/api/tether/projects' && request.method === 'GET') {
     const projectIds = await getTetherProjectIds(env, userId);
-    const projects = [];
-    for (const pid of projectIds) {
-      const project = await fetchProject(env, pid);
-      if (!project || !userCanAccessProject(project, userId)) continue;
-      projects.push(projectListItem(project, userId));
-    }
+    const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
     return jsonResponse({ projects }, corsHeaders);
   }
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
     const projectIds = await getTetherProjectIds(env, userId);
+    const accessible = await fetchAccessibleProjects(env, projectIds, userId);
     const tasks = [];
-    for (const pid of projectIds) {
-      const project = await fetchProject(env, pid);
-      if (!project || !userCanAccessProject(project, userId)) continue;
+    for (const project of accessible) {
       for (const task of project.tasks || []) {
         if (!(task.assigneeUserIds || []).includes(userId)) continue;
         tasks.push({
@@ -462,6 +512,7 @@ export class TetherProject {
       if (path === '/create' && request.method === 'POST') {
         const project = await request.json();
         await this.storage.put('project', project);
+        await this.storage.put('listMeta', buildListMeta(project));
         return jsonResponse({ success: true }, {});
       }
       if (path === '/get' && request.method === 'GET') {
@@ -469,9 +520,20 @@ export class TetherProject {
         if (!project) return jsonResponse({ error: 'Not found' }, {}, 404);
         return jsonResponse(project, {});
       }
+      if (path === '/get-list-meta' && request.method === 'GET') {
+        let meta = await this.storage.get('listMeta');
+        if (!meta) {
+          const project = await this.storage.get('project');
+          if (!project) return jsonResponse({ error: 'Not found' }, {}, 404);
+          meta = buildListMeta(project);
+          await this.storage.put('listMeta', meta);
+        }
+        return jsonResponse(meta, {});
+      }
       if (path === '/save' && request.method === 'POST') {
         const project = await request.json();
         await this.storage.put('project', project);
+        await this.storage.put('listMeta', buildListMeta(project));
         return jsonResponse({ success: true }, {});
       }
       if (path === '/delete' && request.method === 'POST') {
