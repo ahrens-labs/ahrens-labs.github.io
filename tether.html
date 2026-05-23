@@ -227,45 +227,84 @@
       border: none; background: transparent; color: var(--th-accent); cursor: pointer;
       font-size: 0.78rem; font-weight: 600; padding: 0;
     }
+    .th-gantt-toolbar {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .th-gantt-legend {
+      display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.74rem; font-weight: 600; color: var(--th-muted);
+    }
+    .th-gantt-legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .th-gantt-legend i {
+      width: 10px; height: 10px; border-radius: 999px; display: inline-block; flex-shrink: 0;
+    }
+    .th-gantt-legend i.todo { background: #6366f1; }
+    .th-gantt-legend i.in_progress { background: var(--th-orange); }
+    .th-gantt-legend i.done { background: var(--th-green); }
+    .th-gantt-today-btn { font-size: 0.78rem; padding: 6px 12px; }
     .th-gantt { border: 1px solid var(--th-line); border-radius: 16px; overflow: hidden; background: #fff; }
-    .th-gantt-scroll { overflow-x: auto; position: relative; }
+    .th-gantt-scroll { overflow: auto; position: relative; max-height: min(68vh, 680px); }
     .th-gantt-head {
       display: flex; background: #fff; color: var(--th-ink); font-size: 0.72rem; font-weight: 600;
       min-width: max-content; border-bottom: 2px solid var(--th-line);
+      position: sticky; top: 0; z-index: 6;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
     }
     .th-gantt-label-col {
-      width: 200px; min-width: 200px; flex-shrink: 0; border-right: 1px solid var(--th-line);
-      padding: 10px 12px; position: sticky; left: 0; z-index: 3; background: #f8fafc;
+      width: var(--gantt-label-px, 248px); min-width: var(--gantt-label-px, 248px); flex-shrink: 0;
+      border-right: 1px solid var(--th-line);
+      padding: 12px 14px; position: sticky; left: 0; z-index: 7; background: #f8fafc;
       font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--th-muted);
     }
     .th-gantt-week { border-right: 1px solid var(--th-line); background: #fafbfc; }
     .th-gantt-week-title {
       text-align: center; padding: 8px 4px 6px; border-bottom: 1px solid var(--th-line);
-      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--th-muted);
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; color: var(--th-slate);
     }
     .th-gantt-days { display: flex; }
     .th-gantt-day {
-      width: var(--gantt-day-px, 44px); min-width: var(--gantt-day-px, 44px); text-align: center; padding: 6px 0;
+      width: var(--gantt-day-px, 52px); min-width: var(--gantt-day-px, 52px); text-align: center; padding: 7px 0;
       border-right: 1px solid #f1f5f9; font-size: 0.72rem; line-height: 1.2;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       background: #fff;
     }
+    .th-gantt-day.weekend { background: #f8fafc; }
+    .th-gantt-day.weekend .th-gantt-dow { color: #cbd5e1; }
     .th-gantt-dow { font-size: 0.58rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
-    .th-gantt-dom { font-size: 0.82rem; font-weight: 700; color: var(--th-ink); }
-    .th-gantt-day.today { background: rgba(79, 70, 229, 0.06); }
+    .th-gantt-dom { font-size: 0.86rem; font-weight: 700; color: var(--th-ink); }
+    .th-gantt-day.today { background: rgba(79, 70, 229, 0.1); }
     .th-gantt-day.today .th-gantt-dom { color: var(--th-accent); }
+    .th-gantt-day.today .th-gantt-dow { color: #818cf8; }
     .th-gantt-body { min-width: max-content; position: relative; }
-    .th-gantt-row {
-      display: flex; border-bottom: 1px solid var(--th-line); min-height: var(--gantt-row-px, 44px); align-items: stretch;
+    .th-gantt-weekend-layer {
+      position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0;
     }
+    .th-gantt-weekend-band {
+      position: absolute; top: 0; bottom: 0;
+      background: rgba(148, 163, 184, 0.07);
+    }
+    .th-gantt-row {
+      display: flex; border-bottom: 1px solid var(--th-line); min-height: var(--gantt-row-px, 48px); align-items: stretch;
+    }
+    .th-gantt-row:nth-child(even) .th-gantt-row-label { background: #fcfdfe; }
     .th-gantt-row-label {
-      width: 200px; min-width: 200px; flex-shrink: 0; padding: 8px 10px; font-size: 0.8rem;
-      border-right: 1px solid var(--th-line); background: #fff; position: sticky; left: 0; z-index: 2;
-      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      width: var(--gantt-label-px, 248px); min-width: var(--gantt-label-px, 248px); flex-shrink: 0;
+      padding: 8px 10px 8px 8px; font-size: 0.8rem;
+      border-right: 1px solid var(--th-line); background: #fff; position: sticky; left: 0; z-index: 3;
+      display: flex; align-items: center; gap: 6px;
       cursor: pointer; transition: background 0.15s;
     }
     .th-gantt-row-label:hover { background: #f8fafc; }
-    .th-gantt-row-label-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .th-gantt-row-label.is-done { opacity: 0.72; }
+    .th-gantt-row-label.is-done .th-gantt-row-label-text { text-decoration: line-through; color: var(--th-muted); }
+    .th-gantt-row-label-main { flex: 1; min-width: 0; }
+    .th-gantt-row-label-text {
+      display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-weight: 600; color: var(--th-ink); line-height: 1.25;
+    }
+    .th-gantt-row-label-dates {
+      display: block; font-size: 0.68rem; color: var(--th-muted); margin-top: 2px; line-height: 1.2;
+    }
     .th-gantt-row-actions { display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
     .th-gantt-row:hover .th-gantt-row-actions { opacity: 1; }
     .th-gantt-icon-btn {
@@ -280,33 +319,60 @@
       background: var(--th-accent-soft); border-radius: 10px; border: 1px solid #c7d2fe;
     }
     .th-gantt-row-track {
-      position: relative; flex: 1; min-height: var(--gantt-row-px, 44px);
+      position: relative; flex: 1; min-height: var(--gantt-row-px, 48px);
     }
     .th-gantt-grid-bg {
       position: absolute; inset: 0; pointer-events: none;
       background: repeating-linear-gradient(
         90deg,
         #fff,
-        #fff calc(var(--gantt-day-px, 44px) - 1px),
-        #e2e8f0 calc(var(--gantt-day-px, 44px) - 1px),
-        #e2e8f0 var(--gantt-day-px, 44px)
+        #fff calc(var(--gantt-day-px, 52px) - 1px),
+        #eef2f7 calc(var(--gantt-day-px, 52px) - 1px),
+        #eef2f7 var(--gantt-day-px, 52px)
       );
     }
-    .th-gantt-due-highlight {
-      position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: auto; cursor: pointer;
-      transition: filter 0.15s;
+    .th-gantt-bar {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      height: 26px; z-index: 2; pointer-events: auto; cursor: pointer;
+      border-radius: 999px; display: flex; align-items: center; min-width: 12px;
+      transition: filter 0.15s, box-shadow 0.15s;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     }
-    .th-gantt-due-highlight:hover { filter: brightness(0.95); }
-    .th-gantt-due-highlight.todo { background: rgba(99, 102, 241, 0.14); }
-    .th-gantt-due-highlight.in_progress { background: rgba(234, 88, 12, 0.14); }
-    .th-gantt-due-highlight.done { background: rgba(5, 150, 105, 0.12); }
+    .th-gantt-bar:hover { filter: brightness(0.97); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12); }
+    .th-gantt-bar.todo {
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0.12) 100%);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+    }
+    .th-gantt-bar.in_progress {
+      background: linear-gradient(180deg, rgba(234, 88, 12, 0.24) 0%, rgba(234, 88, 12, 0.12) 100%);
+      border: 1px solid rgba(234, 88, 12, 0.38);
+    }
+    .th-gantt-bar.done {
+      background: linear-gradient(180deg, rgba(5, 150, 105, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%);
+      border: 1px solid rgba(5, 150, 105, 0.32);
+    }
+    .th-gantt-bar.is-done { opacity: 0.65; }
+    .th-gantt-bar-label {
+      padding: 0 10px; font-size: 0.68rem; font-weight: 700; color: var(--th-slate);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+    }
+    .th-gantt-bar-due {
+      position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+      width: 8px; height: 8px; border-radius: 999px; border: 2px solid #fff;
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+    }
+    .th-gantt-bar.todo .th-gantt-bar-due { background: #6366f1; }
+    .th-gantt-bar.in_progress .th-gantt-bar-due { background: var(--th-orange); }
+    .th-gantt-bar.done .th-gantt-bar-due { background: var(--th-green); }
     .th-gantt-today-col {
-      position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none;
+      position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none;
       background: rgba(79, 70, 229, 0.04);
+      border-left: 2px dashed rgba(79, 70, 229, 0.28);
     }
     .th-gantt-deps {
       position: absolute; inset: 0; pointer-events: none; z-index: 4;
     }
+    .th-gantt-deps path { stroke: #64748b; stroke-width: 1.5; fill: none; opacity: 0.85; }
     .th-modal-backdrop {
       display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45);
       z-index: 5000; align-items: center; justify-content: center; padding: 20px;
@@ -699,10 +765,11 @@
   let pendingDeleteTaskId = null;
   let viewingTaskId = null;
 
-  const GANTT_DAY_PX = 44;
-  const GANTT_ROW_PX = 44;
-  const GANTT_LABEL_PX = 200;
+  const GANTT_DAY_PX = 52;
+  const GANTT_ROW_PX = 48;
+  const GANTT_LABEL_PX = 248;
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  let ganttTodayLeft = 0;
 
   function authHeaders() {
     return { Authorization: 'Bearer ' + sessionId, 'Content-Type': 'application/json' };
@@ -979,6 +1046,47 @@
     wireCompleteButtons(body);
   }
 
+  function ganttBarMetrics(t, range, dayWidth) {
+    const start = taskStart(t);
+    const due = taskDue(t);
+    const startIdx = dayIndex(range.start, start);
+    const dueIdx = dayIndex(range.start, due);
+    const spanDays = Math.max(1, dueIdx - startIdx + 1);
+    const pad = 5;
+    return {
+      start, due, startIdx, dueIdx,
+      left: startIdx * dayWidth + pad,
+      width: Math.max(spanDays * dayWidth - pad * 2, 14),
+    };
+  }
+
+  function formatWeekRange(days) {
+    if (!days.length) return '';
+    const a = parseIso(days[0]);
+    const b = parseIso(days[days.length - 1]);
+    if (a.getMonth() === b.getMonth()) {
+      return a.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + b.getDate();
+    }
+    return formatShort(days[0]) + ' – ' + formatShort(days[days.length - 1]);
+  }
+
+  function ganttWeekendBandsHtml(range, days, dayWidth) {
+    return days.filter(d => {
+      const dow = parseIso(d).getDay();
+      return dow === 0 || dow === 6;
+    }).map(d => {
+      const left = dayIndex(range.start, d) * dayWidth;
+      return `<div class="th-gantt-weekend-band" style="left:${left}px;width:${dayWidth}px"></div>`;
+    }).join('');
+  }
+
+  function scrollGanttToToday(smooth) {
+    const scrollEl = document.getElementById('gantt-scroll');
+    if (!scrollEl) return;
+    const target = Math.max(0, ganttTodayLeft - (scrollEl.clientWidth - GANTT_LABEL_PX) / 2);
+    scrollEl.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+  }
+
   function renderGanttView() {
     document.getElementById('list-view').style.display = 'none';
     document.getElementById('gantt-view').style.display = 'block';
@@ -993,12 +1101,13 @@
 
     let headWeeks = weeks.map(w => `
       <div class="th-gantt-week" style="width:${7 * dayWidth}px;min-width:${7 * dayWidth}px">
-        <div class="th-gantt-week-title">${formatShort(w.days[0])}</div>
+        <div class="th-gantt-week-title">${formatWeekRange(w.days)}</div>
         <div class="th-gantt-days">
           ${w.days.map(d => {
             const dt = parseIso(d);
             const dow = GANTT_DOW_LABELS[dt.getDay()];
-            return `<div class="th-gantt-day${d === todayStr ? ' today' : ''}" style="width:${dayWidth}px;min-width:${dayWidth}px">
+            const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+            return `<div class="th-gantt-day${d === todayStr ? ' today' : ''}${isWeekend ? ' weekend' : ''}" style="width:${dayWidth}px;min-width:${dayWidth}px">
               <span class="th-gantt-dow">${dow}</span>
               <span class="th-gantt-dom">${dt.getDate()}</span>
             </div>`;
@@ -1008,14 +1117,18 @@
     `).join('');
 
     let rowsHtml = tasks.map(t => {
-      const end = taskDue(t);
-      const dueLeft = dayIndex(range.start, end) * dayWidth;
       const status = t.status || 'todo';
+      const bar = ganttBarMetrics(t, range, dayWidth);
+      const doneCls = status === 'done' ? ' is-done' : '';
+      const barLabel = bar.width >= 80 ? `<span class="th-gantt-bar-label">${escapeHtml(t.title)}</span>` : '';
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
-          <div class="th-gantt-row-label" data-view-task="${escapeAttr(t.id)}" title="View task details">
+          <div class="th-gantt-row-label${doneCls}" data-view-task="${escapeAttr(t.id)}" title="View task details">
             ${completeBtnHtml(t.id, status, true)}
-            <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
+            <div class="th-gantt-row-label-main">
+              <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
+              <span class="th-gantt-row-label-dates">${formatShort(bar.start)} → ${formatShort(bar.due)}</span>
+            </div>
             <span class="th-gantt-row-actions">
               <button type="button" class="th-gantt-icon-btn" data-view-task="${escapeAttr(t.id)}" title="View details">⋯</button>
               <button type="button" class="th-gantt-icon-btn danger" data-gantt-delete="${escapeAttr(t.id)}" title="Delete task">×</button>
@@ -1023,8 +1136,12 @@
           </div>
           <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px;min-height:${rowHeight}px">
             <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
-            <div class="th-gantt-due-highlight ${status}" data-view-task="${escapeAttr(t.id)}"
-              style="left:${dueLeft}px;width:${dayWidth}px" title="Due ${formatDate(end)} — click for details"></div>
+            <div class="th-gantt-bar ${status}${doneCls}" data-view-task="${escapeAttr(t.id)}"
+              style="left:${bar.left}px;width:${bar.width}px"
+              title="${escapeAttr(t.title)} · ${formatDate(bar.start)} → ${formatDate(bar.due)}">
+              ${barLabel}
+              <span class="th-gantt-bar-due" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
       `;
@@ -1036,10 +1153,22 @@
     }
 
     const todayLeft = dayIndex(range.start, todayStr) * dayWidth;
+    ganttTodayLeft = GANTT_LABEL_PX + todayLeft;
+    const weekendBands = ganttWeekendBandsHtml(range, days, dayWidth);
+
     document.getElementById('gantt-view').style.setProperty('--gantt-day-px', dayWidth + 'px');
     document.getElementById('gantt-view').style.setProperty('--gantt-row-px', rowHeight + 'px');
+    document.getElementById('gantt-view').style.setProperty('--gantt-label-px', GANTT_LABEL_PX + 'px');
     document.getElementById('gantt-view').innerHTML = `
-      <p class="th-gantt-hint">Timeline shows when tasks are due. Click a name or highlighted day to open details.</p>
+      <p class="th-gantt-hint">Bars span from start to due date. The dot marks the ship-by day. Arrows show blockers.</p>
+      <div class="th-gantt-toolbar">
+        <div class="th-gantt-legend">
+          <span><i class="todo"></i> To do</span>
+          <span><i class="in_progress"></i> In progress</span>
+          <span><i class="done"></i> Shipped</span>
+        </div>
+        <button type="button" class="th-btn th-btn-ghost th-gantt-today-btn" id="gantt-jump-today">Jump to today</button>
+      </div>
       <div class="th-gantt">
         <div class="th-gantt-scroll" id="gantt-scroll">
           <div class="th-gantt-head">
@@ -1047,6 +1176,7 @@
             ${headWeeks}
           </div>
           <div class="th-gantt-body" id="gantt-body" style="position:relative;">
+            <div class="th-gantt-weekend-layer" style="left:${GANTT_LABEL_PX}px;width:${trackWidth}px">${weekendBands}</div>
             <div class="th-gantt-today-col" style="left:${GANTT_LABEL_PX + todayLeft}px;width:${dayWidth}px"></div>
             ${rowsHtml}
             <svg class="th-gantt-deps" id="gantt-deps-svg" width="${GANTT_LABEL_PX + trackWidth}" height="${tasks.length * rowHeight}"></svg>
@@ -1055,9 +1185,12 @@
       </div>
     `;
 
+    document.getElementById('gantt-jump-today').addEventListener('click', () => scrollGanttToToday(true));
+
     requestAnimationFrame(() => {
       drawDependencyArrows(tasks);
       wireGanttTaskInteractions();
+      scrollGanttToToday(false);
     });
   }
 
@@ -1069,17 +1202,16 @@
     const positions = {};
     rowEls.forEach((row) => {
       const id = row.getAttribute('data-task-row');
-      const dueCell = row.querySelector('.th-gantt-due-highlight');
-      if (!dueCell) return;
+      const bar = row.querySelector('.th-gantt-bar');
+      if (!bar) return;
       const rowRect = row.getBoundingClientRect();
-      const dueRect = dueCell.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
       const bodyRect = body.getBoundingClientRect();
       const y = rowRect.top - bodyRect.top + rowRect.height / 2;
       positions[id] = {
-        x1: dueRect.left - bodyRect.left,
-        x2: dueRect.left - bodyRect.left + dueRect.width,
-        y1: y,
-        y2: y,
+        xStart: barRect.left - bodyRect.left,
+        xEnd: barRect.right - bodyRect.left,
+        y,
       };
     });
 
@@ -1089,15 +1221,15 @@
         const from = positions[depId];
         const to = positions[t.id];
         if (!from || !to) return;
-        const x1 = from.x2;
-        const y1 = from.y1;
-        const x2 = to.x1;
-        const y2 = to.y1;
-        const mx = (x1 + x2) / 2;
-        paths += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>`;
+        const x1 = from.xEnd;
+        const y1 = from.y;
+        const x2 = to.xStart;
+        const y2 = to.y;
+        const gap = Math.max(24, Math.abs(x2 - x1) * 0.35);
+        paths += `<path d="M${x1},${y1} C${x1 + gap},${y1} ${x2 - gap},${y2} ${x2},${y2}" marker-end="url(#arrow)"/>`;
       });
     });
-    svg.innerHTML = `<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#334155"/></marker></defs>${paths}`;
+    svg.innerHTML = `<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#64748b"/></marker></defs>${paths}`;
   }
 
   function openProjectModal(mode) {
@@ -1520,6 +1652,12 @@
     document.getElementById('view-gantt').classList.add('active');
     document.getElementById('view-list').classList.remove('active');
     renderGanttView();
+  });
+
+  window.addEventListener('resize', () => {
+    if (viewMode === 'gantt' && activeProject) {
+      drawDependencyArrows(activeProject.tasks || []);
+    }
   });
 
   async function init() {
