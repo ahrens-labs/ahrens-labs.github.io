@@ -67,14 +67,23 @@
     }
     .th-sidebar-head h2 { margin: 0; font-size: 0.95rem; color: var(--th-ink); }
     .th-project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .th-project-row {
+      display: flex; align-items: stretch; gap: 4px;
+    }
     .th-project-item {
-      width: 100%; text-align: left; border: 1px solid transparent; background: #f8fafc;
+      flex: 1; min-width: 0; text-align: left; border: 1px solid transparent; background: #f8fafc;
       border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: all 0.15s;
     }
     .th-project-item:hover { border-color: #c7d2fe; background: #fff; }
     .th-project-item.active { border-color: var(--th-accent); background: var(--th-accent-soft); }
     .th-project-item strong { display: block; font-size: 0.88rem; color: var(--th-ink); }
     .th-project-item span { font-size: 0.75rem; color: var(--th-muted); }
+    .th-project-delete {
+      flex-shrink: 0; width: 36px; border: 1px solid #fecaca; border-radius: 12px;
+      background: #fff5f5; color: #b91c1c; cursor: pointer; font-size: 1rem; line-height: 1;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .th-project-delete:hover { background: #fef2f2; border-color: #f87171; }
     .th-main { padding: 20px; min-height: 480px; }
     .th-empty {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -166,7 +175,7 @@
     }
     .th-gantt-dow { font-size: 0.62rem; font-weight: 700; opacity: 0.85; text-transform: uppercase; }
     .th-gantt-dom { font-size: 0.78rem; font-weight: 700; }
-    .th-gantt-day.today { background: rgba(251, 191, 36, 0.35); }
+    .th-gantt-day.today { background: rgba(251, 191, 36, 0.18); }
     .th-gantt-body { min-width: max-content; position: relative; }
     .th-gantt-row {
       display: flex; border-bottom: 1px solid var(--th-line); min-height: var(--gantt-row-px, 44px); align-items: stretch;
@@ -189,6 +198,12 @@
         #e2e8f0 var(--gantt-day-px, 44px)
       );
     }
+    .th-gantt-due-highlight {
+      position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none;
+    }
+    .th-gantt-due-highlight.todo { background: rgba(99, 102, 241, 0.14); }
+    .th-gantt-due-highlight.in_progress { background: rgba(234, 88, 12, 0.14); }
+    .th-gantt-due-highlight.done { background: rgba(5, 150, 105, 0.12); }
     .th-gantt-bar {
       position: absolute; top: 8px; height: calc(var(--gantt-row-px, 44px) - 16px); border-radius: 8px;
       cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 1px 4px rgba(0,0,0,0.12);
@@ -197,8 +212,9 @@
     .th-gantt-bar.todo { background: #6366f1; }
     .th-gantt-bar.in_progress { background: #ea580c; }
     .th-gantt-bar.done { background: #059669; opacity: 0.88; }
-    .th-gantt-today-line {
-      position: absolute; top: 0; bottom: 0; width: 2px; background: #f59e0b; z-index: 1; pointer-events: none;
+    .th-gantt-today-col {
+      position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none;
+      background: rgba(251, 191, 36, 0.1);
     }
     .th-gantt-deps {
       position: absolute; inset: 0; pointer-events: none; z-index: 4;
@@ -291,7 +307,7 @@
                 <button type="button" class="th-btn th-btn-ghost" id="btn-share">Share</button>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-edit-project">Edit</button>
                 <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task</button>
-                <button type="button" class="th-btn th-btn-danger" id="btn-delete-project" style="display:none;">Delete</button>
+                <button type="button" class="th-btn th-btn-danger" id="btn-delete-project" style="display:none;">Delete project</button>
               </div>
             </div>
 
@@ -329,7 +345,22 @@
       </div>
       <div class="th-modal-actions">
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-project">Cancel</button>
+        <button type="button" class="th-btn th-btn-danger" id="delete-project-from-edit" style="display:none;margin-right:auto;">Delete project</button>
         <button type="button" class="th-btn th-btn-primary" id="save-project-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete project modal -->
+  <div class="th-modal-backdrop" id="modal-delete-project">
+    <div class="th-modal">
+      <h3>Delete project?</h3>
+      <p style="margin:0 0 8px;font-size:0.9rem;color:var(--th-ink);line-height:1.5;">
+        <strong id="delete-project-name"></strong> and all of its tasks will be permanently removed. This cannot be undone.
+      </p>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-delete-project">Cancel</button>
+        <button type="button" class="th-btn th-btn-danger" id="confirm-delete-project">Delete permanently</button>
       </div>
     </div>
   </div>
@@ -405,6 +436,7 @@
   let viewMode = 'list';
   let editingTaskId = null;
   let editingProjectMode = 'create';
+  let pendingDeleteProjectId = null;
 
   const GANTT_DAY_PX = 44;
   const GANTT_ROW_PX = 44;
@@ -474,18 +506,44 @@
       list.innerHTML = '<li style="font-size:0.82rem;color:var(--th-muted);padding:8px;">No projects yet</li>';
       return;
     }
-    list.innerHTML = projects.map(p => `
-      <li>
+    list.innerHTML = projects.map(p => {
+      const isOwner = currentUser && p.ownerUserId === currentUser.userId;
+      return `
+      <li class="th-project-row">
         <button type="button" class="th-project-item${activeProject && activeProject.id === p.id ? ' active' : ''}"
           data-id="${escapeAttr(p.id)}">
           <strong>${escapeHtml(p.title)}</strong>
           <span>${p.taskCount || 0} tasks · ${p.memberCount || 1} members</span>
         </button>
-      </li>
-    `).join('');
+        ${isOwner ? `<button type="button" class="th-project-delete" data-delete-project="${escapeAttr(p.id)}" data-delete-title="${escapeAttr(p.title)}" title="Delete project" aria-label="Delete ${escapeHtml(p.title)}">×</button>` : ''}
+      </li>`;
+    }).join('');
     list.querySelectorAll('.th-project-item').forEach(btn => {
       btn.addEventListener('click', () => loadProject(btn.getAttribute('data-id')));
     });
+    list.querySelectorAll('[data-delete-project]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openDeleteProjectModal(btn.getAttribute('data-delete-project'), btn.getAttribute('data-delete-title'));
+      });
+    });
+  }
+
+  function openDeleteProjectModal(projectId, projectTitle) {
+    pendingDeleteProjectId = projectId;
+    document.getElementById('delete-project-name').textContent = projectTitle || 'This project';
+    openModal('modal-delete-project');
+  }
+
+  async function deleteProjectById(projectId) {
+    await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'DELETE' });
+    if (activeProject && activeProject.id === projectId) {
+      activeProject = null;
+      document.getElementById('empty-state').style.display = 'flex';
+      document.getElementById('project-view').style.display = 'none';
+    }
+    await loadProjects();
+    showBanner('Project deleted', 'ok');
   }
 
   function renderProjectView() {
@@ -615,12 +673,15 @@
       const left = dayIndex(range.start, start) * dayWidth;
       const spanDays = Math.max(1, dayIndex(start, end) + 1);
       const width = spanDays * dayWidth - 4;
+      const dueLeft = dayIndex(range.start, end) * dayWidth;
+      const status = t.status || 'todo';
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
           <div class="th-gantt-row-label">${escapeHtml(t.title)}</div>
           <div class="th-gantt-row-track" style="width:${trackWidth}px;min-width:${trackWidth}px;min-height:${rowHeight}px">
             <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
-            <div class="th-gantt-bar ${t.status || 'todo'}" style="left:${left + 2}px;width:${width}px"
+            <div class="th-gantt-due-highlight ${status}" style="left:${dueLeft}px;width:${dayWidth}px" title="Due ${formatDate(end)}"></div>
+            <div class="th-gantt-bar ${status}" style="left:${left + 2}px;width:${width}px"
               title="${escapeHtml(t.title)}" aria-label="${escapeHtml(t.title)}" data-gantt-bar="${escapeAttr(t.id)}"
               role="img"></div>
           </div>
@@ -644,8 +705,8 @@
             ${headWeeks}
           </div>
           <div class="th-gantt-body" id="gantt-body" style="position:relative;">
+            <div class="th-gantt-today-col" style="left:${GANTT_LABEL_PX + todayLeft}px;width:${dayWidth}px"></div>
             ${rowsHtml}
-            <div class="th-gantt-today-line" style="left:${GANTT_LABEL_PX + todayLeft + dayWidth / 2}px"></div>
             <svg class="th-gantt-deps" id="gantt-deps-svg" width="${GANTT_LABEL_PX + trackWidth}" height="${tasks.length * rowHeight}"></svg>
           </div>
         </div>
@@ -696,12 +757,16 @@
   function openProjectModal(mode) {
     editingProjectMode = mode;
     document.getElementById('modal-project-title').textContent = mode === 'create' ? 'New project' : 'Edit project';
+    const deleteFromEdit = document.getElementById('delete-project-from-edit');
     if (mode === 'create') {
       document.getElementById('project-name-input').value = '';
       document.getElementById('project-dod-input').value = '';
+      deleteFromEdit.style.display = 'none';
     } else if (activeProject) {
       document.getElementById('project-name-input').value = activeProject.title;
       document.getElementById('project-dod-input').value = activeProject.definitionOfDone || '';
+      const isOwner = activeProject.ownerUserId === currentUser.userId;
+      deleteFromEdit.style.display = isOwner ? 'inline-block' : 'none';
     }
     openModal('modal-project');
   }
@@ -941,15 +1006,23 @@
     } catch (e) { showBanner(e.message); }
   });
 
-  document.getElementById('btn-delete-project').addEventListener('click', async () => {
-    if (!confirm('Delete this project permanently?')) return;
+  document.getElementById('btn-delete-project').addEventListener('click', () => {
+    if (!activeProject) return;
+    openDeleteProjectModal(activeProject.id, activeProject.title);
+  });
+
+  document.getElementById('delete-project-from-edit').addEventListener('click', () => {
+    if (!activeProject) return;
+    closeModal('modal-project');
+    openDeleteProjectModal(activeProject.id, activeProject.title);
+  });
+
+  document.getElementById('confirm-delete-project').addEventListener('click', async () => {
+    if (!pendingDeleteProjectId) return;
     try {
-      await api('/api/tether/project?projectId=' + encodeURIComponent(activeProject.id), { method: 'DELETE' });
-      activeProject = null;
-      await loadProjects();
-      document.getElementById('empty-state').style.display = 'flex';
-      document.getElementById('project-view').style.display = 'none';
-      showBanner('Project deleted', 'ok');
+      await deleteProjectById(pendingDeleteProjectId);
+      pendingDeleteProjectId = null;
+      closeModal('modal-delete-project');
     } catch (e) { showBanner(e.message); }
   });
 
