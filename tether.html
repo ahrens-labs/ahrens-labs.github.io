@@ -17,15 +17,20 @@
       --th-muted: #64748b;
       --th-line: #e2e8f0;
       --th-card: #ffffff;
-      --th-bg: #f1f5f9;
+      --th-bg: #eef2f7;
       --th-accent: #4f46e5;
       --th-accent-soft: #eef2ff;
+      --th-violet: #7c3aed;
       --th-green: #059669;
       --th-green-soft: #ecfdf5;
       --th-orange: #ea580c;
       --th-orange-soft: #fff7ed;
+      --th-slate: #334155;
     }
-    body.th-page { background: var(--th-bg); }
+    body.th-page {
+      background: var(--th-bg);
+      font-family: "DM Sans", Inter, system-ui, sans-serif;
+    }
     body.th-page .wrapper { background: transparent; }
     .th-hero {
       margin: -8px -20px 20px;
@@ -42,7 +47,13 @@
       font-weight: 900;
       color: var(--th-ink);
     }
-    .th-hero p { margin: 0; color: var(--th-muted); max-width: 62ch; line-height: 1.5; }
+    .th-hero p { margin: 0; color: var(--th-muted); max-width: 58ch; line-height: 1.55; font-size: 0.98rem; }
+    .th-hero-tagline {
+      display: inline-block; margin-bottom: 10px; padding: 5px 12px; border-radius: 999px;
+      background: rgba(79, 70, 229, 0.08); border: 1px solid rgba(79, 70, 229, 0.15);
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--th-accent);
+    }
     .th-shell {
       display: grid;
       grid-template-columns: 260px 1fr;
@@ -65,26 +76,36 @@
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
       margin-bottom: 12px;
     }
-    .th-sidebar-head h2 { margin: 0; font-size: 0.95rem; color: var(--th-ink); }
-    .th-project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-    .th-project-row {
-      display: flex; align-items: stretch; gap: 4px;
-    }
+    .th-sidebar-head h2 { margin: 0; font-size: 0.78rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--th-muted); }
     .th-project-item {
-      flex: 1; min-width: 0; text-align: left; border: 1px solid transparent; background: #f8fafc;
-      border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: all 0.15s;
+      flex: 1; min-width: 0; text-align: left; border: 1px solid var(--th-line); background: #fff;
+      border-radius: 14px; padding: 11px 12px; cursor: pointer; transition: all 0.15s;
     }
-    .th-project-item:hover { border-color: #c7d2fe; background: #fff; }
-    .th-project-item.active { border-color: var(--th-accent); background: var(--th-accent-soft); }
-    .th-project-item strong { display: block; font-size: 0.88rem; color: var(--th-ink); }
-    .th-project-item span { font-size: 0.75rem; color: var(--th-muted); }
+    .th-project-item:hover { border-color: #c7d2fe; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.08); }
+    .th-project-item.active {
+      border-color: var(--th-accent); background: linear-gradient(135deg, #fff 0%, var(--th-accent-soft) 100%);
+      box-shadow: 0 4px 16px rgba(79, 70, 229, 0.12);
+    }
+    .th-project-item strong { display: block; font-size: 0.9rem; color: var(--th-ink); margin-bottom: 6px; }
+    .th-project-progress {
+      height: 4px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin-bottom: 6px;
+    }
+    .th-project-progress span {
+      display: block; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--th-accent), var(--th-violet));
+      transition: width 0.2s;
+    }
+    .th-project-item span.meta { font-size: 0.72rem; color: var(--th-muted); }
     .th-project-delete {
       flex-shrink: 0; width: 36px; border: 1px solid #fecaca; border-radius: 12px;
       background: #fff5f5; color: #b91c1c; cursor: pointer; font-size: 1rem; line-height: 1;
       display: flex; align-items: center; justify-content: center; transition: all 0.15s;
     }
     .th-project-delete:hover { background: #fef2f2; border-color: #f87171; }
-    .th-main { padding: 20px; min-height: 480px; }
+    .th-project-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .th-project-row { display: flex; align-items: stretch; gap: 4px; }
+    .th-main { padding: 22px 24px; min-height: 480px; }
     .th-empty {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       min-height: 420px; text-align: center; color: var(--th-muted); gap: 12px;
@@ -94,7 +115,19 @@
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
       gap: 12px; margin-bottom: 16px;
     }
-    .th-toolbar h2 { margin: 0; font-size: 1.25rem; color: var(--th-ink); }
+    .th-toolbar h2 { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; color: var(--th-ink); }
+    .th-project-stats {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;
+    }
+    .th-stat-pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border-radius: 999px; background: #fff; border: 1px solid var(--th-line);
+      font-size: 0.78rem; font-weight: 600; color: var(--th-slate);
+    }
+    .th-stat-pill em { font-style: normal; font-weight: 800; color: var(--th-ink); }
+    .th-stat-pill.accent { background: var(--th-accent-soft); border-color: #c7d2fe; color: #4338ca; }
+    .th-stat-pill.warn { background: var(--th-orange-soft); border-color: #fed7aa; color: #c2410c; }
+    .th-stat-pill.ok { background: var(--th-green-soft); border-color: #86efac; color: #047857; }
     .th-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .th-view-toggle {
       display: inline-flex; border: 1px solid var(--th-line); border-radius: 10px; overflow: hidden;
@@ -113,12 +146,13 @@
     .th-btn-ghost { background: #fff; border: 1px solid var(--th-line); color: var(--th-ink); }
     .th-btn-danger { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
     .th-dod {
-      margin: 0 0 18px; padding: 14px 16px; border-radius: 14px;
-      background: linear-gradient(135deg, #f8fafc, #eef2ff);
-      border: 1px solid var(--th-line);
+      margin: 0 0 16px; padding: 16px 18px; border-radius: 16px;
+      background: #fff; border: 1px solid var(--th-line);
+      border-left: 4px solid var(--th-accent);
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
     }
-    .th-dod label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.05em; color: var(--th-muted); margin-bottom: 6px; }
+    .th-dod label { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--th-accent); margin-bottom: 8px; }
     .th-dod p { margin: 0; white-space: pre-wrap; line-height: 1.5; color: var(--th-ink); font-size: 0.9rem; }
     .th-members {
       display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
@@ -132,6 +166,33 @@
       border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 0 2px;
       font-size: 0.9rem; line-height: 1;
     }
+    .th-task-cards { display: flex; flex-direction: column; gap: 10px; }
+    .th-task-card {
+      background: #fff; border: 1px solid var(--th-line); border-radius: 16px;
+      padding: 14px 16px; transition: border-color 0.15s, box-shadow 0.15s;
+      border-left: 4px solid #cbd5e1;
+    }
+    .th-task-card:hover { border-color: #c7d2fe; box-shadow: 0 6px 20px rgba(79, 70, 229, 0.07); }
+    .th-task-card.status-todo { border-left-color: #94a3b8; }
+    .th-task-card.status-in_progress { border-left-color: var(--th-orange); }
+    .th-task-card.status-done { border-left-color: var(--th-green); opacity: 0.92; }
+    .th-task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .th-task-card h4 { margin: 0 0 6px; font-size: 0.98rem; font-weight: 700; }
+    .th-task-dod-preview {
+      margin: 0 0 10px; font-size: 0.82rem; color: var(--th-muted); line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .th-task-card-meta { font-size: 0.76rem; color: var(--th-muted); margin-bottom: 10px; line-height: 1.4; }
+    .th-task-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .th-task-card-actions button {
+      border: 1px solid var(--th-line); background: #f8fafc; border-radius: 8px;
+      padding: 5px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; color: var(--th-slate);
+    }
+    .th-task-card-actions button:hover { background: #fff; border-color: #c7d2fe; color: var(--th-accent); }
+    .th-task-card-actions button.danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
+    .th-task-card-actions button.danger:hover { background: #fef2f2; }
+    .th-task-due-badge { font-size: 0.72rem; font-weight: 700; color: var(--th-muted); }
+    .th-task-due-badge.soon { color: var(--th-orange); }
     .th-table-wrap { overflow-x: auto; border: 1px solid var(--th-line); border-radius: 14px; }
     table.th-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
     .th-table th, .th-table td {
@@ -151,31 +212,33 @@
       border: none; background: transparent; color: var(--th-accent); cursor: pointer;
       font-size: 0.78rem; font-weight: 600; padding: 0;
     }
-    .th-gantt { border: 1px solid var(--th-line); border-radius: 14px; overflow: hidden; }
+    .th-gantt { border: 1px solid var(--th-line); border-radius: 16px; overflow: hidden; background: #fff; }
     .th-gantt-scroll { overflow-x: auto; position: relative; }
     .th-gantt-head {
-      display: flex; background: #15803d; color: #fff; font-size: 0.72rem; font-weight: 700;
-      min-width: max-content;
+      display: flex; background: #fff; color: var(--th-ink); font-size: 0.72rem; font-weight: 600;
+      min-width: max-content; border-bottom: 2px solid var(--th-line);
     }
     .th-gantt-label-col {
-      width: 200px; min-width: 200px; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.2);
-      padding: 8px 10px; position: sticky; left: 0; z-index: 3; background: #15803d;
+      width: 200px; min-width: 200px; flex-shrink: 0; border-right: 1px solid var(--th-line);
+      padding: 10px 12px; position: sticky; left: 0; z-index: 3; background: #f8fafc;
+      font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--th-muted);
     }
-    .th-gantt-week {
-      border-right: 1px solid rgba(255,255,255,0.15);
-    }
+    .th-gantt-week { border-right: 1px solid var(--th-line); background: #fafbfc; }
     .th-gantt-week-title {
-      text-align: center; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.15);
+      text-align: center; padding: 8px 4px 6px; border-bottom: 1px solid var(--th-line);
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--th-muted);
     }
     .th-gantt-days { display: flex; }
     .th-gantt-day {
       width: var(--gantt-day-px, 44px); min-width: var(--gantt-day-px, 44px); text-align: center; padding: 6px 0;
-      border-right: 1px solid rgba(255,255,255,0.08); font-size: 0.72rem; line-height: 1.2;
+      border-right: 1px solid #f1f5f9; font-size: 0.72rem; line-height: 1.2;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      background: #fff;
     }
-    .th-gantt-dow { font-size: 0.62rem; font-weight: 700; opacity: 0.85; text-transform: uppercase; }
-    .th-gantt-dom { font-size: 0.78rem; font-weight: 700; }
-    .th-gantt-day.today { background: rgba(251, 191, 36, 0.18); }
+    .th-gantt-dow { font-size: 0.58rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+    .th-gantt-dom { font-size: 0.82rem; font-weight: 700; color: var(--th-ink); }
+    .th-gantt-day.today { background: rgba(79, 70, 229, 0.06); }
+    .th-gantt-day.today .th-gantt-dom { color: var(--th-accent); }
     .th-gantt-body { min-width: max-content; position: relative; }
     .th-gantt-row {
       display: flex; border-bottom: 1px solid var(--th-line); min-height: var(--gantt-row-px, 44px); align-items: stretch;
@@ -198,7 +261,8 @@
     .th-gantt-icon-btn:hover { background: #eef2ff; color: var(--th-accent); }
     .th-gantt-icon-btn.danger:hover { background: #fef2f2; color: #b91c1c; }
     .th-gantt-hint {
-      margin: 0 0 10px; font-size: 0.8rem; color: var(--th-muted);
+      margin: 0 0 10px; font-size: 0.8rem; color: var(--th-muted); padding: 8px 12px;
+      background: var(--th-accent-soft); border-radius: 10px; border: 1px solid #c7d2fe;
     }
     .th-gantt-row-track {
       position: relative; flex: 1; min-height: var(--gantt-row-px, 44px);
@@ -223,7 +287,7 @@
     .th-gantt-due-highlight.done { background: rgba(5, 150, 105, 0.12); }
     .th-gantt-today-col {
       position: absolute; top: 0; bottom: 0; z-index: 0; pointer-events: none;
-      background: rgba(251, 191, 36, 0.1);
+      background: rgba(79, 70, 229, 0.04);
     }
     .th-gantt-deps {
       position: absolute; inset: 0; pointer-events: none; z-index: 4;
@@ -289,13 +353,8 @@
       background: #f8fafc; border: 1px solid var(--th-line);
     }
     .th-task-section-title {
-      display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
-      font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-      color: var(--th-muted);
-    }
-    .th-task-section-title span {
-      display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center;
-      border-radius: 7px; background: var(--th-accent-soft); font-size: 0.75rem;
+      margin: 0 0 12px; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em;
+      color: var(--th-accent); text-transform: none;
     }
     .th-task-modal .th-field { margin-bottom: 10px; }
     .th-task-modal .th-field:last-child { margin-bottom: 0; }
@@ -401,8 +460,9 @@
 
     <main style="max-width:1200px;margin:0 auto;padding:20px;">
       <section class="th-hero">
+        <span class="th-hero-tagline">Ahrens Labs · build queue</span>
         <h1>Tether</h1>
-        <p>Organize projects and tasks with definitions of done, due dates, assignees, dependencies, and shared access for Ahrens Labs teammates.</p>
+        <p>Track what you're building — one place for the goal, the tasks, who's on what, and when things are due. Share a project with anyone on Ahrens Labs to stay aligned while you ship.</p>
       </section>
 
       <div id="th-banner" class="th-banner"></div>
@@ -410,7 +470,7 @@
       <div class="th-shell">
         <aside class="th-card th-sidebar">
           <div class="th-sidebar-head">
-            <h2>Projects</h2>
+            <h2>Your builds</h2>
             <button type="button" class="th-btn th-btn-primary" id="btn-new-project">+ New</button>
           </div>
           <ul class="th-project-list" id="project-list"></ul>
@@ -418,9 +478,9 @@
 
         <section class="th-card th-main" id="main-panel">
           <div class="th-empty" id="empty-state">
-            <h3>Select or create a project</h3>
-            <p>Projects can be shared with other Ahrens Labs users by username or email.</p>
-            <button type="button" class="th-btn th-btn-primary" id="btn-new-project-empty">Create project</button>
+            <h3>Pick a build or start one</h3>
+            <p>A project is anything you're actively working toward — a site feature, lab app, or multi-step idea. Add tasks, set due dates, and share with a collaborator when you need to.</p>
+            <button type="button" class="th-btn th-btn-primary" id="btn-new-project-empty">New project</button>
           </div>
 
           <div id="project-view" style="display:none;">
@@ -428,18 +488,20 @@
               <h2 id="project-title"></h2>
               <div class="th-toolbar-actions">
                 <div class="th-view-toggle">
-                  <button type="button" data-view="list" class="active" id="view-list">List</button>
-                  <button type="button" data-view="gantt" id="view-gantt">Gantt</button>
+                  <button type="button" data-view="list" class="active" id="view-list">Tasks</button>
+                  <button type="button" data-view="gantt" id="view-gantt">Timeline</button>
                 </div>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-share">Share</button>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-edit-project">Edit</button>
                 <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task</button>
-                <button type="button" class="th-btn th-btn-danger" id="btn-delete-project" style="display:none;">Delete project</button>
+                <button type="button" class="th-btn th-btn-danger" id="btn-delete-project" style="display:none;">Delete</button>
               </div>
             </div>
 
+            <div id="project-stats" class="th-project-stats"></div>
+
             <div class="th-dod">
-              <label>Definition of done</label>
+              <label>Ship when</label>
               <p id="project-dod"></p>
             </div>
 
@@ -468,8 +530,8 @@
         <input type="text" id="project-name-input" maxlength="120">
       </div>
       <div class="th-field">
-        <label for="project-dod-input">Definition of done</label>
-        <textarea id="project-dod-input" placeholder="How will you know this project is complete?"></textarea>
+        <label for="project-dod-input">Ship when (project is done)</label>
+        <textarea id="project-dod-input" placeholder="What does finished look like? e.g. Deployed to ahrenslabs.com, all tasks checked off, teammate can use it."></textarea>
       </div>
       <div class="th-modal-actions">
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-project">Cancel</button>
@@ -504,14 +566,14 @@
       </div>
       <div class="th-task-modal-body">
         <section class="th-task-section">
-          <h4 class="th-task-section-title"><span>1</span> Details</h4>
+          <h4 class="th-task-section-title">What to do</h4>
           <div class="th-field">
             <label for="task-title-input">Task name</label>
             <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
           </div>
           <div class="th-field">
-            <label for="task-dod-input">Definition of done</label>
-            <textarea id="task-dod-input" placeholder="How will you know this task is complete?"></textarea>
+            <label for="task-dod-input">Done when</label>
+            <textarea id="task-dod-input" placeholder="How will you know this step is finished?"></textarea>
           </div>
           <div class="th-field">
             <label>Status</label>
@@ -524,7 +586,7 @@
           </div>
         </section>
         <section class="th-task-section">
-          <h4 class="th-task-section-title"><span>2</span> Schedule</h4>
+          <h4 class="th-task-section-title">Timing</h4>
           <div class="th-field-row">
             <div class="th-field">
               <label for="task-start-input">Start date</label>
@@ -537,13 +599,13 @@
           </div>
         </section>
         <section class="th-task-section">
-          <h4 class="th-task-section-title"><span>3</span> People &amp; dependencies</h4>
+          <h4 class="th-task-section-title">People &amp; blockers</h4>
           <div class="th-field">
             <label>Assignees</label>
             <div class="th-chip-check-group" id="task-assignees"></div>
           </div>
           <div class="th-field">
-            <label>Depends on</label>
+            <label>Depends on (finish these first)</label>
             <div class="th-chip-check-group" id="task-deps"></div>
           </div>
         </section>
@@ -690,12 +752,22 @@
     }
     list.innerHTML = projects.map(p => {
       const isOwner = currentUser && p.ownerUserId === currentUser.userId;
+      let progressHtml = '';
+      if (activeProject && activeProject.id === p.id && activeProject.tasks) {
+        const total = activeProject.tasks.length;
+        const done = activeProject.tasks.filter(t => t.status === 'done').length;
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        progressHtml = `<div class="th-project-progress"><span style="width:${pct}%"></span></div>
+          <span class="meta">${done}/${total} done · ${p.memberCount || 1} on board</span>`;
+      } else {
+        progressHtml = `<span class="meta">${p.taskCount || 0} tasks · ${p.memberCount || 1} on board</span>`;
+      }
       return `
       <li class="th-project-row">
         <button type="button" class="th-project-item${activeProject && activeProject.id === p.id ? ' active' : ''}"
           data-id="${escapeAttr(p.id)}">
           <strong>${escapeHtml(p.title)}</strong>
-          <span>${p.taskCount || 0} tasks · ${p.memberCount || 1} members</span>
+          ${progressHtml}
         </button>
         ${isOwner ? `<button type="button" class="th-project-delete" data-delete-project="${escapeAttr(p.id)}" data-delete-title="${escapeAttr(p.title)}" title="Delete project" aria-label="Delete ${escapeHtml(p.title)}">×</button>` : ''}
       </li>`;
@@ -739,13 +811,14 @@
     empty.style.display = 'none';
     view.style.display = 'block';
     document.getElementById('project-title').textContent = activeProject.title;
-    document.getElementById('project-dod').textContent = activeProject.definitionOfDone || '(No definition of done yet)';
+    document.getElementById('project-dod').textContent = activeProject.definitionOfDone || 'Add a ship criteria when you edit this project — what does done look like?';
+    renderProjectStats(activeProject.tasks || []);
     const isOwner = activeProject.ownerUserId === currentUser.userId;
     document.getElementById('btn-delete-project').style.display = isOwner ? 'inline-block' : 'none';
     const ownerActions = document.getElementById('project-owner-actions');
     if (isOwner) {
       ownerActions.style.display = 'block';
-      ownerActions.innerHTML = `<button type="button" class="th-btn th-btn-ghost" id="btn-delete-project-quick" style="color:#b91c1c;border-color:#fecaca;">Delete this project</button>`;
+      ownerActions.innerHTML = `<button type="button" class="th-btn th-btn-ghost" id="btn-delete-project-quick" style="color:#b91c1c;border-color:#fecaca;font-size:0.8rem;">Remove this project</button>`;
       document.getElementById('btn-delete-project-quick').addEventListener('click', () => {
         openDeleteProjectModal(activeProject.id, activeProject.title);
       });
@@ -781,48 +854,71 @@
     else renderGanttView();
   }
 
+  function renderProjectStats(tasks) {
+    const el = document.getElementById('project-stats');
+    const total = tasks.length;
+    const done = tasks.filter(t => t.status === 'done').length;
+    const inProg = tasks.filter(t => t.status === 'in_progress').length;
+    const dueSoon = tasks.filter(t => t.dueDate && isDueWithinDays(t.dueDate, 7) && t.status !== 'done').length;
+    if (!total) {
+      el.innerHTML = '<span class="th-stat-pill">No tasks yet — add one to start your queue</span>';
+      return;
+    }
+    el.innerHTML = `
+      <span class="th-stat-pill accent"><em>${total - done}</em> open</span>
+      <span class="th-stat-pill ok"><em>${done}</em> shipped</span>
+      ${inProg ? `<span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>` : ''}
+      ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
+    `;
+  }
+
+  function isDueWithinDays(iso, days) {
+    if (!iso) return false;
+    const due = parseIso(iso);
+    const now = new Date();
+    now.setHours(12, 0, 0, 0);
+    const limit = new Date(now);
+    limit.setDate(limit.getDate() + days);
+    return due >= now && due <= limit;
+  }
+
+  function isDueSoon(iso) {
+    return iso && isDueWithinDays(iso, 7);
+  }
+
   function renderListView() {
     document.getElementById('list-view').style.display = 'block';
     document.getElementById('gantt-view').style.display = 'none';
     const tasks = sortTasks(activeProject.tasks || []);
     if (!tasks.length) {
-      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks yet. Add one to get started.</p>';
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">No tasks in this build yet. Add a step — deploy worker, fix UI, write tests, whatever moves the project forward.</p>';
       return;
     }
     const memberMap = memberLabelMap();
     document.getElementById('list-view').innerHTML = `
-      <div class="th-table-wrap">
-        <table class="th-table">
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Status</th>
-              <th>Due</th>
-              <th>Assignees</th>
-              <th>Depends on</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tasks.map(t => `
-              <tr>
-                <td>
-                  <button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button>
-                  ${t.definitionOfDone ? `<div style="font-size:0.78rem;color:var(--th-muted);margin-top:4px;">${escapeHtml(t.definitionOfDone)}</div>` : ''}
-                </td>
-                <td><span class="th-status ${t.status || 'todo'}">${statusLabel(t.status)}</span></td>
-                <td>${formatDate(t.dueDate)}</td>
-                <td>${(t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</td>
-                <td>${depLabels(t.dependsOnTaskIds, tasks)}</td>
-                <td class="th-task-actions">
-                  <button type="button" data-view-task="${escapeAttr(t.id)}">View</button>
-                  <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
-                  <button type="button" data-del-task="${escapeAttr(t.id)}" style="color:#b91c1c;">Delete</button>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div class="th-task-cards">
+        ${tasks.map(t => {
+          const st = t.status || 'todo';
+          const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
+          return `
+          <article class="th-task-card status-${st}">
+            <div class="th-task-card-top">
+              <span class="th-status ${st}">${statusLabel(st)}</span>
+              <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
+            </div>
+            <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+            ${t.definitionOfDone ? `<p class="th-task-dod-preview">${escapeHtml(t.definitionOfDone)}</p>` : ''}
+            <div class="th-task-card-meta">
+              ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
+              ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
+            </div>
+            <div class="th-task-card-actions">
+              <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
+              <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
+              <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
+            </div>
+          </article>`;
+        }).join('')}
       </div>
     `;
     document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
@@ -874,7 +970,7 @@
 
     let headWeeks = weeks.map(w => `
       <div class="th-gantt-week" style="width:${7 * dayWidth}px;min-width:${7 * dayWidth}px">
-        <div class="th-gantt-week-title">Week of ${formatShort(w.days[0])}</div>
+        <div class="th-gantt-week-title">${formatShort(w.days[0])}</div>
         <div class="th-gantt-days">
           ${w.days.map(d => {
             const dt = parseIso(d);
@@ -919,11 +1015,11 @@
     document.getElementById('gantt-view').style.setProperty('--gantt-day-px', dayWidth + 'px');
     document.getElementById('gantt-view').style.setProperty('--gantt-row-px', rowHeight + 'px');
     document.getElementById('gantt-view').innerHTML = `
-      <p class="th-gantt-hint">Click a task name or due-date square to view details.</p>
+      <p class="th-gantt-hint">Timeline shows when tasks are due. Click a name or highlighted day to open details.</p>
       <div class="th-gantt">
         <div class="th-gantt-scroll" id="gantt-scroll">
           <div class="th-gantt-head">
-            <div class="th-gantt-label-col">Task</div>
+            <div class="th-gantt-label-col">Build steps</div>
             ${headWeeks}
           </div>
           <div class="th-gantt-body" id="gantt-body" style="position:relative;">
@@ -1015,9 +1111,9 @@
       <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${task.status || 'todo'}">${statusLabel(task.status)}</span></div></div>
       <div class="th-detail-row"><div class="th-detail-label">Start</div><div class="th-detail-value">${formatDate(task.startDate || taskStart(task))}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(task.dueDate || taskDue(task))}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Definition of done</div><div class="th-detail-value">${escapeHtml(task.definitionOfDone || '—')}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Done when</div><div class="th-detail-value">${escapeHtml(task.definitionOfDone || '—')}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(task.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Depends on</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
     `;
     openModal('modal-task-detail');
   }
