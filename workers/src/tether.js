@@ -117,6 +117,27 @@ function userIsOwner(project, userId) {
   return project && project.ownerUserId === userId;
 }
 
+/** Reject saves where a done task still has incomplete dependencies. */
+function validateTaskDependencyCompletion(tasks) {
+  if (!Array.isArray(tasks)) return null;
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  for (const task of tasks) {
+    if ((task.status || 'todo') !== 'done') continue;
+    for (const depId of task.dependsOnTaskIds || []) {
+      const dep = byId.get(depId);
+      if (dep && (dep.status || 'todo') !== 'done') {
+        const taskTitle = String(task.title || 'Task').trim() || 'Task';
+        const depTitle = String(dep.title || 'another task').trim() || 'another task';
+        return {
+          error: `Cannot complete "${taskTitle}" before "${depTitle}" is done`,
+          status: 400,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 async function resolveShareTarget(env, usernameOrEmail) {
   const raw = String(usernameOrEmail || '').trim();
   if (!raw) return { error: 'Enter a username or email', status: 400 };
@@ -261,6 +282,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     };
 
     if (!updated.title) return jsonResponse({ error: 'Project title is required' }, corsHeaders, 400);
+
+    const depError = validateTaskDependencyCompletion(updated.tasks);
+    if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
 
     const stub = tetherProjectStub(env, projectId);
     await stub.fetch(

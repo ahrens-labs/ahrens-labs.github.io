@@ -189,6 +189,12 @@
     }
     .th-complete-btn-sm { width: 20px; height: 20px; margin-top: 0; }
     .th-complete-btn-sm.checked::after { font-size: 0.7rem; }
+    .th-complete-btn.blocked:not(.checked) {
+      border-color: #e2e8f0; background: #f8fafc; cursor: not-allowed; opacity: 0.55;
+    }
+    .th-complete-btn.blocked:not(.checked):hover { border-color: #e2e8f0; background: #f8fafc; }
+    .th-task-card-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+    #task-detail-complete:disabled { opacity: 0.55; cursor: not-allowed; }
     .th-task-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
     .th-task-card h4 { margin: 0 0 6px; font-size: 0.98rem; font-weight: 700; }
     .th-task-dod-preview {
@@ -989,6 +995,7 @@
         ${tasks.map(t => {
           const st = t.status || 'todo';
           const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
+          const blocked = isTaskCompletionBlocked(t, tasks);
           return `
           <article class="th-task-card status-${st}">
             <div class="th-task-card-top">
@@ -996,7 +1003,7 @@
               <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
             </div>
             <div class="th-task-card-head">
-              ${completeBtnHtml(t.id, st, false)}
+              ${completeBtnHtml(t.id, st, false, blocked)}
               <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
             </div>
             ${t.definitionOfDone ? `<p class="th-task-dod-preview">${escapeHtml(t.definitionOfDone)}</p>` : ''}
@@ -1005,7 +1012,11 @@
               ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
             </div>
             <div class="th-task-card-actions">
-              ${st !== 'done' ? `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark complete</button>` : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
+              ${st !== 'done'
+                ? (blocked
+                  ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
+                  : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark complete</button>`)
+                : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
               <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
               <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
               <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
@@ -1138,6 +1149,7 @@
       const status = t.status || 'todo';
       const cell = ganttDueMetrics(t, range, dayWidth);
       const doneCls = status === 'done' ? ' is-done' : '';
+      const blocked = isTaskCompletionBlocked(t, allTasks);
       const deps = t.dependsOnTaskIds || [];
       const blockerTitle = deps.length
         ? ' · waits on ' + deps.map(id => tasks.find(x => x.id === id)?.title).filter(Boolean).join(', ')
@@ -1145,7 +1157,7 @@
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
           <div class="th-gantt-row-label${doneCls}" data-view-task="${escapeAttr(t.id)}" title="View task details">
-            ${completeBtnHtml(t.id, status, true)}
+            ${completeBtnHtml(t.id, status, true, blocked)}
             <div class="th-gantt-row-label-main">
               <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
               <span class="th-gantt-row-label-dates">${formatShort(cell.start)} → ${formatShort(cell.due)}</span>
@@ -1337,11 +1349,13 @@
     openModal('modal-project');
   }
 
-  function completeBtnHtml(taskId, status, small) {
+  function completeBtnHtml(taskId, status, small, blocked) {
     const done = status === 'done';
-    const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '');
-    const label = done ? 'Mark incomplete' : 'Mark complete';
-    return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"></button>`;
+    const isBlocked = !done && blocked;
+    const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '') + (isBlocked ? ' blocked' : '');
+    const label = done ? 'Mark incomplete' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
+    const disabled = isBlocked ? ' disabled' : '';
+    return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"${disabled}></button>`;
   }
 
   function wireCompleteButtons(root) {
@@ -1356,6 +1370,14 @@
   async function toggleTaskComplete(taskId) {
     const task = getTaskById(taskId);
     if (!task) return;
+    const tasks = activeProject.tasks || [];
+    if (task.status !== 'done') {
+      const blocked = completionBlockedMessage(task, tasks);
+      if (blocked) {
+        showBanner(blocked);
+        return;
+      }
+    }
     task.status = task.status === 'done' ? 'todo' : 'done';
     try {
       await saveProject(activeProject);
@@ -1368,6 +1390,28 @@
 
   function getTaskById(taskId) {
     return (activeProject.tasks || []).find(t => t.id === taskId) || null;
+  }
+
+  /** Dependency tasks that must be done before this one can be completed. */
+  function getIncompleteDependencies(task, tasks) {
+    const deps = task?.dependsOnTaskIds || [];
+    if (!deps.length) return [];
+    return deps
+      .map(id => tasks.find(t => t.id === id))
+      .filter(t => t && (t.status || 'todo') !== 'done');
+  }
+
+  function completionBlockedMessage(task, tasks) {
+    const blockers = getIncompleteDependencies(task, tasks);
+    if (!blockers.length) return '';
+    const names = blockers.map(t => `"${t.title}"`).join(', ');
+    return blockers.length === 1
+      ? `Complete ${names} first — this task depends on it.`
+      : `Complete these tasks first: ${names}.`;
+  }
+
+  function isTaskCompletionBlocked(task, tasks) {
+    return (task?.status || 'todo') !== 'done' && getIncompleteDependencies(task, tasks).length > 0;
   }
 
   function openTaskDetailModal(taskId) {
@@ -1389,12 +1433,22 @@
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
     `;
     const completeBtn = document.getElementById('task-detail-complete');
+    const blocked = isTaskCompletionBlocked(task, tasks);
     if (task.status === 'done') {
       completeBtn.textContent = 'Reopen task';
       completeBtn.classList.add('done-toggle');
+      completeBtn.disabled = false;
+      completeBtn.title = '';
+    } else if (blocked) {
+      completeBtn.textContent = 'Blocked by dependencies';
+      completeBtn.classList.remove('done-toggle');
+      completeBtn.disabled = true;
+      completeBtn.title = completionBlockedMessage(task, tasks);
     } else {
       completeBtn.textContent = 'Mark complete';
       completeBtn.classList.remove('done-toggle');
+      completeBtn.disabled = false;
+      completeBtn.title = '';
     }
     openModal('modal-task-detail');
   }
@@ -1643,6 +1697,13 @@
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
       sortOrder: editingTaskId ? undefined : (activeProject.tasks || []).length,
     };
+    if (task.status === 'done') {
+      const blocked = completionBlockedMessage(task, activeProject.tasks || []);
+      if (blocked) {
+        showBanner(blocked);
+        return;
+      }
+    }
     if (editingTaskId) {
       const idx = activeProject.tasks.findIndex(t => t.id === editingTaskId);
       if (idx >= 0) {
