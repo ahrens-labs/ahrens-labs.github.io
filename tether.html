@@ -233,6 +233,108 @@
       border: 1px solid var(--th-line); border-radius: 10px; padding: 8px; }
     .th-check-group label { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; cursor: pointer; }
     .th-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    /* Task modal — elevated layout */
+    .th-task-modal {
+      width: min(560px, 100%); padding: 0; overflow: hidden;
+      border: 1px solid rgba(79, 70, 229, 0.12);
+      box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(255,255,255,0.6) inset;
+    }
+    .th-task-modal-head {
+      position: relative; padding: 22px 22px 18px;
+      background:
+        radial-gradient(ellipse 90% 80% at 0% 0%, rgba(99, 102, 241, 0.18), transparent 55%),
+        radial-gradient(ellipse 70% 60% at 100% 0%, rgba(16, 185, 129, 0.12), transparent 50%),
+        linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #ecfdf5 100%);
+      border-bottom: 1px solid var(--th-line);
+    }
+    .th-task-modal-kicker {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px; margin-bottom: 8px;
+      background: rgba(255,255,255,0.75); border: 1px solid rgba(79, 70, 229, 0.15);
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--th-accent);
+    }
+    .th-task-modal-head h3 {
+      margin: 0 0 4px; font-size: 1.35rem; font-weight: 800; color: var(--th-ink);
+      letter-spacing: -0.02em;
+    }
+    .th-task-modal-sub { margin: 0; font-size: 0.84rem; color: var(--th-muted); }
+    .th-modal-close {
+      position: absolute; top: 14px; right: 14px; width: 32px; height: 32px;
+      border: 1px solid var(--th-line); border-radius: 10px; background: rgba(255,255,255,0.85);
+      color: var(--th-muted); font-size: 1.25rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .th-modal-close:hover { background: #fff; color: var(--th-ink); border-color: #c7d2fe; }
+    .th-task-modal-body { padding: 18px 22px 8px; max-height: min(62vh, 520px); overflow-y: auto; }
+    .th-task-section {
+      margin-bottom: 16px; padding: 14px 14px 12px; border-radius: 14px;
+      background: #f8fafc; border: 1px solid var(--th-line);
+    }
+    .th-task-section-title {
+      display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
+      font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--th-muted);
+    }
+    .th-task-section-title span {
+      display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center;
+      border-radius: 7px; background: var(--th-accent-soft); font-size: 0.75rem;
+    }
+    .th-task-modal .th-field { margin-bottom: 10px; }
+    .th-task-modal .th-field:last-child { margin-bottom: 0; }
+    .th-task-modal .th-field label {
+      font-size: 0.76rem; font-weight: 700; color: #475569; margin-bottom: 5px;
+    }
+    .th-task-modal .th-field input,
+    .th-task-modal .th-field textarea,
+    .th-task-modal .th-field select {
+      border: 1px solid #dbeafe; background: #fff; border-radius: 12px;
+      padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .th-task-modal .th-field input:focus,
+    .th-task-modal .th-field textarea:focus {
+      outline: none; border-color: #818cf8;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .th-task-modal .th-field textarea { min-height: 72px; }
+    .th-status-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .th-status-pill {
+      flex: 1; min-width: 0; border: 1px solid var(--th-line); border-radius: 12px;
+      padding: 10px 8px; background: #fff; cursor: pointer; font: inherit;
+      font-size: 0.8rem; font-weight: 700; color: var(--th-muted); transition: all 0.15s;
+      text-align: center;
+    }
+    .th-status-pill.todo.active { background: #eef2ff; border-color: #818cf8; color: #4338ca; box-shadow: 0 0 0 2px rgba(99,102,241,0.12); }
+    .th-status-pill.in_progress.active { background: var(--th-orange-soft); border-color: #fdba74; color: #c2410c; box-shadow: 0 0 0 2px rgba(234,88,12,0.1); }
+    .th-status-pill.done.active { background: var(--th-green-soft); border-color: #6ee7b7; color: #047857; box-shadow: 0 0 0 2px rgba(5,150,105,0.1); }
+    .th-chip-check-group {
+      display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;
+    }
+    .th-chip-check {
+      display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+      padding: 6px 12px 6px 8px; border-radius: 999px; border: 1px solid var(--th-line);
+      background: #fff; font-size: 0.82rem; font-weight: 600; color: var(--th-ink);
+      transition: all 0.15s; user-select: none;
+    }
+    .th-chip-check:has(input:checked) {
+      background: var(--th-accent-soft); border-color: #a5b4fc; color: #3730a3;
+    }
+    .th-chip-check input { accent-color: var(--th-accent); margin: 0; }
+    .th-chip-avatar {
+      width: 22px; height: 22px; border-radius: 999px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; font-size: 0.65rem; font-weight: 800; display: inline-flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .th-task-modal-foot {
+      display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px 18px;
+      background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+      border-top: 1px solid var(--th-line);
+    }
+    .th-task-modal-foot .th-btn-primary {
+      padding: 10px 20px; border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
     .th-banner {
       display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 12px; font-size: 0.86rem;
     }
@@ -359,45 +461,62 @@
 
   <!-- Task modal -->
   <div class="th-modal-backdrop" id="modal-task">
-    <div class="th-modal">
-      <h3 id="modal-task-title">New task</h3>
-      <div class="th-field">
-        <label for="task-title-input">Task</label>
-        <input type="text" id="task-title-input" maxlength="200">
+    <div class="th-modal th-task-modal">
+      <div class="th-task-modal-head">
+        <button type="button" class="th-modal-close" data-close="modal-task" aria-label="Close">&times;</button>
+        <span class="th-task-modal-kicker">✦ Task</span>
+        <h3 id="modal-task-title">New task</h3>
+        <p id="modal-task-subtitle" class="th-task-modal-sub"></p>
       </div>
-      <div class="th-field">
-        <label for="task-dod-input">Definition of done</label>
-        <textarea id="task-dod-input"></textarea>
+      <div class="th-task-modal-body">
+        <section class="th-task-section">
+          <h4 class="th-task-section-title"><span>1</span> Details</h4>
+          <div class="th-field">
+            <label for="task-title-input">Task name</label>
+            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+          </div>
+          <div class="th-field">
+            <label for="task-dod-input">Definition of done</label>
+            <textarea id="task-dod-input" placeholder="How will you know this task is complete?"></textarea>
+          </div>
+          <div class="th-field">
+            <label>Status</label>
+            <div class="th-status-pills" id="task-status-pills">
+              <button type="button" class="th-status-pill todo" data-status="todo">To do</button>
+              <button type="button" class="th-status-pill in_progress" data-status="in_progress">In progress</button>
+              <button type="button" class="th-status-pill done" data-status="done">Done</button>
+            </div>
+            <input type="hidden" id="task-status-input" value="todo">
+          </div>
+        </section>
+        <section class="th-task-section">
+          <h4 class="th-task-section-title"><span>2</span> Schedule</h4>
+          <div class="th-field-row">
+            <div class="th-field">
+              <label for="task-start-input">Start date</label>
+              <input type="date" id="task-start-input">
+            </div>
+            <div class="th-field">
+              <label for="task-due-input">Due date</label>
+              <input type="date" id="task-due-input">
+            </div>
+          </div>
+        </section>
+        <section class="th-task-section">
+          <h4 class="th-task-section-title"><span>3</span> People &amp; dependencies</h4>
+          <div class="th-field">
+            <label>Assignees</label>
+            <div class="th-chip-check-group" id="task-assignees"></div>
+          </div>
+          <div class="th-field">
+            <label>Depends on</label>
+            <div class="th-chip-check-group" id="task-deps"></div>
+          </div>
+        </section>
       </div>
-      <div class="th-field-row">
-        <div class="th-field">
-          <label for="task-start-input">Start date</label>
-          <input type="date" id="task-start-input">
-        </div>
-        <div class="th-field">
-          <label for="task-due-input">Due date</label>
-          <input type="date" id="task-due-input">
-        </div>
-      </div>
-      <div class="th-field">
-        <label for="task-status-input">Status</label>
-        <select id="task-status-input">
-          <option value="todo">To do</option>
-          <option value="in_progress">In progress</option>
-          <option value="done">Done</option>
-        </select>
-      </div>
-      <div class="th-field">
-        <label>Assignees</label>
-        <div class="th-check-group" id="task-assignees"></div>
-      </div>
-      <div class="th-field">
-        <label>Depends on</label>
-        <div class="th-check-group" id="task-deps"></div>
-      </div>
-      <div class="th-modal-actions">
+      <div class="th-task-modal-foot">
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task">Cancel</button>
-        <button type="button" class="th-btn th-btn-primary" id="save-task-btn">Save</button>
+        <button type="button" class="th-btn th-btn-primary" id="save-task-btn">Save task</button>
       </div>
     </div>
   </div>
@@ -757,33 +876,59 @@
     openModal('modal-project');
   }
 
+  function setTaskStatusPill(status) {
+    const val = status || 'todo';
+    document.getElementById('task-status-input').value = val;
+    document.querySelectorAll('.th-status-pill').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-status') === val);
+    });
+  }
+
+  function memberInitials(name) {
+    const parts = String(name || '?').trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return String(name || '?').slice(0, 2).toUpperCase();
+  }
+
   function openTaskModal(taskId) {
     editingTaskId = taskId || null;
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
+    document.getElementById('modal-task-subtitle').textContent = activeProject
+      ? 'In project · ' + activeProject.title
+      : '';
     const tasks = activeProject.tasks || [];
     const task = taskId ? tasks.find(t => t.id === taskId) : null;
     document.getElementById('task-title-input').value = task ? task.title : '';
     document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
     document.getElementById('task-start-input').value = task ? (task.startDate || '') : isoDate(new Date());
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
-    document.getElementById('task-status-input').value = task ? (task.status || 'todo') : 'todo';
+    setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
 
     const assigneesEl = document.getElementById('task-assignees');
-    assigneesEl.innerHTML = (activeProject.members || []).map(m => `
-      <label><input type="checkbox" value="${escapeAttr(m.userId)}"
-        ${task && (task.assigneeUserIds || []).includes(m.userId) ? 'checked' : ''}>
-        ${escapeHtml(m.username || m.email)}</label>
-    `).join('');
+    assigneesEl.innerHTML = (activeProject.members || []).map(m => {
+      const label = m.username || m.email || m.userId;
+      return `
+      <label class="th-chip-check">
+        <input type="checkbox" value="${escapeAttr(m.userId)}"
+          ${task && (task.assigneeUserIds || []).includes(m.userId) ? 'checked' : ''}>
+        <span class="th-chip-avatar">${escapeHtml(memberInitials(label))}</span>
+        ${escapeHtml(label)}
+      </label>`;
+    }).join('') || '<span style="font-size:0.82rem;color:var(--th-muted);">Share the project to add members</span>';
 
     const depsEl = document.getElementById('task-deps');
     const otherTasks = tasks.filter(t => t.id !== taskId);
     depsEl.innerHTML = otherTasks.length ? otherTasks.map(t => `
-      <label><input type="checkbox" value="${escapeAttr(t.id)}"
-        ${task && (task.dependsOnTaskIds || []).includes(t.id) ? 'checked' : ''}>
-        ${escapeHtml(t.title)}</label>
+      <label class="th-chip-check">
+        <input type="checkbox" value="${escapeAttr(t.id)}"
+          ${task && (task.dependsOnTaskIds || []).includes(t.id) ? 'checked' : ''}>
+        ${escapeHtml(t.title)}
+      </label>
     `).join('') : '<span style="font-size:0.82rem;color:var(--th-muted);">No other tasks yet</span>';
 
     openModal('modal-task');
+    const titleInput = document.getElementById('task-title-input');
+    requestAnimationFrame(() => titleInput.focus());
   }
 
   async function deleteTask(taskId) {
@@ -916,6 +1061,9 @@
   document.getElementById('btn-new-project-empty').addEventListener('click', () => openProjectModal('create'));
   document.getElementById('btn-edit-project').addEventListener('click', () => openProjectModal('edit'));
   document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
+  document.querySelectorAll('.th-status-pill').forEach(pill => {
+    pill.addEventListener('click', () => setTaskStatusPill(pill.getAttribute('data-status')));
+  });
   document.getElementById('btn-share').addEventListener('click', () => {
     document.getElementById('share-input').value = '';
     openModal('modal-share');
