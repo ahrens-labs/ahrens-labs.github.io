@@ -983,13 +983,13 @@
   }
 
   function myTaskSummaryHtml(tasks) {
-    const open = tasks.filter(t => (t.status || 'todo') !== 'done');
-    const dueSoon = open.filter(t => isDueSoon(t.dueDate)).length;
-    const overdue = open.filter(t => isDueOverdue(t.dueDate, t.status)).length;
-    const blocked = open.filter(t => (t.blockedByIncomplete || []).length > 0).length;
+    const incomplete = tasks.filter(t => (t.status || 'todo') !== 'done');
+    const dueSoon = incomplete.filter(t => isDueSoon(t.dueDate)).length;
+    const overdue = incomplete.filter(t => isDueOverdue(t.dueDate, t.status)).length;
+    const blocked = incomplete.filter(t => (t.blockedByIncomplete || []).length > 0).length;
     const pills = [
       `<span class="th-stat-pill"><em>${tasks.length}</em> shown</span>`,
-      `<span class="th-stat-pill accent"><em>${open.length}</em> open</span>`,
+      `<span class="th-stat-pill accent"><em>${incomplete.length}</em> incomplete</span>`,
     ];
     if (dueSoon) pills.push(`<span class="th-stat-pill warn"><em>${dueSoon}</em> due soon</span>`);
     if (overdue) pills.push(`<span class="th-stat-pill warn"><em>${overdue}</em> overdue</span>`);
@@ -1034,7 +1034,7 @@
     }
     const tasks = visibleMyTasks();
     if (!tasks.length) {
-      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No open tasks assigned to you. Check “Show completed” to include finished work.</p>';
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No incomplete tasks assigned to you. Check “Show completed” to include finished work.</p>';
       return;
     }
     el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
@@ -1300,7 +1300,7 @@
       return;
     }
     el.innerHTML = `
-      <span class="th-stat-pill accent"><em>${total - done}</em> open</span>
+      <span class="th-stat-pill accent"><em>${total - done}</em> incomplete</span>
       <span class="th-stat-pill ok"><em>${done}</em> completed</span>
       ${inProg ? `<span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>` : ''}
       ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
@@ -1524,7 +1524,7 @@
 
     if (!tasks.length) {
       const emptyMsg = allTasks.length && !ganttShowCompleted
-        ? 'No open tasks on the timeline. Check "Show completed" to include finished work.'
+        ? 'No incomplete tasks on the timeline. Check "Show completed" to include finished work.'
         : 'Add tasks with due dates to see the timeline.';
       document.getElementById('gantt-view').innerHTML = `
         <div class="th-gantt-toolbar">
