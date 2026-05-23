@@ -238,6 +238,10 @@
       border-radius: 6px; padding: 2px 6px; font-size: 0.66rem; font-weight: 600; cursor: pointer;
     }
     .th-task-start-btn:hover { background: #ffedd5; border-color: #fdba74; }
+    .th-btn.th-task-start-btn {
+      background: var(--th-orange-soft); border: 1px solid #fed7aa; color: #c2410c;
+    }
+    .th-btn.th-task-start-btn:hover { background: #ffedd5; border-color: #fdba74; }
     .th-my-task-actions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
     .th-complete-btn {
       width: 18px; height: 18px; margin-top: 1px; border-radius: 999px; border: 2px solid #cbd5e1;
@@ -386,6 +390,7 @@
       cursor: pointer; transition: background 0.15s;
       box-shadow: 4px 0 8px rgba(255, 255, 255, 0.92);
     }
+    .th-gantt-row-label .th-task-start-btn { flex-shrink: 0; }
     .th-gantt-row-label:hover { background: #f8fafc; }
     .th-gantt-row-label.is-done { opacity: 0.72; }
     .th-gantt-row-label.is-done .th-gantt-row-label-text { text-decoration: line-through; color: var(--th-muted); }
@@ -815,6 +820,7 @@
         </section>
       </div>
       <div class="th-task-modal-foot">
+        <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-edit-start" style="display:none;">Start</button>
         <button type="button" class="th-btn th-btn-danger" id="delete-task-from-edit" style="display:none;">Delete task</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task">Cancel</button>
         <button type="button" class="th-btn th-btn-primary" id="save-task-btn">Save task</button>
@@ -835,6 +841,7 @@
         <div class="th-detail-grid" id="task-detail-body"></div>
       </div>
       <div class="th-task-modal-foot">
+        <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-detail-start" style="display:none;">Start</button>
         <button type="button" class="th-btn th-btn-ghost" id="task-detail-complete" style="margin-right:auto;">Mark complete</button>
         <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
@@ -1038,6 +1045,7 @@
       <div class="th-my-task-headline">
         <h3 class="th-my-task-title">${escapeHtml(t.title)}</h3>
         <div class="th-my-task-badges">
+          ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
           <span class="th-status ${st}">${statusLabel(st)}</span>
           <span class="th-task-due-badge${dueCls}">${dueText}</span>
         </div>
@@ -1049,7 +1057,6 @@
       </div>
       ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
       ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
-      ${st === 'todo' ? `<div class="th-my-task-actions">${startTaskBtnHtml(t.id, st, t.projectId)}</div>` : ''}
     </article>`;
   }
 
@@ -1374,6 +1381,7 @@
                 <div class="th-task-card-headline">
                   <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
                   <div class="th-task-card-badges">
+                    ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                     <span class="th-status ${st}">${statusLabel(st)}</span>
                     <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
                   </div>
@@ -1391,7 +1399,7 @@
                       ? (blocked
                         ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
                         : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Complete</button>`)
-                      : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Reopen</button>`}
+                      : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark active</button>`}
                     <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
                     <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                     <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
@@ -1542,12 +1550,12 @@
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
           <div class="th-gantt-row-label${doneCls}" data-view-task="${escapeAttr(t.id)}" title="View task details">
             ${completeBtnHtml(t.id, status, true, blocked)}
+            ${status === 'todo' ? startTaskBtnHtml(t.id, status) : ''}
             <div class="th-gantt-row-label-main">
               <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
               <span class="th-gantt-row-label-dates">${t.dueDate ? 'Due ' + formatShort(t.dueDate) : 'No due date'}</span>
             </div>
             <span class="th-gantt-row-actions">
-              ${status === 'todo' ? startTaskBtnHtml(t.id, status) : ''}
               <button type="button" class="th-gantt-icon-btn" data-view-task="${escapeAttr(t.id)}" title="View details">⋯</button>
               <button type="button" class="th-gantt-icon-btn danger" data-gantt-delete="${escapeAttr(t.id)}" title="Delete task">×</button>
             </span>
@@ -1738,7 +1746,7 @@
     const done = status === 'done';
     const isBlocked = !done && blocked;
     const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '') + (isBlocked ? ' blocked' : '');
-    const label = done ? 'Reopen task' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
+    const label = done ? 'Mark active' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
     const disabled = isBlocked ? ' disabled' : '';
     return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"${disabled}></button>`;
   }
@@ -1814,7 +1822,7 @@
     task.status = task.status === 'done' ? 'todo' : 'done';
     try {
       await saveProject(activeProject);
-      showBanner(task.status === 'done' ? 'Task marked complete' : 'Task reopened', 'ok');
+      showBanner(task.status === 'done' ? 'Task marked complete' : 'Task marked active', 'ok');
       if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
         openTaskDetailModal(taskId);
       }
@@ -1866,19 +1874,25 @@
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
     `;
     const completeBtn = document.getElementById('task-detail-complete');
+    const startBtn = document.getElementById('task-detail-start');
     const blocked = isTaskCompletionBlocked(task, tasks);
-    if (task.status === 'done') {
-      completeBtn.textContent = 'Reopen task';
+    const st = task.status || 'todo';
+    startBtn.style.display = st === 'todo' ? 'inline-block' : 'none';
+    if (st === 'done') {
+      completeBtn.textContent = 'Mark active';
+      completeBtn.style.display = 'inline-block';
       completeBtn.classList.add('done-toggle');
       completeBtn.disabled = false;
       completeBtn.title = '';
     } else if (blocked) {
       completeBtn.textContent = 'Blocked by dependencies';
+      completeBtn.style.display = 'inline-block';
       completeBtn.classList.remove('done-toggle');
       completeBtn.disabled = true;
       completeBtn.title = completionBlockedMessage(task, tasks);
     } else {
       completeBtn.textContent = 'Mark complete';
+      completeBtn.style.display = 'inline-block';
       completeBtn.classList.remove('done-toggle');
       completeBtn.disabled = false;
       completeBtn.title = '';
@@ -1934,6 +1948,8 @@
     document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
+    document.getElementById('task-edit-start').style.display =
+      task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
 
     const assigneesEl = document.getElementById('task-assignees');
     assigneesEl.innerHTML = (activeProject.members || []).map(m => {
@@ -2230,6 +2246,22 @@
   document.getElementById('task-detail-complete').addEventListener('click', () => {
     if (!viewingTaskId) return;
     toggleTaskComplete(viewingTaskId);
+  });
+
+  document.getElementById('task-detail-start').addEventListener('click', async () => {
+    if (!viewingTaskId) return;
+    try {
+      await setTaskStatus(viewingTaskId, 'in_progress');
+      openTaskDetailModal(viewingTaskId);
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('task-edit-start').addEventListener('click', async () => {
+    if (!editingTaskId) return;
+    try {
+      await setTaskStatus(editingTaskId, 'in_progress');
+      closeModal('modal-task');
+    } catch (e) { showBanner(e.message); }
   });
 
   document.getElementById('task-detail-edit').addEventListener('click', () => {
