@@ -1,5 +1,7 @@
 # Deploy Cloudflare Worker (chess-accounts) when workers/ changes.
-# Add repo secret CLOUDFLARE_API_TOKEN (Workers Scripts:Edit, Account:Read).
+# REQUIRED: same CLOUDFLARE_API_TOKEN secret as deploy-pages.yml
+#   Additional permission: Workers Scripts Edit
+# Local fallback: cd workers && npx wrangler deploy
 name: Deploy chess-accounts worker
 
 on:

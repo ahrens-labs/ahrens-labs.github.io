@@ -1,5 +1,9 @@
 # Deploy static site to Cloudflare Pages (ahrenslabs.com).
-# Requires repo secret CLOUDFLARE_API_TOKEN (Account:Read, Cloudflare Pages:Edit).
+# REQUIRED: GitHub repo secret CLOUDFLARE_API_TOKEN
+#   Create at https://dash.cloudflare.com/profile/api-tokens
+#   Permissions: Account Read, Cloudflare Pages Edit (project ahrens-labs-github-io)
+# Without it, pushes to main will not update ahrenslabs.com — deploy locally:
+#   npx wrangler pages deploy . --project-name=ahrens-labs-github-io --branch=main
 name: Deploy Cloudflare Pages
 
 on:
