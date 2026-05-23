@@ -1,9 +1,9 @@
 # Deploy static site to Cloudflare Pages (ahrenslabs.com).
 # REQUIRED: GitHub repo secret CLOUDFLARE_API_TOKEN
 #   Create at https://dash.cloudflare.com/profile/api-tokens
-#   Permissions: Account Read, Cloudflare Pages Edit (project ahrens-labs-github-io)
-# Without it, pushes to main will not update ahrenslabs.com — deploy locally:
-#   npx wrangler pages deploy . --project-name=ahrens-labs-github-io --branch=main
+#   Permissions: Account Read, Cloudflare Pages Edit, Workers Scripts Edit
+# Account tokens also need accountId below (wrangler skips /memberships lookup).
+# Local fallback: npx wrangler pages deploy . --project-name=ahrens-labs-github-io --branch=main
 name: Deploy Cloudflare Pages
 
 on:
@@ -13,6 +13,9 @@ on:
       - 'workers/**'
       - '.github/workflows/deploy-chess-accounts.yml'
   workflow_dispatch:
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
 
 jobs:
   deploy:
@@ -25,4 +28,8 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
           command: pages deploy . --project-name=ahrens-labs-github-io --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
