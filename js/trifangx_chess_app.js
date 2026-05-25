@@ -1522,7 +1522,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg',
       season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg',
       season_canopy_pieces: 'https://lichess1.org/assets/piece/mpchess/{piece}.svg',
-      season_solstice_pieces: 'https://lichess1.org/assets/piece/california/{piece}.svg',
+      season_solstice_pieces: 'https://lichess1.org/assets/piece/maestro/{piece}.svg',
       season_crown_regalia: 'https://lichess1.org/assets/piece/fantasy/{piece}.svg',
     };
 
