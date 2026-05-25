@@ -683,6 +683,20 @@
                     </div>
                   </div>
                 </div>
+                <div id="st-preview-reset-modal" class="st-modal" aria-hidden="true">
+                  <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-preview-reset-modal"></div>
+                  <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-preview-reset-modal-title">
+                    <h3 id="st-preview-reset-modal-title" class="st-modal-title">Reset the June preview track?</h3>
+                    <div class="st-modal-body">
+                      <p>This removes preview-granted <strong>cosmetics and leaderboard flair</strong> from the June admin preview track and clears preview claim progress on your save.</p>
+                      <p><strong>This cannot be undone.</strong></p>
+                    </div>
+                    <div class="st-modal-actions">
+                      <button type="button" class="st-modal-cancel" id="st-preview-reset-cancel">Cancel</button>
+                      <button type="button" class="st-reset-btn" id="st-preview-reset-confirm">Reset preview</button>
+                    </div>
+                  </div>
+                </div>
                 <div id="st-msg-modal" class="st-modal" aria-hidden="true">
                   <div class="st-modal-backdrop" tabindex="-1" data-st-modal-dismiss="st-msg-modal"></div>
                   <div class="st-modal-card" role="dialog" aria-modal="true" aria-labelledby="st-msg-modal-title">
@@ -721,6 +735,7 @@
 
       var pendingSeasonResetBtn = null;
       var __stPendingBuyout = null;
+      var __stPendingPreviewReset = null;
 
       function closeSeasonResetModal() {
         var m = document.getElementById('st-reset-modal');
@@ -1528,6 +1543,38 @@
         stSetModalOpen('st-buyout-modal', false);
       }
 
+      function closeStPreviewResetModal() {
+        stSetModalOpen('st-preview-reset-modal', false);
+        var c = document.getElementById('st-preview-reset-confirm');
+        if (c) {
+          c.disabled = false;
+          c.textContent = 'Reset preview';
+        }
+        __stPendingPreviewReset = null;
+      }
+
+      function openStPreviewResetModal(btn, previewSeasonId) {
+        if (!btn || !previewSeasonId) return;
+        __stPendingPreviewReset = { btn: btn, previewSeasonId: previewSeasonId };
+        stSetModalOpen('st-preview-reset-modal', true);
+      }
+
+      function executeStPreviewReset() {
+        var pending = __stPendingPreviewReset;
+        if (!pending || !pending.btn || !pending.previewSeasonId) {
+          closeStPreviewResetModal();
+          return;
+        }
+        var confirmBtn = document.getElementById('st-preview-reset-confirm');
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Working…';
+        }
+        stSetModalOpen('st-preview-reset-modal', false);
+        __stPendingPreviewReset = null;
+        resetSeasonPreviewTrack(pending.btn, pending.previewSeasonId);
+      }
+
       function showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, alreadyClaimed) {
         var bonus = 0;
         var buyCost = 0;
@@ -1791,16 +1838,22 @@
             closeStBuyoutModal();
             if (p && p.btn) claimSeasonStep(p.bidx, p.btn, true);
           });
+        var prc = document.getElementById('st-preview-reset-cancel');
+        var prok = document.getElementById('st-preview-reset-confirm');
+        if (prc) prc.addEventListener('click', closeStPreviewResetModal);
+        if (prok) prok.addEventListener('click', executeStPreviewReset);
         document.addEventListener('click', function (ev) {
           var id = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-st-modal-dismiss');
           if (!id) return;
           if (id === 'st-msg-modal') closeStMsgModal();
           if (id === 'st-buyout-modal') closeStBuyoutModal();
+          if (id === 'st-preview-reset-modal') closeStPreviewResetModal();
         });
         document.addEventListener('keydown', function (ev) {
           if (ev.key !== 'Escape' || ev.defaultPrevented) return;
           closeStMsgModal();
           closeStBuyoutModal();
+          closeStPreviewResetModal();
         });
       })();
 
@@ -1810,14 +1863,7 @@
         if (previewResetBtn && !previewResetBtn.disabled) {
           var psid = previewResetBtn.getAttribute('data-st-preview-season');
           if (!psid) return;
-          if (
-            !window.confirm(
-              'Reset the June preview track? This removes preview-granted cosmetics and leaderboard flair from those steps.'
-            )
-          ) {
-            return;
-          }
-          resetSeasonPreviewTrack(previewResetBtn, psid);
+          openStPreviewResetModal(previewResetBtn, psid);
           return;
         }
         var previewBtn =
