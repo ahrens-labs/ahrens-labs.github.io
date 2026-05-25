@@ -1375,9 +1375,11 @@
         ${tasks.map(t => {
           const st = t.status || 'todo';
           const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
+          const blocked = isTaskCompletionBlocked(t, tasks);
           return `
           <article class="th-task-card status-${st}">
             <div class="th-task-card-row">
+              ${completeBtnHtml(t.id, st, false, blocked)}
               <div class="th-task-card-main">
                 <div class="th-task-card-headline">
                   <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
@@ -1418,6 +1420,7 @@
       });
     });
     wireStartButtons(document.getElementById('list-view'));
+    wireCompleteButtons(document.getElementById('list-view'));
   }
 
   async function clearCompletedTasks() {
