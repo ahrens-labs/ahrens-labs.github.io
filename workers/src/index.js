@@ -1636,6 +1636,29 @@ async function handleChessSeasonClaim(request, env, corsHeaders) {
     });
   }
 
+  const adminPreviewClaim = !!(body && body.adminPreviewClaim);
+  const adminPreviewReset = !!(body && body.adminPreviewReset);
+  if (adminPreviewClaim || adminPreviewReset) {
+    const gate = await assertAdminBroadcastSession(env, sessionId);
+    if (!gate.ok) {
+      return new Response(JSON.stringify({ success: false, error: gate.error || 'Forbidden' }), {
+        status: gate.status || 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const previewSid = String(body.previewSeasonId || '').trim();
+    if (!isValidAdminPreviewSeasonId(previewSid)) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid or closed preview season' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  } else if (body && typeof body === 'object') {
+    delete body.adminPreviewClaim;
+    delete body.adminPreviewReset;
+    delete body.previewSeasonId;
+  }
+
   const userId = userResult.userId;
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
@@ -5541,6 +5564,24 @@ function getSeasonClaimNodesForSeasonId(seasonId) {
   return SEASON_CLAIM_NODES_05;
 }
 
+/** Upcoming June season id while preview window is open (May UTC, before June 1). */
+function adminPreviewJuneSeasonIdIfOpen() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const juneSid = `${y}-06`;
+  const startMs = Date.UTC(y, 5, 1, 0, 0, 0, 0);
+  if (Date.now() >= startMs) return null;
+  const curMm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  if (curMm === '05') return juneSid;
+  return null;
+}
+
+function isValidAdminPreviewSeasonId(seasonId) {
+  const sid = String(seasonId || '').trim();
+  const open = adminPreviewJuneSeasonIdIfOpen();
+  return open != null && sid === open;
+}
+
 /** Must match `SEASON_STEP_BUYOUT_POINTS` in js/chess_seasons.js */
 const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
   500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
@@ -8773,6 +8814,13 @@ export class UserAccount {
    * Idempotent: if step was already claimed, returns success + alreadyClaimed.
    */
   async claimSeasonStep(body) {
+    if (body && body.adminPreviewReset) {
+      return this.resetSeasonPreviewTrackAdmin(body);
+    }
+    if (body && body.adminPreviewClaim) {
+      return this.claimSeasonPreviewStepAdmin(body);
+    }
+
     const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
     const buyWithPoints = !!(body && body.buyWithPoints);
     const userData = await this.storage.get('userData');
@@ -8862,6 +8910,145 @@ export class UserAccount {
 
     const outChess = await this.getChessData();
     return { success: true, chess: outChess };
+  }
+
+  /**
+   * Admin-only: claim a step on the hidden preview season (no challenge, no shop-point cost).
+   * Progress lives on `chess.seasonPreviewTrack`; rewards merge into the normal account pools.
+   */
+  async claimSeasonPreviewStepAdmin(body) {
+    const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
+    const previewSeasonId = String(body?.previewSeasonId || '').trim();
+    if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
+      return { success: false, error: 'Invalid or closed preview season' };
+    }
+
+    const userData = await this.storage.get('userData');
+    if (!userData?.games?.chess) {
+      return { success: false, error: 'No chess data' };
+    }
+    const chess = userData.games.chess;
+    const claimNodes = getSeasonClaimNodesForSeasonId(previewSeasonId);
+    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= claimNodes.length) {
+      return { success: false, error: 'Invalid step' };
+    }
+
+    let pst =
+      chess.seasonPreviewTrack && typeof chess.seasonPreviewTrack === 'object'
+        ? { ...chess.seasonPreviewTrack }
+        : {};
+    if (String(pst.seasonId || '').trim() !== previewSeasonId) {
+      pst = {
+        seasonId: previewSeasonId,
+        nodesCompleted: 0,
+        earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
+      };
+    }
+
+    const node = claimNodes[stepIndex];
+    const done = Math.min(
+      CHESS_SEASON_MAX_NODES,
+      Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0))
+    );
+
+    if (done > stepIndex) {
+      const outChess = await this.getChessData();
+      return { success: true, alreadyClaimed: true, chess: outChess, adminPreview: true };
+    }
+    if (done !== stepIndex) {
+      return { success: false, error: 'Claim earlier preview steps first' };
+    }
+
+    const prevSnap = chessStatsSnapshot(chess);
+    applySeasonClaimRewardsToChess(chess, node);
+    pst.nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, done + 1);
+    pst.seasonId = previewSeasonId;
+    pst.earnBaseline = snapshotSeasonEarnBaselineFromChess(chess);
+    chess.seasonPreviewTrack = pst;
+    chess.seasonBonusPoints =
+      Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)) +
+      Math.max(0, Math.floor(Number(node.bonusPoints) || 0));
+    chess.lastUpdated = Date.now();
+
+    await this.storage.put('userData', userData);
+
+    const nextSnap = chessStatsSnapshot(userData.games.chess);
+    await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
+    await this.syncChessCareerPointsLeaderboardEntry();
+
+    const outChess = await this.getChessData();
+    return { success: true, chess: outChess, adminPreview: true };
+  }
+
+  /** Admin-only: reset preview-track progress and remove preview-granted rewards for that season. */
+  async resetSeasonPreviewTrackAdmin(body) {
+    const previewSeasonId = String(body?.previewSeasonId || '').trim();
+    if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
+      return { success: false, error: 'Invalid or closed preview season' };
+    }
+
+    const userData = await this.storage.get('userData');
+    if (!userData?.games?.chess) {
+      return { success: false, error: 'No chess data' };
+    }
+    const chess = userData.games.chess;
+    const pst =
+      chess.seasonPreviewTrack && typeof chess.seasonPreviewTrack === 'object'
+        ? chess.seasonPreviewTrack
+        : null;
+    if (!pst || String(pst.seasonId || '').trim() !== previewSeasonId) {
+      return { success: false, error: 'No preview progress to reset for this season.' };
+    }
+
+    const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0)));
+    if (n <= 0) {
+      return { success: false, error: 'No claimed preview steps to reset.' };
+    }
+
+    let bonusSubtract = 0;
+    const claimNodes = getSeasonClaimNodesForSeasonId(previewSeasonId);
+    for (let i = 0; i < n; i++) {
+      bonusSubtract += Math.max(0, Math.floor(Number(claimNodes[i]?.bonusPoints) || 0));
+    }
+
+    const shopKeys = seasonTrackRewardShopKeysThroughStep(n, previewSeasonId);
+    chess.shopUnlocks = removeSeasonShopRewardsFromChessShop(chess.shopUnlocks, shopKeys);
+
+    const tokenSets = collectSeasonLbTokensThroughStep(n, previewSeasonId);
+    const st =
+      chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
+    const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+    const newOwned = {
+      frames: uniqStrings((prevOwned.frames || []).filter((f) => !tokenSets.frames.has(String(f)))),
+      titles: uniqStrings((prevOwned.titles || []).filter((t) => !tokenSets.titles.has(String(t)))),
+      prefixes: uniqStrings((prevOwned.prefixes || []).filter((p) => !tokenSets.prefixes.has(String(p)))),
+      suffixes: uniqStrings((prevOwned.suffixes || []).filter((s) => !tokenSets.suffixes.has(String(s)))),
+    };
+    st.lbFlairUnlocked = newOwned;
+    st.lbFlair = shrinkLbFlairEquipsToOwned(st.lbFlair, newOwned);
+    chess.seasonTrack = st;
+
+    chess.seasonPreviewTrack = {
+      seasonId: previewSeasonId,
+      nodesCompleted: 0,
+      earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
+    };
+    const prevSb = Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0));
+    chess.seasonBonusPoints = Math.max(0, prevSb - bonusSubtract);
+    chess.lastUpdated = Date.now();
+
+    sanitizeChessVisualSettingsAfterUnshop(chess);
+    await this.storage.put('userData', userData);
+    await this.syncChessCareerPointsLeaderboardEntry();
+
+    const outChess = await this.getChessData();
+    return {
+      success: true,
+      chess: outChess,
+      adminPreview: true,
+      resetSteps: n,
+      bonusPointsRemoved: bonusSubtract,
+    };
   }
 
   /**
@@ -9115,6 +9302,12 @@ export class UserAccount {
         : mergeShopUnlocksForSync(prevChess.shopUnlocks, restIncoming.shopUnlocks);
     }
     mergedChess.shopUnlocks = ensureChessShopUnlockBasics(mergedChess.shopUnlocks || {});
+    if (
+      !Object.prototype.hasOwnProperty.call(restIncoming, 'seasonPreviewTrack') &&
+      prevChess.seasonPreviewTrack
+    ) {
+      mergedChess.seasonPreviewTrack = prevChess.seasonPreviewTrack;
+    }
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
     delete mergedChess.lbRollBaselineMs;

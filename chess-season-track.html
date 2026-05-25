@@ -323,6 +323,40 @@
         .st-preview-wrap .st-timeline::before {
             background: linear-gradient(180deg, #fbbf24, #f59e0b, #ea580c);
         }
+        .st-preview-claim-btn {
+            font: inherit;
+            font-weight: 700;
+            font-size: 0.84rem;
+            padding: 0.42rem 1rem;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(217, 119, 6, 0.35);
+        }
+        .st-preview-claim-btn:hover:not(:disabled) {
+            filter: brightness(1.05);
+        }
+        .st-preview-claim-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+        .st-preview-reset-btn {
+            font: inherit;
+            font-weight: 600;
+            font-size: 0.82rem;
+            padding: 0.38rem 0.9rem;
+            border-radius: 10px;
+            border: 1px solid rgba(180, 83, 9, 0.45);
+            cursor: pointer;
+            background: #fffbeb;
+            color: #92400e;
+            margin-top: 0.75rem;
+        }
+        .st-preview-reset-btn:hover:not(:disabled) {
+            background: #fef3c7;
+        }
         .st-timeline {
             list-style: none;
             margin: 0;
@@ -983,8 +1017,8 @@
         return html;
       }
 
-      /** Admin-only read-only preview of upcoming June track (hidden from public until June 1 UTC). */
-      function buildJunePreviewSection(userEmail, CS, currentSid) {
+      /** Admin-only preview of upcoming June track (hidden from public until June 1 UTC). */
+      function buildJunePreviewSection(data, userEmail, CS, currentSid) {
         if (!CS || typeof CS.getUpcomingJunePreviewSeasonId !== 'function') return '';
         if (!isSeasonAdminPreviewAccount(userEmail)) return '';
         var previewSid = CS.getUpcomingJunePreviewSeasonId();
@@ -994,13 +1028,23 @@
         var meta = CS.getChessSeasonTrack(previewSid);
         var nodes = meta.nodes;
         var bounds = meta.bounds;
-        var html = '<div class="st-preview-wrap">';
+        var pst =
+          data && data.seasonPreviewTrack && typeof data.seasonPreviewTrack === 'object'
+            ? data.seasonPreviewTrack
+            : {};
+        var pstSid = String(pst.seasonId || '').trim();
+        var nodesDone =
+          pstSid === previewSid ? Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0)) : 0;
+        if (nodesDone > nodes.length) nodesDone = nodes.length;
+
+        var html = '<div class="st-preview-wrap" id="st-preview-wrap">';
         html +=
           '<div class="st-preview-banner"><strong>Admin preview</strong> — ' +
           escapeHtml(meta.theme && meta.theme.name ? meta.theme.name : 'June season') +
           ' (<code>' +
           escapeHtml(previewSid) +
-          '</code>) is hidden from everyone else until June 1 UTC. Progress and claims are not active yet.</div>';
+          '</code>) is hidden from everyone else until June 1 UTC. ' +
+          'Use <strong>Claim (admin test)</strong> below to unlock rewards at no cost — this does not change your live month track.</div>';
 
         if (meta.theme && meta.theme.name) {
           html +=
@@ -1020,30 +1064,72 @@
           ' · ' +
           escapeHtml(bounds.label) +
           '. Opens to all players on June 1 UTC.</p>';
+        html += '<div class="st-stats">';
+        html +=
+          '<div class="st-stat"><div class="st-stat-label">Preview steps cleared</div><div class="st-stat-value">' +
+          nodesDone +
+          ' / ' +
+          nodes.length +
+          '</div></div>';
+        html += '</div>';
         html += '<h3 class="st-track-title">June track (preview)</h3>';
         html += '<ol class="st-timeline">';
 
         for (var i = 0; i < nodes.length; i++) {
           var node = nodes[i];
-          html += '<li class="st-node locked">';
+          var stepClass = 'locked';
+          var badgeClass = 'locked';
+          var badgeText = 'Locked';
+          if (i < nodesDone) {
+            stepClass = 'done';
+            badgeClass = 'done';
+            badgeText = 'Cleared';
+          } else if (i === nodesDone) {
+            stepClass = 'current';
+            badgeClass = 'current';
+            badgeText = 'Current';
+          }
+
+          html += '<li class="st-node ' + stepClass + '">';
           html += '<span class="st-node-dot" aria-hidden="true"></span>';
           html += '<div class="st-node-card">';
           html += '<div class="st-node-head">';
           html += '<span class="st-step">Step ' + (i + 1) + '</span>';
-          html += '<span class="st-badge locked">Preview</span>';
+          html += '<span class="st-badge ' + badgeClass + '">' + badgeText + '</span>';
           html += '</div>';
           html += '<p class="st-challenge">' + escapeHtml(node.challengeTitle) + '</p>';
           html +=
             '<p class="st-meta">+' +
             node.bonusPoints +
-            ' bonus career points when claimed (after the season goes live).</p>';
+            ' bonus career points when claimed (admin test — no in-game requirement).</p>';
           html = appendSeasonNodeRewardsHtml(html, CS, node);
-          html +=
-            '<p class="st-status-msg">Not yet live — this step unlocks when the June season starts.</p>';
+          if (i < nodesDone) {
+            html +=
+              '<p class="st-status-msg">Claimed in preview — rewards are on your account (cosmetics in TrifangX, flair on dashboard).</p>';
+          } else if (i === nodesDone) {
+            html +=
+              '<p class="st-status-msg">Admin test claim — no challenge required and no shop points spent.</p>' +
+              '<div class="st-claim-row">' +
+              '<button type="button" class="st-preview-claim-btn" data-st-preview-step="' +
+              i +
+              '" data-st-preview-season="' +
+              escapeHtml(previewSid) +
+              '">Claim (admin test)</button>' +
+              '</div>';
+          } else {
+            html += '<p class="st-status-msg">Claim earlier preview steps first.</p>';
+          }
           html += '</div></li>';
         }
 
-        html += '</ol></div>';
+        html += '</ol>';
+        if (nodesDone > 0) {
+          html +=
+            '<button type="button" class="st-preview-reset-btn" id="st-preview-reset-btn" data-st-preview-season="' +
+            escapeHtml(previewSid) +
+            '">Reset preview track…</button>';
+        }
+        html += '</div>';
         return html;
       }
 
@@ -1323,7 +1409,7 @@
         }
 
         document.getElementById('st-content').innerHTML =
-          html + buildJunePreviewSection(userEmail, CS, currentSid);
+          html + buildJunePreviewSection(data, userEmail, CS, currentSid);
       }
 
       function showLogin() {
@@ -1428,21 +1514,31 @@
         openStMsgModal(title, parts.join(''));
       }
 
-      function claimSeasonStep(stepIndex, btn, buyWithPoints) {
+      function claimSeasonStep(stepIndex, btn, buyWithPoints, claimOpts) {
         if (!sessionId || !btn) return;
+        claimOpts = claimOpts && typeof claimOpts === 'object' ? claimOpts : {};
+        var adminPreviewClaim = !!claimOpts.adminPreviewClaim;
+        var previewSeasonId = claimOpts.previewSeasonId
+          ? String(claimOpts.previewSeasonId)
+          : '';
         btn.disabled = true;
         var orig = btn.textContent;
-        btn.textContent = 'Claiming…';
+        btn.textContent = adminPreviewClaim ? 'Claiming preview…' : 'Claiming…';
+        var payload = {
+          stepIndex: stepIndex,
+          buyWithPoints: !!buyWithPoints,
+        };
+        if (adminPreviewClaim) {
+          payload.adminPreviewClaim = true;
+          payload.previewSeasonId = previewSeasonId;
+        }
         fetch(API_BASE_URL + '/api/chess/season-claim', {
           method: 'POST',
           headers: {
             Authorization: 'Bearer ' + sessionId,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            stepIndex: stepIndex,
-            buyWithPoints: !!buyWithPoints,
-          }),
+          body: JSON.stringify(payload),
         })
           .then(function (res) {
             return res.json().then(function (j) {
@@ -1462,7 +1558,16 @@
             function finishOk() {
               btn.disabled = false;
               btn.textContent = orig;
-              showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
+              if (adminPreviewClaim) {
+                openStMsgModal(
+                  pack.j.alreadyClaimed ? 'Already claimed' : 'Preview step claimed',
+                  pack.j.alreadyClaimed
+                    ? '<p>This preview step was already on your save.</p>'
+                    : '<p>Preview rewards are on your account. Your live month track is unchanged.</p>'
+                );
+              } else {
+                showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
+              }
             }
             if (pack.j.chess) {
               render(pack.j.chess, window.__stUserEmail || '');
@@ -1488,13 +1593,73 @@
               }
               btn.disabled = false;
               btn.textContent = orig;
-              if (d2) showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
+              if (d2) {
+                if (adminPreviewClaim) {
+                  openStMsgModal(
+                    pack.j.alreadyClaimed ? 'Already claimed' : 'Preview step claimed',
+                    pack.j.alreadyClaimed
+                      ? '<p>This preview step was already on your save.</p>'
+                      : '<p>Preview rewards are on your account. Your live month track is unchanged.</p>'
+                  );
+                } else {
+                  showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
+                }
+              }
             });
           })
           .catch(function (e) {
             btn.disabled = false;
             btn.textContent = orig;
             openStMsgModal('Could not claim', '<p>' + escapeHtml(e.message || 'Could not claim') + '</p>');
+          });
+      }
+
+      function resetSeasonPreviewTrack(btn, previewSeasonId) {
+        if (!sessionId || !btn || !previewSeasonId) return;
+        btn.disabled = true;
+        var orig = btn.textContent;
+        btn.textContent = 'Resetting…';
+        fetch(API_BASE_URL + '/api/chess/season-claim', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + sessionId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            adminPreviewReset: true,
+            previewSeasonId: previewSeasonId,
+          }),
+        })
+          .then(function (res) {
+            return res.json().then(function (j) {
+              return { res: res, j: j };
+            });
+          })
+          .then(function (pack) {
+            if (pack.res.status === 401) {
+              btn.disabled = false;
+              btn.textContent = orig;
+              showLogin();
+              return;
+            }
+            if (!pack.j.success) {
+              throw new Error(pack.j.error || 'Reset failed');
+            }
+            if (pack.j.chess) {
+              render(pack.j.chess, window.__stUserEmail || '');
+              pingTrifangxCosmeticsRefresh();
+            }
+            btn.disabled = false;
+            btn.textContent = orig;
+            openStMsgModal(
+              'Preview reset',
+              '<p>Preview track progress cleared and preview-granted cosmetics/flair for that season were removed.</p>'
+            );
+          })
+          .catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = orig;
+            openStMsgModal('Could not reset preview', '<p>' + escapeHtml(e.message || 'Reset failed') + '</p>');
           });
       }
 
@@ -1606,6 +1771,33 @@
       })();
 
       document.getElementById('st-panel-main').addEventListener('click', function (ev) {
+        var previewResetBtn =
+          ev.target && ev.target.closest && ev.target.closest('#st-preview-reset-btn');
+        if (previewResetBtn && !previewResetBtn.disabled) {
+          var psid = previewResetBtn.getAttribute('data-st-preview-season');
+          if (!psid) return;
+          if (
+            !window.confirm(
+              'Reset the June preview track? This removes preview-granted cosmetics and leaderboard flair from those steps.'
+            )
+          ) {
+            return;
+          }
+          resetSeasonPreviewTrack(previewResetBtn, psid);
+          return;
+        }
+        var previewBtn =
+          ev.target && ev.target.closest && ev.target.closest('.st-preview-claim-btn');
+        if (previewBtn && !previewBtn.disabled) {
+          var pidx = parseInt(previewBtn.getAttribute('data-st-preview-step'), 10);
+          var previewSid = previewBtn.getAttribute('data-st-preview-season');
+          if (!Number.isFinite(pidx) || !previewSid) return;
+          claimSeasonStep(pidx, previewBtn, false, {
+            adminPreviewClaim: true,
+            previewSeasonId: previewSid,
+          });
+          return;
+        }
         var resetBtn = ev.target && ev.target.closest && ev.target.closest('#st-reset-season-btn');
         if (resetBtn && !resetBtn.disabled) {
           openSeasonResetModal(resetBtn);
