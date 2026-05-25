@@ -603,8 +603,13 @@
   }
 
   function playGameHistoryRecordAt(index) {
-    window.location.href =
-      '../../chess_engine.html?replayIndex=' + encodeURIComponent(String(index));
+    const items = cloudChessData && cloudChessData.gameHistory ? cloudChessData.gameHistory : [];
+    const rec = items[index];
+    let url = '../../chess_engine.html?replayIndex=' + encodeURIComponent(String(index));
+    if (rec && rec.savedAt) {
+      url += '&replaySavedAt=' + encodeURIComponent(String(rec.savedAt));
+    }
+    window.location.href = url;
   }
 
   function ghGameHistoryRowKeydown(ev, index) {

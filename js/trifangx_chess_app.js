@@ -4402,7 +4402,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     function hideTrifangxShellLoading() {
       const el = document.getElementById('trifangx-shell-loading');
-      if (!el || el.dataset.trifangxHiding === '1') return;
+      if (!el) return;
       el.dataset.trifangxHiding = '1';
       el.setAttribute('aria-busy', 'false');
       const chooseSide = document.getElementById('choose-side');
@@ -4410,9 +4410,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (chooseSide) chooseSide.classList.remove('trifangx-shell-pending');
       if (gameContainer) gameContainer.classList.remove('trifangx-shell-pending');
       el.classList.add('trifangx-shell-loading--hide');
-      window.setTimeout(function () {
-        el.classList.add('trifangx-shell-loading--gone');
-      }, 300);
+      el.classList.add('trifangx-shell-loading--gone');
     }
 
     function waitForTrifangxBoardPaint() {
@@ -4485,6 +4483,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } catch (eRs2) {}
       }
       await waitForTrifangxBoardPaint();
+    }
+
+    async function waitForTrifangxBoardReadyWithTimeout(timeoutMs) {
+      const cap = typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : 8000;
+      await Promise.race([
+        waitForTrifangxBoardReady(),
+        new Promise(function (resolve) {
+          window.setTimeout(resolve, cap);
+        }),
+      ]);
     }
 
     function revealTrifangxGameShellUnderLoading(isLiveShell) {
@@ -4686,7 +4694,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       updateTotalPoints();
     }
 
-    async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex) {
+    async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex, pendingReplaySavedAt) {
       const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
       const isLobbyShell = !isTrifangxLiveDedicatedPage();
       const willTryLiveResume =
@@ -4699,85 +4707,104 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       let liveResumed = false;
       let needsBoardReady = false;
 
-      if (isTrifangxLiveDedicatedPage()) {
-        try {
-          sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
-        } catch (eNav) {}
-      }
+      try {
+        if (isTrifangxLiveDedicatedPage()) {
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+          } catch (eNav) {}
+        }
 
-      checkEngineStatus()
-        .then(function () {
-          if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
-            ensurePregameStatusPolling();
+        checkEngineStatus()
+          .then(function () {
+            if (typeof isChessPregamePhase === 'function' && isChessPregamePhase()) {
+              ensurePregameStatusPolling();
+            }
+          })
+          .catch(function () {});
+
+        if (willTryLiveResume) {
+          revealTrifangxGameShellUnderLoading(isLiveShell);
+          setTrifangxShellLoadingMessage(getTrifangxLiveHandoffLoadingMessage());
+          liveResumed = await tryResumeLiveTrifangxFromSnapshot();
+          if (liveResumed) {
+            needsBoardReady = true;
           }
-        })
-        .catch(function () {});
+        }
 
-      if (willTryLiveResume) {
-        revealTrifangxGameShellUnderLoading(isLiveShell);
-        setTrifangxShellLoadingMessage(getTrifangxLiveHandoffLoadingMessage());
-        liveResumed = await tryResumeLiveTrifangxFromSnapshot();
-        if (liveResumed) {
+        if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
+          const no = document.createElement('div');
+          no.id = 'trifangx-live-empty';
+          no.setAttribute('role', 'status');
+          no.style.cssText =
+            'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
+          no.innerHTML =
+            '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
+            '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
+            '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
+          const btc = document.getElementById('board-timers-container');
+          if (btc && btc.parentNode) {
+            btc.parentNode.insertBefore(no, btc);
+          } else {
+            document.body.insertBefore(no, document.body.firstChild);
+          }
+        } else if (
+          isLobbyShell &&
+          !liveResumed &&
+          pendingReplayIndex === null &&
+          !isHistoryReplayMode
+        ) {
+          revealTrifangxGameShellUnderLoading(isLiveShell);
+          applyDeferredLobbyStyleAndSettings();
+          setTrifangxShellLoadingMessage('Preparing the board…');
+          mountLobbyPreviewBoard();
           needsBoardReady = true;
         }
-      }
 
-      if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
-        const no = document.createElement('div');
-        no.id = 'trifangx-live-empty';
-        no.setAttribute('role', 'status');
-        no.style.cssText =
-          'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
-        no.innerHTML =
-          '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No active live game</h2>' +
-          '<p style="margin:0 0 1rem;opacity:0.92;">Start a game from the main lobby. This address is only for an in-progress engine game (reload is safe here).</p>' +
-          '<p style="margin:0"><a href="chess_engine.html" style="color:#6cf;">Return to TrifangX lobby</a></p>';
-        const btc = document.getElementById('board-timers-container');
-        if (btc && btc.parentNode) {
-          btc.parentNode.insertBefore(no, btc);
-        } else {
-          document.body.insertBefore(no, document.body.firstChild);
-        }
-      } else if (
-        isLobbyShell &&
-        !liveResumed &&
-        pendingReplayIndex === null &&
-        !isHistoryReplayMode
-      ) {
-        revealTrifangxGameShellUnderLoading(isLiveShell);
-        applyDeferredLobbyStyleAndSettings();
-        setTrifangxShellLoadingMessage('Preparing the board…');
-        mountLobbyPreviewBoard();
-        needsBoardReady = true;
-      }
-
-      if (pendingReplayIndex !== null) {
-        revealTrifangxGameShellUnderLoading(isLiveShell);
-        if (!board) {
+        if (pendingReplayIndex !== null) {
+          revealTrifangxGameShellUnderLoading(isLiveShell);
           applyDeferredLobbyStyleAndSettings();
-          mountLobbyPreviewBoard();
+          if (!board) {
+            mountLobbyPreviewBoard();
+          }
+          setTrifangxShellLoadingMessage('Loading saved game…');
+          const replayOk = await playGameHistoryRecordAt(pendingReplayIndex, {
+            skipLeaveConfirm: true,
+            deferFinalize: true,
+            replaySavedAt: pendingReplaySavedAt,
+          });
+          try {
+            const u = new URL(window.location.href);
+            u.searchParams.delete('replayIndex');
+            u.searchParams.delete('replaySavedAt');
+            window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
+          } catch (eRp) {}
+          if (replayOk) {
+            needsBoardReady = true;
+          }
         }
-        setTrifangxShellLoadingMessage('Loading saved game…');
-        await playGameHistoryRecordAt(pendingReplayIndex);
-        try {
-          const u = new URL(window.location.href);
-          u.searchParams.delete('replayIndex');
-          window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
-        } catch (eRp) {}
-        needsBoardReady = true;
-      }
 
-      if (needsBoardReady) {
-        setTrifangxShellLoadingMessage('Preparing the board…');
-        await waitForTrifangxBoardReady();
-      }
+        if (needsBoardReady) {
+          setTrifangxShellLoadingMessage('Preparing the board…');
+          await waitForTrifangxBoardReadyWithTimeout(isHistoryReplayMode ? 8000 : 12000);
+        }
 
-      if (isHistoryReplayMode) {
-        finalizeHistoryReplayView();
+        if (isHistoryReplayMode) {
+          finalizeHistoryReplayView();
+        }
+      } catch (eBoot) {
+        console.error('bootstrapTrifangxGameShell failed', eBoot);
+        if (pendingReplayIndex !== null) {
+          showNotification('Could not open saved game on the board.', 'error');
+          if (isHistoryReplayMode) {
+            try {
+              exitHistoryReplay();
+            } catch (eExit) {}
+          }
+        }
+      } finally {
+        updateChessPregameToolsVisibility();
+        hideTrifangxShellLoading();
       }
-
-      updateChessPregameToolsVisibility();
-      hideTrifangxShellLoading();
     }
 
  $(document).ready(async function() {
@@ -4835,11 +4862,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         /** Game history "Play on board" (?replayIndex=N) — applied after the Chessboard exists (see below). */
         let pendingReplayIndex = null;
+        let pendingReplaySavedAt = null;
         const replayIdxRawEarly = urlParams.get('replayIndex');
         if (replayIdxRawEarly !== null && replayIdxRawEarly !== '') {
           const idxEarly = parseInt(replayIdxRawEarly, 10);
           if (!isNaN(idxEarly) && idxEarly >= 0) pendingReplayIndex = idxEarly;
         }
+        const replaySavedAtRaw = urlParams.get('replaySavedAt');
+        if (replaySavedAtRaw) pendingReplaySavedAt = String(replaySavedAtRaw);
 
         // Check for email verification token in URL
         const verifyToken = urlParams.get('verify');
@@ -4885,7 +4915,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           return;
         }
 
-        await bootstrapTrifangxGameShell(urlParams, pendingReplayIndex);
+        await bootstrapTrifangxGameShell(urlParams, pendingReplayIndex, pendingReplaySavedAt);
 
         trifangxScheduleDeferredTask(function () {
           applyDeferredLobbyStyleAndSettings();
@@ -8065,112 +8095,142 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function finalizeHistoryReplayView() {
       if (!isHistoryReplayMode || !game || !board) return;
       try {
-        applyDeferredLobbyStyleAndSettings();
-      } catch (eStyle) {}
-      board.orientation(playerColor);
-      board.draggable(false);
-      if (typeof reapplyBoardThemeFromSettings === 'function') reapplyBoardThemeFromSettings();
-      applyViewedPosition(currentMoveIndex);
-      updateCapturedPieces();
-      ensureArrowOverlay();
-      trifangxAfterBoardPaint(function () {
-        if (!isHistoryReplayMode || !board) return;
-        applyViewedPosition(currentMoveIndex);
-        syncHistoryReplayHighlights();
-      });
-      const ban = document.getElementById('history-replay-banner');
-      if (ban) ban.style.display = 'flex';
-      updateChessPregameToolsVisibility();
-    }
-
-    async function playGameHistoryRecordAt(index) {
-      ensureGameAndBoardForReplay();
-      const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
-      const rec = items[index];
-      if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
-        showNotification('Could not load that game', 'error');
-        return;
-      }
-      if (!gameOver && game && game.history().length > 0) {
-        const ok = await showGenericConfirmModal(
-          'Leave current game?',
-          'You have a game in progress. Open this saved game on the board anyway?',
-          'Continue',
-          'Cancel'
-        );
-        if (!ok) return;
-      }
-      replayModeBackup = snapshotLiveGameStateForReplay();
-      isHistoryReplayMode = true;
-      reachedReplayEnd = false;
-      premoves = [];
-      selectedSquare = null;
-
-      game.reset();
-      historyReplayFullSan = null;
-      for (let i = 0; i < rec.historySan.length; i++) {
-        const m = game.move(rec.historySan[i]);
-        if (!m) {
-          showNotification('Saved game could not be replayed.', 'error');
-          exitHistoryReplay();
-          return;
-        }
-      }
-      historyReplayFullSan = rec.historySan.slice();
-      moveHistory = [];
-      const tmp = new Chess();
-      for (let k = 0; k < rec.historySan.length; k++) {
-        tmp.move(rec.historySan[k]);
-        moveHistory.push(tmp.fen());
-      }
-      const mct = Array.isArray(rec.moveClockTimes) ? rec.moveClockTimes : [];
-      moveClockTimes = [];
-      for (let m = 0; m < rec.historySan.length; m++) {
-        moveClockTimes.push(mct[m] != null && mct[m] !== '' ? mct[m] : '—');
-      }
-      playerColor = rec.playerColor === 'black' ? 'black' : 'white';
-      gameOver = true;
-      resetGameStats();
-      rebuildCapturedPiecesFromSanList(rec.historySan);
-      const vhist = game.history({ verbose: true });
-      if (vhist.length) {
-        const lm = vhist[vhist.length - 1];
-        lastMoveSquares = { from: lm.from, to: lm.to };
-      } else {
-        lastMoveSquares = { from: null, to: null };
-      }
-      const h = game.history();
-      if (h.length) {
-        const li = h.length - 1;
-        const t = moveClockTimes[li] || '—';
-        lastLiveMoveDisplayText = h[li] + ' (' + t + ')';
-      } else {
-        lastLiveMoveDisplayText = 'None';
-      }
-
-      ensureReplaySidebarPanelsVisible();
-      const chooseSideEl = document.getElementById('choose-side');
-      const gameContainerEl = document.getElementById('game-container');
-      const gameTitleEl = document.getElementById('game-title');
-      if (chooseSideEl) chooseSideEl.style.display = 'none';
-      if (gameContainerEl) gameContainerEl.style.display = 'block';
-      if (gameTitleEl) gameTitleEl.style.display = 'block';
-      syncBlindfoldGameShellUi();
-
-      if (board) {
         board.orientation(playerColor);
         board.draggable(false);
+        if (typeof reapplyBoardThemeFromSettings === 'function') reapplyBoardThemeFromSettings();
+        applyViewedPosition(currentMoveIndex);
+        updateCapturedPieces();
+        updateNotationDisplay();
+        refreshSidebarForViewedPosition();
+        ensureArrowOverlay();
+        trifangxAfterBoardPaint(function () {
+          if (!isHistoryReplayMode || !board) return;
+          applyViewedPosition(currentMoveIndex);
+          syncHistoryReplayHighlights();
+        });
+        const ban = document.getElementById('history-replay-banner');
+        if (ban) ban.style.display = 'flex';
+        updateChessPregameToolsVisibility();
+      } catch (eFin) {
+        console.warn('finalizeHistoryReplayView', eFin);
       }
-      // Jump to start (currentMoveIndex -2) now. If we left -1 until a deferred navigateToStart, → would
-      // no-op because navigateToNextMove returns on -1, and the first ply could never be shown.
-      navigateToStart();
-      currentMoveIndex = -2; // Belt-and-suspenders: ensure start state regardless of any side-effects above.
-      const ban = document.getElementById('history-replay-banner');
-      if (ban) {
-        ban.style.display = 'flex';
+    }
+
+    async function playGameHistoryRecordAt(index, options) {
+      options = options || {};
+      try {
+        ensureGameAndBoardForReplay();
+        if (!game || !board) {
+          showNotification('Could not load that game', 'error');
+          return false;
+        }
+        const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+        let rec = items[index];
+        if (
+          (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) &&
+          options.replaySavedAt
+        ) {
+          const savedAtKey = String(options.replaySavedAt);
+          rec = items.find(function (r) {
+            return r && String(r.savedAt) === savedAtKey;
+          });
+        }
+        if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
+          showNotification('Could not load that game', 'error');
+          return false;
+        }
+        if (
+          !options.skipLeaveConfirm &&
+          !gameOver &&
+          game &&
+          game.history().length > 0
+        ) {
+          const ok = await showGenericConfirmModal(
+            'Leave current game?',
+            'You have a game in progress. Open this saved game on the board anyway?',
+            'Continue',
+            'Cancel'
+          );
+          if (!ok) return false;
+        }
+        replayModeBackup = snapshotLiveGameStateForReplay();
+        isHistoryReplayMode = true;
+        reachedReplayEnd = false;
+        premoves = [];
+        selectedSquare = null;
+
+        game.reset();
+        historyReplayFullSan = null;
+        for (let i = 0; i < rec.historySan.length; i++) {
+          const m = game.move(rec.historySan[i]);
+          if (!m) {
+            showNotification('Saved game could not be replayed.', 'error');
+            exitHistoryReplay();
+            return false;
+          }
+        }
+        historyReplayFullSan = rec.historySan.slice();
+        moveHistory = [];
+        const tmp = new Chess();
+        for (let k = 0; k < rec.historySan.length; k++) {
+          tmp.move(rec.historySan[k]);
+          moveHistory.push(tmp.fen());
+        }
+        const mct = Array.isArray(rec.moveClockTimes) ? rec.moveClockTimes : [];
+        moveClockTimes = [];
+        for (let m = 0; m < rec.historySan.length; m++) {
+          moveClockTimes.push(mct[m] != null && mct[m] !== '' ? mct[m] : '—');
+        }
+        playerColor = rec.playerColor === 'black' ? 'black' : 'white';
+        gameOver = true;
+        resetGameStats();
+        rebuildCapturedPiecesFromSanList(rec.historySan);
+        const vhist = game.history({ verbose: true });
+        if (vhist.length) {
+          const lm = vhist[vhist.length - 1];
+          lastMoveSquares = { from: lm.from, to: lm.to };
+        } else {
+          lastMoveSquares = { from: null, to: null };
+        }
+        const h = game.history();
+        if (h.length) {
+          const li = h.length - 1;
+          const t = moveClockTimes[li] || '—';
+          lastLiveMoveDisplayText = h[li] + ' (' + t + ')';
+        } else {
+          lastLiveMoveDisplayText = 'None';
+        }
+
+        ensureReplaySidebarPanelsVisible();
+        const chooseSideEl = document.getElementById('choose-side');
+        const gameContainerEl = document.getElementById('game-container');
+        const gameTitleEl = document.getElementById('game-title');
+        if (chooseSideEl) chooseSideEl.style.display = 'none';
+        if (gameContainerEl) gameContainerEl.style.display = 'block';
+        if (gameTitleEl) gameTitleEl.style.display = 'block';
+        syncBlindfoldGameShellUi();
+
+        if (board) {
+          board.orientation(playerColor);
+          board.draggable(false);
+        }
+        navigateToStart();
+        currentMoveIndex = -2;
+        const ban = document.getElementById('history-replay-banner');
+        if (ban) ban.style.display = 'flex';
+        updateChessPregameToolsVisibility();
+        if (!options.deferFinalize) {
+          finalizeHistoryReplayView();
+        }
+        return true;
+      } catch (eReplay) {
+        console.error('playGameHistoryRecordAt failed', eReplay);
+        showNotification('Could not load that game', 'error');
+        try {
+          exitHistoryReplay();
+        } catch (eExit) {}
+        return false;
       }
-      updateChessPregameToolsVisibility();
-      finalizeHistoryReplayView();
     }
 
     function exitHistoryReplay() {
