@@ -103,11 +103,19 @@
     return { startMs, endMs, label: m[1] + ' · ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][mo] };
   }
 
+  /** @returns {string|null} */
+  function getSeasonMechanicalMonthKey(seasonId) {
+    const mm = utcMonthFromSeasonId(seasonId);
+    if (mm === '06') return '06';
+    if (mm === '05') return '05';
+    return '05';
+  }
+
   /**
    * Mechanical ladder (achievement ids + rewards + bonus). Order is the product truth.
    * @type {Array<Omit<ChessSeasonNode, 'challengeTitle'>>}
    */
-  const SEASON_TRACK_MECHANICAL = [
+  const SEASON_TRACK_MECHANICAL_05 = [
     { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🌲' }] },
     {
       challengeAchievementId: 'knight_to_f3',
@@ -176,7 +184,90 @@
     },
   ];
 
-  /** Human-readable lines for the season track UI (keep in sync with `SEASON_TRACK_MECHANICAL` rewards). */
+  /** June 2026+ — Solstice Gold (month-keyed; keep worker `SEASON_CLAIM_NODES_06` in sync). */
+  const SEASON_TRACK_MECHANICAL_06 = [
+    { challengeAchievementId: 'first_win', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '☀️' }] },
+    {
+      challengeAchievementId: 'solstice_win_dawn_ct',
+      bonusPoints: 57,
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_golden_hour' }],
+    },
+    {
+      challengeAchievementId: 'pawn_to_e4',
+      bonusPoints: 82,
+      rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_honey_glow' }],
+    },
+    {
+      challengeAchievementId: 'flair_center_1',
+      bonusPoints: 118,
+      rewards: [
+        { kind: 'shop', category: 'pieces', id: 'season_solstice_pieces' },
+        { kind: 'lb_row_finish', presets: ['golden_meadow', 'coral_ribbon'] },
+      ],
+    },
+    {
+      challengeAchievementId: 'solstice_win_golden_hour_ct',
+      bonusPoints: 169,
+      rewards: [{ kind: 'lb_frame', frame: 'gold_filament' }],
+    },
+    {
+      challengeAchievementId: 'flair_windmill_1',
+      bonusPoints: 242,
+      rewards: [{ kind: 'lb_title', title: 'Solstice striker' }],
+    },
+    {
+      challengeAchievementId: 'castle_on_10',
+      bonusPoints: 347,
+      rewards: [
+        { kind: 'lb_frame', frame: 'amber_corona' },
+        { kind: 'lb_row_finish', presets: ['dusk_ember', 'champagne_band'] },
+      ],
+    },
+    {
+      challengeAchievementId: 'underpromote',
+      bonusPoints: 496,
+      rewards: [{ kind: 'shop', category: 'boards', id: 'season_high_sun' }],
+    },
+    {
+      challengeAchievementId: 'checkmate_bishop',
+      bonusPoints: 709,
+      rewards: [{ kind: 'lb_title', title: 'High-noon hunter' }],
+    },
+    {
+      challengeAchievementId: 'solstice_win_night_ct',
+      bonusPoints: 1015,
+      rewards: [
+        { kind: 'lb_frame', frame: 'solstice_flare' },
+        { kind: 'lb_title', title: 'Solstice ascendant' },
+        { kind: 'lb_title', title: 'Golden crown' },
+        { kind: 'lb_title', title: 'Long-day finisher' },
+        { kind: 'lb_suffix', suffix: '✧' },
+        { kind: 'shop', category: 'boards', id: 'season_solstice_crown' },
+        { kind: 'shop', category: 'pieces', id: 'season_crown_regalia' },
+        { kind: 'shop', category: 'highlightColors', id: 'season_gilded_ray' },
+        { kind: 'shop', category: 'arrowColors', id: 'season_solar_arrow' },
+        { kind: 'shop', category: 'themes', id: 'season_solstice_gold' },
+        { kind: 'shop', category: 'checkmateEffects', id: 'season_solar_bloom' },
+        { kind: 'shop', category: 'legalMoveDots', id: 'season_solar_star' },
+        { kind: 'lb_row_finish', presets: ['solstice_finale'] },
+      ],
+    },
+  ];
+
+  /** @deprecated alias — May track */
+  const SEASON_TRACK_MECHANICAL = SEASON_TRACK_MECHANICAL_05;
+
+  /**
+   * @param {string} [seasonId]
+   * @returns {Array<Omit<ChessSeasonNode, 'challengeTitle'>>}
+   */
+  function getSeasonMechanicalRows(seasonId) {
+    const key = getSeasonMechanicalMonthKey(seasonId || getChessSeasonIdUtc());
+    if (key === '06') return SEASON_TRACK_MECHANICAL_06;
+    return SEASON_TRACK_MECHANICAL_05;
+  }
+
+  /** Human-readable lines for the season track UI (keep in sync with mechanical track rewards). */
   const SEASON_REWARD_LABELS = Object.freeze({
     'boards:season_awakening': 'Board style · Emerald Awakening (season exclusive)',
     'highlightColors:season_glacier_glow': 'Square highlights · Glacier Glow (season exclusive)',
@@ -189,12 +280,26 @@
     'themes:season_moonlit_canopy': 'Page theme · Moonlit canopy (season exclusive)',
     'checkmateEffects:season_finale_flare': 'Checkmate effect · Finale flare (season exclusive)',
     'legalMoveDots:season_emerald_star': 'Legal move markers · Emerald star (season exclusive)',
+    'boards:season_golden_hour': 'Board style · Golden Hour (season exclusive)',
+    'highlightColors:season_honey_glow': 'Square highlights · Honey Glow (season exclusive)',
+    'pieces:season_solstice_pieces': 'Piece set · Solstice Regalia (season exclusive)',
+    'boards:season_high_sun': 'Board style · High Sun (season exclusive)',
+    'boards:season_solstice_crown': 'Board style · Solstice Crown (season exclusive)',
+    'pieces:season_crown_regalia': 'Piece set · Crown Regalia (season exclusive)',
+    'highlightColors:season_gilded_ray': 'Square highlights · Gilded ray (season exclusive)',
+    'arrowColors:season_solar_arrow': 'Move arrows · Solar gold (season exclusive)',
+    'themes:season_solstice_gold': 'Page theme · Solstice gold (season exclusive)',
+    'checkmateEffects:season_solar_bloom': 'Checkmate effect · Solar bloom (season exclusive)',
+    'legalMoveDots:season_solar_star': 'Legal move markers · Solar star (season exclusive)',
   });
 
   const SEASON_LB_FRAME_LABELS = Object.freeze({
     silver_lane: 'Silver Lane',
     amber_pulse: 'Amber Pulse',
     violet_arc: 'Violet Arc',
+    gold_filament: 'Gold Filament',
+    amber_corona: 'Amber Corona',
+    solstice_flare: 'Solstice Flare',
   });
 
   /** Sample colors for season leaderboard row gradients — keep in sync with `js/chess_lb_row.js` LB_ROW_PRESETS. */
@@ -204,6 +309,11 @@
     violet_canopy: { label: 'Violet canopy', sampleHex: '#a78bfa' },
     moonlit_band: { label: 'Moonlit band', sampleHex: '#134e4a' },
     finale_aurora: { label: 'Finale aurora', sampleHex: '#7c3aed' },
+    golden_meadow: { label: 'Golden meadow', sampleHex: '#fbbf24' },
+    coral_ribbon: { label: 'Coral ribbon', sampleHex: '#fb923c' },
+    dusk_ember: { label: 'Dusk ember', sampleHex: '#ea580c' },
+    champagne_band: { label: 'Champagne band', sampleHex: '#fde68a' },
+    solstice_finale: { label: 'Solstice finale', sampleHex: '#f59e0b' },
   });
 
   /**
@@ -316,8 +426,54 @@
         'Canopy apex — checkmate with a queen',
       ],
     },
-    // '06': { key: '', name: '', tagline: '', stepTitles: [ ...10 ] },
+    // '06': filled below
   };
+
+  SEASON_THEMES_BY_UTC_MONTH['06'] = {
+    key: 'june_solstice_gold',
+    name: 'Solstice Gold',
+    tagline:
+      'June burns gold — win at dawn, hold the center, ride the heat, and crown the board from golden hour to night. Each step is a different skill — not a win ladder.',
+    stepTitles: [
+      'First light — win your first game of the golden month',
+      'Dawn victory — win a game before 10:00 AM Central Time',
+      'Sunrise push — advance a pawn to e4',
+      'Sun in the center — win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)',
+      'Golden hour — win a game between 6:00 PM and 7:59 PM Central Time',
+      'Rolling heat — win a game where you gave 5+ consecutive checks (tracked automatically)',
+      'Fortress at ten — castle on your 10th move',
+      'Hidden crown — underpromote once (rook, bishop, or knight)',
+      'Diagonal dusk — checkmate with a bishop',
+      'Night crown — win a game after 9:00 PM Central Time',
+    ],
+  };
+
+  /**
+   * Whether a season id may appear on the public season page (June hidden until UTC month start).
+   * @param {string} seasonId
+   * @returns {boolean}
+   */
+  function isSeasonPubliclyVisible(seasonId) {
+    const mm = utcMonthFromSeasonId(seasonId);
+    if (mm !== '06') return true;
+    const bounds = seasonBoundsUtc(seasonId);
+    if (!bounds) return false;
+    return Date.now() >= bounds.startMs;
+  }
+
+  /**
+   * Upcoming June season id for admin preview (null when June is already live or not in preview window).
+   * @returns {string|null}
+   */
+  function getUpcomingJunePreviewSeasonId() {
+    const y = new Date().getUTCFullYear();
+    const juneSid = y + '-06';
+    const bounds = seasonBoundsUtc(juneSid);
+    if (!bounds || Date.now() >= bounds.startMs) return null;
+    const curMm = utcMonthFromSeasonId(getChessSeasonIdUtc());
+    if (curMm === '05') return juneSid;
+    return null;
+  }
 
   /**
    * @param {string} seasonId
@@ -328,14 +484,15 @@
     const bounds = seasonBoundsUtc(sid) || seasonBoundsUtc(getChessSeasonIdUtc());
     const mm = utcMonthFromSeasonId(sid);
     const theme = mm && SEASON_THEMES_BY_UTC_MONTH[mm] ? SEASON_THEMES_BY_UTC_MONTH[mm] : null;
+    const mechanical = getSeasonMechanicalRows(sid);
     const titles =
-      theme && Array.isArray(theme.stepTitles) && theme.stepTitles.length === SEASON_TRACK_MECHANICAL.length
+      theme && Array.isArray(theme.stepTitles) && theme.stepTitles.length === mechanical.length
         ? theme.stepTitles
-        : DEFAULT_STEP_TITLES;
-    const nodes = SEASON_TRACK_MECHANICAL.map(function (row, i) {
+        : DEFAULT_STEP_TITLES.slice(0, mechanical.length);
+    const nodes = mechanical.map(function (row, i) {
       return {
         challengeAchievementId: row.challengeAchievementId,
-        challengeTitle: titles[i] || DEFAULT_STEP_TITLES[i],
+        challengeTitle: titles[i] || DEFAULT_STEP_TITLES[i] || row.challengeAchievementId,
         bonusPoints: row.bonusPoints,
         rewards: row.rewards,
       };
@@ -346,13 +503,47 @@
     return { seasonId: sid, nodes, bounds, theme: themeOut };
   }
 
-  const LB_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc']);
+  const LB_FRAMES = new Set([
+    'silver_lane',
+    'amber_pulse',
+    'violet_arc',
+    'gold_filament',
+    'amber_corona',
+    'solstice_flare',
+  ]);
 
-  /** Achievement ids in monthly season track order (same as `SEASON_TRACK_MECHANICAL`). */
-  function getSeasonTrackAchievementIds() {
-    return SEASON_TRACK_MECHANICAL.map(function (row) {
+  /** Achievement ids in monthly season track order for a given season id. */
+  function getSeasonTrackAchievementIds(seasonId) {
+    return getSeasonMechanicalRows(seasonId || getChessSeasonIdUtc()).map(function (row) {
       return row.challengeAchievementId;
     });
+  }
+
+  /** Keys stored on `seasonTrack.earnBaseline` after each claim (superset for all months). */
+  function emptySeasonEarnBaseline() {
+    return {
+      games: 0,
+      wins: 0,
+      castlingMoves: 0,
+      promotions: 0,
+      capturedRooks: 0,
+      checkmateWithQueen: 0,
+      knightToF3: 0,
+      bishopToF4: 0,
+      enPassants: 0,
+      capturesByQueen: 0,
+      totalCaptures: 0,
+      checkmateWithRook: 0,
+      pawnToE4: 0,
+      castledOnMove10: 0,
+      underpromotions: 0,
+      checkmateWithBishop: 0,
+      creativeCenterDominationWins: 0,
+      creativeWindmillWins: 0,
+      winsFinishedBefore10amCt: 0,
+      winsFinishedGoldenHourCt: 0,
+      winsFinishedAfter9pmCt: 0,
+    };
   }
 
   /** Fresh track for the current UTC month (e.g. after full achievement reset). */
@@ -363,26 +554,13 @@
       nodesCompleted: 0,
       lbFlair: { frame: null, title: null, prefix: '', suffix: '' },
       lbFlairUnlocked: { frames: [], titles: [], prefixes: [], suffixes: [] },
-      earnBaseline: {
-        games: 0,
-        wins: 0,
-        castlingMoves: 0,
-        promotions: 0,
-        capturedRooks: 0,
-        checkmateWithQueen: 0,
-        knightToF3: 0,
-        bishopToF4: 0,
-        enPassants: 0,
-        capturesByQueen: 0,
-        totalCaptures: 0,
-        checkmateWithRook: 0,
-      },
+      earnBaseline: emptySeasonEarnBaseline(),
     };
   }
 
   /**
-   * Same mechanical targets as `getAllAchievementsList` / worker claim validation.
-   * @type {Record<string, { type: 'games', target: number } | { type: 'lifetime', key: string, target: number }>}
+   * Same mechanical targets as achievements / worker claim validation.
+   * @type {Record<string, { type: 'games' | 'wins' | 'lifetime', target: number, key?: string }>}
    */
   const SEASON_STEP_EARN_RULES = Object.freeze({
     first_game: { type: 'games', target: 1 },
@@ -395,6 +573,16 @@
     promoter: { type: 'lifetime', key: 'promotions', target: 5 },
     checkmate_rook: { type: 'lifetime', key: 'checkmateWithRook', target: 1 },
     checkmate_queen: { type: 'lifetime', key: 'checkmateWithQueen', target: 1 },
+    first_win: { type: 'wins', target: 1 },
+    solstice_win_dawn_ct: { type: 'lifetime', key: 'winsFinishedBefore10amCt', target: 1 },
+    pawn_to_e4: { type: 'lifetime', key: 'pawnToE4', target: 1 },
+    flair_center_1: { type: 'lifetime', key: 'creativeCenterDominationWins', target: 1 },
+    solstice_win_golden_hour_ct: { type: 'lifetime', key: 'winsFinishedGoldenHourCt', target: 1 },
+    flair_windmill_1: { type: 'lifetime', key: 'creativeWindmillWins', target: 1 },
+    castle_on_10: { type: 'lifetime', key: 'castledOnMove10', target: 1 },
+    underpromote: { type: 'lifetime', key: 'underpromotions', target: 1 },
+    checkmate_bishop: { type: 'lifetime', key: 'checkmateWithBishop', target: 1 },
+    solstice_win_night_ct: { type: 'lifetime', key: 'winsFinishedAfter9pmCt', target: 1 },
   });
 
   function readEarnBaselineField(baseline, key) {
@@ -428,6 +616,9 @@
     if (rule.type === 'games') {
       return games - readEarnBaselineField(baseline, 'games') >= rule.target;
     }
+    if (rule.type === 'wins') {
+      return w - readEarnBaselineField(baseline, 'wins') >= rule.target;
+    }
     if (rule.type === 'lifetime') {
       return g(rule.key) - readEarnBaselineField(baseline, rule.key) >= rule.target;
     }
@@ -440,7 +631,12 @@
     utcMonthFromSeasonId: utcMonthFromSeasonId,
     seasonBoundsUtc: seasonBoundsUtc,
     getChessSeasonTrack: getChessSeasonTrack,
+    getSeasonMechanicalRows: getSeasonMechanicalRows,
+    isSeasonPubliclyVisible: isSeasonPubliclyVisible,
+    getUpcomingJunePreviewSeasonId: getUpcomingJunePreviewSeasonId,
+    emptySeasonEarnBaseline: emptySeasonEarnBaseline,
     LB_FRAMES: LB_FRAMES,
+    SEASON_STEP_EARN_RULES: SEASON_STEP_EARN_RULES,
     getSeasonTrackAchievementIds: getSeasonTrackAchievementIds,
     getSeasonStepBuyoutCost: getSeasonStepBuyoutCost,
     createFreshSeasonTrackState: createFreshSeasonTrackState,

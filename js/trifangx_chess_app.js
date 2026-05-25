@@ -236,6 +236,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_golden_hour',
+          name: 'Season · Golden Hour',
+          price: 0,
+          preview: '🌅',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_high_sun',
+          name: 'Season · High Sun',
+          price: 0,
+          preview: '☀️',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_solstice_crown',
+          name: 'Season · Solstice Crown',
+          price: 0,
+          preview: '👑',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
@@ -271,6 +298,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_solstice_pieces',
+          name: 'Season · Solstice Regalia',
+          price: 0,
+          preview: '♟',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_crown_regalia',
+          name: 'Season · Crown Regalia',
+          price: 0,
+          preview: '♛',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       highlightColors: [
         { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -300,6 +345,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_honey_glow',
+          name: 'Season · Honey Glow',
+          price: 0,
+          preview: '🍯',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_gilded_ray',
+          name: 'Season · Gilded ray',
+          price: 0,
+          preview: '✨',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       arrowColors: [
         { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -314,6 +377,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         {
           id: 'season_grove_arrow',
           name: 'Season · Grove gold',
+          price: 0,
+          preview: '🏹',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_solar_arrow',
+          name: 'Season · Solar gold',
           price: 0,
           preview: '🏹',
           coolness: 10,
@@ -345,6 +417,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           shape: 'star',
           purchasable: false,
         },
+        {
+          id: 'season_solar_star',
+          name: 'Season · Solar star',
+          price: 0,
+          preview: '✦',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          color: '#f59e0b',
+          shape: 'star',
+          purchasable: false,
+        },
       ],
       themes: [
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
@@ -369,6 +452,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_solstice_gold',
+          name: 'Season · Solstice gold',
+          price: 0,
+          preview: '☀️',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 750, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
@@ -386,6 +478,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           name: 'Season · Finale flare',
           price: 0,
           preview: '✨',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_solar_bloom',
+          name: 'Season · Solar bloom',
+          price: 0,
+          preview: '🌻',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -524,6 +625,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_canopy_crown: {
         w: 'linear-gradient(135deg,#ecfdf5 0%,#d9f99d 45%,#fef9c3 100%)',
         b: 'linear-gradient(135deg,#14532d 0%,#166534 40%,#422006 100%)',
+      },
+      season_golden_hour: { w: 'linear-gradient(135deg,#fffbeb,#fde68a)', b: 'linear-gradient(135deg,#b45309,#78350f)' },
+      season_high_sun: { w: 'linear-gradient(135deg,#fef9c3,#fbbf24)', b: 'linear-gradient(135deg,#92400e,#451a03)' },
+      season_solstice_crown: {
+        w: 'linear-gradient(135deg,#fffbeb 0%,#fcd34d 45%,#fef3c7 100%)',
+        b: 'linear-gradient(135deg,#78350f 0%,#451a03 40%,#312e81 100%)',
       },
     };
     
@@ -792,6 +899,20 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       
       // Personality tracking removed
+      
+      // Solstice season: Central Time win buckets (lifetime counters for season claims)
+      try {
+        const ct = getCentralTimeParts(new Date());
+        if (ct.hour < 10) {
+          lifetimeStats.winsFinishedBefore10amCt = (lifetimeStats.winsFinishedBefore10amCt || 0) + 1;
+        }
+        if (ct.hour >= 18 && ct.hour < 20) {
+          lifetimeStats.winsFinishedGoldenHourCt = (lifetimeStats.winsFinishedGoldenHourCt || 0) + 1;
+        }
+        if (ct.hour >= 21) {
+          lifetimeStats.winsFinishedAfter9pmCt = (lifetimeStats.winsFinishedAfter9pmCt || 0) + 1;
+        }
+      } catch (eCtWin) {}
       
       // Track wins by color
       if (playerColor === 'white') {
@@ -1348,6 +1469,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       creativeSkewerSalonWins: 0,
       creativeRookBatteryWins: 0,
       creativeQueenDownWins: 0,
+      winsFinishedBefore10amCt: 0,
+      winsFinishedGoldenHourCt: 0,
+      winsFinishedAfter9pmCt: 0,
       longestWinStreak: 0,
       currentWinStreak: 0,
       daysPlayedInARow: 0,
@@ -1392,6 +1516,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       tatiana: 'https://lichess1.org/assets/piece/tatiana/{piece}.svg',
       season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg',
       season_canopy_pieces: 'https://lichess1.org/assets/piece/mpchess/{piece}.svg',
+      season_solstice_pieces: 'https://lichess1.org/assets/piece/california/{piece}.svg',
+      season_crown_regalia: 'https://lichess1.org/assets/piece/merida/{piece}.svg',
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -3600,6 +3726,30 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         h: 'rgba(34,197,94,0.5)',
         a: 'rgba(217,119,6,0.9)',
       },
+      season_honey_glow: {
+        highlightLight: 'rgba(251, 191, 36, 0.48)',
+        highlightDark: 'rgba(217, 119, 6, 0.52)',
+        arrow: 'rgba(245, 158, 11, 0.75)',
+        arrowFill: 'rgba(254, 243, 199, 1)',
+        h: 'rgba(251,191,36,0.5)',
+        a: 'rgba(217,119,6,0.9)',
+      },
+      season_gilded_ray: {
+        highlightLight: 'rgba(250, 204, 21, 0.45)',
+        highlightDark: 'rgba(180, 83, 9, 0.52)',
+        arrow: 'rgba(251, 191, 36, 0.85)',
+        arrowFill: 'rgba(255, 251, 235, 1)',
+        h: 'rgba(234,179,8,0.45)',
+        a: 'rgba(245,158,11,0.92)',
+      },
+      season_solar_arrow: {
+        highlightLight: 'rgba(251, 191, 36, 0.48)',
+        highlightDark: 'rgba(146, 64, 14, 0.55)',
+        arrow: 'rgba(251, 191, 36, 0.85)',
+        arrowFill: 'rgba(255, 251, 235, 1)',
+        h: 'rgba(251,191,36,0.5)',
+        a: 'rgba(245,158,11,0.9)',
+      },
       rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
     };
     
@@ -3764,6 +3914,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'page-theme-galaxy',
         'page-theme-fire',
         'page-theme-season_moonlit_canopy',
+        'page-theme-season_solstice_gold',
       ];
       themeBaseClasses.forEach(function (c) {
         document.documentElement.classList.remove(c);
@@ -3771,6 +3922,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (themeId === 'season_moonlit_canopy') {
         document.documentElement.classList.add('page-theme-forest');
         document.documentElement.classList.add('page-theme-season_moonlit_canopy');
+      } else if (themeId === 'season_solstice_gold') {
+        document.documentElement.classList.add('page-theme-sunset');
+        document.documentElement.classList.add('page-theme-season_solstice_gold');
       } else {
         document.documentElement.classList.add('page-theme-' + themeId);
       }
@@ -8215,7 +8369,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
         if (CS && typeof CS.getSeasonTrackAchievementIds === 'function') {
-          return CS.getSeasonTrackAchievementIds();
+          const sid =
+            CS && typeof CS.getChessSeasonIdUtc === 'function' ? CS.getChessSeasonIdUtc() : null;
+          return CS.getSeasonTrackAchievementIds(sid);
         }
       } catch (e) {}
       return [];
@@ -8245,26 +8401,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           ? cloudChessData.seasonTrack
           : null;
       const b = st && st.earnBaseline && typeof st.earnBaseline === 'object' ? st.earnBaseline : {};
+      const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
+      const rules = CS && CS.SEASON_STEP_EARN_RULES ? CS.SEASON_STEP_EARN_RULES : null;
+      const rule = rules && rules[achId] ? rules[achId] : null;
       let baseKey = null;
-      if (achId === 'first_game') baseKey = 'games';
-      else if (achId === 'knight_to_f3') baseKey = 'knightToF3';
-      else if (achId === 'bishop_to_f4') baseKey = 'bishopToF4';
-      else if (achId === 'en_passant') baseKey = 'enPassants';
-      else if (achId === 'queen_capturer') baseKey = 'capturesByQueen';
-      else if (achId === 'capture_master') baseKey = 'totalCaptures';
-      else if (achId === 'castler') baseKey = 'castlingMoves';
-      else if (achId === 'promoter') baseKey = 'promotions';
-      else if (achId === 'checkmate_rook') baseKey = 'checkmateWithRook';
-      else if (achId === 'checkmate_queen') baseKey = 'checkmateWithQueen';
-      else if (
-        achId === 'first_win' ||
-        achId === 'three_wins' ||
-        achId === 'five_wins' ||
-        achId === 'ten_wins' ||
-        achId === 'fifteen_wins'
-      ) {
-        baseKey = 'wins';
-      } else if (achId === 'rook_hunter_10') baseKey = 'capturedRooks';
+      if (rule) {
+        if (rule.type === 'games') baseKey = 'games';
+        else if (rule.type === 'wins') baseKey = 'wins';
+        else if (rule.type === 'lifetime' && rule.key) baseKey = rule.key;
+      } else if (achId === 'rook_hunter_10') {
+        baseKey = 'capturedRooks';
+      }
       if (!baseKey) return p;
       const base = Math.max(0, Number(b[baseKey]) || 0);
       p.current = Math.max(0, cur - base);
@@ -8317,6 +8464,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         capturesByQueen: Math.max(0, Number(lt.capturesByQueen) || 0),
         totalCaptures: Math.max(0, Number(lt.totalCaptures) || 0),
         checkmateWithRook: Math.max(0, Number(lt.checkmateWithRook) || 0),
+        pawnToE4: Math.max(0, Number(lt.pawnToE4) || 0),
+        castledOnMove10: Math.max(0, Number(lt.castledOnMove10) || 0),
+        underpromotions: Math.max(0, Number(lt.underpromotions) || 0),
+        checkmateWithBishop: Math.max(0, Number(lt.checkmateWithBishop) || 0),
+        creativeCenterDominationWins: Math.max(0, Number(lt.creativeCenterDominationWins) || 0),
+        creativeWindmillWins: Math.max(0, Number(lt.creativeWindmillWins) || 0),
+        winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
+        winsFinishedGoldenHourCt: Math.max(0, Number(lt.winsFinishedGoldenHourCt) || 0),
+        winsFinishedAfter9pmCt: Math.max(0, Number(lt.winsFinishedAfter9pmCt) || 0),
       };
     }
 
@@ -8692,6 +8848,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }},
         { id: 'first_win', name: '🏆 First Victory', desc: 'Won your first game', category: 'General', points: 30, groupKey: 'wins', progress: () => {
           return { current: playerStats.wins, target: 1 };
+        }},
+        { id: 'solstice_win_dawn_ct', name: '🌅 Dawn Victory', desc: 'Win a game before 10:00 AM Central Time', category: 'Creative', points: 120, groupKey: 'solstice_time', progress: () => {
+          return { current: lifetimeStats.winsFinishedBefore10amCt || 0, target: 1 };
+        }},
+        { id: 'solstice_win_golden_hour_ct', name: '🌇 Golden Hour', desc: 'Win a game between 6:00 PM and 7:59 PM Central Time', category: 'Creative', points: 120, groupKey: 'solstice_time', progress: () => {
+          return { current: lifetimeStats.winsFinishedGoldenHourCt || 0, target: 1 };
+        }},
+        { id: 'solstice_win_night_ct', name: '🌙 Night Crown', desc: 'Win a game after 9:00 PM Central Time', category: 'Creative', points: 120, groupKey: 'solstice_time', progress: () => {
+          return { current: lifetimeStats.winsFinishedAfter9pmCt || 0, target: 1 };
         }},
         { id: 'three_wins', name: '🔥 Three Wins', desc: 'Won 3 games', category: 'General', points: 30, groupKey: 'wins', progress: () => {
           return { current: playerStats.wins, target: 3 };
@@ -9748,7 +9913,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'flair_king_hike_1', name: '🥾 Wandering Monarch', desc: 'Win with 10+ king moves in one game', category: 'Creative', points: 280, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeKingMarathonWins || 0), target: 1 };
         }},
-        { id: 'flair_windmill_1', name: '🌀 Check After Check', desc: 'Win after a streak of 5+ consecutive checks', category: 'Creative', points: 450, groupKey: 'flair_tactics', progress: () => {
+        { id: 'flair_windmill_1', name: '🌀 Rolling Heat', desc: 'Win a game where you gave 5+ consecutive checks (tracked automatically)', category: 'Creative', points: 450, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeWindmillWins || 0), target: 1 };
         }},
         { id: 'flair_sacrifice_1', name: '🎨 Sacrifice for Glory', desc: 'Win after “sacrificing” 3+ piece types (tracked in-game)', category: 'Creative', points: 400, groupKey: 'flair_tactics', progress: () => {
@@ -9760,7 +9925,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'flair_forks_1', name: '🍴 Triple-Tine Feast', desc: 'Win with 3+ knight forks', category: 'Creative', points: 340, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeForkFeastWins || 0), target: 1 };
         }},
-        { id: 'flair_center_1', name: '🎯 Center of Attention', desc: 'Win after occupying all four center squares', category: 'Creative', points: 300, groupKey: 'flair_tactics', progress: () => {
+        { id: 'flair_center_1', name: '🎯 Sun in the Center', desc: 'Win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)', category: 'Creative', points: 300, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeCenterDominationWins || 0), target: 1 };
         }},
         { id: 'flair_pawn_storm_1', name: '🌊 Pawn Tide', desc: 'Win with 5+ pawns on the 6th (or 3rd) rank', category: 'Creative', points: 310, groupKey: 'flair_tactics', progress: () => {
@@ -11410,6 +11575,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       'capturesByQueen',
       'totalCaptures',
       'checkmateWithRook',
+      'pawnToE4',
+      'castledOnMove10',
+      'underpromotions',
+      'checkmateWithBishop',
+      'creativeCenterDominationWins',
+      'creativeWindmillWins',
+      'winsFinishedBefore10amCt',
+      'winsFinishedGoldenHourCt',
+      'winsFinishedAfter9pmCt',
     ];
 
     /** After a wipe, frozen baselines can exceed rebuilt lifetime and force 0/N on season steps. */

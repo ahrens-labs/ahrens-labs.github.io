@@ -305,6 +305,24 @@
             margin: 0 0 1rem;
             letter-spacing: 0.04em;
         }
+        .st-preview-wrap {
+            margin-top: 2.5rem;
+            padding-top: 2rem;
+            border-top: 2px dashed rgba(245, 158, 11, 0.45);
+        }
+        .st-preview-banner {
+            margin-bottom: 1.25rem;
+            padding: 1rem 1.15rem;
+            border-radius: 14px;
+            background: linear-gradient(125deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.92));
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+        .st-preview-banner strong {
+            color: #92400e;
+        }
+        .st-preview-wrap .st-timeline::before {
+            background: linear-gradient(180deg, #fbbf24, #f59e0b, #ea580c);
+        }
         .st-timeline {
             list-style: none;
             margin: 0;
@@ -736,7 +754,7 @@
             }
             closeSeasonResetModal();
             if (pack.j.chess) {
-              render(pack.j.chess);
+              render(pack.j.chess, window.__stUserEmail || '');
               pingTrifangxCosmeticsRefresh();
               return;
             }
@@ -751,7 +769,7 @@
               return r2.json();
             }).then(function (d2) {
               if (d2) {
-                render(d2);
+                render(d2, window.__stUserEmail || '');
                 pingTrifangxCosmeticsRefresh();
               }
             });
@@ -788,6 +806,15 @@
           capturesByQueen: Math.max(0, Number(b.capturesByQueen) || 0),
           totalCaptures: Math.max(0, Number(b.totalCaptures) || 0),
           checkmateWithRook: Math.max(0, Number(b.checkmateWithRook) || 0),
+          pawnToE4: Math.max(0, Number(b.pawnToE4) || 0),
+          castledOnMove10: Math.max(0, Number(b.castledOnMove10) || 0),
+          underpromotions: Math.max(0, Number(b.underpromotions) || 0),
+          checkmateWithBishop: Math.max(0, Number(b.checkmateWithBishop) || 0),
+          creativeCenterDominationWins: Math.max(0, Number(b.creativeCenterDominationWins) || 0),
+          creativeWindmillWins: Math.max(0, Number(b.creativeWindmillWins) || 0),
+          winsFinishedBefore10amCt: Math.max(0, Number(b.winsFinishedBefore10amCt) || 0),
+          winsFinishedGoldenHourCt: Math.max(0, Number(b.winsFinishedGoldenHourCt) || 0),
+          winsFinishedAfter9pmCt: Math.max(0, Number(b.winsFinishedAfter9pmCt) || 0),
         };
       }
 
@@ -812,84 +839,65 @@
           capturesByQueen: Math.max(0, Number(lt.capturesByQueen) || 0),
           totalCaptures: Math.max(0, Number(lt.totalCaptures) || 0),
           checkmateWithRook: Math.max(0, Number(lt.checkmateWithRook) || 0),
+          pawnToE4: Math.max(0, Number(lt.pawnToE4) || 0),
+          castledOnMove10: Math.max(0, Number(lt.castledOnMove10) || 0),
+          underpromotions: Math.max(0, Number(lt.underpromotions) || 0),
+          checkmateWithBishop: Math.max(0, Number(lt.checkmateWithBishop) || 0),
+          creativeCenterDominationWins: Math.max(0, Number(lt.creativeCenterDominationWins) || 0),
+          creativeWindmillWins: Math.max(0, Number(lt.creativeWindmillWins) || 0),
+          winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
+          winsFinishedGoldenHourCt: Math.max(0, Number(lt.winsFinishedGoldenHourCt) || 0),
+          winsFinishedAfter9pmCt: Math.max(0, Number(lt.winsFinishedAfter9pmCt) || 0),
         };
       }
+
+      var LIFETIME_PROGRESS_LABELS = {
+        knightToF3: 'knight moves to f3 (lifetime, since prior claims)',
+        bishopToF4: 'bishop moves to f4 (lifetime, since prior claims)',
+        enPassants: 'en passant captures (lifetime, since prior claims)',
+        capturesByQueen: 'captures with your queen as the moving piece (since prior claims)',
+        totalCaptures: 'total captures with any of your pieces (since prior claims)',
+        castlingMoves: 'castles (lifetime, since prior claims)',
+        promotions: 'promotions (lifetime, since prior claims)',
+        capturedRooks: 'enemy rooks captured (since prior claims)',
+        checkmateWithRook: 'checkmates with a rook (since prior claims)',
+        checkmateWithQueen: 'checkmates with a queen (since prior claims)',
+        pawnToE4: 'pawn moves to e4 (lifetime, since prior claims)',
+        castledOnMove10: 'castles on your 10th move (lifetime, since prior claims)',
+        underpromotions: 'underpromotions (lifetime, since prior claims)',
+        checkmateWithBishop: 'checkmates with a bishop (since prior claims)',
+        creativeCenterDominationWins:
+          'wins where d4, d5, e4, and e5 were each occupied at least once (since prior claims)',
+        creativeWindmillWins: 'wins with 5+ consecutive checks (since prior claims)',
+        winsFinishedBefore10amCt: 'wins before 10:00 AM Central Time (since prior claims)',
+        winsFinishedGoldenHourCt: 'wins between 6:00–7:59 PM Central Time (since prior claims)',
+        winsFinishedAfter9pmCt: 'wins after 9:00 PM Central Time (since prior claims)',
+      };
 
       /**
        * Progress toward the active season step only (same deltas as in-game after prior claims).
        * @returns {{ current: number, target: number, label: string } | null}
        */
       function getCurrentStepProgress(data, achId) {
+        var CS = window.ChessSeasons;
+        var rules = CS && CS.SEASON_STEP_EARN_RULES ? CS.SEASON_STEP_EARN_RULES : null;
+        var rule = rules && rules[achId] ? rules[achId] : null;
+        if (!rule) return null;
         var base = getEarnBaselineFromData(data);
         var pstats = getPlayerStatsFromData(data);
         var lt = getLifetimeFromData(data);
         var cur = 0;
-        var target = 1;
+        var target = Math.max(1, Number(rule.target) || 1);
         var label = '';
-        if (achId === 'first_game') {
+        if (rule.type === 'games') {
           cur = Math.max(0, pstats.games - base.games);
-          target = 1;
           label = 'games played (since prior claims)';
-        } else if (achId === 'knight_to_f3') {
-          cur = Math.max(0, lt.knightToF3 - base.knightToF3);
-          target = 1;
-          label = 'knight moves to f3 (lifetime, since prior claims)';
-        } else if (achId === 'bishop_to_f4') {
-          cur = Math.max(0, lt.bishopToF4 - base.bishopToF4);
-          target = 1;
-          label = 'bishop moves to f4 (lifetime, since prior claims)';
-        } else if (achId === 'en_passant') {
-          cur = Math.max(0, lt.enPassants - base.enPassants);
-          target = 1;
-          label = 'en passant captures (lifetime, since prior claims)';
-        } else if (achId === 'queen_capturer') {
-          cur = Math.max(0, lt.capturesByQueen - base.capturesByQueen);
-          target = 10;
-          label = 'captures with your queen as the moving piece (since prior claims)';
-        } else if (achId === 'capture_master') {
-          cur = Math.max(0, lt.totalCaptures - base.totalCaptures);
-          target = 50;
-          label = 'total captures with any of your pieces (since prior claims)';
-        } else if (achId === 'first_win') {
+        } else if (rule.type === 'wins') {
           cur = Math.max(0, pstats.wins - base.wins);
-          target = 1;
           label = 'wins (since prior claims)';
-        } else if (achId === 'three_wins') {
-          cur = Math.max(0, pstats.wins - base.wins);
-          target = 3;
-          label = 'wins (since prior claims)';
-        } else if (achId === 'five_wins') {
-          cur = Math.max(0, pstats.wins - base.wins);
-          target = 5;
-          label = 'wins (since prior claims)';
-        } else if (achId === 'ten_wins') {
-          cur = Math.max(0, pstats.wins - base.wins);
-          target = 10;
-          label = 'wins (since prior claims)';
-        } else if (achId === 'fifteen_wins') {
-          cur = Math.max(0, pstats.wins - base.wins);
-          target = 15;
-          label = 'wins (since prior claims)';
-        } else if (achId === 'castler') {
-          cur = Math.max(0, lt.castlingMoves - base.castlingMoves);
-          target = 5;
-          label = 'castles (lifetime, since prior claims)';
-        } else if (achId === 'promoter') {
-          cur = Math.max(0, lt.promotions - base.promotions);
-          target = 5;
-          label = 'promotions (lifetime, since prior claims)';
-        } else if (achId === 'rook_hunter_10') {
-          cur = Math.max(0, lt.capturedRooks - base.capturedRooks);
-          target = 10;
-          label = 'enemy rooks captured (since prior claims)';
-        } else if (achId === 'checkmate_rook') {
-          cur = Math.max(0, lt.checkmateWithRook - base.checkmateWithRook);
-          target = 1;
-          label = 'checkmates with a rook (since prior claims)';
-        } else if (achId === 'checkmate_queen') {
-          cur = Math.max(0, lt.checkmateWithQueen - base.checkmateWithQueen);
-          target = 1;
-          label = 'checkmates with a queen (since prior claims)';
+        } else if (rule.type === 'lifetime' && rule.key) {
+          cur = Math.max(0, (lt[rule.key] || 0) - (base[rule.key] || 0));
+          label = LIFETIME_PROGRESS_LABELS[rule.key] || rule.key + ' (since prior claims)';
         } else {
           return null;
         }
@@ -915,7 +923,131 @@
         return 'Less than a day left in this season.';
       }
 
-      function render(data) {
+      var ADMIN_SEASON_PREVIEW_EMAIL = 'calebahrens2011@gmail.com';
+
+      function isSeasonAdminPreviewAccount(email) {
+        return (
+          email &&
+          String(email).trim().toLowerCase() === ADMIN_SEASON_PREVIEW_EMAIL.toLowerCase()
+        );
+      }
+
+      function appendSeasonNodeRewardsHtml(html, CS, node) {
+        if (!node.rewards || !node.rewards.length) return html;
+        var rewardItems = [];
+        for (var ri = 0; ri < node.rewards.length; ri++) {
+          var rw = node.rewards[ri];
+          if (
+            rw &&
+            rw.kind === 'lb_row_finish' &&
+            Array.isArray(rw.presets) &&
+            rw.presets.length &&
+            CS &&
+            typeof CS.getSeasonLbRowPresetSwatch === 'function'
+          ) {
+            var swParts = [];
+            for (var pi = 0; pi < rw.presets.length; pi++) {
+              var sw = CS.getSeasonLbRowPresetSwatch(rw.presets[pi]);
+              if (!sw || !sw.sampleHex) continue;
+              swParts.push(
+                '<span class="st-lbrow-swatch-item"><span class="st-lbrow-swatch" style="background:' +
+                  escapeHtml(sw.sampleHex) +
+                  '"></span>' +
+                  escapeHtml(sw.label) +
+                  '</span>'
+              );
+            }
+            if (swParts.length) {
+              rewardItems.push({
+                html:
+                  '<span class="st-lbrow-finish-line"><strong>Leaderboard row finishes</strong> (gradient row styles for the public leaderboard)<span class="st-lbrow-swatch-row">' +
+                  swParts.join('') +
+                  '</span></span>',
+              });
+            }
+            continue;
+          }
+          var ln =
+            CS && typeof CS.formatSeasonRewardLine === 'function'
+              ? CS.formatSeasonRewardLine(rw)
+              : '';
+          if (ln) rewardItems.push({ text: ln });
+        }
+        if (!rewardItems.length) return html;
+        html += '<p class="st-rewards-heading">Rewards on this step:</p><ul class="st-rewards">';
+        for (var j = 0; j < rewardItems.length; j++) {
+          var item = rewardItems[j];
+          html += '<li>' + (item.html ? item.html : escapeHtml(item.text)) + '</li>';
+        }
+        html += '</ul>';
+        return html;
+      }
+
+      /** Admin-only read-only preview of upcoming June track (hidden from public until June 1 UTC). */
+      function buildJunePreviewSection(userEmail, CS, currentSid) {
+        if (!CS || typeof CS.getUpcomingJunePreviewSeasonId !== 'function') return '';
+        if (!isSeasonAdminPreviewAccount(userEmail)) return '';
+        var previewSid = CS.getUpcomingJunePreviewSeasonId();
+        if (!previewSid) return '';
+        if (CS.isSeasonPubliclyVisible && CS.isSeasonPubliclyVisible(previewSid)) return '';
+
+        var meta = CS.getChessSeasonTrack(previewSid);
+        var nodes = meta.nodes;
+        var bounds = meta.bounds;
+        var html = '<div class="st-preview-wrap">';
+        html +=
+          '<div class="st-preview-banner"><strong>Admin preview</strong> — ' +
+          escapeHtml(meta.theme && meta.theme.name ? meta.theme.name : 'June season') +
+          ' (<code>' +
+          escapeHtml(previewSid) +
+          '</code>) is hidden from everyone else until June 1 UTC. Progress and claims are not active yet.</div>';
+
+        if (meta.theme && meta.theme.name) {
+          html +=
+            '<div class="st-panel" style="margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9));border-color:rgba(245,158,11,0.35)">' +
+            '<p style="margin:0 0 0.35rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;color:#b45309;font-weight:700">Upcoming month theme</p>' +
+            '<p style="margin:0 0 0.5rem;font-family:Orbitron,sans-serif;font-size:1.15rem;color:#0f172a;font-weight:800">' +
+            escapeHtml(meta.theme.name) +
+            '</p>' +
+            '<p style="margin:0;font-size:0.92rem;color:#475569;line-height:1.55">' +
+            escapeHtml(meta.theme.tagline) +
+            '</p></div>';
+        }
+
+        html +=
+          '<p class="st-note"><strong>Preview season:</strong> ' +
+          escapeHtml(meta.seasonId) +
+          ' · ' +
+          escapeHtml(bounds.label) +
+          '. Opens to all players on June 1 UTC.</p>';
+        html += '<h3 class="st-track-title">June track (preview)</h3>';
+        html += '<ol class="st-timeline">';
+
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          html += '<li class="st-node locked">';
+          html += '<span class="st-node-dot" aria-hidden="true"></span>';
+          html += '<div class="st-node-card">';
+          html += '<div class="st-node-head">';
+          html += '<span class="st-step">Step ' + (i + 1) + '</span>';
+          html += '<span class="st-badge locked">Preview</span>';
+          html += '</div>';
+          html += '<p class="st-challenge">' + escapeHtml(node.challengeTitle) + '</p>';
+          html +=
+            '<p class="st-meta">+' +
+            node.bonusPoints +
+            ' bonus career points when claimed (after the season goes live).</p>';
+          html = appendSeasonNodeRewardsHtml(html, CS, node);
+          html +=
+            '<p class="st-status-msg">Not yet live — this step unlocks when the June season starts.</p>';
+          html += '</div></li>';
+        }
+
+        html += '</ol></div>';
+        return html;
+      }
+
+      function render(data, userEmail) {
         var CS = window.ChessSeasons;
         if (!CS || typeof CS.getChessSeasonTrack !== 'function') {
           document.getElementById('st-content').innerHTML =
@@ -1190,7 +1322,8 @@
             '</div>';
         }
 
-        document.getElementById('st-content').innerHTML = html;
+        document.getElementById('st-content').innerHTML =
+          html + buildJunePreviewSection(userEmail, CS, currentSid);
       }
 
       function showLogin() {
@@ -1332,7 +1465,7 @@
               showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
             }
             if (pack.j.chess) {
-              render(pack.j.chess);
+              render(pack.j.chess, window.__stUserEmail || '');
               pingTrifangxCosmeticsRefresh();
               finishOk();
               return;
@@ -1350,7 +1483,7 @@
               return r2.json();
             }).then(function (d2) {
               if (d2) {
-                render(d2);
+                render(d2, window.__stUserEmail || '');
                 pingTrifangxCosmeticsRefresh();
               }
               btn.disabled = false;
@@ -1432,7 +1565,7 @@
                 return r.json();
               })
               .then(function (d) {
-                render(d);
+                render(d, window.__stUserEmail || '');
                 pingTrifangxCosmeticsRefresh();
                 openStMsgModal(
                   'Points added',
@@ -1493,21 +1626,39 @@
         claimSeasonStep(idx, btn, false);
       });
 
-      fetch(API_BASE_URL + '/api/chess/load', {
-        headers: { Authorization: 'Bearer ' + sessionId },
-      })
-        .then(function (res) {
-          if (res.status === 401) {
+      Promise.all([
+        fetch(API_BASE_URL + '/api/chess/load', {
+          headers: { Authorization: 'Bearer ' + sessionId },
+        }),
+        fetch(API_BASE_URL + '/api/user', {
+          headers: { Authorization: 'Bearer ' + sessionId },
+        }).catch(function () {
+          return null;
+        }),
+      ])
+        .then(function (results) {
+          var chessRes = results[0];
+          var userRes = results[1];
+          if (chessRes.status === 401) {
             showLogin();
             return null;
           }
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.json();
+          if (!chessRes.ok) throw new Error('HTTP ' + chessRes.status);
+          return chessRes.json().then(function (data) {
+            window.__stUserEmail = '';
+            if (userRes && userRes.ok) {
+              return userRes.json().then(function (u) {
+                window.__stUserEmail = u && u.email ? String(u.email) : '';
+                return data;
+              });
+            }
+            return data;
+          });
         })
         .then(function (data) {
           if (!data) return;
           document.getElementById('st-loading').remove();
-          render(data);
+          render(data, window.__stUserEmail || '');
         })
         .catch(function () {
           document.getElementById('st-loading').remove();

@@ -2540,15 +2540,8 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   }
 
   let content;
-  let kvRecord = null;
-  if (env.SPORTS_DIGEST_KV && auth.userId) {
-    try {
-      kvRecord = await env.SPORTS_DIGEST_KV.get(`sub:${auth.userId}`, 'json');
-    } catch {
-      kvRecord = null;
-    }
-  }
-  const sinceMs = resolveSubscriberSinceMs(kvRecord);
+  // Preview always covers the last 12 hours — not since the last scheduled send.
+  const sinceMs = Date.now() - 12 * 60 * 60 * 1000;
   try {
     content = await fetchSportsDigestEmailContent(env, {
       teams,
@@ -5385,10 +5378,22 @@ function repairChessCareerStatsInPlace(chess) {
 }
 
 const CHESS_SEASON_MAX_NODES = 10;
-const CHESS_LB_FLAIR_FRAMES = new Set(['silver_lane', 'amber_pulse', 'violet_arc']);
+const CHESS_LB_FLAIR_FRAMES = new Set([
+  'silver_lane',
+  'amber_pulse',
+  'violet_arc',
+  'gold_filament',
+  'amber_corona',
+  'solstice_flare',
+]);
 
-/** Must match `SEASON_TRACK_MECHANICAL` in js/chess_seasons.js (claim validation). */
-const SEASON_CLAIM_NODES = [
+function utcMonthFromSeasonIdWorker(seasonId) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
+  return m ? m[2] : null;
+}
+
+/** Must match `SEASON_TRACK_MECHANICAL_05` in js/chess_seasons.js (claim validation). */
+const SEASON_CLAIM_NODES_05 = [
   { challengeAchievementId: 'first_game', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '🌲' }] },
   {
     challengeAchievementId: 'knight_to_f3',
@@ -5456,6 +5461,85 @@ const SEASON_CLAIM_NODES = [
     ],
   },
 ];
+
+/** Must match `SEASON_TRACK_MECHANICAL_06` in js/chess_seasons.js. */
+const SEASON_CLAIM_NODES_06 = [
+  { challengeAchievementId: 'first_win', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '☀️' }] },
+  {
+    challengeAchievementId: 'solstice_win_dawn_ct',
+    bonusPoints: 57,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_golden_hour' }],
+  },
+  {
+    challengeAchievementId: 'pawn_to_e4',
+    bonusPoints: 82,
+    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_honey_glow' }],
+  },
+  {
+    challengeAchievementId: 'flair_center_1',
+    bonusPoints: 118,
+    rewards: [
+      { kind: 'shop', category: 'pieces', id: 'season_solstice_pieces' },
+      { kind: 'lb_row_finish', presets: ['golden_meadow', 'coral_ribbon'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'solstice_win_golden_hour_ct',
+    bonusPoints: 169,
+    rewards: [{ kind: 'lb_frame', frame: 'gold_filament' }],
+  },
+  {
+    challengeAchievementId: 'flair_windmill_1',
+    bonusPoints: 242,
+    rewards: [{ kind: 'lb_title', title: 'Solstice striker' }],
+  },
+  {
+    challengeAchievementId: 'castle_on_10',
+    bonusPoints: 347,
+    rewards: [
+      { kind: 'lb_frame', frame: 'amber_corona' },
+      { kind: 'lb_row_finish', presets: ['dusk_ember', 'champagne_band'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'underpromote',
+    bonusPoints: 496,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_high_sun' }],
+  },
+  {
+    challengeAchievementId: 'checkmate_bishop',
+    bonusPoints: 709,
+    rewards: [{ kind: 'lb_title', title: 'High-noon hunter' }],
+  },
+  {
+    challengeAchievementId: 'solstice_win_night_ct',
+    bonusPoints: 1015,
+    rewards: [
+      { kind: 'lb_frame', frame: 'solstice_flare' },
+      { kind: 'lb_title', title: 'Solstice ascendant' },
+      { kind: 'lb_title', title: 'Golden crown' },
+      { kind: 'lb_title', title: 'Long-day finisher' },
+      { kind: 'lb_suffix', suffix: '✧' },
+      { kind: 'shop', category: 'boards', id: 'season_solstice_crown' },
+      { kind: 'shop', category: 'pieces', id: 'season_crown_regalia' },
+      { kind: 'shop', category: 'highlightColors', id: 'season_gilded_ray' },
+      { kind: 'shop', category: 'arrowColors', id: 'season_solar_arrow' },
+      { kind: 'shop', category: 'themes', id: 'season_solstice_gold' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'season_solar_bloom' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'season_solar_star' },
+      { kind: 'lb_row_finish', presets: ['solstice_finale'] },
+    ],
+  },
+];
+
+/** @deprecated alias */
+const SEASON_CLAIM_NODES = SEASON_CLAIM_NODES_05;
+
+function getSeasonClaimNodesForSeasonId(seasonId) {
+  const mm = utcMonthFromSeasonIdWorker(seasonId);
+  if (mm === '06') return SEASON_CLAIM_NODES_06;
+  return SEASON_CLAIM_NODES_05;
+}
 
 /** Must match `SEASON_STEP_BUYOUT_POINTS` in js/chess_seasons.js */
 const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
@@ -5549,6 +5633,15 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
     capturesByQueen: Math.max(0, Number(lt.capturesByQueen) || 0),
     totalCaptures: Math.max(0, Number(lt.totalCaptures) || 0),
     checkmateWithRook: Math.max(0, Number(lt.checkmateWithRook) || 0),
+    pawnToE4: Math.max(0, Number(lt.pawnToE4) || 0),
+    castledOnMove10: Math.max(0, Number(lt.castledOnMove10) || 0),
+    underpromotions: Math.max(0, Number(lt.underpromotions) || 0),
+    checkmateWithBishop: Math.max(0, Number(lt.checkmateWithBishop) || 0),
+    creativeCenterDominationWins: Math.max(0, Number(lt.creativeCenterDominationWins) || 0),
+    creativeWindmillWins: Math.max(0, Number(lt.creativeWindmillWins) || 0),
+    winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
+    winsFinishedGoldenHourCt: Math.max(0, Number(lt.winsFinishedGoldenHourCt) || 0),
+    winsFinishedAfter9pmCt: Math.max(0, Number(lt.winsFinishedAfter9pmCt) || 0),
   };
 }
 
@@ -5564,6 +5657,16 @@ const SEASON_STEP_EARN_RULES = Object.freeze({
   promoter: { type: 'lifetime', key: 'promotions', target: 5 },
   checkmate_rook: { type: 'lifetime', key: 'checkmateWithRook', target: 1 },
   checkmate_queen: { type: 'lifetime', key: 'checkmateWithQueen', target: 1 },
+  first_win: { type: 'wins', target: 1 },
+  solstice_win_dawn_ct: { type: 'lifetime', key: 'winsFinishedBefore10amCt', target: 1 },
+  pawn_to_e4: { type: 'lifetime', key: 'pawnToE4', target: 1 },
+  flair_center_1: { type: 'lifetime', key: 'creativeCenterDominationWins', target: 1 },
+  solstice_win_golden_hour_ct: { type: 'lifetime', key: 'winsFinishedGoldenHourCt', target: 1 },
+  flair_windmill_1: { type: 'lifetime', key: 'creativeWindmillWins', target: 1 },
+  castle_on_10: { type: 'lifetime', key: 'castledOnMove10', target: 1 },
+  underpromote: { type: 'lifetime', key: 'underpromotions', target: 1 },
+  checkmate_bishop: { type: 'lifetime', key: 'checkmateWithBishop', target: 1 },
+  solstice_win_night_ct: { type: 'lifetime', key: 'winsFinishedAfter9pmCt', target: 1 },
 });
 
 function readEarnBaselineField(baseline, key) {
@@ -5585,6 +5688,9 @@ function seasonChallengeMetSinceBaseline(chess, baseline, achId) {
   const g = (k) => Math.max(0, Number(lt[k]) || 0);
   if (rule.type === 'games') {
     return games - readEarnBaselineField(baseline, 'games') >= rule.target;
+  }
+  if (rule.type === 'wins') {
+    return w - readEarnBaselineField(baseline, 'wins') >= rule.target;
   }
   if (rule.type === 'lifetime') {
     return g(rule.key) - readEarnBaselineField(baseline, rule.key) >= rule.target;
@@ -5776,11 +5882,12 @@ function mergeChessSeasonFieldsForSync(prevChess, incomingSeasonTrack, incomingB
 }
 
 /** Shop reward keys `category\\0id` granted by season steps `[0, endExclusive)`. */
-function seasonTrackRewardShopKeysThroughStep(endExclusive) {
+function seasonTrackRewardShopKeysThroughStep(endExclusive, seasonId) {
   const keys = new Set();
+  const nodes = getSeasonClaimNodesForSeasonId(seasonId);
   const end = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(endExclusive) || 0)));
   for (let i = 0; i < end; i++) {
-    const node = SEASON_CLAIM_NODES[i];
+    const node = nodes[i];
     if (!node || !Array.isArray(node.rewards)) continue;
     for (const r of node.rewards) {
       if (r && r.kind === 'shop' && r.category && r.id) {
@@ -5792,14 +5899,15 @@ function seasonTrackRewardShopKeysThroughStep(endExclusive) {
 }
 
 /** Leaderboard flair tokens granted by those same steps (for removal on reset). */
-function collectSeasonLbTokensThroughStep(endExclusive) {
+function collectSeasonLbTokensThroughStep(endExclusive, seasonId) {
   const frames = new Set();
   const titles = new Set();
   const prefixes = new Set();
   const suffixes = new Set();
+  const nodes = getSeasonClaimNodesForSeasonId(seasonId);
   const end = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(endExclusive) || 0)));
   for (let i = 0; i < end; i++) {
-    const node = SEASON_CLAIM_NODES[i];
+    const node = nodes[i];
     if (!node || !Array.isArray(node.rewards)) continue;
     for (const r of node.rewards) {
       if (!r || typeof r !== 'object') continue;
@@ -6127,6 +6235,11 @@ const LB_ROW_PRESET_MIN_NODES = Object.freeze({
   violet_canopy: 7,
   moonlit_band: 7,
   finale_aurora: 10,
+  golden_meadow: 4,
+  coral_ribbon: 4,
+  dusk_ember: 7,
+  champagne_band: 7,
+  solstice_finale: 10,
 });
 
 /** Purchasable solid row tints (keep in sync with `js/chess_lb_row.js`). */
@@ -8661,16 +8774,12 @@ export class UserAccount {
    */
   async claimSeasonStep(body) {
     const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
-    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= SEASON_CLAIM_NODES.length) {
-      return { success: false, error: 'Invalid step' };
-    }
     const buyWithPoints = !!(body && body.buyWithPoints);
     const userData = await this.storage.get('userData');
     if (!userData?.games?.chess) {
       return { success: false, error: 'No chess data' };
     }
 
-    const node = SEASON_CLAIM_NODES[stepIndex];
     const chess = userData.games.chess;
 
     let st =
@@ -8681,6 +8790,12 @@ export class UserAccount {
     }
     chess.seasonTrack = st;
     const seasonIdForTrack = String(st.seasonId || '').trim();
+    const claimNodes = getSeasonClaimNodesForSeasonId(seasonIdForTrack);
+    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= claimNodes.length) {
+      return { success: false, error: 'Invalid step' };
+    }
+
+    const node = claimNodes[stepIndex];
     const done = Math.min(
       CHESS_SEASON_MAX_NODES,
       Math.max(0, Math.floor(Number(st.nodesCompleted) || 0))
@@ -8779,14 +8894,15 @@ export class UserAccount {
     }
 
     let bonusSubtract = 0;
+    const claimNodes = getSeasonClaimNodesForSeasonId(utcSid);
     for (let i = 0; i < n; i++) {
-      bonusSubtract += Math.max(0, Math.floor(Number(SEASON_CLAIM_NODES[i]?.bonusPoints) || 0));
+      bonusSubtract += Math.max(0, Math.floor(Number(claimNodes[i]?.bonusPoints) || 0));
     }
 
-    const shopKeys = seasonTrackRewardShopKeysThroughStep(n);
+    const shopKeys = seasonTrackRewardShopKeysThroughStep(n, utcSid);
     chess.shopUnlocks = removeSeasonShopRewardsFromChessShop(chess.shopUnlocks, shopKeys);
 
-    const tokenSets = collectSeasonLbTokensThroughStep(n);
+    const tokenSets = collectSeasonLbTokensThroughStep(n, utcSid);
     const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
     const newOwned = {
       frames: uniqStrings((prevOwned.frames || []).filter((f) => !tokenSets.frames.has(String(f)))),
