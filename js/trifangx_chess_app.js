@@ -8116,8 +8116,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           applyViewedPosition(currentMoveIndex);
           syncHistoryReplayHighlights();
         });
-        const ban = document.getElementById('history-replay-banner');
-        if (ban) ban.style.display = 'flex';
         updateChessPregameToolsVisibility();
       } catch (eFin) {
         console.warn('finalizeHistoryReplayView', eFin);
@@ -8224,8 +8222,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         navigateToStart();
         currentMoveIndex = -2;
-        const ban = document.getElementById('history-replay-banner');
-        if (ban) ban.style.display = 'flex';
         updateChessPregameToolsVisibility();
         if (!options.deferFinalize) {
           finalizeHistoryReplayView();
@@ -8244,8 +8240,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function exitHistoryReplay() {
       if (!isHistoryReplayMode) {
         historyReplayFullSan = null;
-        const ban = document.getElementById('history-replay-banner');
-        if (ban) ban.style.display = 'none';
         return;
       }
       isHistoryReplayMode = false;
@@ -8253,8 +8247,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       reachedReplayEnd = false;
       const b = replayModeBackup;
       replayModeBackup = null;
-      const ban = document.getElementById('history-replay-banner');
-      if (ban) ban.style.display = 'none';
       const openedFromLobbyPicker =
         !isTrifangxLiveDedicatedPage() &&
         b &&
@@ -8408,8 +8400,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (isHistoryReplayMode) {
         isHistoryReplayMode = false;
         replayModeBackup = null;
-        const banR = document.getElementById('history-replay-banner');
-        if (banR) banR.style.display = 'none';
       }
       
       // Reset game state
@@ -12878,8 +12868,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           if (isHistoryReplayMode) {
             isHistoryReplayMode = false;
             replayModeBackup = null;
-            const banHr = document.getElementById('history-replay-banner');
-            if (banHr) banHr.style.display = 'none';
           }
           try {
             if (typeof clearRightClickHighlights === 'function') clearRightClickHighlights();
