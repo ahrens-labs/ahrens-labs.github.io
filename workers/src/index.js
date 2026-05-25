@@ -8900,6 +8900,18 @@ export class UserAccount {
     const seasonIdForTrack = adminPreviewClaim
       ? previewSeasonId
       : String(st.seasonId || '').trim();
+    const utcSid = utcChessSeasonIdNow();
+    if (!adminPreviewClaim && seasonIdForTrack !== utcSid) {
+      return {
+        success: false,
+        error:
+          'Your cloud save is on season ' +
+          seasonIdForTrack +
+          ' while the live month is ' +
+          utcSid +
+          '. Use the preview section below (admin) or open TrifangX to sync before claiming here.',
+      };
+    }
     const claimNodes = getSeasonClaimNodesForSeasonId(seasonIdForTrack);
     if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= claimNodes.length) {
       return { success: false, error: 'Invalid step' };
@@ -8913,6 +8925,18 @@ export class UserAccount {
 
     if (done > stepIndex) {
       const outChess = await this.getChessData();
+      if (adminPreviewClaim) {
+        return {
+          success: false,
+          error:
+            'Preview step ' +
+            (stepIndex + 1) +
+            ' is already cleared on your save (' +
+            done +
+            ' preview steps done). Refresh the page — if the timeline looks wrong, use Reset preview track.',
+          chess: outChess,
+        };
+      }
       return { success: true, alreadyClaimed: true, chess: outChess };
     }
     if (done !== stepIndex) {
@@ -9245,6 +9269,19 @@ export class UserAccount {
     const hasIncomingSeasonTrack = Object.prototype.hasOwnProperty.call(restIncoming, 'seasonTrack');
     const hasIncomingSeasonBonus = Object.prototype.hasOwnProperty.call(restIncoming, 'seasonBonusPoints');
 
+    const previewSidOpen = adminPreviewJuneSeasonIdIfOpen();
+    const prevStSid = String(prevChess?.seasonTrack?.seasonId || '').trim();
+    let incomingSeasonTrackForMerge = hasIncomingSeasonTrack ? incomingSeasonTrack : undefined;
+    if (
+      previewSidOpen &&
+      prevStSid === previewSidOpen &&
+      incomingSeasonTrackForMerge &&
+      String(incomingSeasonTrackForMerge.seasonId || '').trim() !== previewSidOpen
+    ) {
+      // TrifangX still has the live month locally — do not clobber admin preview progress.
+      incomingSeasonTrackForMerge = undefined;
+    }
+
     let mergedHistory;
     if (replaceHistory && Array.isArray(restIncoming.gameHistory)) {
       mergedHistory = trimChessGameHistoryMerged(restIncoming.gameHistory);
@@ -9285,7 +9322,7 @@ export class UserAccount {
         }
       : mergeChessSeasonFieldsForSync(
           prevChess,
-          hasIncomingSeasonTrack ? incomingSeasonTrack : undefined,
+          incomingSeasonTrackForMerge,
           hasIncomingSeasonBonus ? incomingSeasonBonus : undefined
         );
 

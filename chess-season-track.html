@@ -1186,6 +1186,7 @@
         var liveTrackSid = String(
           (data.seasonTrack && data.seasonTrack.seasonId) || ''
         ).trim();
+        var previewActiveOnSave = liveTrackSid && liveTrackSid !== currentSid;
         var flairLine = '';
         if (flair.title || flair.prefix || flair.suffix || flair.frame) {
           flairLine =
@@ -1228,6 +1229,14 @@
           ' <a href="chess-leaderboard.html">Leaderboard</a> · <a href="chess_engine.html">Play TrifangX</a>' +
           '</p>';
         html += syncNote;
+        if (previewActiveOnSave) {
+          html +=
+            '<p class="st-note"><strong>Preview mode on your save</strong> — cloud track is <code>' +
+            escapeHtml(liveTrackSid) +
+            '</code> while this section shows your stashed <code>' +
+            escapeHtml(displaySid) +
+            '</code> progress. Claim only from the <strong>June preview</strong> section below (not this track).</p>';
+        }
         html += flairLine;
 
         html += '<div class="st-stats">';
@@ -1391,7 +1400,7 @@
             }
           }
           html += '<p class="st-status-msg">' + escapeHtml(statusMsg) + '</p>';
-          if (i === nodesDone && nodesDone < nodes.length) {
+          if (i === nodesDone && nodesDone < nodes.length && !previewActiveOnSave) {
             var shopPts = getShopSpendableFromChess(data);
             var buyCost =
               CS && typeof CS.getSeasonStepBuyoutCost === 'function' ? CS.getSeasonStepBuyoutCost(i) : 0;
@@ -1424,6 +1433,9 @@
                 buyCost.toLocaleString() +
                 '.</p>';
             }
+          } else if (i === nodesDone && nodesDone < nodes.length && previewActiveOnSave) {
+            html +=
+              '<p class="st-note" style="margin-top:0.5rem">Claims for this month are paused while preview testing is active on your save.</p>';
           }
           html += '</div></li>';
         }
@@ -1591,6 +1603,10 @@
               return;
             }
             if (!pack.j.success) {
+              if (pack.j.chess) {
+                render(pack.j.chess, window.__stUserEmail || '');
+                pingTrifangxCosmeticsRefresh();
+              }
               throw new Error(pack.j.error || 'Claim failed');
             }
             function finishOk() {
@@ -1816,6 +1832,14 @@
           });
           return;
         }
+        var mainClaimBtn =
+          ev.target && ev.target.closest && ev.target.closest('.st-claim-btn[data-st-step]');
+        if (mainClaimBtn && !mainClaimBtn.hasAttribute('data-st-preview-step')) {
+          var idxMain = parseInt(mainClaimBtn.getAttribute('data-st-step'), 10);
+          if (!Number.isFinite(idxMain)) return;
+          claimSeasonStep(idxMain, mainClaimBtn, false);
+          return;
+        }
         var resetBtn = ev.target && ev.target.closest && ev.target.closest('#st-reset-season-btn');
         if (resetBtn && !resetBtn.disabled) {
           openSeasonResetModal(resetBtn);
@@ -1829,11 +1853,6 @@
           openStBuyoutModal(bidx, bcost, buyBtn);
           return;
         }
-        var btn = ev.target && ev.target.closest && ev.target.closest('.st-claim-btn');
-        if (!btn || btn.disabled) return;
-        var idx = parseInt(btn.getAttribute('data-st-step'), 10);
-        if (!Number.isFinite(idx)) return;
-        claimSeasonStep(idx, btn, false);
       });
 
       Promise.all([
