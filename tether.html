@@ -865,6 +865,18 @@
     </div>
   </div>
 
+  <!-- Generic confirm modal -->
+  <div class="th-modal-backdrop" id="modal-confirm">
+    <div class="th-modal">
+      <h3 id="confirm-modal-title">Confirm</h3>
+      <p id="confirm-modal-message" style="margin:0 0 8px;font-size:0.9rem;color:var(--th-ink);line-height:1.5;"></p>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-confirm">Cancel</button>
+        <button type="button" class="th-btn th-btn-primary" id="confirm-modal-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Share modal -->
   <div class="th-modal-backdrop" id="modal-share">
     <div class="th-modal">
@@ -905,6 +917,7 @@
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
   let pendingDeleteTaskId = null;
+  let confirmResolve = null;
   let viewingTaskId = null;
 
   const GANTT_DAY_PX = 34;
@@ -1099,7 +1112,26 @@
   }
 
   function openModal(id) { document.getElementById(id).classList.add('open'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    if (id === 'modal-confirm' && confirmResolve) {
+      const resolve = confirmResolve;
+      confirmResolve = null;
+      resolve(false);
+    }
+  }
+
+  function showConfirm(opts) {
+    return new Promise((resolve) => {
+      confirmResolve = resolve;
+      document.getElementById('confirm-modal-title').textContent = opts.title || 'Confirm';
+      document.getElementById('confirm-modal-message').textContent = opts.message || '';
+      const okBtn = document.getElementById('confirm-modal-ok');
+      okBtn.textContent = opts.confirmLabel || 'Confirm';
+      okBtn.className = 'th-btn ' + (opts.danger ? 'th-btn-danger' : 'th-btn-primary');
+      openModal('modal-confirm');
+    });
+  }
 
   document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
@@ -1311,7 +1343,13 @@
     `).join('');
     chips.querySelectorAll('[data-unshare]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm('Remove this member?')) return;
+        const ok = await showConfirm({
+          title: 'Remove member?',
+          message: 'They will lose access to this project.',
+          confirmLabel: 'Remove',
+          danger: true,
+        });
+        if (!ok) return;
         try {
           const data = await api('/api/tether/unshare', {
             method: 'POST',
@@ -1428,7 +1466,13 @@
     const completed = tasks.filter(t => t.status === 'done');
     if (!completed.length) return;
     const noun = completed.length === 1 ? 'task' : 'tasks';
-    if (!confirm(`Remove ${completed.length} completed ${noun} from this project? This cannot be undone.`)) return;
+    const ok = await showConfirm({
+      title: 'Clear completed tasks?',
+      message: `Remove ${completed.length} completed ${noun} from this project? This cannot be undone.`,
+      confirmLabel: 'Clear completed',
+      danger: true,
+    });
+    if (!ok) return;
     const completedIds = new Set(completed.map(t => t.id));
     activeProject.tasks = tasks.filter(t => t.status !== 'done');
     activeProject.tasks.forEach(t => {
@@ -2153,6 +2197,13 @@
   document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
   document.getElementById('btn-clear-completed').addEventListener('click', () => {
     clearCompletedTasks().catch(e => showBanner(e.message));
+  });
+  document.getElementById('confirm-modal-ok').addEventListener('click', () => {
+    if (!confirmResolve) return;
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    document.getElementById('modal-confirm').classList.remove('open');
+    resolve(true);
   });
   document.querySelectorAll('.th-status-pill').forEach(pill => {
     pill.addEventListener('click', () => setTaskStatusPill(pill.getAttribute('data-status')));
