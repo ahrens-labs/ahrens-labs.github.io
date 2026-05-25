@@ -695,6 +695,7 @@
                 <button type="button" class="th-btn th-btn-ghost" id="btn-share">Share</button>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-edit-project">Edit</button>
                 <button type="button" class="th-btn th-btn-ghost th-btn-delete-compact" id="btn-delete-project" style="display:none;">Delete</button>
+                <button type="button" class="th-btn th-btn-ghost" id="btn-clear-completed" style="display:none;">Clear completed</button>
                 <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task</button>
               </div>
             </div>
@@ -1296,6 +1297,8 @@
     const desc = projectDescription(activeProject);
     document.getElementById('project-description').textContent = desc || 'Add a description when you edit this project.';
     renderProjectStats(activeProject.tasks || []);
+    const completedCount = (activeProject.tasks || []).filter(t => t.status === 'done').length;
+    document.getElementById('btn-clear-completed').style.display = completedCount ? 'inline-block' : 'none';
     const isOwner = projectIsOwner(activeProject);
     document.getElementById('btn-delete-project').style.display = isOwner ? 'inline-block' : 'none';
 
@@ -1372,11 +1375,9 @@
         ${tasks.map(t => {
           const st = t.status || 'todo';
           const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
-          const blocked = isTaskCompletionBlocked(t, tasks);
           return `
           <article class="th-task-card status-${st}">
             <div class="th-task-card-row">
-              ${completeBtnHtml(t.id, st, false, blocked)}
               <div class="th-task-card-main">
                 <div class="th-task-card-headline">
                   <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
@@ -1394,13 +1395,6 @@
                     ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
                   </div>
                   <div class="th-task-card-actions">
-                    ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
-                    ${st !== 'done'
-                      ? (blocked
-                        ? `<button type="button" disabled title="${escapeAttr(completionBlockedMessage(t, tasks))}">Blocked</button>`
-                        : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Complete</button>`)
-                      : `<button type="button" data-complete-task="${escapeAttr(t.id)}">Mark active</button>`}
-                    <button type="button" data-view-task="${escapeAttr(t.id)}">Details</button>
                     <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                     <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
                   </div>
@@ -1423,8 +1417,26 @@
         openDeleteTaskModal(task.id, task.title);
       });
     });
-    wireCompleteButtons(document.getElementById('list-view'));
     wireStartButtons(document.getElementById('list-view'));
+  }
+
+  async function clearCompletedTasks() {
+    const tasks = activeProject.tasks || [];
+    const completed = tasks.filter(t => t.status === 'done');
+    if (!completed.length) return;
+    const noun = completed.length === 1 ? 'task' : 'tasks';
+    if (!confirm(`Remove ${completed.length} completed ${noun} from this project? This cannot be undone.`)) return;
+    const completedIds = new Set(completed.map(t => t.id));
+    activeProject.tasks = tasks.filter(t => t.status !== 'done');
+    activeProject.tasks.forEach(t => {
+      t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !completedIds.has(id));
+    });
+    if (viewingTaskId && completedIds.has(viewingTaskId)) {
+      viewingTaskId = null;
+      closeModal('modal-task-detail');
+    }
+    await saveProject(activeProject);
+    showBanner('Completed tasks cleared', 'ok');
   }
 
   function wireGanttTaskInteractions() {
@@ -2136,6 +2148,9 @@
   document.getElementById('btn-new-project-empty').addEventListener('click', () => openProjectModal('create'));
   document.getElementById('btn-edit-project').addEventListener('click', () => openProjectModal('edit'));
   document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
+  document.getElementById('btn-clear-completed').addEventListener('click', () => {
+    clearCompletedTasks().catch(e => showBanner(e.message));
+  });
   document.querySelectorAll('.th-status-pill').forEach(pill => {
     pill.addEventListener('click', () => setTaskStatusPill(pill.getAttribute('data-status')));
   });
