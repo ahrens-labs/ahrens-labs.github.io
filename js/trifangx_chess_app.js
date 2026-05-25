@@ -2892,7 +2892,31 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       notifyTrifangxDashboardEmbedModalClosed();
     }
 
-    // User-facing messages use the centered modal (not toast notifications).
+    // Auto-dismiss corner toasts for informational feedback (login success, errors, etc.).
+    function showNotification(message, type, durationMs) {
+      type = type || 'info';
+      const ms = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 4000;
+      let container = document.getElementById('notification-toast');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'notification-toast';
+        container.setAttribute('aria-live', 'polite');
+        document.body.appendChild(container);
+      }
+      const el = document.createElement('div');
+      el.className = 'toast-item ' + type;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(function () {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-10px)';
+        setTimeout(function () {
+          el.remove();
+        }, 300);
+      }, ms);
+    }
+
+    /** Blocking ack modal — use only when the user must press a button (not for passive toasts). */
     function showMessageModal(message, type, title) {
       type = type || 'info';
       const defaultTitles = {
@@ -2907,11 +2931,6 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'OK',
         false
       );
-    }
-
-    function showNotification(message, type, durationMs) {
-      void durationMs;
-      return showMessageModal(message, type);
     }
 
     function isChessPregamePhase() {
@@ -7805,7 +7824,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function showPgnExportStatus(message, isError) {
-      showMessageModal(message, isError ? 'error' : 'success');
+      const existing = document.getElementById('pgn-export-status-toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      toast.id = 'pgn-export-status-toast';
+      toast.textContent = message;
+      toast.style.cssText =
+        'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:10px 14px;border-radius:8px;z-index:999999;font-family:Inter,Arial,sans-serif;font-size:0.92rem;font-weight:600;color:#fff;box-shadow:0 10px 26px rgba(0,0,0,0.24);' +
+        (isError ? 'background:#b91c1c;' : 'background:#047857;');
+      document.body.appendChild(toast);
+      window.setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 2200);
     }
 
     function choosePgnExportAction() {

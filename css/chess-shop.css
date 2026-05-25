@@ -673,6 +673,54 @@
   color: #fff;
 }
 
+#notification-toast {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10060;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-width: 340px;
+  pointer-events: none;
+}
+
+#notification-toast .toast-item {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+  background: #fff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#notification-toast .toast-item.success {
+  border-color: #6ee7b7;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+#notification-toast .toast-item.error {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+#notification-toast .toast-item.info {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+#notification-toast .toast-item.warning {
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+}
+
 .generic-confirm-overlay {
   display: none;
   position: fixed;
