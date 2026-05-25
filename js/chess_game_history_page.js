@@ -1,6 +1,6 @@
 /**
  * Standalone game history page (chess_engine/game_history/).
- * Loads cloud chess data, lists/filter/favorite/export; "Play on board" opens chess_engine.html?replayIndex=
+ * Loads cloud chess data, lists/filter/favorite/export; "Play on board" opens trifangx_live.html?replayIndex=
  */
 (function () {
   'use strict';
@@ -605,7 +605,7 @@
   function playGameHistoryRecordAt(index) {
     const items = cloudChessData && cloudChessData.gameHistory ? cloudChessData.gameHistory : [];
     const rec = items[index];
-    let url = '../../chess_engine.html?replayIndex=' + encodeURIComponent(String(index));
+    let url = '../../trifangx_live.html?replayIndex=' + encodeURIComponent(String(index));
     if (rec && rec.savedAt) {
       url += '&replaySavedAt=' + encodeURIComponent(String(rec.savedAt));
     }

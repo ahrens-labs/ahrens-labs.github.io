@@ -2717,6 +2717,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       setBoardThemeClass(style);
     }
 
+    /** Chessboard.js 1.0 has no runtime draggable(); replay boards are built with draggable: false at init. */
+    function setBoardDragEnabled(enabled) {
+      if (!board) return;
+      if (typeof board.draggable === 'function') {
+        board.draggable(!!enabled);
+      }
+    }
+
     function changeBoardStyle() {
       const bsEl = document.getElementById('board-style');
       let style = bsEl && bsEl.value != null ? String(bsEl.value).trim() : 'classic';
@@ -8096,7 +8104,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!isHistoryReplayMode || !game || !board) return;
       try {
         board.orientation(playerColor);
-        board.draggable(false);
+        setBoardDragEnabled(false);
         if (typeof reapplyBoardThemeFromSettings === 'function') reapplyBoardThemeFromSettings();
         applyViewedPosition(currentMoveIndex);
         updateCapturedPieces();
@@ -8212,7 +8220,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         if (board) {
           board.orientation(playerColor);
-          board.draggable(false);
+          setBoardDragEnabled(false);
         }
         navigateToStart();
         currentMoveIndex = -2;
@@ -8265,7 +8273,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (game) game.reset();
         if (board) {
           board.position('start');
-          board.draggable(false);
+          setBoardDragEnabled(false);
         }
         moveHistory = [];
         moveClockTimes = [];
@@ -8274,7 +8282,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         lastMoveSquares = { from: null, to: null };
         lastLiveMoveDisplayText = 'None';
       } else if (board) {
-        board.draggable(!gameOver);
+        setBoardDragEnabled(!gameOver);
       }
       updateChessPregameToolsVisibility();
     }
