@@ -627,16 +627,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         b: 'linear-gradient(135deg,#14532d 0%,#166534 40%,#422006 100%)',
       },
       season_golden_hour: {
-        w: 'linear-gradient(135deg,#fff1f2 0%,#fecdd3 42%,#fde68a 100%)',
-        b: 'linear-gradient(135deg,#581c87 0%,#312e81 55%,#1e1b4b 100%)',
+        w: 'linear-gradient(135deg,#ffc9b8 0%,#ff9a8b 48%,#ffd4a3 100%)',
+        b: 'linear-gradient(135deg,#0f766e 0%,#134e4a 55%,#164e63 100%)',
       },
       season_high_sun: {
-        w: 'linear-gradient(135deg,#fffef0 0%,#fef08a 48%,#facc15 100%)',
-        b: 'linear-gradient(135deg,#c2410c 0%,#7c2d12 100%)',
+        w: 'linear-gradient(135deg,#ecfccb 0%,#bef264 50%,#a3e635 100%)',
+        b: 'linear-gradient(135deg,#c026d3 0%,#86198f 100%)',
       },
       season_solstice_crown: {
-        w: 'linear-gradient(135deg,#fffbeb 0%,#fcd34d 38%,#fef3c7 72%,#fde68a 100%)',
-        b: 'linear-gradient(135deg,#312e81 0%,#451a03 38%,#78350f 68%,#1e1b4b 100%)',
+        w: 'linear-gradient(135deg,#fde047 0%,#facc15 45%,#fcd34d 100%)',
+        b: 'linear-gradient(135deg,#5b21b6 0%,#6d28d9 45%,#7c3aed 100%)',
       },
     };
     
@@ -2692,6 +2692,29 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    function setBoardThemeClass(styleId) {
+      const boardElement = document.getElementById('board');
+      if (!boardElement) return;
+      const style = String(styleId || 'classic').trim() || 'classic';
+      boardElement.className = boardElement.className.replace(/board-theme-[A-Za-z0-9_]+/g, '').trim();
+      boardElement.classList.add('board-theme-' + style);
+    }
+
+    /** Re-apply board theme after Chessboard.js rebuilds #board inner DOM. */
+    function reapplyBoardThemeFromSettings() {
+      const bsEl = document.getElementById('board-style');
+      let style =
+        (bsEl && bsEl.value != null ? String(bsEl.value).trim() : '') ||
+        localStorage.getItem('chessboardStyle') ||
+        'classic';
+      if (!style) style = 'classic';
+      if (typeof isUnlocked === 'function' && !isUnlocked('boards', style)) {
+        const unlocked = getUnlockedItems();
+        style = unlocked.boards && unlocked.boards.length ? unlocked.boards[0] : 'classic';
+      }
+      setBoardThemeClass(style);
+    }
+
     function changeBoardStyle() {
       const bsEl = document.getElementById('board-style');
       let style = bsEl && bsEl.value != null ? String(bsEl.value).trim() : 'classic';
@@ -2713,8 +2736,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       const boardElement = document.getElementById("board");
       if (boardElement) {
-        boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
-        boardElement.classList.add(`board-theme-${style}`);
+        setBoardThemeClass(style);
       }
       
       // Save preference to localStorage
@@ -2776,6 +2798,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           });
         }
         board.position(currentPosition);
+        reapplyBoardThemeFromSettings();
       }
     }
 
@@ -2792,6 +2815,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       // A minimal config breaks drag/click-to-move, promotion, and premove sync with chess.js.
       board = Chessboard('board', buildLiveChessboardOptions(game ? game.fen() : 'start'));
 
+      reapplyBoardThemeFromSettings();
       ensureArrowOverlay();
       applyMoveEffect(currentMoveEffect);
 
@@ -4194,8 +4218,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } else {
         const boardElement = document.getElementById('board');
         if (boardElement) {
-          boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
-          boardElement.classList.add('board-theme-' + v);
+          setBoardThemeClass(v);
         }
         localStorage.setItem('chessboardStyle', v);
         if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
@@ -4221,6 +4244,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           else {
             board = Chessboard('board', { draggable: false, position: pos, orientation: 'white', pieceTheme: pieceThemes[v] });
             board.position(pos);
+            reapplyBoardThemeFromSettings();
           }
         }
         if (typeof saveChessDataToCloud === 'function') void saveChessDataToCloud(true);
@@ -4450,8 +4474,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       currentPieceStyle = pieceStyle;
       const boardElement = document.getElementById('board');
       if (boardElement) {
-        boardElement.className = boardElement.className.replace(/board-theme-\w+/g, '').trim();
-        boardElement.classList.add('board-theme-' + boardStyle);
+        setBoardThemeClass(boardStyle);
       }
       currentHighlightColor = settings.highlightColor || localStorage.getItem('highlightColor') || 'red';
       currentArrowColor = settings.arrowColor || localStorage.getItem('arrowColor') || 'red';
@@ -4484,6 +4507,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         trashSpeed: 50,
         pieceTheme: pieceThemes[currentPieceStyle],
       });
+      reapplyBoardThemeFromSettings();
       applyMoveEffect(currentMoveEffect);
       const boardEl = document.getElementById('board');
       if (boardEl) {
@@ -12716,6 +12740,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         ensureArrowOverlay();
         board = Chessboard('board', buildLiveChessboardOptions(game.fen()));
+        reapplyBoardThemeFromSettings();
         if (lastMoveSquares && lastMoveSquares.from && lastMoveSquares.to) {
           highlightLastMove(lastMoveSquares.from, lastMoveSquares.to);
         }

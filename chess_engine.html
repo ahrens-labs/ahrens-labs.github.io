@@ -904,6 +904,50 @@
       box-shadow: inset 0 0 36px rgba(0, 0, 0, 0.45);
     }
 
+    /* June Solstice Gold — season-exclusive boards (two distinct colors per theme, not classic tan/brown) */
+    #board.board-theme-season_golden_hour .white-1e1d7,
+    .board-theme-season_golden_hour .white-1e1d7 {
+      background:
+        linear-gradient(135deg, #ffc9b8 0%, #ff9a8b 48%, #ffd4a3 100%),
+        radial-gradient(circle at 28% 22%, rgba(255, 154, 139, 0.35) 0%, transparent 55%);
+      box-shadow: inset 0 0 24px rgba(244, 114, 182, 0.15);
+    }
+    #board.board-theme-season_golden_hour .black-3c85d,
+    .board-theme-season_golden_hour .black-3c85d {
+      background:
+        linear-gradient(135deg, #0f766e 0%, #134e4a 55%, #164e63 100%),
+        radial-gradient(circle at 72% 78%, rgba(45, 212, 191, 0.2) 0%, transparent 50%);
+      box-shadow: inset 0 0 36px rgba(0, 0, 0, 0.35);
+    }
+    #board.board-theme-season_high_sun .white-1e1d7,
+    .board-theme-season_high_sun .white-1e1d7 {
+      background:
+        linear-gradient(135deg, #ecfccb 0%, #bef264 50%, #a3e635 100%),
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.45) 0%, transparent 42%);
+      box-shadow: inset 0 0 28px rgba(132, 204, 22, 0.25);
+    }
+    #board.board-theme-season_high_sun .black-3c85d,
+    .board-theme-season_high_sun .black-3c85d {
+      background:
+        linear-gradient(135deg, #c026d3 0%, #86198f 100%),
+        radial-gradient(circle at 68% 72%, rgba(232, 121, 249, 0.22) 0%, transparent 50%);
+      box-shadow: inset 0 0 38px rgba(0, 0, 0, 0.38);
+    }
+    #board.board-theme-season_solstice_crown .white-1e1d7,
+    .board-theme-season_solstice_crown .white-1e1d7 {
+      background:
+        linear-gradient(135deg, #fde047 0%, #facc15 45%, #fcd34d 100%),
+        radial-gradient(circle at 24% 18%, rgba(253, 224, 71, 0.5) 0%, transparent 52%);
+      box-shadow: inset 0 0 26px rgba(245, 158, 11, 0.28);
+    }
+    #board.board-theme-season_solstice_crown .black-3c85d,
+    .board-theme-season_solstice_crown .black-3c85d {
+      background:
+        linear-gradient(135deg, #5b21b6 0%, #6d28d9 45%, #7c3aed 100%),
+        radial-gradient(circle at 72% 78%, rgba(167, 139, 250, 0.28) 0%, transparent 50%);
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+    }
+
     /* Legal Move Highlights */
     .highlight-legal {
       position: relative;
@@ -1423,16 +1467,16 @@
     /* Board square highlighting — last move uses shop highlight color (see applyHighlightColor) */
     #board .square-55d63.highlight-last-move.white-1e1d7,
     #board div.highlight-last-move.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.highlight-last-move.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.highlight-last-move.white-1e1d7 {
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.highlight-last-move.white-1e1d7,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.highlight-last-move.white-1e1d7 {
       background-color: var(--trfx-hl-light) !important;
       background-image: none !important;
       box-shadow: none !important;
     }
     #board .square-55d63.highlight-last-move.black-3c85d,
     #board div.highlight-last-move.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.highlight-last-move.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.highlight-last-move.black-3c85d {
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.highlight-last-move.black-3c85d,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.highlight-last-move.black-3c85d {
       background-color: var(--trfx-hl-dark) !important;
       background-image: none !important;
       box-shadow: none !important;
@@ -1454,12 +1498,12 @@
 
     #board .square-55d63.highlight-check.white-1e1d7,
     #board div.highlight-check.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.highlight-check.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.highlight-check.white-1e1d7,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.highlight-check.white-1e1d7,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.highlight-check.white-1e1d7,
     #board .square-55d63.highlight-check.black-3c85d,
     #board div.highlight-check.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.highlight-check.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.highlight-check.black-3c85d {
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.highlight-check.black-3c85d,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.highlight-check.black-3c85d {
       background-image: none !important;
       box-shadow: none !important;
     }
@@ -1542,6 +1586,12 @@
     #board .board-theme-season_rift .premove-source,
     #board .board-theme-season_canopy_crown .premove-highlight,
     #board .board-theme-season_canopy_crown .premove-source,
+    #board .board-theme-season_golden_hour .premove-highlight,
+    #board .board-theme-season_golden_hour .premove-source,
+    #board .board-theme-season_high_sun .premove-highlight,
+    #board .board-theme-season_high_sun .premove-source,
+    #board .board-theme-season_solstice_crown .premove-highlight,
+    #board .board-theme-season_solstice_crown .premove-source,
     #board .board-theme-luxury .premove-highlight,
     #board .board-theme-luxury .premove-source {
       background-image: none !important; /* Override all background gradients for full square coverage */
@@ -1605,6 +1655,12 @@
     #board .board-theme-season_rift .premove-source.white-1e1d7,
     #board .board-theme-season_canopy_crown .premove-highlight.white-1e1d7,
     #board .board-theme-season_canopy_crown .premove-source.white-1e1d7,
+    #board .board-theme-season_golden_hour .premove-highlight.white-1e1d7,
+    #board .board-theme-season_golden_hour .premove-source.white-1e1d7,
+    #board .board-theme-season_high_sun .premove-highlight.white-1e1d7,
+    #board .board-theme-season_high_sun .premove-source.white-1e1d7,
+    #board .board-theme-season_solstice_crown .premove-highlight.white-1e1d7,
+    #board .board-theme-season_solstice_crown .premove-source.white-1e1d7,
     #board .board-theme-luxury .premove-highlight.white-1e1d7,
     #board .board-theme-luxury .premove-source.white-1e1d7 {
       background-color: rgba(200, 0, 0, 0.50) !important; /* Slightly brighter, less dull red on light squares */
@@ -1667,6 +1723,12 @@
     #board .board-theme-season_rift .premove-source.black-3c85d,
     #board .board-theme-season_canopy_crown .premove-highlight.black-3c85d,
     #board .board-theme-season_canopy_crown .premove-source.black-3c85d,
+    #board .board-theme-season_golden_hour .premove-highlight.black-3c85d,
+    #board .board-theme-season_golden_hour .premove-source.black-3c85d,
+    #board .board-theme-season_high_sun .premove-highlight.black-3c85d,
+    #board .board-theme-season_high_sun .premove-source.black-3c85d,
+    #board .board-theme-season_solstice_crown .premove-highlight.black-3c85d,
+    #board .board-theme-season_solstice_crown .premove-source.black-3c85d,
     #board .board-theme-luxury .premove-highlight.black-3c85d,
     #board .board-theme-luxury .premove-source.black-3c85d {
       background-color: rgba(200, 0, 0, 0.55) !important; /* Slightly brighter, less dull red on dark squares */
@@ -1699,16 +1761,16 @@
     /* Right-click square marks use shop highlight color; premove squares stay red below */
     #board .square-55d63.right-click-highlight.white-1e1d7,
     #board div.right-click-highlight.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.right-click-highlight.white-1e1d7,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.right-click-highlight.white-1e1d7 {
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.right-click-highlight.white-1e1d7,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.right-click-highlight.white-1e1d7 {
       background-color: var(--trfx-hl-light) !important;
       background-image: none !important;
       box-shadow: none !important;
     }
     #board .square-55d63.right-click-highlight.black-3c85d,
     #board div.right-click-highlight.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) .square-55d63.right-click-highlight.black-3c85d,
-    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury) div.right-click-highlight.black-3c85d {
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) .square-55d63.right-click-highlight.black-3c85d,
+    #board :is(.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,.board-theme-wood,.board-theme-coral,.board-theme-marble,.board-theme-dark,.board-theme-neon,.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury) div.right-click-highlight.black-3c85d {
       background-color: var(--trfx-hl-dark) !important;
       background-image: none !important;
       box-shadow: none !important;
