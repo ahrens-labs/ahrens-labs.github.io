@@ -3131,11 +3131,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       });
     }
 
-    function isShopItemPubliclyVisible(itemId) {
+    function isShopItemPubliclyVisible(itemId, category) {
+      let alreadyUnlocked = false;
+      if (category) {
+        const unlocked = getUnlockedItems();
+        alreadyUnlocked = (unlocked[category] || []).includes(itemId);
+      }
       try {
         const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
         if (CS && typeof CS.isSeasonShopItemPubliclyVisible === 'function') {
-          return CS.isSeasonShopItemPubliclyVisible(itemId);
+          return CS.isSeasonShopItemPubliclyVisible(itemId, alreadyUnlocked);
         }
       } catch (e) {}
       return true;
@@ -3144,7 +3149,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function getFilteredShopItems(category) {
       let items = (shopItems[category] || []).slice();
       items = items.filter(function (item) {
-        return isShopItemPubliclyVisible(item.id);
+        return isShopItemPubliclyVisible(item.id, category);
       });
       const q = shopSearchQuery.trim().toLowerCase();
       const unlocked = getUnlockedItems();
@@ -3195,7 +3200,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const picks = [];
       shopTabOrder.forEach(function (cat) {
         (shopItems[cat] || []).forEach(function (item) {
-          if (!isShopItemPubliclyVisible(item.id)) return;
+          if (!isShopItemPubliclyVisible(item.id, cat)) return;
           if (item.purchasable === false || item.price <= 0) return;
           if ((unlocked[cat] || []).includes(item.id)) return;
           if (item.price <= spendable) {

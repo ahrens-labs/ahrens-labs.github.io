@@ -475,16 +475,29 @@
   }
 
   /**
-   * Whether a season-exclusive shop item may appear in the shop catalog (June hidden until UTC month start).
+   * Whether a season-exclusive shop item may appear in the shop catalog.
+   * June cosmetics stay hidden until UTC June 1; May cosmetics leave the catalog from June 1
+   * onward unless the player already unlocked them.
    * @param {string} itemId
+   * @param {boolean} [alreadyUnlocked]
    * @returns {boolean}
    */
-  function isSeasonShopItemPubliclyVisible(itemId) {
+  function isSeasonShopItemPubliclyVisible(itemId, alreadyUnlocked) {
     if (!itemId) return true;
-    const juneIds = seasonShopRewardIdsForMonth('06');
-    if (!juneIds.has(String(itemId))) return true;
+    const id = String(itemId);
     const y = new Date().getUTCFullYear();
-    return isSeasonPubliclyVisible(y + '-06');
+    const juneIds = seasonShopRewardIdsForMonth('06');
+    if (juneIds.has(id)) {
+      return isSeasonPubliclyVisible(y + '-06');
+    }
+    const mayIds = seasonShopRewardIdsForMonth('05');
+    if (mayIds.has(id)) {
+      const juneBounds = seasonBoundsUtc(y + '-06');
+      if (juneBounds && Date.now() >= juneBounds.startMs) {
+        return !!alreadyUnlocked;
+      }
+    }
+    return true;
   }
 
   /**
