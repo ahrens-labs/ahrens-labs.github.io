@@ -177,33 +177,68 @@
             transform: translateY(0);
         }
         
-        .notification {
+        .generic-confirm-overlay {
+            display: none;
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            inset: 0;
             z-index: 10000;
-            animation: slideIn 0.3s ease;
-            max-width: 400px;
-        }
-        
-        .notification.success {
-            border-left: 4px solid #2ecc71;
-        }
-        
-        .notification.error {
-            border-left: 4px solid #e74c3c;
+            background: rgba(15, 23, 42, 0.5);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        .notification.warning {
-            border-left: 4px solid #f39c12;
+        .generic-confirm-overlay.show {
+            display: flex;
         }
 
-        .notification.info {
-            border-left: 4px solid #3498db;
+        .generic-confirm-dialog {
+            background: white;
+            border-radius: 14px;
+            padding: 22px 24px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+            border: 2px solid #3498db;
+        }
+
+        .generic-confirm-dialog h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.15rem;
+            color: #2c3e50;
+        }
+
+        .generic-confirm-dialog p {
+            margin: 0 0 18px 0;
+            color: #5a6c7d;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .generic-confirm-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .generic-confirm-actions button {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .generic-confirm-cancel {
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+            color: #555;
+        }
+
+        .generic-confirm-ok {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
         }
         
         @keyframes slideIn {
@@ -405,11 +440,6 @@
                 padding: 12px 8px;
                 font-size: 0.88rem;
             }
-            .notification {
-                right: 10px;
-                left: 10px;
-                max-width: none;
-            }
         }
 
     </style>
@@ -518,6 +548,16 @@
     <footer>
         <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
     </footer>
+
+    <div id="account-message-modal" class="generic-confirm-overlay" aria-hidden="true">
+        <div class="generic-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="account-message-title">
+            <h3 id="account-message-title">Notice</h3>
+            <p id="account-message-text"></p>
+            <div class="generic-confirm-actions">
+                <button type="button" class="generic-confirm-ok" id="account-message-ok">OK</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const API_BASE_URL =
@@ -795,18 +835,40 @@
             }
         }
         
-        function showNotification(message, type, duration = 3000) {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => {
-                    notification.remove();
-                }, 300);
-            }, duration);
+        function showNotification(message, type) {
+            type = type || 'info';
+            const defaultTitles = {
+                error: 'Error',
+                success: 'Success',
+                info: 'Notice',
+                warning: 'Warning',
+            };
+            const modal = document.getElementById('account-message-modal');
+            const titleEl = document.getElementById('account-message-title');
+            const textEl = document.getElementById('account-message-text');
+            const okBtn = document.getElementById('account-message-ok');
+            if (!modal || !titleEl || !textEl || !okBtn) return;
+            titleEl.textContent = defaultTitles[type] || 'Notice';
+            textEl.textContent = message;
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            return new Promise(function (resolve) {
+                function closeModal() {
+                    modal.classList.remove('show');
+                    modal.setAttribute('aria-hidden', 'true');
+                    okBtn.removeEventListener('click', onOk);
+                    modal.removeEventListener('click', onOverlay);
+                    resolve();
+                }
+                function onOk() {
+                    closeModal();
+                }
+                function onOverlay(e) {
+                    if (e.target === modal) closeModal();
+                }
+                okBtn.addEventListener('click', onOk);
+                modal.addEventListener('click', onOverlay);
+            });
         }
     </script>
 </body>

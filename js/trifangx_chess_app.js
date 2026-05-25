@@ -38,6 +38,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     let reachedReplayEnd = false;
     /** Resolves when user dismisses #generic-confirm-modal (replay / leave game, etc.). */
     let genericConfirmResolve = null;
+    /** True when #generic-confirm-modal is ack-only (no Cancel). */
+    let genericConfirmMessageOnly = false;
     let gameStartTime = null;
     let currentPieceStyle = 'classic';
     let premoves = []; // Store array of premoves as [{from: 'e2', to: 'e4'}, ...]
@@ -2890,21 +2892,26 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       notifyTrifangxDashboardEmbedModalClosed();
     }
 
-    // In-UI notification (no alert)
-    function showNotification(message, type, durationMs) {
+    // User-facing messages use the centered modal (not toast notifications).
+    function showMessageModal(message, type, title) {
       type = type || 'info';
-      const ms = typeof durationMs === 'number' && durationMs > 0 ? durationMs : 4000;
-      const container = document.getElementById('notification-toast');
-      if (!container) return;
-      const el = document.createElement('div');
-      el.className = 'toast-item ' + type;
-      el.textContent = message;
-      container.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(-10px)';
-        setTimeout(() => el.remove(), 300);
-      }, ms);
+      const defaultTitles = {
+        error: 'Error',
+        success: 'Success',
+        info: 'Notice',
+        warning: 'Warning',
+      };
+      return showGenericConfirmModal(
+        title || defaultTitles[type] || 'Notice',
+        message,
+        'OK',
+        false
+      );
+    }
+
+    function showNotification(message, type, durationMs) {
+      void durationMs;
+      return showMessageModal(message, type);
     }
 
     function isChessPregamePhase() {
@@ -3124,8 +3131,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       });
     }
 
+    function isShopItemPubliclyVisible(itemId) {
+      try {
+        const CS = typeof window !== 'undefined' ? window.ChessSeasons : null;
+        if (CS && typeof CS.isSeasonShopItemPubliclyVisible === 'function') {
+          return CS.isSeasonShopItemPubliclyVisible(itemId);
+        }
+      } catch (e) {}
+      return true;
+    }
+
     function getFilteredShopItems(category) {
       let items = (shopItems[category] || []).slice();
+      items = items.filter(function (item) {
+        return isShopItemPubliclyVisible(item.id);
+      });
       const q = shopSearchQuery.trim().toLowerCase();
       const unlocked = getUnlockedItems();
       const spendable = getSpendablePoints();
@@ -3175,6 +3195,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const picks = [];
       shopTabOrder.forEach(function (cat) {
         (shopItems[cat] || []).forEach(function (item) {
+          if (!isShopItemPubliclyVisible(item.id)) return;
           if (item.purchasable === false || item.price <= 0) return;
           if ((unlocked[cat] || []).includes(item.id)) return;
           if (item.price <= spendable) {
@@ -4752,7 +4773,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           if (cancel) cancel.addEventListener('click', function () { closeGenericConfirmModal(false); });
           if (overlay) {
             overlay.addEventListener('click', function (e) {
-              if (e.target === overlay) closeGenericConfirmModal(false);
+              if (e.target !== overlay) return;
+              const messageOnly =
+                overlay.dataset.messageOnly === '1' || genericConfirmMessageOnly;
+              closeGenericConfirmModal(messageOnly ? true : false);
             });
           }
         })();
@@ -7776,18 +7800,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function showPgnExportStatus(message, isError) {
-      const existing = document.getElementById('pgn-export-status-toast');
-      if (existing) existing.remove();
-      const toast = document.createElement('div');
-      toast.id = 'pgn-export-status-toast';
-      toast.textContent = message;
-      toast.style.cssText =
-        'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);padding:10px 14px;border-radius:8px;z-index:999999;font-family:Inter,Arial,sans-serif;font-size:0.92rem;font-weight:600;color:#fff;box-shadow:0 10px 26px rgba(0,0,0,0.24);' +
-        (isError ? 'background:#b91c1c;' : 'background:#047857;');
-      document.body.appendChild(toast);
-      window.setTimeout(function () {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
-      }, 2200);
+      showMessageModal(message, isError ? 'error' : 'success');
     }
 
     function choosePgnExportAction() {
@@ -7973,6 +7986,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           return;
         }
         genericConfirmResolve = resolve;
+        genericConfirmMessageOnly = cancelLabel === false || cancelLabel === null;
+        if (modal.dataset) modal.dataset.messageOnly = genericConfirmMessageOnly ? '1' : '0';
         const h = document.getElementById('generic-confirm-title');
         const p = document.getElementById('generic-confirm-message');
         const okBtn = document.getElementById('generic-confirm-ok');
@@ -7980,7 +7995,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (h) h.textContent = title;
         if (p) p.textContent = message;
         if (okBtn) okBtn.textContent = okLabel || 'OK';
-        if (cancelBtn) cancelBtn.textContent = cancelLabel || 'Cancel';
+        if (cancelBtn) {
+          cancelBtn.hidden = genericConfirmMessageOnly;
+          cancelBtn.style.display = genericConfirmMessageOnly ? 'none' : '';
+          if (!genericConfirmMessageOnly) cancelBtn.textContent = cancelLabel || 'Cancel';
+        }
         modal.classList.add('show');
         modal.setAttribute('aria-hidden', 'false');
       });

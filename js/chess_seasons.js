@@ -461,6 +461,32 @@
     return Date.now() >= bounds.startMs;
   }
 
+  /** Shop reward ids from a season mechanical track (June cosmetics, etc.). */
+  function seasonShopRewardIdsForMonth(mm) {
+    const sid = new Date().getUTCFullYear() + '-' + String(mm || '').padStart(2, '0');
+    const rows = getSeasonMechanicalRows(sid);
+    const ids = new Set();
+    rows.forEach(function (row) {
+      (row.rewards || []).forEach(function (r) {
+        if (r && r.kind === 'shop' && r.id) ids.add(String(r.id));
+      });
+    });
+    return ids;
+  }
+
+  /**
+   * Whether a season-exclusive shop item may appear in the shop catalog (June hidden until UTC month start).
+   * @param {string} itemId
+   * @returns {boolean}
+   */
+  function isSeasonShopItemPubliclyVisible(itemId) {
+    if (!itemId) return true;
+    const juneIds = seasonShopRewardIdsForMonth('06');
+    if (!juneIds.has(String(itemId))) return true;
+    const y = new Date().getUTCFullYear();
+    return isSeasonPubliclyVisible(y + '-06');
+  }
+
   /**
    * Upcoming June season id for admin preview (null when June is already live or not in preview window).
    * @returns {string|null}
@@ -633,6 +659,7 @@
     getChessSeasonTrack: getChessSeasonTrack,
     getSeasonMechanicalRows: getSeasonMechanicalRows,
     isSeasonPubliclyVisible: isSeasonPubliclyVisible,
+    isSeasonShopItemPubliclyVisible: isSeasonShopItemPubliclyVisible,
     getUpcomingJunePreviewSeasonId: getUpcomingJunePreviewSeasonId,
     emptySeasonEarnBaseline: emptySeasonEarnBaseline,
     LB_FRAMES: LB_FRAMES,
