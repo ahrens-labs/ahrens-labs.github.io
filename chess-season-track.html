@@ -966,6 +966,38 @@
         );
       }
 
+      /** Live-month track when admin is testing a future month (May stash). */
+      function getMainSeasonTrackForDisplay(data, displaySid) {
+        var st =
+          data && data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        var stSid = String(st.seasonId || '').trim();
+        var saved =
+          data &&
+          data.seasonTrackSavedBeforePreview &&
+          typeof data.seasonTrackSavedBeforePreview === 'object'
+            ? data.seasonTrackSavedBeforePreview
+            : null;
+        if (
+          saved &&
+          String(saved.seasonId || '').trim() === displaySid &&
+          stSid !== displaySid
+        ) {
+          return saved;
+        }
+        return st;
+      }
+
+      /** Preview progress uses the real `seasonTrack` once admin has started the preview month. */
+      function getPreviewSeasonTrackState(data, previewSid) {
+        var st =
+          data && data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
+        var stSid = String(st.seasonId || '').trim();
+        if (stSid !== previewSid) {
+          return { seasonId: previewSid, nodesCompleted: 0, earnBaseline: {} };
+        }
+        return st;
+      }
+
       function appendSeasonNodeRewardsHtml(html, CS, node) {
         if (!node.rewards || !node.rewards.length) return html;
         var rewardItems = [];
@@ -1028,13 +1060,8 @@
         var meta = CS.getChessSeasonTrack(previewSid);
         var nodes = meta.nodes;
         var bounds = meta.bounds;
-        var pst =
-          data && data.seasonPreviewTrack && typeof data.seasonPreviewTrack === 'object'
-            ? data.seasonPreviewTrack
-            : {};
-        var pstSid = String(pst.seasonId || '').trim();
-        var nodesDone =
-          pstSid === previewSid ? Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0)) : 0;
+        var pst = getPreviewSeasonTrackState(data, previewSid);
+        var nodesDone = Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0));
         if (nodesDone > nodes.length) nodesDone = nodes.length;
 
         var html = '<div class="st-preview-wrap" id="st-preview-wrap">';
@@ -1044,7 +1071,7 @@
           ' (<code>' +
           escapeHtml(previewSid) +
           '</code>) is hidden from everyone else until June 1 UTC. ' +
-          'Use <strong>Claim (admin test)</strong> below to unlock rewards at no cost — this does not change your live month track.</div>';
+          'Claims here use the same server path as the live season — only the in-game challenge is skipped for testing. Your current month track is stashed until you reset preview.</div>';
 
         if (meta.theme && meta.theme.name) {
           html +=
@@ -1101,23 +1128,23 @@
           html +=
             '<p class="st-meta">+' +
             node.bonusPoints +
-            ' bonus career points when claimed (admin test — no in-game requirement).</p>';
+            ' bonus career points when you claim this step.</p>';
           html = appendSeasonNodeRewardsHtml(html, CS, node);
           if (i < nodesDone) {
             html +=
-              '<p class="st-status-msg">Claimed in preview — rewards are on your account (cosmetics in TrifangX, flair on dashboard).</p>';
+              '<p class="st-status-msg">Claimed. The list above is what that claim added to your account — use cosmetics in TrifangX Settings / Shop and flair on your account dashboard.</p>';
           } else if (i === nodesDone) {
             html +=
-              '<p class="st-status-msg">Admin test claim — no challenge required and no shop points spent.</p>' +
+              '<p class="st-status-msg">Admin test — same claim as June live; challenge skipped, no shop-point buyout.</p>' +
               '<div class="st-claim-row">' +
-              '<button type="button" class="st-preview-claim-btn" data-st-preview-step="' +
+              '<button type="button" class="st-claim-btn" data-st-preview-step="' +
               i +
               '" data-st-preview-season="' +
               escapeHtml(previewSid) +
-              '">Claim (admin test)</button>' +
+              '">Claim reward</button>' +
               '</div>';
           } else {
-            html += '<p class="st-status-msg">Claim earlier preview steps first.</p>';
+            html += '<p class="st-status-msg">Claim earlier steps on the preview track first.</p>';
           }
           html += '</div></li>';
         }
@@ -1142,19 +1169,23 @@
         }
 
         var currentSid = CS.getChessSeasonIdUtc();
-        var st = (data.seasonTrack && typeof data.seasonTrack === 'object') ? data.seasonTrack : {};
-        var cloudSid = String(st.seasonId || '').trim();
+        var stMain = getMainSeasonTrackForDisplay(data, currentSid);
+        var cloudSid = String(stMain.seasonId || '').trim();
         var displaySid = /^\d{4}-\d{2}$/.test(cloudSid) ? cloudSid : currentSid;
         var meta = CS.getChessSeasonTrack(displaySid);
         var nodes = meta.nodes;
         var bounds = meta.bounds;
 
-        var nodesDone = Math.max(0, Math.floor(Number(st.nodesCompleted) || 0));
+        var nodesDone = Math.max(0, Math.floor(Number(stMain.nodesCompleted) || 0));
         if (nodesDone > nodes.length) nodesDone = nodes.length;
 
         var bonus = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
 
-        var flair = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
+        var flair = stMain.lbFlair && typeof stMain.lbFlair === 'object' ? stMain.lbFlair : {};
+        var mainTrackData = Object.assign({}, data, { seasonTrack: stMain });
+        var liveTrackSid = String(
+          (data.seasonTrack && data.seasonTrack.seasonId) || ''
+        ).trim();
         var flairLine = '';
         if (flair.title || flair.prefix || flair.suffix || flair.frame) {
           flairLine =
@@ -1240,7 +1271,11 @@
             i === nodesDone &&
             CS &&
             typeof CS.seasonChallengeMetSinceBaseline === 'function' &&
-            CS.seasonChallengeMetSinceBaseline(data, st.earnBaseline, node.challengeAchievementId);
+            CS.seasonChallengeMetSinceBaseline(
+              mainTrackData,
+              stMain.earnBaseline,
+              node.challengeAchievementId
+            );
           var statusMsg = '';
           if (i < nodesDone) {
             statusMsg =
@@ -1279,7 +1314,7 @@
                 '<p class="st-progress-caption">You have met this step’s requirements since your last claim — press Claim reward below.</p>' +
                 '</div>';
             } else {
-              var pr = getCurrentStepProgress(data, node.challengeAchievementId);
+              var pr = getCurrentStepProgress(mainTrackData, node.challengeAchievementId);
               if (pr) {
                 var pct = pr.target > 0 ? Math.min(100, (pr.current / pr.target) * 100) : 0;
                 var shown = Math.min(pr.current, pr.target);
@@ -1396,7 +1431,10 @@
         html += '</ol>';
 
         var canResetSeason =
-          nodesDone > 0 && /^\d{4}-\d{2}$/.test(cloudSid) && cloudSid === currentSid;
+          nodesDone > 0 &&
+          /^\d{4}-\d{2}$/.test(cloudSid) &&
+          cloudSid === currentSid &&
+          liveTrackSid === currentSid;
         if (canResetSeason) {
           html +=
             '<div class="st-reset-zone" id="st-reset-zone">' +
@@ -1558,16 +1596,7 @@
             function finishOk() {
               btn.disabled = false;
               btn.textContent = orig;
-              if (adminPreviewClaim) {
-                openStMsgModal(
-                  pack.j.alreadyClaimed ? 'Already claimed' : 'Preview step claimed',
-                  pack.j.alreadyClaimed
-                    ? '<p>This preview step was already on your save.</p>'
-                    : '<p>Preview rewards are on your account. Your live month track is unchanged.</p>'
-                );
-              } else {
-                showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
-              }
+              showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
             }
             if (pack.j.chess) {
               render(pack.j.chess, window.__stUserEmail || '');
@@ -1593,18 +1622,7 @@
               }
               btn.disabled = false;
               btn.textContent = orig;
-              if (d2) {
-                if (adminPreviewClaim) {
-                  openStMsgModal(
-                    pack.j.alreadyClaimed ? 'Already claimed' : 'Preview step claimed',
-                    pack.j.alreadyClaimed
-                      ? '<p>This preview step was already on your save.</p>'
-                      : '<p>Preview rewards are on your account. Your live month track is unchanged.</p>'
-                  );
-                } else {
-                  showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
-                }
-              }
+              if (d2) showSeasonClaimOutcomeModal(stepIndex, buyWithPoints, !!pack.j.alreadyClaimed);
             });
           })
           .catch(function (e) {
@@ -1787,7 +1805,7 @@
           return;
         }
         var previewBtn =
-          ev.target && ev.target.closest && ev.target.closest('.st-preview-claim-btn');
+          ev.target && ev.target.closest && ev.target.closest('[data-st-preview-step]');
         if (previewBtn && !previewBtn.disabled) {
           var pidx = parseInt(previewBtn.getAttribute('data-st-preview-step'), 10);
           var previewSid = previewBtn.getAttribute('data-st-preview-season');

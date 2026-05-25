@@ -5582,6 +5582,54 @@ function isValidAdminPreviewSeasonId(seasonId) {
   return open != null && sid === open;
 }
 
+function cloneSeasonTrackState(st) {
+  if (!st || typeof st !== 'object') return null;
+  const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+  return {
+    seasonId: String(st.seasonId || '').trim(),
+    nodesCompleted: Math.min(
+      CHESS_SEASON_MAX_NODES,
+      Math.max(0, Math.floor(Number(st.nodesCompleted) || 0))
+    ),
+    earnBaseline:
+      st.earnBaseline && typeof st.earnBaseline === 'object' ? { ...st.earnBaseline } : {},
+    lbFlair: sanitizeChessLbFlair(st.lbFlair),
+    lbFlairUnlocked: {
+      frames: uniqStrings(prevOwned.frames || []),
+      titles: uniqStrings(prevOwned.titles || []),
+      prefixes: uniqStrings(prevOwned.prefixes || []),
+      suffixes: uniqStrings(prevOwned.suffixes || []),
+    },
+  };
+}
+
+/** Point `chess.seasonTrack` at the preview month (stash live-month progress first). */
+function ensureAdminPreviewSeasonTrack(chess, previewSeasonId) {
+  let st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+  const curSid = String(st.seasonId || '').trim();
+  if (curSid === previewSeasonId) {
+    chess.seasonTrack = { ...st };
+    return;
+  }
+  if (/^\d{4}-\d{2}$/.test(curSid) && curSid !== previewSeasonId) {
+    const cloned = cloneSeasonTrackState(st);
+    if (cloned) chess.seasonTrackSavedBeforePreview = cloned;
+  }
+  const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+  chess.seasonTrack = {
+    seasonId: previewSeasonId,
+    nodesCompleted: 0,
+    earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
+    lbFlair: sanitizeChessLbFlair(st.lbFlair),
+    lbFlairUnlocked: {
+      frames: uniqStrings(prevOwned.frames || []),
+      titles: uniqStrings(prevOwned.titles || []),
+      prefixes: uniqStrings(prevOwned.prefixes || []),
+      suffixes: uniqStrings(prevOwned.suffixes || []),
+    },
+  };
+}
+
 /** Must match `SEASON_STEP_BUYOUT_POINTS` in js/chess_seasons.js */
 const SEASON_STEP_BUYOUT_POINTS = Object.freeze([
   500, 1000, 3000, 5000, 8000, 12000, 15000, 18000, 20000, 30000,
@@ -8812,17 +8860,18 @@ export class UserAccount {
   /**
    * Apply server-validated season step claim (see SEASON_CLAIM_NODES, js/chess_seasons.js).
    * Idempotent: if step was already claimed, returns success + alreadyClaimed.
+   * Admin preview claims use the same path on `seasonTrack` (challenge skipped only).
    */
   async claimSeasonStep(body) {
     if (body && body.adminPreviewReset) {
-      return this.resetSeasonPreviewTrackAdmin(body);
-    }
-    if (body && body.adminPreviewClaim) {
-      return this.claimSeasonPreviewStepAdmin(body);
+      return this.resetAdminPreviewSeasonTrack(body);
     }
 
+    const adminPreviewClaim = !!(body && body.adminPreviewClaim);
+    const previewSeasonId = adminPreviewClaim ? String(body?.previewSeasonId || '').trim() : '';
     const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
-    const buyWithPoints = !!(body && body.buyWithPoints);
+    const buyWithPoints = adminPreviewClaim ? false : !!(body && body.buyWithPoints);
+
     const userData = await this.storage.get('userData');
     if (!userData?.games?.chess) {
       return { success: false, error: 'No chess data' };
@@ -8830,14 +8879,27 @@ export class UserAccount {
 
     const chess = userData.games.chess;
 
+    if (adminPreviewClaim) {
+      if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
+        return { success: false, error: 'Invalid or closed preview season' };
+      }
+      ensureAdminPreviewSeasonTrack(chess, previewSeasonId);
+    }
+
     let st =
       chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
-    if (!/^\d{4}-\d{2}$/.test(String(st.seasonId || '').trim())) {
+    if (adminPreviewClaim) {
+      if (String(st.seasonId || '').trim() !== previewSeasonId) {
+        return { success: false, error: 'Could not initialize preview season track' };
+      }
+    } else if (!/^\d{4}-\d{2}$/.test(String(st.seasonId || '').trim())) {
       st.seasonId = utcChessSeasonIdNow();
       st.nodesCompleted = 0;
     }
     chess.seasonTrack = st;
-    const seasonIdForTrack = String(st.seasonId || '').trim();
+    const seasonIdForTrack = adminPreviewClaim
+      ? previewSeasonId
+      : String(st.seasonId || '').trim();
     const claimNodes = getSeasonClaimNodesForSeasonId(seasonIdForTrack);
     if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= claimNodes.length) {
       return { success: false, error: 'Invalid step' };
@@ -8871,7 +8933,10 @@ export class UserAccount {
           error: `Not enough shop points (need ${cost.toLocaleString('en-US')}; you have ${spendable.toLocaleString('en-US')} to spend)`,
         };
       }
-    } else if (!seasonChallengeMetSinceBaseline(chess, earnBaseline, node.challengeAchievementId)) {
+    } else if (
+      !adminPreviewClaim &&
+      !seasonChallengeMetSinceBaseline(chess, earnBaseline, node.challengeAchievementId)
+    ) {
       return {
         success: false,
         error: 'Finish this challenge in TrifangX after your last claim (or use a step buyout).',
@@ -8912,12 +8977,8 @@ export class UserAccount {
     return { success: true, chess: outChess };
   }
 
-  /**
-   * Admin-only: claim a step on the hidden preview season (no challenge, no shop-point cost).
-   * Progress lives on `chess.seasonPreviewTrack`; rewards merge into the normal account pools.
-   */
-  async claimSeasonPreviewStepAdmin(body) {
-    const stepIndex = Math.max(0, Math.floor(Number(body?.stepIndex)));
+  /** Admin-only: reset preview-season progress on `seasonTrack` and restore stashed live-month track. */
+  async resetAdminPreviewSeasonTrack(body) {
     const previewSeasonId = String(body?.previewSeasonId || '').trim();
     if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
       return { success: false, error: 'Invalid or closed preview season' };
@@ -8928,79 +8989,13 @@ export class UserAccount {
       return { success: false, error: 'No chess data' };
     }
     const chess = userData.games.chess;
-    const claimNodes = getSeasonClaimNodesForSeasonId(previewSeasonId);
-    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= claimNodes.length) {
-      return { success: false, error: 'Invalid step' };
+    let st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
+    const stSid = String(st.seasonId || '').trim();
+    if (stSid !== previewSeasonId) {
+      return { success: false, error: 'No preview progress on your save.' };
     }
 
-    let pst =
-      chess.seasonPreviewTrack && typeof chess.seasonPreviewTrack === 'object'
-        ? { ...chess.seasonPreviewTrack }
-        : {};
-    if (String(pst.seasonId || '').trim() !== previewSeasonId) {
-      pst = {
-        seasonId: previewSeasonId,
-        nodesCompleted: 0,
-        earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
-      };
-    }
-
-    const node = claimNodes[stepIndex];
-    const done = Math.min(
-      CHESS_SEASON_MAX_NODES,
-      Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0))
-    );
-
-    if (done > stepIndex) {
-      const outChess = await this.getChessData();
-      return { success: true, alreadyClaimed: true, chess: outChess, adminPreview: true };
-    }
-    if (done !== stepIndex) {
-      return { success: false, error: 'Claim earlier preview steps first' };
-    }
-
-    const prevSnap = chessStatsSnapshot(chess);
-    applySeasonClaimRewardsToChess(chess, node);
-    pst.nodesCompleted = Math.min(CHESS_SEASON_MAX_NODES, done + 1);
-    pst.seasonId = previewSeasonId;
-    pst.earnBaseline = snapshotSeasonEarnBaselineFromChess(chess);
-    chess.seasonPreviewTrack = pst;
-    chess.seasonBonusPoints =
-      Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0)) +
-      Math.max(0, Math.floor(Number(node.bonusPoints) || 0));
-    chess.lastUpdated = Date.now();
-
-    await this.storage.put('userData', userData);
-
-    const nextSnap = chessStatsSnapshot(userData.games.chess);
-    await persistAndSendChessMilestones(this.env, this.storage, userData, prevSnap, nextSnap);
-    await this.syncChessCareerPointsLeaderboardEntry();
-
-    const outChess = await this.getChessData();
-    return { success: true, chess: outChess, adminPreview: true };
-  }
-
-  /** Admin-only: reset preview-track progress and remove preview-granted rewards for that season. */
-  async resetSeasonPreviewTrackAdmin(body) {
-    const previewSeasonId = String(body?.previewSeasonId || '').trim();
-    if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
-      return { success: false, error: 'Invalid or closed preview season' };
-    }
-
-    const userData = await this.storage.get('userData');
-    if (!userData?.games?.chess) {
-      return { success: false, error: 'No chess data' };
-    }
-    const chess = userData.games.chess;
-    const pst =
-      chess.seasonPreviewTrack && typeof chess.seasonPreviewTrack === 'object'
-        ? chess.seasonPreviewTrack
-        : null;
-    if (!pst || String(pst.seasonId || '').trim() !== previewSeasonId) {
-      return { success: false, error: 'No preview progress to reset for this season.' };
-    }
-
-    const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0)));
+    const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(st.nodesCompleted) || 0)));
     if (n <= 0) {
       return { success: false, error: 'No claimed preview steps to reset.' };
     }
@@ -9015,8 +9010,6 @@ export class UserAccount {
     chess.shopUnlocks = removeSeasonShopRewardsFromChessShop(chess.shopUnlocks, shopKeys);
 
     const tokenSets = collectSeasonLbTokensThroughStep(n, previewSeasonId);
-    const st =
-      chess.seasonTrack && typeof chess.seasonTrack === 'object' ? { ...chess.seasonTrack } : {};
     const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
     const newOwned = {
       frames: uniqStrings((prevOwned.frames || []).filter((f) => !tokenSets.frames.has(String(f)))),
@@ -9024,18 +9017,28 @@ export class UserAccount {
       prefixes: uniqStrings((prevOwned.prefixes || []).filter((p) => !tokenSets.prefixes.has(String(p)))),
       suffixes: uniqStrings((prevOwned.suffixes || []).filter((s) => !tokenSets.suffixes.has(String(s)))),
     };
-    st.lbFlairUnlocked = newOwned;
-    st.lbFlair = shrinkLbFlairEquipsToOwned(st.lbFlair, newOwned);
-    chess.seasonTrack = st;
 
-    chess.seasonPreviewTrack = {
-      seasonId: previewSeasonId,
-      nodesCompleted: 0,
-      earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
-    };
+    const saved = cloneSeasonTrackState(chess.seasonTrackSavedBeforePreview);
+    if (saved) {
+      chess.seasonTrack = saved;
+      delete chess.seasonTrackSavedBeforePreview;
+    } else {
+      st.lbFlairUnlocked = newOwned;
+      st.lbFlair = shrinkLbFlairEquipsToOwned(st.lbFlair, newOwned);
+      st.nodesCompleted = 0;
+      st.seasonId = utcChessSeasonIdNow();
+      st.earnBaseline = snapshotSeasonEarnBaselineFromChess(chess);
+      chess.seasonTrack = st;
+    }
+
     const prevSb = Math.max(0, Math.floor(Number(chess.seasonBonusPoints) || 0));
     chess.seasonBonusPoints = Math.max(0, prevSb - bonusSubtract);
     chess.lastUpdated = Date.now();
+
+    if (userData.milestonesEmailNotified && typeof userData.milestonesEmailNotified === 'object') {
+      userData.milestonesEmailNotified = { ...userData.milestonesEmailNotified };
+      delete userData.milestonesEmailNotified['trifangx_season_finale_' + previewSeasonId];
+    }
 
     sanitizeChessVisualSettingsAfterUnshop(chess);
     await this.storage.put('userData', userData);
@@ -9045,7 +9048,6 @@ export class UserAccount {
     return {
       success: true,
       chess: outChess,
-      adminPreview: true,
       resetSteps: n,
       bonusPointsRemoved: bonusSubtract,
     };
@@ -9303,11 +9305,12 @@ export class UserAccount {
     }
     mergedChess.shopUnlocks = ensureChessShopUnlockBasics(mergedChess.shopUnlocks || {});
     if (
-      !Object.prototype.hasOwnProperty.call(restIncoming, 'seasonPreviewTrack') &&
-      prevChess.seasonPreviewTrack
+      !Object.prototype.hasOwnProperty.call(restIncoming, 'seasonTrackSavedBeforePreview') &&
+      prevChess.seasonTrackSavedBeforePreview
     ) {
-      mergedChess.seasonPreviewTrack = prevChess.seasonPreviewTrack;
+      mergedChess.seasonTrackSavedBeforePreview = prevChess.seasonTrackSavedBeforePreview;
     }
+    delete mergedChess.seasonPreviewTrack;
     delete mergedChess.lbWeekUtc;
     delete mergedChess.lbWeekBaseline;
     delete mergedChess.lbRollBaselineMs;
@@ -9383,10 +9386,30 @@ export class UserAccount {
     
     const c = userData.games.chess;
     const repairResult = repairChessCareerStatsInPlace(c);
-    if (repairResult.repaired) {
+    let previewMigrated = false;
+    if (c.seasonPreviewTrack && typeof c.seasonPreviewTrack === 'object') {
+      const psid = String(c.seasonPreviewTrack.seasonId || '').trim();
+      const pstDone = Math.max(0, Math.floor(Number(c.seasonPreviewTrack.nodesCompleted) || 0));
+      if (isValidAdminPreviewSeasonId(psid) && pstDone > 0) {
+        const stSid = String(c.seasonTrack?.seasonId || '').trim();
+        if (stSid !== psid) {
+          if (/^\d{4}-\d{2}$/.test(stSid) && !c.seasonTrackSavedBeforePreview) {
+            const cloned = cloneSeasonTrackState(c.seasonTrack);
+            if (cloned) c.seasonTrackSavedBeforePreview = cloned;
+          }
+          const migrated = cloneSeasonTrackState(c.seasonPreviewTrack);
+          if (migrated) c.seasonTrack = migrated;
+        }
+      }
+      delete c.seasonPreviewTrack;
+      previewMigrated = true;
+    }
+    if (repairResult.repaired || previewMigrated) {
       userData.games.chess = c;
       await this.storage.put('userData', userData);
-      console.log('Auto-repaired chess career stats on load from', repairResult.source);
+      if (repairResult.repaired) {
+        console.log('Auto-repaired chess career stats on load from', repairResult.source);
+      }
     }
     return {
       ...c,
