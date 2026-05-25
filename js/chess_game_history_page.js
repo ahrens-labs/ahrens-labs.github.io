@@ -1,6 +1,6 @@
 /**
  * Standalone game history page (chess_engine/game_history/).
- * Loads cloud chess data, lists/filter/favorite/export; "Play on board" opens trifangx_live.html?replayIndex=
+ * Loads cloud chess data, lists/filter/favorite/export; "Play on board" opens /chess-replay/{gameId}
  */
 (function () {
   'use strict';
@@ -602,14 +602,22 @@
     }
   }
 
+  function buildChessReplayUrl(rec, index) {
+    let key = '';
+    if (rec && rec.id != null && String(rec.id).trim()) {
+      key = String(rec.id).trim();
+    } else if (rec && rec.savedAt != null && String(rec.savedAt).trim()) {
+      key = String(rec.savedAt).trim();
+    } else {
+      key = String(index);
+    }
+    return '../../chess-replay/' + encodeURIComponent(key);
+  }
+
   function playGameHistoryRecordAt(index) {
     const items = cloudChessData && cloudChessData.gameHistory ? cloudChessData.gameHistory : [];
     const rec = items[index];
-    let url = '../../trifangx_live.html?replayIndex=' + encodeURIComponent(String(index));
-    if (rec && rec.savedAt) {
-      url += '&replaySavedAt=' + encodeURIComponent(String(rec.savedAt));
-    }
-    window.location.href = url;
+    window.location.href = buildChessReplayUrl(rec, index);
   }
 
   function ghGameHistoryRowKeydown(ev, index) {

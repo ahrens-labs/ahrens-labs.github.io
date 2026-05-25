@@ -2281,12 +2281,112 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    function isTrifangxReplayDedicatedPage() {
+      try {
+        if (typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'replay') {
+          return true;
+        }
+      } catch (e0) {}
+      try {
+        const p = (window.location.pathname || '').toLowerCase();
+        return /(^|\/)chess-replay\.html$/.test(p);
+      } catch (e) {
+        return false;
+      }
+    }
+
+    /** Game id from /chess-replay/{id}, ?id=, or TRIFANGX_REPLAY_GAME_ID. */
+    function getReplayGameIdFromLocation() {
+      try {
+        if (typeof window !== 'undefined' && window.TRIFANGX_REPLAY_GAME_ID) {
+          const preset = String(window.TRIFANGX_REPLAY_GAME_ID).trim();
+          if (preset) return preset;
+        }
+      } catch (e0) {}
+      try {
+        const path = window.location.pathname || '';
+        const m = path.match(/\/chess-replay\/([^/]+)\/?$/i);
+        if (m && m[1]) {
+          const seg = decodeURIComponent(m[1]);
+          if (seg && seg.toLowerCase() !== 'index.html') return seg;
+        }
+      } catch (e1) {}
+      try {
+        const q = new URLSearchParams(window.location.search).get('id');
+        if (q) return String(q).trim();
+      } catch (e2) {}
+      return null;
+    }
+
+    function getGameHistoryReplayKey(rec) {
+      if (!rec || typeof rec !== 'object') return '';
+      if (rec.id != null && String(rec.id).trim()) return String(rec.id).trim();
+      if (rec.savedAt != null && String(rec.savedAt).trim()) return String(rec.savedAt).trim();
+      return '';
+    }
+
+    function buildChessReplayPath(recOrId) {
+      const key =
+        recOrId && typeof recOrId === 'object'
+          ? getGameHistoryReplayKey(recOrId)
+          : recOrId != null
+            ? String(recOrId).trim()
+            : '';
+      if (!key) return 'chess-replay.html';
+      return 'chess-replay/' + encodeURIComponent(key);
+    }
+
+    function syncPrettyChessReplayUrl(rec) {
+      if (!rec || !isTrifangxReplayDedicatedPage()) return;
+      const key = getGameHistoryReplayKey(rec);
+      if (!key) return;
+      try {
+        const prettyPath = '/chess-replay/' + encodeURIComponent(key);
+        if (window.location.pathname !== prettyPath) {
+          window.history.replaceState({}, document.title, prettyPath);
+        }
+        const u = new URL(window.location.href);
+        if (u.searchParams.has('id')) {
+          u.searchParams.delete('id');
+          window.history.replaceState({}, document.title, prettyPath);
+        }
+      } catch (e) {}
+    }
+
+    function findGameHistoryRecordForReplay(opts) {
+      opts = opts || {};
+      const items =
+        cloudChessData && Array.isArray(cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
+      if (opts.replayGameId) {
+        const id = String(opts.replayGameId);
+        let found = items.find(function (r) {
+          return r && r.id != null && String(r.id) === id;
+        });
+        if (found) return found;
+        found = items.find(function (r) {
+          return r && r.savedAt != null && String(r.savedAt) === id;
+        });
+        if (found) return found;
+      }
+      if (opts.replaySavedAt) {
+        const sa = String(opts.replaySavedAt);
+        const found = items.find(function (r) {
+          return r && r.savedAt != null && String(r.savedAt) === sa;
+        });
+        if (found) return found;
+      }
+      if (typeof opts.replayIndex === 'number' && opts.replayIndex >= 0) {
+        return items[opts.replayIndex] || null;
+      }
+      return null;
+    }
+
     /** Career replay/repair is expensive — run only on the main TrifangX lobby page. */
     function shouldRunChessCareerRepairOnThisPage() {
       try {
         if (window.TRIFANGX_DASHBOARD_EMBED) return false;
         if (isChessShopPage() || isChessAchievementsPage()) return false;
-        if (isTrifangxLiveDedicatedPage()) return false;
+        if (isTrifangxLiveDedicatedPage() || isTrifangxReplayDedicatedPage()) return false;
         return /chess_engine\.html$/i.test(window.location.pathname || '');
       } catch (e) {
         return false;
@@ -2329,6 +2429,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function trifangxAccountReturnFilename() {
       if (isChessShopPage()) return 'chess-shop.html';
       if (isChessAchievementsPage()) return 'achievements.html';
+      if (isTrifangxReplayDedicatedPage()) {
+        const key = getReplayGameIdFromLocation();
+        return key ? buildChessReplayPath(key) : 'chess-replay.html';
+      }
       return isTrifangxLiveDedicatedPage() ? 'trifangx_live.html' : 'chess_engine.html';
     }
 
@@ -4395,7 +4499,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function isTrifangxChessShellPage() {
       try {
         const path = window.location.pathname || '';
-        return /chess_engine\.html|trifangx_live\.html/i.test(path);
+        return /chess_engine\.html|trifangx_live\.html|chess-replay\.html|\/chess-replay\//i.test(path);
       } catch (e) {
         return false;
       }
@@ -4702,12 +4806,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       updateTotalPoints();
     }
 
-    async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex, pendingReplaySavedAt) {
-      const isLiveShell = typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
-      const isLobbyShell = !isTrifangxLiveDedicatedPage();
+    async function bootstrapTrifangxGameShell(urlParams, pendingReplayIndex, pendingReplaySavedAt, pendingReplayGameId) {
+      const isReplayShell = isTrifangxReplayDedicatedPage();
+      const isLiveShell =
+        !isReplayShell && typeof window !== 'undefined' && window.TRIFANGX_PAGE_MODE === 'live';
+      const isLobbyShell = !isTrifangxLiveDedicatedPage() && !isReplayShell;
+      const hasPendingReplay =
+        pendingReplayGameId != null ||
+        pendingReplayIndex !== null ||
+        !!pendingReplaySavedAt;
       const willTryLiveResume =
-        pendingReplayIndex === null &&
+        !hasPendingReplay &&
         !isHistoryReplayMode &&
+        !isReplayShell &&
         (urlParams.get(TRIFANGX_LIVE_URL_PARAM) === '1' || isTrifangxLiveDedicatedPage());
 
       applyQuickBoardCosmeticsFromCloudOrStorage();
@@ -4739,7 +4850,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           }
         }
 
-        if (isTrifangxLiveDedicatedPage() && !liveResumed && pendingReplayIndex === null) {
+        if (isTrifangxLiveDedicatedPage() && !liveResumed && !hasPendingReplay) {
           const no = document.createElement('div');
           no.id = 'trifangx-live-empty';
           no.setAttribute('role', 'status');
@@ -4755,10 +4866,26 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           } else {
             document.body.insertBefore(no, document.body.firstChild);
           }
+        } else if (isReplayShell && !hasPendingReplay) {
+          const no = document.createElement('div');
+          no.id = 'trifangx-replay-empty';
+          no.setAttribute('role', 'status');
+          no.style.cssText =
+            'max-width:32rem;margin:2rem auto;padding:1.5rem 1.75rem;background:#1a1a24;color:#eee;border-radius:12px;font-family:system-ui,sans-serif;line-height:1.55;box-sizing:border-box;';
+          no.innerHTML =
+            '<h2 style="margin:0 0 0.75rem;font-size:1.25rem;font-weight:600;">No replay specified</h2>' +
+            '<p style="margin:0 0 1rem;opacity:0.92;">Open a saved game from your game history to get a replay link.</p>' +
+            '<p style="margin:0"><a href="chess_engine/game_history/" style="color:#6cf;">Go to game history</a></p>';
+          const btc = document.getElementById('board-timers-container');
+          if (btc && btc.parentNode) {
+            btc.parentNode.insertBefore(no, btc);
+          } else {
+            document.body.insertBefore(no, document.body.firstChild);
+          }
         } else if (
           isLobbyShell &&
           !liveResumed &&
-          pendingReplayIndex === null &&
+          !hasPendingReplay &&
           !isHistoryReplayMode
         ) {
           revealTrifangxGameShellUnderLoading(isLiveShell);
@@ -4768,24 +4895,27 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           needsBoardReady = true;
         }
 
-        if (pendingReplayIndex !== null) {
-          revealTrifangxGameShellUnderLoading(isLiveShell);
+        if (hasPendingReplay) {
+          revealTrifangxGameShellUnderLoading(isLiveShell || isReplayShell);
           applyDeferredLobbyStyleAndSettings();
           if (!board) {
             mountLobbyPreviewBoard();
           }
           setTrifangxShellLoadingMessage('Loading saved game…');
-          const replayOk = await playGameHistoryRecordAt(pendingReplayIndex, {
-            skipLeaveConfirm: true,
-            deferFinalize: true,
-            replaySavedAt: pendingReplaySavedAt,
-          });
-          try {
-            const u = new URL(window.location.href);
-            u.searchParams.delete('replayIndex');
-            u.searchParams.delete('replaySavedAt');
-            window.history.replaceState({}, document.title, u.pathname + u.search + u.hash);
-          } catch (eRp) {}
+          let replayOk = false;
+          if (pendingReplayGameId) {
+            replayOk = await playGameHistoryRecordAt(pendingReplayGameId, {
+              skipLeaveConfirm: true,
+              deferFinalize: true,
+              replayGameId: pendingReplayGameId,
+            });
+          } else {
+            replayOk = await playGameHistoryRecordAt(pendingReplayIndex, {
+              skipLeaveConfirm: true,
+              deferFinalize: true,
+              replaySavedAt: pendingReplaySavedAt,
+            });
+          }
           if (replayOk) {
             needsBoardReady = true;
           }
@@ -4798,10 +4928,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         if (isHistoryReplayMode) {
           finalizeHistoryReplayView();
+          const items =
+            cloudChessData && Array.isArray(cloudChessData.gameHistory)
+              ? cloudChessData.gameHistory
+              : [];
+          let recForUrl = null;
+          if (pendingReplayGameId) {
+            recForUrl = findGameHistoryRecordForReplay({ replayGameId: pendingReplayGameId });
+          } else if (pendingReplayIndex !== null) {
+            recForUrl = findGameHistoryRecordForReplay({
+              replayIndex: pendingReplayIndex,
+              replaySavedAt: pendingReplaySavedAt,
+            });
+          }
+          syncPrettyChessReplayUrl(recForUrl);
         }
       } catch (eBoot) {
         console.error('bootstrapTrifangxGameShell failed', eBoot);
-        if (pendingReplayIndex !== null) {
+        if (pendingReplayIndex !== null || pendingReplayGameId) {
           showNotification('Could not open saved game on the board.', 'error');
           if (isHistoryReplayMode) {
             try {
@@ -4878,6 +5022,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         const replaySavedAtRaw = urlParams.get('replaySavedAt');
         if (replaySavedAtRaw) pendingReplaySavedAt = String(replaySavedAtRaw);
+        let pendingReplayGameId = getReplayGameIdFromLocation();
 
         // Check for email verification token in URL
         const verifyToken = urlParams.get('verify');
@@ -4913,6 +5058,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         
         console.log("Chess data loaded successfully:", cloudChessData);
 
+        if (
+          !pendingReplayGameId &&
+          pendingReplayIndex !== null &&
+          isTrifangxLiveDedicatedPage()
+        ) {
+          const legacyRec = findGameHistoryRecordForReplay({
+            replayIndex: pendingReplayIndex,
+            replaySavedAt: pendingReplaySavedAt,
+          });
+          window.location.replace(buildChessReplayPath(legacyRec || String(pendingReplayIndex)));
+          return;
+        }
+
         if (isChessShopPage()) {
           await bootstrapChessShopPage();
           return;
@@ -4923,7 +5081,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           return;
         }
 
-        await bootstrapTrifangxGameShell(urlParams, pendingReplayIndex, pendingReplaySavedAt);
+        await bootstrapTrifangxGameShell(
+          urlParams,
+          pendingReplayIndex,
+          pendingReplaySavedAt,
+          pendingReplayGameId
+        );
 
         trifangxScheduleDeferredTask(function () {
           applyDeferredLobbyStyleAndSettings();
@@ -8122,7 +8285,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
-    async function playGameHistoryRecordAt(index, options) {
+    async function playGameHistoryRecordAt(indexOrId, options) {
       options = options || {};
       try {
         ensureGameAndBoardForReplay();
@@ -8130,17 +8293,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           showNotification('Could not load that game', 'error');
           return false;
         }
-        const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
-        let rec = items[index];
-        if (
-          (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) &&
-          options.replaySavedAt
-        ) {
-          const savedAtKey = String(options.replaySavedAt);
-          rec = items.find(function (r) {
-            return r && String(r.savedAt) === savedAtKey;
-          });
+        const lookupOpts = {};
+        if (options.replayGameId) {
+          lookupOpts.replayGameId = options.replayGameId;
+        } else if (typeof indexOrId === 'string' && String(indexOrId).trim()) {
+          lookupOpts.replayGameId = String(indexOrId).trim();
+        } else if (typeof indexOrId === 'number' && !isNaN(indexOrId) && indexOrId >= 0) {
+          lookupOpts.replayIndex = indexOrId;
         }
+        if (options.replaySavedAt) {
+          lookupOpts.replaySavedAt = options.replaySavedAt;
+        }
+        const rec = findGameHistoryRecordForReplay(lookupOpts);
         if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
           showNotification('Could not load that game', 'error');
           return false;
@@ -8226,6 +8390,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (!options.deferFinalize) {
           finalizeHistoryReplayView();
         }
+        syncPrettyChessReplayUrl(rec);
         return true;
       } catch (eReplay) {
         console.error('playGameHistoryRecordAt failed', eReplay);
