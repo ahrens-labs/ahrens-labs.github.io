@@ -4772,6 +4772,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         await waitForTrifangxBoardReady();
       }
 
+      if (isHistoryReplayMode) {
+        finalizeHistoryReplayView();
+      }
+
       updateChessPregameToolsVisibility();
       hideTrifangxShellLoading();
     }
@@ -8052,7 +8056,35 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    function ensureGameAndBoardForReplay() {
+      if (!game || !board) {
+        mountLobbyPreviewBoard();
+      }
+    }
+
+    function finalizeHistoryReplayView() {
+      if (!isHistoryReplayMode || !game || !board) return;
+      try {
+        applyDeferredLobbyStyleAndSettings();
+      } catch (eStyle) {}
+      board.orientation(playerColor);
+      board.draggable(false);
+      if (typeof reapplyBoardThemeFromSettings === 'function') reapplyBoardThemeFromSettings();
+      applyViewedPosition(currentMoveIndex);
+      updateCapturedPieces();
+      ensureArrowOverlay();
+      trifangxAfterBoardPaint(function () {
+        if (!isHistoryReplayMode || !board) return;
+        applyViewedPosition(currentMoveIndex);
+        syncHistoryReplayHighlights();
+      });
+      const ban = document.getElementById('history-replay-banner');
+      if (ban) ban.style.display = 'flex';
+      updateChessPregameToolsVisibility();
+    }
+
     async function playGameHistoryRecordAt(index) {
+      ensureGameAndBoardForReplay();
       const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
       const rec = items[index];
       if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
@@ -8117,9 +8149,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       ensureReplaySidebarPanelsVisible();
-      document.getElementById('choose-side').style.display = 'none';
-      document.getElementById('game-container').style.display = 'block';
-      document.getElementById('game-title').style.display = 'block';
+      const chooseSideEl = document.getElementById('choose-side');
+      const gameContainerEl = document.getElementById('game-container');
+      const gameTitleEl = document.getElementById('game-title');
+      if (chooseSideEl) chooseSideEl.style.display = 'none';
+      if (gameContainerEl) gameContainerEl.style.display = 'block';
+      if (gameTitleEl) gameTitleEl.style.display = 'block';
       syncBlindfoldGameShellUi();
 
       if (board) {
@@ -8135,6 +8170,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         ban.style.display = 'flex';
       }
       updateChessPregameToolsVisibility();
+      finalizeHistoryReplayView();
     }
 
     function exitHistoryReplay() {
@@ -8151,14 +8187,40 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       replayModeBackup = null;
       const ban = document.getElementById('history-replay-banner');
       if (ban) ban.style.display = 'none';
+      const openedFromLobbyPicker =
+        !isTrifangxLiveDedicatedPage() &&
+        b &&
+        (!Array.isArray(b.historySan) || b.historySan.length === 0);
       if (b) {
         restoreLiveGameStateFromReplayBackup(b);
       }
-      if (board) {
+      if (openedFromLobbyPicker) {
+        const cs = document.getElementById('choose-side');
+        const gc = document.getElementById('game-container');
+        const gt = document.getElementById('game-title');
+        if (cs) cs.style.display = 'block';
+        if (gc) gc.style.display = 'none';
+        if (gt && !isTrifangxLiveDedicatedPage()) gt.style.display = 'block';
+        gameOver = false;
+        if (game) game.reset();
+        if (board) {
+          board.position('start');
+          board.draggable(false);
+        }
+        moveHistory = [];
+        moveClockTimes = [];
+        currentMoveIndex = -1;
+        capturedPieces = { white: [], black: [] };
+        lastMoveSquares = { from: null, to: null };
+        lastLiveMoveDisplayText = 'None';
+      } else if (board) {
         board.draggable(!gameOver);
       }
       updateChessPregameToolsVisibility();
     }
+
+    window.playGameHistoryRecordAt = playGameHistoryRecordAt;
+    window.exitHistoryReplay = exitHistoryReplay;
     
     function resignGame() {
       if (gameOver) return;
