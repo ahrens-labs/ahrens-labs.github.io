@@ -240,7 +240,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           id: 'season_golden_hour',
           name: 'Season · Golden Hour',
           price: 0,
-          preview: '🌅',
+          preview: '🌄',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -249,7 +249,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           id: 'season_high_sun',
           name: 'Season · High Sun',
           price: 0,
-          preview: '☀️',
+          preview: '🔆',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -258,7 +258,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           id: 'season_solstice_crown',
           name: 'Season · Solstice Crown',
           price: 0,
-          preview: '👑',
+          preview: '♛',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -311,7 +311,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           id: 'season_crown_regalia',
           name: 'Season · Crown Regalia',
           price: 0,
-          preview: '♛',
+          preview: '♚',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -626,11 +626,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         w: 'linear-gradient(135deg,#ecfdf5 0%,#d9f99d 45%,#fef9c3 100%)',
         b: 'linear-gradient(135deg,#14532d 0%,#166534 40%,#422006 100%)',
       },
-      season_golden_hour: { w: 'linear-gradient(135deg,#fffbeb,#fde68a)', b: 'linear-gradient(135deg,#b45309,#78350f)' },
-      season_high_sun: { w: 'linear-gradient(135deg,#fef9c3,#fbbf24)', b: 'linear-gradient(135deg,#92400e,#451a03)' },
+      season_golden_hour: {
+        w: 'linear-gradient(135deg,#fff1f2 0%,#fecdd3 42%,#fde68a 100%)',
+        b: 'linear-gradient(135deg,#581c87 0%,#312e81 55%,#1e1b4b 100%)',
+      },
+      season_high_sun: {
+        w: 'linear-gradient(135deg,#fffef0 0%,#fef08a 48%,#facc15 100%)',
+        b: 'linear-gradient(135deg,#c2410c 0%,#7c2d12 100%)',
+      },
       season_solstice_crown: {
-        w: 'linear-gradient(135deg,#fffbeb 0%,#fcd34d 45%,#fef3c7 100%)',
-        b: 'linear-gradient(135deg,#78350f 0%,#451a03 40%,#312e81 100%)',
+        w: 'linear-gradient(135deg,#fffbeb 0%,#fcd34d 38%,#fef3c7 72%,#fde68a 100%)',
+        b: 'linear-gradient(135deg,#312e81 0%,#451a03 38%,#78350f 68%,#1e1b4b 100%)',
       },
     };
     
@@ -1517,7 +1523,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_trail: 'https://lichess1.org/assets/piece/gioco/{piece}.svg',
       season_canopy_pieces: 'https://lichess1.org/assets/piece/mpchess/{piece}.svg',
       season_solstice_pieces: 'https://lichess1.org/assets/piece/california/{piece}.svg',
-      season_crown_regalia: 'https://lichess1.org/assets/piece/merida/{piece}.svg',
+      season_crown_regalia: 'https://lichess1.org/assets/piece/fantasy/{piece}.svg',
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -3769,7 +3775,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           '.board-theme-emerald,.board-theme-gold,.board-theme-ocean,.board-theme-sunset,.board-theme-midnight,' +
           '.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,' +
           '.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,' +
-          '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,.board-theme-luxury';
+          '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,' +
+          '.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury';
         const rcW =
           '#board .square-55d63.right-click-highlight.white-1e1d7,\n#board div.right-click-highlight.white-1e1d7,\n#board :is(' +
           BT +

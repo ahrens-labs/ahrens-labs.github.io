@@ -173,6 +173,38 @@ table.lb-table {
     0 0 0 1px rgba(255, 255, 255, 0.12) inset,
     0 2px 12px rgba(76, 29, 149, 0.35);
 }
+.lb-flair-frame-gold_filament {
+  color: #422006;
+  background: linear-gradient(145deg, #fffbeb 0%, #fde68a 45%, #fcd34d 100%);
+  border: 2px solid #ca8a04;
+  box-shadow:
+    0 0 0 1px rgba(255, 251, 235, 0.75) inset,
+    0 0 14px rgba(251, 191, 36, 0.35),
+    0 2px 10px rgba(180, 83, 9, 0.18);
+}
+.lb-flair-frame-amber_corona {
+  color: #431407;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(253, 224, 71, 0.55) 0%, transparent 58%),
+    linear-gradient(145deg, #ffedd5, #fdba74);
+  border: 2px solid #ea580c;
+  box-shadow:
+    0 0 0 1px rgba(255, 247, 237, 0.65) inset,
+    0 0 18px rgba(249, 115, 22, 0.42),
+    0 2px 12px rgba(194, 65, 12, 0.22);
+}
+.lb-flair-frame-solstice_flare {
+  color: #fefce8;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(251, 191, 36, 0.45) 0%, transparent 52%),
+    radial-gradient(circle at 82% 78%, rgba(129, 140, 248, 0.35) 0%, transparent 55%),
+    linear-gradient(145deg, #f59e0b 0%, #b45309 42%, #4338ca 100%);
+  border: 2px solid #fbbf24;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 0 20px rgba(245, 158, 11, 0.45),
+    0 2px 14px rgba(67, 56, 202, 0.35);
+}
 
 .lb-table tbody tr.lb-row-themed .lb-flair-prefix,
 .lb-table tbody tr.lb-row-themed .lb-flair-suffix {
@@ -194,6 +226,18 @@ table.lb-table {
 .lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-violet_arc {
   color: #fefcff;
   border-color: #6d28d9;
+}
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-gold_filament {
+  color: #422006;
+  border-color: #b45309;
+}
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-amber_corona {
+  color: #431407;
+  border-color: #c2410c;
+}
+.lb-table tbody tr.lb-row-themed .lb-name-frame-wrap.lb-flair-frame-solstice_flare {
+  color: #fefce8;
+  border-color: #f59e0b;
 }
 
 /* Row tint must not override text inside season frames — username/title stay frame-contrast */

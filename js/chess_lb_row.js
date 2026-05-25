@@ -413,7 +413,14 @@
     }
   }
 
-  var LB_FRAMES = { silver_lane: 1, amber_pulse: 1, violet_arc: 1 };
+  var LB_FRAMES = {
+    silver_lane: 1,
+    amber_pulse: 1,
+    violet_arc: 1,
+    gold_filament: 1,
+    amber_corona: 1,
+    solstice_flare: 1,
+  };
 
   function buildLbUsernameInnerHtml(r) {
     var f = r.lbFlair && typeof r.lbFlair === 'object' ? r.lbFlair : {};
