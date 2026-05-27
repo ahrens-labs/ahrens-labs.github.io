@@ -719,7 +719,7 @@
         <div class="th-toolbar">
           <h2>My Tasks</h2>
           <label class="th-gantt-filter">
-            <input type="checkbox" id="my-tasks-show-completed" checked>
+            <input type="checkbox" id="my-tasks-show-completed">
             Show completed
           </label>
         </div>
@@ -925,8 +925,8 @@
   const GANTT_LABEL_PX = 220;
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let ganttTodayLeft = 0;
-  let ganttShowCompleted = true;
-  let myTasksShowCompleted = true;
+  let ganttShowCompleted = false;
+  let myTasksShowCompleted = false;
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
 
