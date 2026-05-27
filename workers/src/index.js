@@ -716,7 +716,10 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
   const ids = getDailyChallengeIdsForUtcDate(digestDateStr);
 
   try {
-    await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
+    await sendDailyDigestEmail(env, { email, username }, ids, {
+      instant: true,
+      digestDate: digestDateStr,
+    });
     if (env.DAILY_DIGEST_KV) {
       await env.DAILY_DIGEST_KV.put(`instant-digest:${userId}`, '1', { expirationTtl: 120 });
     }
@@ -2219,7 +2222,10 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           const digestYmd = utcDateString(now);
           const ids = getDailyChallengeIdsForUtcDate(digestYmd);
           try {
-            await sendDailyDigestEmail(env, { email, username }, ids, { instant: true });
+            await sendDailyDigestEmail(env, { email, username }, ids, {
+              instant: true,
+              digestDate: digestYmd,
+            });
             digestWelcomeSent = true;
             await env.DAILY_DIGEST_KV.put(
               key,
@@ -3063,8 +3069,48 @@ function summarizeEmailSendError(err) {
   return { code, message: rawMsg, hint };
 }
 
+function senderDomainFromEnv(env, fromAddr) {
+  const addr = String(fromAddr || env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || 'ahrenslabs.com').trim();
+  const at = addr.indexOf('@');
+  return at >= 0 ? addr.slice(at + 1).toLowerCase() : 'ahrenslabs.com';
+}
+
+/** Human-readable UTC calendar label for digest subjects (YYYY-MM-DD in). */
+function formatDigestSubjectDate(ymd) {
+  const parts = String(ymd || '')
+    .trim()
+    .split('-')
+    .map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return String(ymd || '').trim();
+  const [y, m, d] = parts;
+  try {
+    return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return String(ymd);
+  }
+}
+
+/** Headers so automated mail (e.g. daily digest) is not grouped into other Ahrens Labs threads. */
+function buildStandaloneEmailHeaders(env, { kind, digestYmd, fromAddr } = {}) {
+  const domain = senderDomainFromEnv(env, fromAddr);
+  const rand =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  const refId = [kind || 'mail', digestYmd || 'nodate', rand].filter(Boolean).join('-');
+  return {
+    'Message-ID': `<${refId}@${domain}>`,
+    'X-Entity-Ref-ID': refId,
+  };
+}
+
 // Resend fallback when Cloudflare EmailService send fails or EMAIL binding is absent.
-async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text }) {
+async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers }) {
   const key = env.RESEND_API_KEY;
   if (!key || typeof key !== 'string') {
     throw new Error('RESEND_API_KEY is not set');
@@ -3083,6 +3129,7 @@ async function sendViaResend(env, { fromAddr, fromName, to, subject, html, text 
       subject,
       html,
       text,
+      ...(headers && typeof headers === 'object' && Object.keys(headers).length ? { headers } : {}),
     }),
   });
   const raw = await res.text();
@@ -3111,7 +3158,15 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
-async function dispatchTransactionalEmail(env, { to, subject, html, text, fromAddr: fromOverride, fromName: fromNameOverride }) {
+async function dispatchTransactionalEmail(env, {
+  to,
+  subject,
+  html,
+  text,
+  fromAddr: fromOverride,
+  fromName: fromNameOverride,
+  headers,
+}) {
   const envFrom = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
   const fromAddr = String(fromOverride || envFrom).trim();
   const fromName =
@@ -3139,20 +3194,24 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text, fromAd
         'TRANSACTIONAL_EMAIL_VIA=resend requires wrangler secret put RESEND_API_KEY (and SENDER_EMAIL verified in Resend).'
       );
     }
-    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
+    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers });
   }
 
   const cfMail = getCloudflareEmailBinding(env);
   if (cfMail) {
     try {
       // Same shape as sports-digest: structured `from` + send() on [[send_email]] binding (see wrangler.toml).
-      const result = await cfMail.send({
+      const sendPayload = {
         from: { email: fromAddr, name: fromName },
         to,
         subject,
         html,
         text,
-      });
+      };
+      if (headers && typeof headers === 'object' && Object.keys(headers).length) {
+        sendPayload.headers = headers;
+      }
+      const result = await cfMail.send(sendPayload);
       const messageId = extractCloudflareEmailMessageId(result);
       if (!messageId) {
         const synthetic = new Error('Email Service returned no messageId after send');
@@ -3170,7 +3229,7 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text, fromAd
       });
       if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
         console.log('Falling back to Resend after EmailService error', err?.code || '');
-        return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
+        return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers });
       }
       if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
         const hint = new Error(
@@ -3185,7 +3244,7 @@ async function dispatchTransactionalEmail(env, { to, subject, html, text, fromAd
   }
 
   if (env.RESEND_API_KEY) {
-    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text });
+    return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers });
   }
 
   throw new Error(
@@ -4667,7 +4726,10 @@ async function executeAdminTestEmailById(env, gate, id) {
     case 'daily_digest': {
       const digestDateStr = utcDateString(new Date());
       const digestIds = getDailyChallengeIdsForUtcDate(digestDateStr);
-      await sendDailyDigestEmail(env, { email: to, username: un }, digestIds, { instant: true });
+      await sendDailyDigestEmail(env, { email: to, username: un }, digestIds, {
+        instant: true,
+        digestDate: digestDateStr,
+      });
       return;
     }
     case 'milestone_wins':
@@ -7320,6 +7382,8 @@ function digestDailyChallengesSectionHtml(challengeIds) {
 async function sendDailyDigestEmail(env, { email, username }, challengeIds, options = {}) {
   if (!email || typeof email !== 'string') return false;
   const instant = options.instant === true;
+  const digestYmd = options.digestDate || utcDateString(new Date());
+  const dateLabel = formatDigestSubjectDate(digestYmd);
   const safeName = String(username || 'there').replace(/[<>]/g, '');
   const safeNameHtml = escapeHtmlEmail(safeName);
   const base = siteMarketingBase(env);
@@ -7333,7 +7397,9 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
 
   const dailySectionInner = digestDailyChallengesSectionHtml(challengeIds);
 
-  const subject = instant ? `Your TrifangX daily challenges` : `TrifangX daily challenges`;
+  const subject = instant
+    ? `Your TrifangX daily challenges — ${dateLabel}`
+    : `TrifangX daily challenges — ${dateLabel}`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -7396,7 +7462,11 @@ async function sendDailyDigestEmail(env, { email, username }, challengeIds, opti
     .filter(Boolean)
     .join('\n');
 
-  await dispatchTransactionalEmail(env, { to: email, subject, html, text });
+  const standaloneHeaders = buildStandaloneEmailHeaders(env, {
+    kind: 'trifangx-daily',
+    digestYmd,
+  });
+  await dispatchTransactionalEmail(env, { to: email, subject, html, text, headers: standaloneHeaders });
   return true;
 }
 
@@ -7478,7 +7548,7 @@ async function handleScheduledCron(event, env) {
         }
 
         const ids = getDailyChallengeIdsForUtcDate(digestYmd);
-        const didSend = await sendDailyDigestEmail(env, raw, ids, {});
+        const didSend = await sendDailyDigestEmail(env, raw, ids, { digestDate: digestYmd });
         if (!didSend) {
           skipped++;
           continue;
