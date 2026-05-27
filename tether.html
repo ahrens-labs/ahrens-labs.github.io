@@ -601,7 +601,7 @@
     .th-my-task-item.status-done { border-left-color: var(--th-green); opacity: 0.92; }
     .th-my-task-item.status-done .th-my-task-title { color: var(--th-muted); text-decoration: line-through; }
     .th-my-task-headline {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
     .th-my-task-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
     .th-my-task-project {
@@ -1057,6 +1057,7 @@
     const deps = t.dependsOnTitles || [];
     return `<article class="th-my-task-item status-${st}" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
       <div class="th-my-task-headline">
+        ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
         <h3 class="th-my-task-title">${escapeHtml(t.title)}</h3>
         <div class="th-my-task-badges">
           ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
@@ -1089,6 +1090,7 @@
     }
     el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
     wireStartButtons(el);
+    wireCompleteButtons(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async () => {
         const pid = item.getAttribute('data-my-project');
@@ -1801,13 +1803,14 @@
     openModal('modal-project');
   }
 
-  function completeBtnHtml(taskId, status, small, blocked) {
+  function completeBtnHtml(taskId, status, small, blocked, projectId) {
     const done = status === 'done';
     const isBlocked = !done && blocked;
     const cls = 'th-complete-btn' + (small ? ' th-complete-btn-sm' : '') + (done ? ' checked' : '') + (isBlocked ? ' blocked' : '');
     const label = done ? 'Mark active' : (isBlocked ? 'Complete dependencies first' : 'Mark complete');
     const disabled = isBlocked ? ' disabled' : '';
-    return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}" aria-label="${label}" title="${label}"${disabled}></button>`;
+    const projectAttr = projectId ? ` data-complete-project="${escapeAttr(projectId)}"` : '';
+    return `<button type="button" class="${cls}" data-complete-task="${escapeAttr(taskId)}"${projectAttr} aria-label="${label}" title="${label}"${disabled}></button>`;
   }
 
   function wireStartButtons(root) {
@@ -1849,22 +1852,57 @@
         tasks: project.tasks,
       }),
     });
-    const local = myTasks.find(t => t.id === taskId && t.projectId === projectId);
-    if (local) local.status = status;
     if (activeProject && activeProject.id === projectId) {
       activeProject = saveData.project;
     }
+    const refreshed = await api('/api/tether/my-tasks', { method: 'GET' });
+    myTasks = refreshed.tasks || [];
     renderMyTasksView();
-    showBanner(status === 'in_progress' ? 'Task marked in progress' : 'Task updated', 'ok');
+    const bannerMsg =
+      status === 'in_progress'
+        ? 'Task marked in progress'
+        : status === 'done'
+          ? 'Task marked complete'
+          : status === 'todo'
+            ? 'Task marked active'
+            : 'Task updated';
+    showBanner(bannerMsg, 'ok');
   }
 
   function wireCompleteButtons(root) {
     (root || document).querySelectorAll('[data-complete-task]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        toggleTaskComplete(btn.getAttribute('data-complete-task'));
+        const projectId = btn.getAttribute('data-complete-project');
+        const taskId = btn.getAttribute('data-complete-task');
+        if (projectId) {
+          toggleMyTaskComplete(projectId, taskId);
+        } else {
+          toggleTaskComplete(taskId);
+        }
       });
     });
+  }
+
+  async function toggleMyTaskComplete(projectId, taskId) {
+    const local = myTasks.find(t => t.id === taskId && t.projectId === projectId);
+    if (!local) return;
+    const currentStatus = local.status || 'todo';
+    if (currentStatus !== 'done' && (local.blockedByIncomplete || []).length > 0) {
+      const names = local.blockedByIncomplete.map(n => `"${n}"`).join(', ');
+      showBanner(
+        local.blockedByIncomplete.length === 1
+          ? `Complete ${names} first — this task depends on it.`
+          : `Complete these tasks first: ${names}.`
+      );
+      return;
+    }
+    const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
+    try {
+      await setMyTaskStatus(projectId, taskId, nextStatus);
+    } catch (e) {
+      showBanner(e.message);
+    }
   }
 
   async function toggleTaskComplete(taskId) {
