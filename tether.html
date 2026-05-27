@@ -412,9 +412,12 @@
     }
     .th-gantt-icon-btn:hover { background: #eef2ff; color: var(--th-accent); }
     .th-gantt-icon-btn.danger:hover { background: #fef2f2; color: #b91c1c; }
-    .th-gantt-hint {
-      margin: 0 0 10px; font-size: 0.8rem; color: var(--th-muted); padding: 8px 12px;
-      background: var(--th-accent-soft); border-radius: 10px; border: 1px solid #c7d2fe;
+    .th-gantt-row-label { cursor: grab; }
+    .th-gantt-row-label:active { cursor: grabbing; }
+    .th-gantt-row.th-gantt-row--dragging { opacity: 0.55; }
+    .th-gantt-row.drag-over .th-gantt-row-label {
+      background: #eef2ff;
+      box-shadow: inset 0 0 0 2px var(--th-accent);
     }
     .th-gantt-row-track {
       position: relative; flex: 1; min-height: var(--gantt-row-px, 48px);
@@ -1509,6 +1512,113 @@
     });
     wireCompleteButtons(body);
     wireStartButtons(body);
+    wireGanttDragDrop(body);
+  }
+
+  function taskDependsOnTransitive(fromTaskId, soughtId, tasks, visiting) {
+    if (!fromTaskId || !soughtId) return false;
+    if (fromTaskId === soughtId) return true;
+    if (!visiting) visiting = new Set();
+    if (visiting.has(fromTaskId)) return false;
+    visiting.add(fromTaskId);
+    const task = tasks.find(t => t.id === fromTaskId);
+    if (!task) return false;
+    for (const depId of task.dependsOnTaskIds || []) {
+      if (taskDependsOnTransitive(depId, soughtId, tasks, visiting)) return true;
+    }
+    return false;
+  }
+
+  function wouldCreateDependencyCycle(tasks, dependentId, blockerId) {
+    return taskDependsOnTransitive(blockerId, dependentId, tasks);
+  }
+
+  async function addTaskDependencyViaGantt(blockerId, dependentId) {
+    const tasks = activeProject.tasks || [];
+    const blocker = tasks.find(t => t.id === blockerId);
+    const dependent = tasks.find(t => t.id === dependentId);
+    if (!blocker || !dependent || blockerId === dependentId) return;
+
+    const deps = dependent.dependsOnTaskIds || [];
+    if (deps.includes(blockerId)) {
+      showBanner('That dependency already exists.');
+      return;
+    }
+    if (wouldCreateDependencyCycle(tasks, dependentId, blockerId)) {
+      showBanner('Cannot link these tasks — that would create a circular dependency.');
+      return;
+    }
+
+    const ok = await showConfirm({
+      title: 'Add dependency?',
+      message: `"${dependent.title}" will wait on "${blocker.title}" and can't be marked complete until that task is done.`,
+      confirmLabel: 'Add dependency',
+    });
+    if (!ok) return;
+
+    dependent.dependsOnTaskIds = [...deps, blockerId];
+    try {
+      await saveProject(activeProject);
+      showBanner('Dependency added', 'ok');
+      renderGanttView();
+    } catch (e) {
+      showBanner(e.message);
+    }
+  }
+
+  function wireGanttDragDrop(body) {
+    if (!body) return;
+    let dragTaskId = null;
+
+    body.querySelectorAll('.th-gantt-row').forEach(row => {
+      const label = row.querySelector('.th-gantt-row-label');
+      if (!label) return;
+      label.setAttribute('draggable', 'true');
+
+      label.addEventListener('dragstart', (e) => {
+        if (e.target.closest('button')) {
+          e.preventDefault();
+          return;
+        }
+        dragTaskId = row.getAttribute('data-task-row');
+        row.classList.add('th-gantt-row--dragging');
+        e.dataTransfer.effectAllowed = 'link';
+        e.dataTransfer.setData('text/plain', dragTaskId || '');
+      });
+
+      label.addEventListener('dragend', () => {
+        dragTaskId = null;
+        row.classList.remove('th-gantt-row--dragging');
+        body.querySelectorAll('.th-gantt-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+      });
+
+      row.addEventListener('dragover', (e) => {
+        if (!dragTaskId) return;
+        const targetId = row.getAttribute('data-task-row');
+        if (targetId === dragTaskId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'link';
+        body.querySelectorAll('.th-gantt-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+        row.classList.add('drag-over');
+      });
+
+      row.addEventListener('dragleave', (e) => {
+        if (!row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+      });
+
+      row.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        const dependentId = row.getAttribute('data-task-row');
+        const blockerId = dragTaskId || e.dataTransfer.getData('text/plain');
+        dragTaskId = null;
+        body.querySelectorAll('.th-gantt-row.th-gantt-row--dragging').forEach(r => {
+          r.classList.remove('th-gantt-row--dragging');
+        });
+        if (!blockerId || !dependentId || blockerId === dependentId) return;
+        await addTaskDependencyViaGantt(blockerId, dependentId);
+      });
+    });
   }
 
   function ganttDueMetrics(t, range, dayWidth) {
@@ -1653,19 +1763,11 @@
     const todayLeft = dayIndex(range.start, todayStr) * dayWidth;
     ganttTodayLeft = ganttTrackLeft() + todayLeft;
     const weekendBands = ganttWeekendBandsHtml(range, days, dayWidth);
-    const taskById = Object.fromEntries(tasks.map(t => [t.id, t]));
-    const hasDeps = tasks.some(t =>
-      (t.dependsOnTaskIds || []).some(depId => {
-        const blocker = taskById[depId];
-        return blocker && blocker.status !== 'done';
-      })
-    );
 
     document.getElementById('gantt-view').style.setProperty('--gantt-day-px', dayWidth + 'px');
     document.getElementById('gantt-view').style.setProperty('--gantt-row-px', rowHeight + 'px');
     document.getElementById('gantt-view').style.setProperty('--gantt-label-px', GANTT_LABEL_PX + 'px');
     document.getElementById('gantt-view').innerHTML = `
-      <p class="th-gantt-hint">${hasDeps ? 'Arrows show active blockers — they disappear once a task is complete so the next one can start.' : 'Each highlighted square is a task\'s due date.'}</p>
       <div class="th-gantt-toolbar">
         <div class="th-gantt-legend">
           <span><i class="todo"></i> To do</span>
