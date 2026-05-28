@@ -13,6 +13,28 @@
 
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+    <style>
+        .coding-lab-group + .coding-lab-group {
+            margin-top: 2rem;
+            padding-top: 1.75rem;
+            border-top: 1px solid #e8ecf0;
+        }
+        .coding-lab-group-title {
+            font-family: "Inter", sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin: 0 0 0.35rem;
+        }
+        .coding-lab-group-heading {
+            font-family: "Orbitron", sans-serif;
+            font-size: 1.25rem;
+            color: #2c3e50;
+            margin: 0 0 1rem;
+        }
+    </style>
     <script src="js/script.js"></script>
   <script src="js/header_nav.js"></script>
 </head>
@@ -46,9 +68,34 @@
                 <!-- Lab Section: Coding -->
                 <div class="lab-section">
                     <h3 class="header-coding">Coding Lab</h3>
-                    <p>These are the coding projects the Ahrens Labs have been working on and are proud to showcase.</p>
+                    <p>Courses to learn from and apps we build at Ahrens Labs — pick a tutorial to study or jump into a project.</p>
 
-                    <div class="project-cards-container">
+                    <div class="coding-lab-group">
+                        <p class="coding-lab-group-title">Learn</p>
+                        <h4 class="coding-lab-group-heading">Tutorials &amp; courses</h4>
+                        <div class="project-cards-container">
+                            <div class="project-card">
+                                <h4>Machine Learning 101</h4>
+                                <p>This machine learning course is perfect for students who want to learn more about the exciting world of Large Language Models, Computer Vision, and more.</p>
+                                <div class="project-links">
+                                    <a href="https://ahrens-labs.github.io/ml-101" class="button lab-button-coding">Go to the Machine Learning course</a>
+                                </div>
+                            </div>
+
+                            <div class="project-card">
+                                <h4>Data 101</h4>
+                                <p>This course welcomes learners, especially middle and early high school students, to the challenging yet rewarding journey of understanding, analyzing, and effectively using data to solve problems.</p>
+                                <div class="project-links">
+                                    <a href="https://ahrens-labs.github.io/data-101" class="button lab-button-coding">Go to the Data 101 course</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="coding-lab-group">
+                        <p class="coding-lab-group-title">Build &amp; play</p>
+                        <h4 class="coding-lab-group-heading">Apps</h4>
+                        <div class="project-cards-container">
                         <div class="project-card">
                             <h4>TrifangX</h4>
                             <p>Challenge yourself to a game of chess against an impressive chess playing computer called TrifangX designed by Caleb Ahrens.</p>
@@ -56,22 +103,6 @@
                                 <a href="trifangx.html" class="button lab-button-coding">Learn More about TrifangX</a>
                                 <a href="chess_engine.html" class="button button-secondary">Play against TrifangX</a>
                             </div>
-                        </div>
-
-                        <div class="project-card">
-                            <h4>Machine Learning 101</h4>
-                            <p>This machine learning course is perfect for students who want to learn more about the exciting world of Large Language Models, Computer Vision, and more.</p>
-                            <div class="project-links">
-                                <a href="https://ahrens-labs.github.io/ml-101" class="button lab-button-coding">Go to the Machine Learning course</a>
-                            </div>
-                        </div>
-
-                        <div class="project-card">
-                            <h4>Data 101</h4>
-                            <p>This course welcomes learners, especially middle and early high school students, to the challenging yet rewarding journey of understanding, analyzing, and effectively using data to solve problems.</p>
-                            <div class="project-links">
-                                <a href="https://ahrens-labs.github.io/data-101" class="button lab-button-coding">Go to the Data 101 course</a>
-			    </div>
                         </div>
 
                         <div class="project-card">
@@ -104,6 +135,7 @@
                             <div class="project-links">
                                 <a href="sports-digest.html" class="button lab-button-coding">Subscribe to Digest</a>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>
