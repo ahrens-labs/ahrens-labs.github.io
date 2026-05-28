@@ -722,9 +722,12 @@
       <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:22px 24px;">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
-          <div class="th-view-toggle" id="my-tasks-filter" role="group" aria-label="Filter my tasks">
-            <button type="button" class="active" id="my-tasks-filter-active" data-my-tasks-filter="active">Active</button>
-            <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
+          <div class="th-toolbar-actions">
+            <div class="th-view-toggle" id="my-tasks-filter" role="group" aria-label="Filter my tasks">
+              <button type="button" class="active" id="my-tasks-filter-active" data-my-tasks-filter="active">Active</button>
+              <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
+            </div>
+            <button type="button" class="th-btn th-btn-ghost" id="btn-clear-my-completed" style="display:none;">Clear completed</button>
           </div>
         </div>
         <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Tasks assigned to you across all projects.</p>
@@ -1014,17 +1017,23 @@
     return myTasks.filter(t => (t.status || 'todo') !== 'done');
   }
 
+  function myCompletedTasks() {
+    return myTasks.filter(t => (t.status || 'todo') === 'done');
+  }
+
   function syncMyTasksFilterButtons() {
     const activeBtn = document.getElementById('my-tasks-filter-active');
     const completedBtn = document.getElementById('my-tasks-filter-completed');
+    const clearBtn = document.getElementById('btn-clear-my-completed');
     if (!activeBtn || !completedBtn) return;
-    const completedCount = myTasks.filter(t => (t.status || 'todo') === 'done').length;
+    const completedCount = myCompletedTasks().length;
     const activeCount = myTasks.filter(t => (t.status || 'todo') !== 'done').length;
     activeBtn.classList.toggle('active', myTasksViewFilter === 'active');
     completedBtn.classList.toggle('active', myTasksViewFilter === 'completed');
     completedBtn.classList.toggle('active-completed', myTasksViewFilter === 'completed');
     activeBtn.textContent = activeCount ? `Active (${activeCount})` : 'Active';
     completedBtn.textContent = completedCount ? `Completed (${completedCount})` : 'Completed';
+    if (clearBtn) clearBtn.style.display = completedCount ? 'inline-block' : 'none';
   }
 
   function isDueOverdue(iso, status) {
@@ -1538,6 +1547,62 @@
     }
     await saveProject(activeProject);
     showBanner('Completed tasks cleared', 'ok');
+  }
+
+  async function clearMyCompletedTasks() {
+    const completed = myCompletedTasks();
+    if (!completed.length) return;
+    const noun = completed.length === 1 ? 'task' : 'tasks';
+    const ok = await showConfirm({
+      title: 'Clear completed tasks?',
+      message: `Remove ${completed.length} completed ${noun} assigned to you from their projects? This cannot be undone.`,
+      confirmLabel: 'Clear completed',
+      danger: true,
+    });
+    if (!ok) return;
+
+    const byProject = new Map();
+    for (const t of completed) {
+      if (!byProject.has(t.projectId)) byProject.set(t.projectId, []);
+      byProject.get(t.projectId).push(t.id);
+    }
+    const allRemovedIds = new Set(completed.map(t => t.id));
+
+    try {
+      for (const [projectId, taskIds] of byProject) {
+        const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId));
+        const project = data.project;
+        const removeIds = new Set(taskIds);
+        project.tasks = (project.tasks || []).filter(t => !removeIds.has(t.id));
+        project.tasks.forEach(t => {
+          t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !removeIds.has(id));
+        });
+        const saveData = await api('/api/tether/project', {
+          method: 'PUT',
+          body: JSON.stringify({
+            projectId: project.id,
+            title: project.title,
+            description: projectDescription(project),
+            tasks: project.tasks,
+          }),
+        });
+        if (activeProject && activeProject.id === projectId) {
+          activeProject = saveData.project;
+        }
+      }
+      if (viewingTaskId && allRemovedIds.has(viewingTaskId)) {
+        viewingTaskId = null;
+        viewingTaskFromMyTasks = false;
+        closeModal('modal-task-detail');
+      }
+      await loadMyTasks();
+      if (myTasksViewFilter === 'completed' && !myCompletedTasks().length) {
+        myTasksViewFilter = 'active';
+      }
+      showBanner('Completed tasks cleared', 'ok');
+    } catch (e) {
+      showBanner(e.message);
+    }
   }
 
   function wireGanttTaskInteractions() {
@@ -2331,6 +2396,9 @@
     if (next !== 'active' && next !== 'completed') return;
     myTasksViewFilter = next;
     renderMyTasksView();
+  });
+  document.getElementById('btn-clear-my-completed').addEventListener('click', () => {
+    clearMyCompletedTasks().catch(e => showBanner(e.message));
   });
   document.getElementById('project-sort').addEventListener('change', (e) => {
     projectSort = e.target.value;
