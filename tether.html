@@ -158,6 +158,7 @@
       cursor: pointer; color: var(--th-muted);
     }
     .th-view-toggle button.active { background: var(--th-accent-soft); color: var(--th-accent); }
+    .th-view-toggle button.active-completed { background: var(--th-green-soft); color: #047857; }
     .th-btn {
       border: none; border-radius: 10px; padding: 8px 14px; font-size: 0.82rem; font-weight: 600;
       cursor: pointer; transition: all 0.15s;
@@ -721,10 +722,10 @@
       <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:22px 24px;">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
-          <label class="th-gantt-filter">
-            <input type="checkbox" id="my-tasks-show-completed">
-            Show completed
-          </label>
+          <div class="th-view-toggle" id="my-tasks-filter" role="group" aria-label="Filter my tasks">
+            <button type="button" class="active" id="my-tasks-filter-active" data-my-tasks-filter="active">Active</button>
+            <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
+          </div>
         </div>
         <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Tasks assigned to you across all projects.</p>
         <div id="my-tasks-list"></div>
@@ -930,7 +931,7 @@
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
-  let myTasksShowCompleted = false;
+  let myTasksViewFilter = 'active';
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
 
@@ -1007,8 +1008,23 @@
   }
 
   function visibleMyTasks() {
-    if (myTasksShowCompleted) return myTasks;
+    if (myTasksViewFilter === 'completed') {
+      return myTasks.filter(t => (t.status || 'todo') === 'done');
+    }
     return myTasks.filter(t => (t.status || 'todo') !== 'done');
+  }
+
+  function syncMyTasksFilterButtons() {
+    const activeBtn = document.getElementById('my-tasks-filter-active');
+    const completedBtn = document.getElementById('my-tasks-filter-completed');
+    if (!activeBtn || !completedBtn) return;
+    const completedCount = myTasks.filter(t => (t.status || 'todo') === 'done').length;
+    const activeCount = myTasks.filter(t => (t.status || 'todo') !== 'done').length;
+    activeBtn.classList.toggle('active', myTasksViewFilter === 'active');
+    completedBtn.classList.toggle('active', myTasksViewFilter === 'completed');
+    completedBtn.classList.toggle('active-completed', myTasksViewFilter === 'completed');
+    activeBtn.textContent = activeCount ? `Active (${activeCount})` : 'Active';
+    completedBtn.textContent = completedCount ? `Completed (${completedCount})` : 'Completed';
   }
 
   function isDueOverdue(iso, status) {
@@ -1082,15 +1098,17 @@
 
   function renderMyTasksView() {
     const el = document.getElementById('my-tasks-list');
-    const filterEl = document.getElementById('my-tasks-show-completed');
-    if (filterEl) filterEl.checked = myTasksShowCompleted;
+    syncMyTasksFilterButtons();
     if (!myTasks.length) {
       el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks assigned to you yet. Assign yourself on a project task to see it here.</p>';
       return;
     }
     const tasks = visibleMyTasks();
     if (!tasks.length) {
-      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now. Check “Show completed” to include finished work.</p>';
+      el.innerHTML =
+        myTasksViewFilter === 'completed'
+          ? '<p style="color:var(--th-muted);font-size:0.88rem;">No completed tasks yet. Check off a task to see it here.</p>'
+          : '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now. Switch to <strong>Completed</strong> to see finished work.</p>';
       return;
     }
     el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
@@ -2306,8 +2324,12 @@
 
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
-  document.getElementById('my-tasks-show-completed').addEventListener('change', (e) => {
-    myTasksShowCompleted = e.target.checked;
+  document.getElementById('my-tasks-filter').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-my-tasks-filter]');
+    if (!btn) return;
+    const next = btn.getAttribute('data-my-tasks-filter');
+    if (next !== 'active' && next !== 'completed') return;
+    myTasksViewFilter = next;
     renderMyTasksView();
   });
   document.getElementById('project-sort').addEventListener('change', (e) => {
