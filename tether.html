@@ -922,6 +922,7 @@
   let pendingDeleteTaskId = null;
   let confirmResolve = null;
   let viewingTaskId = null;
+  let viewingTaskFromMyTasks = false;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -964,6 +965,7 @@
     u.searchParams.delete('view');
     if (state.view === 'my-tasks') {
       u.searchParams.set('view', 'my-tasks');
+      if (state.taskId) u.searchParams.set('task', state.taskId);
     } else {
       if (state.projectId) u.searchParams.set('project', state.projectId);
       if (state.taskId) u.searchParams.set('task', state.taskId);
@@ -1095,14 +1097,39 @@
     wireStartButtons(el);
     wireCompleteButtons(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
-      item.addEventListener('click', async () => {
+      item.addEventListener('click', async (e) => {
+        if (e.target.closest('button')) return;
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
-        setAppTab('projects', { skipUrlSync: true });
-        await loadProject(pid);
-        openTaskDetailModal(tid);
+        await openMyTaskDetailModal(pid, tid);
       });
     });
+  }
+
+  async function fetchProjectData(projectId) {
+    const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId), { method: 'GET' });
+    activeProject = data.project;
+    const listItem = projectListItemFromProject(activeProject);
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx >= 0) projects[idx] = { ...projects[idx], ...listItem };
+    else projects.push(listItem);
+    writeProjectsCache(projects);
+    if (appTab === 'projects') renderProjectList();
+    return activeProject;
+  }
+
+  async function openMyTaskDetailModal(projectId, taskId) {
+    if (!projectId || !taskId) return;
+    viewingTaskFromMyTasks = true;
+    try {
+      if (!activeProject || activeProject.id !== projectId) {
+        await fetchProjectData(projectId);
+      }
+      openTaskDetailModal(taskId, { fromMyTasks: true });
+    } catch (e) {
+      viewingTaskFromMyTasks = false;
+      showBanner(e.message);
+    }
   }
 
   function authHeaders() {
@@ -1254,7 +1281,11 @@
     });
     activeProject = data.project;
     await loadProjects();
-    renderProjectView();
+    if (appTab === 'my-tasks') {
+      await loadMyTasks();
+    } else {
+      renderProjectView();
+    }
   }
 
   function projectIsOwner(project) {
@@ -2023,7 +2054,7 @@
       await saveProject(activeProject);
       showBanner(task.status === 'done' ? 'Task marked complete' : 'Task marked active', 'ok');
       if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
-        openTaskDetailModal(taskId);
+        openTaskDetailModal(taskId, { fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks' });
       }
     } catch (e) { showBanner(e.message); }
   }
@@ -2054,10 +2085,13 @@
     return (task?.status || 'todo') !== 'done' && getIncompleteDependencies(task, tasks).length > 0;
   }
 
-  function openTaskDetailModal(taskId) {
+  function openTaskDetailModal(taskId, opts) {
+    opts = opts || {};
+    const fromMyTasks = opts.fromMyTasks === true || viewingTaskFromMyTasks;
     const task = getTaskById(taskId);
     if (!task) return;
     viewingTaskId = taskId;
+    viewingTaskFromMyTasks = fromMyTasks;
     const tasks = activeProject.tasks || [];
     const memberMap = memberLabelMap();
     document.getElementById('task-detail-title').textContent = task.title;
@@ -2097,7 +2131,11 @@
       completeBtn.title = '';
     }
     openModal('modal-task-detail');
-    syncUrlState({ projectId: activeProject.id, taskId });
+    if (fromMyTasks) {
+      syncUrlState({ view: 'my-tasks', taskId });
+    } else if (activeProject) {
+      syncUrlState({ projectId: activeProject.id, taskId });
+    }
   }
 
   function openDeleteTaskModal(taskId, taskTitle) {
@@ -2280,7 +2318,13 @@
   document.querySelectorAll('[data-close="modal-task-detail"]').forEach(btn => {
     btn.addEventListener('click', () => {
       viewingTaskId = null;
-      if (activeProject) syncUrlState({ projectId: activeProject.id, taskId: null });
+      const wasMyTasks = viewingTaskFromMyTasks || appTab === 'my-tasks';
+      viewingTaskFromMyTasks = false;
+      if (wasMyTasks) {
+        syncUrlState({ view: 'my-tasks' });
+      } else if (activeProject) {
+        syncUrlState({ projectId: activeProject.id, taskId: null });
+      }
     });
   });
 
@@ -2296,7 +2340,7 @@
     const projectId = params.get('project');
     const taskId = params.get('task');
     if (view === 'my-tasks') {
-      setAppTab('my-tasks', { skipUrlSync: true });
+      setAppTab('my-tasks', { skipUrlSync: true, skipLoad: true });
     } else if (projectId) {
       setAppTab('projects', { skipUrlSync: true });
       showProjectLoadingPreview(projectId);
@@ -2305,6 +2349,13 @@
       const jobs = [loadUser(), loadProjects()];
       if (projectId && view !== 'my-tasks') jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
+      if (view === 'my-tasks') {
+        await loadMyTasks();
+        if (taskId) {
+          const mt = myTasks.find(t => t.id === taskId);
+          if (mt) await openMyTaskDetailModal(mt.projectId, taskId);
+        }
+      }
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
     }
@@ -2461,7 +2512,7 @@
     if (!viewingTaskId) return;
     try {
       await setTaskStatus(viewingTaskId, 'in_progress');
-      openTaskDetailModal(viewingTaskId);
+      openTaskDetailModal(viewingTaskId, { fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks' });
     } catch (e) { showBanner(e.message); }
   });
 
