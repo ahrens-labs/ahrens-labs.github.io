@@ -714,12 +714,43 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
   const now = new Date();
   const digestDateStr = utcDateString(now);
   const ids = getDailyChallengeIdsForUtcDate(digestDateStr);
+  const digestOn = !!(row.emailPreferences && row.emailPreferences.dailyChallengeEmails === true);
 
   try {
-    await sendDailyDigestEmail(env, { email, username }, ids, {
-      instant: true,
-      digestDate: digestDateStr,
-    });
+    if (digestOn) {
+      const result = await sendDailyDigestOncePerDay(env, {
+        userId,
+        email,
+        username,
+        challengeIds: ids,
+        digestYmd: digestDateStr,
+        instant: true,
+      });
+      if (!result.sent && result.reason === 'already_today') {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            alreadySent: true,
+            message: 'Today’s daily challenges were already emailed to you.',
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+      if (!result.sent) {
+        return new Response(JSON.stringify({ success: false, error: 'Email could not be sent.' }), {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      await sendDailyDigestEmail(env, { email, username }, ids, {
+        instant: true,
+        digestDate: digestDateStr,
+      });
+    }
     if (env.DAILY_DIGEST_KV) {
       await env.DAILY_DIGEST_KV.put(`instant-digest:${userId}`, '1', { expirationTtl: 120 });
     }
@@ -2222,19 +2253,17 @@ async function handleEmailPreferences(request, env, corsHeaders) {
           const digestYmd = utcDateString(now);
           const ids = getDailyChallengeIdsForUtcDate(digestYmd);
           try {
-            await sendDailyDigestEmail(env, { email, username }, ids, {
+            const result = await sendDailyDigestOncePerDay(env, {
+              userId,
+              email,
+              username,
+              challengeIds: ids,
+              digestYmd,
               instant: true,
-              digestDate: digestYmd,
             });
-            digestWelcomeSent = true;
-            await env.DAILY_DIGEST_KV.put(
-              key,
-              JSON.stringify({
-                email,
-                username,
-                lastDigestLocalYmd: digestYmd,
-              })
-            );
+            if (result.sent || result.reason === 'already_today') {
+              digestWelcomeSent = true;
+            }
           } catch (e) {
             const w = summarizeEmailSendError(e);
             digestWelcomeError = w.hint || w.message || String(e?.message || e);
@@ -7378,6 +7407,74 @@ function digestDailyChallengesSectionHtml(challengeIds) {
 </tr>`;
 }
 
+function dailyDigestSubscriberKey(userId) {
+  return `sub:${userId}`;
+}
+
+async function getDailyDigestSubscriber(env, userId) {
+  if (!env.DAILY_DIGEST_KV || !userId) return null;
+  try {
+    const raw = await env.DAILY_DIGEST_KV.get(dailyDigestSubscriberKey(userId), 'json');
+    return raw && typeof raw === 'object' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+async function dailyDigestAlreadySentToday(env, userId, digestYmd) {
+  if (!userId || !digestYmd) return false;
+  const sub = await getDailyDigestSubscriber(env, userId);
+  return !!(sub && sub.lastDigestLocalYmd === digestYmd);
+}
+
+async function markDailyDigestSentToday(env, userId, { email, username }, digestYmd) {
+  if (!env.DAILY_DIGEST_KV || !userId || !digestYmd) return;
+  const prev = (await getDailyDigestSubscriber(env, userId)) || {};
+  await env.DAILY_DIGEST_KV.put(
+    dailyDigestSubscriberKey(userId),
+    JSON.stringify({
+      email: email != null ? email : prev.email,
+      username: username != null ? username : prev.username || 'there',
+      lastDigestLocalYmd: digestYmd,
+    })
+  );
+}
+
+/** At most one digest per subscriber per UTC calendar day (unless skipDedupe). */
+async function sendDailyDigestOncePerDay(env, opts) {
+  const {
+    userId,
+    email,
+    username,
+    challengeIds,
+    digestYmd,
+    instant = false,
+    skipDedupe = false,
+  } = opts;
+  if (!email || typeof email !== 'string') return { sent: false, reason: 'no_email' };
+  const ymd = digestYmd || utcDateString(new Date());
+  if (!skipDedupe && userId && (await dailyDigestAlreadySentToday(env, userId, ymd))) {
+    return { sent: false, reason: 'already_today' };
+  }
+  await sendDailyDigestEmail(env, { email, username }, challengeIds, {
+    instant,
+    digestDate: ymd,
+  });
+  if (!skipDedupe && userId) {
+    await markDailyDigestSentToday(env, userId, { email, username }, ymd);
+  }
+  return { sent: true };
+}
+
+async function tryAcquireDailyDigestCronLock(env, digestYmd) {
+  if (!env.DAILY_DIGEST_KV || !digestYmd) return true;
+  const lockKey = `digest-cron-lock:${digestYmd}`;
+  const hit = await env.DAILY_DIGEST_KV.get(lockKey);
+  if (hit) return false;
+  await env.DAILY_DIGEST_KV.put(lockKey, String(Date.now()), { expirationTtl: 90000 });
+  return true;
+}
+
 /** @returns {Promise<boolean>} true if an email was sent */
 async function sendDailyDigestEmail(env, { email, username }, challengeIds, options = {}) {
   if (!email || typeof email !== 'string') return false;
@@ -7499,6 +7596,10 @@ async function handleScheduledCron(event, env) {
   }
 
   const digestYmd = utcDateString(scheduledAt);
+  if (!(await tryAcquireDailyDigestCronLock(env, digestYmd))) {
+    console.log('Daily digest cron skip — already ran for UTC date', { digestYmd, cron: cronExpr });
+    return;
+  }
   let cursor;
   let sent = 0;
   let failed = 0;
@@ -7548,13 +7649,23 @@ async function handleScheduledCron(event, env) {
         }
 
         const ids = getDailyChallengeIdsForUtcDate(digestYmd);
-        const didSend = await sendDailyDigestEmail(env, raw, ids, { digestDate: digestYmd });
-        if (!didSend) {
+        const result = await sendDailyDigestOncePerDay(env, {
+          userId: userIdFromKey || undefined,
+          email: raw.email,
+          username: raw.username,
+          challengeIds: ids,
+          digestYmd,
+        });
+        if (!result.sent) {
           skipped++;
           continue;
         }
-        const next = { email: raw.email, username: raw.username, lastDigestLocalYmd: digestYmd };
-        await env.DAILY_DIGEST_KV.put(name, JSON.stringify(next));
+        if (!userIdFromKey) {
+          await env.DAILY_DIGEST_KV.put(
+            name,
+            JSON.stringify({ email: raw.email, username: raw.username, lastDigestLocalYmd: digestYmd })
+          );
+        }
         sent++;
       } catch (e) {
         failed++;

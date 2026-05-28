@@ -34,10 +34,10 @@ binding = "CHESS_LEADERBOARD_KV"
 id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
-# Daily digest: Worker gates sends to DIGEST_SEND_UTC_HOUR:MINUTE (defaults 07:00 UTC). Cron should fire in that window.
+# Daily digest: one cron in the send window (Worker gates to DIGEST_SEND_UTC_HOUR:MINUTE, default 07:00 UTC).
 # Sports Digest: every 15 min UTC; sends via EMAIL_TRANSACTIONAL (same as daily challenges).
 [triggers]
-crons = ["0 7 * * *", "15 7 * * *", "0,15,30,45 * * * *"]
+crons = ["0 7 * * *", "0,15,30,45 * * * *"]
 
 [durable_objects]
 bindings = [
