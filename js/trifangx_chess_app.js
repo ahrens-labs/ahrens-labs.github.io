@@ -2289,10 +2289,45 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } catch (e0) {}
       try {
         const p = (window.location.pathname || '').toLowerCase();
-        return /(^|\/)chess-replay\.html$/.test(p);
+        return /(^|\/)chess-replay\.html$/.test(p) || /\/chess-replay\/[^/]+\/?$/i.test(p);
       } catch (e) {
         return false;
       }
+    }
+
+    const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
+    let adminChessViewReadOnly = false;
+    let adminChessViewTarget = null;
+
+    function isAdminBroadcastAccount(email) {
+      return (email || '').trim().toLowerCase() === ADMIN_BROADCAST_EMAIL;
+    }
+
+    function getAdminChessViewParamsFromLocation() {
+      try {
+        const u = new URL(window.location.href);
+        const userId = (u.searchParams.get('viewUserId') || '').trim();
+        const email = (u.searchParams.get('viewEmail') || '').trim();
+        const username = (u.searchParams.get('viewUsername') || '').trim();
+        if (!userId && !email && !username) return null;
+        const out = {};
+        if (userId) out.userId = userId;
+        if (email) out.email = email;
+        if (username) out.username = username;
+        return out;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function buildAdminChessViewQueryString(target) {
+      if (!target) return '';
+      const p = new URLSearchParams();
+      if (target.userId) p.set('viewUserId', target.userId);
+      if (target.email) p.set('viewEmail', target.email);
+      if (target.username) p.set('viewUsername', target.username);
+      const s = p.toString();
+      return s ? '?' + s : '';
     }
 
     /** Game id from /chess-replay/{id}, ?id=, or TRIFANGX_REPLAY_GAME_ID. */
@@ -2333,7 +2368,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             ? String(recOrId).trim()
             : '';
       if (!key) return 'chess-replay.html';
-      return 'chess-replay/' + encodeURIComponent(key);
+      let path = 'chess-replay/' + encodeURIComponent(key);
+      if (adminChessViewReadOnly && adminChessViewTarget) {
+        path += buildAdminChessViewQueryString(adminChessViewTarget);
+      }
+      return path;
     }
 
     function syncPrettyChessReplayUrl(rec) {
@@ -2341,8 +2380,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const key = getGameHistoryReplayKey(rec);
       if (!key) return;
       try {
-        const prettyPath = '/chess-replay/' + encodeURIComponent(key);
-        if (window.location.pathname !== prettyPath) {
+        const adminQs =
+          adminChessViewReadOnly && adminChessViewTarget
+            ? buildAdminChessViewQueryString(adminChessViewTarget)
+            : '';
+        const prettyPath = '/chess-replay/' + encodeURIComponent(key) + adminQs;
+        if (window.location.pathname + window.location.search !== prettyPath) {
           window.history.replaceState({}, document.title, prettyPath);
         }
         const u = new URL(window.location.href);
@@ -14146,12 +14189,65 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     async function loadChessDataFromCloud() {
       currentSessionId =
         localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
+      adminChessViewReadOnly = false;
+      adminChessViewTarget = null;
       if (!currentSessionId) {
         console.log('No session ID found, redirecting to login...');
         setTimeout(() => {
           window.location.href = 'account.html?return=' + encodeURIComponent(trifangxAccountReturnFilename());
         }, 100);
         return false;
+      }
+
+      const viewParams = getAdminChessViewParamsFromLocation();
+      const adminEmail = localStorage.getItem('ahrenslabs_email') || '';
+      if (viewParams && isAdminBroadcastAccount(adminEmail)) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/admin/chess/load-for-user`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${currentSessionId}`,
+            },
+            body: JSON.stringify(viewParams),
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              adminChessViewReadOnly = true;
+              adminChessViewTarget = {
+                userId: data.userId || viewParams.userId || '',
+                email: data.email || viewParams.email || '',
+                username: data.username || viewParams.username || '',
+              };
+              cloudChessData = {
+                achievements: {},
+                points: data.points || 0,
+                shopUnlocks: mergeTrifangxShopUnlocksClient(
+                  TRIFANGX_DEFAULT_SHOP_UNLOCKS,
+                  {}
+                ),
+                settings: { ...TRIFANGX_DEFAULT_CHESS_SETTINGS },
+                stats: {
+                  playerStats: data.playerStats || { wins: 0, losses: 0, draws: 0 },
+                  lifetimeStats: {},
+                },
+                pointsSpent: 0,
+                cheatPoints: 0,
+                gameHistory: Array.isArray(data.gameHistory) ? data.gameHistory : [],
+              };
+              isLoggedIn = true;
+              dataLoaded = true;
+              trifangxChessCloudBridge.chessData = cloudChessData;
+              trifangxChessCloudBridge.dataLoaded = true;
+              console.log('Admin chess view loaded:', adminChessViewTarget, cloudChessData);
+              return true;
+            }
+          }
+          console.warn('Admin chess view load failed; falling back to own profile.');
+        } catch (adminLoadErr) {
+          console.warn('Admin chess view load error', adminLoadErr);
+        }
       }
       
       try {
@@ -14485,6 +14581,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     // Save chess data to cloud (debounced; use immediate after full reset)
     async function saveChessDataToCloud(immediate, opts) {
+      if (adminChessViewReadOnly) return;
       if (!isLoggedIn || !currentSessionId) return;
       const replaceGameHistory = opts && opts.replaceGameHistory === true;
       const fullCareerResetSync = opts && opts.fullCareerResetSync === true;

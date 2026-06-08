@@ -21,12 +21,164 @@
     { id: '3600|0', name: '60 min' }
   ];
 
+  const ADMIN_BROADCAST_EMAIL = 'calebahrens2011@gmail.com';
+
   let cloudChessData = null;
   let currentSessionId = null;
   let saveTimeout = null;
   let dataLoaded = false;
+  let adminViewReadOnly = false;
+  let adminViewTarget = null;
+
+  function isAdminViewer() {
+    try {
+      const em = (localStorage.getItem('ahrenslabs_email') || '').trim().toLowerCase();
+      return em === ADMIN_BROADCAST_EMAIL;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function parseAdminViewParamsFromUrl() {
+    try {
+      const u = new URL(window.location.href);
+      const userId = (u.searchParams.get('viewUserId') || '').trim();
+      const email = (u.searchParams.get('viewEmail') || '').trim();
+      const username = (u.searchParams.get('viewUsername') || '').trim();
+      if (!userId && !email && !username) return null;
+      const out = {};
+      if (userId) out.userId = userId;
+      if (email) out.email = email;
+      if (username) out.username = username;
+      return out;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function buildAdminViewQueryString(target) {
+    if (!target) return '';
+    const p = new URLSearchParams();
+    if (target.userId) p.set('viewUserId', target.userId);
+    if (target.email) p.set('viewEmail', target.email);
+    if (target.username) p.set('viewUsername', target.username);
+    const s = p.toString();
+    return s ? '?' + s : '';
+  }
+
+  function syncAdminViewUrl(target) {
+    try {
+      const base = window.location.pathname;
+      const q = buildAdminViewQueryString(target);
+      window.history.replaceState({}, document.title, base + q);
+    } catch (e) {}
+  }
+
+  function updateAdminViewBanner() {
+    const bar = document.getElementById('gh-admin-bar');
+    const banner = document.getElementById('gh-admin-viewing-banner');
+    const title = document.getElementById('gh-page-title');
+    if (bar) bar.hidden = !isAdminViewer();
+    if (!adminViewReadOnly || !adminViewTarget) {
+      if (banner) banner.hidden = true;
+      if (title) title.textContent = '📜 Game history';
+      return;
+    }
+    const label =
+      adminViewTarget.username ||
+      adminViewTarget.email ||
+      adminViewTarget.userId ||
+      'Player';
+    if (banner) {
+      banner.hidden = false;
+      banner.textContent =
+        'Admin view — read-only history for ' +
+        label +
+        (adminViewTarget.email && adminViewTarget.username
+          ? ' (' + adminViewTarget.email + ')'
+          : '') +
+        '. Favorites and edits are disabled.';
+    }
+    if (title) title.textContent = '📜 Game history · ' + label;
+  }
+
+  function wireAdminGameHistoryControls() {
+    if (!isAdminViewer()) return;
+    const loadBtn = document.getElementById('gh-admin-view-load');
+    const selfBtn = document.getElementById('gh-admin-view-self');
+    const input = document.getElementById('gh-admin-view-input');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', function () {
+        const raw = (input && input.value ? input.value : '').trim();
+        if (!raw) return;
+        const body = {};
+        if (raw.includes('@')) body.email = raw;
+        else if (/^user_/i.test(raw)) body.userId = raw;
+        else body.username = raw;
+        window.location.href =
+          window.location.pathname + buildAdminViewQueryString(body);
+      });
+    }
+    if (input) {
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          loadBtn && loadBtn.click();
+        }
+      });
+    }
+    if (selfBtn) {
+      selfBtn.addEventListener('click', function () {
+        window.location.href = window.location.pathname;
+      });
+    }
+  }
+
+  async function loadAdminChessDataForUser(viewParams) {
+    const response = await fetch(`${API_BASE_URL}/api/admin/chess/load-for-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${currentSessionId}`
+      },
+      body: JSON.stringify(viewParams)
+    });
+    if (!response.ok) {
+      let msg = 'Could not load that account’s game history.';
+      try {
+        const err = await response.json();
+        if (err && err.error) msg = err.error;
+      } catch (e) {}
+      throw new Error(msg);
+    }
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Load failed');
+    adminViewReadOnly = true;
+    adminViewTarget = {
+      userId: data.userId || viewParams.userId || '',
+      email: data.email || viewParams.email || '',
+      username: data.username || viewParams.username || ''
+    };
+    cloudChessData = {
+      achievements: {},
+      points: data.points || 0,
+      shopUnlocks: {},
+      settings: {},
+      stats: { playerStats: data.playerStats || { wins: 0, losses: 0, draws: 0 } },
+      pointsSpent: 0,
+      cheatPoints: 0,
+      gameHistory: Array.isArray(data.gameHistory) ? data.gameHistory : []
+    };
+    dataLoaded = true;
+    syncAdminViewUrl(adminViewTarget);
+    updateAdminViewBanner();
+    return true;
+  }
 
   function getChessPgnPlayerName() {
+    if (adminViewReadOnly && adminViewTarget && adminViewTarget.username) {
+      return sanitizePgnTagPlayerName(String(adminViewTarget.username).trim());
+    }
     try {
       const u = localStorage.getItem('ahrenslabs_username');
       if (u && String(u).trim()) return sanitizePgnTagPlayerName(String(u).trim());
@@ -218,7 +370,7 @@
   }
 
   async function saveChessDataToCloud(immediate) {
-    if (!currentSessionId || !cloudChessData) return;
+    if (adminViewReadOnly || !currentSessionId || !cloudChessData) return;
     clearTimeout(saveTimeout);
     const doSave = async () => {
       try {
@@ -385,6 +537,17 @@
       });
   }
 
+  function playerOutcomeLabel(rec, outcomeClass) {
+    const who =
+      adminViewReadOnly && adminViewTarget && adminViewTarget.username
+        ? adminViewTarget.username
+        : 'You';
+    if (rec.result === '1/2-1/2') return 'Draw';
+    if (outcomeClass === 'game-history-row--win') return who + ' won';
+    if (outcomeClass === 'game-history-row--loss') return who + ' lost';
+    return 'Draw';
+  }
+
   function renderGameHistoryList() {
     const list = document.getElementById('game-history-list');
     if (!list || !cloudChessData) return;
@@ -422,20 +585,18 @@
           outcomeClass = 'game-history-row--draw';
         } else if (rec.playerColor === 'white') {
           if (rec.result === '1-0') {
-            label = 'You won';
             outcomeClass = 'game-history-row--win';
           } else {
-            label = 'You lost';
             outcomeClass = 'game-history-row--loss';
           }
+          label = playerOutcomeLabel(rec, outcomeClass);
         } else {
           if (rec.result === '0-1') {
-            label = 'You won';
             outcomeClass = 'game-history-row--win';
           } else {
-            label = 'You lost';
             outcomeClass = 'game-history-row--loss';
           }
+          label = playerOutcomeLabel(rec, outcomeClass);
         }
         const tcLabel = formatGameHistoryTimeControlLabel(rec.timeControl);
         const tcCat = timeControlCategory(rec.timeControl);
@@ -450,6 +611,7 @@
         let badgeClass = 'gh-outcome-badge--draw';
         if (outcomeClass === 'game-history-row--win') badgeClass = 'gh-outcome-badge--win';
         else if (outcomeClass === 'game-history-row--loss') badgeClass = 'gh-outcome-badge--loss';
+        const sideLabelText = adminViewReadOnly ? 'Their side' : 'Your side';
         return (
           '<div class="game-history-row ' +
           outcomeClass +
@@ -459,18 +621,20 @@
           ')" onkeydown="window.ghGameHistoryRowKeydown(event,' +
           idx +
           ')">' +
-          '<div class="game-history-row-fav" onclick="event.stopPropagation()">' +
-          '<button type="button" class="gh-btn-favorite' +
-          (isFav ? ' gh-btn-favorite--on' : '') +
-          '" onclick="event.stopPropagation(); window.toggleGameHistoryFavoriteAt(' +
-          idx +
-          ')" aria-pressed="' +
-          (isFav ? 'true' : 'false') +
-          '" title="' +
-          (isFav ? 'Remove from favorites' : 'Add to favorites') +
-          '">' +
-          (isFav ? '★' : '☆') +
-          '</button></div>' +
+          (adminViewReadOnly
+            ? ''
+            : '<div class="game-history-row-fav" onclick="event.stopPropagation()">' +
+              '<button type="button" class="gh-btn-favorite' +
+              (isFav ? ' gh-btn-favorite--on' : '') +
+              '" onclick="event.stopPropagation(); window.toggleGameHistoryFavoriteAt(' +
+              idx +
+              ')" aria-pressed="' +
+              (isFav ? 'true' : 'false') +
+              '" title="' +
+              (isFav ? 'Remove from favorites' : 'Add to favorites') +
+              '">' +
+              (isFav ? '★' : '☆') +
+              '</button></div>') +
           '<div class="game-history-row-meta">' +
           '<div class="gh-row-head">' +
           '<div class="gh-row-head-main">' +
@@ -518,10 +682,12 @@
           '<span class="gh-stat-moves-caption">Moves</span></div>' +
           '<div class="gh-stat gh-stat--side ' +
           sideStatClass +
-          '" role="group" aria-label="Your side">' +
+          '" role="group" aria-label="Player side">' +
           '<span class="gh-stat-side-swatch" aria-hidden="true"></span>' +
           '<div class="gh-stat-side-text">' +
-          '<span class="gh-stat-side-label">Your side</span>' +
+          '<span class="gh-stat-side-label">' +
+          sideLabelText +
+          '</span>' +
           '<span class="gh-stat-side-value">' +
           sideLabel +
           '</span></div></div>' +
@@ -555,6 +721,7 @@
   }
 
   function toggleGameHistoryFavoriteAt(index) {
+    if (adminViewReadOnly) return;
     const items = (cloudChessData && cloudChessData.gameHistory) ? cloudChessData.gameHistory : [];
     const rec = items[index];
     if (!rec) {
@@ -611,7 +778,11 @@
     } else {
       key = String(index);
     }
-    return '../../chess-replay/' + encodeURIComponent(key);
+    let url = '../../chess-replay/' + encodeURIComponent(key);
+    if (adminViewReadOnly && adminViewTarget) {
+      url += buildAdminViewQueryString(adminViewTarget);
+    }
+    return url;
   }
 
   function playGameHistoryRecordAt(index) {
@@ -635,9 +806,26 @@
 
   async function loadChessDataFromCloud() {
     currentSessionId = localStorage.getItem('ahrenslabs_sessionId');
+    adminViewReadOnly = false;
+    adminViewTarget = null;
     if (!currentSessionId) {
       window.location.href = '../../account.html?return=' + encodeURIComponent('chess_engine/game_history/');
       return false;
+    }
+    const viewParams = isAdminViewer() ? parseAdminViewParamsFromUrl() : null;
+    if (viewParams) {
+      try {
+        return await loadAdminChessDataForUser(viewParams);
+      } catch (e) {
+        console.error(e);
+        updateAdminViewBanner();
+        const banner = document.getElementById('gh-admin-viewing-banner');
+        if (banner) {
+          banner.hidden = false;
+          banner.textContent = e.message || 'Could not load that account.';
+        }
+        return false;
+      }
     }
     try {
       const response = await fetch(`${API_BASE_URL}/api/chess/load`, {
@@ -672,6 +860,7 @@
       const gameHistoryLenBeforeTrim = (cloudChessData.gameHistory || []).length;
       trimGameHistoryToCap();
       dataLoaded = true;
+      updateAdminViewBanner();
       if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
         await saveChessDataToCloud(true);
       }
@@ -684,6 +873,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', async function () {
+    wireAdminGameHistoryControls();
     const ok = await loadChessDataFromCloud();
     if (!ok) return;
     populateGameHistoryTimeControlFilter();

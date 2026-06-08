@@ -140,6 +140,8 @@ export default {
         return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-email-to-group' && request.method === 'POST') {
         return handleAdminSendEmailToGroup(request, env, corsHeaders);
+      } else if (path === '/api/admin/chess/load-for-user' && request.method === 'POST') {
+        return handleAdminChessLoadForUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-all-test-emails' && request.method === 'POST') {
         return handleAdminSendAllTestEmails(request, env, corsHeaders);
       } else if (path === '/api/admin/send-test-email' && request.method === 'POST') {
@@ -4529,6 +4531,110 @@ async function resolveAdminUserTarget(env, body) {
     emailVerified:
       row.emailVerified === true ? true : row.emailVerified === false ? false : null,
   };
+}
+
+/** Like resolveAdminUserTarget but allows userId-only lookup for read-only chess data. */
+async function resolveAdminChessUserTarget(env, body) {
+  const resolved = await resolveAdminUserTarget(env, body);
+  if (resolved.ok) return resolved;
+
+  const userIdRaw = body.userId != null ? String(body.userId).trim() : '';
+  if (!userIdRaw) return resolved;
+
+  const stub = userAccountStubFromUserId(env, userIdRaw);
+  if (!stub) return resolved;
+
+  try {
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    if (!row || typeof row !== 'object') return resolved;
+    const storedEmail = row.email != null ? normalizeEmail(String(row.email)) : '';
+    return {
+      ok: true,
+      userId: userIdRaw,
+      doUserId: row.userId != null ? String(row.userId).trim() : '',
+      email: storedEmail,
+      username: row.username != null ? String(row.username) : 'there',
+      legacyEmailNotOnFile: !storedEmail,
+      emailVerified:
+        row.emailVerified === true ? true : row.emailVerified === false ? false : null,
+    };
+  } catch {
+    return resolved;
+  }
+}
+
+/** Admin: load another account’s TrifangX chess data (game history + summary stats). */
+async function handleAdminChessLoadForUser(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const resolved = await resolveAdminChessUserTarget(env, body);
+  if (!resolved.ok) {
+    return new Response(JSON.stringify({ success: false, error: resolved.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const stub = userAccountStubFromUserId(env, resolved.userId);
+  if (!stub) {
+    return new Response(JSON.stringify({ success: false, error: 'Account not found' }), {
+      status: 404,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let chessData = {};
+  try {
+    const chessRes = await stub.fetch(new Request('http://do/getChessData', { method: 'GET' }));
+    chessData = await chessRes.json();
+    if (!chessData || typeof chessData !== 'object') chessData = {};
+  } catch (e) {
+    return new Response(
+      JSON.stringify({ success: false, error: e?.message || 'Could not load chess data' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const gameHistory = Array.isArray(chessData.gameHistory) ? chessData.gameHistory : [];
+  const stats = chessData.stats && typeof chessData.stats === 'object' ? chessData.stats : {};
+  const ps = stats.playerStats && typeof stats.playerStats === 'object' ? stats.playerStats : {};
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      userId: resolved.userId,
+      username: resolved.username,
+      email: resolved.email || '',
+      gameHistory,
+      gameCount: gameHistory.length,
+      points: Number(chessData.points) || 0,
+      playerStats: {
+        wins: Math.max(0, Math.floor(Number(ps.wins) || 0)),
+        losses: Math.max(0, Math.floor(Number(ps.losses) || 0)),
+        draws: Math.max(0, Math.floor(Number(ps.draws) || 0)),
+      },
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
 /**

@@ -409,6 +409,10 @@
       background: #fff;
       color: #0f172a;
     }
+    a.btn-admin-row {
+      text-decoration: none;
+      display: inline-block;
+    }
     .btn-admin-row:hover { background: #f1f5f9; }
     .btn-admin-row-primary {
       background: #2563eb;
@@ -786,6 +790,7 @@
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             Use <strong>Details</strong> on each row to see TrifangX daily roundup and sports Digest subscriptions for that account.
+            <strong>History</strong> opens that player’s TrifangX game history (read-only).
             Check rows and use <strong>Email selected</strong> to send one custom message to a specific group (from <strong>caleb@ahrenslabs.com</strong>).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
             Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
@@ -2777,6 +2782,56 @@
           );
         }
 
+        function adminDetailsGhStatsId(account) {
+          return 'admin-details-gh-stats-' + adminRowKey(account).replace(/[^a-z0-9_-]/g, '_');
+        }
+
+        function adminGameHistoryUrl(account) {
+          if (!account) return 'chess_engine/game_history/';
+          const q = new URLSearchParams();
+          if (account.userId) q.set('viewUserId', account.userId);
+          if (account.email) q.set('viewEmail', account.email);
+          if (account.username) q.set('viewUsername', account.username);
+          const qs = q.toString();
+          return 'chess_engine/game_history/' + (qs ? '?' + qs : '');
+        }
+
+        async function loadAdminAccountGameHistorySummary(account) {
+          const key = adminDetailsGhStatsId(account);
+          const el = document.getElementById(key);
+          if (!el) return;
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            el.textContent = '';
+            return;
+          }
+          const body = {};
+          if (account.userId) body.userId = account.userId;
+          if (account.email) body.email = account.email;
+          if (account.username) body.username = account.username;
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/chess/load-for-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify(body),
+            });
+            const { ok, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              el.textContent = data.error || 'Could not load game stats.';
+              return;
+            }
+            const ps = data.playerStats || {};
+            el.textContent =
+              `${data.gameCount || 0} saved game${data.gameCount === 1 ? '' : 's'} · ` +
+              `${ps.wins || 0}W ${ps.losses || 0}L ${ps.draws || 0}D · ${data.points || 0} pts`;
+          } catch (e) {
+            el.textContent = 'Could not load game stats.';
+          }
+        }
+
         function buildAdminAccountDetailsHtml(a) {
           if (!a || typeof a !== 'object') return '';
           const trifangxOn = !!a.dailyChallengeDigestEligible;
@@ -2803,6 +2858,16 @@
             accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
           }
           accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section"><h3>TrifangX game history</h3>' +
+            '<p class="hint" style="margin:0 0 8px 0;font-size:0.82rem;">Saved games vs TrifangX (admin read-only view).</p>' +
+            '<p style="margin:0;"><a class="btn btn-ghost" href="' +
+            escHtml(adminGameHistoryUrl(a)) +
+            '">Open game history</a></p>' +
+            '<p id="' +
+            escHtml(adminDetailsGhStatsId(a)) +
+            '" class="hint" style="margin:8px 0 0 0;font-size:0.78rem;color:#64748b;">Loading stats…</p></section>';
 
           accountHtml +=
             '<section class="admin-account-details-section"><h3>TrifangX daily challenge roundup</h3><dl class="admin-account-details-dl">';
@@ -2866,6 +2931,7 @@
           }
           content.innerHTML = buildAdminAccountDetailsHtml(account);
           modal.hidden = false;
+          loadAdminAccountGameHistorySummary(account);
           document.getElementById('admin-account-details-close')?.focus();
         }
 
@@ -2951,6 +3017,7 @@
                   (activeN || '—') +
                   '</span>';
                 const detailsBtn = `<button type="button" class="btn-admin-row admin-acct-details" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" title="View subscriptions and account info">Details</button>`;
+                const historyBtn = `<a class="btn-admin-row" href="${escHtml(adminGameHistoryUrl(a))}" title="View TrifangX game history">History</a>`;
                 const verifyBtn =
                   a.emailVerified === true
                     ? '<button type="button" class="btn-admin-row" disabled title="Already verified">Verify</button>'
@@ -2964,7 +3031,7 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
-                  `<td class="c-act">${activeBadge}${detailsBtn}${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
+                  `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');

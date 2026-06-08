@@ -655,6 +655,48 @@
       background: #f1f5f9;
       border-color: #94a3b8;
     }
+    .gh-admin-bar {
+      margin: 0 0 14px 0;
+      padding: 12px 14px;
+      border: 1px solid #c7d2fe;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
+      font-family: "Inter", sans-serif;
+      font-size: 0.85rem;
+    }
+    .gh-admin-bar-title {
+      margin: 0 0 8px 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #4338ca;
+    }
+    .gh-admin-bar-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .gh-admin-bar-row input {
+      flex: 1;
+      min-width: 180px;
+      padding: 8px 10px;
+      border: 1px solid #a5b4fc;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .gh-admin-viewing-banner {
+      margin: 0 0 12px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      font-size: 0.85rem;
+      font-family: "Inter", sans-serif;
+    }
   </style>
 </head>
 <body class="gh-body">
@@ -663,9 +705,18 @@
   </nav>
   <main class="gh-page-main">
     <div class="settings-header">
-      <h2>📜 Game history</h2>
+      <h2 id="gh-page-title">📜 Game history</h2>
     </div>
-    <p style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">
+    <div id="gh-admin-bar" class="gh-admin-bar" hidden>
+      <p class="gh-admin-bar-title">Admin · view another player</p>
+      <div class="gh-admin-bar-row">
+        <input type="text" id="gh-admin-view-input" autocomplete="off" placeholder="Email, username, or user id…" aria-label="Account to view">
+        <button type="button" class="gh-btn-clear-filters" id="gh-admin-view-load">Load history</button>
+        <button type="button" class="gh-btn-clear-filters" id="gh-admin-view-self">My history</button>
+      </div>
+    </div>
+    <p id="gh-admin-viewing-banner" class="gh-admin-viewing-banner" hidden role="status"></p>
+    <p id="gh-page-intro" style="margin: 0 0 12px 0; color: #555; font-size: 0.9rem; font-family: 'Inter', sans-serif;">
       Up to 50 recent games vs TrifangX are kept in your list automatically. Star a game to favorite it — favorites stay even when older games rotate off the list or you reset stats from the game.
     </p>
     <div class="gh-filters" aria-label="Filter saved games">
