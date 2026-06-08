@@ -302,8 +302,22 @@
       text-overflow: ellipsis;
     }
     .admin-accounts-table.admin-accounts-compact .c-ver { width: 7%; }
+    .admin-accounts-table.admin-accounts-compact .c-digest {
+      width: 14%;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: #334155;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-digest .digest-on {
+      color: #15803d;
+      font-weight: 700;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-digest .digest-partial {
+      color: #b45309;
+      font-weight: 600;
+    }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 47%;
+      width: 33%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
@@ -703,8 +717,11 @@
             <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-csv">Copy CSV</button>
             <div class="admin-accounts-filter-wrap">
-              <input type="search" id="admin-accounts-filter" autocomplete="off" placeholder="Filter by email, username, or user id…" aria-label="Filter loaded accounts">
+              <input type="search" id="admin-accounts-filter" autocomplete="off" placeholder="Filter by email, username, user id, or digest…" aria-label="Filter loaded accounts">
             </div>
+            <label class="admin-accounts-filter-digest" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#475569;white-space:nowrap;">
+              <input type="checkbox" id="admin-accounts-filter-digest"> Digest only
+            </label>
           </div>
           <div class="admin-accounts-verify-row">
             <label for="admin-verify-email-input" class="admin-accounts-verify-label">Mark verified</label>
@@ -725,11 +742,12 @@
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
                   <th scope="col" class="c-ver">Verified</th>
+                  <th scope="col" class="c-digest">Digest</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="4" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -2408,28 +2426,61 @@
           }
         }
 
+        function digestAdminLabel(a) {
+          if (!a || typeof a !== 'object') return 'Off';
+          if (a.digestSubscribed) {
+            const n = Number(a.digestTeamCount) || 0;
+            let s = 'On · ' + n + ' team' + (n === 1 ? '' : 's');
+            const freq = a.digestFrequency;
+            if (freq && freq !== 'twice_daily') {
+              const freqShort = {
+                morning: 'morning',
+                evening: 'evening',
+                weekly: 'weekly',
+                noon: 'noon',
+                custom: 'custom',
+              };
+              s += ' · ' + (freqShort[freq] || freq);
+            }
+            if (a.digestIncludeTopHeadlines) s += ' · top headlines';
+            if (a.digestKvActive) s += ' · scheduled';
+            return s;
+          }
+          if (a.digestEnabled) return 'On · no teams';
+          return 'Off';
+        }
+
+        function digestAdminCellHtml(a) {
+          const label = digestAdminLabel(a);
+          const cls = a.digestSubscribed ? 'digest-on' : a.digestEnabled ? 'digest-partial' : '';
+          return '<span class="' + cls + '">' + escHtml(label) + '</span>';
+        }
+
         function renderAdminAccountsTable() {
           const tbody = document.getElementById('admin-accounts-tbody');
           const meta = document.getElementById('admin-accounts-meta');
           const filterEl = document.getElementById('admin-accounts-filter');
+          const digestOnlyEl = document.getElementById('admin-accounts-filter-digest');
           const moreBtn = document.getElementById('btn-admin-accounts-more');
           if (!tbody || !meta) return;
           const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
-          const rows = !q
-            ? adminAccountsAccum.slice()
-            : adminAccountsAccum.filter((a) => {
-                const em = (a.email || '').toLowerCase();
-                const un = (a.username || '').toLowerCase();
-                const id = (a.userId || '').toLowerCase();
-                const doId = (a.doUserId || '').toLowerCase();
-                return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q);
-              });
+          const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
+          const rows = adminAccountsAccum.filter((a) => {
+            if (digestOnly && !a.digestSubscribed) return false;
+            if (!q) return true;
+            const em = (a.email || '').toLowerCase();
+            const un = (a.username || '').toLowerCase();
+            const id = (a.userId || '').toLowerCase();
+            const doId = (a.doUserId || '').toLowerCase();
+            const dig = digestAdminLabel(a).toLowerCase();
+            return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q) || dig.includes(q);
+          });
           rows.sort((a, b) =>
             (a.email || '').localeCompare(b.email || '', undefined, { sensitivity: 'base' })
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="4" style="color:#94a3b8;">' +
+              '<tr><td colspan="5" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -2457,14 +2508,16 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
+                  `<td class="c-digest" title="${escHtml(digestAdminLabel(a))}">${digestAdminCellHtml(a)}</td>` +
                   `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');
           }
-          const filtNote = q ? ` · ${rows.length} match filter` : '';
+          const subscribedCount = adminAccountsAccum.filter((a) => a.digestSubscribed).length;
+          const filtNote = q || digestOnly ? ` · ${rows.length} match filter` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'}${filtNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${subscribedCount} Digest subscriber${subscribedCount === 1 ? '' : 's'}${filtNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
         }
@@ -2762,6 +2815,9 @@
         document.getElementById('admin-accounts-filter')?.addEventListener('input', () => {
           renderAdminAccountsTable();
         });
+        document.getElementById('admin-accounts-filter-digest')?.addEventListener('change', () => {
+          renderAdminAccountsTable();
+        });
         document.getElementById('btn-admin-verify-email-submit')?.addEventListener('click', () => {
           submitAdminVerifyTyped();
         });
@@ -2791,10 +2847,24 @@
             if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
             return s;
           };
-          const lines = ['username,email,email_verified,user_id'];
+          const lines = [
+            'username,email,email_verified,user_id,digest_subscribed,digest_teams,digest_frequency,digest_top_headlines,digest_scheduled',
+          ];
           for (const a of adminAccountsAccum) {
             const vLabel = a.emailVerified === true ? 'yes' : a.emailVerified === false ? 'no' : 'legacy';
-            lines.push([escCsv(a.username), escCsv(a.email), vLabel, escCsv(a.userId)].join(','));
+            lines.push(
+              [
+                escCsv(a.username),
+                escCsv(a.email),
+                vLabel,
+                escCsv(a.userId),
+                a.digestSubscribed ? 'yes' : 'no',
+                escCsv(a.digestTeamCount || 0),
+                escCsv(a.digestFrequency || ''),
+                a.digestIncludeTopHeadlines ? 'yes' : 'no',
+                a.digestKvActive ? 'yes' : 'no',
+              ].join(',')
+            );
           }
           const text = lines.join('\r\n');
           try {

@@ -50,6 +50,7 @@ export const DEFAULT_SPORTS_DIGEST_PREFS = {
   frequency: 'twice_daily',
   customTimes: ['09:00'],
   customDays: [0, 1, 2, 3, 4, 5, 6],
+  includeTopHeadlines: false,
 };
 
 function mapLegacyTeamId(id) {
@@ -98,6 +99,7 @@ export function normalizeSportsDigestPrefs(raw) {
     frequency,
     customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
     customDays,
+    includeTopHeadlines: src.includeTopHeadlines === true,
   };
 }
 
@@ -117,6 +119,9 @@ export function validateSportsDigestSave(body) {
   }
   if (typeof body.enabled !== 'boolean') {
     return { ok: false, error: 'Send enabled (boolean)' };
+  }
+  if (body.includeTopHeadlines != null && typeof body.includeTopHeadlines !== 'boolean') {
+    return { ok: false, error: 'includeTopHeadlines must be a boolean' };
   }
   if (!Array.isArray(body.teams)) {
     return { ok: false, error: 'Send teams (array of team ids)' };
@@ -159,6 +164,7 @@ export function validateSportsDigestSave(body) {
       frequency,
       customTimes: customTimes.length ? customTimes : DEFAULT_SPORTS_DIGEST_PREFS.customTimes.slice(),
       customDays,
+      includeTopHeadlines: body.includeTopHeadlines === true,
     },
   };
 }

@@ -415,6 +415,14 @@
           </div>
         </div>
 
+        <div class="sd-toggle">
+          <input type="checkbox" id="sd-top-headlines">
+          <div>
+            <label for="sd-top-headlines">Include ESPN top headlines (all sports)</label>
+            <p class="sd-hint" style="margin-top:4px;">Adds the top 5–10 ESPN stories across MLB, NFL, NBA, NHL, soccer, and college since your last digest.</p>
+          </div>
+        </div>
+
         <h2 class="sd-section-title"><span>🏟</span> Pick your teams</h2>
         <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams. Search by name or browse one league at a time.</p>
 
@@ -797,6 +805,7 @@
 
       function applyPrefs(prefs) {
         document.getElementById('sd-enabled').checked = !!(prefs && prefs.enabled);
+        document.getElementById('sd-top-headlines').checked = !!(prefs && prefs.includeTopHeadlines);
         selectedTeamIds = new Set((prefs && prefs.teams) || []);
         if (prefs && prefs.frequency) {
           document.getElementById('sd-frequency').value = prefs.frequency;
@@ -817,6 +826,7 @@
         const frequency = document.getElementById('sd-frequency').value;
         return {
           enabled: document.getElementById('sd-enabled').checked,
+          includeTopHeadlines: document.getElementById('sd-top-headlines').checked,
           teams: [...selectedTeamIds],
           frequency: frequency,
           customTimes: customTimes.slice(),
@@ -1012,7 +1022,7 @@
               'Content-Type': 'application/json',
               Authorization: 'Bearer ' + sessionId,
             },
-            body: JSON.stringify({ teams: prefs.teams }),
+            body: JSON.stringify({ teams: prefs.teams, includeTopHeadlines: prefs.includeTopHeadlines }),
           });
           const data = await res.json().catch(function () { return {}; });
           if (res.ok && data.success) {

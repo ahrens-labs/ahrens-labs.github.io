@@ -3830,6 +3830,48 @@ function userAccountStubFromUserId(env, userIdRaw) {
   }
 }
 
+function adminSportsDigestFields(row) {
+  const prefs = normalizeSportsDigestPrefs(row?.emailPreferences?.sportsDigest);
+  return {
+    digestEnabled: prefs.enabled === true,
+    digestTeamCount: prefs.teams.length,
+    digestFrequency: prefs.frequency,
+    digestIncludeTopHeadlines: prefs.includeTopHeadlines === true,
+    digestSubscribed: prefs.enabled === true && prefs.teams.length > 0,
+    digestKvActive: false,
+  };
+}
+
+async function loadSportsDigestKvSubscriberIds(env) {
+  const ids = new Set();
+  if (!env.SPORTS_DIGEST_KV) return ids;
+  let cursor;
+  for (;;) {
+    const page = await env.SPORTS_DIGEST_KV.list({
+      prefix: 'sub:',
+      limit: 1000,
+      ...(cursor ? { cursor } : {}),
+    });
+    for (const { name } of page.keys) {
+      if (name.startsWith('sub:')) ids.add(name.slice(4));
+    }
+    if (page.list_complete) break;
+    cursor = page.cursor;
+    if (!cursor) break;
+  }
+  return ids;
+}
+
+function enrichAdminAccountsDigestKv(accounts, kvIds) {
+  if (!Array.isArray(accounts) || !kvIds) return;
+  for (const acc of accounts) {
+    if (!acc || typeof acc !== 'object') continue;
+    const uid = (acc.userId || '').trim();
+    const doUid = (acc.doUserId || '').trim();
+    acc.digestKvActive = kvIds.has(uid) || (doUid ? kvIds.has(doUid) : false);
+  }
+}
+
 function adminAccountRowFromProfile(row, opts) {
   if (!userAccountProfileExists(row)) return null;
   const lookupEmail =
@@ -3857,6 +3899,7 @@ function adminAccountRowFromProfile(row, opts) {
     email: emailNorm,
     emailVerified: ev,
     legacyEmailInferred: legacyEmailInferred || undefined,
+    ...adminSportsDigestFields(row),
   };
 }
 
@@ -4284,6 +4327,8 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
 
     const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
     const merged = await supplementAdminAccountRows(env, accounts, ensureEmails);
+    const digestKvIds = await loadSportsDigestKvSubscriberIds(env);
+    enrichAdminAccountsDigestKv(merged, digestKvIds);
 
     return new Response(
       JSON.stringify({
@@ -4328,6 +4373,8 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     ensureEmails.length > 0
       ? await supplementAdminAccountRows(env, accounts, ensureEmails)
       : accounts;
+  const digestKvIds = await loadSportsDigestKvSubscriberIds(env);
+  enrichAdminAccountsDigestKv(merged, digestKvIds);
 
   return new Response(
     JSON.stringify({
