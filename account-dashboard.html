@@ -328,7 +328,7 @@
     }
     .admin-accounts-table.admin-accounts-compact .c-ver { width: 8%; }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 42%;
+      width: 46%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
@@ -408,10 +408,6 @@
       border: 1px solid #cbd5e1;
       background: #fff;
       color: #0f172a;
-    }
-    a.btn-admin-row {
-      text-decoration: none;
-      display: inline-block;
     }
     .btn-admin-row:hover { background: #f1f5f9; }
     .btn-admin-row-primary {
@@ -785,12 +781,11 @@
         <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
           <h2>All accounts (admin)</h2>
           <p class="hint">
-            One line per account: <strong>email</strong>, <strong>username</strong>, <strong>verified</strong>, and actions.
+            One line per account: <strong>email</strong>, <strong>username</strong>, and actions.
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             Use <strong>Details</strong> on each row to see TrifangX daily roundup and sports Digest subscriptions for that account.
-            <strong>History</strong> opens that player’s TrifangX game history (read-only).
             Check rows and use <strong>Email selected</strong> to send one custom message to a specific group (from <strong>caleb@ahrenslabs.com</strong>).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
             Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
@@ -810,11 +805,6 @@
             </label>
           </div>
           <div class="admin-accounts-verify-row">
-            <label for="admin-verify-email-input" class="admin-accounts-verify-label">Mark verified</label>
-            <input type="text" id="admin-verify-email-input" autocomplete="off" placeholder="Type email or user id…" aria-label="Email or user id to mark verified">
-            <button type="button" class="btn btn-ghost" id="btn-admin-verify-email-submit">Mark email verified</button>
-          </div>
-          <div class="admin-accounts-verify-row">
             <label for="admin-signup-check-input" class="admin-accounts-verify-label">Signup check</label>
             <input type="email" id="admin-signup-check-input" autocomplete="off" placeholder="Email to test signup rules…" aria-label="Email to check against signup validation">
             <button type="button" class="btn btn-ghost" id="btn-admin-signup-check-submit">Check signup</button>
@@ -828,12 +818,11 @@
                   <th scope="col" class="c-sel"><input type="checkbox" id="admin-accounts-select-all" title="Select all rows currently shown" aria-label="Select all shown"></th>
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
-                  <th scope="col" class="c-ver">Verified</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="4" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -2519,61 +2508,6 @@
           });
         }
 
-        function verifiedLabel(ev) {
-          if (ev === true) return 'Yes';
-          if (ev === false) return 'No';
-          return 'Legacy';
-        }
-
-        async function adminVerifyEmailForUser(payload) {
-          const vSt = document.getElementById('admin-accounts-status');
-          const sessionId = getSessionId();
-          if (!sessionId) {
-            setStatus(vSt, 'Not signed in.', 'err');
-            return false;
-          }
-          setStatus(vSt, 'Verifying…', '');
-          try {
-            const res = await fetch(`${API_BASE_URL}/api/admin/verify-user-email`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${sessionId}`,
-              },
-              body: JSON.stringify(payload),
-            });
-            const { ok, status, data } = await readApiJsonResponse(res);
-            if (!ok || !data.success) {
-              setStatus(vSt, formatApiFailure(status, data), 'err');
-              return false;
-            }
-            setStatus(
-              vSt,
-              data.alreadyVerified
-                ? 'That account was already verified.'
-                : 'Marked verified (no token).',
-              'ok'
-            );
-            const uid = (payload.userId || '').trim();
-            const em = (payload.email || '').trim().toLowerCase();
-            for (const acc of adminAccountsAccum) {
-              if (uid && acc.userId === uid) {
-                acc.emailVerified = true;
-                break;
-              }
-              if (em && (acc.email || '').trim().toLowerCase() === em) {
-                acc.emailVerified = true;
-                break;
-              }
-            }
-            renderAdminAccountsTable();
-            return true;
-          } catch (e) {
-            setStatus(vSt, e?.message || 'Network error.', 'err');
-            return false;
-          }
-        }
-
         async function adminSendWelcomeToUser(payload) {
           const rowSt = document.getElementById('admin-accounts-status');
           const okModal = await showAdminBulkConfirmModal({
@@ -2797,8 +2731,7 @@
         }
 
         async function loadAdminAccountGameHistorySummary(account) {
-          const key = adminDetailsGhStatsId(account);
-          const el = document.getElementById(key);
+          const el = document.getElementById(adminDetailsGhStatsId(account));
           if (!el) return;
           const sessionId = getSessionId();
           if (!sessionId) {
@@ -2853,7 +2786,6 @@
           if (a.doUserId && a.doUserId !== a.userId) {
             accountHtml += adminDetailRow('DO ID', '<code>' + escHtml(a.doUserId) + '</code>');
           }
-          accountHtml += adminDetailRow('Email verified', escHtml(verifiedLabel(a.emailVerified)));
           if (a.legacyEmailInferred) {
             accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
           }
@@ -2879,9 +2811,9 @@
           accountHtml += adminDetailRow(
             'Eligible to receive',
             a.dailyChallengeDigestEligible
-              ? 'Yes — verified email with roundup turned on'
+              ? 'Yes — deliverable email with roundup turned on'
               : a.dailyChallengeDigestOn
-                ? 'No — needs verified deliverable email'
+                ? 'No — needs deliverable email on file'
                 : 'No'
           );
           accountHtml += adminDetailRow(
@@ -2989,7 +2921,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="5" style="color:#94a3b8;">' +
+              '<tr><td colspan="4" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -3018,10 +2950,6 @@
                   '</span>';
                 const detailsBtn = `<button type="button" class="btn-admin-row admin-acct-details" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" title="View subscriptions and account info">Details</button>`;
                 const historyBtn = `<a class="btn-admin-row" href="${escHtml(adminGameHistoryUrl(a))}" title="View TrifangX game history">History</a>`;
-                const verifyBtn =
-                  a.emailVerified === true
-                    ? '<button type="button" class="btn-admin-row" disabled title="Already verified">Verify</button>'
-                    : `<button type="button" class="btn-admin-row admin-acct-verify" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Verify</button>`;
                 const welcomeBtn = `<button type="button" class="btn-admin-row btn-admin-row-primary admin-acct-welcome" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}">Welcome</button>`;
                 const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
                 const deleteBtn = `<button type="button" class="btn-admin-row btn-admin-row-danger admin-acct-delete" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Delete</button>`;
@@ -3030,8 +2958,7 @@
                   `<td class="c-sel"><input type="checkbox" class="admin-acct-select" data-admin-row-key="${escHtml(rowKey)}"${checked ? ' checked' : ''} aria-label="Select account"></td>` +
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
-                  `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
-                  `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
+                  `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');
@@ -3136,11 +3063,10 @@
             return;
           }
           const details = e.target && e.target.closest && e.target.closest('.admin-acct-details');
-          const verify = e.target && e.target.closest && e.target.closest('.admin-acct-verify');
           const welcome = e.target && e.target.closest && e.target.closest('.admin-acct-welcome');
           const custom = e.target && e.target.closest && e.target.closest('.admin-acct-custom');
           const del = e.target && e.target.closest && e.target.closest('.admin-acct-delete');
-          const btn = details || verify || welcome || custom || del;
+          const btn = details || welcome || custom || del;
           if (!btn) return;
           const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
           const em = (btn.getAttribute('data-admin-email') || '').trim();
@@ -3158,10 +3084,6 @@
             return;
           }
           if (!payload.userId && !payload.email) return;
-          if (verify) {
-            adminVerifyEmailForUser(payload);
-            return;
-          }
           if (welcome) {
             adminSendWelcomeToUser(payload);
             return;
@@ -3287,19 +3209,6 @@
           }
         });
 
-        async function submitAdminVerifyTyped() {
-          const inp = document.getElementById('admin-verify-email-input');
-          const raw = (inp?.value || '').trim();
-          const st = document.getElementById('admin-accounts-status');
-          if (!raw) {
-            setStatus(st, 'Enter an email or user id.', 'err');
-            return;
-          }
-          const payload = raw.includes('@') ? { email: raw } : { userId: raw };
-          const ok = await adminVerifyEmailForUser(payload);
-          if (ok && inp) inp.value = '';
-        }
-
         function renderAdminSignupCheckResult(data) {
           const box = document.getElementById('admin-signup-check-result');
           if (!box) return;
@@ -3333,7 +3242,7 @@
           }
           if (data.legacyEmailNotOnFile) {
             html +=
-              '<div style="margin-top:6px;font-size:0.82rem;">Legacy account — email is tied to the signup slot but was never saved on the profile. It is being added to the directory below; use <strong>Mark email verified</strong> to save it on the account.</div>';
+              '<div style="margin-top:6px;font-size:0.82rem;">Legacy account — email is tied to the signup slot but was never saved on the profile. It is being added to the directory below.</div>';
           }
           const steps = Array.isArray(data.steps) ? data.steps : [];
           if (steps.length) {
@@ -3413,15 +3322,6 @@
         document.getElementById('admin-accounts-filter-digest')?.addEventListener('change', () => {
           renderAdminAccountsTable();
         });
-        document.getElementById('btn-admin-verify-email-submit')?.addEventListener('click', () => {
-          submitAdminVerifyTyped();
-        });
-        document.getElementById('admin-verify-email-input')?.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            submitAdminVerifyTyped();
-          }
-        });
         document.getElementById('btn-admin-signup-check-submit')?.addEventListener('click', () => {
           submitAdminSignupCheck();
         });
@@ -3443,15 +3343,13 @@
             return s;
           };
           const lines = [
-            'username,email,email_verified,user_id,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
+            'username,email,user_id,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
-            const vLabel = a.emailVerified === true ? 'yes' : a.emailVerified === false ? 'no' : 'legacy';
             lines.push(
               [
                 escCsv(a.username),
                 escCsv(a.email),
-                vLabel,
                 escCsv(a.userId),
                 a.dailyChallengeDigestOn ? 'yes' : 'no',
                 a.dailyChallengeDigestEligible ? 'yes' : 'no',
