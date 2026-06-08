@@ -746,10 +746,20 @@ async function handleSendDailyChallengesNow(request, env, corsHeaders) {
         });
       }
     } else {
-      await sendDailyDigestEmail(env, { email, username }, ids, {
+      const result = await sendDailyDigestOncePerDay(env, {
+        userId,
+        email,
+        username,
+        challengeIds: ids,
+        digestYmd: digestDateStr,
         instant: true,
-        digestDate: digestDateStr,
       });
+      if (!result.sent && result.reason !== 'already_today') {
+        return new Response(JSON.stringify({ success: false, error: 'Email could not be sent.' }), {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
     if (env.DAILY_DIGEST_KV) {
       await env.DAILY_DIGEST_KV.put(`instant-digest:${userId}`, '1', { expirationTtl: 120 });
@@ -3243,9 +3253,9 @@ async function dispatchTransactionalEmail(env, {
       const result = await cfMail.send(sendPayload);
       const messageId = extractCloudflareEmailMessageId(result);
       if (!messageId) {
-        const synthetic = new Error('Email Service returned no messageId after send');
-        synthetic.code = 'E_NO_MESSAGE_ID';
-        throw synthetic;
+        // Do not fall back to Resend — send() may have succeeded; missing id caused duplicate mail.
+        console.warn('EmailService send returned no messageId; treating as delivered', { subject, to });
+        return { provider: 'cloudflare', messageId: '' };
       }
       console.log('EmailService send ok', { messageId, subject, to });
       return { provider: 'cloudflare', messageId };
@@ -3256,7 +3266,11 @@ async function dispatchTransactionalEmail(env, {
         subject,
         to,
       });
-      if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
+      if (
+        env.RESEND_API_KEY &&
+        typeof env.RESEND_API_KEY === 'string' &&
+        err?.code !== 'E_NO_MESSAGE_ID'
+      ) {
         console.log('Falling back to Resend after EmailService error', err?.code || '');
         return await sendViaResend(env, { fromAddr, fromName, to, subject, html, text, headers });
       }
@@ -7421,14 +7435,28 @@ async function getDailyDigestSubscriber(env, userId) {
   }
 }
 
-async function dailyDigestAlreadySentToday(env, userId, digestYmd) {
-  if (!userId || !digestYmd) return false;
+async function dailyDigestAlreadySentToday(env, userId, digestYmd, email) {
+  if (!digestYmd) return false;
+  const em = normalizeEmail(email || '');
+  if (em && env.DAILY_DIGEST_KV) {
+    const emailKey = `digest-email:${em}:${digestYmd}`;
+    const hit = await env.DAILY_DIGEST_KV.get(emailKey);
+    if (hit) return true;
+  }
+  if (!userId) return false;
   const sub = await getDailyDigestSubscriber(env, userId);
   return !!(sub && sub.lastDigestLocalYmd === digestYmd);
 }
 
 async function markDailyDigestSentToday(env, userId, { email, username }, digestYmd) {
-  if (!env.DAILY_DIGEST_KV || !userId || !digestYmd) return;
+  if (!env.DAILY_DIGEST_KV || !digestYmd) return;
+  const em = normalizeEmail(email || '');
+  if (em) {
+    await env.DAILY_DIGEST_KV.put(`digest-email:${em}:${digestYmd}`, String(Date.now()), {
+      expirationTtl: 172800,
+    });
+  }
+  if (!userId) return;
   const prev = (await getDailyDigestSubscriber(env, userId)) || {};
   await env.DAILY_DIGEST_KV.put(
     dailyDigestSubscriberKey(userId),
@@ -7438,6 +7466,48 @@ async function markDailyDigestSentToday(env, userId, { email, username }, digest
       lastDigestLocalYmd: digestYmd,
     })
   );
+}
+
+/** Reserve today's digest slot before sending (rollback on failure). */
+async function reserveDailyDigestSend(env, { userId, email, username, digestYmd }) {
+  if (!env.DAILY_DIGEST_KV) return { ok: true };
+  const ymd = digestYmd;
+  const em = normalizeEmail(email || '');
+  if (!em || !ymd) return { ok: false, reason: 'invalid' };
+
+  if (await dailyDigestAlreadySentToday(env, userId, ymd, em)) {
+    return { ok: false, reason: 'already_today' };
+  }
+
+  const prevSub = userId ? await getDailyDigestSubscriber(env, userId) : null;
+  const prevLast =
+    prevSub && typeof prevSub.lastDigestLocalYmd === 'string' ? prevSub.lastDigestLocalYmd : undefined;
+
+  await env.DAILY_DIGEST_KV.put(`digest-email:${em}:${ymd}`, 'reserved', { expirationTtl: 172800 });
+  if (userId) {
+    await markDailyDigestSentToday(env, userId, { email: em, username }, ymd);
+  }
+
+  return { ok: true, email: em, prevLast, userId: userId || null };
+}
+
+async function rollbackDailyDigestReservation(env, reservation, digestYmd) {
+  if (!env.DAILY_DIGEST_KV || !reservation || !reservation.ok) return;
+  const em = reservation.email;
+  if (em && digestYmd) {
+    await env.DAILY_DIGEST_KV.delete(`digest-email:${em}:${digestYmd}`);
+  }
+  if (reservation.userId) {
+    const prev = await getDailyDigestSubscriber(env, reservation.userId);
+    await env.DAILY_DIGEST_KV.put(
+      dailyDigestSubscriberKey(reservation.userId),
+      JSON.stringify({
+        email: prev?.email || em,
+        username: prev?.username || 'there',
+        lastDigestLocalYmd: reservation.prevLast,
+      })
+    );
+  }
 }
 
 /** At most one digest per subscriber per UTC calendar day (unless skipDedupe). */
@@ -7453,17 +7523,31 @@ async function sendDailyDigestOncePerDay(env, opts) {
   } = opts;
   if (!email || typeof email !== 'string') return { sent: false, reason: 'no_email' };
   const ymd = digestYmd || utcDateString(new Date());
-  if (!skipDedupe && userId && (await dailyDigestAlreadySentToday(env, userId, ymd))) {
-    return { sent: false, reason: 'already_today' };
+  const em = normalizeEmail(email);
+
+  let reservation = null;
+  if (!skipDedupe) {
+    if (await dailyDigestAlreadySentToday(env, userId, ymd, em)) {
+      return { sent: false, reason: 'already_today' };
+    }
+    reservation = await reserveDailyDigestSend(env, { userId, email: em, username, digestYmd: ymd });
+    if (!reservation.ok) {
+      return { sent: false, reason: reservation.reason || 'already_today' };
+    }
   }
-  await sendDailyDigestEmail(env, { email, username }, challengeIds, {
-    instant,
-    digestDate: ymd,
-  });
-  if (!skipDedupe && userId) {
-    await markDailyDigestSentToday(env, userId, { email, username }, ymd);
+
+  try {
+    await sendDailyDigestEmail(env, { email: em, username }, challengeIds, {
+      instant,
+      digestDate: ymd,
+    });
+    return { sent: true };
+  } catch (e) {
+    if (reservation) {
+      await rollbackDailyDigestReservation(env, reservation, ymd);
+    }
+    throw e;
   }
-  return { sent: true };
 }
 
 async function tryAcquireDailyDigestCronLock(env, digestYmd) {
@@ -7581,9 +7665,8 @@ async function handleScheduledCron(event, env) {
   const target = getDigestSendUtcHM(env);
   const utcHour = scheduledAt.getUTCHours();
   const utcMinute = scheduledAt.getUTCMinutes();
-  /** Allow the scheduled instant plus up to 19 minutes (Cloudflare may run slightly late). */
-  const gateOk =
-    utcHour === target.hour && utcMinute >= target.minute && utcMinute <= target.minute + 19;
+  /** Allow only the configured send minute (Cloudflare cron is 0 7 * * *). */
+  const gateOk = utcHour === target.hour && utcMinute === target.minute;
   if (!gateOk) {
     console.log('Daily digest cron skip — not digest send window (UTC)', {
       utcHour,
