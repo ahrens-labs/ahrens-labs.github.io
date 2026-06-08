@@ -61,6 +61,8 @@ header {
     justify-content: center;
     align-items: center;
     position: relative;
+    z-index: 10000;
+    overflow: visible;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
 }
@@ -110,6 +112,9 @@ header:hover::before {
     align-items: center;
     text-align: center;
     gap: 0px;
+    position: relative;
+    z-index: 10001;
+    overflow: visible;
 }
 
 .logo-link {
@@ -403,8 +408,15 @@ nav a.active::after {
 }
 
 /* Header dropdown menus */
+header nav {
+    position: relative;
+    z-index: 10002;
+    overflow: visible;
+}
+
 nav ul li.nav-dropdown {
     position: relative;
+    z-index: 10003;
 }
 
 nav a.nav-dropdown-trigger {
@@ -433,7 +445,7 @@ nav ul.nav-dropdown-menu {
     background: linear-gradient(165deg, rgba(8, 28, 58, 0.98), rgba(0, 40, 88, 0.98));
     border: 1px solid rgba(255, 255, 255, 0.22);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
-    z-index: 1200;
+    z-index: 10010;
     list-style: none;
 }
 

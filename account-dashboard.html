@@ -52,6 +52,55 @@
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
     .full-span { grid-column: 1 / -1; }
+    .header-nav-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #0f172a;
+      list-style: none;
+    }
+    .header-nav-details summary::-webkit-details-marker { display: none; }
+    .header-nav-details[open] summary { margin-bottom: 6px; }
+    .header-nav-hint { margin: 0 0 8px 0; font-size: 0.82rem; line-height: 1.4; }
+    .header-nav-options-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px 12px;
+      align-items: center;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 2px 0;
+    }
+    .header-nav-group-title {
+      width: 100%;
+      margin: 6px 0 0 0;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+    }
+    .header-nav-group-title:first-child { margin-top: 0; }
+    .header-nav-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 1px 0;
+      font-size: 0.82rem;
+      color: #475569;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .header-nav-option input { width: 14px; height: 14px; flex-shrink: 0; margin: 0; }
+    .header-nav-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .header-nav-actions .btn { padding: 7px 12px; font-size: 0.84rem; }
+    .dash-header-nav-card { padding: 16px 18px; }
     .dash-lb-row-swatch-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
     .dash-lb-row-swatch {
       display: flex; flex-direction: column; align-items: stretch; gap: 4px;
@@ -850,6 +899,19 @@
           <p class="status" id="admin-welcome-status"></p>
         </div>
 
+
+        <div class="dash-card full-span dash-header-nav-card" id="dash-header-nav-card">
+          <details class="header-nav-details">
+            <summary>Site header links</summary>
+            <p class="hint header-nav-hint">Links shown in the top nav on every page. Default: Home, Labs, Account. Optional groups open as dropdown menus.</p>
+            <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
+            <div class="header-nav-actions">
+              <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
+              <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset to default</button>
+            </div>
+            <p class="status" id="header-nav-status"></p>
+          </details>
+        </div>
 
         <div class="dash-card">
           <h2>Delete account</h2>
@@ -1898,7 +1960,7 @@
       if (em) localStorage.setItem('ahrenslabs_email', em);
 
       if (window.AhrensHeaderNav) {
-        window.AhrensHeaderNav.render();
+        window.AhrensHeaderNav.syncFromProfile(user.headerNavItems);
       }
 
       const cb = document.getElementById('email-digest-on');
@@ -1925,6 +1987,91 @@
 
       rebuildDashLbRowPicks();
       refreshDashLbLivePreview();
+      initHeaderNavSettings(user);
+    }
+
+    function getHeaderNavIdsForUser(user) {
+      const nav = window.AhrensHeaderNav;
+      if (!nav) return ['home', 'labs', 'account'];
+      if (user && Array.isArray(user.headerNavItems)) {
+        return nav.normalizeNavIds(user.headerNavItems);
+      }
+      return nav.getNavIds();
+    }
+
+    function initHeaderNavSettings(user) {
+      const wrap = document.getElementById('header-nav-options');
+      const nav = window.AhrensHeaderNav;
+      if (!wrap || !nav) return;
+
+      const selected = nav.catalogSelectionFromNavIds(getHeaderNavIdsForUser(user));
+      wrap.innerHTML = '';
+
+      let lastGroup = '';
+      for (const item of nav.CATALOG) {
+        if (item.group !== lastGroup) {
+          lastGroup = item.group;
+          const heading = document.createElement('p');
+          heading.className = 'header-nav-group-title';
+          heading.textContent = item.group;
+          wrap.appendChild(heading);
+        }
+        const label = document.createElement('label');
+        label.className = 'header-nav-option';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = item.id;
+        input.checked = selected.has(item.id);
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(item.label));
+        wrap.appendChild(label);
+      }
+    }
+
+    function getHeaderNavIdsFromForm() {
+      const nav = window.AhrensHeaderNav;
+      if (!nav) return ['home', 'labs', 'account'];
+      const checked = new Set();
+      document.querySelectorAll('#header-nav-options input[type="checkbox"]:checked').forEach((el) => {
+        checked.add(el.value);
+      });
+      return nav.CATALOG.filter((item) => checked.has(item.id)).map((item) => item.id);
+    }
+
+    async function saveHeaderNavPreferences() {
+      const st = document.getElementById('header-nav-status');
+      const nav = window.AhrensHeaderNav;
+      const sessionId = getSessionId();
+      const items = getHeaderNavIdsFromForm();
+      if (!items.length) {
+        setStatus(st, 'Pick at least one header link.', 'err');
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/header-nav-preferences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionId}`,
+        },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (nav) nav.syncFromProfile(data.headerNavItems || items);
+        setStatus(st, 'Header links saved. They apply on every page when you are signed in.', 'ok');
+      } else {
+        setStatus(st, data.error || 'Could not save header links.', 'err');
+      }
+    }
+
+    function resetHeaderNavPreferences() {
+      const nav = window.AhrensHeaderNav;
+      if (!nav) return;
+      const defaults = new Set(nav.DEFAULT_IDS);
+      document.querySelectorAll('#header-nav-options input[type="checkbox"]').forEach((el) => {
+        el.checked = defaults.has(el.value);
+      });
+      setStatus(document.getElementById('header-nav-status'), '', '');
     }
 
     function getDesiredLbRowColorPayloadForSave() {
@@ -3467,6 +3614,12 @@
             schedulePersistDashLbFlair();
           });
         }
+      });
+      document.getElementById('btn-save-header-nav').addEventListener('click', () => {
+        void saveHeaderNavPreferences();
+      });
+      document.getElementById('btn-reset-header-nav').addEventListener('click', () => {
+        resetHeaderNavPreferences();
       });
       document.getElementById('btn-save-email-prefs').addEventListener('click', async () => {
         const st = document.getElementById('email-pref-status');

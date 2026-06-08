@@ -37,6 +37,7 @@ const HEADER_NAV_ALLOWED_IDS = new Set([
   'labs',
   'account',
   'chessEngine',
+  'projects',
   'chessShop',
   'chessLeaderboard',
   'chessSeasonTrack',
