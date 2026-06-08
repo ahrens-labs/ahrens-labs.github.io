@@ -2760,6 +2760,49 @@ def print_piece_move(board, best_piece, best_row, best_col, target_row, target_c
 
     return move_played
 
+def _king_on_square_in_check(board, row, col, color):
+    """True if placing color's king on (row, col) would be in check."""
+    king_piece = 'K' if color == 'w' else 'k'
+    kr, kc = find_king(board, color)
+    if kr < 0 or kc < 0:
+        return True
+    test_board = [r[:] for r in board]
+    test_board[kr][kc] = '0'
+    test_board[row][col] = king_piece
+    return is_king_in_check(test_board, row, col, color)
+
+def can_castle(board, color, side):
+    """True if color may legally castle now (rights, clear squares, not in/through check)."""
+    global king_move, king_move_white
+    if side not in {'kingside', 'queenside'}:
+        return False
+    king_piece = 'K' if color == 'w' else 'k'
+    rook_piece = 'R' if color == 'w' else 'r'
+    king_row = 0 if color == 'w' else 7
+    if color == 'b':
+        if king_move != 0:
+            return False
+    elif king_move_white != 0:
+        return False
+    if board[king_row][4] != king_piece:
+        return False
+    rook_col = 7 if side == 'kingside' else 0
+    if board[king_row][rook_col] != rook_piece:
+        return False
+    if side == 'kingside':
+        between = [(king_row, 5), (king_row, 6)]
+        path = [(king_row, 4), (king_row, 5), (king_row, 6)]
+    else:
+        between = [(king_row, 1), (king_row, 2), (king_row, 3)]
+        path = [(king_row, 4), (king_row, 3), (king_row, 2)]
+    for r, c in between:
+        if board[r][c] != '0':
+            return False
+    for r, c in path:
+        if _king_on_square_in_check(board, r, c, color):
+            return False
+    return True
+
 def _can_still_castle(board, color):
     """True if the side may still castle on at least one side (king unmoved, not both rooks gone)."""
     global king_move, king_move_white
@@ -5206,11 +5249,13 @@ def best_move_function(board, bots, en_passant):
             if next_move is not None:
                 raw_opening_move = next_move
                 if next_move in {'0-0', 'O-O'}:
-                    previous_score = score(board, 'w')
-                    result_scores[('0-0')] = previous_score
+                    if can_castle(board, 'b', 'kingside'):
+                        previous_score = score(board, 'w')
+                        result_scores[('0-0')] = previous_score
                 elif next_move in {'0-0-0', 'O-O-O'}:
-                    previous_score = score(board, 'w')
-                    result_scores[('0-0-0')] = previous_score
+                    if can_castle(board, 'b', 'queenside'):
+                        previous_score = score(board, 'w')
+                        result_scores[('0-0-0')] = previous_score
                 elif len(clean_move(next_move)) == 5:
                     piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
                     pos = str(from_col) + str(from_row)
@@ -5608,56 +5653,14 @@ def best_move_function(board, bots, en_passant):
                                     tasks.append(key_args)
                                     #scores = evaluate_white(board, row, col, new_row, new_col, good_moves, scores, piece, black_king_row, black_king_col, captured_piece, position_history)
                         else:
-                            if direction == '0-0':
-                                if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                    if board[7][4] == 'k' and board[7][7] == 'r' and king_move == 0 and board[7][5] == '0' and board[7][6] == '0':
-                                        board[7][5] = 'k'
-                                        board[7][4] = '0'
-                                        black_king_row, black_king_col = find_king(board, 'b')
-                                        if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                            board[7][6] = 'k'
-                                            board[7][5] = '0'
-                                            black_king_row, black_king_col = find_king(board, 'b')
-                                            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                                new_board = [r[:] for r in board]
-                                                key_args = (new_board, None, None, None, None, good_moves, '0-0', black_king_row, black_king_col, None, position_history)
-                                                tasks.append(key_args)
-                                                board[7][6] = '0'
-                                                board[7][4] = 'k'
-                                                #scores = evaluate_white(board, 1, 1, 1, 1, good_moves, scores, '0-0', black_king_row, black_king_col, 1, position_history)
-                                            else:
-                                                board[7][4] = 'k'
-                                                board[7][6] = '0'
-                                                black_king_row, black_king_col = find_king(board, 'b')
-                                        else:
-                                            board[7][4] = 'k'
-                                            board[7][5] = '0'
-                                            black_king_row, black_king_col = find_king(board, 'b')
-                            elif direction == '0-0-0':
-                                if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                    if board[7][4] == 'k' and board[7][0] == 'r' and king_move == 0 and board[7][1] == '0' and board[7][2] == '0' and board[7][3] == '0':
-                                        board[7][3] = 'k'
-                                        board[7][4] = '0'
-                                        black_king_row, black_king_col = find_king(board, 'b')
-                                        if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                            board[7][2] = 'k'
-                                            board[7][3] = '0'
-                                            black_king_row, black_king_col = find_king(board, 'b')
-                                            if not is_king_in_check(board, black_king_row, black_king_col, 'b'):
-                                                new_board = [r[:] for r in board]
-                                                key_args = (new_board, None, None, None, None, good_moves, '0-0-0', black_king_row, black_king_col, None, position_history)
-                                                tasks.append(key_args)
-                                                board[7][2] = '0'
-                                                board[7][4] = 'k'
-                                                #scores = evaluate_white(board, 1, 1, 1, 1, good_moves, scores, '0-0-0', black_king_row, black_king_col, 1, position_history)
-                                            else:
-                                                board[7][4] = 'k'
-                                                board[7][2] = '0'
-                                                black_king_row, black_king_col = find_king(board, 'b')
-                                        else:
-                                            board[7][4] = 'k'
-                                            board[7][3] = '0'
-                                            black_king_row, black_king_col = find_king(board, 'b')
+                            if direction == '0-0' and can_castle(board, 'b', 'kingside'):
+                                new_board = [r[:] for r in board]
+                                key_args = (new_board, None, None, None, None, good_moves, '0-0', black_king_row, black_king_col, None, position_history)
+                                tasks.append(key_args)
+                            elif direction == '0-0-0' and can_castle(board, 'b', 'queenside'):
+                                new_board = [r[:] for r in board]
+                                key_args = (new_board, None, None, None, None, good_moves, '0-0-0', black_king_row, black_king_col, None, position_history)
+                                tasks.append(key_args)
         # Multiprocessing inside a web request is usually a net loss on shared hosting
         # (process spawn + pickling). Default to sequential.
         if not ENABLE_MULTIPROCESSING:
@@ -6785,23 +6788,15 @@ def best_move_black(board, bots, en_passant):
                 continue
             print("NM:", next_move)
             if next_move in {'0-0', 'O-O'}:
-                # Validate castling is legal before adding to result_scores
-                if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0:
-                    if board[0][5] == '0' and board[0][6] == '0':
-                        white_king_row, white_king_col = find_king(board, 'w')
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            previous_score = score(board, 'b')
-                            result_scores[('0-0')] = previous_score
-                            break  # Use first valid opening match
+                if can_castle(board, 'w', 'kingside'):
+                    previous_score = score(board, 'b')
+                    result_scores[('0-0')] = previous_score
+                    break  # Use first valid opening match
             elif next_move in {'0-0-0', 'O-O-O'}:
-                # Validate castling is legal before adding to result_scores
-                if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0:
-                    if board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                        white_king_row, white_king_col = find_king(board, 'w')
-                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                            previous_score = score(board, 'b')
-                            result_scores[('0-0-0')] = previous_score
-                            break  # Use first valid opening match
+                if can_castle(board, 'w', 'queenside'):
+                    previous_score = score(board, 'b')
+                    result_scores[('0-0-0')] = previous_score
+                    break  # Use first valid opening match
             elif len(clean_move(next_move)) == 5:
                 try:
                     piece, from_row, from_col, to_row, to_col = extract_long_algebraic(next_move)
@@ -7032,18 +7027,15 @@ def best_move_black(board, bots, en_passant):
                                 key_args = (new_board, row, col, new_row, new_col, good_moves, 'K', white_king_row, white_king_col, target, position_history)
                                 tasks.append(key_args)
 
-        # Add castling moves if applicable
-        # Kingside castling for white
-        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-            if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0 and board[0][5] == '0' and board[0][6] == '0':
-                new_board = [r[:] for r in board]
-                key_args = (new_board, None, None, None, None, good_moves, '0-0', white_king_row, white_king_col, None, position_history)
-                tasks.append(key_args)
-            # Queenside castling for white
-            if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0 and board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                new_board = [r[:] for r in board]
-                key_args = (new_board, None, None, None, None, good_moves, '0-0-0', white_king_row, white_king_col, None, position_history)
-                tasks.append(key_args)
+        # Add castling moves if applicable (must not be in or pass through check)
+        if can_castle(board, 'w', 'kingside'):
+            new_board = [r[:] for r in board]
+            key_args = (new_board, None, None, None, None, good_moves, '0-0', white_king_row, white_king_col, None, position_history)
+            tasks.append(key_args)
+        if can_castle(board, 'w', 'queenside'):
+            new_board = [r[:] for r in board]
+            key_args = (new_board, None, None, None, None, good_moves, '0-0-0', white_king_row, white_king_col, None, position_history)
+            tasks.append(key_args)
 
         # Multiprocessing inside a web request is usually a net loss on shared hosting
         # (process spawn + pickling). Default to sequential.
@@ -8181,20 +8173,13 @@ def best_move_black(board, bots, en_passant):
                                     white_king_row, white_king_col = find_king(board, 'w')
                                     position_history[pos_hash] -= 1
                         else:
-                            if direction == '0-0':
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    if board[0][4] == 'K' and board[0][7] == 'R' and king_move_white == 0 and board[0][5] == '0' and board[0][6] == '0':
-                                        board[0][5] = 'K'
-                                        board[0][4] = '0'
-                                        white_king_row, white_king_col = find_king(board, 'w')
-                                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                            board[0][6] = 'K'
-                                            board[0][5] = '0'
-                                            white_king_row, white_king_col = find_king(board, 'w')
-                                            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            if direction == '0-0' and can_castle(board, 'w', 'kingside'):
                                                 print('0-0')
+                                                board[0][4] = '0'
+                                                board[0][6] = 'K'
                                                 board[0][7] = '0'
                                                 board[0][5] = 'R'
+                                                white_king_row, white_king_col = 0, 6
                                                 best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                                     checkmate = True
@@ -8255,29 +8240,14 @@ def best_move_black(board, bots, en_passant):
                                                         print(' 0-0' + '#')
                                                         return next_move
                                                         #sys.exit()
-                                            else:
-                                                board[0][4] = 'K'
-                                                board[0][6] = '0'
-                                                white_king_row, white_king_col = find_king(board, 'w')
-                                        else:
-                                            board[0][4] = 'K'
-                                            board[0][5] = '0'
-                                            white_king_row, white_king_col = find_king(board, 'w')
 
-                            elif direction == '0-0-0':
-                                if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                    if board[0][4] == 'K' and board[0][0] == 'R' and king_move_white == 0 and board[0][1] == '0' and board[0][2] == '0' and board[0][3] == '0':
-                                        board[0][3] = 'K'
-                                        board[0][4] = '0'
-                                        white_king_row, white_king_col = find_king(board, 'w')
-                                        if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
-                                            board[0][2] = 'K'
-                                            board[0][3] = '0'
-                                            white_king_row, white_king_col = find_king(board, 'w')
-                                            if not is_king_in_check(board, white_king_row, white_king_col, 'w'):
+                            elif direction == '0-0-0' and can_castle(board, 'w', 'queenside'):
                                                 print('0-0-0')
+                                                board[0][4] = '0'
+                                                board[0][2] = 'K'
                                                 board[0][0] = '0'
                                                 board[0][3] = 'R'
+                                                white_king_row, white_king_col = 0, 2
                                                 best_row, best_col, target_row, target_col, best_piece, captured, draw = best_move_player_black(board)
                                                 if best_row == best_col == target_row == target_col == best_piece == captured == '1':
                                                     checkmate = True
@@ -8338,14 +8308,6 @@ def best_move_black(board, bots, en_passant):
                                                     print(' 0-0-0' + '#')
                                                     return next_move
                                                     #sys.exit()
-                                            else:
-                                                board[0][4] = 'K'
-                                                board[0][2] = '0'
-                                                white_king_row, white_king_col = find_king(board, 'w')
-                                        else:
-                                            board[0][4] = 'K'
-                                            board[0][3] = '0'
-                                            white_king_row, white_king_col = find_king(board, 'w')
 
     move_played = None  # Initialize move_played
     best_move = None  # Initialize best_move
