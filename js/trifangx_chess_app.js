@@ -1987,6 +1987,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       try {
         sessionStorage.setItem(ENGINE_LOCK_SESSION_KEY, '1');
       } catch (e) {}
+      resetLiveGameCancelFlag();
     }
 
     function clearEngineLockHolderSession() {
@@ -2660,19 +2661,115 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       persistTrifangxLiveSnapshot();
     }
 
+    let _liveGameCancelled = false;
+
+    function resetLiveGameCancelFlag() {
+      _liveGameCancelled = false;
+    }
+
+    /** True when this tab holds an in-progress live engine game on trifangx_live.html. */
+    function hasActiveLiveEngineSession() {
+      if (!isTrifangxLiveDedicatedPage()) return false;
+      if (gameOver) return false;
+      try {
+        if (sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) !== '1') return false;
+      } catch (e) {
+        return false;
+      }
+      return !!getEngineGameId();
+    }
+
+    /**
+     * End the live engine game immediately: abort in-flight /move, POST /stop, clear session snapshot.
+     * Used when leaving trifangx_live mid-game or when an unrecoverable live error occurs.
+     */
+    function cancelActiveLiveTrifangxGame(opts) {
+      opts = opts || {};
+      if (_liveGameCancelled) return;
+      let isLockHolder = false;
+      try {
+        isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
+      } catch (e) {
+        isLockHolder = false;
+      }
+      const gid = getEngineGameId();
+      if (!isLockHolder || !gid) {
+        if (isTrifangxLiveDedicatedPage()) {
+          try {
+            clearTrifangxLiveUrlAndSnapshot();
+          } catch (eClr) {}
+        }
+        return;
+      }
+      if (gameOver && opts.skipIfGameOver) return;
+      _liveGameCancelled = true;
+      try {
+        gameOver = true;
+      } catch (eGo) {}
+      try {
+        if (engineMoveAbortController) {
+          engineMoveAbortController.abort();
+        }
+      } catch (eAbort) {}
+      try {
+        releaseEngineOccupancyOnPageExit();
+      } catch (eRel) {}
+      if (!opts.silent && typeof showNotification === 'function') {
+        showNotification('Live game ended because you left the page.', 'info');
+      }
+    }
+
+    /** Cancel live games when following any link that leaves trifangx_live.html (header, footer, etc.). */
+    function setupTrifangxLiveLeaveGuards() {
+      if (!isTrifangxLiveDedicatedPage()) return;
+      try {
+        if (document.documentElement.dataset.trifangxLiveLeaveBound === '1') return;
+        document.documentElement.dataset.trifangxLiveLeaveBound = '1';
+      } catch (e) {
+        return;
+      }
+      document.addEventListener(
+        'click',
+        function (ev) {
+          if (!hasActiveLiveEngineSession()) return;
+          const a =
+            ev.target && typeof ev.target.closest === 'function'
+              ? ev.target.closest('a[href]')
+              : null;
+          if (!a) return;
+          const href = (a.getAttribute('href') || '').trim();
+          if (!href || href === '#' || href.indexOf('javascript:') === 0) return;
+          if (a.target === '_blank' || a.hasAttribute('download')) return;
+          let dest;
+          try {
+            dest = new URL(href, window.location.href);
+          } catch (eUrl) {
+            return;
+          }
+          const livePath = (window.location.pathname || '').toLowerCase();
+          const destPath = (dest.pathname || '').toLowerCase();
+          if (destPath === livePath || /trifangx_live\.html$/.test(destPath)) return;
+          cancelActiveLiveTrifangxGame({ source: 'nav-link', silent: true });
+        },
+        true
+      );
+    }
+
+    setupTrifangxLiveLeaveGuards();
+
     /**
      * "Chess Engine" nav from trifangx_live.html: release the engine (pagehide skips /stop only on reload).
      */
     function leaveLiveForChessLobby(ev) {
       if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
-      try {
-        releaseEngineOccupancyOnPageExit();
-      } catch (e) {}
+      cancelActiveLiveTrifangxGame({ source: 'lobby-nav', silent: true });
       window.location.href = new URL('chess_engine.html', window.location.href).href;
+    }
+    if (typeof window !== 'undefined') {
+      window.leaveLiveForChessLobby = leaveLiveForChessLobby;
     }
 
     window.addEventListener('pagehide', function (ev) {
-      if (ev.persisted) return;
       try {
         if (engineMoveAbortController) {
           engineMoveAbortController.abort();
@@ -2685,38 +2782,32 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           isLockHolder = sessionStorage.getItem(ENGINE_LOCK_SESSION_KEY) === '1';
         } catch (e) {}
         const gid = getEngineGameId();
-
+        const onLive = isTrifangxLiveDedicatedPage();
         const handoffPending =
           sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1';
-        if (!handoffPending && isLockHolder && gid && trifangxLivePlayActiveInUrl()) {
-          persistTrifangxLiveSnapshot();
-        }
+        const reloading = trifangxPagehideMeansReload();
 
-        // Dedicated live: skip /stop + session clear only for same-tab reload so tryResume still works.
-        // Tab close (no reload intent in sessionStorage) runs release so the server slot frees immediately.
-        // Reload intent: navigate(reload), pageswap(activation.navigationType reload), F5/Ctrl+R,
-        // Location#reload, history.go(0). Not PerformanceNavigationTiming / navigation.activation on this doc.
-        // Chess Engine nav still calls releaseEngineOccupancyOnPageExit() before leaving.
-        if (isTrifangxLiveDedicatedPage() && isLockHolder && gid) {
-          skipRelease = trifangxPagehideMeansReload();
+        if (handoffPending && isLockHolder && gid) {
+          skipRelease = true;
+        } else if (onLive && isLockHolder && gid && hasActiveLiveEngineSession()) {
+          // Only same-tab reload keeps the server game; leaving the page always cancels.
+          if (reloading) {
+            persistTrifangxLiveSnapshot();
+            skipRelease = true;
+          }
         } else if (
-          !isTrifangxLiveDedicatedPage() &&
-          trifangxPagehideMeansReload() &&
+          !onLive &&
+          reloading &&
           trifangxLivePlayActiveInUrl() &&
           isLockHolder &&
           gid
         ) {
-          skipRelease = true;
-        } else if (
-          sessionStorage.getItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY) === '1' &&
-          isLockHolder &&
-          gid
-        ) {
+          persistTrifangxLiveSnapshot();
           skipRelease = true;
         }
       } catch (e2) {}
       if (!skipRelease) {
-        releaseEngineOccupancyOnPageExit();
+        cancelActiveLiveTrifangxGame({ source: 'pagehide', silent: true });
       }
     });
 
@@ -12897,6 +12988,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
               })
               .catch(function (err) {
                 console.error('engineMove after live resume:', err);
+                if (!(err && err.name === 'AbortError')) {
+                  cancelActiveLiveTrifangxGame({ source: 'engine-resume-error', silent: true });
+                }
               });
           }, 0);
         } else {
@@ -12966,6 +13060,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } catch (eHb) {}
 
         resetStaleEngineSessionFlag();
+        resetLiveGameCancelFlag();
         markEngineLockHeldByThisTab();
         startHeartbeat();
         stopPregameStatusPolling();
@@ -13138,6 +13233,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         return true;
       } catch (err) {
         console.error('tryResumeLiveTrifangxFromSnapshot:', err);
+        cancelActiveLiveTrifangxGame({ source: 'resume-failed', silent: true });
         return false;
       }
     }
@@ -13725,9 +13821,14 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         console.log('Engine response:', data);
         if (!data.move) {
           console.log('ERROR: No move returned from engine');
-          // Replaced alert() with UI message
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">No move returned.</span>';
+          gameOver = true;
+          notifyGameFinishedToEngine('error');
+          cancelActiveLiveTrifangxGame({ source: 'engine-no-move', silent: true });
+          setTimeout(function () {
+            showRematchModal('Engine error', 'The engine returned no move. Start a new game from the lobby?');
+          }, 500);
           return;
         }
 
@@ -13740,6 +13841,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           console.error('ERROR: Invalid move returned from engine:', data.move);
           const moveContainer = document.getElementById("move-timer-container");
           moveContainer.innerHTML = 'ENGINE ERROR: <span style="color:red;">Invalid move returned.</span>';
+          gameOver = true;
+          notifyGameFinishedToEngine('error');
+          cancelActiveLiveTrifangxGame({ source: 'engine-invalid-move', silent: true });
+          setTimeout(function () {
+            showRematchModal('Engine error', 'The engine returned an invalid move. Start a new game from the lobby?');
+          }, 500);
           return;
         }
         clearPendingEngineMove();
@@ -13947,9 +14054,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         console.error('Engine connection error:', err);
         gameOver = true;
         notifyGameFinishedToEngine('error');
-        releaseEngineOnGameEnd();
-        // Show rematch modal for connection errors
-        setTimeout(() => showRematchModal("⚠️ Connection Error", "Lost connection to engine. Try again?"), 2000);
+        cancelActiveLiveTrifangxGame({ source: 'engine-connection-error', silent: true });
+        setTimeout(function () {
+          showRematchModal(
+            'Connection error',
+            'Lost connection to the engine. Start a new game from the lobby?'
+          );
+        }, 500);
       } finally {
         try {
           if (engineMoveAbortController === localAbort) {
