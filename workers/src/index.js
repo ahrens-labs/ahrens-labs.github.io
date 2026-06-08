@@ -4615,8 +4615,9 @@ async function handleAdminChessLoadForUser(request, env, corsHeaders) {
   }
 
   const gameHistory = Array.isArray(chessData.gameHistory) ? chessData.gameHistory : [];
-  const stats = chessData.stats && typeof chessData.stats === 'object' ? chessData.stats : {};
-  const ps = stats.playerStats && typeof stats.playerStats === 'object' ? stats.playerStats : {};
+  const floorPs = playerStatsWithGameHistoryFloor(chessData);
+  const games = playerGamesCountFromStats(floorPs);
+  const points = leaderboardCareerPointsFromChess(chessData, games);
 
   return new Response(
     JSON.stringify({
@@ -4626,11 +4627,11 @@ async function handleAdminChessLoadForUser(request, env, corsHeaders) {
       email: resolved.email || '',
       gameHistory,
       gameCount: gameHistory.length,
-      points: Number(chessData.points) || 0,
+      points,
       playerStats: {
-        wins: Math.max(0, Math.floor(Number(ps.wins) || 0)),
-        losses: Math.max(0, Math.floor(Number(ps.losses) || 0)),
-        draws: Math.max(0, Math.floor(Number(ps.draws) || 0)),
+        wins: floorPs.wins,
+        losses: floorPs.losses,
+        draws: floorPs.draws,
       },
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -5818,6 +5819,38 @@ function rebuildPlayerStatsFloorFromGameHistory(gameHistory, existingPs) {
   };
 }
 
+/** Wins/losses/draws for display — never below what synced `gameHistory` proves. */
+function playerStatsWithGameHistoryFloor(chess) {
+  const ps = chess?.stats?.playerStats || {};
+  const hist = Array.isArray(chess?.gameHistory) ? chess.gameHistory : [];
+  if (!hist.length) {
+    return {
+      wins: Math.max(0, Math.floor(Number(ps.wins) || 0)),
+      losses: Math.max(0, Math.floor(Number(ps.losses) || 0)),
+      draws: Math.max(0, Math.floor(Number(ps.draws) || 0)),
+    };
+  }
+  return rebuildPlayerStatsFloorFromGameHistory(hist, ps);
+}
+
+function playerGamesCountFromStats(ps) {
+  return (
+    Math.max(0, Math.floor(Number(ps?.wins) || 0)) +
+    Math.max(0, Math.floor(Number(ps?.losses) || 0)) +
+    Math.max(0, Math.floor(Number(ps?.draws) || 0))
+  );
+}
+
+/** Career leaderboard points — achievement pts + season bonus, but not without recorded play. */
+function leaderboardCareerPointsFromChess(chess, gamesPlayed) {
+  const histLen = Array.isArray(chess?.gameHistory) ? chess.gameHistory.length : 0;
+  const games = Math.max(0, Math.floor(Number(gamesPlayed) || 0));
+  if (games <= 0 && histLen <= 0) return 0;
+  const careerPts = Math.max(0, Math.floor(Number(chess?.points) || 0));
+  const seasonBonus = Math.max(0, Math.floor(Number(chess?.seasonBonusPoints) || 0));
+  return careerPts + seasonBonus;
+}
+
 function pickBestChessCareerBackup(chess) {
   const candidates = [];
   if (chess.careerStatsBackup && typeof chess.careerStatsBackup === 'object') {
@@ -5885,24 +5918,27 @@ function repairChessCareerStatsInPlace(chess) {
   }
 
   const hist = Array.isArray(chess.gameHistory) ? chess.gameHistory : [];
+  if (hist.length > 0) {
+    const prevPs = chess.stats.playerStats || {};
+    const prevGames = playerGamesCountFromStats(prevPs);
+    const floorPs = rebuildPlayerStatsFloorFromGameHistory(hist, prevPs);
+    const floorGames = playerGamesCountFromStats(floorPs);
+    if (floorGames > prevGames) {
+      chess.stats.playerStats = floorPs;
+      const prevLt = chess.stats.lifetimeStats;
+      const lt = prevLt && typeof prevLt === 'object' ? { ...prevLt } : {};
+      lt.totalGamesPlayed = Math.max(Number(lt.totalGamesPlayed) || 0, floorGames, hist.length);
+      chess.stats.lifetimeStats = lt;
+      return { repaired: true, source: 'gameHistory-floor', needsClientReplay: true };
+    }
+  }
+
   const achKeys = chess.achievements && typeof chess.achievements === 'object' ? Object.keys(chess.achievements) : [];
   const achCount = achKeys.filter((k) => {
     const v = chess.achievements[k];
     return v === true || v === 1 || (v && typeof v === 'object');
   }).length;
-  const looksWiped = prevScore < 150 && (hist.length >= 2 || achCount >= 4);
-
-  if (looksWiped && hist.length >= 2) {
-    const floorPs = rebuildPlayerStatsFloorFromGameHistory(hist, chess.stats.playerStats);
-    const games = floorPs.wins + floorPs.losses + floorPs.draws;
-    if (games >= 2) {
-      chess.stats.playerStats = floorPs;
-      const lt = prevLt && typeof prevLt === 'object' ? { ...prevLt } : {};
-      lt.totalGamesPlayed = Math.max(Number(lt.totalGamesPlayed) || 0, games, hist.length);
-      chess.stats.lifetimeStats = lt;
-      return { repaired: true, source: 'gameHistory-floor', needsClientReplay: true };
-    }
-  }
+  const looksWiped = chessLifetimeCareerScore(prevLt, chess.stats.playerStats) < 150 && (hist.length >= 2 || achCount >= 4);
 
   return { repaired: false, source: null, needsClientReplay: looksWiped && hist.length >= 2 };
 }
@@ -6999,14 +7035,12 @@ async function removeChessLeaderboardUser(kv, userId) {
 function extractChessLeaderboardStatsFromProfile(row) {
   if (!row || typeof row !== 'object') return null;
   const chess = row.games?.chess;
-  const careerPts = Math.max(0, Math.floor(Number(chess?.points) || 0));
-  const seasonBonus = Math.max(0, Math.floor(Number(chess?.seasonBonusPoints) || 0));
-  const points = careerPts + seasonBonus;
-  const ps = chess?.stats?.playerStats || {};
-  const wins = Math.max(0, Number(ps.wins) || 0);
-  const losses = Math.max(0, Number(ps.losses) || 0);
-  const draws = Math.max(0, Number(ps.draws) || 0);
+  const floorPs = playerStatsWithGameHistoryFloor(chess);
+  const wins = floorPs.wins;
+  const losses = floorPs.losses;
+  const draws = floorPs.draws;
   const games = wins + losses + draws;
+  const points = leaderboardCareerPointsFromChess(chess, games);
   const ltRaw = chess?.stats?.lifetimeStats;
   const lt = ltRaw && typeof ltRaw === 'object' ? ltRaw : {};
   const captures = Math.max(0, Number(lt.totalCaptures) || 0);
@@ -7024,7 +7058,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
     LEADERBOARD_RECENT_GAMES_WINDOW_MS,
     Date.now()
   );
-  const {
+  let {
     weekPoints,
     weekWins,
     weekLosses,
@@ -7036,6 +7070,7 @@ function extractChessLeaderboardStatsFromProfile(row) {
     weekPromotions,
     weekCastlingMoves,
   } = recent;
+  if (weekGames <= 0) weekPoints = 0;
 
   return {
     username,
@@ -10100,9 +10135,11 @@ export class UserAccount {
     const userData = await this.storage.get('userData');
     if (!userData) return;
     const userId = this.state.id.toString();
-    const points = Math.max(0, Math.floor(Number(userData.games?.chess?.points) || 0));
-    const sb = Math.max(0, Math.floor(Number(userData.games?.chess?.seasonBonusPoints) || 0));
-    await upsertChessLeaderboardEntry(kv, userId, userData.username, points + sb);
+    const chess = userData.games?.chess;
+    const floorPs = playerStatsWithGameHistoryFloor(chess);
+    const games = playerGamesCountFromStats(floorPs);
+    const points = leaderboardCareerPointsFromChess(chess, games);
+    await upsertChessLeaderboardEntry(kv, userId, userData.username, points);
   }
 
   async getChessData() {
