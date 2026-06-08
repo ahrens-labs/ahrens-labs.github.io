@@ -56,7 +56,7 @@ Cloudflare is rejecting the **To** address. Your `/api/debug` can show `transact
 
 ## Digest subscriptions
 
-The site page `sports-digest.html` saves preferences via `POST /api/sports-digest-preferences` and stores subscriber rows in **KV** for the separate `sports-digest` worker.
+The site page `digest.html` saves preferences via `POST /api/sports-digest-preferences` and stores subscriber rows in **KV** for the separate `sports-digest` worker.
 
 1. Create a shared KV namespace (once):
    ```bash

@@ -17,7 +17,7 @@ const PROTECTED_PAGE_BASENAMES = [
     'achievements',
     'dungeon_game',
     'classify',
-    'sports-digest',
+    'digest',
     'tether'
 ];
 

@@ -137,6 +137,8 @@ export default {
         return handleAdminSendWelcomeToUser(request, env, corsHeaders);
       } else if (path === '/api/admin/send-custom-email-to-user' && request.method === 'POST') {
         return handleAdminSendCustomEmailToUser(request, env, corsHeaders);
+      } else if (path === '/api/admin/send-email-to-group' && request.method === 'POST') {
+        return handleAdminSendEmailToGroup(request, env, corsHeaders);
       } else if (path === '/api/admin/send-all-test-emails' && request.method === 'POST') {
         return handleAdminSendAllTestEmails(request, env, corsHeaders);
       } else if (path === '/api/admin/send-test-email' && request.method === 'POST') {
@@ -7136,7 +7138,7 @@ async function sendWelcomeGuideEmail(env, email, username, sendOptions = {}) {
   const classifyUrl = `${base}/classify.html`;
   const dungeonUrl = `${base}/dungeon_game.html`;
   const kyrachyngUrl = `${base}/kyrachyng-lessons.html`;
-  const sportsDigestUrl = `${base}/sports-digest.html`;
+  const sportsDigestUrl = `${base}/digest.html`;
   const codingLabUrl = `${base}/coding-lab.html`;
   const homeUrl = `${base}/`;
   const emailInnerMax = '720px';
