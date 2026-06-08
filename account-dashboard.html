@@ -498,6 +498,9 @@
       padding: 20px;
       box-sizing: border-box;
     }
+    .dash-modal-backdrop.dash-modal-backdrop--top {
+      z-index: 10200;
+    }
     .dash-modal-backdrop[hidden] {
       display: none !important;
     }
@@ -920,7 +923,7 @@
     <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
   </footer>
 
-  <div id="admin-bulk-confirm-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-bulk-confirm-title">
+  <div id="admin-bulk-confirm-modal" class="dash-modal-backdrop dash-modal-backdrop--top dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-bulk-confirm-title">
     <div class="dash-modal-panel" role="document">
       <h2 id="admin-bulk-confirm-title" class="dash-modal-title">Confirm</h2>
       <p id="admin-bulk-confirm-desc" class="dash-modal-body"></p>
