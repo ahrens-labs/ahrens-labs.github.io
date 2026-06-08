@@ -709,6 +709,7 @@
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
+            The <strong>Digest</strong> column shows TrifangX daily challenge roundup status (profile pref + send list); sports Digest subscribers appear as a second line when set.
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
             Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
           </p>
@@ -2428,9 +2429,20 @@
 
         function digestAdminLabel(a) {
           if (!a || typeof a !== 'object') return 'Off';
+          const parts = [];
+          if (a.dailyChallengeDigestEligible) {
+            let s = 'TrifangX · On';
+            if (a.dailyChallengeDigestKv) s += ' · scheduled';
+            else s += ' · list pending';
+            parts.push(s);
+          } else if (a.dailyChallengeDigestOn) {
+            parts.push('TrifangX · pref on (not eligible)');
+          } else {
+            parts.push('TrifangX · Off');
+          }
           if (a.digestSubscribed) {
             const n = Number(a.digestTeamCount) || 0;
-            let s = 'On · ' + n + ' team' + (n === 1 ? '' : 's');
+            let s = 'Sports · On · ' + n + ' team' + (n === 1 ? '' : 's');
             const freq = a.digestFrequency;
             if (freq && freq !== 'twice_daily') {
               const freqShort = {
@@ -2444,15 +2456,21 @@
             }
             if (a.digestIncludeTopHeadlines) s += ' · top headlines';
             if (a.digestKvActive) s += ' · scheduled';
-            return s;
+            parts.push(s);
+          } else if (a.digestEnabled) {
+            parts.push('Sports · On · no teams');
           }
-          if (a.digestEnabled) return 'On · no teams';
-          return 'Off';
+          return parts.join(' · ');
         }
 
         function digestAdminCellHtml(a) {
           const label = digestAdminLabel(a);
-          const cls = a.digestSubscribed ? 'digest-on' : a.digestEnabled ? 'digest-partial' : '';
+          const cls =
+            a.dailyChallengeDigestEligible || a.digestSubscribed
+              ? 'digest-on'
+              : a.dailyChallengeDigestOn || a.digestEnabled
+                ? 'digest-partial'
+                : '';
           return '<span class="' + cls + '">' + escHtml(label) + '</span>';
         }
 
@@ -2466,7 +2484,7 @@
           const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
           const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
           const rows = adminAccountsAccum.filter((a) => {
-            if (digestOnly && !a.digestSubscribed) return false;
+            if (digestOnly && !a.dailyChallengeDigestEligible && !a.digestSubscribed) return false;
             if (!q) return true;
             const em = (a.email || '').toLowerCase();
             const un = (a.username || '').toLowerCase();
@@ -2514,10 +2532,11 @@
               })
               .join('');
           }
-          const subscribedCount = adminAccountsAccum.filter((a) => a.digestSubscribed).length;
+          const trifangxDigestCount = adminAccountsAccum.filter((a) => a.dailyChallengeDigestEligible).length;
+          const sportsDigestCount = adminAccountsAccum.filter((a) => a.digestSubscribed).length;
           const filtNote = q || digestOnly ? ` · ${rows.length} match filter` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${subscribedCount} Digest subscriber${subscribedCount === 1 ? '' : 's'}${filtNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest${filtNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
         }
@@ -2848,7 +2867,7 @@
             return s;
           };
           const lines = [
-            'username,email,email_verified,user_id,digest_subscribed,digest_teams,digest_frequency,digest_top_headlines,digest_scheduled',
+            'username,email,email_verified,user_id,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
             const vLabel = a.emailVerified === true ? 'yes' : a.emailVerified === false ? 'no' : 'legacy';
@@ -2858,6 +2877,9 @@
                 escCsv(a.email),
                 vLabel,
                 escCsv(a.userId),
+                a.dailyChallengeDigestOn ? 'yes' : 'no',
+                a.dailyChallengeDigestEligible ? 'yes' : 'no',
+                a.dailyChallengeDigestKv ? 'yes' : 'no',
                 a.digestSubscribed ? 'yes' : 'no',
                 escCsv(a.digestTeamCount || 0),
                 escCsv(a.digestFrequency || ''),

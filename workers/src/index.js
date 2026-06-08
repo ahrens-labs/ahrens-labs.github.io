@@ -2227,38 +2227,19 @@ async function handleEmailPreferences(request, env, corsHeaders) {
   let digestWelcomeError = null;
 
   if (env.DAILY_DIGEST_KV) {
-    const key = `sub:${userId}`;
     try {
-      if (prefs.dailyChallengeEmails) {
-        let prev = null;
-        try {
-          prev = await env.DAILY_DIGEST_KV.get(key, 'json');
-        } catch {
-          prev = null;
-        }
-        await env.DAILY_DIGEST_KV.put(
-          key,
-          JSON.stringify({
-            email,
-            username,
-            lastDigestLocalYmd:
-              prev && typeof prev === 'object' && typeof prev.lastDigestLocalYmd === 'string'
-                ? prev.lastDigestLocalYmd
-                : undefined,
-          })
-        );
+      await syncDailyDigestKvSubscriber(env, userId, fresh);
 
-        // First-time opt-in: send today's list immediately so users are not waiting for the next daily send.
-        // Set lastDigestLocalYmd to today's digest calendar date (UTC) so the scheduled job does not duplicate the same day.
-        const digestOptIn =
-          hasEmails &&
-          body.dailyChallengeEmails === true &&
-          !wasDigestOn &&
-          prefs.dailyChallengeEmails === true &&
-          hasConfirmedEmailForProductMail(fresh) &&
-          email &&
-          isLikelyRealEmail(email);
-        if (digestOptIn) {
+      // First-time opt-in: send today's list immediately so users are not waiting for the next daily send.
+      const digestOptIn =
+        hasEmails &&
+        body.dailyChallengeEmails === true &&
+        !wasDigestOn &&
+        prefs.dailyChallengeEmails === true &&
+        shouldReceiveDailyChallengeDigest(fresh) &&
+        email &&
+        isLikelyRealEmail(email);
+      if (digestOptIn) {
           const now = new Date();
           const digestYmd = utcDateString(now);
           const ids = getDailyChallengeIdsForUtcDate(digestYmd);
@@ -2280,9 +2261,6 @@ async function handleEmailPreferences(request, env, corsHeaders) {
             console.error('digest opt-in welcome send failed:', digestWelcomeError);
           }
         }
-      } else {
-        await env.DAILY_DIGEST_KV.delete(key);
-      }
     } catch (e) {
       console.error('email-preferences KV update failed:', e?.message || e);
       return new Response(
@@ -2842,9 +2820,9 @@ async function handleGetUser(request, env, corsHeaders) {
   }
 
   try {
-    await ensureDigestKvSubscriber(env, userResult.userId, userData);
+    await syncDailyDigestKvSubscriber(env, userResult.userId, userData);
   } catch (e) {
-    console.warn('ensureDigestKvSubscriber on getUser failed:', e?.message || e);
+    console.warn('syncDailyDigestKvSubscriber on getUser failed:', e?.message || e);
   }
   try {
     await ensureSportsDigestKvSubscriber(env, userResult.userId, userData);
@@ -3020,16 +2998,35 @@ function hasConfirmedEmailForProductMail(row) {
   return row && row.emailVerified !== false;
 }
 
-/** Keep DAILY_DIGEST_KV `sub:{userId}` in sync when prefs are on (repairs missing keys). */
-async function ensureDigestKvSubscriber(env, userId, profile) {
-  if (!env.DAILY_DIGEST_KV || !userId || !profile || typeof profile !== 'object') return;
+/** Authoritative gate for scheduled TrifangX daily challenge roundup mail. */
+function shouldReceiveDailyChallengeDigest(profile) {
+  if (!profile || typeof profile !== 'object') return false;
   const prefs = profile.emailPreferences || {};
-  if (!prefs.dailyChallengeEmails) return;
-  if (!hasConfirmedEmailForProductMail(profile)) return;
+  if (prefs.dailyChallengeEmails !== true) return false;
+  if (!hasConfirmedEmailForProductMail(profile)) return false;
   const email = normalizeEmail(profile.email || '');
-  if (!email || !isLikelyRealEmail(email)) return;
-  const username = profile.username || 'there';
+  if (!email || !isLikelyRealEmail(email)) return false;
+  return true;
+}
+
+/** Keep DAILY_DIGEST_KV `sub:{userId}` aligned with live email prefs (add or remove). */
+async function syncDailyDigestKvSubscriber(env, userId, profile) {
+  if (!env.DAILY_DIGEST_KV || !userId) return { subscribed: false, changed: false };
   const key = `sub:${userId}`;
+  if (!shouldReceiveDailyChallengeDigest(profile)) {
+    try {
+      const hit = await env.DAILY_DIGEST_KV.get(key);
+      if (hit != null) {
+        await env.DAILY_DIGEST_KV.delete(key);
+        return { subscribed: false, changed: true };
+      }
+    } catch (e) {
+      console.warn('syncDailyDigestKvSubscriber delete failed:', userId, e?.message || e);
+    }
+    return { subscribed: false, changed: false };
+  }
+  const email = normalizeEmail(profile.email || '');
+  const username = profile.username || 'there';
   let prev = null;
   try {
     prev = await env.DAILY_DIGEST_KV.get(key, 'json');
@@ -3042,7 +3039,7 @@ async function ensureDigestKvSubscriber(env, userId, profile) {
     prev.email === email &&
     (prev.username || 'there') === username
   ) {
-    return;
+    return { subscribed: true, changed: false };
   }
   await env.DAILY_DIGEST_KV.put(
     key,
@@ -3055,6 +3052,12 @@ async function ensureDigestKvSubscriber(env, userId, profile) {
           : undefined,
     })
   );
+  return { subscribed: true, changed: true };
+}
+
+/** @deprecated — use syncDailyDigestKvSubscriber */
+async function ensureDigestKvSubscriber(env, userId, profile) {
+  await syncDailyDigestKvSubscriber(env, userId, profile);
 }
 
 function generateUserId(email) {
@@ -3842,6 +3845,35 @@ function adminSportsDigestFields(row) {
   };
 }
 
+function adminTrifangxDailyDigestFields(row) {
+  const prefs = row?.emailPreferences || {};
+  return {
+    dailyChallengeDigestOn: prefs.dailyChallengeEmails === true,
+    dailyChallengeDigestEligible: shouldReceiveDailyChallengeDigest(row),
+    dailyChallengeDigestKv: false,
+  };
+}
+
+async function loadDailyChallengeDigestKvSubscriberIds(env) {
+  const ids = new Set();
+  if (!env.DAILY_DIGEST_KV) return ids;
+  let cursor;
+  for (;;) {
+    const page = await env.DAILY_DIGEST_KV.list({
+      prefix: 'sub:',
+      limit: 1000,
+      ...(cursor ? { cursor } : {}),
+    });
+    for (const { name } of page.keys) {
+      if (name.startsWith('sub:')) ids.add(name.slice(4));
+    }
+    if (page.list_complete) break;
+    cursor = page.cursor;
+    if (!cursor) break;
+  }
+  return ids;
+}
+
 async function loadSportsDigestKvSubscriberIds(env) {
   const ids = new Set();
   if (!env.SPORTS_DIGEST_KV) return ids;
@@ -3862,13 +3894,17 @@ async function loadSportsDigestKvSubscriberIds(env) {
   return ids;
 }
 
-function enrichAdminAccountsDigestKv(accounts, kvIds) {
-  if (!Array.isArray(accounts) || !kvIds) return;
+function enrichAdminAccountsDigestKv(accounts, sportsKvIds, dailyKvIds) {
+  if (!Array.isArray(accounts)) return;
   for (const acc of accounts) {
     if (!acc || typeof acc !== 'object') continue;
     const uid = (acc.userId || '').trim();
     const doUid = (acc.doUserId || '').trim();
-    acc.digestKvActive = kvIds.has(uid) || (doUid ? kvIds.has(doUid) : false);
+    const inSports = sportsKvIds && (sportsKvIds.has(uid) || (doUid ? sportsKvIds.has(doUid) : false));
+    const inDaily =
+      dailyKvIds && (dailyKvIds.has(uid) || (doUid ? dailyKvIds.has(doUid) : false));
+    acc.digestKvActive = !!inSports;
+    acc.dailyChallengeDigestKv = !!inDaily;
   }
 }
 
@@ -3899,6 +3935,7 @@ function adminAccountRowFromProfile(row, opts) {
     email: emailNorm,
     emailVerified: ev,
     legacyEmailInferred: legacyEmailInferred || undefined,
+    ...adminTrifangxDailyDigestFields(row),
     ...adminSportsDigestFields(row),
   };
 }
@@ -4327,8 +4364,9 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
 
     const { accounts, skippedMissingData } = await resolveAdminAccountRowsFromStubs(stubs);
     const merged = await supplementAdminAccountRows(env, accounts, ensureEmails);
-    const digestKvIds = await loadSportsDigestKvSubscriberIds(env);
-    enrichAdminAccountsDigestKv(merged, digestKvIds);
+    const sportsKvIds = await loadSportsDigestKvSubscriberIds(env);
+    const dailyKvIds = await loadDailyChallengeDigestKvSubscriberIds(env);
+    enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
 
     return new Response(
       JSON.stringify({
@@ -4373,8 +4411,9 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     ensureEmails.length > 0
       ? await supplementAdminAccountRows(env, accounts, ensureEmails)
       : accounts;
-  const digestKvIds = await loadSportsDigestKvSubscriberIds(env);
-  enrichAdminAccountsDigestKv(merged, digestKvIds);
+  const sportsKvIds = await loadSportsDigestKvSubscriberIds(env);
+  const dailyKvIds = await loadDailyChallengeDigestKvSubscriberIds(env);
+  enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
 
   return new Response(
     JSON.stringify({
@@ -4553,9 +4592,26 @@ async function handleAdminVerifyUserEmail(request, env, corsHeaders) {
     );
   }
 
+  await syncDailyDigestKvAfterAdminVerify(env, resolved);
+
   return new Response(JSON.stringify({ success: true, alreadyVerified: !!result.alreadyVerified }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+async function syncDailyDigestKvAfterAdminVerify(env, resolved) {
+  if (!resolved?.userId) return;
+  try {
+    const stub = userAccountStubFromUserId(env, resolved.userId);
+    if (!stub) return;
+    const dataRes = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    const row = await dataRes.json();
+    if (row && typeof row === 'object') {
+      await syncDailyDigestKvSubscriber(env, resolved.userId, row);
+    }
+  } catch (e) {
+    console.warn('syncDailyDigestKvSubscriber after admin verify failed:', e?.message || e);
+  }
 }
 
 /**
@@ -7794,35 +7850,33 @@ async function handleScheduledCron(event, env) {
         if (!raw || typeof raw.email !== 'string') continue;
 
         const userIdFromKey = name.startsWith('sub:') ? name.slice(4) : '';
-        if (userIdFromKey) {
-          try {
-            const profileDoId = env.USER_ACCOUNT.idFromName(userIdFromKey);
-            const profileStub = env.USER_ACCOUNT.get(profileDoId);
-            const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
-            const profile = await profRes.json();
-            if (!hasConfirmedEmailForProductMail(profile)) {
-              skipped++;
-              continue;
-            }
-            const liveEmail = normalizeEmail(profile.email || raw.email || '');
-            if (!liveEmail || !isLikelyRealEmail(liveEmail)) {
-              skipped++;
-              continue;
-            }
-            raw.email = liveEmail;
-            if (profile.username) raw.username = profile.username;
-          } catch (profileErr) {
-            skipped++;
-            console.error('Digest cron profile load failed', userIdFromKey, profileErr?.message || profileErr);
-            continue;
-          }
-        } else {
-          const legacyTo = normalizeEmail(raw.email || '');
-          if (!legacyTo || !isLikelyRealEmail(legacyTo)) {
+        if (!userIdFromKey) {
+          skipped++;
+          continue;
+        }
+        try {
+          const profileDoId = env.USER_ACCOUNT.idFromName(userIdFromKey);
+          const profileStub = env.USER_ACCOUNT.get(profileDoId);
+          const profRes = await profileStub.fetch(new Request('http://do/getData', { method: 'GET' }));
+          const profile = await profRes.json();
+          if (!shouldReceiveDailyChallengeDigest(profile)) {
+            await env.DAILY_DIGEST_KV.delete(name);
             skipped++;
             continue;
           }
-          raw.email = legacyTo;
+          const liveEmail = normalizeEmail(profile.email || raw.email || '');
+          if (!liveEmail || !isLikelyRealEmail(liveEmail)) {
+            await env.DAILY_DIGEST_KV.delete(name);
+            skipped++;
+            continue;
+          }
+          raw.email = liveEmail;
+          if (profile.username) raw.username = profile.username;
+          await syncDailyDigestKvSubscriber(env, userIdFromKey, profile);
+        } catch (profileErr) {
+          skipped++;
+          console.error('Digest cron profile load failed', userIdFromKey, profileErr?.message || profileErr);
+          continue;
         }
 
         if (raw.lastDigestLocalYmd === digestYmd) {
@@ -7841,12 +7895,6 @@ async function handleScheduledCron(event, env) {
         if (!result.sent) {
           skipped++;
           continue;
-        }
-        if (!userIdFromKey) {
-          await env.DAILY_DIGEST_KV.put(
-            name,
-            JSON.stringify({ email: raw.email, username: raw.username, lastDigestLocalYmd: digestYmd })
-          );
         }
         sent++;
       } catch (e) {
@@ -8288,6 +8336,11 @@ async function handleVerifyEmail(request, env, corsHeaders, executionCtx) {
     }
   }
 
+  try {
+    await syncDailyDigestKvSubscriber(env, userId, userRow);
+  } catch (e) {
+    console.warn('syncDailyDigestKvSubscriber after verify failed:', e?.message || e);
+  }
   try {
     await ensureSportsDigestKvSubscriber(env, userId, userRow);
   } catch (e) {
