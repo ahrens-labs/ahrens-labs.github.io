@@ -301,26 +301,77 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .admin-accounts-table.admin-accounts-compact .c-ver { width: 7%; }
-    .admin-accounts-table.admin-accounts-compact .c-digest {
-      width: 14%;
-      font-size: 0.78rem;
-      line-height: 1.35;
-      color: #334155;
-    }
-    .admin-accounts-table.admin-accounts-compact .c-digest .digest-on {
-      color: #15803d;
-      font-weight: 700;
-    }
-    .admin-accounts-table.admin-accounts-compact .c-digest .digest-partial {
-      color: #b45309;
-      font-weight: 600;
-    }
+    .admin-accounts-table.admin-accounts-compact .c-ver { width: 8%; }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 33%;
+      width: 42%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
+    .admin-acct-active-count {
+      display: inline-block;
+      min-width: 1.1rem;
+      margin-right: 4px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-align: center;
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    .admin-acct-active-count.has-active {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .admin-account-details-body {
+      margin: 0 0 4px 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #334155;
+    }
+    .admin-account-details-section {
+      margin: 0 0 16px 0;
+      padding: 12px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .admin-account-details-section h3 {
+      margin: 0 0 10px 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+    }
+    .admin-account-details-dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(9rem, 38%) 1fr;
+      gap: 6px 12px;
+      font-size: 0.84rem;
+    }
+    .admin-account-details-dl dt {
+      margin: 0;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .admin-account-details-dl dd {
+      margin: 0;
+      color: #0f172a;
+      word-break: break-word;
+    }
+    .admin-detail-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+    .admin-detail-pill.on { background: #dcfce7; color: #15803d; }
+    .admin-detail-pill.partial { background: #fef3c7; color: #b45309; }
+    .admin-detail-pill.off { background: #f1f5f9; color: #64748b; }
     .btn-admin-row {
       padding: 4px 9px;
       font-size: 0.72rem;
@@ -709,7 +760,7 @@
             <strong>Welcome</strong> and <strong>custom</strong> emails are sent <strong>from caleb@ahrenslabs.com</strong> (same as broadcast).
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
-            The <strong>Digest</strong> column shows TrifangX daily challenge roundup status (profile pref + send list); sports Digest subscribers appear as a second line when set.
+            Use <strong>Details</strong> on each row to see TrifangX daily roundup and sports Digest subscriptions for that account.
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
             Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
           </p>
@@ -743,12 +794,11 @@
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
                   <th scope="col" class="c-ver">Verified</th>
-                  <th scope="col" class="c-digest">Digest</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="4" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -875,6 +925,17 @@
         <button type="button" class="btn btn-danger" id="admin-delete-confirm">Delete account</button>
       </div>
       <p class="status" id="admin-delete-status" style="margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <div id="admin-account-details-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-account-details-title">
+    <div class="dash-modal-panel dash-modal-panel-wide" role="document">
+      <h2 id="admin-account-details-title" class="dash-modal-title">Account details</h2>
+      <p class="admin-account-details-body" id="admin-account-details-subtitle"></p>
+      <div id="admin-account-details-content"></div>
+      <div class="dash-modal-actions">
+        <button type="button" class="btn btn-primary" id="admin-account-details-close">Close</button>
+      </div>
     </div>
   </div>
 
@@ -2427,6 +2488,137 @@
           }
         }
 
+        function adminDetailPill(on, partial) {
+          if (on) return '<span class="admin-detail-pill on">Active</span>';
+          if (partial) return '<span class="admin-detail-pill partial">Partial</span>';
+          return '<span class="admin-detail-pill off">Off</span>';
+        }
+
+        function adminDetailRow(label, valueHtml) {
+          return '<dt>' + escHtml(label) + '</dt><dd>' + valueHtml + '</dd>';
+        }
+
+        function activeSubscriptionCount(a) {
+          if (!a || typeof a !== 'object') return 0;
+          let n = 0;
+          if (a.dailyChallengeDigestEligible) n++;
+          if (a.digestSubscribed) n++;
+          return n;
+        }
+
+        function findAdminAccountByKeys(userId, email) {
+          const uid = (userId || '').trim().toLowerCase();
+          const em = (email || '').trim().toLowerCase();
+          return (
+            adminAccountsAccum.find((a) => {
+              if (!a) return false;
+              if (uid) {
+                if ((a.userId || '').toLowerCase() === uid) return true;
+                if ((a.doUserId || '').toLowerCase() === uid) return true;
+              }
+              if (em && (a.email || '').toLowerCase() === em) return true;
+              return false;
+            }) || null
+          );
+        }
+
+        function buildAdminAccountDetailsHtml(a) {
+          if (!a || typeof a !== 'object') return '';
+          const trifangxOn = !!a.dailyChallengeDigestEligible;
+          const trifangxPartial = !trifangxOn && !!a.dailyChallengeDigestOn;
+          const sportsOn = !!a.digestSubscribed;
+          const sportsPartial = !sportsOn && !!a.digestEnabled;
+          const freqLabel =
+            a.digestFrequency && a.digestFrequency !== 'twice_daily'
+              ? String(a.digestFrequency)
+              : a.digestEnabled
+                ? 'twice daily (default)'
+                : '—';
+
+          let accountHtml =
+            '<section class="admin-account-details-section"><h3>Account</h3><dl class="admin-account-details-dl">';
+          accountHtml += adminDetailRow('Email', a.email ? escHtml(a.email) : '—');
+          accountHtml += adminDetailRow('Username', a.username ? escHtml(a.username) : '—');
+          accountHtml += adminDetailRow('User ID', a.userId ? '<code>' + escHtml(a.userId) + '</code>' : '—');
+          if (a.doUserId && a.doUserId !== a.userId) {
+            accountHtml += adminDetailRow('DO ID', '<code>' + escHtml(a.doUserId) + '</code>');
+          }
+          accountHtml += adminDetailRow('Email verified', escHtml(verifiedLabel(a.emailVerified)));
+          if (a.legacyEmailInferred) {
+            accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
+          }
+          accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section"><h3>TrifangX daily challenge roundup</h3><dl class="admin-account-details-dl">';
+          accountHtml += adminDetailRow('Status', adminDetailPill(trifangxOn, trifangxPartial));
+          accountHtml += adminDetailRow(
+            'Preference saved',
+            a.dailyChallengeDigestOn ? 'On' : 'Off'
+          );
+          accountHtml += adminDetailRow(
+            'Eligible to receive',
+            a.dailyChallengeDigestEligible
+              ? 'Yes — verified email with roundup turned on'
+              : a.dailyChallengeDigestOn
+                ? 'No — needs verified deliverable email'
+                : 'No'
+          );
+          accountHtml += adminDetailRow(
+            'On daily send list',
+            a.dailyChallengeDigestKv
+              ? 'Yes — scheduled for automatic daily email'
+              : a.dailyChallengeDigestEligible
+                ? 'Not yet — will sync on next account load'
+                : 'No'
+          );
+          accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section"><h3>Sports digest</h3><dl class="admin-account-details-dl">';
+          accountHtml += adminDetailRow('Status', adminDetailPill(sportsOn, sportsPartial));
+          accountHtml += adminDetailRow('Enabled in preferences', a.digestEnabled ? 'Yes' : 'No');
+          accountHtml += adminDetailRow(
+            'Subscribed',
+            sportsOn
+              ? 'Yes — ' + (Number(a.digestTeamCount) || 0) + ' team(s) selected'
+              : a.digestEnabled
+                ? 'No — enabled but no teams chosen'
+                : 'No'
+          );
+          accountHtml += adminDetailRow('Frequency', escHtml(freqLabel));
+          accountHtml += adminDetailRow(
+            'Top headlines',
+            a.digestIncludeTopHeadlines ? 'Included' : 'Not included'
+          );
+          accountHtml += adminDetailRow(
+            'On sports send list',
+            a.digestKvActive ? 'Yes — scheduled' : sportsOn ? 'Not yet — will sync on next load' : 'No'
+          );
+          accountHtml += '</dl></section>';
+
+          return accountHtml;
+        }
+
+        function openAdminAccountDetailsModal(account) {
+          const modal = document.getElementById('admin-account-details-modal');
+          const subtitle = document.getElementById('admin-account-details-subtitle');
+          const content = document.getElementById('admin-account-details-content');
+          if (!modal || !content || !account) return;
+          const label = account.username || account.email || account.userId || 'Account';
+          if (subtitle) {
+            subtitle.textContent = label + (account.email && account.username ? ' · ' + account.email : '');
+          }
+          content.innerHTML = buildAdminAccountDetailsHtml(account);
+          modal.hidden = false;
+          document.getElementById('admin-account-details-close')?.focus();
+        }
+
+        function closeAdminAccountDetailsModal() {
+          const modal = document.getElementById('admin-account-details-modal');
+          if (modal) modal.hidden = true;
+        }
+
         function digestAdminLabel(a) {
           if (!a || typeof a !== 'object') return 'Off';
           const parts = [];
@@ -2463,17 +2655,6 @@
           return parts.join(' · ');
         }
 
-        function digestAdminCellHtml(a) {
-          const label = digestAdminLabel(a);
-          const cls =
-            a.dailyChallengeDigestEligible || a.digestSubscribed
-              ? 'digest-on'
-              : a.dailyChallengeDigestOn || a.digestEnabled
-                ? 'digest-partial'
-                : '';
-          return '<span class="' + cls + '">' + escHtml(label) + '</span>';
-        }
-
         function renderAdminAccountsTable() {
           const tbody = document.getElementById('admin-accounts-tbody');
           const meta = document.getElementById('admin-accounts-meta');
@@ -2498,7 +2679,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="5" style="color:#94a3b8;">' +
+              '<tr><td colspan="4" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -2514,6 +2695,16 @@
                   : a.legacyEmailInferred
                     ? '<span title="Email inferred from signup slot lookup">— (legacy)</span>'
                     : '—';
+                const activeN = activeSubscriptionCount(a);
+                const activeBadge =
+                  '<span class="admin-acct-active-count' +
+                  (activeN ? ' has-active' : '') +
+                  '" title="' +
+                  escHtml(activeN ? activeN + ' active subscription(s)' : 'No active subscriptions') +
+                  '">' +
+                  (activeN || '—') +
+                  '</span>';
+                const detailsBtn = `<button type="button" class="btn-admin-row admin-acct-details" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" title="View subscriptions and account info">Details</button>`;
                 const verifyBtn =
                   a.emailVerified === true
                     ? '<button type="button" class="btn-admin-row" disabled title="Already verified">Verify</button>'
@@ -2526,8 +2717,7 @@
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
-                  `<td class="c-digest" title="${escHtml(digestAdminLabel(a))}">${digestAdminCellHtml(a)}</td>` +
-                  `<td class="c-act">${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
+                  `<td class="c-act">${activeBadge}${detailsBtn}${verifyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
               .join('');
@@ -2616,15 +2806,21 @@
         }
 
         document.getElementById('admin-accounts-tbody')?.addEventListener('click', (e) => {
+          const details = e.target && e.target.closest && e.target.closest('.admin-acct-details');
           const verify = e.target && e.target.closest && e.target.closest('.admin-acct-verify');
           const welcome = e.target && e.target.closest && e.target.closest('.admin-acct-welcome');
           const custom = e.target && e.target.closest && e.target.closest('.admin-acct-custom');
           const del = e.target && e.target.closest && e.target.closest('.admin-acct-delete');
-          const btn = verify || welcome || custom || del;
+          const btn = details || verify || welcome || custom || del;
           if (!btn) return;
           const uid = (btn.getAttribute('data-admin-user-id') || '').trim();
           const em = (btn.getAttribute('data-admin-email') || '').trim();
           const un = (btn.getAttribute('data-admin-username') || '').trim();
+          if (details) {
+            const account = findAdminAccountByKeys(uid, em);
+            if (account) openAdminAccountDetailsModal(account);
+            return;
+          }
           const payload = {};
           if (uid) payload.userId = uid;
           if (em) payload.email = em;
@@ -2655,6 +2851,14 @@
         });
         document.getElementById('admin-delete-confirm')?.addEventListener('click', () => {
           confirmAdminDeleteAccount();
+        });
+
+        const adminDetailsModal = document.getElementById('admin-account-details-modal');
+        document.getElementById('admin-account-details-close')?.addEventListener('click', () => {
+          closeAdminAccountDetailsModal();
+        });
+        adminDetailsModal?.addEventListener('click', (e) => {
+          if (e.target === adminDetailsModal) closeAdminAccountDetailsModal();
         });
 
         const adminCustomModal = document.getElementById('admin-custom-email-modal');
