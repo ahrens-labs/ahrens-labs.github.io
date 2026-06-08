@@ -14082,6 +14082,28 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       return out;
     }
 
+    /** Roll stale May (or missing) season saves forward to the live UTC month. */
+    function alignSeasonTrackWithCurrentMonth(chessData) {
+      if (!chessData || typeof chessData !== 'object') return false;
+      const Cs = typeof window !== 'undefined' && window.ChessSeasons;
+      if (!Cs || typeof Cs.ensureSeasonTrackForCurrentMonth !== 'function') return false;
+      const baseline =
+        typeof snapshotSeasonEarnBaselineFromLocalStats === 'function'
+          ? snapshotSeasonEarnBaselineFromLocalStats()
+          : {};
+      const result = Cs.ensureSeasonTrackForCurrentMonth(chessData.seasonTrack, { earnBaseline: baseline });
+      let dirty = false;
+      if (result.changed) {
+        chessData.seasonTrack = result.track;
+        dirty = true;
+      }
+      if (result.dropSavedPreview && chessData.seasonTrackSavedBeforePreview) {
+        delete chessData.seasonTrackSavedBeforePreview;
+        dirty = true;
+      }
+      return dirty;
+    }
+
     /**
      * Reconcile `shopUnlocks` with `seasonTrack.nodesCompleted` (same shop rewards as worker claim).
      * Fixes first-load "locked" when persisted shop lists lag behind claimed season steps.
@@ -14190,6 +14212,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (data.seasonTrack && typeof data.seasonTrack === 'object') {
           cloudChessData.seasonTrack = { ...data.seasonTrack };
         }
+        if (Object.prototype.hasOwnProperty.call(data, 'seasonTrackSavedBeforePreview')) {
+          cloudChessData.seasonTrackSavedBeforePreview = data.seasonTrackSavedBeforePreview;
+        }
         if (Object.prototype.hasOwnProperty.call(data, 'seasonBonusPoints')) {
           cloudChessData.seasonBonusPoints = Math.max(0, Math.floor(Number(data.seasonBonusPoints) || 0));
         }
@@ -14199,6 +14224,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (Array.isArray(data.careerStatsBackups)) {
           cloudChessData.careerStatsBackups = data.careerStatsBackups.slice();
         }
+        hydrateChessCareerStateFromCloud(true);
+        var seasonTrackRolled = alignSeasonTrackWithCurrentMonth(cloudChessData);
         mergeSeasonClaimedShopRewardsIntoShopUnlocks(cloudChessData);
         achievements = Object.keys(cloudChessData.achievements || {}).filter(function (k) {
           const v = cloudChessData.achievements[k];
@@ -14224,6 +14251,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
 
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
+          trifangxScheduleDeferredTask(function () {
+            saveChessDataToCloud(true);
+          });
+        }
+        if (seasonTrackRolled) {
           trifangxScheduleDeferredTask(function () {
             saveChessDataToCloud(true);
           });

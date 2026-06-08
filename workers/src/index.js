@@ -2466,6 +2466,7 @@ async function syncSportsDigestKv(env, userId, profile, prefs) {
     frequency: normalized.frequency,
     customTimes: normalized.frequency === 'custom' ? normalized.customTimes : [],
     customDays: normalized.customDays,
+    includeTopHeadlines: normalized.includeTopHeadlines === true,
     scheduleTimeZone: SPORTS_DIGEST_TIME_ZONE,
     lastSentKeys:
       prev && typeof prev === 'object' && Array.isArray(prev.lastSentKeys)
@@ -2610,11 +2611,17 @@ async function handleSportsDigestSendNow(request, env, corsHeaders) {
   let content;
   // Preview always covers the last 12 hours — not since the last scheduled send.
   const sinceMs = Date.now() - 12 * 60 * 60 * 1000;
+  const previewPrefs = normalizeSportsDigestPrefs(auth.profile.emailPreferences?.sportsDigest);
+  const includeTopHeadlines =
+    typeof body.includeTopHeadlines === 'boolean'
+      ? body.includeTopHeadlines
+      : previewPrefs.includeTopHeadlines;
   try {
     content = await fetchSportsDigestEmailContent(env, {
       teams,
       username: auth.profile.username,
       sinceMs,
+      includeTopHeadlines,
     });
   } catch (e) {
     const msg = e?.message || String(e);
@@ -5687,6 +5694,51 @@ function isValidAdminPreviewSeasonId(seasonId) {
   return open != null && sid === open;
 }
 
+function compareSeasonIdsWorker(a, b) {
+  return String(a || '').trim().localeCompare(String(b || '').trim());
+}
+
+/** Roll stale season saves to the live UTC month; drop May preview stash once June is live. */
+function ensureSeasonTrackAlignedToUtcMonth(chess) {
+  if (!chess || typeof chess !== 'object') return false;
+  const utcSid = utcChessSeasonIdNow();
+  const previewOpen = adminPreviewJuneSeasonIdIfOpen();
+  let st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
+  const stSid = String(st.seasonId || '').trim();
+  let changed = false;
+
+  if (!previewOpen && chess.seasonTrackSavedBeforePreview) {
+    delete chess.seasonTrackSavedBeforePreview;
+    changed = true;
+  }
+
+  if (previewOpen && stSid === previewOpen) {
+    return changed;
+  }
+  if (stSid === utcSid) {
+    return changed;
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(stSid) || compareSeasonIdsWorker(stSid, utcSid) < 0) {
+    const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+    chess.seasonTrack = {
+      seasonId: utcSid,
+      nodesCompleted: 0,
+      lbFlair: sanitizeChessLbFlair(st.lbFlair),
+      lbFlairUnlocked: {
+        frames: uniqStrings(prevOwned.frames || []),
+        titles: uniqStrings(prevOwned.titles || []),
+        prefixes: uniqStrings(prevOwned.prefixes || []),
+        suffixes: uniqStrings(prevOwned.suffixes || []),
+      },
+      earnBaseline: snapshotSeasonEarnBaselineFromChess(chess),
+    };
+    return true;
+  }
+
+  return changed;
+}
+
 function cloneSeasonTrackState(st) {
   if (!st || typeof st !== 'object') return null;
   const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
@@ -7810,6 +7862,8 @@ async function handleSportsDigestScheduledCron(event, env) {
             }
             raw.email = liveEmail;
             if (profile.username) raw.username = profile.username;
+            const livePrefs = normalizeSportsDigestPrefs(profile?.emailPreferences?.sportsDigest);
+            raw.includeTopHeadlines = livePrefs.includeTopHeadlines === true;
           } catch (profileErr) {
             skipped++;
             console.error('Sports digest profile load failed', userIdFromKey, profileErr?.message || profileErr);
@@ -7835,6 +7889,7 @@ async function handleSportsDigestScheduledCron(event, env) {
           teams: raw.teams,
           username: raw.username,
           sinceMs,
+          includeTopHeadlines: raw.includeTopHeadlines === true,
         });
         await dispatchTransactionalEmail(env, {
           to: raw.email,
@@ -9143,6 +9198,8 @@ export class UserAccount {
 
     const chess = userData.games.chess;
 
+    ensureSeasonTrackAlignedToUtcMonth(chess);
+
     if (adminPreviewClaim) {
       if (!isValidAdminPreviewSeasonId(previewSeasonId)) {
         return { success: false, error: 'Invalid or closed preview season' };
@@ -9627,6 +9684,10 @@ export class UserAccount {
 
     userData.games.chess = mergedChess;
 
+    if (ensureSeasonTrackAlignedToUtcMonth(userData.games.chess)) {
+      userData.games.chess.lastUpdated = Date.now();
+    }
+
     const repairResult = repairChessCareerStatsInPlace(userData.games.chess);
     if (repairResult.repaired) {
       console.log('Repaired chess career stats from', repairResult.source);
@@ -9688,6 +9749,7 @@ export class UserAccount {
     const c = userData.games.chess;
     const repairResult = repairChessCareerStatsInPlace(c);
     let previewMigrated = false;
+    const seasonAligned = ensureSeasonTrackAlignedToUtcMonth(c);
     if (c.seasonPreviewTrack && typeof c.seasonPreviewTrack === 'object') {
       const psid = String(c.seasonPreviewTrack.seasonId || '').trim();
       const pstDone = Math.max(0, Math.floor(Number(c.seasonPreviewTrack.nodesCompleted) || 0));
@@ -9705,11 +9767,14 @@ export class UserAccount {
       delete c.seasonPreviewTrack;
       previewMigrated = true;
     }
-    if (repairResult.repaired || previewMigrated) {
+    if (repairResult.repaired || previewMigrated || seasonAligned) {
       userData.games.chess = c;
       await this.storage.put('userData', userData);
       if (repairResult.repaired) {
         console.log('Auto-repaired chess career stats on load from', repairResult.source);
+      }
+      if (seasonAligned) {
+        console.log('Rolled season track forward to', utcChessSeasonIdNow());
       }
     }
     return {

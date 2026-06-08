@@ -29,6 +29,27 @@
                 linear-gradient(165deg, #ecfeff 0%, #f0fdf4 35%, #faf5ff 70%, #fffbeb 100%);
             background-color: #f8fafc;
         }
+        .st-main.st-season-june {
+            background:
+                radial-gradient(ellipse 120% 80% at 50% -30%, rgba(251, 191, 36, 0.22), transparent 55%),
+                radial-gradient(ellipse 90% 60% at 100% 40%, rgba(251, 146, 60, 0.14), transparent 50%),
+                linear-gradient(165deg, #fffbeb 0%, #fef3c7 35%, #fff7ed 70%, #fef9c3 100%);
+            background-color: #fffbeb;
+        }
+        .st-main.st-season-june .st-panel {
+            box-shadow:
+                0 4px 6px rgba(15, 23, 42, 0.04),
+                0 20px 48px rgba(245, 158, 11, 0.12),
+                0 0 0 1px rgba(255, 255, 255, 0.85) inset;
+            border-color: rgba(245, 158, 11, 0.22);
+        }
+        .st-main.st-season-june .st-stat {
+            background: linear-gradient(135deg, rgba(254, 243, 199, 0.55), rgba(253, 230, 138, 0.4));
+            border-color: rgba(245, 158, 11, 0.22);
+        }
+        .st-main.st-season-june .st-stat-value {
+            color: #b45309;
+        }
         .st-hero {
             width: 100vw;
             margin-left: calc(-50vw + 50%);
@@ -981,25 +1002,63 @@
         );
       }
 
-      /** Live-month track when admin is testing a future month (May stash). */
-      function getMainSeasonTrackForDisplay(data, displaySid) {
+      /** Live-month progress while admin is previewing a future month (May UTC only). */
+      function getMainSeasonTrackForDisplay(data, displaySid, CS) {
         var st =
           data && data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
         var stSid = String(st.seasonId || '').trim();
-        var saved =
-          data &&
-          data.seasonTrackSavedBeforePreview &&
-          typeof data.seasonTrackSavedBeforePreview === 'object'
-            ? data.seasonTrackSavedBeforePreview
+        var previewSid =
+          CS && typeof CS.getUpcomingJunePreviewSeasonId === 'function'
+            ? CS.getUpcomingJunePreviewSeasonId()
             : null;
-        if (
-          saved &&
-          String(saved.seasonId || '').trim() === displaySid &&
-          stSid !== displaySid
-        ) {
-          return saved;
+        if (previewSid) {
+          var saved =
+            data &&
+            data.seasonTrackSavedBeforePreview &&
+            typeof data.seasonTrackSavedBeforePreview === 'object'
+              ? data.seasonTrackSavedBeforePreview
+              : null;
+          if (
+            saved &&
+            String(saved.seasonId || '').trim() === displaySid &&
+            stSid === previewSid
+          ) {
+            return saved;
+          }
         }
-        return st;
+        if (stSid === displaySid) return st;
+        return { seasonId: displaySid, nodesCompleted: 0, earnBaseline: {} };
+      }
+
+      function seasonThemePanelHtml(theme) {
+        if (!theme || !theme.name) return '';
+        var isJune = theme.key === 'june_solstice_gold';
+        var panelStyle = isJune
+          ? 'margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9));border-color:rgba(245,158,11,0.35)'
+          : 'margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(236,253,245,0.95),rgba(224,242,254,0.9));border-color:rgba(20,184,166,0.35)';
+        var labelColor = isJune ? '#b45309' : '#0f766e';
+        return (
+          '<div class="st-panel" style="' +
+          panelStyle +
+          '">' +
+          '<p style="margin:0 0 0.35rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;color:' +
+          labelColor +
+          ';font-weight:700">Month theme</p>' +
+          '<p style="margin:0 0 0.5rem;font-family:Orbitron,sans-serif;font-size:1.15rem;color:#0f172a;font-weight:800">' +
+          escapeHtml(theme.name) +
+          '</p>' +
+          '<p style="margin:0;font-size:0.92rem;color:#475569;line-height:1.55">' +
+          escapeHtml(theme.tagline) +
+          '</p></div>'
+        );
+      }
+
+      function applySeasonPageChrome(meta) {
+        var main = document.querySelector('.st-main');
+        if (!main) return;
+        var isJune =
+          meta && meta.theme && meta.theme.key === 'june_solstice_gold';
+        main.classList.toggle('st-season-june', !!isJune);
       }
 
       /** Preview progress uses the real `seasonTrack` once admin has started the preview month. */
@@ -1184,10 +1243,13 @@
         }
 
         var currentSid = CS.getChessSeasonIdUtc();
-        var stMain = getMainSeasonTrackForDisplay(data, currentSid);
-        var cloudSid = String(stMain.seasonId || '').trim();
-        var displaySid = /^\d{4}-\d{2}$/.test(cloudSid) ? cloudSid : currentSid;
+        var displaySid = currentSid;
+        var stMain = getMainSeasonTrackForDisplay(data, displaySid, CS);
+        var cloudSid = String(
+          (data.seasonTrack && data.seasonTrack.seasonId) || ''
+        ).trim();
         var meta = CS.getChessSeasonTrack(displaySid);
+        applySeasonPageChrome(meta);
         var nodes = meta.nodes;
         var bounds = meta.bounds;
 
@@ -1198,10 +1260,11 @@
 
         var flair = stMain.lbFlair && typeof stMain.lbFlair === 'object' ? stMain.lbFlair : {};
         var mainTrackData = Object.assign({}, data, { seasonTrack: stMain });
-        var liveTrackSid = String(
-          (data.seasonTrack && data.seasonTrack.seasonId) || ''
-        ).trim();
-        var previewActiveOnSave = liveTrackSid && liveTrackSid !== currentSid;
+        var previewSid =
+          typeof CS.getUpcomingJunePreviewSeasonId === 'function'
+            ? CS.getUpcomingJunePreviewSeasonId()
+            : null;
+        var previewActiveOnSave = !!(previewSid && cloudSid === previewSid);
         var flairLine = '';
         if (flair.title || flair.prefix || flair.suffix || flair.frame) {
           flairLine =
@@ -1215,25 +1278,12 @@
         var syncNote = '';
         if (cloudSid && cloudSid !== currentSid) {
           syncNote =
-            '<p class="st-note"><strong>Note:</strong> Your cloud save still shows season <code>' +
+            '<p class="st-note"><strong>Note:</strong> Your save was still on season <code>' +
             escapeHtml(cloudSid) +
-            '</code> while this page is showing <code>' +
-            escapeHtml(currentSid) +
-            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to refresh your save, or claim a step below to align the track. The timeline below matches your save’s season.</p>';
+            '</code>. Open <a href="chess_engine.html">TrifangX</a> once while signed in to sync the new month, or claim a step below to refresh.</p>';
         }
 
-        var themeHtml = '';
-        if (meta.theme && meta.theme.name) {
-          themeHtml =
-            '<div class="st-panel" style="margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(236,253,245,0.95),rgba(224,242,254,0.9));border-color:rgba(20,184,166,0.35)">' +
-            '<p style="margin:0 0 0.35rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;color:#0f766e;font-weight:700">Month theme</p>' +
-            '<p style="margin:0 0 0.5rem;font-family:Orbitron,sans-serif;font-size:1.15rem;color:#0f172a;font-weight:800">' +
-            escapeHtml(meta.theme.name) +
-            '</p>' +
-            '<p style="margin:0;font-size:0.92rem;color:#475569;line-height:1.55">' +
-            escapeHtml(meta.theme.tagline) +
-            '</p></div>';
-        }
+        var themeHtml = seasonThemePanelHtml(meta.theme);
 
         var html = '';
         html += themeHtml;
@@ -1246,11 +1296,7 @@
         html += syncNote;
         if (previewActiveOnSave) {
           html +=
-            '<p class="st-note"><strong>Preview mode on your save</strong> — cloud track is <code>' +
-            escapeHtml(liveTrackSid) +
-            '</code> while this section shows your stashed <code>' +
-            escapeHtml(displaySid) +
-            '</code> progress. Claim only from the <strong>June preview</strong> section below (not this track).</p>';
+            '<p class="st-note"><strong>Preview mode on your save</strong> — cloud track is on the upcoming June season while May is still live. Claim only from the <strong>June preview</strong> section below (not this track).</p>';
         }
         html += flairLine;
 

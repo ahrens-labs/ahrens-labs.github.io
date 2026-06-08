@@ -44,8 +44,8 @@
  *      mechanics stay in the mechanical template). Flavor text must not contradict the real rule.
  *    - Months without an entry use `DEFAULT_STEP_TITLES`.
  *
- * 6) Adding June (or any new month)
- *    - Copy the May block under `SEASON_THEMES_BY_UTC_MONTH['06']`, replace key/name/tagline/stepTitles.
+ * 6) Adding a new month
+ *    - Add `SEASON_TRACK_MECHANICAL_MM`, worker `SEASON_CLAIM_NODES_MM`, and `SEASON_THEMES_BY_UTC_MONTH['MM']`.
  *    - If mechanics change (different achievements or rewards), edit `SEASON_TRACK_MECHANICAL` or
  *      introduce a month-keyed mechanical table (not needed until you intentionally fork the ladder).
  *    - Deploy worker + static site together when changing ids that the worker must recognize.
@@ -108,7 +108,13 @@
     const mm = utcMonthFromSeasonId(seasonId);
     if (mm === '06') return '06';
     if (mm === '05') return '05';
+    const curMm = utcMonthFromSeasonId(getChessSeasonIdUtc());
+    if (curMm && curMm >= '06') return '06';
     return '05';
+  }
+
+  function compareSeasonIds(a, b) {
+    return String(a || '').trim().localeCompare(String(b || '').trim());
   }
 
   /**
@@ -391,20 +397,20 @@
   }
 
   const DEFAULT_STEP_TITLES = [
-    'Play your first game of the month',
-    'Develop a knight to f3 (classic spring square)',
-    'Slide a bishop to f4 (diagonal light)',
-    'Land an en passant capture (path between the pawns)',
-    'Make 10 captures with your queen as the moving piece',
-    'Make 50 captures total with any of your pieces',
-    'Castle 5 times (lifetime) — tuck the king into cover',
-    'Promote 5 pawns (lifetime) — new queens from the soil',
-    'Deliver checkmate with a rook',
-    'Deliver checkmate with a queen — canopy apex',
+    'First light — win your first game of the golden month',
+    'Dawn victory — win a game before 10:00 AM Central Time',
+    'Sunrise push — advance a pawn to e4',
+    'Sun in the center — win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)',
+    'Golden hour — win a game between 6:00 PM and 7:59 PM Central Time',
+    'Rolling heat — win a game where you gave 5+ consecutive checks (tracked automatically)',
+    'Fortress at ten — castle on your 10th move',
+    'Hidden crown — underpromote once (rook, bishop, or knight)',
+    'Diagonal dusk — checkmate with a bishop',
+    'Night crown — win a game after 9:00 PM Central Time',
   ];
 
   /**
-   * Optional themed copy keyed by UTC month `MM`. June (`06`): add when ready with Matt.
+   * Optional themed copy keyed by UTC month `MM`.
    * @type {Record<string, SeasonThemeDef>}
    */
   const SEASON_THEMES_BY_UTC_MONTH = {
@@ -426,26 +432,24 @@
         'Canopy apex — checkmate with a queen',
       ],
     },
-    // '06': filled below
-  };
-
-  SEASON_THEMES_BY_UTC_MONTH['06'] = {
-    key: 'june_solstice_gold',
-    name: 'Solstice Gold',
-    tagline:
-      'June burns gold — win at dawn, hold the center, ride the heat, and crown the board from golden hour to night. Each step is a different skill — not a win ladder.',
-    stepTitles: [
-      'First light — win your first game of the golden month',
-      'Dawn victory — win a game before 10:00 AM Central Time',
-      'Sunrise push — advance a pawn to e4',
-      'Sun in the center — win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)',
-      'Golden hour — win a game between 6:00 PM and 7:59 PM Central Time',
-      'Rolling heat — win a game where you gave 5+ consecutive checks (tracked automatically)',
-      'Fortress at ten — castle on your 10th move',
-      'Hidden crown — underpromote once (rook, bishop, or knight)',
-      'Diagonal dusk — checkmate with a bishop',
-      'Night crown — win a game after 9:00 PM Central Time',
-    ],
+    '06': {
+      key: 'june_solstice_gold',
+      name: 'Solstice Gold',
+      tagline:
+        'June burns gold — win at dawn, hold the center, ride the heat, and crown the board from golden hour to night. Each step is a different skill — not a win ladder.',
+      stepTitles: [
+        'First light — win your first game of the golden month',
+        'Dawn victory — win a game before 10:00 AM Central Time',
+        'Sunrise push — advance a pawn to e4',
+        'Sun in the center — win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)',
+        'Golden hour — win a game between 6:00 PM and 7:59 PM Central Time',
+        'Rolling heat — win a game where you gave 5+ consecutive checks (tracked automatically)',
+        'Fortress at ten — castle on your 10th move',
+        'Hidden crown — underpromote once (rook, bishop, or knight)',
+        'Diagonal dusk — checkmate with a bishop',
+        'Night crown — win a game after 9:00 PM Central Time',
+      ],
+    },
   };
 
   /**
@@ -598,6 +602,62 @@
   }
 
   /**
+   * Roll a stale save forward to the live UTC month (June+ no longer reads May progress).
+   * Admin June preview during May UTC is preserved until June 1.
+   * @param {object|null|undefined} trackState
+   * @param {{ earnBaseline?: object }} [opts]
+   * @returns {{ changed: boolean, track: object, dropSavedPreview: boolean }}
+   */
+  function ensureSeasonTrackForCurrentMonth(trackState, opts) {
+    const utcSid = getChessSeasonIdUtc();
+    const previewSid = getUpcomingJunePreviewSeasonId();
+    const st = trackState && typeof trackState === 'object' ? trackState : {};
+    const stSid = String(st.seasonId || '').trim();
+    const dropSavedPreview = !previewSid;
+
+    if (previewSid && stSid === previewSid) {
+      return { changed: false, track: st, dropSavedPreview: false };
+    }
+    if (stSid === utcSid) {
+      return { changed: false, track: st, dropSavedPreview };
+    }
+
+    const prevOwned =
+      st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
+    const prevFlair = st.lbFlair && typeof st.lbFlair === 'object' ? st.lbFlair : {};
+    const baseline =
+      opts && opts.earnBaseline && typeof opts.earnBaseline === 'object'
+        ? opts.earnBaseline
+        : emptySeasonEarnBaseline();
+
+    if (!/^\d{4}-\d{2}$/.test(stSid) || compareSeasonIds(stSid, utcSid) < 0) {
+      return {
+        changed: true,
+        track: {
+          seasonId: utcSid,
+          nodesCompleted: 0,
+          lbFlair: {
+            frame: prevFlair.frame != null ? prevFlair.frame : null,
+            title: prevFlair.title != null ? prevFlair.title : null,
+            prefix: prevFlair.prefix != null ? String(prevFlair.prefix) : '',
+            suffix: prevFlair.suffix != null ? String(prevFlair.suffix) : '',
+          },
+          lbFlairUnlocked: {
+            frames: Array.isArray(prevOwned.frames) ? prevOwned.frames.slice() : [],
+            titles: Array.isArray(prevOwned.titles) ? prevOwned.titles.slice() : [],
+            prefixes: Array.isArray(prevOwned.prefixes) ? prevOwned.prefixes.slice() : [],
+            suffixes: Array.isArray(prevOwned.suffixes) ? prevOwned.suffixes.slice() : [],
+          },
+          earnBaseline: baseline,
+        },
+        dropSavedPreview: true,
+      };
+    }
+
+    return { changed: false, track: st, dropSavedPreview };
+  }
+
+  /**
    * Same mechanical targets as achievements / worker claim validation.
    * @type {Record<string, { type: 'games' | 'wins' | 'lifetime', target: number, key?: string }>}
    */
@@ -674,6 +734,8 @@
     isSeasonPubliclyVisible: isSeasonPubliclyVisible,
     isSeasonShopItemPubliclyVisible: isSeasonShopItemPubliclyVisible,
     getUpcomingJunePreviewSeasonId: getUpcomingJunePreviewSeasonId,
+    compareSeasonIds: compareSeasonIds,
+    ensureSeasonTrackForCurrentMonth: ensureSeasonTrackForCurrentMonth,
     emptySeasonEarnBaseline: emptySeasonEarnBaseline,
     LB_FRAMES: LB_FRAMES,
     SEASON_STEP_EARN_RULES: SEASON_STEP_EARN_RULES,
