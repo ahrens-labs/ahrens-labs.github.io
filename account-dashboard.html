@@ -51,55 +51,6 @@
     .dash-links a:hover { text-decoration: underline; }
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
-    .header-nav-details summary {
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 1rem;
-      color: #0f172a;
-      list-style: none;
-    }
-    .header-nav-details summary::-webkit-details-marker { display: none; }
-    .header-nav-details[open] summary { margin-bottom: 6px; }
-    .header-nav-hint { margin: 0 0 8px 0; font-size: 0.82rem; line-height: 1.4; }
-    .header-nav-options-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2px 12px;
-      align-items: center;
-      max-height: 220px;
-      overflow-y: auto;
-      padding: 2px 0;
-    }
-    .header-nav-group-title {
-      width: 100%;
-      margin: 6px 0 0 0;
-      font-size: 0.68rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #94a3b8;
-    }
-    .header-nav-group-title:first-child { margin-top: 0; }
-    .header-nav-option {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 1px 0;
-      font-size: 0.82rem;
-      color: #475569;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .header-nav-option input { width: 14px; height: 14px; flex-shrink: 0; margin: 0; }
-    .header-nav-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-top: 10px;
-    }
-    .header-nav-actions .btn { padding: 7px 12px; font-size: 0.84rem; }
-    .dash-header-nav-card { padding: 16px 18px; }
     .full-span { grid-column: 1 / -1; }
     .dash-lb-row-swatch-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
     .dash-lb-row-swatch {
@@ -291,8 +242,33 @@
       color: #334155;
       z-index: 1;
     }
+    .admin-accounts-table.admin-accounts-compact .c-sel {
+      width: 2.2rem;
+      text-align: center;
+      padding-left: 8px;
+      padding-right: 4px;
+    }
+    .admin-accounts-table.admin-accounts-compact .c-sel input {
+      margin: 0;
+      vertical-align: middle;
+    }
+    .admin-accounts-table.admin-accounts-compact tr.admin-acct-selected {
+      background: #eff6ff;
+    }
+    .admin-group-email-recipients {
+      margin: 0 0 14px 0;
+      padding: 10px 12px;
+      max-height: 120px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: #475569;
+    }
     .admin-accounts-table.admin-accounts-compact .c-email {
-      width: 30%;
+      width: 28%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -761,6 +737,7 @@
             The directory combines <strong>profiles</strong>, <strong>reserved usernames</strong>, and <strong>roundup subscribers</strong>.
             Use <strong>Load all accounts</strong> to fetch the full directory (same sources as signup lookup: every profile, username registry, and digest subscribers).
             Use <strong>Details</strong> on each row to see TrifangX daily roundup and sports Digest subscriptions for that account.
+            Check rows and use <strong>Email selected</strong> to send one custom message to a specific group (from <strong>caleb@ahrenslabs.com</strong>).
             <strong>Signup check</strong> runs the same email rules as the public signup form (format, disposable domains, MX, existing account).
             Pre-email legacy accounts may have no address saved on the profile — run <strong>Signup check</strong> with that email to pull them into the list (or filter by username). Signup-check emails are remembered and merged on every <strong>Load all accounts</strong>.
           </p>
@@ -768,6 +745,9 @@
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-refresh">Load all accounts</button>
             <button type="button" class="btn btn-primary" id="btn-admin-accounts-more" disabled>Load next page</button>
             <button type="button" class="btn btn-ghost" id="btn-admin-accounts-csv">Copy CSV</button>
+            <button type="button" class="btn btn-primary" id="btn-admin-group-email" disabled>Email selected (0)</button>
+            <button type="button" class="btn btn-ghost" id="btn-admin-select-all-shown">Select all shown</button>
+            <button type="button" class="btn btn-ghost" id="btn-admin-clear-selection">Clear selection</button>
             <div class="admin-accounts-filter-wrap">
               <input type="search" id="admin-accounts-filter" autocomplete="off" placeholder="Filter by email, username, user id, or digest…" aria-label="Filter loaded accounts">
             </div>
@@ -791,6 +771,7 @@
             <table class="admin-accounts-table admin-accounts-compact">
               <thead>
                 <tr>
+                  <th scope="col" class="c-sel"><input type="checkbox" id="admin-accounts-select-all" title="Select all rows currently shown" aria-label="Select all shown"></th>
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
                   <th scope="col" class="c-ver">Verified</th>
@@ -798,7 +779,7 @@
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="4" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -869,18 +850,6 @@
           <p class="status" id="admin-welcome-status"></p>
         </div>
 
-        <div class="dash-card full-span dash-header-nav-card" id="dash-header-nav-card">
-          <details class="header-nav-details">
-            <summary>Site header links</summary>
-            <p class="hint header-nav-hint">Links shown in the top nav on every page. Default: Home, Labs, Account.</p>
-            <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
-            <div class="header-nav-actions">
-              <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
-              <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset to default</button>
-            </div>
-            <p class="status" id="header-nav-status"></p>
-          </details>
-        </div>
 
         <div class="dash-card">
           <h2>Delete account</h2>
@@ -936,6 +905,39 @@
       <div class="dash-modal-actions">
         <button type="button" class="btn btn-primary" id="admin-account-details-close">Close</button>
       </div>
+    </div>
+  </div>
+
+  <div id="admin-group-email-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-group-email-title">
+    <div class="dash-modal-panel dash-modal-panel-wide" role="document">
+      <h2 id="admin-group-email-title" class="dash-modal-title">Email selected accounts</h2>
+      <p style="margin:0 0 10px 0;font-size:0.82rem;color:#64748b;line-height:1.45;">
+        From <strong>caleb@ahrenslabs.com</strong>. Each person gets their own message. Placeholders:
+        <code>{{username}}</code>, <code>{{email}}</code>
+      </p>
+      <div class="admin-group-email-recipients" id="admin-group-email-recipients" role="status"></div>
+      <div class="form-row">
+        <label for="admin-group-extra-emails">Extra addresses (optional, one per line)</label>
+        <textarea id="admin-group-extra-emails" rows="2" placeholder="someone@example.com" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.85rem;"></textarea>
+      </div>
+      <div class="form-row">
+        <label for="admin-group-subject">Subject</label>
+        <input id="admin-group-subject" type="text" autocomplete="off" placeholder="Subject line">
+      </div>
+      <div class="form-row">
+        <label for="admin-group-text">Plain text</label>
+        <textarea id="admin-group-text" placeholder="Hi {{username}}, …"></textarea>
+      </div>
+      <div class="form-row">
+        <label for="admin-group-html">HTML (optional)</label>
+        <textarea id="admin-group-html" style="min-height:64px;font-family:ui-monospace,monospace;font-size:0.8rem;" placeholder="Leave blank to wrap plain text"></textarea>
+      </div>
+      <div class="dash-modal-actions">
+        <button type="button" class="btn btn-ghost" id="admin-group-cancel">Cancel</button>
+        <button type="button" class="btn btn-ghost" id="admin-group-preview">Preview (email me)</button>
+        <button type="button" class="btn btn-primary" id="admin-group-send">Send to group</button>
+      </div>
+      <p class="status" id="admin-group-send-status" style="margin-top:12px;"></p>
     </div>
   </div>
 
@@ -1895,8 +1897,8 @@
       localStorage.setItem('ahrenslabs_username', uname);
       if (em) localStorage.setItem('ahrenslabs_email', em);
 
-      if (window.AhrensHeaderNav && Array.isArray(user.headerNavItems)) {
-        window.AhrensHeaderNav.syncFromProfile(user.headerNavItems);
+      if (window.AhrensHeaderNav) {
+        window.AhrensHeaderNav.render();
       }
 
       const cb = document.getElementById('email-digest-on');
@@ -1923,91 +1925,6 @@
 
       rebuildDashLbRowPicks();
       refreshDashLbLivePreview();
-      initHeaderNavSettings(user);
-    }
-
-    function getHeaderNavIdsForUser(user) {
-      const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'account'];
-      if (user && Array.isArray(user.headerNavItems)) {
-        return nav.normalizeNavIds(user.headerNavItems);
-      }
-      return nav.getNavIds();
-    }
-
-    function initHeaderNavSettings(user) {
-      const wrap = document.getElementById('header-nav-options');
-      const nav = window.AhrensHeaderNav;
-      if (!wrap || !nav) return;
-
-      const selected = new Set(getHeaderNavIdsForUser(user));
-      wrap.innerHTML = '';
-
-      let lastGroup = '';
-      for (const item of nav.CATALOG) {
-        if (item.group !== lastGroup) {
-          lastGroup = item.group;
-          const heading = document.createElement('p');
-          heading.className = 'header-nav-group-title';
-          heading.textContent = item.group;
-          wrap.appendChild(heading);
-        }
-        const label = document.createElement('label');
-        label.className = 'header-nav-option';
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.value = item.id;
-        input.checked = selected.has(item.id);
-        label.appendChild(input);
-        label.appendChild(document.createTextNode(item.label));
-        wrap.appendChild(label);
-      }
-    }
-
-    function getHeaderNavIdsFromForm() {
-      const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'account'];
-      const checked = new Set();
-      document.querySelectorAll('#header-nav-options input[type="checkbox"]:checked').forEach((el) => {
-        checked.add(el.value);
-      });
-      return nav.CATALOG.filter((item) => checked.has(item.id)).map((item) => item.id);
-    }
-
-    async function saveHeaderNavPreferences() {
-      const st = document.getElementById('header-nav-status');
-      const nav = window.AhrensHeaderNav;
-      const sessionId = getSessionId();
-      const items = getHeaderNavIdsFromForm();
-      if (!items.length) {
-        setStatus(st, 'Pick at least one header link.', 'err');
-        return;
-      }
-      const res = await fetch(`${API_BASE_URL}/api/header-nav-preferences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionId}`,
-        },
-        body: JSON.stringify({ items }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        if (nav) nav.syncFromProfile(data.headerNavItems || items);
-        setStatus(st, 'Header links saved. They apply on every page when you are signed in.', 'ok');
-      } else {
-        setStatus(st, data.error || 'Could not save header links.', 'err');
-      }
-    }
-
-    function resetHeaderNavPreferences() {
-      const nav = window.AhrensHeaderNav;
-      if (!nav) return;
-      const defaults = new Set(nav.DEFAULT_IDS);
-      document.querySelectorAll('#header-nav-options input[type="checkbox"]').forEach((el) => {
-        el.checked = defaults.has(el.value);
-      });
-      setStatus(document.getElementById('header-nav-status'), '', '');
     }
 
     function getDesiredLbRowColorPayloadForSave() {
@@ -2176,7 +2093,198 @@
         let adminAccountsAccum = [];
         let adminListNextCursor = null;
         let adminListHasMore = false;
+        const adminSelectedKeys = new Set();
+        const ADMIN_GROUP_EMAIL_MAX = 100;
         const ADMIN_ENSURE_EMAILS_KEY = 'adminAccountEnsureEmails';
+
+        function adminRowKey(a) {
+          if (!a) return '';
+          const uid = (a.userId || '').trim().toLowerCase();
+          const em = (a.email || '').trim().toLowerCase();
+          const un = (a.username || '').trim().toLowerCase();
+          return uid || em || un || '';
+        }
+
+        function updateAdminGroupEmailToolbar() {
+          const btn = document.getElementById('btn-admin-group-email');
+          const n = adminSelectedKeys.size;
+          if (btn) {
+            btn.textContent = `Email selected (${n})`;
+            btn.disabled = n === 0;
+          }
+        }
+
+        function getFilteredAdminAccounts() {
+          const filterEl = document.getElementById('admin-accounts-filter');
+          const digestOnlyEl = document.getElementById('admin-accounts-filter-digest');
+          const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
+          const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
+          return adminAccountsAccum.filter((a) => {
+            if (digestOnly && !a.dailyChallengeDigestEligible && !a.digestSubscribed) return false;
+            if (!q) return true;
+            const em = (a.email || '').toLowerCase();
+            const un = (a.username || '').toLowerCase();
+            const id = (a.userId || '').toLowerCase();
+            const doId = (a.doUserId || '').toLowerCase();
+            const dig = digestAdminLabel(a).toLowerCase();
+            return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q) || dig.includes(q);
+          });
+        }
+
+        function syncAdminSelectAllCheckbox() {
+          const master = document.getElementById('admin-accounts-select-all');
+          if (!master) return;
+          const rows = getFilteredAdminAccounts();
+          if (!rows.length) {
+            master.checked = false;
+            master.indeterminate = false;
+            return;
+          }
+          let sel = 0;
+          for (const a of rows) {
+            if (adminSelectedKeys.has(adminRowKey(a))) sel++;
+          }
+          master.checked = sel === rows.length;
+          master.indeterminate = sel > 0 && sel < rows.length;
+        }
+
+        function buildAdminGroupRecipientsPayload() {
+          const recipients = [];
+          const seen = new Set();
+          for (const key of adminSelectedKeys) {
+            const a = adminAccountsAccum.find((row) => adminRowKey(row) === key);
+            if (!a) continue;
+            const entry = {};
+            if (a.userId) entry.userId = a.userId;
+            if (a.email) entry.email = a.email;
+            if (a.username) entry.username = a.username;
+            const dedupe = (entry.email || entry.userId || entry.username || '').toLowerCase();
+            if (!dedupe || seen.has(dedupe)) continue;
+            seen.add(dedupe);
+            recipients.push(entry);
+          }
+          const extraRaw = (document.getElementById('admin-group-extra-emails')?.value || '').trim();
+          if (extraRaw) {
+            for (const line of extraRaw.split(/\r?\n/)) {
+              const em = line.trim().toLowerCase();
+              if (!em || seen.has(em)) continue;
+              seen.add(em);
+              recipients.push({ email: em });
+            }
+          }
+          return recipients.slice(0, ADMIN_GROUP_EMAIL_MAX);
+        }
+
+        function renderAdminGroupRecipientsPreview() {
+          const el = document.getElementById('admin-group-email-recipients');
+          if (!el) return;
+          const recs = buildAdminGroupRecipientsPayload();
+          if (!recs.length) {
+            el.textContent = 'No recipients selected.';
+            return;
+          }
+          el.innerHTML = recs
+            .map((r) => {
+              const label = r.email || r.username || r.userId || '?';
+              const extra = r.email && r.username ? ` · ${r.username}` : '';
+              return escHtml(label + extra);
+            })
+            .join('<br>');
+          if (recs.length >= ADMIN_GROUP_EMAIL_MAX) {
+            el.innerHTML += '<br><strong>Cap reached (100 max).</strong>';
+          }
+        }
+
+        function openAdminGroupEmailModal() {
+          if (!adminSelectedKeys.size) return;
+          renderAdminGroupRecipientsPreview();
+          setStatus(document.getElementById('admin-group-send-status'), '', '');
+          const modal = document.getElementById('admin-group-email-modal');
+          if (modal) modal.hidden = false;
+          document.getElementById('admin-group-subject')?.focus();
+        }
+
+        function closeAdminGroupEmailModal() {
+          const modal = document.getElementById('admin-group-email-modal');
+          if (modal) modal.hidden = true;
+        }
+
+        async function submitAdminGroupEmail({ dryRun }) {
+          const st = document.getElementById('admin-group-send-status');
+          const rowSt = document.getElementById('admin-accounts-status');
+          const subject = (document.getElementById('admin-group-subject')?.value || '').trim();
+          const text = (document.getElementById('admin-group-text')?.value || '').trim();
+          const htmlRaw = (document.getElementById('admin-group-html')?.value || '').trim();
+          const recipients = buildAdminGroupRecipientsPayload();
+          if (!recipients.length) {
+            setStatus(st, 'Select at least one account or add an extra address.', 'err');
+            return;
+          }
+          if (!subject || !text) {
+            setStatus(st, 'Subject and plain text are required.', 'err');
+            return;
+          }
+          if (!dryRun) {
+            const ok = await showAdminBulkConfirmModal({
+              title: `Send to ${recipients.length} recipient${recipients.length === 1 ? '' : 's'}?`,
+              description:
+                'Each person receives a separate email from caleb@ahrenslabs.com with {{username}} and {{email}} filled in for them.',
+              confirmLabel: 'Send group email',
+            });
+            if (!ok) return;
+          }
+          const sessionId = getSessionId();
+          if (!sessionId) {
+            setStatus(st, 'Not signed in.', 'err');
+            return;
+          }
+          setStatus(st, dryRun ? 'Previewing…' : 'Sending…', '');
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/send-email-to-group`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionId}`,
+              },
+              body: JSON.stringify({
+                subject,
+                text,
+                ...(htmlRaw ? { html: htmlRaw } : {}),
+                recipients,
+                dryRun: !!dryRun,
+                sendPreviewCopy: !!dryRun,
+              }),
+            });
+            const { ok, status, data } = await readApiJsonResponse(res);
+            if (!ok || !data.success) {
+              setStatus(st, formatApiFailure(status, data), 'err');
+              return;
+            }
+            if (dryRun) {
+              const n = Array.isArray(data.dryRunEmails) ? data.dryRunEmails.length : 0;
+              const skip = Number(data.skipped) || 0;
+              const unresolved = Array.isArray(data.unresolved) ? data.unresolved.length : 0;
+              let msg = `Would send to ${n} address${n === 1 ? '' : 'es'}.`;
+              if (skip || unresolved) msg += ` ${skip + unresolved} skipped/unresolved.`;
+              if (data.previewEmailSent) msg += ' Check your inbox for the preview copy.';
+              else if (data.previewEmailError) msg += ` Preview failed: ${data.previewEmailError}`;
+              setStatus(st, msg, data.previewEmailError ? 'err' : 'ok');
+              return;
+            }
+            const sent = Number(data.sent) || 0;
+            const failed = Array.isArray(data.failed) ? data.failed.length : 0;
+            const skip = Number(data.skipped) || 0;
+            let msg = `Sent ${sent} email${sent === 1 ? '' : 's'}.`;
+            if (skip) msg += ` ${skip} skipped.`;
+            if (failed) msg += ` ${failed} failed.`;
+            setStatus(st, msg, failed ? 'err' : 'ok');
+            if (rowSt && sent && !failed) setStatus(rowSt, msg, 'ok');
+            if (sent && !failed) closeAdminGroupEmailModal();
+          } catch (e) {
+            console.error(e);
+            setStatus(st, e?.message || 'Request failed.', 'err');
+          }
+        }
 
         function loadAdminEnsureEmails() {
           try {
@@ -2662,29 +2770,20 @@
           const digestOnlyEl = document.getElementById('admin-accounts-filter-digest');
           const moreBtn = document.getElementById('btn-admin-accounts-more');
           if (!tbody || !meta) return;
-          const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
-          const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
-          const rows = adminAccountsAccum.filter((a) => {
-            if (digestOnly && !a.dailyChallengeDigestEligible && !a.digestSubscribed) return false;
-            if (!q) return true;
-            const em = (a.email || '').toLowerCase();
-            const un = (a.username || '').toLowerCase();
-            const id = (a.userId || '').toLowerCase();
-            const doId = (a.doUserId || '').toLowerCase();
-            const dig = digestAdminLabel(a).toLowerCase();
-            return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q) || dig.includes(q);
-          });
+          const rows = getFilteredAdminAccounts();
           rows.sort((a, b) =>
             (a.email || '').localeCompare(b.email || '', undefined, { sensitivity: 'base' })
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="4" style="color:#94a3b8;">' +
+              '<tr><td colspan="5" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
             tbody.innerHTML = rows
               .map((a) => {
+                const rowKey = adminRowKey(a);
+                const checked = adminSelectedKeys.has(rowKey);
                 const uidAttr = escHtml(a.userId || '');
                 const emAttr = escHtml(a.email || '');
                 const unAttr = escHtml(a.username || '');
@@ -2713,7 +2812,8 @@
                 const customBtn = `<button type="button" class="btn-admin-row admin-acct-custom" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Custom</button>`;
                 const deleteBtn = `<button type="button" class="btn-admin-row btn-admin-row-danger admin-acct-delete" data-admin-user-id="${uidAttr}" data-admin-email="${emAttr}" data-admin-username="${unAttr}">Delete</button>`;
                 return (
-                  `<tr class="admin-acct-line">` +
+                  `<tr class="admin-acct-line${checked ? ' admin-acct-selected' : ''}">` +
+                  `<td class="c-sel"><input type="checkbox" class="admin-acct-select" data-admin-row-key="${escHtml(rowKey)}"${checked ? ' checked' : ''} aria-label="Select account"></td>` +
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
                   `<td class="c-ver">${escHtml(verifiedLabel(a.emailVerified))}</td>` +
@@ -2724,11 +2824,16 @@
           }
           const trifangxDigestCount = adminAccountsAccum.filter((a) => a.dailyChallengeDigestEligible).length;
           const sportsDigestCount = adminAccountsAccum.filter((a) => a.digestSubscribed).length;
+          const q = ((filterEl && filterEl.value) || '').trim();
+          const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
           const filtNote = q || digestOnly ? ` · ${rows.length} match filter` : '';
+          const selNote = adminSelectedKeys.size ? ` · ${adminSelectedKeys.size} selected` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest${filtNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest${filtNote}${selNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
+          updateAdminGroupEmailToolbar();
+          syncAdminSelectAllCheckbox();
         }
 
         async function adminAccountsFetchPage(reset, opts) {
@@ -2806,6 +2911,16 @@
         }
 
         document.getElementById('admin-accounts-tbody')?.addEventListener('click', (e) => {
+          const selBox = e.target && e.target.classList && e.target.classList.contains('admin-acct-select');
+          if (selBox) {
+            e.stopPropagation();
+            const key = (e.target.getAttribute('data-admin-row-key') || '').trim();
+            if (!key) return;
+            if (e.target.checked) adminSelectedKeys.add(key);
+            else adminSelectedKeys.delete(key);
+            renderAdminAccountsTable();
+            return;
+          }
           const details = e.target && e.target.closest && e.target.closest('.admin-acct-details');
           const verify = e.target && e.target.closest && e.target.closest('.admin-acct-verify');
           const welcome = e.target && e.target.closest && e.target.closest('.admin-acct-welcome');
@@ -2859,6 +2974,49 @@
         });
         adminDetailsModal?.addEventListener('click', (e) => {
           if (e.target === adminDetailsModal) closeAdminAccountDetailsModal();
+        });
+
+        document.getElementById('admin-accounts-select-all')?.addEventListener('change', (e) => {
+          const checked = !!e.target.checked;
+          const rows = getFilteredAdminAccounts();
+          for (const a of rows) {
+            const key = adminRowKey(a);
+            if (!key) continue;
+            if (checked) adminSelectedKeys.add(key);
+            else adminSelectedKeys.delete(key);
+          }
+          renderAdminAccountsTable();
+        });
+        document.getElementById('btn-admin-select-all-shown')?.addEventListener('click', () => {
+          for (const a of getFilteredAdminAccounts()) {
+            const key = adminRowKey(a);
+            if (key) adminSelectedKeys.add(key);
+          }
+          renderAdminAccountsTable();
+        });
+        document.getElementById('btn-admin-clear-selection')?.addEventListener('click', () => {
+          adminSelectedKeys.clear();
+          renderAdminAccountsTable();
+        });
+        document.getElementById('btn-admin-group-email')?.addEventListener('click', () => {
+          openAdminGroupEmailModal();
+        });
+        document.getElementById('admin-group-extra-emails')?.addEventListener('input', () => {
+          renderAdminGroupRecipientsPreview();
+        });
+
+        const adminGroupModal = document.getElementById('admin-group-email-modal');
+        document.getElementById('admin-group-cancel')?.addEventListener('click', () => {
+          closeAdminGroupEmailModal();
+        });
+        adminGroupModal?.addEventListener('click', (e) => {
+          if (e.target === adminGroupModal) closeAdminGroupEmailModal();
+        });
+        document.getElementById('admin-group-preview')?.addEventListener('click', () => {
+          submitAdminGroupEmail({ dryRun: true });
+        });
+        document.getElementById('admin-group-send')?.addEventListener('click', () => {
+          submitAdminGroupEmail({ dryRun: false });
         });
 
         const adminCustomModal = document.getElementById('admin-custom-email-modal');
@@ -3309,12 +3467,6 @@
             schedulePersistDashLbFlair();
           });
         }
-      });
-      document.getElementById('btn-save-header-nav').addEventListener('click', () => {
-        void saveHeaderNavPreferences();
-      });
-      document.getElementById('btn-reset-header-nav').addEventListener('click', () => {
-        resetHeaderNavPreferences();
       });
       document.getElementById('btn-save-email-prefs').addEventListener('click', async () => {
         const st = document.getElementById('email-pref-status');

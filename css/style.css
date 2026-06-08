@@ -401,6 +401,82 @@ nav a.active::after {
         transform: scale(1.02);
     }
 }
+
+/* Header dropdown menus */
+nav ul li.nav-dropdown {
+    position: relative;
+}
+
+nav a.nav-dropdown-trigger {
+    cursor: pointer;
+}
+
+nav .nav-caret {
+    font-size: 0.72em;
+    opacity: 0.85;
+    margin-left: 0.15em;
+}
+
+nav ul.nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    min-width: 11.5rem;
+    padding: 6px;
+    margin: 0;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(8, 28, 58, 0.98), rgba(0, 40, 88, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+    z-index: 1200;
+    list-style: none;
+}
+
+nav ul.nav-dropdown-menu li {
+    margin: 0;
+    width: 100%;
+}
+
+nav ul.nav-dropdown-menu a {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55em 0.85em;
+    border-radius: 8px;
+    font-size: 0.92em;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transform: none;
+}
+
+nav ul.nav-dropdown-menu a:hover {
+    transform: none;
+    background: linear-gradient(135deg, rgba(0, 83, 189, 0.95), rgba(0, 113, 255, 0.95));
+    box-shadow: none;
+}
+
+nav ul.nav-dropdown-menu a.active {
+    animation: none;
+    background: linear-gradient(135deg, rgba(0, 83, 189, 0.85), rgba(0, 113, 255, 0.85));
+}
+
+nav li.nav-dropdown:hover > ul.nav-dropdown-menu,
+nav li.nav-dropdown:focus-within > ul.nav-dropdown-menu {
+    display: flex;
+}
+
+nav li.nav-dropdown--active > a.nav-dropdown-trigger {
+    background: linear-gradient(135deg, #0053bd, #0071ff);
+    font-weight: 700;
+}
+
 /* --- END REFACTORED HEADER STYLES --- */
 
 
@@ -823,6 +899,11 @@ footer a:hover {
         margin: 0;
         width: auto;
         max-width: none;
+    }
+    nav ul.nav-dropdown-menu {
+        left: 0;
+        transform: none;
+        min-width: 10rem;
     }
     nav a {
         display: inline-block;

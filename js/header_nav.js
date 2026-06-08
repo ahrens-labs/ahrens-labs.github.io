@@ -1,130 +1,189 @@
-// Site-wide header navigation — customizable from the account dashboard.
+// Site-wide header navigation — fixed menu with hover dropdowns.
 (function () {
   if (typeof window === 'undefined') return;
 
-  const STORAGE_KEY = 'ahrenslabs_headerNav';
-  const DEFAULT_NAV_IDS = ['home', 'labs', 'account'];
+  /** @typedef {{ id: string, label: string, href: string, children?: Array<{ id: string, label: string, href: string }> }} NavEntry */
 
-  const NAV_CATALOG = [
-    { id: 'home', label: 'Home', href: 'index.html', group: 'Main' },
-    { id: 'labs', label: 'Labs & Projects', href: 'labs.html', group: 'Main' },
-    { id: 'account', label: 'Account', href: 'account-dashboard.html', group: 'Main' },
-    { id: 'chessEngine', label: 'Chess Engine', href: 'chess_engine.html', group: 'TrifangX' },
-    { id: 'chessShop', label: 'Chess Shop', href: 'chess-shop.html', group: 'TrifangX' },
-    { id: 'chessLeaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html', group: 'TrifangX' },
-    { id: 'chessSeasonTrack', label: 'Season Track', href: 'chess-season-track.html', group: 'TrifangX' },
-    { id: 'achievements', label: 'Achievements', href: 'achievements.html', group: 'TrifangX' },
-    { id: 'trifangx', label: 'TrifangX', href: 'trifangx.html', group: 'TrifangX' },
-    { id: 'codingLab', label: 'Coding Lab', href: 'coding-lab.html', group: 'Labs' },
-    { id: 'roboticsLab', label: 'Robotics Lab', href: 'robotics-lab.html', group: 'Labs' },
-    { id: 'musicLab', label: 'Music Lab', href: 'music-lab.html', group: 'Labs' },
-    { id: 'languageLab', label: 'Language Lab', href: 'language-lab.html', group: 'Labs' },
-    { id: 'writingLab', label: 'Writing Lab', href: 'writing-lab.html', group: 'Labs' },
-    { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html', group: 'Projects' },
-    { id: 'classify', label: 'Classify Planner', href: 'classify.html', group: 'Projects' },
-    { id: 'tether', label: 'Tether', href: 'tether.html', group: 'Projects' },
-    { id: 'sportsDigest', label: 'Digest', href: 'digest.html', group: 'Projects' },
-    { id: 'spud', label: 'Spud', href: 'spud.html', group: 'Projects' },
-    { id: 'lotr', label: 'LOTR', href: 'lotr.html', group: 'Projects' },
-    { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html', group: 'Projects' },
-    { id: 'contact', label: 'Contact', href: 'contact.html', group: 'Other' },
+  /** @type {NavEntry[]} */
+  const NAV_MENU = [
+    { id: 'home', label: 'Home', href: 'index.html' },
+    {
+      id: 'chessEngine',
+      label: 'Chess Engine',
+      href: 'chess_engine.html',
+      children: [
+        { id: 'play', label: 'Play', href: 'chess_engine.html' },
+        { id: 'trifangxDetails', label: 'TrifangX details', href: 'trifangx.html' },
+        { id: 'seasonTrack', label: 'Season track', href: 'chess-season-track.html' },
+        { id: 'leaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html' },
+        { id: 'gameHistory', label: 'Game history', href: 'chess_engine/game_history/' },
+        { id: 'achievements', label: 'Achievements', href: 'achievements.html' },
+        { id: 'chessShop', label: 'Chess shop', href: 'chess-shop.html' },
+      ],
+    },
+    {
+      id: 'labs',
+      label: 'Labs',
+      href: 'labs.html',
+      children: [
+        { id: 'labsOverview', label: 'All labs', href: 'labs.html' },
+        { id: 'codingLab', label: 'Coding Lab', href: 'coding-lab.html' },
+        { id: 'roboticsLab', label: 'Robotics Lab', href: 'robotics-lab.html' },
+        { id: 'musicLab', label: 'Music Lab', href: 'music-lab.html' },
+        { id: 'languageLab', label: 'Language Lab', href: 'language-lab.html' },
+        { id: 'writingLab', label: 'Writing Lab', href: 'writing-lab.html' },
+      ],
+    },
+    {
+      id: 'projects',
+      label: 'Projects',
+      href: 'coding-lab.html',
+      children: [
+        { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
+        { id: 'classify', label: 'Classify Planner', href: 'classify.html' },
+        { id: 'tether', label: 'Tether', href: 'tether.html' },
+        { id: 'digest', label: 'Digest', href: 'digest.html' },
+        { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
+        { id: 'spud', label: 'Spud', href: 'spud.html' },
+        { id: 'lotr', label: 'LOTR', href: 'lotr.html' },
+      ],
+    },
+    { id: 'account', label: 'Account', href: 'account-dashboard.html' },
+    { id: 'contact', label: 'Contact', href: 'contact.html' },
   ];
-
-  const NAV_BY_ID = Object.fromEntries(NAV_CATALOG.map((item) => [item.id, item]));
-
-  function normalizeNavIds(raw) {
-    if (!Array.isArray(raw)) return DEFAULT_NAV_IDS.slice();
-    const seen = new Set();
-    const out = [];
-    for (const id of raw) {
-      if (typeof id === 'string' && NAV_BY_ID[id] && !seen.has(id)) {
-        seen.add(id);
-        out.push(id);
-      }
-    }
-    return out.length ? out : DEFAULT_NAV_IDS.slice();
-  }
-
-  function getStoredNavIds() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return DEFAULT_NAV_IDS.slice();
-      return normalizeNavIds(JSON.parse(raw));
-    } catch {
-      return DEFAULT_NAV_IDS.slice();
-    }
-  }
-
-  function saveNavIdsToLocal(ids) {
-    const normalized = normalizeNavIds(ids);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-    return normalized;
-  }
 
   function getCurrentPageBasename() {
     const part = window.location.pathname.split('/').pop() || '';
     return part.toLowerCase();
   }
 
-  function isNavItemActive(item) {
-    const current = getCurrentPageBasename();
-    const target = item.href.toLowerCase();
+  function getCurrentPathLower() {
+    return (window.location.pathname || '').toLowerCase();
+  }
 
-    if (target === 'index.html') {
+  function hrefBasename(href) {
+    const clean = String(href || '').split('?')[0].split('#')[0];
+    const parts = clean.split('/').filter(Boolean);
+    return (parts[parts.length - 1] || '').toLowerCase();
+  }
+
+  function isNavLinkActive(item, parentId) {
+    const current = getCurrentPageBasename();
+    const path = getCurrentPathLower();
+    const target = String(item.href || '').toLowerCase();
+
+    if (item.id === 'home' || target.endsWith('index.html')) {
       return !current || current === 'index.html';
     }
-    if (item.id === 'labs') {
-      return current === 'labs.html';
+
+    if (item.id === 'gameHistory' || target.includes('game_history')) {
+      return path.includes('game_history');
     }
+
     if (item.id === 'kyrachyng') {
       return current.startsWith('kyrachyng');
     }
-    if (item.id === 'chessEngine') {
-      return current === 'chess_engine.html' || current === 'trifangx_live.html';
+
+    if (item.id === 'play' || (parentId === 'chessEngine' && target.endsWith('chess_engine.html'))) {
+      return (
+        current === 'chess_engine.html' ||
+        current === 'trifangx_live.html' ||
+        current === 'chess-replay.html'
+      );
     }
-    return current === target;
+
+    if (item.id === 'labsOverview' || (parentId === 'labs' && target.endsWith('labs.html'))) {
+      return current === 'labs.html';
+    }
+
+    if (item.id === 'account') {
+      return (
+        current === 'account-dashboard.html' ||
+        current === 'account.html' ||
+        current === 'delete-account.html' ||
+        current === 'reset-password.html'
+      );
+    }
+
+    if (item.id === 'digest') {
+      return current === 'digest.html' || current === 'sports-digest.html';
+    }
+
+    const base = hrefBasename(item.href);
+    if (!base) return false;
+    return current === base;
+  }
+
+  function isNavGroupActive(entry) {
+    if (entry.children && entry.children.length) {
+      if (entry.children.some((child) => isNavLinkActive(child, entry.id))) return true;
+    }
+    return isNavLinkActive(entry, entry.id);
   }
 
   function renderHeaderNav() {
     const ul = document.querySelector('header nav ul');
     if (!ul) return;
 
-    const ids = getStoredNavIds();
     ul.innerHTML = '';
 
-    for (const id of ids) {
-      const item = NAV_BY_ID[id];
-      if (!item) continue;
+    for (const entry of NAV_MENU) {
       const li = document.createElement('li');
-      const a = document.createElement('a');
-      a.href = item.href;
-      a.textContent = item.label;
-      if (isNavItemActive(item)) a.classList.add('active');
-      li.appendChild(a);
+      const hasChildren = Array.isArray(entry.children) && entry.children.length > 0;
+
+      if (hasChildren) {
+        li.className = 'nav-dropdown';
+        if (isNavGroupActive(entry)) li.classList.add('nav-dropdown--active');
+
+        const trigger = document.createElement('a');
+        trigger.href = entry.href;
+        trigger.className = 'nav-dropdown-trigger';
+        if (isNavGroupActive(entry)) trigger.classList.add('active');
+        trigger.innerHTML =
+          escHtml(entry.label) + ' <span class="nav-caret" aria-hidden="true">▾</span>';
+        li.appendChild(trigger);
+
+        const menu = document.createElement('ul');
+        menu.className = 'nav-dropdown-menu';
+        for (const child of entry.children) {
+          const childLi = document.createElement('li');
+          const childA = document.createElement('a');
+          childA.href = child.href;
+          childA.textContent = child.label;
+          if (isNavLinkActive(child, entry.id)) childA.classList.add('active');
+          childLi.appendChild(childA);
+          menu.appendChild(childLi);
+        }
+        li.appendChild(menu);
+      } else {
+        const a = document.createElement('a');
+        a.href = entry.href;
+        a.textContent = entry.label;
+        if (isNavLinkActive(entry, entry.id)) a.classList.add('active');
+        li.appendChild(a);
+      }
+
       ul.appendChild(li);
     }
   }
 
-  function syncFromProfile(headerNavItems) {
-    saveNavIdsToLocal(headerNavItems);
-    renderHeaderNav();
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
   }
 
   window.AhrensHeaderNav = {
-    CATALOG: NAV_CATALOG,
-    DEFAULT_IDS: DEFAULT_NAV_IDS.slice(),
-    normalizeNavIds,
-    getNavIds: getStoredNavIds,
-    saveNavIdsLocal: saveNavIdsToLocal,
+    MENU: NAV_MENU,
     render: renderHeaderNav,
-    syncFromProfile,
+    /** @deprecated Header menu is fixed site-wide; profile prefs are ignored. */
+    syncFromProfile() {
+      renderHeaderNav();
+    },
   };
 
   window.addEventListener('DOMContentLoaded', () => {
     renderHeaderNav();
-  });
-
-  window.addEventListener('storage', (ev) => {
-    if (ev.key === STORAGE_KEY) renderHeaderNav();
   });
 })();

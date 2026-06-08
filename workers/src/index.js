@@ -4525,6 +4525,8 @@ async function resolveAdminUserTarget(env, body) {
     email: effectiveEmail,
     username: row.username != null ? String(row.username) : 'there',
     legacyEmailNotOnFile: !storedEmail && !!emailNormWant,
+    emailVerified:
+      row.emailVerified === true ? true : row.emailVerified === false ? false : null,
   };
 }
 
@@ -4836,6 +4838,187 @@ async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
   }
 
   return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+const ADMIN_GROUP_EMAIL_MAX_RECIPIENTS = 100;
+
+/** Normalize `{ userId?, email?, username? }[]` or email strings from admin group send. */
+function normalizeAdminGroupRecipientsInput(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const em = normalizeEmail(item);
+      if (!em || seen.has(em)) continue;
+      seen.add(em);
+      out.push({ email: em });
+      continue;
+    }
+    if (!item || typeof item !== 'object') continue;
+    const em = normalizeEmail(item.email || '');
+    const userId = item.userId != null ? String(item.userId).trim() : '';
+    const username = item.username != null ? String(item.username).trim() : '';
+    const key = (em || userId || username).toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const entry = {};
+    if (userId) entry.userId = userId;
+    if (em) entry.email = em;
+    if (username) entry.username = username;
+    out.push(entry);
+    if (out.length >= ADMIN_GROUP_EMAIL_MAX_RECIPIENTS) break;
+  }
+  return out;
+}
+
+/** Admin: same as custom email but to an explicit list of accounts (max 100). */
+async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
+  let body = {};
+  try {
+    const raw = await request.text();
+    if (raw && String(raw).trim()) body = JSON.parse(raw);
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const gate = await assertAdminBroadcastSession(env, sessionId);
+  if (!gate.ok) {
+    return new Response(JSON.stringify({ error: gate.error }), {
+      status: gate.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const subjectTpl = body.subject != null ? String(body.subject).trim() : '';
+  const textTpl = body.text != null ? String(body.text).trim() : '';
+  const htmlTpl = body.html != null ? String(body.html) : '';
+  const dryRun = body.dryRun === true;
+  const sendPreviewCopy = body.sendPreviewCopy === true;
+  const recipients = normalizeAdminGroupRecipientsInput(body.recipients);
+
+  if (!subjectTpl || !textTpl) {
+    return new Response(JSON.stringify({ error: 'subject and text are required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (!recipients.length) {
+    return new Response(JSON.stringify({ error: 'Provide at least one recipient (recipients array)' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  let previewEmailSent = false;
+  let previewEmailError = null;
+  if (dryRun && sendPreviewCopy) {
+    const prevSubject = applyBroadcastTemplate(subjectTpl, {
+      username: gate.adminUsername,
+      email: gate.adminEmail,
+    });
+    const prevTextBody = applyBroadcastTemplate(textTpl, {
+      username: gate.adminUsername,
+      email: gate.adminEmail,
+    });
+    const prevHtmlRaw = htmlTpl.trim()
+      ? applyBroadcastTemplate(htmlTpl, { username: gate.adminUsername, email: gate.adminEmail })
+      : '';
+    const prevHtml = prevHtmlRaw.trim() ? prevHtmlRaw : plainTextToBroadcastHtml(prevTextBody);
+    const previewBannerText =
+      'This is a preview for the administrator only. {{username}} and {{email}} were filled with YOUR account so you can proofread. Each real recipient gets their own values.\n\n---\n\n';
+    const previewText = previewBannerText + prevTextBody;
+    const previewHtml =
+      `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
+      `<strong>Group email preview</strong> — only you were sent this copy.</div>` +
+      prevHtml;
+    try {
+      await dispatchTransactionalEmail(env, {
+        to: gate.adminEmail,
+        subject: `[Group preview] ${prevSubject}`,
+        html: previewHtml,
+        text: previewText,
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      previewEmailSent = true;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      previewEmailError = w.hint || w.message || String(err?.message || err);
+    }
+  }
+
+  const summary = {
+    success: true,
+    dryRun,
+    from: ADMIN_BROADCAST_FROM_EMAIL,
+    recipientCount: recipients.length,
+    sent: 0,
+    skipped: 0,
+    failed: [],
+    dryRunEmails: [],
+    unresolved: [],
+    previewEmailSent,
+    previewEmailError,
+  };
+
+  for (const rec of recipients) {
+    const resolved = await resolveAdminUserTarget(env, rec);
+    if (!resolved.ok) {
+      summary.unresolved.push({
+        userId: rec.userId || '',
+        email: rec.email || '',
+        username: rec.username || '',
+        error: resolved.error || 'Could not resolve account',
+      });
+      summary.skipped++;
+      continue;
+    }
+    const to = resolved.email;
+    if (!to || !isLikelyRealEmail(to)) {
+      summary.skipped++;
+      summary.unresolved.push({
+        userId: resolved.userId || '',
+        email: to || rec.email || '',
+        error: 'No deliverable email on file',
+      });
+      continue;
+    }
+
+    const username = resolved.username || 'there';
+    const subject = applyBroadcastTemplate(subjectTpl, { username, email: to });
+    const text = applyBroadcastTemplate(textTpl, { username, email: to });
+    const htmlRaw = htmlTpl.trim() ? applyBroadcastTemplate(htmlTpl, { username, email: to }) : '';
+    const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
+
+    if (dryRun) {
+      summary.dryRunEmails.push(to);
+      continue;
+    }
+
+    try {
+      await dispatchTransactionalEmail(env, {
+        to,
+        subject,
+        html,
+        text,
+        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+        fromName: ADMIN_BROADCAST_FROM_NAME,
+      });
+      summary.sent++;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      summary.failed.push({ email: to, error: w.hint || w.message });
+    }
+  }
+
+  return new Response(JSON.stringify(summary), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
