@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from './types'
-import { getSessionIdFromCookie, getUserFromSession, deleteSession, clearSessionCookie, createSession, setSessionCookie, createLocalUser, authenticateLocalUser, ensureUserForAhrensEmail } from './auth'
+import { getSessionIdFromCookie, getUserFromSession, deleteSession, clearSessionCookie, createSession, setSessionCookie, createLocalUser, authenticateLocalUser, ensureUserForAhrensEmail, userHasAhrensBinding } from './auth'
 import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimit'
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
@@ -10,6 +10,19 @@ import { serveLinkHtml } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
 
+async function redirectAhrensLogin(c: any, clearLinkSession = false) {
+  const cookiePath = sessionCookiePath(c.req.raw)
+  if (clearLinkSession) {
+    const sessionId = getSessionIdFromCookie(c.req.raw)
+    if (sessionId) {
+      await deleteSession(c.env, sessionId)
+    }
+    const response = c.redirect(ahrensLoginRedirect(c.req.raw))
+    return clearSessionCookie(response, cookiePath)
+  }
+  return c.redirect(ahrensLoginRedirect(c.req.raw))
+}
+
 // Middleware to check authentication
 async function requireAuth(c: any, next: any) {
   const sessionId = getSessionIdFromCookie(c.req.raw)
@@ -17,9 +30,17 @@ async function requireAuth(c: any, next: any) {
   
   if (!user) {
     if (isAhrensHost(c.req.raw)) {
-      return c.redirect(ahrensLoginRedirect(c.req.raw))
+      return redirectAhrensLogin(c)
     }
     return c.redirect(publicPath(c.req.raw, '/auth/signin'))
+  }
+
+  // On ahrenslabs.com Link only accepts sessions tied to an Ahrens Labs account.
+  if (isAhrensHost(c.req.raw)) {
+    const bound = user.ahrens_user_id || (await userHasAhrensBinding(c.env, user.id))
+    if (!bound) {
+      return redirectAhrensLogin(c, true)
+    }
   }
   
   c.set('user', user)
@@ -37,7 +58,7 @@ app.get('/', async (c) => {
   }
 
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(publicPath(c.req.raw, '/dashboard'))
+    return redirectAhrensLogin(c)
   }
 
   return serveLinkHtml(c, landingPage())
@@ -46,13 +67,16 @@ app.get('/', async (c) => {
 // Auth routes
 app.get('/auth/signin', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(publicPath(c.req.raw, '/dashboard'))
+    return redirectAhrensLogin(c)
   }
   const error = c.req.query('error')
   return serveLinkHtml(c, signinPage(error))
 })
 
 app.post('/auth/signin', async (c) => {
+  if (isAhrensHost(c.req.raw)) {
+    return redirectAhrensLogin(c)
+  }
   const formData = await c.req.formData()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -85,13 +109,16 @@ app.post('/auth/signin', async (c) => {
 
 app.get('/auth/signup', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(publicPath(c.req.raw, '/dashboard'))
+    return redirectAhrensLogin(c)
   }
   const error = c.req.query('error')
   return serveLinkHtml(c, signupPage(error))
 })
 
 app.post('/auth/signup', async (c) => {
+  if (isAhrensHost(c.req.raw)) {
+    return redirectAhrensLogin(c)
+  }
   const formData = await c.req.formData()
   const name = formData.get('name') as string
   const email = formData.get('email') as string
@@ -134,7 +161,7 @@ app.post('/auth/signup', async (c) => {
 
 app.get('/auth/google', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(publicPath(c.req.raw, '/dashboard'))
+    return redirectAhrensLogin(c)
   }
   const url = new URL(c.req.url)
   const callbackUrl = `${url.protocol}//${url.host}${publicPath(c.req.raw, '/auth/callback')}`
@@ -208,9 +235,27 @@ app.get('/auth/ahrens-bridge', async (c) => {
     return c.text(result.error || 'Could not open Link account', 500)
   }
 
-  const sessionId = await createSession(c.env, result.userId)
+  const existingSessionId = getSessionIdFromCookie(c.req.raw)
+  if (existingSessionId) {
+    await deleteSession(c.env, existingSessionId)
+  }
+
+  const sessionId = await createSession(c.env, result.userId, bridge.ahrensUserId)
   const response = c.redirect(publicPath(c.req.raw, '/dashboard'))
   return setSessionCookie(response, sessionId, true, sessionCookiePath(c.req.raw))
+})
+
+// Who is logged into Link (for Ahrens session sync on ahrenslabs.com)
+app.get('/api/auth/identity', requireAuth, async (c) => {
+  const user = c.get('user')
+  const row = await c.env.DB.prepare(
+    'SELECT email, ahrens_user_id FROM users WHERE id = ?'
+  ).bind(user.id).first() as { email: string; ahrens_user_id: string | null } | null
+
+  return c.json({
+    email: row?.email || user.email,
+    ahrensUserId: row?.ahrens_user_id || user.ahrens_user_id || null,
+  })
 })
 
 // Dashboard

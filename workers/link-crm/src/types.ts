@@ -15,11 +15,13 @@ export interface User {
   email: string
   name: string | null
   image: string | null
+  ahrens_user_id?: string | null
 }
 
 export interface Session {
   userId: string
   expiresAt: number
+  ahrensUserId?: string
 }
 
 export interface Contact {

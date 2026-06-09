@@ -5,11 +5,16 @@ import type { Env, User, Session } from './types'
 const SESSION_PREFIX = 'session:'
 const SESSION_DURATION = 30 * 24 * 60 * 60 // 30 days in seconds
 
-export async function createSession(env: Env, userId: string): Promise<string> {
+export async function createSession(
+  env: Env,
+  userId: string,
+  ahrensUserId?: string
+): Promise<string> {
   const sessionId = crypto.randomUUID()
   const session: Session = {
     userId,
-    expiresAt: Date.now() + SESSION_DURATION * 1000
+    expiresAt: Date.now() + SESSION_DURATION * 1000,
+    ...(ahrensUserId ? { ahrensUserId } : {}),
   }
   
   await env.SESSIONS.put(
@@ -47,10 +52,17 @@ export async function getUserFromSession(env: Env, sessionId: string | null): Pr
   if (!session) return null
   
   const result = await env.DB.prepare(
-    'SELECT id, email, name, image FROM users WHERE id = ?'
+    'SELECT id, email, name, image, ahrens_user_id FROM users WHERE id = ?'
   ).bind(session.userId).first()
   
   return result as User | null
+}
+
+export async function userHasAhrensBinding(env: Env, userId: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    'SELECT ahrens_user_id FROM users WHERE id = ?'
+  ).bind(userId).first() as { ahrens_user_id: string | null } | null
+  return !!row?.ahrens_user_id
 }
 
 // Extract session ID from cookie

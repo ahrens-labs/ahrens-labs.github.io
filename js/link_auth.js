@@ -1,25 +1,85 @@
-// Link CRM — bridge Ahrens Labs session into Link after login (used from account.html).
+// Link CRM — Ahrens Labs is the only login on ahrenslabs.com/link.
 (function () {
   if (typeof window === 'undefined') return;
 
+  var ACCOUNT_URL = 'https://ahrenslabs.com/account.html';
+
   function isLinkReturn(url) {
     if (!url || typeof url !== 'string') return false;
-    const path = url.startsWith('/') ? url : '/' + url.replace(/^\.?\//, '');
+    var path = url.startsWith('/') ? url : '/' + url.replace(/^\.?\//, '');
     return path === '/link' || path.startsWith('/link/');
   }
 
+  function linkBase() {
+    var p = window.location.pathname;
+    if (p === '/link' || p.startsWith('/link/')) return '/link';
+    return '';
+  }
+
+  function currentReturnPath() {
+    return window.location.pathname + window.location.search;
+  }
+
+  function redirectToAccount(returnPath) {
+    window.location.href =
+      ACCOUNT_URL + '?return=' + encodeURIComponent(returnPath || '/link/dashboard');
+  }
+
+  function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase();
+  }
+
+  async function fetchAhrensIdentity() {
+    var sessionId = localStorage.getItem('ahrenslabs_sessionId');
+    if (!sessionId) return null;
+
+    var apiBase =
+      window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+    var res = await fetch(apiBase + '/api/user', {
+      headers: { Authorization: 'Bearer ' + sessionId },
+    });
+    if (!res.ok) return null;
+
+    var profile = await res.json().catch(function () { return null; });
+    if (!profile) return null;
+
+    var userId = localStorage.getItem('ahrenslabs_userId') || profile.userId || profile.id || '';
+    return {
+      userId: String(userId || ''),
+      email: normalizeEmail(profile.email),
+      username: profile.username || profile.email || '',
+    };
+  }
+
+  async function fetchLinkIdentity() {
+    var base = linkBase();
+    var res = await fetch(base + '/api/auth/identity', { credentials: 'include' });
+    if (!res.ok) return null;
+    return res.json().catch(function () { return null; });
+  }
+
+  async function signOutLink() {
+    var base = linkBase();
+    await fetch(base + '/auth/signout', { credentials: 'include', redirect: 'manual' }).catch(function () {});
+  }
+
   async function bridgeToLink() {
-    const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-    if (!sessionId) return false;
-    const apiBase = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
-    const res = await fetch(apiBase + '/api/link/bridge', {
+    var sessionId = localStorage.getItem('ahrenslabs_sessionId');
+    if (!sessionId) {
+      redirectToAccount(currentReturnPath());
+      return false;
+    }
+
+    var apiBase =
+      window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+    var res = await fetch(apiBase + '/api/link/bridge', {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + sessionId,
         'Content-Type': 'application/json',
       },
     });
-    const data = await res.json().catch(function () { return {}; });
+    var data = await res.json().catch(function () { return {}; });
     if (!res.ok || !data.url) {
       throw new Error(data.error || 'Could not open Link');
     }
@@ -28,7 +88,7 @@
   }
 
   async function goAfterLogin(returnUrl) {
-    const target = returnUrl || 'index.html';
+    var target = returnUrl || 'index.html';
     if (isLinkReturn(target)) {
       await bridgeToLink();
       return;
@@ -36,9 +96,46 @@
     window.location.href = target;
   }
 
+  /** On Link pages: require Ahrens login and matching Link session (same account). */
+  async function ensureSyncedOnPageLoad() {
+    if (!isLinkReturn(window.location.pathname)) return;
+
+    var returnPath = currentReturnPath();
+    var ahrens = await fetchAhrensIdentity();
+    if (!ahrens || !ahrens.userId) {
+      redirectToAccount(returnPath);
+      return;
+    }
+
+    var link = await fetchLinkIdentity();
+    if (!link || !link.ahrensUserId) {
+      await bridgeToLink();
+      return;
+    }
+
+    var emailMismatch =
+      ahrens.email &&
+      link.email &&
+      normalizeEmail(link.email) !== ahrens.email;
+    var idMismatch = String(link.ahrensUserId) !== String(ahrens.userId);
+
+    if (emailMismatch || idMismatch) {
+      await signOutLink();
+      await bridgeToLink();
+    }
+  }
+
   window.AhrensLinkAuth = {
     isLinkReturn: isLinkReturn,
     bridgeToLink: bridgeToLink,
     goAfterLogin: goAfterLogin,
+    ensureSyncedOnPageLoad: ensureSyncedOnPageLoad,
   };
+
+  if (isLinkReturn(window.location.pathname)) {
+    ensureSyncedOnPageLoad().catch(function (err) {
+      console.error('Link auth sync failed:', err);
+      redirectToAccount(currentReturnPath());
+    });
+  }
 })();

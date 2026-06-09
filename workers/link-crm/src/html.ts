@@ -27,6 +27,7 @@ const AHRENS_HEADER = `
 <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
 <script src="https://ahrenslabs.com/js/script.js"></script>
 <script src="https://ahrenslabs.com/js/header_nav.js"></script>
+<script src="https://ahrenslabs.com/js/link_auth.js"></script>
 <style>
   .al-site-header header { margin-bottom: 0; }
   body.link-with-al-header { background: #f9fafb !important; min-height: 100vh; display: block !important; }
