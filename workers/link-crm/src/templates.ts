@@ -19,13 +19,19 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;')
 }
 
+function navUserLabel(user: { name?: string | null; email?: string | null }): string {
+  const name = (user.name || '').trim()
+  if (name) return escapeHtml(name)
+  return escapeHtml(user.email || 'Account')
+}
+
 export function layout(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - LinkPRM</title>
+  <title>${title} - Link</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
   <link rel="manifest" href="/manifest.json">
@@ -778,7 +784,7 @@ function getVoiceAssistantScript(): string {
 }
 
 export function landingPage(): string {
-  return layout('LinkPRM — Link Person Relationship Manager', `
+  return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
       <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="nav-content">
@@ -1095,7 +1101,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
         <div class="nav-content">
           <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray">${user.email}</span>
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
@@ -1629,7 +1635,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false): str
         <div class="nav-content">
           <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray">${user.email}</span>
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
@@ -1690,7 +1696,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
         <div class="nav-content">
           <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray">${user.email}</span>
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
@@ -3060,7 +3066,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
         <div class="nav-content">
           <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray">${user.email}</span>
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
@@ -3283,7 +3289,7 @@ export function privacyPolicyPage(user: any): string {
       
       <div class="section">
         <div class="card">
-          <h2>Privacy Policy for LinkPRM</h2>
+          <h2>Privacy Policy for Link</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
           <h3>1. Introduction</h3>
@@ -3358,7 +3364,7 @@ export function termsOfServicePage(user: any): string {
       
       <div class="section">
         <div class="card">
-          <h2>Terms of Service for LinkPRM</h2>
+          <h2>Terms of Service for Link</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
           <h3>1. Acceptance of Terms</h3>

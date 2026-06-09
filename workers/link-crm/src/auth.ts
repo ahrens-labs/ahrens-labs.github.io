@@ -220,9 +220,15 @@ export async function ensureUserForAhrensEmail(
       const byAhrens = await env.DB.prepare(
         'SELECT id FROM users WHERE ahrens_user_id = ?'
       ).bind(ahrensId).first() as { id: string } | null
-      if (byAhrens?.id) {
-        return { success: true, userId: byAhrens.id }
+    if (byAhrens?.id) {
+      const displayName = (name || '').trim()
+      if (displayName) {
+        await env.DB.prepare(
+          'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+        ).bind(displayName, Date.now(), byAhrens.id).run()
       }
+      return { success: true, userId: byAhrens.id }
+    }
     }
 
     const existing = await env.DB.prepare(
@@ -230,11 +236,23 @@ export async function ensureUserForAhrensEmail(
     ).bind(normalized).first() as { id: string; ahrens_user_id: string | null } | null
 
     if (existing?.id) {
+      const displayName = (name || '').trim()
+      const updates: Promise<unknown>[] = []
       if (ahrensId && !existing.ahrens_user_id) {
-        await env.DB.prepare(
-          'UPDATE users SET ahrens_user_id = ?, updated_at = ? WHERE id = ?'
-        ).bind(ahrensId, Date.now(), existing.id).run()
+        updates.push(
+          env.DB.prepare(
+            'UPDATE users SET ahrens_user_id = ?, updated_at = ? WHERE id = ?'
+          ).bind(ahrensId, Date.now(), existing.id).run()
+        )
       }
+      if (displayName) {
+        updates.push(
+          env.DB.prepare(
+            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+          ).bind(displayName, Date.now(), existing.id).run()
+        )
+      }
+      if (updates.length) await Promise.all(updates)
       return { success: true, userId: existing.id }
     }
 

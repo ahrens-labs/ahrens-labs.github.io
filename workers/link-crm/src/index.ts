@@ -1151,9 +1151,9 @@ app.get('/icon-192.png', (c) => {
 // Serve manifest
 app.get('/manifest.json', (c) => {
   return c.json({
-    name: 'LinkPRM',
+    name: 'Link',
     short_name: 'Link',
-    description: 'LinkPRM — Link Person Relationship Manager',
+    description: 'Link Person Relationship Manager',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',

@@ -50,7 +50,17 @@ const AHRENS_HEADER = `
     color: #dbeafe;
     text-decoration: underline;
   }
+  .link-nav-user:empty { display: none; }
 </style>
+<script>
+(function () {
+  var username = localStorage.getItem('ahrenslabs_username');
+  if (!username) return;
+  document.querySelectorAll('.link-nav-user').forEach(function (el) {
+    el.textContent = username;
+  });
+})();
+</script>
 `
 
 const AHRENS_FOOTER = `

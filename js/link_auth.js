@@ -29,6 +29,13 @@
     return String(email || '').trim().toLowerCase();
   }
 
+  function applyNavUsername(username) {
+    if (!username) return;
+    document.querySelectorAll('.link-nav-user').forEach(function (el) {
+      el.textContent = username;
+    });
+  }
+
   async function fetchAhrensIdentity() {
     var sessionId = localStorage.getItem('ahrenslabs_sessionId');
     if (!sessionId) return null;
@@ -44,10 +51,14 @@
     if (!profile) return null;
 
     var userId = localStorage.getItem('ahrenslabs_userId') || profile.userId || profile.id || '';
+    var username = profile.username || localStorage.getItem('ahrenslabs_username') || profile.email || '';
+    if (profile.username) {
+      localStorage.setItem('ahrenslabs_username', profile.username);
+    }
     return {
       userId: String(userId || ''),
       email: normalizeEmail(profile.email),
-      username: profile.username || profile.email || '',
+      username: username,
     };
   }
 
@@ -106,6 +117,7 @@
       redirectToAccount(returnPath);
       return;
     }
+    applyNavUsername(ahrens.username);
 
     var link = await fetchLinkIdentity();
     if (!link || !link.ahrensUserId) {
