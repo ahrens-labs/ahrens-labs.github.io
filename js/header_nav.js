@@ -45,7 +45,7 @@
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
         { id: 'classify', label: 'Classify Planner', href: 'classify.html' },
         { id: 'tether', label: 'Tether', href: 'tether.html' },
-        { id: 'link', label: 'Link', href: 'open-link.html' },
+        { id: 'link', label: 'Link', href: '/link/dashboard' },
         { id: 'digest', label: 'Digest', href: 'digest.html' },
         { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
         { id: 'spud', label: 'Spud', href: 'spud.html' },

@@ -18,8 +18,7 @@ const PROTECTED_PAGE_BASENAMES = [
     'dungeon_game',
     'classify',
     'digest',
-    'tether',
-    'open-link'
+    'tether'
 ];
 
 // Check if current page requires login

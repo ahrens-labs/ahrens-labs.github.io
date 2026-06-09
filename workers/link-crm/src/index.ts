@@ -5,8 +5,8 @@ import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimi
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
 import { decryptContact, generateId, encryptContact } from './crypto'
-import { AHRENS_LINK_ENTRY, isAhrensHost, publicPath, sessionCookiePath } from './host'
-import { serveLinkHtml } from './html'
+import { AHRENS_LINK_HOME, isAhrensHost, publicPath, sessionCookiePath } from './host'
+import { serveLinkHtml, serveAhrensBridge } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -17,7 +17,7 @@ async function requireAuth(c: any, next: any) {
   
   if (!user) {
     if (isAhrensHost(c.req.raw)) {
-      return c.redirect(AHRENS_LINK_ENTRY)
+      return serveAhrensBridge(c)
     }
     return c.redirect(publicPath(c.req.raw, '/auth/signin'))
   }
@@ -37,16 +37,16 @@ app.get('/', async (c) => {
   }
 
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(AHRENS_LINK_ENTRY)
+    return c.redirect(publicPath(c.req.raw, '/dashboard'))
   }
-  
+
   return serveLinkHtml(c, landingPage())
 })
 
 // Auth routes
 app.get('/auth/signin', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(AHRENS_LINK_ENTRY)
+    return c.redirect(publicPath(c.req.raw, '/dashboard'))
   }
   const error = c.req.query('error')
   return serveLinkHtml(c, signinPage(error))
@@ -85,7 +85,7 @@ app.post('/auth/signin', async (c) => {
 
 app.get('/auth/signup', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(AHRENS_LINK_ENTRY)
+    return c.redirect(publicPath(c.req.raw, '/dashboard'))
   }
   const error = c.req.query('error')
   return serveLinkHtml(c, signupPage(error))
@@ -134,7 +134,7 @@ app.post('/auth/signup', async (c) => {
 
 app.get('/auth/google', (c) => {
   if (isAhrensHost(c.req.raw)) {
-    return c.redirect(AHRENS_LINK_ENTRY)
+    return c.redirect(publicPath(c.req.raw, '/dashboard'))
   }
   const url = new URL(c.req.url)
   const callbackUrl = `${url.protocol}//${url.host}${publicPath(c.req.raw, '/auth/callback')}`
@@ -160,7 +160,7 @@ app.get('/auth/signout', async (c) => {
   }
 
   const cookiePath = sessionCookiePath(c.req.raw)
-  const dest = isAhrensHost(c.req.raw) ? AHRENS_LINK_ENTRY : publicPath(c.req.raw, '/auth/signin')
+  const dest = isAhrensHost(c.req.raw) ? AHRENS_LINK_HOME : publicPath(c.req.raw, '/auth/signin')
   const response = c.redirect(dest)
   return clearSessionCookie(response, cookiePath)
 })
@@ -187,7 +187,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
     return serveLinkHtml(c, 
       `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:36rem;margin:auto">
         <h1>Link sign-in expired</h1>
-        <p>Go back to <a href="https://ahrenslabs.com/open-link.html">ahrenslabs.com/open-link</a> and open Link again.</p>
+        <p>Go back to <a href="/link/dashboard">Link dashboard</a> and try again.</p>
       </body></html>`,
       410
     )
