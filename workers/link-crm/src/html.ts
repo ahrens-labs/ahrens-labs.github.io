@@ -54,11 +54,30 @@ const AHRENS_HEADER = `
 </style>
 <script>
 (function () {
-  var username = localStorage.getItem('ahrenslabs_username');
-  if (!username) return;
-  document.querySelectorAll('.link-nav-user').forEach(function (el) {
-    el.textContent = username;
-  });
+  function applyNavUsername(username) {
+    if (!username || String(username).includes('@')) return;
+    document.querySelectorAll('.link-nav-user').forEach(function (el) {
+      el.textContent = username;
+    });
+  }
+
+  var cached = localStorage.getItem('ahrenslabs_username');
+  if (cached) applyNavUsername(cached);
+
+  var sessionId = localStorage.getItem('ahrenslabs_sessionId');
+  if (!sessionId) return;
+
+  var apiBase = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
+  fetch(apiBase + '/api/user', {
+    headers: { Authorization: 'Bearer ' + sessionId },
+  })
+    .then(function (res) { return res.ok ? res.json() : null; })
+    .then(function (profile) {
+      if (!profile || !profile.username) return;
+      localStorage.setItem('ahrenslabs_username', profile.username);
+      applyNavUsername(profile.username);
+    })
+    .catch(function () {});
 })();
 </script>
 `

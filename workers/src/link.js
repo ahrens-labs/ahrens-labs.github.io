@@ -80,7 +80,8 @@ export async function handleLinkBridgeRequest(request, env, corsHeaders) {
   const token = newBridgeToken();
   const payload = {
     email: profile.email,
-    name: profile.name || profile.username || profile.email,
+    username: profile.username,
+    name: profile.username,
     ahrensUserId: userId,
     createdAt: Date.now(),
   };

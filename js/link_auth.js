@@ -30,7 +30,7 @@
   }
 
   function applyNavUsername(username) {
-    if (!username) return;
+    if (!username || String(username).includes('@')) return;
     document.querySelectorAll('.link-nav-user').forEach(function (el) {
       el.textContent = username;
     });
@@ -51,7 +51,7 @@
     if (!profile) return null;
 
     var userId = localStorage.getItem('ahrenslabs_userId') || profile.userId || profile.id || '';
-    var username = profile.username || localStorage.getItem('ahrenslabs_username') || profile.email || '';
+    var username = profile.username || localStorage.getItem('ahrenslabs_username') || '';
     if (profile.username) {
       localStorage.setItem('ahrenslabs_username', profile.username);
     }

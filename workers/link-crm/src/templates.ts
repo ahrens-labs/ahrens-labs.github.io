@@ -21,8 +21,8 @@ function escapeHtml(text: string): string {
 
 function navUserLabel(user: { name?: string | null; email?: string | null }): string {
   const name = (user.name || '').trim()
-  if (name) return escapeHtml(name)
-  return escapeHtml(user.email || 'Account')
+  if (name && !name.includes('@')) return escapeHtml(name)
+  return ''
 }
 
 export function layout(title: string, content: string): string {

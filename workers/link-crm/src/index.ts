@@ -220,7 +220,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
     )
   }
 
-  const bridge = await consumeRes.json() as { email?: string; name?: string; ahrensUserId?: string }
+  const bridge = await consumeRes.json() as { email?: string; name?: string; username?: string; ahrensUserId?: string }
   if (!bridge.email) {
     return c.text('Invalid bridge payload', 500)
   }
@@ -228,8 +228,9 @@ app.get('/auth/ahrens-bridge', async (c) => {
   const result = await ensureUserForAhrensEmail(
     c.env,
     bridge.email,
-    bridge.name || bridge.email,
-    bridge.ahrensUserId
+    bridge.name || bridge.username || bridge.email,
+    bridge.ahrensUserId,
+    bridge.username
   )
   if (!result.success || !result.userId) {
     return c.text(result.error || 'Could not open Link account', 500)
@@ -249,11 +250,15 @@ app.get('/auth/ahrens-bridge', async (c) => {
 app.get('/api/auth/identity', requireAuth, async (c) => {
   const user = c.get('user')
   const row = await c.env.DB.prepare(
-    'SELECT email, ahrens_user_id FROM users WHERE id = ?'
-  ).bind(user.id).first() as { email: string; ahrens_user_id: string | null } | null
+    'SELECT email, name, ahrens_user_id FROM users WHERE id = ?'
+  ).bind(user.id).first() as { email: string; name: string | null; ahrens_user_id: string | null } | null
+
+  const storedName = (row?.name || user.name || '').trim()
+  const username = storedName && !storedName.includes('@') ? storedName : ''
 
   return c.json({
     email: row?.email || user.email,
+    username,
     ahrensUserId: row?.ahrens_user_id || user.ahrens_user_id || null,
   })
 })

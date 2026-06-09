@@ -205,23 +205,33 @@ export async function createLocalUser(
   }
 }
 
+/** Prefer Ahrens Labs username for display (never email when username exists). */
+function ahrensDisplayName(username?: string, name?: string): string {
+  const u = String(username || '').trim()
+  if (u) return u
+  const n = String(name || '').trim()
+  if (n && !n.includes('@')) return n
+  return u || n
+}
+
 /** Find or create a Link CRM user tied to an Ahrens Labs account (by email + ahrens_user_id). */
 export async function ensureUserForAhrensEmail(
   env: Env,
   email: string,
   name: string,
-  ahrensUserId?: string
+  ahrensUserId?: string,
+  username?: string
 ): Promise<{ success: boolean; userId?: string; error?: string }> {
   try {
     const normalized = email.trim().toLowerCase()
     const ahrensId = ahrensUserId ? String(ahrensUserId).trim() : ''
+    const displayName = ahrensDisplayName(username, name)
 
     if (ahrensId) {
       const byAhrens = await env.DB.prepare(
         'SELECT id FROM users WHERE ahrens_user_id = ?'
       ).bind(ahrensId).first() as { id: string } | null
     if (byAhrens?.id) {
-      const displayName = (name || '').trim()
       if (displayName) {
         await env.DB.prepare(
           'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
@@ -236,7 +246,6 @@ export async function ensureUserForAhrensEmail(
     ).bind(normalized).first() as { id: string; ahrens_user_id: string | null } | null
 
     if (existing?.id) {
-      const displayName = (name || '').trim()
       const updates: Promise<unknown>[] = []
       if (ahrensId && !existing.ahrens_user_id) {
         updates.push(
@@ -259,7 +268,7 @@ export async function ensureUserForAhrensEmail(
     const userId = crypto.randomUUID()
     await env.DB.prepare(
       'INSERT INTO users (id, email, name, ahrens_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(userId, normalized, name || normalized, ahrensId || null, Date.now(), Date.now()).run()
+    ).bind(userId, normalized, displayName || normalized, ahrensId || null, Date.now(), Date.now()).run()
 
     return { success: true, userId }
   } catch (error) {
