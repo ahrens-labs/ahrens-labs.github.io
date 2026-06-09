@@ -1674,6 +1674,17 @@
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
             renderAll();
+            applyClassifyRouteFromUrl();
+        });
+
+        window.addEventListener('hashchange', () => {
+            if(suppressClassifyRouteSync) return;
+            applyClassifyRouteFromUrl();
+        });
+
+        window.addEventListener('popstate', () => {
+            if(suppressClassifyRouteSync) return;
+            applyClassifyRouteFromUrl();
         });
 
         window.addEventListener('beforeunload', () => {
@@ -2656,8 +2667,70 @@
             return text.replace(urlRegex, url => `<a href="${url}" target="_blank" class="text-brand-500 hover:underline z-20 relative font-medium">${url}</a>`);
         }
 
-        // --- Navigation ---
-        function switchTab(tabId) {
+        // --- Navigation / URL routing ---
+        const CLASSIFY_TABS = ['dashboard', 'tasks', 'calendar', 'analytics', 'insights'];
+        const CLASSIFY_CALENDAR_MODES = ['month', 'week', 'day', 'agenda'];
+        let suppressClassifyRouteSync = false;
+
+        function normalizeClassifyTab(tabId) {
+            return CLASSIFY_TABS.includes(tabId) ? tabId : 'dashboard';
+        }
+
+        function normalizeClassifyCalendarMode(mode) {
+            return CLASSIFY_CALENDAR_MODES.includes(mode) ? mode : 'month';
+        }
+
+        function parseClassifyRoute() {
+            const raw = (location.hash || '').replace(/^#/, '').trim().toLowerCase();
+            if(!raw) return { tab: 'dashboard', calendarMode: 'month' };
+            const [tabPart, modePart] = raw.split('/').filter(Boolean);
+            const tab = normalizeClassifyTab(tabPart);
+            let calendarMode = 'month';
+            if(tab === 'calendar' && modePart) {
+                calendarMode = normalizeClassifyCalendarMode(modePart);
+            }
+            return { tab, calendarMode };
+        }
+
+        function buildClassifyHash(tabId, calendarMode = 'month') {
+            const tab = normalizeClassifyTab(tabId);
+            if(tab === 'calendar') {
+                const mode = normalizeClassifyCalendarMode(calendarMode);
+                return mode === 'month' ? '#calendar' : `#calendar/${mode}`;
+            }
+            return `#${tab}`;
+        }
+
+        function isClassifyTabActive(tabId) {
+            const el = document.getElementById(`${tabId}Tab`);
+            return Boolean(el && !el.classList.contains('hidden'));
+        }
+
+        function syncClassifyUrl(tabId, calendarMode = calendarViewMode, replace = false) {
+            if(suppressClassifyRouteSync) return;
+            const nextHash = buildClassifyHash(tabId, calendarMode);
+            if((location.hash || '') === nextHash) return;
+            suppressClassifyRouteSync = true;
+            if(replace) {
+                history.replaceState({ classifyTab: tabId, calendarMode }, '', nextHash);
+            } else {
+                history.pushState({ classifyTab: tabId, calendarMode }, '', nextHash);
+            }
+            suppressClassifyRouteSync = false;
+        }
+
+        function applyClassifyRouteFromUrl() {
+            const route = parseClassifyRoute();
+            if(route.tab === 'calendar') {
+                calendarViewMode = route.calendarMode;
+            }
+            switchTab(route.tab, { updateUrl: false });
+        }
+
+        function switchTab(tabId, options = {}) {
+            const { updateUrl = true, replaceUrl = false } = options || {};
+            tabId = normalizeClassifyTab(tabId);
+
             ['dashboard', 'tasks', 'calendar', 'analytics', 'insights'].forEach(id => {
                 const el = document.getElementById(id + 'Tab');
                 if(el) el.classList.add('hidden');
@@ -2680,6 +2753,10 @@
             if(tabId === 'tasks') renderTaskList();
             if(tabId === 'analytics') renderAnalytics();
             if(tabId === 'insights') renderInsights();
+
+            if(updateUrl) {
+                syncClassifyUrl(tabId, tabId === 'calendar' ? calendarViewMode : 'month', replaceUrl);
+            }
         }
 
         function toggleMobileNav() {
@@ -4841,6 +4918,9 @@
             calendarViewMode = validModes.has(mode) ? mode : 'month';
             plannerSet('calendarViewMode', calendarViewMode);
             renderCalendar();
+            if(isClassifyTabActive('calendar')) {
+                syncClassifyUrl('calendar', calendarViewMode, false);
+            }
         }
 
         function changeCalendarPeriod(offset) {
