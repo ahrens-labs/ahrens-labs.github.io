@@ -37,38 +37,59 @@ function getCurrentPageReturnTarget() {
     return currentPage;
 }
 
+function resolveHeaderAuthGuest() {
+    const loginBtn = document.getElementById('header-login-btn');
+    const signupBtn = document.getElementById('header-signup-btn');
+    const usernameSpan = document.getElementById('header-username');
+    if (loginBtn) loginBtn.style.display = 'block';
+    if (signupBtn) signupBtn.style.display = 'block';
+    if (usernameSpan) usernameSpan.style.display = 'none';
+    document.documentElement.classList.add('header-auth-ready');
+}
+
+function resolveHeaderAuthUser(displayName) {
+    const loginBtn = document.getElementById('header-login-btn');
+    const signupBtn = document.getElementById('header-signup-btn');
+    const usernameSpan = document.getElementById('header-username');
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (signupBtn) signupBtn.style.display = 'none';
+    if (usernameSpan) {
+        usernameSpan.style.display = 'inline-block';
+        usernameSpan.textContent = displayName || 'Signed in';
+    }
+    document.documentElement.classList.add('header-auth-ready');
+}
+
+function resolveHeaderAuthNone() {
+    document.documentElement.classList.add('header-auth-ready');
+}
+
 // Check login status on page load
 window.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
-    
+
     // account.html and account-dashboard.html stay usable while signed in (no auto-redirect to home).
 });
 
 async function checkLoginStatus() {
     const sessionId = localStorage.getItem('ahrenslabs_sessionId');
     const username = localStorage.getItem('ahrenslabs_username');
-    
+
     const loginBtn = document.getElementById('header-login-btn');
     const signupBtn = document.getElementById('header-signup-btn');
-    const usernameSpan = document.getElementById('header-username');
-    
+
     if (!loginBtn || !signupBtn) {
-        // Header buttons not found, but still check if protected page
         if (!sessionId && requiresLogin()) {
             console.log('Not logged in on protected page (no header), redirecting...');
             const currentPage = getCurrentPageReturnTarget();
             window.location.href = `account.html?return=${currentPage}`;
         }
+        resolveHeaderAuthNone();
         return;
     }
-    
+
     if (!sessionId) {
-        // Not logged in
-        loginBtn.style.display = 'block';
-        signupBtn.style.display = 'block';
-        if (usernameSpan) usernameSpan.style.display = 'none';
-        
-        // Redirect to login if on a protected page
+        resolveHeaderAuthGuest();
         if (requiresLogin()) {
             console.log('Not logged in on protected page, redirecting...');
             const currentPage = getCurrentPageReturnTarget();
@@ -76,15 +97,14 @@ async function checkLoginStatus() {
         }
         return;
     }
-    
-    // Check if session is still valid
+
     try {
         const response = await fetch(`${AHRENS_API_URL}/api/user`, {
             headers: {
                 'Authorization': `Bearer ${sessionId}`
             }
         });
-        
+
         if (response.ok) {
             const userData = await response.json().catch(() => null);
             if (window.AhrensHeaderNav) {
@@ -92,35 +112,29 @@ async function checkLoginStatus() {
                     window.AhrensHeaderNav.syncFromProfile(userData.headerNavItems);
                 }
             }
-            // Logged in: hide login/signup; show username when present (logout lives on account page)
-            loginBtn.style.display = 'none';
-            signupBtn.style.display = 'none';
-            if (usernameSpan) {
-                usernameSpan.style.display = 'inline-block';
-                usernameSpan.textContent = (userData && userData.username) || username || 'Signed in';
-            }
+            resolveHeaderAuthUser((userData && userData.username) || username);
             return;
-        } else {
-            // Invalid session
-            localStorage.removeItem('ahrenslabs_sessionId');
-            localStorage.removeItem('ahrenslabs_username');
-            localStorage.removeItem('ahrenslabs_userId');
-            
-            loginBtn.style.display = 'block';
-            signupBtn.style.display = 'block';
-            if (usernameSpan) usernameSpan.style.display = 'none';
-            
-            // Redirect to login if on a protected page
-            if (requiresLogin()) {
-                console.log('Invalid session on protected page, redirecting...');
-                const currentPage = getCurrentPageReturnTarget();
-                window.location.href = `account.html?return=${currentPage}`;
-            }
+        }
+
+        localStorage.removeItem('ahrenslabs_sessionId');
+        localStorage.removeItem('ahrenslabs_username');
+        localStorage.removeItem('ahrenslabs_userId');
+
+        resolveHeaderAuthGuest();
+        if (requiresLogin()) {
+            console.log('Invalid session on protected page, redirecting...');
+            const currentPage = getCurrentPageReturnTarget();
+            window.location.href = `account.html?return=${currentPage}`;
         }
     } catch (error) {
         console.error('Session check error:', error);
-        
-        // On error, redirect if on protected page
+
+        if (sessionId && username) {
+            resolveHeaderAuthUser(username);
+        } else {
+            resolveHeaderAuthGuest();
+        }
+
         if (requiresLogin()) {
             console.log('Error checking auth on protected page, redirecting...');
             const currentPage = getCurrentPageReturnTarget();
@@ -131,7 +145,7 @@ async function checkLoginStatus() {
 
 async function handleLogout() {
     const sessionId = localStorage.getItem('ahrenslabs_sessionId');
-    
+
     if (sessionId) {
         try {
             await fetch(`${AHRENS_API_URL}/api/logout`, {
@@ -144,12 +158,10 @@ async function handleLogout() {
             console.error('Logout error:', error);
         }
     }
-    
-    // Clear local storage
+
     localStorage.removeItem('ahrenslabs_sessionId');
     localStorage.removeItem('ahrenslabs_username');
     localStorage.removeItem('ahrenslabs_userId');
-    
-    // Redirect to account page
+
     window.location.href = 'account.html';
 }

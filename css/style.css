@@ -407,6 +407,13 @@ nav a.active::after {
     }
 }
 
+/* Hide login/signup until checkLoginStatus resolves (no flash of guest buttons) */
+html:not(.header-auth-ready) #header-login-btn,
+html:not(.header-auth-ready) #header-signup-btn,
+html:not(.header-auth-ready) #header-username {
+    display: none !important;
+}
+
 /* Header dropdown menus */
 header nav {
     position: relative;
