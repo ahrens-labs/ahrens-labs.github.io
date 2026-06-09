@@ -312,6 +312,58 @@
     ul.appendChild(li);
   }
 
+  const DROPDOWN_CLOSE_DELAY_MS = 320;
+
+  function wireHeaderDropdownHover() {
+    const ul = document.querySelector('header nav ul');
+    if (!ul || ul.dataset.dropdownHoverWired === '1') return;
+    ul.dataset.dropdownHoverWired = '1';
+
+    ul.addEventListener('mouseover', (ev) => {
+      const li = ev.target.closest('li.nav-dropdown');
+      if (!li || !ul.contains(li)) return;
+      if (li._closeTimer) {
+        clearTimeout(li._closeTimer);
+        li._closeTimer = null;
+      }
+      li.classList.add('nav-dropdown--open');
+    });
+
+    ul.addEventListener('mouseout', (ev) => {
+      const li = ev.target.closest('li.nav-dropdown');
+      if (!li || !ul.contains(li)) return;
+      const related = ev.relatedTarget;
+      if (related && li.contains(related)) return;
+      if (li._closeTimer) clearTimeout(li._closeTimer);
+      li._closeTimer = setTimeout(() => {
+        li.classList.remove('nav-dropdown--open');
+        li._closeTimer = null;
+      }, DROPDOWN_CLOSE_DELAY_MS);
+    });
+
+    ul.addEventListener('focusin', (ev) => {
+      const li = ev.target.closest('li.nav-dropdown');
+      if (!li || !ul.contains(li)) return;
+      if (li._closeTimer) {
+        clearTimeout(li._closeTimer);
+        li._closeTimer = null;
+      }
+      li.classList.add('nav-dropdown--open');
+    });
+
+    ul.addEventListener('focusout', (ev) => {
+      const li = ev.target.closest('li.nav-dropdown');
+      if (!li || !ul.contains(li)) return;
+      const related = ev.relatedTarget;
+      if (related && li.contains(related)) return;
+      if (li._closeTimer) clearTimeout(li._closeTimer);
+      li._closeTimer = setTimeout(() => {
+        li.classList.remove('nav-dropdown--open');
+        li._closeTimer = null;
+      }, DROPDOWN_CLOSE_DELAY_MS);
+    });
+  }
+
   function renderHeaderNav() {
     const ul = document.querySelector('header nav ul');
     if (!ul) return;
@@ -324,6 +376,7 @@
     for (const entry of entries) {
       renderNavEntry(ul, entry, selected);
     }
+    wireHeaderDropdownHover();
   }
 
   function escHtml(s) {
