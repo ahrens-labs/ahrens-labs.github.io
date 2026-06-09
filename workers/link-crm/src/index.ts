@@ -5,8 +5,8 @@ import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimi
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
 import { decryptContact, generateId, encryptContact } from './crypto'
-import { AHRENS_LINK_HOME, isAhrensHost, publicPath, sessionCookiePath } from './host'
-import { serveLinkHtml, serveAhrensBridge } from './html'
+import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, publicPath, sessionCookiePath } from './host'
+import { serveLinkHtml } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -17,7 +17,7 @@ async function requireAuth(c: any, next: any) {
   
   if (!user) {
     if (isAhrensHost(c.req.raw)) {
-      return serveAhrensBridge(c)
+      return c.redirect(ahrensLoginRedirect(c.req.raw))
     }
     return c.redirect(publicPath(c.req.raw, '/auth/signin'))
   }
@@ -193,12 +193,17 @@ app.get('/auth/ahrens-bridge', async (c) => {
     )
   }
 
-  const bridge = await consumeRes.json() as { email?: string; name?: string }
+  const bridge = await consumeRes.json() as { email?: string; name?: string; ahrensUserId?: string }
   if (!bridge.email) {
     return c.text('Invalid bridge payload', 500)
   }
 
-  const result = await ensureUserForAhrensEmail(c.env, bridge.email, bridge.name || bridge.email)
+  const result = await ensureUserForAhrensEmail(
+    c.env,
+    bridge.email,
+    bridge.name || bridge.email,
+    bridge.ahrensUserId
+  )
   if (!result.success || !result.userId) {
     return c.text(result.error || 'Could not open Link account', 500)
   }

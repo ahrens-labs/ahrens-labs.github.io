@@ -193,26 +193,43 @@ export async function createLocalUser(
   }
 }
 
-/** Find or create a Link CRM user row for an Ahrens Labs account (no password). */
+/** Find or create a Link CRM user tied to an Ahrens Labs account (by email + ahrens_user_id). */
 export async function ensureUserForAhrensEmail(
   env: Env,
   email: string,
-  name: string
+  name: string,
+  ahrensUserId?: string
 ): Promise<{ success: boolean; userId?: string; error?: string }> {
   try {
     const normalized = email.trim().toLowerCase()
+    const ahrensId = ahrensUserId ? String(ahrensUserId).trim() : ''
+
+    if (ahrensId) {
+      const byAhrens = await env.DB.prepare(
+        'SELECT id FROM users WHERE ahrens_user_id = ?'
+      ).bind(ahrensId).first() as { id: string } | null
+      if (byAhrens?.id) {
+        return { success: true, userId: byAhrens.id }
+      }
+    }
+
     const existing = await env.DB.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).bind(normalized).first() as { id: string } | null
+      'SELECT id, ahrens_user_id FROM users WHERE email = ?'
+    ).bind(normalized).first() as { id: string; ahrens_user_id: string | null } | null
 
     if (existing?.id) {
+      if (ahrensId && !existing.ahrens_user_id) {
+        await env.DB.prepare(
+          'UPDATE users SET ahrens_user_id = ?, updated_at = ? WHERE id = ?'
+        ).bind(ahrensId, Date.now(), existing.id).run()
+      }
       return { success: true, userId: existing.id }
     }
 
     const userId = crypto.randomUUID()
     await env.DB.prepare(
-      'INSERT INTO users (id, email, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
-    ).bind(userId, normalized, name || normalized, Date.now(), Date.now()).run()
+      'INSERT INTO users (id, email, name, ahrens_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(userId, normalized, name || normalized, ahrensId || null, Date.now(), Date.now()).run()
 
     return { success: true, userId }
   } catch (error) {

@@ -21,3 +21,9 @@ export function sessionCookiePath(request: Request): string {
 }
 
 export const AHRENS_LINK_HOME = 'https://ahrenslabs.com/coding-lab.html'
+
+export function ahrensLoginRedirect(request: Request): string {
+  const url = new URL(request.url)
+  const returnPath = url.pathname + url.search
+  return `https://ahrenslabs.com/account.html?return=${encodeURIComponent(returnPath)}`
+}

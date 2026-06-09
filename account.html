@@ -26,6 +26,7 @@
     </script>
     <script src="js/script.js"></script>
   <script src="js/header_nav.js"></script>
+  <script src="js/link_auth.js"></script>
     
     <style>
         .account-container {
@@ -536,16 +537,29 @@
         window.addEventListener('DOMContentLoaded', async () => {
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('return');
 
             const verifyToken = urlParams.get('verify');
             const verifyEmailParam = urlParams.get('email');
             if (verifyToken && verifyEmailParam) {
                 await verifyEmail(verifyToken, verifyEmailParam);
                 window.history.replaceState({}, document.title, window.location.pathname);
+                return;
             }
 
             if (urlParams.get('forgot') === '1') {
                 switchTab('forgot');
+                return;
+            }
+
+            // Already signed in — bridge into Link when returning from /link/*
+            if (sessionId && returnUrl && window.AhrensLinkAuth && window.AhrensLinkAuth.isLinkReturn(returnUrl)) {
+                try {
+                    showNotification('Opening Link…', 'info', 2000);
+                    await window.AhrensLinkAuth.goAfterLogin(returnUrl);
+                } catch (err) {
+                    showNotification(err.message || 'Could not open Link', 'error');
+                }
                 return;
             }
 
@@ -703,10 +717,17 @@
 
                     showNotification('Login successful! 🎉', 'success');
                     
-                    // Redirect to return URL or home
                     const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
-                    setTimeout(() => {
-                        window.location.href = returnUrl;
+                    setTimeout(async () => {
+                        try {
+                            if (window.AhrensLinkAuth) {
+                                await window.AhrensLinkAuth.goAfterLogin(returnUrl);
+                            } else {
+                                window.location.href = returnUrl;
+                            }
+                        } catch (err) {
+                            showNotification(err.message || 'Could not continue after login', 'error');
+                        }
                     }, 1000);
                 } else {
                     const msg =
@@ -782,8 +803,16 @@
                     showNotification(data.message || 'Email verified successfully! 🎉', 'success', 5000);
                     const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
                     if (data.sessionId) {
-                        setTimeout(() => {
-                            window.location.href = returnUrl;
+                        setTimeout(async () => {
+                            try {
+                                if (window.AhrensLinkAuth) {
+                                    await window.AhrensLinkAuth.goAfterLogin(returnUrl);
+                                } else {
+                                    window.location.href = returnUrl;
+                                }
+                            } catch (err) {
+                                showNotification(err.message || 'Could not continue after verification', 'error');
+                            }
                         }, 1200);
                     }
                 } else {
