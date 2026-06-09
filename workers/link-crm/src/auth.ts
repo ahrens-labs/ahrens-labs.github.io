@@ -246,7 +246,7 @@ export async function ensureUserForAhrensEmail(
     return { success: true, userId }
   } catch (error) {
     console.error('Error ensuring Ahrens Link user:', error)
-    return { success: false, error: 'Failed to open link account' }
+    return { success: false, error: 'Failed to open Link account' }
   }
 }
 

@@ -555,10 +555,10 @@
             // Already signed in — bridge into link when returning from /link/*
             if (sessionId && returnUrl && window.AhrensLinkAuth && window.AhrensLinkAuth.isLinkReturn(returnUrl)) {
                 try {
-                    showNotification('Opening link…', 'info', 2000);
+                    showNotification('Opening Link…', 'info', 2000);
                     await window.AhrensLinkAuth.goAfterLogin(returnUrl);
                 } catch (err) {
-                    showNotification(err.message || 'Could not open link', 'error');
+                    showNotification(err.message || 'Could not open Link', 'error');
                 }
                 return;
             }

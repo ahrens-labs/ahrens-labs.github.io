@@ -1,4 +1,4 @@
-// link (official name: linkprm) — Ahrens Labs login on ahrenslabs.com/link.
+// Link (official name: LinkPRM) — Ahrens Labs login on ahrenslabs.com/link.
 (function () {
   if (typeof window === 'undefined') return;
 
@@ -81,7 +81,7 @@
     });
     var data = await res.json().catch(function () { return {}; });
     if (!res.ok || !data.url) {
-      throw new Error(data.error || 'Could not open link');
+      throw new Error(data.error || 'Could not open Link');
     }
     window.location.href = data.url;
     return true;
@@ -96,7 +96,7 @@
     window.location.href = target;
   }
 
-  /** On link pages: require Ahrens login and matching link session (same account). */
+  /** On Link pages: require Ahrens login and matching Link session (same account). */
   async function ensureSyncedOnPageLoad() {
     if (!isLinkReturn(window.location.pathname)) return;
 
@@ -134,7 +134,7 @@
 
   if (isLinkReturn(window.location.pathname)) {
     ensureSyncedOnPageLoad().catch(function (err) {
-      console.error('link auth sync failed:', err);
+      console.error('Link auth sync failed:', err);
       redirectToAccount(currentReturnPath());
     });
   }
