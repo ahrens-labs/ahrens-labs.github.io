@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 // Type definitions for Cloudflare Workers environment
 export interface Env {
   DB: D1Database
@@ -16,7 +18,6 @@ export interface User {
   name: string | null
   image: string | null
   ahrens_user_id?: string | null
-  ahrens_username?: string | null
 }
 
 export interface Session {
