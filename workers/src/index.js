@@ -31,7 +31,7 @@ export { TetherProject } from './tether.js';
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
 
-const HEADER_NAV_DEFAULT_IDS = ['home', 'labs', 'account'];
+const HEADER_NAV_DEFAULT_IDS = ['home', 'labs', 'chessEngine', 'account'];
 const HEADER_NAV_ALLOWED_IDS = new Set([
   'home',
   'labs',

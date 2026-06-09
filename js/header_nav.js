@@ -3,7 +3,7 @@
   if (typeof window === 'undefined') return;
 
   const STORAGE_KEY = 'ahrenslabs_headerNav';
-  const DEFAULT_NAV_IDS = ['home', 'labs', 'account'];
+  const DEFAULT_NAV_IDS = ['home', 'labs', 'chessEngine', 'account'];
 
   /** @typedef {{ id: string, label: string, href: string, children?: Array<{ id: string, label: string, href: string }> }} NavEntry */
 

@@ -900,7 +900,7 @@
         <div class="dash-card full-span dash-header-nav-card" id="dash-header-nav-card">
           <details class="header-nav-details">
             <summary>Site header links</summary>
-            <p class="hint header-nav-hint">Links shown in the top nav on every page. Default: Home, Labs, Account. Optional groups open as dropdown menus.</p>
+            <p class="hint header-nav-hint">Links shown in the top nav on every page. Default: Home, Labs, Chess Engine, Account. Optional groups (including Chess Engine) can be turned on or off below.</p>
             <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
             <div class="header-nav-actions">
               <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
@@ -1989,7 +1989,7 @@
 
     function getHeaderNavIdsForUser(user) {
       const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'account'];
+      if (!nav) return ['home', 'labs', 'chessEngine', 'account'];
       if (user && Array.isArray(user.headerNavItems)) {
         return nav.normalizeNavIds(user.headerNavItems);
       }
@@ -2027,7 +2027,7 @@
 
     function getHeaderNavIdsFromForm() {
       const nav = window.AhrensHeaderNav;
-      if (!nav) return ['home', 'labs', 'account'];
+      if (!nav) return ['home', 'labs', 'chessEngine', 'account'];
       const checked = new Set();
       document.querySelectorAll('#header-nav-options input[type="checkbox"]:checked').forEach((el) => {
         checked.add(el.value);
