@@ -32,7 +32,30 @@ const AHRENS_HEADER = `
   body.link-with-al-header { background: #f9fafb !important; min-height: 100vh; display: block !important; }
   body.link-with-al-header::before { display: none !important; }
   body.link-with-al-header .wrapper { max-width: none; }
+  body.link-with-al-header > footer {
+    background-color: #2c3e50;
+    color: #bbb;
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 0.9rem;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+  }
+  body.link-with-al-header > footer a {
+    color: #93c5fd;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  body.link-with-al-header > footer a:hover {
+    color: #dbeafe;
+    text-decoration: underline;
+  }
 </style>
+`
+
+const AHRENS_FOOTER = `
+<footer>
+  <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="https://ahrenslabs.com/contact.html">Contact</a> · <a href="https://ahrenslabs.com/privacy.html">Privacy</a></p>
+</footer>
 `
 
 /** Prefix root-relative URLs in SSR HTML when Link is mounted at /link */
@@ -53,6 +76,9 @@ export function rewriteLinkHtml(html: string, basePath: string, request: Request
     if (!out.includes('al-site-header')) {
       out = out.replace('<body class="link-with-al-header">', `<body class="link-with-al-header">${AHRENS_HEADER}`)
       out = out.replace(/<body class="link-with-al-header"\s*>/, `<body class="link-with-al-header">${AHRENS_HEADER}`)
+    }
+    if (!out.includes('Ahrens Labs. All rights reserved')) {
+      out = out.replace('</body>', `${AHRENS_FOOTER}</body>`)
     }
   }
 
