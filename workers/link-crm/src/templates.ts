@@ -782,7 +782,7 @@ export function landingPage(): string {
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
       <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="nav-content">
-          <a href="/" class="logo" style="color: white;">Link</a>
+          <a href="/" class="logo" style="color: white;">link</a>
           <div style="display: flex; gap: 0.5rem;">
             <a href="/auth/signin" class="btn btn-secondary">Sign In</a>
             <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>
@@ -831,7 +831,7 @@ export function signinPage(error?: string): string {
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
-          <a href="/" class="logo" style="font-size: 2rem;">Link</a>
+          <a href="/" class="logo" style="font-size: 2rem;">link</a>
           <p class="text-gray" style="margin-top: 0.5rem;">Sign in to your account</p>
         </div>
         
@@ -872,7 +872,7 @@ export function signupPage(error?: string): string {
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
-          <a href="/" class="logo" style="font-size: 2rem;">Link</a>
+          <a href="/" class="logo" style="font-size: 2rem;">link</a>
           <p class="text-gray" style="margin-top: 0.5rem;">Create your account</p>
         </div>
         
@@ -1093,7 +1093,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">Link</a>
+          <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray">${user.email}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
@@ -1172,7 +1172,7 @@ export function newReminderPage(user: any, contacts: any[]): string {
   return layout('Add Reminder', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1266,7 +1266,7 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
   return layout('Edit Reminder', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1627,7 +1627,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false): str
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">Link</a>
+          <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray">${user.email}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
@@ -1688,7 +1688,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">Link</a>
+          <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray">${user.email}</span>
             <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
@@ -1772,7 +1772,7 @@ export function newContactPage(): string {
   return layout('Add Contact', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1857,7 +1857,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
   return layout(contact.name, `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2097,7 +2097,7 @@ export function editContactPage(contact: any): string {
   return layout('Edit Contact', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2207,7 +2207,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
   return layout('Edit Interaction', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2336,7 +2336,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
   return layout('Add Interaction', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2636,7 +2636,7 @@ export function newDatePage(contact: any): string {
   return layout(`Add Date - ${contact.name}`, `
     <nav class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
       </div>
     </nav>
     
@@ -2697,7 +2697,7 @@ export function editDatePage(contact: any, date: any): string {
   return layout(`Edit Date - ${contact.name}`, `
     <nav class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">Link</a>
+        <a href="/dashboard" class="logo">link</a>
       </div>
     </nav>
     
@@ -3058,7 +3058,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">Link</a>
+          <a href="/dashboard" class="logo">link</a>
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray">${user.email}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
