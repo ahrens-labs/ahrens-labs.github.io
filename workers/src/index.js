@@ -3338,6 +3338,133 @@ function plainTextToBroadcastHtml(text) {
   ).replace(/\r\n/g, '\n').split('\n').join('<br/>')}</body></html>`;
 }
 
+function escapeAdminPreviewHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** @typedef {{ email: string, username?: string }} PreviewRecipientRow */
+
+function normalizePreviewRecipientRows(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    let email = '';
+    let username = '';
+    if (typeof item === 'string') {
+      email = normalizeEmail(item);
+    } else if (item && typeof item === 'object') {
+      email = normalizeEmail(item.email);
+      username = item.username != null ? String(item.username).trim() : '';
+    }
+    if (!email || !isLikelyRealEmail(email) || seen.has(email)) continue;
+    seen.add(email);
+    out.push({ email, username: username || 'there' });
+  }
+  return out;
+}
+
+function formatPreviewRecipientListText(recipients, { maxShow = 120 } = {}) {
+  const rows = normalizePreviewRecipientRows(recipients);
+  if (!rows.length) return 'No deliverable recipients.';
+  const shown = rows.slice(0, maxShow);
+  const lines = shown.map((r) => `- ${r.username} <${r.email}>`);
+  if (rows.length > maxShow) lines.push(`… and ${rows.length - maxShow} more`);
+  return `Would send to ${rows.length} recipient(s):\n\n${lines.join('\n')}`;
+}
+
+function formatPreviewRecipientListHtml(recipients, { maxShow = 120 } = {}) {
+  const rows = normalizePreviewRecipientRows(recipients);
+  if (!rows.length) {
+    return '<p style="margin:0;font-size:14px;color:#92400e;">No deliverable recipients.</p>';
+  }
+  const shown = rows.slice(0, maxShow);
+  let html =
+    `<p style="margin:0 0 8px;font-weight:700;font-size:14px;color:#92400e;">Would send to ${rows.length} recipient(s):</p>` +
+    `<ul style="margin:0;padding-left:1.2em;font-size:13px;line-height:1.45;color:#78350f;max-height:320px;overflow-y:auto;">`;
+  for (const r of shown) {
+    html += `<li><strong>${escapeAdminPreviewHtml(r.username)}</strong> &lt;${escapeAdminPreviewHtml(r.email)}&gt;</li>`;
+  }
+  if (rows.length > maxShow) {
+    html += `<li>… and ${rows.length - maxShow} more</li>`;
+  }
+  html += '</ul>';
+  return html;
+}
+
+async function sendAdminTemplatePreviewEmail(
+  env,
+  gate,
+  {
+    subjectTpl,
+    textTpl,
+    htmlTpl,
+    recipients,
+    previewKind,
+    subjectPrefix,
+    bodyIntro,
+  }
+) {
+  const prevSubject = applyBroadcastTemplate(subjectTpl, {
+    username: gate.adminUsername,
+    email: gate.adminEmail,
+  });
+  const prevTextBody = applyBroadcastTemplate(textTpl, {
+    username: gate.adminUsername,
+    email: gate.adminEmail,
+  });
+  const prevHtmlRaw = htmlTpl.trim()
+    ? applyBroadcastTemplate(htmlTpl, {
+        username: gate.adminUsername,
+        email: gate.adminEmail,
+      })
+    : '';
+  const prevHtml = prevHtmlRaw.trim() ? prevHtmlRaw : plainTextToBroadcastHtml(prevTextBody);
+  const listText = formatPreviewRecipientListText(recipients);
+  const listHtml = formatPreviewRecipientListHtml(recipients);
+  const intro =
+    bodyIntro ||
+    'This is a preview for the administrator only. {{username}} and {{email}} below use YOUR account so you can proofread. Each real recipient gets their own values.';
+  const previewBannerText = `${intro}\n\n${listText}\n\n---\n\nSample message:\n\n`;
+  const previewText = previewBannerText + prevTextBody;
+  const previewHtml =
+    `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
+    `<strong>${escapeAdminPreviewHtml(previewKind)} preview</strong> — only you were sent this copy. Placeholders use <strong>your</strong> username and email; each user would see their own.</div>` +
+    `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin:0 0 18px 0;font-family:system-ui,sans-serif;">${listHtml}</div>` +
+    prevHtml;
+  await dispatchTransactionalEmail(env, {
+    to: gate.adminEmail,
+    subject: `${subjectPrefix} ${prevSubject}`,
+    html: previewHtml,
+    text: previewText,
+    fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+    fromName: ADMIN_BROADCAST_FROM_NAME,
+  });
+}
+
+async function sendAdminRecipientListPreviewEmail(env, gate, { recipients, previewKind, subjectPrefix, bodyIntro }) {
+  const listText = formatPreviewRecipientListText(recipients);
+  const listHtml = formatPreviewRecipientListHtml(recipients);
+  const rows = normalizePreviewRecipientRows(recipients);
+  const intro = bodyIntro || 'This is a preview for the administrator only.';
+  const text = `${intro}\n\n${listText}`;
+  const html =
+    `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
+    `<strong>${escapeAdminPreviewHtml(previewKind)} preview</strong> — ${escapeAdminPreviewHtml(intro)}</div>` +
+    `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin:0;font-family:system-ui,sans-serif;">${listHtml}</div>`;
+  await dispatchTransactionalEmail(env, {
+    to: gate.adminEmail,
+    subject: `${subjectPrefix} ${rows.length} recipient(s)`,
+    html,
+    text,
+    fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+    fromName: ADMIN_BROADCAST_FROM_NAME,
+  });
+}
+
 async function assertAdminBroadcastSession(env, sessionId) {
   if (!sessionId) {
     return { ok: false, status: 401, error: 'Not authenticated' };
@@ -3529,8 +3656,46 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
 
   const dryRun = body.dryRun === true;
   const sendPreviewCopy = body.sendPreviewCopy === true;
+  const previewOnly = body.previewOnly === true;
   const listCursor = typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
+
+  if (previewOnly && dryRun && sendPreviewCopy) {
+    const recipients = normalizePreviewRecipientRows(body.recipients);
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ error: 'Provide recipients for preview (recipients array)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    let previewEmailSent = false;
+    let previewEmailError = null;
+    try {
+      await sendAdminTemplatePreviewEmail(env, gate, {
+        subjectTpl,
+        textTpl,
+        htmlTpl,
+        recipients,
+        previewKind: 'Broadcast',
+        subjectPrefix: '[Broadcast preview]',
+      });
+      previewEmailSent = true;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      previewEmailError = w.hint || w.message || String(err?.message || err);
+    }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        dryRun: true,
+        previewOnly: true,
+        previewEmailSent,
+        previewEmailError,
+        recipientCount: recipients.length,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
   let previewEmailSent = false;
   let previewEmailError = null;
@@ -3553,46 +3718,6 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
 
   const hasMore = Boolean(nextCursor);
 
-  // Preview is sent only to the authenticated admin (gate.adminEmail), never to recipients in the list.
-  if (dryRun && sendPreviewCopy && !listCursor) {
-    const prevSubject = applyBroadcastTemplate(subjectTpl, {
-      username: gate.adminUsername,
-      email: gate.adminEmail,
-    });
-    const prevTextBody = applyBroadcastTemplate(textTpl, {
-      username: gate.adminUsername,
-      email: gate.adminEmail,
-    });
-    const prevHtmlRaw = htmlTpl.trim()
-      ? applyBroadcastTemplate(htmlTpl, {
-          username: gate.adminUsername,
-          email: gate.adminEmail,
-        })
-      : '';
-    const prevHtml = prevHtmlRaw.trim() ? prevHtmlRaw : plainTextToBroadcastHtml(prevTextBody);
-    const previewBannerText =
-      'This is a preview for the administrator only. {{username}} and {{email}} were filled with YOUR account so you can proofread. Each real recipient gets their own values.\n\n---\n\n';
-    const previewText = previewBannerText + prevTextBody;
-    const previewHtml =
-      `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
-      `<strong>Broadcast preview</strong> — only you were sent this copy. Placeholders use <strong>your</strong> username and email; each user would see their own.</div>` +
-      prevHtml;
-    try {
-      await dispatchTransactionalEmail(env, {
-        to: gate.adminEmail,
-        subject: `[Broadcast preview] ${prevSubject}`,
-        html: previewHtml,
-        text: previewText,
-        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
-        fromName: ADMIN_BROADCAST_FROM_NAME,
-      });
-      previewEmailSent = true;
-    } catch (err) {
-      const w = summarizeEmailSendError(err);
-      previewEmailError = w.hint || w.message || String(err?.message || err);
-    }
-  }
-
   const summary = {
     success: true,
     dryRun,
@@ -3602,6 +3727,7 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     skipped: 0,
     failed: [],
     dryRunEmails: [],
+    dryRunRecipients: [],
     nextListCursor: nextCursor,
     hasMore,
     previewEmailSent,
@@ -3644,6 +3770,7 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
 
     if (dryRun) {
       summary.dryRunEmails.push(to);
+      summary.dryRunRecipients.push({ email: to, username });
       continue;
     }
 
@@ -3692,27 +3819,58 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
 
   const dryRun = body.dryRun === true;
   const sendPreviewCopy = body.sendPreviewCopy === true;
+  const previewOnly = body.previewOnly === true;
   const listCursor =
     typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
 
-  let previewWelcomeSent = false;
-  let previewWelcomeError = null;
-
-  // Full welcome sample is emailed only to the authenticated admin (gate.adminEmail), not to listed accounts.
-  if (dryRun && sendPreviewCopy && !listCursor) {
+  if (previewOnly && dryRun && sendPreviewCopy) {
+    const recipients = normalizePreviewRecipientRows(body.recipients);
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ error: 'Provide recipients for preview (recipients array)' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    let previewWelcomeSent = false;
+    let previewWelcomeError = null;
     try {
-      await sendWelcomeGuideEmail(env, gate.adminEmail, gate.adminUsername, {
-        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
-        fromName: ADMIN_BROADCAST_FROM_NAME,
+      await sendAdminRecipientListPreviewEmail(env, gate, {
+        recipients,
+        previewKind: 'Welcome bulk',
+        subjectPrefix: '[Welcome bulk preview]',
+        bodyIntro:
+          'Each person below would receive the standard welcome guide email (with their own username). A sample welcome message for your account follows in a separate email.',
       });
       previewWelcomeSent = true;
+      try {
+        await sendWelcomeGuideEmail(env, gate.adminEmail, gate.adminUsername, {
+          fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+          fromName: ADMIN_BROADCAST_FROM_NAME,
+        });
+      } catch (err) {
+        const w = summarizeEmailSendError(err);
+        previewWelcomeError = w.hint || w.message || String(err?.message || err);
+      }
     } catch (err) {
       const w = summarizeEmailSendError(err);
       previewWelcomeError = w.hint || w.message || String(err?.message || err);
-      console.error('admin welcome preview send failed', previewWelcomeError);
     }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        dryRun: true,
+        previewOnly: true,
+        previewWelcomeSent,
+        previewWelcomeError,
+        recipientCount: recipients.length,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
+
+  let previewWelcomeSent = false;
+  let previewWelcomeError = null;
 
   const { stubs, nextListCursor: nextCursor, listError } = await listUserAccountStubsForBroadcast(
     env,
@@ -3746,6 +3904,7 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
     skipped: 0,
     failed: [],
     dryRunEmails: [],
+    dryRunRecipients: [],
     nextListCursor: nextCursor,
     hasMore,
     previewWelcomeSent,
@@ -3780,6 +3939,7 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
 
     if (dryRun) {
       summary.dryRunEmails.push(to);
+      summary.dryRunRecipients.push({ email: to, username });
       continue;
     }
 
@@ -5033,41 +5193,6 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
 
   let previewEmailSent = false;
   let previewEmailError = null;
-  if (dryRun && sendPreviewCopy) {
-    const prevSubject = applyBroadcastTemplate(subjectTpl, {
-      username: gate.adminUsername,
-      email: gate.adminEmail,
-    });
-    const prevTextBody = applyBroadcastTemplate(textTpl, {
-      username: gate.adminUsername,
-      email: gate.adminEmail,
-    });
-    const prevHtmlRaw = htmlTpl.trim()
-      ? applyBroadcastTemplate(htmlTpl, { username: gate.adminUsername, email: gate.adminEmail })
-      : '';
-    const prevHtml = prevHtmlRaw.trim() ? prevHtmlRaw : plainTextToBroadcastHtml(prevTextBody);
-    const previewBannerText =
-      'This is a preview for the administrator only. {{username}} and {{email}} were filled with YOUR account so you can proofread. Each real recipient gets their own values.\n\n---\n\n';
-    const previewText = previewBannerText + prevTextBody;
-    const previewHtml =
-      `<div style="background:#fef3c7;border-left:4px solid #d97706;padding:12px 14px;margin:0 0 18px 0;font-size:14px;line-height:1.5;color:#92400e;font-family:system-ui,sans-serif;">` +
-      `<strong>Group email preview</strong> — only you were sent this copy.</div>` +
-      prevHtml;
-    try {
-      await dispatchTransactionalEmail(env, {
-        to: gate.adminEmail,
-        subject: `[Group preview] ${prevSubject}`,
-        html: previewHtml,
-        text: previewText,
-        fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
-        fromName: ADMIN_BROADCAST_FROM_NAME,
-      });
-      previewEmailSent = true;
-    } catch (err) {
-      const w = summarizeEmailSendError(err);
-      previewEmailError = w.hint || w.message || String(err?.message || err);
-    }
-  }
 
   const summary = {
     success: true,
@@ -5078,6 +5203,7 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
     skipped: 0,
     failed: [],
     dryRunEmails: [],
+    dryRunRecipients: [],
     unresolved: [],
     previewEmailSent,
     previewEmailError,
@@ -5114,6 +5240,7 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
 
     if (dryRun) {
       summary.dryRunEmails.push(to);
+      summary.dryRunRecipients.push({ email: to, username });
       continue;
     }
 
@@ -5130,6 +5257,23 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
     } catch (err) {
       const w = summarizeEmailSendError(err);
       summary.failed.push({ email: to, error: w.hint || w.message });
+    }
+  }
+
+  if (dryRun && sendPreviewCopy) {
+    try {
+      await sendAdminTemplatePreviewEmail(env, gate, {
+        subjectTpl,
+        textTpl,
+        htmlTpl,
+        recipients: summary.dryRunRecipients,
+        previewKind: 'Group email',
+        subjectPrefix: '[Group preview]',
+      });
+      summary.previewEmailSent = true;
+    } catch (err) {
+      const w = summarizeEmailSendError(err);
+      summary.previewEmailError = w.hint || w.message || String(err?.message || err);
     }
   }
 

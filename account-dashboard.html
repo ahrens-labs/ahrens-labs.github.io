@@ -863,7 +863,7 @@
             Send one separate message per account from <strong>caleb@ahrenslabs.com</strong>.
             Optional placeholders: <code>{{username}}</code>, <code>{{email}}</code>.
             Use only for announcements users reasonably expect; bulk marketing may require consent and unsubscribe.
-            <strong>Preview</strong> counts recipients and sends <em>you</em> one sample message (from <code>caleb@ahrenslabs.com</code>) with placeholders filled using your own username and email.
+            <strong>Preview</strong> counts recipients and sends <em>you</em> one sample message (from <code>caleb@ahrenslabs.com</code>) with placeholders filled using your own username and email. The preview email includes the full recipient list.
           </p>
           <div class="form-row">
             <label for="admin-bc-subject">Subject</label>
@@ -1084,6 +1084,16 @@
       return `HTTP ${status}`;
     }
 
+    function mergeDryRunRecipients(target, data) {
+      if (Array.isArray(data.dryRunRecipients)) {
+        for (const r of data.dryRunRecipients) target.push(r);
+        return;
+      }
+      if (Array.isArray(data.dryRunEmails)) {
+        for (const e of data.dryRunEmails) target.push({ email: e, username: '' });
+      }
+    }
+
     /** @returns {Promise<boolean>} */
     function showAdminBulkConfirmModal({ title, description, confirmLabel }) {
       const backdrop = document.getElementById('admin-bulk-confirm-modal');
@@ -1142,7 +1152,7 @@
           return;
         }
         setStatus(st, 'Working…', '');
-        const emails = [];
+        const recipients = [];
         let cursor;
         let previewEmailSent = false;
         let previewEmailError = null;
@@ -1151,7 +1161,7 @@
         try {
           do {
             if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${recipients.length}.`, 'err');
               return;
             }
             const res = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
@@ -1165,31 +1175,47 @@
                 text,
                 html: (document.getElementById('admin-bc-html')?.value || '').trim(),
                 dryRun: true,
-                sendPreviewCopy: !cursor,
+                sendPreviewCopy: false,
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
             const { ok, status, data } = await readApiJsonResponse(res);
             if (!ok) {
-              let msg = formatApiFailure(status, data);
-              if (data.previewEmailError != null) msg += ` Preview: ${data.previewEmailError}`;
-              else if (data.previewEmailSent) msg += ' (Preview send was attempted.)';
-              setStatus(st, msg, 'err');
+              setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
-            if (!cursor) {
-              previewEmailSent = !!data.previewEmailSent;
-              previewEmailError = data.previewEmailError || null;
-            }
-            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            mergeDryRunRecipients(recipients, data);
             cursor = data.nextListCursor || null;
           } while (cursor);
-          let msg = `Found ${emails.length} recipient(s) with a saved email.`;
+          const previewRes = await fetch(`${API_BASE_URL}/api/admin/broadcast-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({
+              subject,
+              text,
+              html: (document.getElementById('admin-bc-html')?.value || '').trim(),
+              dryRun: true,
+              sendPreviewCopy: true,
+              previewOnly: true,
+              recipients,
+            }),
+          });
+          const previewPayload = await readApiJsonResponse(previewRes);
+          previewEmailSent = !!previewPayload.data.previewEmailSent;
+          previewEmailError = previewPayload.data.previewEmailError || null;
+          if (!previewPayload.ok) {
+            setStatus(st, formatApiFailure(previewPayload.status, previewPayload.data), 'err');
+            return;
+          }
+          let msg = `Found ${recipients.length} recipient(s) with a saved email.`;
           if (previewEmailError) {
             msg += ` Preview email failed: ${previewEmailError}`;
             setStatus(st, msg, 'err');
           } else if (previewEmailSent) {
-            msg += ' Check your inbox for the preview copy.';
+            msg += ' Check your inbox for the preview copy (includes the full recipient list).';
             setStatus(st, msg, 'ok');
           } else {
             setStatus(st, msg, 'ok');
@@ -1208,7 +1234,7 @@
           return;
         }
         setStatus(st, 'Working…', '');
-        const emails = [];
+        const recipients = [];
         let cursor;
         let previewWelcomeSent = false;
         let previewWelcomeError = null;
@@ -1217,7 +1243,7 @@
         try {
           do {
             if (++page > MAX_PAGES) {
-              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${emails.length}.`, 'err');
+              setStatus(st, `Stopped after ${MAX_PAGES} pages (safety limit). Count so far: ${recipients.length}.`, 'err');
               return;
             }
             const res = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
@@ -1228,31 +1254,44 @@
               },
               body: JSON.stringify({
                 dryRun: true,
-                sendPreviewCopy: !cursor,
+                sendPreviewCopy: false,
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
             const { ok, status, data } = await readApiJsonResponse(res);
             if (!ok) {
-              let msg = formatApiFailure(status, data);
-              if (data.previewWelcomeError != null) msg += ` Sample send: ${data.previewWelcomeError}`;
-              else if (data.previewWelcomeSent) msg += ' (Sample send was attempted.)';
-              setStatus(st, msg, 'err');
+              setStatus(st, formatApiFailure(status, data), 'err');
               return;
             }
-            if (!cursor) {
-              previewWelcomeSent = !!data.previewWelcomeSent;
-              previewWelcomeError = data.previewWelcomeError || null;
-            }
-            if (Array.isArray(data.dryRunEmails)) emails.push.apply(emails, data.dryRunEmails);
+            mergeDryRunRecipients(recipients, data);
             cursor = data.nextListCursor || null;
           } while (cursor);
-          let msg = `Found ${emails.length} recipient(s) who would get the welcome guide.`;
+          const previewRes = await fetch(`${API_BASE_URL}/api/admin/resend-welcome-bulk`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionId}`,
+            },
+            body: JSON.stringify({
+              dryRun: true,
+              sendPreviewCopy: true,
+              previewOnly: true,
+              recipients,
+            }),
+          });
+          const previewPayload = await readApiJsonResponse(previewRes);
+          previewWelcomeSent = !!previewPayload.data.previewWelcomeSent;
+          previewWelcomeError = previewPayload.data.previewWelcomeError || null;
+          if (!previewPayload.ok) {
+            setStatus(st, formatApiFailure(previewPayload.status, previewPayload.data), 'err');
+            return;
+          }
+          let msg = `Found ${recipients.length} recipient(s) who would get the welcome guide.`;
           if (previewWelcomeError) {
             msg += ` Sample email failed: ${previewWelcomeError}`;
             setStatus(st, msg, 'err');
           } else if (previewWelcomeSent) {
-            msg += ' Check your inbox for the sample welcome email.';
+            msg += ' Check your inbox for the recipient list and a sample welcome email.';
             setStatus(st, msg, 'ok');
           } else {
             setStatus(st, msg, 'ok');
@@ -2410,7 +2449,7 @@
               const unresolved = Array.isArray(data.unresolved) ? data.unresolved.length : 0;
               let msg = `Would send to ${n} address${n === 1 ? '' : 'es'}.`;
               if (skip || unresolved) msg += ` ${skip + unresolved} skipped/unresolved.`;
-              if (data.previewEmailSent) msg += ' Check your inbox for the preview copy.';
+              if (data.previewEmailSent) msg += ' Check your inbox for the preview copy (includes the full recipient list).';
               else if (data.previewEmailError) msg += ` Preview failed: ${data.previewEmailError}`;
               setStatus(st, msg, data.previewEmailError ? 'err' : 'ok');
               return;
