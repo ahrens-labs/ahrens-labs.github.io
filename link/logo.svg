@@ -1,0 +1,12 @@
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+  <text 
+    x="20" 
+    y="80" 
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+    font-size="72" 
+    font-weight="700" 
+    fill="#16a34a"
+    letter-spacing="-2">
+    link
+  </text>
+</svg>

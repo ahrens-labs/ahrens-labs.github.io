@@ -34,6 +34,11 @@ binding = "CHESS_LEADERBOARD_KV"
 id = "97fd6020bf4949749972f10aac71b3f3"
 preview_id = "dd684c0a2b2e445f94b7d1578d535331"
 
+# One-time tokens for Ahrens Labs → Link CRM auth bridge (shared with link worker).
+[[kv_namespaces]]
+binding = "LINK_BRIDGE_KV"
+id = "9e3b2db98b174f6695365fc7807612b9"
+
 # Daily digest: one cron in the send window (Worker gates to DIGEST_SEND_UTC_HOUR:MINUTE, default 07:00 UTC).
 # Sports Digest: every 15 min UTC; sends via EMAIL_TRANSACTIONAL (same as daily challenges).
 [triggers]
@@ -84,6 +89,8 @@ SENDER_EMAIL = "caleb@ahrenslabs.com"
 # TRANSACTIONAL_FROM_NAME = "Ahrens Labs"
 # Public website for links in welcome/digest emails (no trailing slash).
 PUBLIC_SITE_BASE = "https://ahrenslabs.com"
+# Link CRM app URL (custom domain or workers.dev). Used by /api/link/bridge redirect.
+LINK_APP_URL = "https://link.matthewahrens.workers.dev"
 # Daily challenge roundup send time (UTC, 24h). Must align with [triggers] crons.
 DIGEST_SEND_UTC_HOUR = "7"
 DIGEST_SEND_UTC_MINUTE = "0"

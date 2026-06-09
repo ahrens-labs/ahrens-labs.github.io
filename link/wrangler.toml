@@ -1,0 +1,30 @@
+name = "link"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[ d1_databases ]]
+binding = "DB"
+database_name = "link-crm-db"
+database_id = "dc6566f1-6510-4f8f-81f7-64acb64a079c"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "83806b8ae199450fb7bb133f540bf280"
+
+[[services]]
+binding = "CHESS_ACCOUNTS"
+service = "chess-accounts"
+
+[ai]
+binding = "AI"
+
+# Custom domain routes
+routes = [
+  { pattern = "linkprm.com", custom_domain = true },
+  { pattern = "www.linkprm.com", custom_domain = true },
+  { pattern = "link.ahrenslabs.com", custom_domain = true }
+]

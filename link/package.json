@@ -1,0 +1,18 @@
+{
+  "name": "link-crm-cloudflare",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply link-crm-db",
+    "db:migrate:local": "wrangler d1 migrations apply link-crm-db --local"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "wrangler": "^4.49.0"
+  }
+}
