@@ -36,6 +36,17 @@
     });
   }
 
+  async function syncLinkDisplayName(username) {
+    if (!username || String(username).includes('@')) return;
+    var base = linkBase();
+    await fetch(base + '/api/auth/sync-display-name', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username }),
+    }).catch(function () {});
+  }
+
   async function fetchAhrensIdentity() {
     var sessionId = localStorage.getItem('ahrenslabs_sessionId');
     if (!sessionId) return null;
@@ -118,6 +129,7 @@
       return;
     }
     applyNavUsername(ahrens.username);
+    await syncLinkDisplayName(ahrens.username);
 
     var link = await fetchLinkIdentity();
     if (!link || !link.ahrensUserId) {

@@ -263,6 +263,23 @@ app.get('/api/auth/identity', requireAuth, async (c) => {
   })
 })
 
+// Force Link display name to match Ahrens Labs username (overrides legacy Link names).
+app.post('/api/auth/sync-display-name', requireAuth, async (c) => {
+  const user = c.get('user')
+  const body = await c.req.json().catch(() => ({})) as { username?: string }
+  const username = String(body.username || '').trim()
+
+  if (!username || username.includes('@')) {
+    return c.json({ error: 'Valid Ahrens username required' }, 400)
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+  ).bind(username, Date.now(), user.id).run()
+
+  return c.json({ username })
+})
+
 // Dashboard
 app.get('/dashboard', requireAuth, async (c) => {
   const user = c.get('user')

@@ -76,6 +76,14 @@ const AHRENS_HEADER = `
       if (!profile || !profile.username) return;
       localStorage.setItem('ahrenslabs_username', profile.username);
       applyNavUsername(profile.username);
+      var base = window.location.pathname.startsWith('/link') ? '/link' : '';
+      if (!base) return;
+      fetch(base + '/api/auth/sync-display-name', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: profile.username }),
+      }).catch(function () {});
     })
     .catch(function () {});
 })();

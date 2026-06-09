@@ -205,13 +205,13 @@ export async function createLocalUser(
   }
 }
 
-/** Prefer Ahrens Labs username for display (never email when username exists). */
-function ahrensDisplayName(username?: string, name?: string): string {
+/** Ahrens bridge display name — username always wins over any prior Link name. */
+function ahrensBridgeDisplayName(username?: string, fallbackName?: string): string {
   const u = String(username || '').trim()
   if (u) return u
-  const n = String(name || '').trim()
+  const n = String(fallbackName || '').trim()
   if (n && !n.includes('@')) return n
-  return u || n
+  return ''
 }
 
 /** Find or create a Link CRM user tied to an Ahrens Labs account (by email + ahrens_user_id). */
@@ -225,18 +225,40 @@ export async function ensureUserForAhrensEmail(
   try {
     const normalized = email.trim().toLowerCase()
     const ahrensId = ahrensUserId ? String(ahrensUserId).trim() : ''
-    const displayName = ahrensDisplayName(username, name)
+    const displayName = ahrensBridgeDisplayName(username, name)
+    const forceUsername = String(username || '').trim()
+
+    async function applyAhrensProfile(userId: string) {
+      const updates: Promise<unknown>[] = []
+      if (ahrensId) {
+        updates.push(
+          env.DB.prepare(
+            'UPDATE users SET ahrens_user_id = ?, updated_at = ? WHERE id = ?'
+          ).bind(ahrensId, Date.now(), userId).run()
+        )
+      }
+      if (forceUsername) {
+        updates.push(
+          env.DB.prepare(
+            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+          ).bind(forceUsername, Date.now(), userId).run()
+        )
+      } else if (displayName) {
+        updates.push(
+          env.DB.prepare(
+            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+          ).bind(displayName, Date.now(), userId).run()
+        )
+      }
+      if (updates.length) await Promise.all(updates)
+    }
 
     if (ahrensId) {
       const byAhrens = await env.DB.prepare(
         'SELECT id FROM users WHERE ahrens_user_id = ?'
       ).bind(ahrensId).first() as { id: string } | null
     if (byAhrens?.id) {
-      if (displayName) {
-        await env.DB.prepare(
-          'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
-        ).bind(displayName, Date.now(), byAhrens.id).run()
-      }
+      await applyAhrensProfile(byAhrens.id)
       return { success: true, userId: byAhrens.id }
     }
     }
@@ -246,29 +268,14 @@ export async function ensureUserForAhrensEmail(
     ).bind(normalized).first() as { id: string; ahrens_user_id: string | null } | null
 
     if (existing?.id) {
-      const updates: Promise<unknown>[] = []
-      if (ahrensId && !existing.ahrens_user_id) {
-        updates.push(
-          env.DB.prepare(
-            'UPDATE users SET ahrens_user_id = ?, updated_at = ? WHERE id = ?'
-          ).bind(ahrensId, Date.now(), existing.id).run()
-        )
-      }
-      if (displayName) {
-        updates.push(
-          env.DB.prepare(
-            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
-          ).bind(displayName, Date.now(), existing.id).run()
-        )
-      }
-      if (updates.length) await Promise.all(updates)
+      await applyAhrensProfile(existing.id)
       return { success: true, userId: existing.id }
     }
 
     const userId = crypto.randomUUID()
     await env.DB.prepare(
       'INSERT INTO users (id, email, name, ahrens_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(userId, normalized, displayName || normalized, ahrensId || null, Date.now(), Date.now()).run()
+    ).bind(userId, normalized, forceUsername || displayName || normalized, ahrensId || null, Date.now(), Date.now()).run()
 
     return { success: true, userId }
   } catch (error) {
