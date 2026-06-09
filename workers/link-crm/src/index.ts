@@ -5,7 +5,7 @@ import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimi
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
 import { decryptContact, generateId, encryptContact } from './crypto'
-import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, publicPath, sessionCookiePath } from './host'
+import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
 import { serveLinkHtml } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -2653,6 +2653,10 @@ root.route('/', app)
 
 export default {
   async fetch(request: Request, env: any, ctx: any) {
+    const redirectTarget = linkprmRedirectTarget(request)
+    if (redirectTarget) {
+      return Response.redirect(redirectTarget, 301)
+    }
     return root.fetch(request, env, ctx)
   },
 }

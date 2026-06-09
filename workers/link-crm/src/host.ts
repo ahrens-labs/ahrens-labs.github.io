@@ -5,6 +5,29 @@ export function isAhrensHost(request: Request): boolean {
   return host === 'ahrenslabs.com' || host === 'www.ahrenslabs.com'
 }
 
+export function isLinkprmHost(request: Request): boolean {
+  const host = new URL(request.url).hostname.toLowerCase()
+  return host === 'linkprm.com' || host === 'www.linkprm.com'
+}
+
+/** Permanent redirect from legacy linkprm.com host to ahrenslabs.com/link. */
+export function linkprmRedirectTarget(request: Request): string | null {
+  if (!isLinkprmHost(request)) return null
+
+  const url = new URL(request.url)
+  let path = url.pathname || '/'
+  if (path.startsWith('/link/')) {
+    path = path.slice('/link'.length) || '/'
+  } else if (path === '/link') {
+    path = '/'
+  }
+  if (path === '/') {
+    path = '/dashboard'
+  }
+
+  return `https://ahrenslabs.com/link${path}${url.search}${url.hash}`
+}
+
 export function linkBasePath(request: Request): string {
   return isAhrensHost(request) ? '/link' : ''
 }
