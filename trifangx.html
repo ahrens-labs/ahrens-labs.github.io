@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ahrens Labs — About TrifangX</title>
-    <meta name="description" content="TrifangX is Ahrens Labs' chess engine: what it is, how you play it in the browser, and how the pieces fit together.">
+    <meta name="description" content="TrifangX: Ahrens Labs' chess engine and browser platform — features, architecture, and how TrifangX.py searches and evaluates positions.">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <script src="js/script.js"></script>
-  <script src="js/header_nav.js"></script>
+    <script src="js/header_nav.js"></script>
 
     <style>
         .tx-hero {
@@ -38,7 +38,7 @@
         .tx-hero-sub {
             font-size: 1.1rem;
             color: #94a3b8;
-            max-width: 640px;
+            max-width: 720px;
             margin: 0 auto 1.5rem;
             line-height: 1.55;
         }
@@ -52,10 +52,27 @@
             font-weight: 600;
         }
         .tx-page {
-            max-width: 900px;
+            max-width: 920px;
             margin: 2rem auto 0;
             padding: 0 1.5rem 3rem;
         }
+        .tx-toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 0.75rem;
+            margin-bottom: 1.5rem;
+            padding: 0.9rem 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.88rem;
+        }
+        .tx-toc a {
+            color: #2563eb;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .tx-toc a:hover { text-decoration: underline; }
         .tx-panel {
             background: #fff;
             border-radius: 16px;
@@ -70,6 +87,12 @@
             color: #0f172a;
             margin: 0 0 0.65rem;
         }
+        .tx-panel h4 {
+            font-size: 0.95rem;
+            color: #334155;
+            margin: 1.15rem 0 0.45rem;
+            font-weight: 700;
+        }
         .tx-panel p,
         .tx-panel li {
             color: #475569;
@@ -81,9 +104,62 @@
             margin: 0.5rem 0 0;
             padding-left: 1.25rem;
         }
-        .tx-panel li {
-            margin: 0.35rem 0;
+        .tx-panel li { margin: 0.35rem 0; }
+        .tx-feature-grid {
+            display: grid;
+            gap: 0.85rem;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            margin-top: 0.75rem;
         }
+        .tx-feature {
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .tx-feature strong {
+            display: block;
+            color: #0f172a;
+            font-size: 0.92rem;
+            margin-bottom: 0.25rem;
+        }
+        .tx-feature span {
+            font-size: 0.86rem;
+            color: #64748b;
+            line-height: 1.45;
+        }
+        .tx-code {
+            font-family: "Roboto Mono", ui-monospace, monospace;
+            font-size: 0.82rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem 1.1rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+            line-height: 1.5;
+        }
+        .tx-code .cm { color: #64748b; }
+        .tx-code .kw { color: #7dd3fc; }
+        .tx-code .fn { color: #86efac; }
+        .tx-flow {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin: 0.85rem 0;
+            font-size: 0.88rem;
+            color: #475569;
+        }
+        .tx-flow span {
+            padding: 0.35rem 0.65rem;
+            border-radius: 8px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            font-weight: 600;
+        }
+        .tx-flow .arrow { background: none; border: none; color: #94a3b8; padding: 0; font-weight: 400; }
         .tx-actions {
             display: flex;
             flex-wrap: wrap;
@@ -137,61 +213,242 @@
                 <div class="tx-tag">Coding Lab</div>
                 <h2>TrifangX</h2>
                 <p class="tx-hero-sub">
-                    A custom chess engine you can play in the browser—written and tuned by Caleb Ahrens as an Ahrens Labs project.
+                    A full chess engine and browser platform built by Caleb Ahrens — play against the computer, earn career points,
+                    customize your board, and read how the Python search in <code style="font-family:Roboto Mono,monospace;font-size:0.92em;">TrifangX.py</code> actually works.
                 </p>
             </section>
 
             <section class="tx-page">
-                <article class="tx-panel">
-                    <h3>What it is</h3>
+                <nav class="tx-toc" aria-label="On this page">
+                    <span style="color:#64748b;font-weight:600;">Jump to:</span>
+                    <a href="#features">Features</a>
+                    <a href="#play">How you play</a>
+                    <a href="#architecture">Site ↔ engine</a>
+                    <a href="#engine-core">Engine core</a>
+                    <a href="#search">Search &amp; openings</a>
+                    <a href="#evaluation">Evaluation</a>
+                    <a href="#server">Server design</a>
+                    <a href="#links">Links</a>
+                </nav>
+
+                <article class="tx-panel" id="features">
+                    <h3>What you get on Ahrens Labs</h3>
                     <p>
-                        TrifangX is a computer opponent for full chess. It knows the rules, generates legal moves, and chooses replies
-                        by searching ahead in the position and comparing how good different lines look according to its evaluation logic.
+                        TrifangX is more than a single-player opponent. The site wraps the engine in accounts, cloud saves,
+                        cosmetics, and progression systems so games feel like part of a larger chess profile.
                     </p>
-                    <p>
-                        The version on this site is meant to be fun and challenging for human players, whether you are practicing openings
-                        or trying to survive the middlegame.
-                    </p>
+                    <div class="tx-feature-grid">
+                        <div class="tx-feature">
+                            <strong>Play vs TrifangX</strong>
+                            <span>Pick sides, clocks, and board style in the browser lobby. The engine replies from a hosted Python service.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Live games</strong>
+                            <span>Share a link so a friend can join the same board in real time on <a href="trifangx_live.html">TrifangX Live</a>.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Game history</strong>
+                            <span>Signed-in players keep recent games, replay them on the board, and scrub through move lists.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Daily challenges</strong>
+                            <span>Three deterministic goals per calendar day (e.g. win with a tactic, reach an endgame). Completing them feeds achievements.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Achievements &amp; career points</strong>
+                            <span>Long-term goals track captures, openings, streaks, and more. Points show on the <a href="chess-leaderboard.html">career leaderboard</a>.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Season track</strong>
+                            <span>Monthly UTC steps unlock gradient boards, pieces, leaderboard row colors, and flair frames/titles.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Chess shop</strong>
+                            <span>Spend achievement points on boards, piece sets, highlight colors, arrows, themes, and checkmate effects.</span>
+                        </div>
+                        <div class="tx-feature">
+                            <strong>Cloud profile</strong>
+                            <span>Stats, unlocks, equipped cosmetics, and settings sync to your Ahrens Labs account across devices.</span>
+                        </div>
+                    </div>
                 </article>
 
-                <article class="tx-panel">
+                <article class="tx-panel" id="play">
                     <h3>How you play it here</h3>
                     <p>
-                        The board and clocks run in your browser on Ahrens Labs. When it is the engine’s turn, your move is sent to a
-                        hosted Python service that runs the actual TrifangX search and returns the engine’s move.
+                        The board, clocks, and UI run entirely in your browser (<code>js/trifangx_chess_app.js</code>). When it is
+                        TrifangX’s turn, the client POSTs your move to the engine server and polls until the reply is ready.
                     </p>
                     <ul>
-                        <li>Open <strong>Chess Engine</strong> from the site menu to pick sides, time control, and options, then start a game.</li>
-                        <li>With an account, you can keep <strong>game history</strong> and replay past games against TrifangX.</li>
-                        <li>When the engine is busy, your game may pause briefly until its reply is ready—nothing is lost; the board updates as soon as the move arrives.</li>
+                        <li>Open <strong>Chess Engine</strong> from the site menu to start a game against the computer.</li>
+                        <li>While the engine searches, the UI may show a short wait — reload-safe duplicate requests return the same move without restarting the search.</li>
+                        <li>Customize which header links you see from the <a href="account-dashboard.html">account dashboard</a>.</li>
+                        <li>Optional email: daily challenge roundups from the dashboard if you want all three goals in your inbox.</li>
                     </ul>
                 </article>
 
-                <article class="tx-panel">
-                    <h3>How the engine “thinks” (in plain terms)</h3>
+                <article class="tx-panel" id="architecture">
+                    <h3>How the site talks to the engine</h3>
                     <p>
-                        Like most chess programs, TrifangX builds a tree of possible continuations from the current board. It estimates
-                        who is better in each resulting position using material, king safety, pawn structure, and many other heuristics,
-                        then prefers lines that improve its score within the time and depth it can afford.
+                        <code>TrifangX.py</code> is a Flask app that exposes a small HTTP API. Each active game gets a
+                        <code>game_id</code> and its own engine snapshot (board, move list, castling flags, repetition counts, etc.).
                     </p>
+                    <div class="tx-flow">
+                        <span>/start</span><span class="arrow">→</span>
+                        <span>game_id + snapshot</span><span class="arrow">→</span>
+                        <span>/move</span><span class="arrow">→</span>
+                        <span>search</span><span class="arrow">→</span>
+                        <span>/move_result</span><span class="arrow">→</span>
+                        <span>SAN reply</span>
+                    </div>
+                    <ul>
+                        <li><strong>/start</strong> — allocates a session, captures engine globals into a pickle-friendly dict, and can bind the game to your account username.</li>
+                        <li><strong>/move</strong> — applies your move, runs <code>_compute_engine_move_reply</code>, returns <code>202</code> + <code>job_id</code> (or a synchronous <code>200</code> when configured).</li>
+                        <li><strong>/move_result/&lt;job_id&gt;</strong> — client polls here so long searches do not block the web worker on a single HTTP connection.</li>
+                        <li><strong>/heartbeat</strong> and <strong>/stop</strong> — keep sessions alive or tear them down when you leave.</li>
+                        <li><strong>/modifiers</strong> — read or tweak <code>SCORING_MODIFIERS</code> to change how aggressively the evaluator weights material, king safety, pawn structure, and activity.</li>
+                    </ul>
                     <p>
-                        Opening knowledge, endgame instincts, and special-case rules (castling, promotions, repetition, and so on) are
-                        all folded into the same program so play stays coherent from move one to checkmate or draw.
+                        Move deduplication uses the client’s chess.js history length (<code>ply</code>) so a tab reload mid-think
+                        does not enqueue a second identical search.
                     </p>
                 </article>
 
-                <article class="tx-panel">
-                    <h3>Source code</h3>
+                <article class="tx-panel" id="engine-core">
+                    <h3>Inside the engine: board and rules</h3>
                     <p>
-                        Engine and server code live in the Ahrens Labs chess engine repository on GitHub—useful if you want to read the
-                        implementation, run it locally, or experiment with ideas of your own.
+                        The board is an 8×8 list of lists. Empty squares are <code>'0'</code>; white pieces are uppercase
+                        (<code>P N B R Q K</code>) and black are lowercase. This representation is fast to copy and hash for caching.
+                    </p>
+                    <div class="tx-code"><span class="cm"># TrifangX.py — starting position</span>
+board = [
+    ['R','N','B','Q','K','B','N','R'],
+    ['P','P','P','P','P','P','P','P'],
+    <span class="cm"># ... four empty ranks ...</span>
+    ['p','p','p','p','p','p','p','p'],
+    ['r','n','b','q','k','b','n','r'],
+]</div>
+                    <p>
+                        Move generation and legality live in large helper layers: pawn pushes and captures (including en passant),
+                        sliding pieces, knights, castling (<code>0-0</code> / <code>0-0-0</code>), and promotions (queen and knight only
+                        in the search). The server accepts SAN or long algebraic from the client and normalizes through
+                        <code>clean_move</code>, <code>convert_to_long_algebraic</code>, and <code>players_turn</code> /
+                        <code>players_turn_white</code> before searching.
+                    </p>
+                    <p>
+                        Special outcomes are encoded in search results: checkmate returns large sentinel scores (±10000),
+                        self-blunders that walk into mate return −1000, threefold repetition scores −0.25, and draws detected
+                        during reply search are penalized similarly.
+                    </p>
+                </article>
+
+                <article class="tx-panel" id="search">
+                    <h3>Search and opening book</h3>
+                    <h4>Choosing a move</h4>
+                    <p>
+                        White replies call <code>best_move_black</code>; black (engine as white) calls <code>best_move_function</code>.
+                        Each function enumerates every legal move for the side to move, scores candidates, and picks the best line.
+                    </p>
+                    <p>
+                        The core lookahead is a <strong>two-ply reply model</strong> inside <code>evaluate_white</code> and
+                        <code>evaluate_black</code>: for a candidate engine move, TrifangX simulates the opponent’s best reply
+                        (<code>best_move_player</code>), then its own follow-up (<code>best_move2</code>), evaluates the resulting
+                        position with <code>score(board, turn)</code>, then unwinds the board. That is how the engine “sees” tactics
+                        one move deeper without a full alpha-beta tree.
+                    </p>
+                    <div class="tx-code"><span class="cm"># Simplified flow in evaluate_white / evaluate_black</span>
+<span class="fn">apply</span> candidate move on board
+opponent_reply = <span class="fn">best_move_player</span>(board)
+<span class="fn">apply</span> opponent_reply
+engine_reply_2 = <span class="fn">best_move2</span>(board)
+<span class="fn">apply</span> engine_reply_2
+current_score = <span class="fn">score</span>(board, turn)
+<span class="fn">undo</span> both replies
+store score for this candidate</div>
+                    <h4>Opening book</h4>
+                    <p>
+                        Before brute-force search, <code>best_move_function</code> builds a PGN-style prefix from
+                        <code>game_moves</code> and matches it against a built-in list of full games (Ruy Lopez, Sicilian, French,
+                        Caro-Kann, Alekhine, and others). <code>opening_book_next_move</code> returns the next SAN from the first
+                        matching line; those moves are injected into <code>result_scores</code> with a high priority so the engine
+                        plays known theory when the position still fits a book line.
+                    </p>
+                    <p>
+                        A small <code>good_moves</code> tuple list nudges scores for familiar developing moves (center pawns, knight
+                        hops, bishop development) so early play stays principled even off-book.
+                    </p>
+                </article>
+
+                <article class="tx-panel" id="evaluation">
+                    <h3>Static evaluation (<code>score</code>)</h3>
+                    <p>
+                        Leaf and mid-search positions are judged by <code>_score_uncached</code>, wrapped in an LRU cache
+                        (<code>_score_cached</code>, up to 200k entries) keyed by board hash, side to move, castling flags, and a
+                        <code>SCORING_VERSION</code> that bumps when modifiers change.
+                    </p>
+                    <h4>Game phase</h4>
+                    <p>
+                        The evaluator detects opening, middlegame, and endgame from material count, queen presence, development
+                        (knights/bishops off back rank), and castling. Phase weights blend pawn structure, king safety, and piece
+                        activity differently — endgames lean on material and king activity; openings still reward development and
+                        central control.
+                    </p>
+                    <h4>Piece-specific terms</h4>
+                    <ul>
+                        <li><code>score_pawn</code> — chains, passed pawns, holes, and advancement.</li>
+                        <li><code>score_knight</code> / <code>score_bishop</code> — outposts, mobility, bishop pair, light/dark square coverage.</li>
+                        <li><code>score_rook</code> — open/semi-open files, seventh rank, connectivity.</li>
+                        <li><code>score_queen</code> — centralization and safe squares.</li>
+                        <li><code>score_king</code> — shelter, distance to enemy pieces, endgame activity.</li>
+                        <li><code>score_holes</code> — weak squares near kings in non-endgame positions.</li>
+                    </ul>
+                    <h4>Modifiers and captures</h4>
+                    <p>
+                        <code>SCORING_MODIFIERS</code> scales buckets like <code>material</code>, <code>king_safety_b/w</code>,
+                        <code>attack_b/w</code>, <code>piece_activity_b/w</code>, and <code>pawn_structure_b/w</code>. The HTTP
+                        <code>/modifiers</code> endpoint updates them at runtime and clears caches so personality tweaks take effect
+                        immediately.
+                    </p>
+                    <p>
+                        Hanging-piece logic adds bonuses for safe captures and penalties for leaving pieces en prise via
+                        <code>_best_protected_capture_adjustment</code> and <code>_best_unprotected_capture_adjustment</code>.
+                    </p>
+                </article>
+
+                <article class="tx-panel" id="server">
+                    <h3>Server design for real traffic</h3>
+                    <p>
+                        Hosting taught a few hard lessons that shaped the current architecture:
+                    </p>
+                    <ul>
+                        <li><strong>Per-game snapshots</strong> — <code>GAMES[game_id]['snapshot']</code> stores a full copy of engine globals so many browser tabs can play without clobbering each other.</li>
+                        <li><strong>Async moves</strong> — default <code>202</code> + background thread avoids uWSGI workers blocking for tens of seconds during deep lines; clients poll <code>/move_result</code>.</li>
+                        <li><strong>Dedicated subprocess per game</strong> — when enabled, each <code>game_id</code> can own a worker process so concurrent games do not serialize on one Python GIL; fork pool and inline paths are fallbacks.</li>
+                        <li><strong>Account limits</strong> — games can require <code>username</code> on <code>/move</code> so only the owner drives that session; caps limit concurrent games per account.</li>
+                        <li><strong>Performance switches</strong> — environment flags like <code>TRIFANGX_SYNC_MOVE_SINGLE</code>, <code>TRIFANGX_DISABLE_DEDICATED_WORKERS</code>, and <code>TRIFANGX_FORCE_MOVE_POOL</code> tune latency vs. isolation for different deploy targets.</li>
+                    </ul>
+                    <p>
+                        Multiprocessing inside every move was disabled by default (<code>ENABLE_MULTIPROCESSING = False</code>) because
+                        spawning pools per request on shared hosting was slower than in-process search; the dedicated-worker model is the
+                        preferred way to use multiple cores when available.
+                    </p>
+                </article>
+
+                <article class="tx-panel" id="links">
+                    <h3>Try it &amp; read the code</h3>
+                    <p>
+                        The live site is the best demo. For implementation detail, <code>TrifangX.py</code> in this repository is the
+                        authoritative engine and Flask server; the browser client is <code>js/trifangx_chess_app.js</code>.
                     </p>
                     <div class="tx-actions">
-                        <button type="button" class="button button-secondary" onclick="window.location.href='chess-leaderboard.html'">Career points leaderboard</button>
-                        <a href="chess-shop.html" class="button button-secondary">TrifangX shop</a>
                         <a href="chess_engine.html" class="button lab-button-coding">Play against TrifangX</a>
-                        <a href="https://github.com/ahrens-labs/chessengine" class="button button-secondary" rel="noopener noreferrer">View on GitHub</a>
-                        <a href="coding-lab.html" class="button button-secondary">← Back to Coding Lab</a>
+                        <a href="chess-shop.html" class="button button-secondary">TrifangX shop</a>
+                        <a href="chess-season-track.html" class="button button-secondary">Season track</a>
+                        <a href="chess-leaderboard.html" class="button button-secondary">Career leaderboard</a>
+                        <a href="achievements.html" class="button button-secondary">Achievements</a>
+                        <a href="chess_engine/game_history/" class="button button-secondary">Game history</a>
+                        <a href="https://github.com/ahrens-labs/chessengine" class="button button-secondary" rel="noopener noreferrer">Engine repo on GitHub</a>
+                        <a href="coding-lab.html" class="button button-secondary">← Coding Lab</a>
                     </div>
                 </article>
             </section>
