@@ -19,9 +19,9 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;')
 }
 
-function navUserLabel(user: { name?: string | null; email?: string | null }): string {
-  const name = (user.name || '').trim()
-  if (name && !name.includes('@')) return escapeHtml(name)
+function navUserLabel(user: { ahrens_username?: string | null }): string {
+  const username = (user.ahrens_username || '').trim()
+  if (username) return escapeHtml(username)
   return ''
 }
 

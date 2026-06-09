@@ -52,10 +52,64 @@ export async function getUserFromSession(env: Env, sessionId: string | null): Pr
   if (!session) return null
   
   const result = await env.DB.prepare(
-    'SELECT id, email, name, image, ahrens_user_id FROM users WHERE id = ?'
+    'SELECT id, email, name, image, ahrens_user_id, ahrens_username FROM users WHERE id = ?'
   ).bind(session.userId).first()
   
   return result as User | null
+}
+
+export async function fetchAhrensUsername(env: Env, ahrensUserId: string): Promise<string | null> {
+  if (!env.CHESS_ACCOUNTS || !ahrensUserId) return null
+  try {
+    const res = await env.CHESS_ACCOUNTS.fetch(
+      new Request(
+        `https://internal/internal/user-profile?userId=${encodeURIComponent(ahrensUserId)}`,
+        { method: 'GET' }
+      )
+    )
+    if (!res.ok) return null
+    const data = await res.json() as { username?: string }
+    const username = String(data.username || '').trim()
+    return username || null
+  } catch {
+    return null
+  }
+}
+
+export async function setAhrensUsername(env: Env, userId: string, username: string): Promise<void> {
+  const value = String(username || '').trim()
+  if (!value) return
+  await env.DB.prepare(
+    'UPDATE users SET ahrens_username = ?, updated_at = ? WHERE id = ?'
+  ).bind(value, Date.now(), userId).run()
+}
+
+/** Resolve Ahrens Labs account username for nav (never Link/Google display name). */
+export async function enrichUserForNav(env: Env, user: User): Promise<User> {
+  let ahrensUsername = String(user.ahrens_username || '').trim()
+  if (ahrensUsername) return { ...user, ahrens_username: ahrensUsername }
+
+  let ahrensId = user.ahrens_user_id
+  if (!ahrensId) {
+    const row = await env.DB.prepare(
+      'SELECT ahrens_user_id, ahrens_username FROM users WHERE id = ?'
+    ).bind(user.id).first() as { ahrens_user_id: string | null; ahrens_username: string | null } | null
+    ahrensUsername = String(row?.ahrens_username || '').trim()
+    if (ahrensUsername) {
+      return { ...user, ahrens_user_id: row?.ahrens_user_id || null, ahrens_username: ahrensUsername }
+    }
+    ahrensId = row?.ahrens_user_id || null
+  }
+
+  if (!ahrensId) return user
+
+  ahrensUsername = (await fetchAhrensUsername(env, ahrensId)) || ''
+  if (ahrensUsername) {
+    await setAhrensUsername(env, user.id, ahrensUsername)
+    return { ...user, ahrens_user_id: ahrensId, ahrens_username: ahrensUsername }
+  }
+
+  return user
 }
 
 export async function userHasAhrensBinding(env: Env, userId: string): Promise<boolean> {
@@ -240,14 +294,8 @@ export async function ensureUserForAhrensEmail(
       if (forceUsername) {
         updates.push(
           env.DB.prepare(
-            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
+            'UPDATE users SET ahrens_username = ?, updated_at = ? WHERE id = ?'
           ).bind(forceUsername, Date.now(), userId).run()
-        )
-      } else if (displayName) {
-        updates.push(
-          env.DB.prepare(
-            'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
-          ).bind(displayName, Date.now(), userId).run()
         )
       }
       if (updates.length) await Promise.all(updates)
@@ -274,8 +322,16 @@ export async function ensureUserForAhrensEmail(
 
     const userId = crypto.randomUUID()
     await env.DB.prepare(
-      'INSERT INTO users (id, email, name, ahrens_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).bind(userId, normalized, forceUsername || displayName || normalized, ahrensId || null, Date.now(), Date.now()).run()
+      'INSERT INTO users (id, email, name, ahrens_user_id, ahrens_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).bind(
+      userId,
+      normalized,
+      name || forceUsername || normalized,
+      ahrensId || null,
+      forceUsername || null,
+      Date.now(),
+      Date.now()
+    ).run()
 
     return { success: true, userId }
   } catch (error) {

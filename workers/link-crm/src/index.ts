@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from './types'
-import { getSessionIdFromCookie, getUserFromSession, deleteSession, clearSessionCookie, createSession, setSessionCookie, createLocalUser, authenticateLocalUser, ensureUserForAhrensEmail, userHasAhrensBinding } from './auth'
+import { getSessionIdFromCookie, getUserFromSession, deleteSession, clearSessionCookie, createSession, setSessionCookie, createLocalUser, authenticateLocalUser, ensureUserForAhrensEmail, userHasAhrensBinding, enrichUserForNav, setAhrensUsername } from './auth'
 import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimit'
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
@@ -26,7 +26,7 @@ async function redirectAhrensLogin(c: any, clearLinkSession = false) {
 // Middleware to check authentication
 async function requireAuth(c: any, next: any) {
   const sessionId = getSessionIdFromCookie(c.req.raw)
-  const user = await getUserFromSession(c.env, sessionId)
+  let user = await getUserFromSession(c.env, sessionId)
   
   if (!user) {
     if (isAhrensHost(c.req.raw)) {
@@ -41,6 +41,7 @@ async function requireAuth(c: any, next: any) {
     if (!bound) {
       return redirectAhrensLogin(c, true)
     }
+    user = await enrichUserForNav(c.env, user)
   }
   
   c.set('user', user)
@@ -250,11 +251,15 @@ app.get('/auth/ahrens-bridge', async (c) => {
 app.get('/api/auth/identity', requireAuth, async (c) => {
   const user = c.get('user')
   const row = await c.env.DB.prepare(
-    'SELECT email, name, ahrens_user_id FROM users WHERE id = ?'
-  ).bind(user.id).first() as { email: string; name: string | null; ahrens_user_id: string | null } | null
+    'SELECT email, name, ahrens_user_id, ahrens_username FROM users WHERE id = ?'
+  ).bind(user.id).first() as {
+    email: string
+    name: string | null
+    ahrens_user_id: string | null
+    ahrens_username: string | null
+  } | null
 
-  const storedName = (row?.name || user.name || '').trim()
-  const username = storedName && !storedName.includes('@') ? storedName : ''
+  const username = String(row?.ahrens_username || user.ahrens_username || '').trim()
 
   return c.json({
     email: row?.email || user.email,
@@ -263,7 +268,7 @@ app.get('/api/auth/identity', requireAuth, async (c) => {
   })
 })
 
-// Force Link display name to match Ahrens Labs username (overrides legacy Link names).
+// Force Link nav label to Ahrens Labs username (never Link/Google display name).
 app.post('/api/auth/sync-display-name', requireAuth, async (c) => {
   const user = c.get('user')
   const body = await c.req.json().catch(() => ({})) as { username?: string }
@@ -273,9 +278,7 @@ app.post('/api/auth/sync-display-name', requireAuth, async (c) => {
     return c.json({ error: 'Valid Ahrens username required' }, 400)
   }
 
-  await c.env.DB.prepare(
-    'UPDATE users SET name = ?, updated_at = ? WHERE id = ?'
-  ).bind(username, Date.now(), user.id).run()
+  await setAhrensUsername(c.env, user.id, username)
 
   return c.json({ username })
 })

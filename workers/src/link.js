@@ -98,6 +98,43 @@ export async function handleLinkBridgeRequest(request, env, corsHeaders) {
   );
 }
 
+/** GET /internal/user-profile?userId= — used by Link worker (service binding) */
+export async function handleInternalUserProfile(request, env) {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
+  if (!userId || !env.USER_ACCOUNT) {
+    return new Response(JSON.stringify({ error: 'Invalid request' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const stub = env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(String(userId)));
+    const res = await stub.fetch(new Request('http://do/getData', { method: 'GET' }));
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: 'Account not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const data = await res.json();
+    return new Response(
+      JSON.stringify({
+        userId,
+        username: data?.username ? String(data.username) : '',
+        email: data?.email ? String(data.email) : '',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch {
+    return new Response(JSON.stringify({ error: 'Could not load profile' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
 /** GET /internal/link/consume-bridge?token= — used by Link worker (service binding) */
 export async function handleLinkConsumeBridge(request, env) {
   const url = new URL(request.url);

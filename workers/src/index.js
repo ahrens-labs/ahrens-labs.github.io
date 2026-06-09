@@ -29,7 +29,7 @@ import {
 } from './sports-digest-send.js';
 import { handleTetherRequest } from './tether.js';
 export { TetherProject } from './tether.js';
-import { handleLinkRequest, handleLinkConsumeBridge } from './link.js';
+import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
 const DEFAULT_DIGEST_TIMEZONE = 'Etc/UTC';
@@ -214,6 +214,8 @@ export default {
         });
       } else if (path === '/internal/link/consume-bridge' && request.method === 'GET') {
         return handleLinkConsumeBridge(request, env);
+      } else if (path === '/internal/user-profile' && request.method === 'GET') {
+        return handleInternalUserProfile(request, env);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
