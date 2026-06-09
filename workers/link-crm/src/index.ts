@@ -187,7 +187,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
     return serveLinkHtml(c, 
       `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:36rem;margin:auto">
         <h1>Link sign-in expired</h1>
-        <p>Go back to <a href="https://ahrenslabs.com/link.html">ahrenslabs.com/link</a> and open Link again.</p>
+        <p>Go back to <a href="https://ahrenslabs.com/open-link.html">ahrenslabs.com/open-link</a> and open Link again.</p>
       </body></html>`,
       410
     )

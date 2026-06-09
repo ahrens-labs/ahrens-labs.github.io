@@ -19,7 +19,7 @@ const PROTECTED_PAGE_BASENAMES = [
     'classify',
     'digest',
     'tether',
-    'link'
+    'open-link'
 ];
 
 // Check if current page requires login

@@ -20,4 +20,4 @@ export function sessionCookiePath(request: Request): string {
   return base || '/'
 }
 
-export const AHRENS_LINK_ENTRY = 'https://ahrenslabs.com/link.html'
+export const AHRENS_LINK_ENTRY = 'https://ahrenslabs.com/open-link.html'

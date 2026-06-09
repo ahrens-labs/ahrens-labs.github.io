@@ -17,8 +17,8 @@ const AHRENS_HEADER = `
         </ul>
       </nav>
       <div id="header-auth-buttons" style="position:absolute;top:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:1000;">
-        <button id="header-login-btn" type="button" onclick="window.location.href='https://ahrenslabs.com/account.html?return=link.html'" style="padding:6px 14px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Login</button>
-        <button id="header-signup-btn" type="button" onclick="window.location.href='https://ahrenslabs.com/account.html?return=link.html'" style="padding:6px 14px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Sign Up</button>
+        <button id="header-login-btn" type="button" onclick="window.location.href='https://ahrenslabs.com/account.html?return=open-link.html'" style="padding:6px 14px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Login</button>
+        <button id="header-signup-btn" type="button" onclick="window.location.href='https://ahrenslabs.com/account.html?return=open-link.html'" style="padding:6px 14px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Sign Up</button>
         <span id="header-username" style="display:none;padding:6px 14px;color:white;font-weight:600;font-size:0.9em;"></span>
       </div>
     </div>

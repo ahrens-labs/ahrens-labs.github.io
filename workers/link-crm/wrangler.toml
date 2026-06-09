@@ -23,17 +23,8 @@ service = "chess-accounts"
 [ai]
 binding = "AI"
 
-# linkprm.com — Workers custom domains
+# linkprm.com — Workers custom domains only (ahrenslabs.com/link/* via Pages Function proxy)
 routes = [
   { pattern = "linkprm.com", custom_domain = true },
   { pattern = "www.linkprm.com", custom_domain = true }
 ]
-
-# ahrenslabs.com/link/* — zone route (Pages excluded via _routes.json)
-[[routes]]
-pattern = "ahrenslabs.com/link/*"
-zone_name = "ahrenslabs.com"
-
-[[routes]]
-pattern = "www.ahrenslabs.com/link/*"
-zone_name = "ahrenslabs.com"
