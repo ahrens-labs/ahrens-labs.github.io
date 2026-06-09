@@ -70,11 +70,11 @@ export async function handleLinkBridgeRequest(request, env, corsHeaders) {
 
   const profile = await fetchUserProfile(env, userId);
   if (!profile || !profile.email) {
-    return jsonResponse({ error: 'Account email required for Link' }, corsHeaders, 400);
+    return jsonResponse({ error: 'Account email required for link' }, corsHeaders, 400);
   }
 
   if (!env.LINK_BRIDGE_KV) {
-    return jsonResponse({ error: 'Link bridge not configured' }, corsHeaders, 503);
+    return jsonResponse({ error: 'link bridge not configured' }, corsHeaders, 503);
   }
 
   const token = newBridgeToken();

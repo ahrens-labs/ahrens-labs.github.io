@@ -25,7 +25,7 @@ export function layout(title: string, content: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - link</title>
+  <title>${title} - linkprm</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
   <link rel="manifest" href="/manifest.json">
@@ -778,7 +778,7 @@ function getVoiceAssistantScript(): string {
 }
 
 export function landingPage(): string {
-  return layout('link - Relationship Management', `
+  return layout('linkprm — Link Person Relationship Manager', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
       <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="nav-content">
@@ -792,8 +792,8 @@ export function landingPage(): string {
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
-          <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 1rem;">Stay Linked With Your Relationships</h1>
-          <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.95;">A simple, private CRM to help you stay connected with the people who matter most.</p>
+          <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 1rem;">link</h1>
+          <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.95;">linkprm — Link Person Relationship Manager. A simple, private CRM to help you stay connected with the people who matter most.</p>
           <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
             <a href="/auth/signup" class="btn" style="background: white; color: #16a34a; font-size: 1.125rem; padding: 0.75rem 2rem;">Create Account</a>
             <a href="/auth/signin" class="btn" style="background: rgba(255,255,255,0.2); color: white; font-size: 1.125rem; padding: 0.75rem 2rem; border: 1px solid white;">Sign In</a>
@@ -3283,24 +3283,24 @@ export function privacyPolicyPage(user: any): string {
       
       <div class="section">
         <div class="card">
-          <h2>Privacy Policy for Link</h2>
+          <h2>Privacy Policy for linkprm</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
           <h3>1. Introduction</h3>
-          <p>Welcome to Link. This privacy policy explains how we collect, use, and protect your personal information when you use our contact management service.</p>
+          <p>Welcome to linkprm (Link Person Relationship Manager). This privacy policy explains how we collect, use, and protect your personal information when you use our contact management service.</p>
           
           <h3>2. Information We Collect</h3>
           <p>We collect the following information:</p>
           <ul>
             <li><strong>Account Information:</strong> Email address and name when you sign up or authenticate via Google</li>
-            <li><strong>Contact Data:</strong> Information about your contacts, interactions, and reminders that you choose to store in Link</li>
+            <li><strong>Contact Data:</strong> Information about your contacts, interactions, and reminders that you choose to store in linkprm</li>
             <li><strong>Usage Data:</strong> Information about how you use the service</li>
           </ul>
           
           <h3>3. How We Use Your Information</h3>
           <p>We use your information to:</p>
           <ul>
-            <li>Provide and maintain the Link service</li>
+            <li>Provide and maintain the linkprm service</li>
             <li>Authenticate your account</li>
             <li>Store and organize your contact information</li>
             <li>Send you reminders about important dates</li>
@@ -3358,14 +3358,14 @@ export function termsOfServicePage(user: any): string {
       
       <div class="section">
         <div class="card">
-          <h2>Terms of Service for Link</h2>
+          <h2>Terms of Service for linkprm</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
           <h3>1. Acceptance of Terms</h3>
-          <p>By accessing and using Link, you accept and agree to be bound by the terms and provisions of this agreement.</p>
+          <p>By accessing and using linkprm, you accept and agree to be bound by the terms and provisions of this agreement.</p>
           
           <h3>2. Description of Service</h3>
-          <p>Link is a contact management service that helps you organize and track your personal and professional relationships. The service allows you to:</p>
+          <p>linkprm (Link Person Relationship Manager) is a contact management service that helps you organize and track your personal and professional relationships. The service allows you to:</p>
           <ul>
             <li>Store contact information</li>
             <li>Track interactions with contacts</li>
@@ -3393,7 +3393,7 @@ export function termsOfServicePage(user: any): string {
           </ul>
           
           <h3>5. Your Content</h3>
-          <p>You retain all rights to the content you store in Link. By using the service, you grant us the right to store and process your content solely for the purpose of providing the service to you.</p>
+          <p>You retain all rights to the content you store in linkprm. By using the service, you grant us the right to store and process your content solely for the purpose of providing the service to you.</p>
           
           <h3>6. Service Availability</h3>
           <p>We strive to provide reliable service, but we do not guarantee:</p>
@@ -3404,7 +3404,7 @@ export function termsOfServicePage(user: any): string {
           </ul>
           
           <h3>7. Limitation of Liability</h3>
-          <p>Link is provided "as is" without warranty of any kind. We are not liable for any damages arising from your use of the service, including but not limited to:</p>
+          <p>linkprm is provided "as is" without warranty of any kind. We are not liable for any damages arising from your use of the service, including but not limited to:</p>
           <ul>
             <li>Loss of data</li>
             <li>Loss of profits</li>

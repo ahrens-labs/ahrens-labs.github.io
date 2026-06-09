@@ -200,7 +200,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
   }
 
   if (!c.env.CHESS_ACCOUNTS) {
-    return c.text('Link auth bridge is not configured', 503)
+    return c.text('link auth bridge is not configured', 503)
   }
 
   const consumeRes = await c.env.CHESS_ACCOUNTS.fetch(
@@ -213,8 +213,8 @@ app.get('/auth/ahrens-bridge', async (c) => {
   if (!consumeRes.ok) {
     return serveLinkHtml(c, 
       `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:36rem;margin:auto">
-        <h1>Link sign-in expired</h1>
-        <p>Go back to <a href="/link/dashboard">Link dashboard</a> and try again.</p>
+        <h1>link sign-in expired</h1>
+        <p>Go back to <a href="/link/dashboard">link dashboard</a> and try again.</p>
       </body></html>`,
       410
     )
@@ -232,7 +232,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
     bridge.ahrensUserId
   )
   if (!result.success || !result.userId) {
-    return c.text(result.error || 'Could not open Link account', 500)
+    return c.text(result.error || 'Could not open link account', 500)
   }
 
   const existingSessionId = getSessionIdFromCookie(c.req.raw)
@@ -1151,9 +1151,9 @@ app.get('/icon-192.png', (c) => {
 // Serve manifest
 app.get('/manifest.json', (c) => {
   return c.json({
-    name: 'link',
+    name: 'linkprm',
     short_name: 'link',
-    description: 'Manage your relationships and stay connected',
+    description: 'linkprm — Link Person Relationship Manager',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
