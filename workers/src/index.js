@@ -13,6 +13,8 @@ import {
   SPORTS_DIGEST_PRESETS,
   SPORTS_DIGEST_MAX_TEAMS,
   SPORTS_DIGEST_MAX_CUSTOM_TIMES,
+  getSportsDigestTeamCatalog,
+  getSportsDigestLeagues,
   normalizeSportsDigestPrefs,
   resolveScheduleTimes,
   validateSportsDigestSave,
@@ -2377,10 +2379,15 @@ async function handleHeaderNavPreferences(request, env, corsHeaders) {
 }
 
 function handleSportsDigestCatalog(corsHeaders) {
+  const now = new Date();
+  const teams = getSportsDigestTeamCatalog(now);
+  const leagues = getSportsDigestLeagues(now);
+  const limitedTimeLeagues = leagues.filter((lg) => lg.limitedTime === true);
   return new Response(
     JSON.stringify({
-      teams: SPORTS_DIGEST_TEAM_CATALOG,
-      leagues: SPORTS_DIGEST_LEAGUES,
+      teams,
+      leagues,
+      limitedTimeLeagues,
       presets: SPORTS_DIGEST_PRESETS.filter((p) => p.id !== 'custom'),
       schedulePresets: SPORTS_DIGEST_PRESETS,
       maxTeams: SPORTS_DIGEST_MAX_TEAMS,

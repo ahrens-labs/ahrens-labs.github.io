@@ -14,7 +14,10 @@ const TWITTER = {
 };
 
 const LEAGUE_UNION =
-  '"mlb" | "nfl" | "nba" | "nhl" | "epl" | "cfb-b10" | "cfb-sec" | "cbb-b10" | "cbb-sec"';
+  '"mlb" | "nfl" | "nba" | "nhl" | "epl" | "wc26" | "cfb-b10" | "cfb-sec" | "cbb-b10" | "cbb-sec"';
+
+/** Limited-time FIFA World Cup 2026 — remove from generator after the tournament ends. */
+const WORLD_CUP_AVAILABLE_UNTIL = '2026-07-20T23:59:59Z';
 
 /** ESPN core API conference groups (FBS / D-I). */
 const CONFERENCES = [
@@ -119,7 +122,7 @@ async function fetchConference(conf) {
   return teams.sort((a, b) => a.label.localeCompare(b.label));
 }
 
-const catalog = [
+const coreCatalog = [
   ...(await fetchLeague('baseball/mlb', 'mlb', 'MLB')),
   ...(await fetchLeague('football/nfl', 'nfl', 'NFL')),
   ...(await fetchLeague('basketball/nba', 'nba', 'NBA')),
@@ -131,10 +134,21 @@ const catalog = [
   ...(await fetchConference(CONFERENCES[3])),
 ];
 
+const worldCupCatalog =
+  Date.now() <= Date.parse(WORLD_CUP_AVAILABLE_UNTIL)
+    ? await fetchLeague('soccer/fifa.world', 'wc26', 'World Cup 2026')
+    : [];
+
+const catalog = [...coreCatalog, ...worldCupCatalog];
+
 writeFileSync(join(root, 'scripts/sports-digest-catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 writeFileSync(
   join(root, 'workers/src/sports-digest-team-catalog.js'),
-  `/** Auto-generated — run scripts/generate-sports-digest-catalog.mjs to refresh */\nexport const SPORTS_DIGEST_TEAM_CATALOG = ${JSON.stringify(catalog, null, 2)};\n`
+  `/** Auto-generated — run scripts/generate-sports-digest-catalog.mjs to refresh */\nexport const SPORTS_DIGEST_TEAM_CATALOG = ${JSON.stringify(coreCatalog, null, 2)};\n`
+);
+writeFileSync(
+  join(root, 'workers/src/sports-digest-world-cup-catalog.js'),
+  `/** Auto-generated — limited-time World Cup 2026 teams */\nexport const SPORTS_DIGEST_WORLD_CUP_AVAILABLE_UNTIL = ${JSON.stringify(WORLD_CUP_AVAILABLE_UNTIL)};\nexport const SPORTS_DIGEST_WORLD_CUP_CATALOG = ${JSON.stringify(worldCupCatalog, null, 2)};\n`
 );
 
 const sportsDigestTs = '/home/matt/innovation/sports_digest/src/teamCatalog.ts';

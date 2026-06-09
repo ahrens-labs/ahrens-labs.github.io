@@ -1,13 +1,17 @@
 /** Schedule + validation for Sports Digest — team list in sports-digest-team-catalog.js */
 
 import { SPORTS_DIGEST_TEAM_CATALOG } from './sports-digest-team-catalog.js';
+import {
+  SPORTS_DIGEST_WORLD_CUP_CATALOG,
+  SPORTS_DIGEST_WORLD_CUP_AVAILABLE_UNTIL,
+} from './sports-digest-world-cup-catalog.js';
 
-export { SPORTS_DIGEST_TEAM_CATALOG };
+export { SPORTS_DIGEST_TEAM_CATALOG, SPORTS_DIGEST_WORLD_CUP_CATALOG, SPORTS_DIGEST_WORLD_CUP_AVAILABLE_UNTIL };
 
 export const SPORTS_DIGEST_MAX_TEAMS = 25;
 export const SPORTS_DIGEST_MAX_CUSTOM_TIMES = 6;
 
-export const SPORTS_DIGEST_LEAGUES = [
+const SPORTS_DIGEST_LEAGUES_BASE = [
   { id: 'mlb', label: 'MLB', sport: 'MLB', emoji: '⚾' },
   { id: 'nfl', label: 'NFL', sport: 'NFL', emoji: '🏈' },
   { id: 'nba', label: 'NBA', sport: 'NBA', emoji: '🏀' },
@@ -18,6 +22,36 @@ export const SPORTS_DIGEST_LEAGUES = [
   { id: 'cbb-b10', label: 'Big Ten Basketball', sport: 'Big Ten Basketball', emoji: '🏀' },
   { id: 'cbb-sec', label: 'SEC Basketball', sport: 'SEC Basketball', emoji: '🏀' },
 ];
+
+const WORLD_CUP_LEAGUE = {
+  id: 'wc26',
+  label: 'World Cup 2026',
+  sport: 'FIFA World Cup',
+  emoji: '🏆',
+  limitedTime: true,
+  availableUntil: SPORTS_DIGEST_WORLD_CUP_AVAILABLE_UNTIL,
+};
+
+export function isWorldCupDigestAvailable(now = new Date()) {
+  if (!Array.isArray(SPORTS_DIGEST_WORLD_CUP_CATALOG) || SPORTS_DIGEST_WORLD_CUP_CATALOG.length === 0) {
+    return false;
+  }
+  const until = Date.parse(SPORTS_DIGEST_WORLD_CUP_AVAILABLE_UNTIL);
+  return Number.isFinite(until) && now.getTime() <= until;
+}
+
+export function getSportsDigestTeamCatalog(now = new Date()) {
+  if (!isWorldCupDigestAvailable(now)) return SPORTS_DIGEST_TEAM_CATALOG.slice();
+  return SPORTS_DIGEST_TEAM_CATALOG.concat(SPORTS_DIGEST_WORLD_CUP_CATALOG);
+}
+
+export function getSportsDigestLeagues(now = new Date()) {
+  if (!isWorldCupDigestAvailable(now)) return SPORTS_DIGEST_LEAGUES_BASE.slice();
+  return SPORTS_DIGEST_LEAGUES_BASE.concat([WORLD_CUP_LEAGUE]);
+}
+
+/** @deprecated use getSportsDigestLeagues() */
+export const SPORTS_DIGEST_LEAGUES = SPORTS_DIGEST_LEAGUES_BASE;
 
 /** Preset send schedules — Central (CT) HH:MM. Worker sends at UTC = CT + 5 hours. */
 export const SPORTS_DIGEST_PRESETS = [
@@ -38,7 +72,9 @@ const LEGACY_TEAM_ID_MAP = {
   bucks: 'nba-15',
 };
 
-const TEAM_ID_SET = new Set(SPORTS_DIGEST_TEAM_CATALOG.map((t) => t.id));
+function teamIdSet(now = new Date()) {
+  return new Set(getSportsDigestTeamCatalog(now).map((t) => t.id));
+}
 const PRESET_ID_SET = new Set(SPORTS_DIGEST_PRESETS.map((p) => p.id));
 
 /** Central Time HH:MM on 15-minute grid (:00, :15, :30, :45). Cron runs every 15 minutes. */
@@ -53,9 +89,10 @@ export const DEFAULT_SPORTS_DIGEST_PREFS = {
   includeTopHeadlines: false,
 };
 
-function mapLegacyTeamId(id) {
+function mapLegacyTeamId(id, now = new Date()) {
   if (typeof id !== 'string') return null;
-  if (TEAM_ID_SET.has(id)) return id;
+  const allowed = teamIdSet(now);
+  if (allowed.has(id)) return id;
   return LEGACY_TEAM_ID_MAP[id] || null;
 }
 
@@ -79,10 +116,10 @@ function normalizeCustomDays(raw) {
   return out.length ? out.sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6];
 }
 
-export function normalizeSportsDigestPrefs(raw) {
+export function normalizeSportsDigestPrefs(raw, now = new Date()) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const teams = Array.isArray(src.teams)
-    ? [...new Set(src.teams.map(mapLegacyTeamId).filter(Boolean))]
+    ? [...new Set(src.teams.map((id) => mapLegacyTeamId(id, now)).filter(Boolean))]
     : [];
   const customTimes = normalizeCustomTimes(src.customTimes);
   const customDays = normalizeCustomDays(src.customDays);
@@ -126,7 +163,7 @@ export function validateSportsDigestSave(body) {
   if (!Array.isArray(body.teams)) {
     return { ok: false, error: 'Send teams (array of team ids)' };
   }
-  const teams = [...new Set(body.teams.map(mapLegacyTeamId).filter(Boolean))];
+  const teams = [...new Set(body.teams.map((id) => mapLegacyTeamId(id)).filter(Boolean))];
   if (body.enabled && teams.length === 0) {
     return { ok: false, error: 'Choose at least one team when Digest is on.' };
   }

@@ -189,6 +189,26 @@
     .sd-tab.active[data-league="cfb-sec"] { background: linear-gradient(135deg, #002855, #e87722); }
     .sd-tab.active[data-league="cbb-b10"] { background: linear-gradient(135deg, #003366, #bb0000); }
     .sd-tab.active[data-league="cbb-sec"] { background: linear-gradient(135deg, #002855, #e87722); }
+    .sd-tab.active[data-league="wc26"] { background: linear-gradient(135deg, #0f766e, #2563eb); }
+    .sd-tab--limited { position: relative; padding-right: 28px; }
+    .sd-tab--limited::after {
+      content: '★';
+      position: absolute;
+      top: 4px;
+      right: 8px;
+      font-size: 0.62rem;
+      color: #fbbf24;
+    }
+    .sd-limited-banner {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #fcd34d;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      color: #92400e;
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
     .sd-mini-btn {
       padding: 8px 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff;
       font-size: 0.8rem; font-weight: 700; color: #334155; cursor: pointer; font-family: inherit;
@@ -424,6 +444,10 @@
         </div>
 
         <h2 class="sd-section-title"><span>🏟</span> Pick your teams</h2>
+        <div class="sd-limited-banner" id="sd-limited-banner" hidden>
+          <strong>Limited time:</strong> Follow any <strong>FIFA World Cup 2026</strong> nation through the tournament.
+          Open the <strong>World Cup 2026</strong> tab to pick countries — available until July 20, 2026.
+        </div>
         <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams. Search by name or browse one league at a time.</p>
 
         <div class="sd-selected-strip" id="sd-selected-strip">
@@ -480,11 +504,11 @@
       const API_BASE = window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL;
       const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const LEAGUE_EMOJI = {
-        mlb: '⚾', nfl: '🏈', nba: '🏀', nhl: '🏒', epl: '⚽',
+        mlb: '⚾', nfl: '🏈', nba: '🏀', nhl: '🏒', epl: '⚽', wc26: '🏆',
         'cfb-b10': '🏈', 'cfb-sec': '🏈', 'cbb-b10': '🏀', 'cbb-sec': '🏀',
       };
       const LEAGUE_ACCENT = {
-        mlb: '#c41230', nfl: '#013369', nba: '#17408b', nhl: '#c8102e', epl: '#3d195b',
+        mlb: '#c41230', nfl: '#013369', nba: '#17408b', nhl: '#c8102e', epl: '#3d195b', wc26: '#0f766e',
         'cfb-b10': '#003366', 'cfb-sec': '#002855', 'cbb-b10': '#003366', 'cbb-sec': '#002855',
       };
       const teamById = new Map();
@@ -695,7 +719,7 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.dataset.league = lg.id;
-          btn.className = 'sd-tab' + (activeLeague === lg.id ? ' active' : '');
+          btn.className = 'sd-tab' + (activeLeague === lg.id ? ' active' : '') + (lg.limitedTime ? ' sd-tab--limited' : '');
           btn.textContent = (lg.emoji || leagueEmoji(lg.id)) + ' ' + lg.label;
           btn.addEventListener('click', function () {
             activeLeague = lg.id;
@@ -862,6 +886,10 @@
         userProfile = await userRes.json();
         teamById.clear();
         (catalog.teams || []).forEach(function (t) { teamById.set(t.id, t); });
+
+        const limitedBanner = document.getElementById('sd-limited-banner');
+        const limitedLeagues = catalog.limitedTimeLeagues || (catalog.leagues || []).filter(function (lg) { return lg.limitedTime; });
+        if (limitedBanner) limitedBanner.hidden = limitedLeagues.length === 0;
 
         document.getElementById('sd-max-teams').textContent = String(catalog.maxTeams || 25);
         document.getElementById('sd-max-times').textContent = String(catalog.maxCustomTimes || 6);
