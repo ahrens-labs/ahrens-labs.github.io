@@ -489,7 +489,6 @@ nav ul.nav-dropdown-menu a.active {
     background: linear-gradient(135deg, rgba(0, 83, 189, 0.85), rgba(0, 113, 255, 0.85));
 }
 
-nav li.nav-dropdown:hover > ul.nav-dropdown-menu,
 nav li.nav-dropdown:focus-within > ul.nav-dropdown-menu,
 nav li.nav-dropdown.nav-dropdown--open > ul.nav-dropdown-menu {
     display: flex;

@@ -314,6 +314,17 @@
 
   const DROPDOWN_CLOSE_DELAY_MS = 320;
 
+  function closeOtherHeaderDropdowns(ul, keepLi) {
+    ul.querySelectorAll('li.nav-dropdown').forEach((dropdown) => {
+      if (dropdown === keepLi) return;
+      if (dropdown._closeTimer) {
+        clearTimeout(dropdown._closeTimer);
+        dropdown._closeTimer = null;
+      }
+      dropdown.classList.remove('nav-dropdown--open');
+    });
+  }
+
   function wireHeaderDropdownHover() {
     const ul = document.querySelector('header nav ul');
     if (!ul || ul.dataset.dropdownHoverWired === '1') return;
@@ -326,6 +337,7 @@
         clearTimeout(li._closeTimer);
         li._closeTimer = null;
       }
+      closeOtherHeaderDropdowns(ul, li);
       li.classList.add('nav-dropdown--open');
     });
 
@@ -348,6 +360,7 @@
         clearTimeout(li._closeTimer);
         li._closeTimer = null;
       }
+      closeOtherHeaderDropdowns(ul, li);
       li.classList.add('nav-dropdown--open');
     });
 
