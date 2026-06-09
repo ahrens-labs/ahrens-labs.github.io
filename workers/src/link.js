@@ -56,7 +56,7 @@ function newBridgeToken() {
 }
 
 function linkAppBase(env) {
-  const raw = String(env.LINK_APP_URL || 'https://link.ahrenslabs.com').trim();
+  const raw = String(env.LINK_APP_URL || 'https://ahrenslabs.com/link').trim();
   return raw.replace(/\/+$/, '');
 }
 

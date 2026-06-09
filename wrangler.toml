@@ -1,0 +1,8 @@
+# Cloudflare Pages — ahrenslabs.com static site + /link/* proxy to Link worker.
+name = "ahrens-labs-github-io"
+pages_build_output_dir = "."
+compatibility_date = "2024-01-01"
+
+[[services]]
+binding = "LINK"
+service = "link"

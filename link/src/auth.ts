@@ -63,12 +63,18 @@ export function getSessionIdFromCookie(request: Request): string | null {
 }
 
 // Set session cookie in response
-export function setSessionCookie(response: Response, sessionId: string, isSecure: boolean = true): Response {
+export function setSessionCookie(
+  response: Response,
+  sessionId: string,
+  isSecure: boolean = true,
+  cookiePath: string = '/'
+): Response {
   const headers = new Headers(response.headers)
-  
+  const path = cookiePath || '/'
+
   headers.set(
     'Set-Cookie',
-    `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DURATION}${
+    `session=${sessionId}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DURATION}${
       isSecure ? '; Secure' : ''
     }`
   )
@@ -81,11 +87,12 @@ export function setSessionCookie(response: Response, sessionId: string, isSecure
 }
 
 // Clear session cookie
-export function clearSessionCookie(response: Response): Response {
+export function clearSessionCookie(response: Response, cookiePath: string = '/'): Response {
   const headers = new Headers(response.headers)
+  const path = cookiePath || '/'
   headers.set(
     'Set-Cookie',
-    'session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+    `session=; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=0`
   )
   
   return new Response(response.body, {

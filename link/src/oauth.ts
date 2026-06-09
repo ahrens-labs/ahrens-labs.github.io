@@ -29,7 +29,9 @@ export function getGoogleAuthUrl(env: Env, callbackUrl: string): string {
 export async function handleGoogleCallback(
   env: Env,
   code: string,
-  callbackUrl: string
+  callbackUrl: string,
+  cookiePath: string = '/',
+  dashboardPath: string = '/dashboard'
 ): Promise<Response> {
   try {
     // Exchange code for tokens
@@ -115,12 +117,12 @@ export async function handleGoogleCallback(
     // Redirect to dashboard with session cookie
     const response = new Response(null, {
       status: 302,
-      headers: { Location: '/dashboard' }
+      headers: { Location: dashboardPath }
     })
     
     // Use secure cookies in production (https), not in local dev
     const isSecure = callbackUrl.startsWith('https://')
-    return setSessionCookie(response, sessionId, isSecure)
+    return setSessionCookie(response, sessionId, isSecure, cookiePath)
   } catch (error) {
     console.error('OAuth callback error:', error)
     return new Response(`Authentication failed: ${error instanceof Error ? error.message : String(error)}`, { status: 500 })

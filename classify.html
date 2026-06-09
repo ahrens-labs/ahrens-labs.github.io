@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classify | Advanced Planner</title>
-	 <link rel="icon" type="image/x-icon" href="classify.ico">
-    <!-- Tailwind CSS -->
+  <link rel="icon" type="image/x-icon" href="classify.ico">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -274,7 +275,31 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans h-screen overflow-hidden flex flex-col md:flex-row transition-colors duration-200">
+<body class="bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200">
+    <div class="wrapper">
+        <header>
+            <div class="header-content">
+                <a href="index.html" class="logo-link">
+                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
+                </a>
+                <h1>Ahrens Labs</h1>
+                <nav>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="labs.html">Labs &amp; Projects</a></li>
+                        <li><a href="coding-lab.html">Coding Lab</a></li>
+                        <li><a href="account-dashboard.html">Account</a></li>
+                    </ul>
+                </nav>
+                <div id="header-auth-buttons" style="position:absolute;top:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:1000;">
+                    <button id="header-login-btn" type="button" onclick="window.location.href='account.html?return=classify.html'" style="padding:6px 14px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Login</button>
+                    <button id="header-signup-btn" type="button" onclick="window.location.href='account.html?return=classify.html'" style="padding:6px 14px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Sign Up</button>
+                    <span id="header-username" style="display:none;padding:6px 14px;color:white;font-weight:600;font-size:0.9em;"></span>
+                </div>
+            </div>
+        </header>
+    </div>
+    <div class="flex flex-col md:flex-row h-[calc(100vh-88px)] min-h-0 overflow-hidden">
     <canvas id="confetti-canvas"></canvas>
 
     <!-- Mobile Header -->
@@ -7511,5 +7536,6 @@
             showNotification('Tasks exported as CSV!', 'success');
         }
     </script>
+    </div>
 </body>
 </html>

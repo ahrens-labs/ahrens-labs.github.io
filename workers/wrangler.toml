@@ -90,7 +90,7 @@ SENDER_EMAIL = "caleb@ahrenslabs.com"
 # Public website for links in welcome/digest emails (no trailing slash).
 PUBLIC_SITE_BASE = "https://ahrenslabs.com"
 # Link CRM app URL (custom domain or workers.dev). Used by /api/link/bridge redirect.
-LINK_APP_URL = "https://link.matthewahrens.workers.dev"
+LINK_APP_URL = "https://ahrenslabs.com/link"
 # Daily challenge roundup send time (UTC, 24h). Must align with [triggers] crons.
 DIGEST_SEND_UTC_HOUR = "7"
 DIGEST_SEND_UTC_MINUTE = "0"

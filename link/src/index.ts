@@ -5,6 +5,8 @@ import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimi
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
 import { decryptContact, generateId, encryptContact } from './crypto'
+import { AHRENS_LINK_ENTRY, isAhrensHost, publicPath, sessionCookiePath } from './host'
+import { serveLinkHtml } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -14,7 +16,10 @@ async function requireAuth(c: any, next: any) {
   const user = await getUserFromSession(c.env, sessionId)
   
   if (!user) {
-    return c.redirect('/auth/signin')
+    if (isAhrensHost(c.req.raw)) {
+      return c.redirect(AHRENS_LINK_ENTRY)
+    }
+    return c.redirect(publicPath(c.req.raw, '/auth/signin'))
   }
   
   c.set('user', user)
@@ -28,16 +33,23 @@ app.get('/', async (c) => {
   const user = await getUserFromSession(c.env, sessionId)
   
   if (user) {
-    return c.redirect('/dashboard')
+    return c.redirect(publicPath(c.req.raw, '/dashboard'))
+  }
+
+  if (isAhrensHost(c.req.raw)) {
+    return c.redirect(AHRENS_LINK_ENTRY)
   }
   
-  return c.html(landingPage())
+  return serveLinkHtml(c, landingPage())
 })
 
 // Auth routes
 app.get('/auth/signin', (c) => {
+  if (isAhrensHost(c.req.raw)) {
+    return c.redirect(AHRENS_LINK_ENTRY)
+  }
   const error = c.req.query('error')
-  return c.html(signinPage(error))
+  return serveLinkHtml(c, signinPage(error))
 })
 
 app.post('/auth/signin', async (c) => {
@@ -46,20 +58,20 @@ app.post('/auth/signin', async (c) => {
   const password = formData.get('password') as string
   
   if (!email || !password) {
-    return c.html(signinPage('Email and password are required'))
+    return serveLinkHtml(c, signinPage('Email and password are required'))
   }
   
   // Check rate limit
   const rateLimitCheck = await checkRateLimit(c.env, email.toLowerCase(), 'login')
   if (!rateLimitCheck.allowed) {
     const message = formatLockoutMessage(rateLimitCheck.lockedUntil!)
-    return c.html(signinPage(message))
+    return serveLinkHtml(c, signinPage(message))
   }
   
   const result = await authenticateLocalUser(c.env, email, password)
   
   if (!result.success) {
-    return c.html(signinPage(result.error))
+    return serveLinkHtml(c, signinPage(result.error))
   }
   
   // Clear rate limit on successful login
@@ -67,13 +79,16 @@ app.post('/auth/signin', async (c) => {
   
   // Create new session (session regeneration for security)
   const sessionId = await createSession(c.env, result.userId!)
-  const response = c.redirect('/dashboard')
-  return setSessionCookie(response, sessionId, true)
+  const response = c.redirect(publicPath(c.req.raw, '/dashboard'))
+  return setSessionCookie(response, sessionId, true, sessionCookiePath(c.req.raw))
 })
 
 app.get('/auth/signup', (c) => {
+  if (isAhrensHost(c.req.raw)) {
+    return c.redirect(AHRENS_LINK_ENTRY)
+  }
   const error = c.req.query('error')
-  return c.html(signupPage(error))
+  return serveLinkHtml(c, signupPage(error))
 })
 
 app.post('/auth/signup', async (c) => {
@@ -84,28 +99,28 @@ app.post('/auth/signup', async (c) => {
   const confirmPassword = formData.get('confirmPassword') as string
   
   if (!name || !email || !password || !confirmPassword) {
-    return c.html(signupPage('All fields are required'))
+    return serveLinkHtml(c, signupPage('All fields are required'))
   }
   
   if (password !== confirmPassword) {
-    return c.html(signupPage('Passwords do not match'))
+    return serveLinkHtml(c, signupPage('Passwords do not match'))
   }
   
   if (password.length < 8) {
-    return c.html(signupPage('Password must be at least 8 characters'))
+    return serveLinkHtml(c, signupPage('Password must be at least 8 characters'))
   }
   
   // Check rate limit
   const rateLimitCheck = await checkRateLimit(c.env, email.toLowerCase(), 'signup')
   if (!rateLimitCheck.allowed) {
     const message = formatLockoutMessage(rateLimitCheck.lockedUntil!)
-    return c.html(signupPage(message))
+    return serveLinkHtml(c, signupPage(message))
   }
   
   const result = await createLocalUser(c.env, email, password, name)
   
   if (!result.success) {
-    return c.html(signupPage(result.error))
+    return serveLinkHtml(c, signupPage(result.error))
   }
   
   // Clear rate limit on successful signup
@@ -113,13 +128,16 @@ app.post('/auth/signup', async (c) => {
   
   // Create new session for the user
   const sessionId = await createSession(c.env, result.userId!)
-  const response = c.redirect('/dashboard')
-  return setSessionCookie(response, sessionId, true)
+  const response = c.redirect(publicPath(c.req.raw, '/dashboard'))
+  return setSessionCookie(response, sessionId, true, sessionCookiePath(c.req.raw))
 })
 
 app.get('/auth/google', (c) => {
+  if (isAhrensHost(c.req.raw)) {
+    return c.redirect(AHRENS_LINK_ENTRY)
+  }
   const url = new URL(c.req.url)
-  const callbackUrl = `${url.protocol}//${url.host}/auth/callback`
+  const callbackUrl = `${url.protocol}//${url.host}${publicPath(c.req.raw, '/auth/callback')}`
   const authUrl = getGoogleAuthUrl(c.env, callbackUrl)
   return c.redirect(authUrl)
 })
@@ -131,8 +149,8 @@ app.get('/auth/callback', async (c) => {
   }
   
   const url = new URL(c.req.url)
-  const callbackUrl = `${url.protocol}//${url.host}/auth/callback`
-  return handleGoogleCallback(c.env, code, callbackUrl)
+  const callbackUrl = `${url.protocol}//${url.host}${publicPath(c.req.raw, '/auth/callback')}`
+  return handleGoogleCallback(c.env, code, callbackUrl, sessionCookiePath(c.req.raw), publicPath(c.req.raw, '/dashboard'))
 })
 
 app.get('/auth/signout', async (c) => {
@@ -140,9 +158,11 @@ app.get('/auth/signout', async (c) => {
   if (sessionId) {
     await deleteSession(c.env, sessionId)
   }
-  
-  const response = c.redirect('/auth/signin')
-  return clearSessionCookie(response)
+
+  const cookiePath = sessionCookiePath(c.req.raw)
+  const dest = isAhrensHost(c.req.raw) ? AHRENS_LINK_ENTRY : publicPath(c.req.raw, '/auth/signin')
+  const response = c.redirect(dest)
+  return clearSessionCookie(response, cookiePath)
 })
 
 // Ahrens Labs single sign-on bridge (token from chess-accounts /api/link/bridge)
@@ -164,7 +184,7 @@ app.get('/auth/ahrens-bridge', async (c) => {
   )
 
   if (!consumeRes.ok) {
-    return c.html(
+    return serveLinkHtml(c, 
       `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;padding:2rem;max-width:36rem;margin:auto">
         <h1>Link sign-in expired</h1>
         <p>Go back to <a href="https://ahrenslabs.com/link.html">ahrenslabs.com/link</a> and open Link again.</p>
@@ -184,8 +204,8 @@ app.get('/auth/ahrens-bridge', async (c) => {
   }
 
   const sessionId = await createSession(c.env, result.userId)
-  const response = c.redirect('/dashboard')
-  return setSessionCookie(response, sessionId, true)
+  const response = c.redirect(publicPath(c.req.raw, '/dashboard'))
+  return setSessionCookie(response, sessionId, true, sessionCookiePath(c.req.raw))
 })
 
 // Dashboard
@@ -197,19 +217,19 @@ app.get('/dashboard', requireAuth, async (c) => {
     'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
   ).bind(user.id, 'google').first()
   
-  return c.html(dashboardPage(user, !!googleAccount))
+  return serveLinkHtml(c, dashboardPage(user, !!googleAccount))
 })
 
 // Privacy Policy page
 app.get('/privacy', requireAuth, async (c) => {
   const user = c.get('user')
-  return c.html(privacyPolicyPage(user))
+  return serveLinkHtml(c, privacyPolicyPage(user))
 })
 
 // Terms of Service page
 app.get('/terms', requireAuth, async (c) => {
   const user = c.get('user')
-  return c.html(termsOfServicePage(user))
+  return serveLinkHtml(c, termsOfServicePage(user))
 })
 
 // People page
@@ -284,7 +304,7 @@ app.get('/people', requireAuth, async (c) => {
     'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
   ).bind(user.id, 'google').first()
   
-  return c.html(peoplePage(user, contacts, Array.from(allTags).sort(), search || '', tagFilter || '', sortBy, !!googleAccount))
+  return serveLinkHtml(c, peoplePage(user, contacts, Array.from(allTags).sort(), search || '', tagFilter || '', sortBy, !!googleAccount))
 })
 
 // Interactions page
@@ -368,7 +388,7 @@ app.get('/interactions', requireAuth, async (c) => {
     'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
   ).bind(user.id, 'google').first()
   
-  return c.html(interactionsPage(user, recentInteractions, search || '', typeFilter || '', !!googleAccount, view, year, month))
+  return serveLinkHtml(c, interactionsPage(user, recentInteractions, search || '', typeFilter || '', !!googleAccount, view, year, month))
 })
 
 // Reminders page
@@ -418,7 +438,7 @@ app.get('/reminders', requireAuth, async (c) => {
     })
   )
   
-  return c.html(remindersPage(user, reminders, view, year, month, showDismissed))
+  return serveLinkHtml(c, remindersPage(user, reminders, view, year, month, showDismissed))
 })
 
 // New reminder page
@@ -440,7 +460,7 @@ app.get('/reminders/new', requireAuth, async (c) => {
     })
   )
   
-  return c.html(newReminderPage(user, contacts))
+  return serveLinkHtml(c, newReminderPage(user, contacts))
 })
 
 // Edit reminder page
@@ -474,12 +494,12 @@ app.get('/reminders/:id/edit', requireAuth, async (c) => {
     })
   )
   
-  return c.html(editReminderPage(user, reminder, contacts))
+  return serveLinkHtml(c, editReminderPage(user, reminder, contacts))
 })
 
 // New contact form
 app.get('/contacts/new', requireAuth, async (c) => {
-  return c.html(newContactPage())
+  return serveLinkHtml(c, newContactPage())
 
 })
 
@@ -1099,13 +1119,6 @@ app.get('/manifest.json', (c) => {
   })
 })
 
-// Scheduled cron handler
-export default {
-  async fetch(request: Request, env: any, ctx: any) {
-    return app.fetch(request, env, ctx)
-  }
-}
-
 // Contact detail page
 app.get('/contacts/:id', requireAuth, async (c) => {
   const user = c.get('user')
@@ -1133,7 +1146,7 @@ app.get('/contacts/:id', requireAuth, async (c) => {
     'SELECT * FROM contact_dates WHERE contact_id = ? ORDER BY month, day'
   ).bind(contactId).all()
   
-  return c.html(contactDetailPage(contact, interactionsResult.results || [], datesResult.results || []))
+  return serveLinkHtml(c, contactDetailPage(contact, interactionsResult.results || [], datesResult.results || []))
 })
 
 // API: Add interaction
@@ -1188,7 +1201,7 @@ app.get('/contacts/:id/edit', requireAuth, async (c) => {
   const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
   contact.tags = contactResult.tags ? JSON.parse(contactResult.tags) : []
   
-  return c.html(editContactPage(contact))
+  return serveLinkHtml(c, editContactPage(contact))
 })
 
 // API: Update contact
@@ -1267,7 +1280,7 @@ app.get('/contacts/:id/dates/new', requireAuth, async (c) => {
   
   const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
   
-  return c.html(newDatePage(contact))
+  return serveLinkHtml(c, newDatePage(contact))
 })
 
 app.post('/contacts/:id/dates', requireAuth, async (c) => {
@@ -1332,7 +1345,7 @@ app.get('/contacts/:contactId/dates/:dateId/edit', requireAuth, async (c) => {
     return c.text('Date not found', 404)
   }
   
-  return c.html(editDatePage(contact, date))
+  return serveLinkHtml(c, editDatePage(contact, date))
 })
 
 app.post('/contacts/:contactId/dates/:dateId', requireAuth, async (c) => {
@@ -1412,7 +1425,7 @@ app.get('/interactions/new', requireAuth, async (c) => {
     })
   )
   
-  return c.html(newInteractionPage(allContacts, contactId))
+  return serveLinkHtml(c, newInteractionPage(allContacts, contactId))
 })
 
 // Edit interaction page
@@ -1454,7 +1467,7 @@ app.get('/interactions/:id/edit', requireAuth, async (c) => {
     })
   )
   
-  return c.html(editInteractionPage(contact, {
+  return serveLinkHtml(c, editInteractionPage(contact, {
     id: result.id,
     type: result.type,
     notes: result.notes,
@@ -2583,3 +2596,13 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
   // Shouldn't reach here, but just in case
   return c.json({ error: 'Unknown error occurred' }, 500)
 })
+
+const root = new Hono<{ Bindings: Env }>()
+root.route('/link', app)
+root.route('/', app)
+
+export default {
+  async fetch(request: Request, env: any, ctx: any) {
+    return root.fetch(request, env, ctx)
+  },
+}

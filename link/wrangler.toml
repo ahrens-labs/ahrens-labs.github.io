@@ -2,6 +2,7 @@ name = "link"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 [observability]
 enabled = true
@@ -22,9 +23,17 @@ service = "chess-accounts"
 [ai]
 binding = "AI"
 
-# Custom domain routes
+# linkprm.com — Workers custom domains
 routes = [
   { pattern = "linkprm.com", custom_domain = true },
-  { pattern = "www.linkprm.com", custom_domain = true },
-  { pattern = "link.ahrenslabs.com", custom_domain = true }
+  { pattern = "www.linkprm.com", custom_domain = true }
 ]
+
+# ahrenslabs.com/link/* — zone route (Pages excluded via _routes.json)
+[[routes]]
+pattern = "ahrenslabs.com/link/*"
+zone_name = "ahrenslabs.com"
+
+[[routes]]
+pattern = "www.ahrenslabs.com/link/*"
+zone_name = "ahrenslabs.com"
