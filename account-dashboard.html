@@ -354,15 +354,22 @@
       line-height: 1.4;
       color: #334155;
     }
+    .admin-account-details-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
     #admin-account-details-content {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
       gap: 10px 14px;
       align-items: start;
     }
-    @media (max-width: 720px) {
+    @media (max-width: 900px) {
       #admin-account-details-content {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
       .admin-account-details-section--full {
         grid-column: auto;
@@ -405,24 +412,37 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
+    .admin-account-details-dl--sports .admin-account-details-teams-block {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(7.5rem, 22%) minmax(0, 1fr);
+      gap: 4px 10px;
+      align-items: start;
+    }
+    .admin-account-details-dl--sports .admin-account-details-teams-block dt,
+    .admin-account-details-dl--sports .admin-account-details-teams-block dd {
+      margin: 0;
+    }
     .admin-digest-team-order-list {
       margin: 0;
       padding: 0;
       list-style: none;
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
       gap: 5px 6px;
+      max-width: 100%;
     }
     .admin-digest-team-order-list li {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 0;
+      padding: 3px 7px;
       border-radius: 8px;
       background: #fff;
       border: 1px solid #e2e8f0;
-      font-size: 0.78rem;
-      line-height: 1.3;
+      font-size: 0.76rem;
+      line-height: 1.25;
     }
     .admin-digest-team-order {
       font-weight: 800;
@@ -433,11 +453,13 @@
     .admin-digest-team-name {
       font-weight: 600;
       color: #0f172a;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .admin-digest-team-meta {
       color: #94a3b8;
-      font-size: 0.72rem;
-      white-space: nowrap;
+      font-size: 0.7rem;
+      flex-shrink: 0;
     }
     .admin-account-details-dl dt {
       margin: 0;
@@ -531,9 +553,30 @@
     .dash-modal-panel-wide {
       max-width: 520px;
     }
+    #admin-account-details-modal.dash-modal-backdrop {
+      padding: 10px;
+    }
     .dash-modal-panel-details {
-      max-width: min(900px, 96vw);
-      padding: 18px 22px 16px;
+      max-width: none;
+      width: min(1600px, calc(100vw - 20px));
+      max-height: calc(100vh - 20px);
+      padding: 16px 24px 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    .admin-account-details-head {
+      flex-shrink: 0;
+    }
+    .admin-account-details-head .dash-modal-title {
+      margin-bottom: 6px;
+    }
+    .dash-modal-panel-details .dash-modal-actions {
+      flex-shrink: 0;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #e2e8f0;
     }
     .dash-modal-panel-wide .form-row { margin-bottom: 12px; }
     .dash-modal-panel-wide .form-row label {
@@ -1025,9 +1068,13 @@
 
   <div id="admin-account-details-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-account-details-title">
     <div class="dash-modal-panel dash-modal-panel-wide dash-modal-panel-details" role="document">
-      <h2 id="admin-account-details-title" class="dash-modal-title">Account details</h2>
-      <p class="admin-account-details-body" id="admin-account-details-subtitle"></p>
-      <div id="admin-account-details-content"></div>
+      <div class="admin-account-details-head">
+        <h2 id="admin-account-details-title" class="dash-modal-title">Account details</h2>
+        <p class="admin-account-details-body" id="admin-account-details-subtitle"></p>
+      </div>
+      <div class="admin-account-details-scroll">
+        <div id="admin-account-details-content"></div>
+      </div>
       <div class="dash-modal-actions">
         <button type="button" class="btn btn-primary" id="admin-account-details-close">Close</button>
       </div>
@@ -2808,6 +2855,16 @@
           return '<dt>' + escHtml(label) + '</dt><dd>' + valueHtml + '</dd>';
         }
 
+        function adminDetailTeamsRow(label, valueHtml) {
+          return (
+            '<div class="admin-account-details-teams-block"><dt>' +
+            escHtml(label) +
+            '</dt><dd>' +
+            valueHtml +
+            '</dd></div>'
+          );
+        }
+
         function adminDigestTeamsHtml(teams, teamCount) {
           if (!Array.isArray(teams) || !teams.length) {
             if (Number(teamCount) > 0) {
@@ -2961,7 +3018,7 @@
           accountHtml += '</dl></section>';
 
           accountHtml +=
-            '<section class="admin-account-details-section"><h3>Sports digest</h3><dl class="admin-account-details-dl">';
+            '<section class="admin-account-details-section"><h3>Sports digest</h3><dl class="admin-account-details-dl admin-account-details-dl--sports">';
           accountHtml += adminDetailRow('Status', adminDetailPill(sportsOn, sportsPartial));
           accountHtml += adminDetailRow('Enabled in preferences', a.digestEnabled ? 'Yes' : 'No');
           accountHtml += adminDetailRow(
@@ -2972,7 +3029,7 @@
                 ? 'No — enabled but no teams chosen'
                 : 'No'
           );
-          accountHtml += adminDetailRow(
+          accountHtml += adminDetailTeamsRow(
             'Teams (priority order)',
             adminDigestTeamsHtml(a.digestTeams, a.digestTeamCount)
           );
