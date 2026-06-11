@@ -1347,6 +1347,9 @@
                 Authorization: `Bearer ${sessionId}`,
               },
               body: JSON.stringify({
+                dryRun: false,
+                sendPreviewCopy: false,
+                previewOnly: false,
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
@@ -1443,6 +1446,9 @@
                 subject,
                 text,
                 ...(htmlRaw ? { html: htmlRaw } : {}),
+                dryRun: false,
+                sendPreviewCopy: false,
+                previewOnly: false,
                 ...(cursor ? { listCursor: cursor } : {}),
               }),
             });
@@ -2436,6 +2442,7 @@
                 recipients,
                 dryRun: !!dryRun,
                 sendPreviewCopy: !!dryRun,
+                previewOnly: false,
               }),
             });
             const { ok, status, data } = await readApiJsonResponse(res);

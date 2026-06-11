@@ -3478,6 +3478,43 @@ function applyBroadcastTemplate(str, { username, email }) {
     .replace(/\{\{email\}\}/g, e);
 }
 
+/** Leading bracket tags used on admin-only preview/test mail — never on real recipient sends. */
+const ADMIN_PREVIEW_SUBJECT_PREFIX_RE =
+  /^\[(?:preview|group\s+preview|broadcast\s+preview|welcome\s+bulk\s+preview|test)(?:\s+[^\]]*)?\]\s*/i;
+
+function stripAdminPreviewSubjectMarkers(subject) {
+  if (subject == null) return '';
+  let s = String(subject).trim();
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(ADMIN_PREVIEW_SUBJECT_PREFIX_RE, '').trim();
+  } while (s !== prev);
+  return s;
+}
+
+function parseAdminBulkEmailFlags(body) {
+  const dryRun = body.dryRun === true;
+  const sendPreviewCopy = dryRun && body.sendPreviewCopy === true;
+  const previewOnly = dryRun && sendPreviewCopy && body.previewOnly === true;
+  if (body.previewOnly === true && !previewOnly) {
+    return {
+      ok: false,
+      error: 'previewOnly is only valid with dryRun and sendPreviewCopy (admin preview requests only)',
+    };
+  }
+  return { ok: true, dryRun, sendPreviewCopy, previewOnly };
+}
+
+function buildBroadcastOutboundMessage(subjectTpl, textTpl, htmlTpl, vars, { forPreview = false } = {}) {
+  const subjectRaw = applyBroadcastTemplate(subjectTpl, vars).trim();
+  const subject = forPreview ? subjectRaw : stripAdminPreviewSubjectMarkers(subjectRaw);
+  const text = applyBroadcastTemplate(textTpl, vars);
+  const htmlRaw = htmlTpl.trim() ? applyBroadcastTemplate(htmlTpl, vars) : '';
+  const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
+  return { subject, text, html };
+}
+
 function plainTextToBroadcastHtml(text) {
   const esc = (s) =>
     String(s)
@@ -3805,13 +3842,18 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     });
   }
 
-  const dryRun = body.dryRun === true;
-  const sendPreviewCopy = body.sendPreviewCopy === true;
-  const previewOnly = body.previewOnly === true;
+  const bulkFlags = parseAdminBulkEmailFlags(body);
+  if (!bulkFlags.ok) {
+    return new Response(JSON.stringify({ error: bulkFlags.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const { dryRun, sendPreviewCopy, previewOnly } = bulkFlags;
   const listCursor = typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
 
-  if (previewOnly && dryRun && sendPreviewCopy) {
+  if (previewOnly) {
     const recipients = normalizePreviewRecipientRows(body.recipients);
     if (!recipients.length) {
       return new Response(JSON.stringify({ error: 'Provide recipients for preview (recipients array)' }), {
@@ -3914,10 +3956,6 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
     }
 
     const username = row.username || 'there';
-    const subject = applyBroadcastTemplate(subjectTpl, { username, email: to });
-    const text = applyBroadcastTemplate(textTpl, { username, email: to });
-    const htmlRaw = htmlTpl.trim() ? applyBroadcastTemplate(htmlTpl, { username, email: to }) : '';
-    const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
 
     if (dryRun) {
       summary.dryRunEmails.push(to);
@@ -3925,12 +3963,21 @@ async function handleAdminBroadcastEmail(request, env, corsHeaders) {
       continue;
     }
 
+    const outbound = buildBroadcastOutboundMessage(subjectTpl, textTpl, htmlTpl, { username, email: to });
+    if (!outbound.subject) {
+      summary.failed.push({
+        email: to,
+        error: 'Subject is empty (remove preview/test prefixes from the subject line)',
+      });
+      continue;
+    }
+
     try {
       await dispatchTransactionalEmail(env, {
         to,
-        subject,
-        html,
-        text,
+        subject: outbound.subject,
+        html: outbound.html,
+        text: outbound.text,
         fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
         fromName: ADMIN_BROADCAST_FROM_NAME,
       });
@@ -3968,14 +4015,19 @@ async function handleAdminResendWelcomeBulk(request, env, corsHeaders) {
     });
   }
 
-  const dryRun = body.dryRun === true;
-  const sendPreviewCopy = body.sendPreviewCopy === true;
-  const previewOnly = body.previewOnly === true;
+  const bulkFlags = parseAdminBulkEmailFlags(body);
+  if (!bulkFlags.ok) {
+    return new Response(JSON.stringify({ error: bulkFlags.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const { dryRun, previewOnly } = bulkFlags;
   const listCursor =
     typeof body.listCursor === 'string' && body.listCursor.trim() ? body.listCursor.trim() : undefined;
   const pageSize = Math.min(60, Math.max(1, parseInt(String(body.pageSize || '35'), 10) || 35));
 
-  if (previewOnly && dryRun && sendPreviewCopy) {
+  if (previewOnly) {
     const recipients = normalizePreviewRecipientRows(body.recipients);
     if (!recipients.length) {
       return new Response(JSON.stringify({ error: 'Provide recipients for preview (recipients array)' }), {
@@ -5233,25 +5285,26 @@ async function handleAdminSendCustomEmailToUser(request, env, corsHeaders) {
     });
   }
 
-  const subject = applyBroadcastTemplate(subjectTpl, {
+  const outbound = buildBroadcastOutboundMessage(subjectTpl, textTpl, htmlTpl, {
     username: resolved.username,
     email: resolved.email,
   });
-  const text = applyBroadcastTemplate(textTpl, {
-    username: resolved.username,
-    email: resolved.email,
-  });
-  const htmlRaw = htmlTpl.trim()
-    ? applyBroadcastTemplate(htmlTpl, { username: resolved.username, email: resolved.email })
-    : '';
-  const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
+  if (!outbound.subject) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Subject is empty (remove preview/test prefixes from the subject line)',
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
   try {
     await dispatchTransactionalEmail(env, {
       to: resolved.email,
-      subject,
-      html,
-      text,
+      subject: outbound.subject,
+      html: outbound.html,
+      text: outbound.text,
       fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
       fromName: ADMIN_BROADCAST_FROM_NAME,
     });
@@ -5325,8 +5378,14 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
   const subjectTpl = body.subject != null ? String(body.subject).trim() : '';
   const textTpl = body.text != null ? String(body.text).trim() : '';
   const htmlTpl = body.html != null ? String(body.html) : '';
-  const dryRun = body.dryRun === true;
-  const sendPreviewCopy = body.sendPreviewCopy === true;
+  const bulkFlags = parseAdminBulkEmailFlags(body);
+  if (!bulkFlags.ok) {
+    return new Response(JSON.stringify({ error: bulkFlags.error }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const { dryRun, sendPreviewCopy } = bulkFlags;
   const recipients = normalizeAdminGroupRecipientsInput(body.recipients);
 
   if (!subjectTpl || !textTpl) {
@@ -5384,10 +5443,6 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
     }
 
     const username = resolved.username || 'there';
-    const subject = applyBroadcastTemplate(subjectTpl, { username, email: to });
-    const text = applyBroadcastTemplate(textTpl, { username, email: to });
-    const htmlRaw = htmlTpl.trim() ? applyBroadcastTemplate(htmlTpl, { username, email: to }) : '';
-    const html = htmlRaw.trim() ? htmlRaw : plainTextToBroadcastHtml(text);
 
     if (dryRun) {
       summary.dryRunEmails.push(to);
@@ -5395,12 +5450,21 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
       continue;
     }
 
+    const outbound = buildBroadcastOutboundMessage(subjectTpl, textTpl, htmlTpl, { username, email: to });
+    if (!outbound.subject) {
+      summary.failed.push({
+        email: to,
+        error: 'Subject is empty (remove preview/test prefixes from the subject line)',
+      });
+      continue;
+    }
+
     try {
       await dispatchTransactionalEmail(env, {
         to,
-        subject,
-        html,
-        text,
+        subject: outbound.subject,
+        html: outbound.html,
+        text: outbound.text,
         fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
         fromName: ADMIN_BROADCAST_FROM_NAME,
       });
@@ -5411,7 +5475,7 @@ async function handleAdminSendEmailToGroup(request, env, corsHeaders) {
     }
   }
 
-  if (dryRun && sendPreviewCopy) {
+  if (sendPreviewCopy) {
     try {
       await sendAdminTemplatePreviewEmail(env, gate, {
         subjectTpl,
