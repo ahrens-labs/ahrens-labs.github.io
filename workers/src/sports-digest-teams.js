@@ -110,6 +110,22 @@ export function normalizeTeamIdsOrdered(raw, now = new Date()) {
   return out;
 }
 
+/** Ordered team rows for admin UI — preserves user priority order from saved prefs. */
+export function resolveDigestTeamDisplayRows(teamIds, now = new Date()) {
+  const ids = Array.isArray(teamIds) ? teamIds : [];
+  const byId = new Map(getSportsDigestTeamCatalog(now).map((t) => [t.id, t]));
+  return ids.map((id, index) => {
+    const t = byId.get(id);
+    return {
+      order: index + 1,
+      id,
+      label: t?.label || id,
+      sport: t?.sport || '',
+      abbr: t?.abbr || '',
+    };
+  });
+}
+
 function normalizeCustomTimes(raw) {
   if (!Array.isArray(raw)) return [];
   const out = [];

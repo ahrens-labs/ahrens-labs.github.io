@@ -349,21 +349,41 @@
       color: #15803d;
     }
     .admin-account-details-body {
-      margin: 0 0 4px 0;
-      font-size: 0.88rem;
-      line-height: 1.5;
+      margin: 0 0 8px 0;
+      font-size: 0.86rem;
+      line-height: 1.4;
       color: #334155;
     }
+    #admin-account-details-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      #admin-account-details-content {
+        grid-template-columns: 1fr;
+      }
+      .admin-account-details-section--full {
+        grid-column: auto;
+      }
+    }
     .admin-account-details-section {
-      margin: 0 0 16px 0;
-      padding: 12px 14px;
+      margin: 0;
+      padding: 10px 12px;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
       background: #f8fafc;
     }
+    .admin-account-details-section--full {
+      grid-column: 1 / -1;
+    }
+    .admin-account-details-section--compact {
+      padding: 8px 12px;
+    }
     .admin-account-details-section h3 {
-      margin: 0 0 10px 0;
-      font-size: 0.78rem;
+      margin: 0 0 8px 0;
+      font-size: 0.76rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -372,9 +392,52 @@
     .admin-account-details-dl {
       margin: 0;
       display: grid;
-      grid-template-columns: minmax(9rem, 38%) 1fr;
-      gap: 6px 12px;
-      font-size: 0.84rem;
+      grid-template-columns: minmax(7.5rem, 36%) 1fr;
+      gap: 4px 10px;
+      font-size: 0.82rem;
+    }
+    .admin-account-details-dl--inline {
+      grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      gap: 6px 14px;
+    }
+    .admin-account-details-dl--inline dt {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .admin-digest-team-order-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 6px;
+    }
+    .admin-digest-team-order-list li {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      font-size: 0.78rem;
+      line-height: 1.3;
+    }
+    .admin-digest-team-order {
+      font-weight: 800;
+      color: #6366f1;
+      min-width: 1.1em;
+      text-align: right;
+    }
+    .admin-digest-team-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .admin-digest-team-meta {
+      color: #94a3b8;
+      font-size: 0.72rem;
+      white-space: nowrap;
     }
     .admin-account-details-dl dt {
       margin: 0;
@@ -467,6 +530,10 @@
     .admin-delete-check input { margin-top: 3px; }
     .dash-modal-panel-wide {
       max-width: 520px;
+    }
+    .dash-modal-panel-details {
+      max-width: min(900px, 96vw);
+      padding: 18px 22px 16px;
     }
     .dash-modal-panel-wide .form-row { margin-bottom: 12px; }
     .dash-modal-panel-wide .form-row label {
@@ -957,7 +1024,7 @@
   </div>
 
   <div id="admin-account-details-modal" class="dash-modal-backdrop dash-admin-modal" hidden role="dialog" aria-modal="true" aria-labelledby="admin-account-details-title">
-    <div class="dash-modal-panel dash-modal-panel-wide" role="document">
+    <div class="dash-modal-panel dash-modal-panel-wide dash-modal-panel-details" role="document">
       <h2 id="admin-account-details-title" class="dash-modal-title">Account details</h2>
       <p class="admin-account-details-body" id="admin-account-details-subtitle"></p>
       <div id="admin-account-details-content"></div>
@@ -2741,6 +2808,34 @@
           return '<dt>' + escHtml(label) + '</dt><dd>' + valueHtml + '</dd>';
         }
 
+        function adminDigestTeamsHtml(teams, teamCount) {
+          if (!Array.isArray(teams) || !teams.length) {
+            if (Number(teamCount) > 0) {
+              return '<span class="hint" style="font-size:0.82rem;color:#94a3b8;">Reload accounts to load team list</span>';
+            }
+            return '<span class="hint" style="font-size:0.82rem;color:#94a3b8;">No teams selected</span>';
+          }
+          let html = '<ol class="admin-digest-team-order-list">';
+          for (const t of teams) {
+            const label = escHtml(t.label || t.id || '—');
+            const meta = [];
+            if (t.sport) meta.push(escHtml(t.sport));
+            if (t.abbr) meta.push(escHtml(t.abbr));
+            html +=
+              '<li><span class="admin-digest-team-order">' +
+              escHtml(String(t.order || '')) +
+              '.</span><span class="admin-digest-team-name">' +
+              label +
+              '</span>';
+            if (meta.length) {
+              html += '<span class="admin-digest-team-meta">' + meta.join(' · ') + '</span>';
+            }
+            html += '</li>';
+          }
+          html += '</ol>';
+          return html;
+        }
+
         function activeSubscriptionCount(a) {
           if (!a || typeof a !== 'object') return 0;
           let n = 0;
@@ -2828,7 +2923,7 @@
                 : '—';
 
           let accountHtml =
-            '<section class="admin-account-details-section"><h3>Account</h3><dl class="admin-account-details-dl">';
+            '<section class="admin-account-details-section admin-account-details-section--full admin-account-details-section--compact"><h3>Account</h3><dl class="admin-account-details-dl admin-account-details-dl--inline">';
           accountHtml += adminDetailRow('Email', a.email ? escHtml(a.email) : '—');
           accountHtml += adminDetailRow('Username', a.username ? escHtml(a.username) : '—');
           accountHtml += adminDetailRow('User ID', a.userId ? '<code>' + escHtml(a.userId) + '</code>' : '—');
@@ -2839,16 +2934,6 @@
             accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
           }
           accountHtml += '</dl></section>';
-
-          accountHtml +=
-            '<section class="admin-account-details-section"><h3>TrifangX game history</h3>' +
-            '<p class="hint" style="margin:0 0 8px 0;font-size:0.82rem;">Saved games vs TrifangX (admin read-only view).</p>' +
-            '<p style="margin:0;"><a class="btn btn-ghost" href="' +
-            escHtml(adminGameHistoryUrl(a)) +
-            '">Open game history</a></p>' +
-            '<p id="' +
-            escHtml(adminDetailsGhStatsId(a)) +
-            '" class="hint" style="margin:8px 0 0 0;font-size:0.78rem;color:#64748b;">Loading stats…</p></section>';
 
           accountHtml +=
             '<section class="admin-account-details-section"><h3>TrifangX daily challenge roundup</h3><dl class="admin-account-details-dl">';
@@ -2887,6 +2972,10 @@
                 ? 'No — enabled but no teams chosen'
                 : 'No'
           );
+          accountHtml += adminDetailRow(
+            'Teams (priority order)',
+            adminDigestTeamsHtml(a.digestTeams, a.digestTeamCount)
+          );
           accountHtml += adminDetailRow('Frequency', escHtml(freqLabel));
           accountHtml += adminDetailRow(
             'Top headlines',
@@ -2897,6 +2986,16 @@
             a.digestKvActive ? 'Yes — scheduled' : sportsOn ? 'Not yet — will sync on next load' : 'No'
           );
           accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section admin-account-details-section--full admin-account-details-section--compact"><h3>TrifangX game history</h3>' +
+            '<p style="margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font-size:0.82rem;">' +
+            '<a class="btn btn-ghost" href="' +
+            escHtml(adminGameHistoryUrl(a)) +
+            '" style="padding:4px 10px;font-size:0.78rem;">Open game history</a>' +
+            '<span id="' +
+            escHtml(adminDetailsGhStatsId(a)) +
+            '" class="hint" style="margin:0;font-size:0.78rem;color:#64748b;">Loading stats…</span></p></section>';
 
           return accountHtml;
         }

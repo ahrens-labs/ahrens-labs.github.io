@@ -16,6 +16,7 @@ import {
   getSportsDigestTeamCatalog,
   getSportsDigestLeagues,
   normalizeSportsDigestPrefs,
+  resolveDigestTeamDisplayRows,
   resolveScheduleTimes,
   validateSportsDigestSave,
 } from './sports-digest-teams.js';
@@ -4213,6 +4214,7 @@ function adminSportsDigestFields(row) {
   return {
     digestEnabled: prefs.enabled === true,
     digestTeamCount: prefs.teams.length,
+    digestTeams: resolveDigestTeamDisplayRows(prefs.teams),
     digestFrequency: prefs.frequency,
     digestIncludeTopHeadlines: prefs.includeTopHeadlines === true,
     digestSubscribed: prefs.enabled === true && prefs.teams.length > 0,
