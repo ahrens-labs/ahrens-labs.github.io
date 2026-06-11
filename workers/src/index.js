@@ -6478,7 +6478,7 @@ const SEASON_CLAIM_NODES_07 = [
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_kickoff_pitch' }],
   },
   {
-    challengeAchievementId: 'knight_to_f3',
+    challengeAchievementId: 'flair_pawn_storm_1',
     bonusPoints: 82,
     rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_pitch_glow' }],
   },
@@ -6491,17 +6491,17 @@ const SEASON_CLAIM_NODES_07 = [
     ],
   },
   {
-    challengeAchievementId: 'en_passant',
+    challengeAchievementId: 'flair_windmill_1',
     bonusPoints: 169,
     rewards: [{ kind: 'lb_frame', frame: 'cup_filament' }],
   },
   {
-    challengeAchievementId: 'flair_forks_1',
+    challengeAchievementId: 'flair_sacrifice_1',
     bonusPoints: 242,
     rewards: [{ kind: 'lb_title', title: 'Cup striker' }],
   },
   {
-    challengeAchievementId: 'castler',
+    challengeAchievementId: 'flair_battery_1',
     bonusPoints: 347,
     rewards: [
       { kind: 'lb_frame', frame: 'stadium_corona' },
@@ -6509,12 +6509,12 @@ const SEASON_CLAIM_NODES_07 = [
     ],
   },
   {
-    challengeAchievementId: 'promoter',
+    challengeAchievementId: 'flair_queen_tour_1',
     bonusPoints: 496,
     rewards: [{ kind: 'shop', category: 'boards', id: 'season_championship_pitch' }],
   },
   {
-    challengeAchievementId: 'checkmate_knight',
+    challengeAchievementId: 'underpromote',
     bonusPoints: 709,
     rewards: [{ kind: 'lb_title', title: 'Golden boot' }],
   },
@@ -6788,6 +6788,10 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
     creativeForkFeastWins: Math.max(0, Number(lt.creativeForkFeastWins) || 0),
     checkmateWithKnight: Math.max(0, Number(lt.checkmateWithKnight) || 0),
     creativeQueenDownWins: Math.max(0, Number(lt.creativeQueenDownWins) || 0),
+    creativePawnStormWins: Math.max(0, Number(lt.creativePawnStormWins) || 0),
+    creativeSacrificeSymphonyWins: Math.max(0, Number(lt.creativeSacrificeSymphonyWins) || 0),
+    creativeRookBatteryWins: Math.max(0, Number(lt.creativeRookBatteryWins) || 0),
+    creativeQueenGrandTourWins: Math.max(0, Number(lt.creativeQueenGrandTourWins) || 0),
   };
 }
 
@@ -6818,6 +6822,10 @@ const SEASON_STEP_EARN_RULES = Object.freeze({
   flair_forks_1: { type: 'lifetime', key: 'creativeForkFeastWins', target: 1 },
   checkmate_knight: { type: 'lifetime', key: 'checkmateWithKnight', target: 1 },
   flair_phoenix_1: { type: 'lifetime', key: 'creativeQueenDownWins', target: 1 },
+  flair_pawn_storm_1: { type: 'lifetime', key: 'creativePawnStormWins', target: 1 },
+  flair_sacrifice_1: { type: 'lifetime', key: 'creativeSacrificeSymphonyWins', target: 1 },
+  flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
+  flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
 });
 
 function readEarnBaselineField(baseline, key) {

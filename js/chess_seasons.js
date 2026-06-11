@@ -277,7 +277,7 @@
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_kickoff_pitch' }],
     },
     {
-      challengeAchievementId: 'knight_to_f3',
+      challengeAchievementId: 'flair_pawn_storm_1',
       bonusPoints: 82,
       rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_pitch_glow' }],
     },
@@ -290,17 +290,17 @@
       ],
     },
     {
-      challengeAchievementId: 'en_passant',
+      challengeAchievementId: 'flair_windmill_1',
       bonusPoints: 169,
       rewards: [{ kind: 'lb_frame', frame: 'cup_filament' }],
     },
     {
-      challengeAchievementId: 'flair_forks_1',
+      challengeAchievementId: 'flair_sacrifice_1',
       bonusPoints: 242,
       rewards: [{ kind: 'lb_title', title: 'Cup striker' }],
     },
     {
-      challengeAchievementId: 'castler',
+      challengeAchievementId: 'flair_battery_1',
       bonusPoints: 347,
       rewards: [
         { kind: 'lb_frame', frame: 'stadium_corona' },
@@ -308,12 +308,12 @@
       ],
     },
     {
-      challengeAchievementId: 'promoter',
+      challengeAchievementId: 'flair_queen_tour_1',
       bonusPoints: 496,
       rewards: [{ kind: 'shop', category: 'boards', id: 'season_championship_pitch' }],
     },
     {
-      challengeAchievementId: 'checkmate_knight',
+      challengeAchievementId: 'underpromote',
       bonusPoints: 709,
       rewards: [{ kind: 'lb_title', title: 'Golden boot' }],
     },
@@ -552,17 +552,17 @@
       key: 'july_world_cup',
       name: 'World Cup',
       tagline:
-        'July is tournament month — kick off with a win, field the full squad, press the midfield, run the wings, spring the offside trap, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
+        'July is tournament month — field the full squad, flood the wings, press with checks and sacrifices, tour every corner, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
       stepTitles: [
         'Opening whistle — win your first game of the tournament month',
         'Full squad — win after moving every piece type in one game',
-        'Midfield press — develop a knight to f3',
-        'Wing runs — win with both rooks on the 7th (or 2nd) rank',
-        'Offside trap — one en passant capture',
-        'Double threat — win with 3+ knight forks',
-        'Defensive wall — castle 5 times',
-        'Extra time — promote 5 pawns',
-        'Header finish — checkmate with a knight',
+        'Pawn wave — win with 5+ of your pawns reaching the 6th rank (as White) or 3rd rank (as Black) at least once each in the same game (they need not still be there at the end)',
+        'Wing overlap — win a game where, after one of your rook moves, both your rooks stand on the 7th rank (as White) or 2nd rank (as Black) at the same time (not required at checkmate)',
+        'Pressing surge — win a game where you gave 5+ consecutive checks (tracked automatically)',
+        'Sacrifice play — win after “sacrificing” 3+ different piece types in one game (tracked in-game)',
+        'Doubled wide — win after setting up a rook battery on an open file (tracked automatically)',
+        'Captain’s circuit — win with your queen visiting all four corner squares (a1, h1, a8, h8) at least once each in the same game',
+        'Hidden sub — underpromote once to a rook, bishop, or knight (not a queen)',
         'Phoenix goal — win a game after losing your queen',
       ],
     },
@@ -723,6 +723,10 @@
       creativeForkFeastWins: 0,
       checkmateWithKnight: 0,
       creativeQueenDownWins: 0,
+      creativePawnStormWins: 0,
+      creativeSacrificeSymphonyWins: 0,
+      creativeRookBatteryWins: 0,
+      creativeQueenGrandTourWins: 0,
     };
   }
 
@@ -824,6 +828,10 @@
     flair_forks_1: { type: 'lifetime', key: 'creativeForkFeastWins', target: 1 },
     checkmate_knight: { type: 'lifetime', key: 'checkmateWithKnight', target: 1 },
     flair_phoenix_1: { type: 'lifetime', key: 'creativeQueenDownWins', target: 1 },
+    flair_pawn_storm_1: { type: 'lifetime', key: 'creativePawnStormWins', target: 1 },
+    flair_sacrifice_1: { type: 'lifetime', key: 'creativeSacrificeSymphonyWins', target: 1 },
+    flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
+    flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
   });
 
   function readEarnBaselineField(baseline, key) {

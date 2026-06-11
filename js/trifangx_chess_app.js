@@ -10552,10 +10552,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'flair_triple_promo_5', name: '🏭 Promotion Factory', desc: 'Win 5 games with 3+ promotions each', category: 'Creative', points: 900, requiredPoints: 4000, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeTriplePromotionWins || 0), target: 5 };
         }},
-        { id: 'flair_queen_tour_1', name: '🌍 Queen World Tour', desc: 'Win with your queen visiting all four corners', category: 'Creative', points: 380, groupKey: 'flair_tactics', progress: () => {
+        { id: 'flair_queen_tour_1', name: '🌍 Queen World Tour', desc: 'Win with your queen visiting all four corner squares (a1, h1, a8, h8) at least once each in the same game', category: 'Creative', points: 380, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeQueenGrandTourWins || 0), target: 1 };
         }},
-        { id: 'flair_rook_highway_1', name: '🛣️ Rook Highway', desc: 'Win with both rooks on the 7th (or 2nd) rank', category: 'Creative', points: 320, groupKey: 'flair_tactics', progress: () => {
+        { id: 'flair_rook_highway_1', name: '🛣️ Rook Highway', desc: 'Win a game where, after one of your rook moves, both your rooks stand on the 7th rank (as White) or 2nd rank (as Black) at the same time (not required at checkmate)', category: 'Creative', points: 320, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeRookLadderWins || 0), target: 1 };
         }},
         { id: 'flair_king_hike_1', name: '🥾 Wandering Monarch', desc: 'Win with 10+ king moves in one game', category: 'Creative', points: 280, groupKey: 'flair_tactics', progress: () => {
@@ -10576,7 +10576,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         { id: 'flair_center_1', name: '🎯 Sun in the Center', desc: 'Win after your pieces occupy d4, d5, e4, and e5 at least once each in the same game (not all at once)', category: 'Creative', points: 300, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativeCenterDominationWins || 0), target: 1 };
         }},
-        { id: 'flair_pawn_storm_1', name: '🌊 Pawn Tide', desc: 'Win with 5+ pawns on the 6th (or 3rd) rank', category: 'Creative', points: 310, groupKey: 'flair_tactics', progress: () => {
+        { id: 'flair_pawn_storm_1', name: '🌊 Pawn Tide', desc: 'Win with 5+ of your pawns reaching the 6th rank (as White) or 3rd rank (as Black) at least once each in the same game (they need not still be there at the end)', category: 'Creative', points: 310, groupKey: 'flair_tactics', progress: () => {
           return { current: (lifetimeStats.creativePawnStormWins || 0), target: 1 };
         }},
         { id: 'flair_orchestra_1', name: '🎻 Full Orchestra', desc: 'Win after moving every piece type in one game', category: 'Creative', points: 290, groupKey: 'flair_tactics', progress: () => {
