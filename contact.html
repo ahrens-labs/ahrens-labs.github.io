@@ -180,7 +180,7 @@
                     <h3>Send a message</h3>
                     <p style="margin:0 0 1rem;font-size:0.92rem;color:#64748b;line-height:1.55;">
                         <strong>Send message</strong> delivers from the site (we can reply to the address you enter).
-                        <strong>Send from my email</strong> opens Gmail or your mail app so the message is sent from your own account.
+                        <strong>Send from my email</strong> opens a Gmail compose tab so you send from your own Google account.
                     </p>
                     <form id="contact-form" novalidate>
                         <div class="contact-honeypot" aria-hidden="true">
@@ -203,7 +203,7 @@
                         </div>
                         <p class="contact-form-status" id="contact-status" role="status"></p>
                         <p class="contact-form-note">
-                            Site send goes to <strong>caleb@ahrenslabs.com</strong> with your reply address included. The mail-app option uses whatever account you send from there.
+                            Site send goes to <strong>caleb@ahrenslabs.com</strong> with your reply address included. The Gmail option sends from whichever Google account you’re signed into there.
                         </p>
                     </form>
                 </div>
@@ -273,12 +273,20 @@
                     if (data.name) body += data.name + '\n';
                     body += data.email + '\n\n' + data.message;
 
-                    setStatus('Your email app should open—send the message from your account.', 'ok');
-                    window.location.href =
-                        'mailto:caleb@ahrenslabs.com?subject=' +
+                    const gmailUrl =
+                        'https://mail.google.com/mail/?view=cm&fs=1&to=' +
+                        encodeURIComponent('caleb@ahrenslabs.com') +
+                        '&su=' +
                         encodeURIComponent(subject) +
                         '&body=' +
                         encodeURIComponent(body);
+
+                    const tab = window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+                    if (tab) {
+                        setStatus('Gmail opened in a new tab—send the message from your account.', 'ok');
+                    } else {
+                        setStatus('Allow pop-ups for this site to open Gmail, or use Send message instead.', 'err');
+                    }
                 });
             }
 
