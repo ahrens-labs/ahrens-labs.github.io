@@ -295,12 +295,12 @@
       rewards: [{ kind: 'lb_frame', frame: 'cup_filament' }],
     },
     {
-      challengeAchievementId: 'flair_sacrifice_1',
+      challengeAchievementId: 'en_passant',
       bonusPoints: 242,
       rewards: [{ kind: 'lb_title', title: 'Cup striker' }],
     },
     {
-      challengeAchievementId: 'flair_battery_1',
+      challengeAchievementId: 'flair_triple_promo_1',
       bonusPoints: 347,
       rewards: [
         { kind: 'lb_frame', frame: 'stadium_corona' },
@@ -552,15 +552,15 @@
       key: 'july_world_cup',
       name: 'World Cup',
       tagline:
-        'July is tournament month — field the full squad, flood the wings, press with checks and sacrifices, tour every corner, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
+        'July is tournament month — field the full squad, flood the wings, press with checks, spring traps, score a hat trick, tour every corner, and rise from behind like a phoenix goal. Each step is a different skill — not a win ladder.',
       stepTitles: [
         'Opening whistle — win your first game of the tournament month',
         'Full squad — win after moving every piece type in one game',
         'Pawn wave — win with 5+ of your pawns reaching the 6th rank (as White) or 3rd rank (as Black) at least once each in the same game (they need not still be there at the end)',
         'Wing overlap — win a game where, after one of your rook moves, both your rooks stand on the 7th rank (as White) or 2nd rank (as Black) at the same time (not required at checkmate)',
         'Pressing surge — win a game where you gave 5+ consecutive checks (tracked automatically)',
-        'Sacrifice play — win after “sacrificing” 3+ different piece types in one game (tracked in-game)',
-        'Doubled wide — win after setting up a rook battery on an open file (tracked automatically)',
+        'Offside trap — one en passant capture',
+        'Hat trick — win a game with 3+ pawn promotions in the same game',
         'Captain’s circuit — win with your queen visiting all four corner squares (a1, h1, a8, h8) at least once each in the same game',
         'Hidden sub — underpromote once to a rook, bishop, or knight (not a queen)',
         'Phoenix goal — win a game after losing your queen',
@@ -727,6 +727,7 @@
       creativeSacrificeSymphonyWins: 0,
       creativeRookBatteryWins: 0,
       creativeQueenGrandTourWins: 0,
+      creativeTriplePromotionWins: 0,
     };
   }
 
@@ -832,6 +833,7 @@
     flair_sacrifice_1: { type: 'lifetime', key: 'creativeSacrificeSymphonyWins', target: 1 },
     flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
     flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
+    flair_triple_promo_1: { type: 'lifetime', key: 'creativeTriplePromotionWins', target: 1 },
   });
 
   function readEarnBaselineField(baseline, key) {

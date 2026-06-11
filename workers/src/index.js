@@ -6496,12 +6496,12 @@ const SEASON_CLAIM_NODES_07 = [
     rewards: [{ kind: 'lb_frame', frame: 'cup_filament' }],
   },
   {
-    challengeAchievementId: 'flair_sacrifice_1',
+    challengeAchievementId: 'en_passant',
     bonusPoints: 242,
     rewards: [{ kind: 'lb_title', title: 'Cup striker' }],
   },
   {
-    challengeAchievementId: 'flair_battery_1',
+    challengeAchievementId: 'flair_triple_promo_1',
     bonusPoints: 347,
     rewards: [
       { kind: 'lb_frame', frame: 'stadium_corona' },
@@ -6792,6 +6792,7 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
     creativeSacrificeSymphonyWins: Math.max(0, Number(lt.creativeSacrificeSymphonyWins) || 0),
     creativeRookBatteryWins: Math.max(0, Number(lt.creativeRookBatteryWins) || 0),
     creativeQueenGrandTourWins: Math.max(0, Number(lt.creativeQueenGrandTourWins) || 0),
+    creativeTriplePromotionWins: Math.max(0, Number(lt.creativeTriplePromotionWins) || 0),
   };
 }
 
@@ -6826,6 +6827,7 @@ const SEASON_STEP_EARN_RULES = Object.freeze({
   flair_sacrifice_1: { type: 'lifetime', key: 'creativeSacrificeSymphonyWins', target: 1 },
   flair_battery_1: { type: 'lifetime', key: 'creativeRookBatteryWins', target: 1 },
   flair_queen_tour_1: { type: 'lifetime', key: 'creativeQueenGrandTourWins', target: 1 },
+  flair_triple_promo_1: { type: 'lifetime', key: 'creativeTriplePromotionWins', target: 1 },
 });
 
 function readEarnBaselineField(baseline, key) {
