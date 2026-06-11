@@ -6615,6 +6615,7 @@ function ensureSeasonTrackAlignedToUtcMonth(chess) {
   }
 
   if (!/^\d{4}-\d{2}$/.test(stSid) || compareSeasonIdsWorker(stSid, utcSid) < 0) {
+    if (persistSeasonLbRowPresetsFromProgress(chess, stSid, st.nodesCompleted)) changed = true;
     const prevOwned = st.lbFlairUnlocked && typeof st.lbFlairUnlocked === 'object' ? st.lbFlairUnlocked : {};
     chess.seasonTrack = {
       seasonId: utcSid,
@@ -6956,6 +6957,14 @@ function applySeasonClaimRewardsToChess(chess, node) {
       const s = [...String(r.suffix)].slice(0, 3).join('');
       if (s && !owned.suffixes.includes(s)) owned.suffixes.push(s);
       lbFlair = { ...lbFlair, suffix: s };
+    } else if (r.kind === 'lb_row_finish' && Array.isArray(r.presets)) {
+      for (const pid of r.presets) {
+        const id = String(pid || '').trim();
+        if (!/^[a-z0-9_]+$/.test(id)) continue;
+        if (!Object.prototype.hasOwnProperty.call(LB_ROW_PRESET_MIN_NODES, id)) continue;
+        const tok = `lbrow:${id}`;
+        if (!shop.leaderboardRowColors.includes(tok)) shop.leaderboardRowColors.push(tok);
+      }
     }
   }
 
@@ -7057,6 +7066,68 @@ function seasonTrackRewardShopKeysThroughStep(endExclusive, seasonId) {
     }
   }
   return keys;
+}
+
+/** Season gradient preset ids granted by steps `[0, endExclusive)` for a season id. */
+function collectSeasonLbRowPresetIdsThroughStep(endExclusive, seasonId) {
+  const out = [];
+  const nodes = getSeasonClaimNodesForSeasonId(seasonId);
+  const end = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(endExclusive) || 0)));
+  for (let i = 0; i < end; i++) {
+    const node = nodes[i];
+    if (!node || !Array.isArray(node.rewards)) continue;
+    for (const r of node.rewards) {
+      if (!r || r.kind !== 'lb_row_finish' || !Array.isArray(r.presets)) continue;
+      for (const pid of r.presets) {
+        const id = String(pid || '').trim();
+        if (!/^[a-z0-9_]+$/.test(id)) continue;
+        if (!Object.prototype.hasOwnProperty.call(LB_ROW_PRESET_MIN_NODES, id)) continue;
+        out.push(id);
+      }
+    }
+  }
+  return uniqStrings(out);
+}
+
+/** Write earned season row gradients into `shopUnlocks.leaderboardRowColors` as `lbrow:<id>` (permanent). */
+function grantSeasonLbRowPresetsToShopUnlocks(chess, presetIds) {
+  const ids = uniqStrings((presetIds || []).map((x) => String(x || '').trim()).filter(Boolean));
+  if (!ids.length) return false;
+  const shop =
+    chess.shopUnlocks && typeof chess.shopUnlocks === 'object' ? { ...chess.shopUnlocks } : {};
+  const arr = Array.isArray(shop.leaderboardRowColors) ? [...shop.leaderboardRowColors] : [];
+  let changed = false;
+  for (const id of ids) {
+    const tok = `lbrow:${id}`;
+    if (!arr.includes(tok)) {
+      arr.push(tok);
+      changed = true;
+    }
+  }
+  if (!changed) return false;
+  shop.leaderboardRowColors = uniqStrings(arr);
+  chess.shopUnlocks = ensureChessShopUnlockBasics(shop);
+  return true;
+}
+
+function persistSeasonLbRowPresetsFromProgress(chess, seasonId, nodesCompleted) {
+  const sid = String(seasonId || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(sid)) return false;
+  const n = Math.min(CHESS_SEASON_MAX_NODES, Math.max(0, Math.floor(Number(nodesCompleted) || 0)));
+  if (n <= 0) return false;
+  return grantSeasonLbRowPresetsToShopUnlocks(chess, collectSeasonLbRowPresetIdsThroughStep(n, sid));
+}
+
+function backfillSeasonLbRowPresetsFromFinaleMilestones(chess, userData) {
+  const notified = userData?.milestonesEmailNotified;
+  if (!notified || typeof notified !== 'object') return false;
+  let changed = false;
+  for (const key of Object.keys(notified)) {
+    const m = /^trifangx_season_finale_(\d{4}-\d{2})$/.exec(String(key));
+    if (!m) continue;
+    if (persistSeasonLbRowPresetsFromProgress(chess, m[1], CHESS_SEASON_MAX_NODES)) changed = true;
+  }
+  return changed;
 }
 
 /** Leaderboard flair tokens granted by those same steps (for removal on reset). */
@@ -7451,6 +7522,13 @@ function leaderboardRowSeasonNodesAligned(chess) {
   return seasonTrackNodesCompletedFromChess(chess);
 }
 
+function leaderboardRowPresetPermanentlyUnlocked(chess, presetId) {
+  const id = String(presetId || '').trim();
+  if (!id) return false;
+  const tok = `lbrow:${id}`;
+  return leaderboardRowShopIdsFromChess(chess).includes(tok);
+}
+
 function parseLeaderboardRowStoredToken(raw) {
   if (raw == null) return null;
   const s = String(raw).trim();
@@ -7476,6 +7554,7 @@ function sanitizeLeaderboardRowAppearance(raw, chess) {
     if (!leaderboardRowHexAllowedForUser(p.hex, chess)) return null;
     return p.hex;
   }
+  if (leaderboardRowPresetPermanentlyUnlocked(chess, p.id)) return `lbrow:${p.id}`;
   const need = LB_ROW_PRESET_MIN_NODES[p.id];
   if (n < need) return null;
   return `lbrow:${p.id}`;
@@ -10668,6 +10747,14 @@ export class UserAccount {
     const repairResult = repairChessCareerStatsInPlace(c);
     let previewMigrated = false;
     const seasonAligned = ensureSeasonTrackAlignedToUtcMonth(c);
+    let lbRowPersisted = false;
+    const stNow = c.seasonTrack && typeof c.seasonTrack === 'object' ? c.seasonTrack : {};
+    if (persistSeasonLbRowPresetsFromProgress(c, stNow.seasonId, stNow.nodesCompleted)) {
+      lbRowPersisted = true;
+    }
+    if (backfillSeasonLbRowPresetsFromFinaleMilestones(c, userData)) {
+      lbRowPersisted = true;
+    }
     if (c.seasonPreviewTrack && typeof c.seasonPreviewTrack === 'object') {
       const psid = String(c.seasonPreviewTrack.seasonId || '').trim();
       const pstDone = Math.max(0, Math.floor(Number(c.seasonPreviewTrack.nodesCompleted) || 0));
@@ -10685,7 +10772,7 @@ export class UserAccount {
       delete c.seasonPreviewTrack;
       previewMigrated = true;
     }
-    if (repairResult.repaired || previewMigrated || seasonAligned) {
+    if (repairResult.repaired || previewMigrated || seasonAligned || lbRowPersisted) {
       userData.games.chess = c;
       await this.storage.put('userData', userData);
       if (repairResult.repaired) {

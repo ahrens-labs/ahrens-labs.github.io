@@ -32,9 +32,10 @@
  *    - `shop` rewards use ids that are NOT sold in the regular shop; unlock goes into `shopUnlocks`
  *      like any other cosmetic. Add piece URLs / board CSS / highlight `colorMap` in the engine when
  *      adding a new id. Finale step grants only `season_*` shop ids (not career-shop duplicates).
- *    - Leaderboard row gradient finishes (season): gated by `nodesCompleted` thresholds (see worker
+ *    - Leaderboard row gradient finishes (season): earned at `nodesCompleted` thresholds (see worker
  *      `LB_ROW_PRESET_MIN_NODES` + `js/chess_lb_row.js`); list on the matching track step via
- *      `lb_row_finish` rewards in `SEASON_TRACK_MECHANICAL` / worker `SEASON_CLAIM_NODES` (display + docs; unlock is node-based).
+ *      `lb_row_finish` rewards. On claim, presets persist as `lbrow:<id>` in `shopUnlocks.leaderboardRowColors`
+ *      and stay unlocked across future months (current-month nodes still gate until first earn).
  *    - Leaderboard flair: `lb_frame` (allowlist in worker `sanitizeChessLbFlair`), `lb_title`,
  *      `lb_prefix`, `lb_suffix`. Keep strings short; worker sanitizes length / charset.
  *

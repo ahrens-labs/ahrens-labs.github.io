@@ -396,9 +396,20 @@
     return isLbRowShopCustomHexUnlocked(chess);
   }
 
+  function isLbRowPresetPermanentlyUnlocked(chess, presetId) {
+    var tok = 'lbrow:' + String(presetId || '').trim();
+    if (!tok || tok === 'lbrow:') return false;
+    var ids = leaderboardRowShopIdsFromChess(chess);
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i]).toLowerCase() === tok) return true;
+    }
+    return false;
+  }
+
   function isLbRowPresetUnlocked(chess, presetId) {
     var def = LB_ROW_PRESETS[presetId];
     if (!def) return false;
+    if (isLbRowPresetPermanentlyUnlocked(chess, presetId)) return true;
     return seasonNodesAlignedForLbRow(chess) >= def.minNodes;
   }
 
@@ -641,6 +652,7 @@
     isLbRowBasicHex: isLbRowBasicHex,
     isLbRowCustomHexUnlocked: isLbRowCustomHexUnlocked,
     isLbRowPresetUnlocked: isLbRowPresetUnlocked,
+    isLbRowPresetPermanentlyUnlocked: isLbRowPresetPermanentlyUnlocked,
     getLbRowPresetDef: getLbRowPresetDef,
     buildLbUsernameInnerHtml: buildLbUsernameInnerHtml,
     renderLbDataRow: renderLbDataRow,
