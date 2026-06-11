@@ -111,13 +111,6 @@
         }
         .contact-form-status.ok { color: #047857; }
         .contact-form-status.err { color: #b91c1c; }
-        .contact-honeypot {
-            position: absolute;
-            left: -9999px;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-        }
         @media (max-width: 640px) {
             .contact-page {
                 margin: 1.25rem auto 2rem;
@@ -165,27 +158,22 @@
                 <div class="contact-form-wrap">
                     <h3>Send a message</h3>
                     <p style="margin:0 0 1rem;font-size:0.92rem;color:#64748b;line-height:1.55;">
-                        Your message is delivered to our inbox from the site. Include your email so we can reply.
+                        Fill in the form, then send from <strong>your</strong> email account. Your mail app opens with the message addressed to us—hit send there so we see your real address and can reply directly.
                     </p>
                     <form id="contact-form" novalidate>
-                        <div class="contact-honeypot" aria-hidden="true">
-                            <label for="contact-website">Website</label>
-                            <input type="text" id="contact-website" name="website" tabindex="-1" autocomplete="off">
-                        </div>
-
                         <label for="contact-name">Your name (optional)</label>
                         <input type="text" id="contact-name" name="name" autocomplete="name" maxlength="120">
 
-                        <label for="contact-email">Your email (so we can reply)</label>
+                        <label for="contact-email">Your email</label>
                         <input type="email" id="contact-email" name="email" autocomplete="email" required maxlength="254">
 
                         <label for="contact-message">Message</label>
                         <textarea id="contact-message" name="message" required maxlength="8000" placeholder="What would you like to say?"></textarea>
 
-                        <button type="submit" id="contact-submit">Send message</button>
+                        <button type="submit" id="contact-submit">Send from my email</button>
                         <p class="contact-form-status" id="contact-status" role="status"></p>
                         <p class="contact-form-note">
-                            Messages go to <strong>caleb@ahrenslabs.com</strong>. If sending fails, use the address above from your mail app.
+                            Opens your email app (Gmail, Outlook, Apple Mail, etc.). Use the same address above as the sender if your app asks. Messages go to <strong>caleb@ahrenslabs.com</strong>.
                         </p>
                     </form>
                 </div>
@@ -202,11 +190,8 @@
     <script src="js/header_nav.js"></script>
     <script>
         (function () {
-            const API_BASE_URL =
-                window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
             const form = document.getElementById('contact-form');
             const statusEl = document.getElementById('contact-status');
-            const submitBtn = document.getElementById('contact-submit');
             if (!form) return;
 
             function setStatus(msg, kind) {
@@ -217,49 +202,35 @@
                 if (kind === 'err') statusEl.classList.add('err');
             }
 
-            form.addEventListener('submit', async function (e) {
+            form.addEventListener('submit', function (e) {
                 e.preventDefault();
                 const nameEl = document.getElementById('contact-name');
                 const emailEl = document.getElementById('contact-email');
                 const msgEl = document.getElementById('contact-message');
-                const honeypotEl = document.getElementById('contact-website');
                 const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
                 const email = emailEl && emailEl.value ? emailEl.value.trim() : '';
                 const message = msgEl && msgEl.value ? msgEl.value.trim() : '';
-                const website = honeypotEl && honeypotEl.value ? honeypotEl.value.trim() : '';
 
                 if (!email || !message) {
                     setStatus('Enter your email and a message.', 'err');
                     return;
                 }
 
-                setStatus('', '');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Sending…';
-                }
+                let subject = 'Ahrens Labs contact';
+                if (name) subject += ': ' + name;
 
-                try {
-                    const res = await fetch(API_BASE_URL + '/api/contact', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, email, message, website }),
-                    });
-                    const data = await res.json().catch(function () { return {}; });
-                    if (res.ok && data.success) {
-                        form.reset();
-                        setStatus('Message sent. We will get back to you at the email you provided.', 'ok');
-                    } else {
-                        setStatus(data.error || 'Could not send your message. Try again or email us directly.', 'err');
-                    }
-                } catch (err) {
-                    setStatus('Network error. Check your connection or email caleb@ahrenslabs.com directly.', 'err');
-                } finally {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Send message';
-                    }
-                }
+                let body = '';
+                if (name) body += name + '\n';
+                body += email + '\n\n' + message;
+
+                const mailto =
+                    'mailto:caleb@ahrenslabs.com?subject=' +
+                    encodeURIComponent(subject) +
+                    '&body=' +
+                    encodeURIComponent(body);
+
+                setStatus('Your email app should open—send the message from your account.', 'ok');
+                window.location.href = mailto;
             });
         })();
     </script>
