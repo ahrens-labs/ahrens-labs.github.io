@@ -79,23 +79,44 @@
             min-height: 140px;
             resize: vertical;
         }
-        .contact-form-wrap button[type="submit"] {
+        .contact-form-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            align-items: center;
+        }
+        .contact-form-wrap .contact-btn {
             display: inline-block;
             padding: 0.75rem 1.35rem;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #fff;
-            border: none;
             border-radius: 10px;
             font-weight: 600;
             font-size: 0.95rem;
             cursor: pointer;
+            font-family: inherit;
+            border: none;
         }
-        .contact-form-wrap button[type="submit"]:hover:not(:disabled) {
+        .contact-form-wrap .contact-btn-primary {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+        }
+        .contact-form-wrap .contact-btn-secondary {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+        .contact-form-wrap .contact-btn:hover:not(:disabled) {
             filter: brightness(1.05);
         }
-        .contact-form-wrap button[type="submit"]:disabled {
+        .contact-form-wrap .contact-btn:disabled {
             opacity: 0.65;
             cursor: not-allowed;
+        }
+        .contact-honeypot {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
         }
         .contact-form-note {
             font-size: 0.82rem;
@@ -158,9 +179,15 @@
                 <div class="contact-form-wrap">
                     <h3>Send a message</h3>
                     <p style="margin:0 0 1rem;font-size:0.92rem;color:#64748b;line-height:1.55;">
-                        Fill in the form, then send from <strong>your</strong> email account. Your mail app opens with the message addressed to us—hit send there so we see your real address and can reply directly.
+                        <strong>Send message</strong> delivers from the site (we can reply to the address you enter).
+                        <strong>Send from my email</strong> opens Gmail or your mail app so the message is sent from your own account.
                     </p>
                     <form id="contact-form" novalidate>
+                        <div class="contact-honeypot" aria-hidden="true">
+                            <label for="contact-website">Website</label>
+                            <input type="text" id="contact-website" name="website" tabindex="-1" autocomplete="off">
+                        </div>
+
                         <label for="contact-name">Your name (optional)</label>
                         <input type="text" id="contact-name" name="name" autocomplete="name" maxlength="120">
 
@@ -170,10 +197,13 @@
                         <label for="contact-message">Message</label>
                         <textarea id="contact-message" name="message" required maxlength="8000" placeholder="What would you like to say?"></textarea>
 
-                        <button type="submit" id="contact-submit">Send from my email</button>
+                        <div class="contact-form-actions">
+                            <button type="button" id="contact-send" class="contact-btn contact-btn-primary">Send message</button>
+                            <button type="button" id="contact-send-mine" class="contact-btn contact-btn-secondary">Send from my email</button>
+                        </div>
                         <p class="contact-form-status" id="contact-status" role="status"></p>
                         <p class="contact-form-note">
-                            Opens your email app (Gmail, Outlook, Apple Mail, etc.). Use the same address above as the sender if your app asks. Messages go to <strong>caleb@ahrenslabs.com</strong>.
+                            Site send goes to <strong>caleb@ahrenslabs.com</strong> with your reply address included. The mail-app option uses whatever account you send from there.
                         </p>
                     </form>
                 </div>
@@ -190,8 +220,12 @@
     <script src="js/header_nav.js"></script>
     <script>
         (function () {
+            const API_BASE_URL =
+                window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
             const form = document.getElementById('contact-form');
             const statusEl = document.getElementById('contact-status');
+            const sendBtn = document.getElementById('contact-send');
+            const sendMineBtn = document.getElementById('contact-send-mine');
             if (!form) return;
 
             function setStatus(msg, kind) {
@@ -202,36 +236,94 @@
                 if (kind === 'err') statusEl.classList.add('err');
             }
 
-            form.addEventListener('submit', function (e) {
-                e.preventDefault();
+            function readForm() {
                 const nameEl = document.getElementById('contact-name');
                 const emailEl = document.getElementById('contact-email');
                 const msgEl = document.getElementById('contact-message');
-                const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
-                const email = emailEl && emailEl.value ? emailEl.value.trim() : '';
-                const message = msgEl && msgEl.value ? msgEl.value.trim() : '';
+                const honeypotEl = document.getElementById('contact-website');
+                return {
+                    name: nameEl && nameEl.value ? nameEl.value.trim() : '',
+                    email: emailEl && emailEl.value ? emailEl.value.trim() : '',
+                    message: msgEl && msgEl.value ? msgEl.value.trim() : '',
+                    website: honeypotEl && honeypotEl.value ? honeypotEl.value.trim() : '',
+                };
+            }
 
-                if (!email || !message) {
+            function validateForm(data) {
+                if (!data.email || !data.message) {
                     setStatus('Enter your email and a message.', 'err');
-                    return;
+                    return false;
                 }
+                return true;
+            }
 
-                let subject = 'Ahrens Labs contact';
-                if (name) subject += ': ' + name;
-
-                let body = '';
-                if (name) body += name + '\n';
-                body += email + '\n\n' + message;
-
-                const mailto =
-                    'mailto:caleb@ahrenslabs.com?subject=' +
-                    encodeURIComponent(subject) +
-                    '&body=' +
-                    encodeURIComponent(body);
-
-                setStatus('Your email app should open—send the message from your account.', 'ok');
-                window.location.href = mailto;
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
             });
+
+            if (sendMineBtn) {
+                sendMineBtn.addEventListener('click', function () {
+                    const data = readForm();
+                    if (!validateForm(data)) return;
+
+                    let subject = 'Ahrens Labs contact';
+                    if (data.name) subject += ': ' + data.name;
+
+                    let body = '';
+                    if (data.name) body += data.name + '\n';
+                    body += data.email + '\n\n' + data.message;
+
+                    setStatus('Your email app should open—send the message from your account.', 'ok');
+                    window.location.href =
+                        'mailto:caleb@ahrenslabs.com?subject=' +
+                        encodeURIComponent(subject) +
+                        '&body=' +
+                        encodeURIComponent(body);
+                });
+            }
+
+            if (sendBtn) {
+                sendBtn.addEventListener('click', async function () {
+                    const data = readForm();
+                    if (!validateForm(data)) return;
+
+                    setStatus('', '');
+                    sendBtn.disabled = true;
+                    const prevLabel = sendBtn.textContent;
+                    sendBtn.textContent = 'Sending…';
+
+                    try {
+                        const res = await fetch(API_BASE_URL + '/api/contact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: data.name,
+                                email: data.email,
+                                message: data.message,
+                                website: data.website,
+                            }),
+                        });
+                        const payload = await res.json().catch(function () { return {}; });
+                        if (res.ok && payload.success) {
+                            form.reset();
+                            setStatus('Message sent. We will reply to the email you provided.', 'ok');
+                        } else {
+                            setStatus(
+                                payload.error || 'Could not send your message. Try “Send from my email” or email us directly.',
+                                'err'
+                            );
+                        }
+                    } catch (err) {
+                        setStatus(
+                            'Network error. Try “Send from my email” or email caleb@ahrenslabs.com directly.',
+                            'err'
+                        );
+                    } finally {
+                        sendBtn.disabled = false;
+                        sendBtn.textContent = prevLabel;
+                    }
+                });
+            }
         })();
     </script>
 </body>
