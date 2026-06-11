@@ -265,6 +265,33 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Solstice Gold — ember sunset light over starlit solstice night.',
           purchasable: false,
         },
+        {
+          id: 'season_kickoff_pitch',
+          name: 'Season · Kickoff Pitch',
+          price: 0,
+          preview: '⚽',
+          coolness: 10,
+          description: 'World Cup — fresh turf stripes under opening stadium lights.',
+          purchasable: false,
+        },
+        {
+          id: 'season_championship_pitch',
+          name: 'Season · Championship Pitch',
+          price: 0,
+          preview: '🏟️',
+          coolness: 10,
+          description: 'World Cup — deep green under championship floodlights.',
+          purchasable: false,
+        },
+        {
+          id: 'season_world_cup_final',
+          name: 'Season · World Cup Final',
+          price: 0,
+          preview: '🏆',
+          coolness: 10,
+          description: 'World Cup — trophy gold over midnight turf.',
+          purchasable: false,
+        },
       ],
       pieces: [
         { id: 'classic', name: 'Classic', price: 0, preview: '♟️', coolness: 1 },
@@ -318,6 +345,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_world_cup_kit',
+          name: 'Season · World Cup Kit',
+          price: 0,
+          preview: '⚽',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_trophy_regalia',
+          name: 'Season · Trophy Regalia',
+          price: 0,
+          preview: '🏆',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       highlightColors: [
         { id: 'red', name: 'Red Highlights', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -365,6 +410,24 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_pitch_glow',
+          name: 'Season · Pitch Glow',
+          price: 0,
+          preview: '💚',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_golden_goal',
+          name: 'Season · Golden goal',
+          price: 0,
+          preview: '🥅',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       arrowColors: [
         { id: 'red', name: 'Red Arrows', price: 0, preview: '🔴', coolness: 1, description: 'Classic red' },
@@ -388,6 +451,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         {
           id: 'season_solar_arrow',
           name: 'Season · Solar gold',
+          price: 0,
+          preview: '🏹',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_cup_arrow',
+          name: 'Season · Cup gold',
           price: 0,
           preview: '🏹',
           coolness: 10,
@@ -430,6 +502,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           shape: 'star',
           purchasable: false,
         },
+        {
+          id: 'season_pitch_star',
+          name: 'Season · Pitch star',
+          price: 0,
+          preview: '✦',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          color: '#22c55e',
+          shape: 'star',
+          purchasable: false,
+        },
       ],
       themes: [
         { id: 'light', name: 'Light', price: 0, preview: '☀️', coolness: 1, description: 'Default light page' },
@@ -463,6 +546,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
         },
+        {
+          id: 'season_world_cup',
+          name: 'Season · World Cup',
+          price: 0,
+          preview: '🏆',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
       ],
       checkmateEffects: [
         { id: 'confetti', name: 'Confetti', price: 750, preview: '🎊', coolness: 5, description: 'Confetti add-on' },
@@ -489,6 +581,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           name: 'Season · Solar bloom',
           price: 0,
           preview: '🌻',
+          coolness: 10,
+          description: 'Monthly season track reward (not sold for points).',
+          purchasable: false,
+        },
+        {
+          id: 'season_cup_celebration',
+          name: 'Season · Cup celebration',
+          price: 0,
+          preview: '🎉',
           coolness: 10,
           description: 'Monthly season track reward (not sold for points).',
           purchasable: false,
@@ -639,6 +740,18 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_solstice_crown: {
         w: 'linear-gradient(145deg,#fef3c7 0%,#fcd34d 32%,#fb923c 68%,#fbbf24 100%)',
         b: 'linear-gradient(145deg,#0f172a 0%,#1e1b4b 38%,#4c1d95 72%,#312e81 100%)',
+      },
+      season_kickoff_pitch: {
+        w: 'linear-gradient(155deg,#f0fdf4 0%,#bbf7d0 42%,#86efac 100%)',
+        b: 'linear-gradient(155deg,#14532d 0%,#166534 48%,#052e16 100%)',
+      },
+      season_championship_pitch: {
+        w: 'linear-gradient(160deg,#ecfdf5 0%,#4ade80 42%,#22c55e 78%,#16a34a 100%)',
+        b: 'linear-gradient(160deg,#0f172a 0%,#14532d 45%,#052e16 100%)',
+      },
+      season_world_cup_final: {
+        w: 'linear-gradient(145deg,#fef9c3 0%,#fde047 32%,#eab308 68%,#ca8a04 100%)',
+        b: 'linear-gradient(145deg,#0f172a 0%,#14532d 38%,#052e16 72%,#020617 100%)',
       },
     };
     
@@ -1526,6 +1639,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       season_canopy_pieces: 'https://lichess1.org/assets/piece/mpchess/{piece}.svg',
       season_solstice_pieces: 'https://lichess1.org/assets/piece/maestro/{piece}.svg',
       season_crown_regalia: 'https://lichess1.org/assets/piece/fantasy/{piece}.svg',
+      season_world_cup_kit: 'https://lichess1.org/assets/piece/cooke/{piece}.svg',
+      season_trophy_regalia: 'https://lichess1.org/assets/piece/celtic/{piece}.svg',
     };
 
     /** Same URLs as the board / captured pieces (e.g. wQ, bN). */
@@ -4071,6 +4186,30 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         h: 'rgba(251,191,36,0.5)',
         a: 'rgba(245,158,11,0.9)',
       },
+      season_pitch_glow: {
+        highlightLight: 'rgba(74, 222, 128, 0.48)',
+        highlightDark: 'rgba(22, 163, 74, 0.55)',
+        arrow: 'rgba(34, 197, 94, 0.85)',
+        arrowFill: 'rgba(240, 253, 244, 1)',
+        h: 'rgba(34,197,94,0.5)',
+        a: 'rgba(22,163,74,0.9)',
+      },
+      season_golden_goal: {
+        highlightLight: 'rgba(250, 204, 21, 0.45)',
+        highlightDark: 'rgba(22, 163, 74, 0.52)',
+        arrow: 'rgba(234, 179, 8, 0.85)',
+        arrowFill: 'rgba(254, 249, 195, 1)',
+        h: 'rgba(234,179,8,0.45)',
+        a: 'rgba(202,138,4,0.92)',
+      },
+      season_cup_arrow: {
+        highlightLight: 'rgba(74, 222, 128, 0.48)',
+        highlightDark: 'rgba(21, 128, 61, 0.55)',
+        arrow: 'rgba(234, 179, 8, 0.85)',
+        arrowFill: 'rgba(255, 251, 235, 1)',
+        h: 'rgba(34,197,94,0.5)',
+        a: 'rgba(202,138,4,0.9)',
+      },
       rainbow: { isRainbow: true, h: 'linear-gradient(90deg,red,orange,yellow,green,blue,violet)', a: 'rgba(250,180,0,0.9)' }
     };
     
@@ -4091,7 +4230,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           '.board-theme-forest,.board-theme-royal,.board-theme-ice,.board-theme-cherry,.board-theme-3d,' +
           '.board-theme-glass,.board-theme-carbon,.board-theme-velvet,.board-theme-stone,.board-theme-cyber,' +
           '.board-theme-season_awakening,.board-theme-season_rift,.board-theme-season_canopy_crown,' +
-          '.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,.board-theme-luxury';
+          '.board-theme-season_golden_hour,.board-theme-season_high_sun,.board-theme-season_solstice_crown,' +
+          '.board-theme-season_kickoff_pitch,.board-theme-season_championship_pitch,.board-theme-season_world_cup_final,.board-theme-luxury';
         const rcW =
           '#board .square-55d63.right-click-highlight.white-1e1d7,\n#board div.right-click-highlight.white-1e1d7,\n#board :is(' +
           BT +
@@ -4237,6 +4377,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         'page-theme-fire',
         'page-theme-season_moonlit_canopy',
         'page-theme-season_solstice_gold',
+        'page-theme-season_world_cup',
       ];
       themeBaseClasses.forEach(function (c) {
         document.documentElement.classList.remove(c);
@@ -4247,6 +4388,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       } else if (themeId === 'season_solstice_gold') {
         document.documentElement.classList.add('page-theme-sunset');
         document.documentElement.classList.add('page-theme-season_solstice_gold');
+      } else if (themeId === 'season_world_cup') {
+        document.documentElement.classList.add('page-theme-forest');
+        document.documentElement.classList.add('page-theme-season_world_cup');
       } else {
         document.documentElement.classList.add('page-theme-' + themeId);
       }

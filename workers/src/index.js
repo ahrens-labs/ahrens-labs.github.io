@@ -6319,6 +6319,9 @@ const CHESS_LB_FLAIR_FRAMES = new Set([
   'gold_filament',
   'amber_corona',
   'solstice_flare',
+  'cup_filament',
+  'stadium_corona',
+  'world_cup_flare',
 ]);
 
 function utcMonthFromSeasonIdWorker(seasonId) {
@@ -6466,30 +6469,123 @@ const SEASON_CLAIM_NODES_06 = [
   },
 ];
 
+/** Must match `SEASON_TRACK_MECHANICAL_07` in js/chess_seasons.js. */
+const SEASON_CLAIM_NODES_07 = [
+  { challengeAchievementId: 'first_win', bonusPoints: 40, rewards: [{ kind: 'lb_prefix', prefix: '⚽' }] },
+  {
+    challengeAchievementId: 'flair_orchestra_1',
+    bonusPoints: 57,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_kickoff_pitch' }],
+  },
+  {
+    challengeAchievementId: 'knight_to_f3',
+    bonusPoints: 82,
+    rewards: [{ kind: 'shop', category: 'highlightColors', id: 'season_pitch_glow' }],
+  },
+  {
+    challengeAchievementId: 'flair_rook_highway_1',
+    bonusPoints: 118,
+    rewards: [
+      { kind: 'shop', category: 'pieces', id: 'season_world_cup_kit' },
+      { kind: 'lb_row_finish', presets: ['pitch_grass', 'stadium_lights'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'en_passant',
+    bonusPoints: 169,
+    rewards: [{ kind: 'lb_frame', frame: 'cup_filament' }],
+  },
+  {
+    challengeAchievementId: 'flair_forks_1',
+    bonusPoints: 242,
+    rewards: [{ kind: 'lb_title', title: 'Cup striker' }],
+  },
+  {
+    challengeAchievementId: 'castler',
+    bonusPoints: 347,
+    rewards: [
+      { kind: 'lb_frame', frame: 'stadium_corona' },
+      { kind: 'lb_row_finish', presets: ['victory_march', 'cup_anthem'] },
+    ],
+  },
+  {
+    challengeAchievementId: 'promoter',
+    bonusPoints: 496,
+    rewards: [{ kind: 'shop', category: 'boards', id: 'season_championship_pitch' }],
+  },
+  {
+    challengeAchievementId: 'checkmate_knight',
+    bonusPoints: 709,
+    rewards: [{ kind: 'lb_title', title: 'Golden boot' }],
+  },
+  {
+    challengeAchievementId: 'flair_phoenix_1',
+    bonusPoints: 1015,
+    rewards: [
+      { kind: 'lb_frame', frame: 'world_cup_flare' },
+      { kind: 'lb_title', title: 'World Cup ascendant' },
+      { kind: 'lb_title', title: 'Trophy bearer' },
+      { kind: 'lb_title', title: 'Final whistle finisher' },
+      { kind: 'lb_suffix', suffix: '🏆' },
+      { kind: 'shop', category: 'boards', id: 'season_world_cup_final' },
+      { kind: 'shop', category: 'pieces', id: 'season_trophy_regalia' },
+      { kind: 'shop', category: 'highlightColors', id: 'season_golden_goal' },
+      { kind: 'shop', category: 'arrowColors', id: 'season_cup_arrow' },
+      { kind: 'shop', category: 'themes', id: 'season_world_cup' },
+      { kind: 'shop', category: 'checkmateEffects', id: 'season_cup_celebration' },
+      { kind: 'shop', category: 'legalMoveDots', id: 'season_pitch_star' },
+      { kind: 'lb_row_finish', presets: ['world_cup_finale'] },
+    ],
+  },
+];
+
 /** @deprecated alias */
 const SEASON_CLAIM_NODES = SEASON_CLAIM_NODES_05;
 
+const SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER = new Set(['06', '07']);
+
 function getSeasonClaimNodesForSeasonId(seasonId) {
   const mm = utcMonthFromSeasonIdWorker(seasonId);
+  if (mm === '07') return SEASON_CLAIM_NODES_07;
   if (mm === '06') return SEASON_CLAIM_NODES_06;
   return SEASON_CLAIM_NODES_05;
 }
 
-/** Upcoming June season id while preview window is open (May UTC, before June 1). */
-function adminPreviewJuneSeasonIdIfOpen() {
+function isSeasonPubliclyVisibleWorker(seasonId) {
+  const mm = utcMonthFromSeasonIdWorker(seasonId);
+  if (!mm || !SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER.has(mm)) return true;
+  const m = /^(\d{4})-(\d{2})$/.exec(String(seasonId || '').trim());
+  if (!m) return false;
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10) - 1;
+  const startMs = Date.UTC(y, mo, 1, 0, 0, 0, 0);
+  return Date.now() >= startMs;
+}
+
+/** Upcoming hidden season id while preview window is open (previous UTC month). */
+function adminPreviewSeasonIdIfOpen() {
   const d = new Date();
   const y = d.getUTCFullYear();
-  const juneSid = `${y}-06`;
-  const startMs = Date.UTC(y, 5, 1, 0, 0, 0, 0);
-  if (Date.now() >= startMs) return null;
   const curMm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  if (curMm === '05') return juneSid;
+  const hiddenMonths = Array.from(SEASON_MONTHS_HIDDEN_UNTIL_START_WORKER).sort();
+  for (let i = 0; i < hiddenMonths.length; i++) {
+    const mm = hiddenMonths[i];
+    const sid = `${y}-${mm}`;
+    if (isSeasonPubliclyVisibleWorker(sid)) continue;
+    const prevMm = String(parseInt(mm, 10) - 1).padStart(2, '0');
+    if (curMm === prevMm) return sid;
+  }
   return null;
+}
+
+/** @deprecated alias */
+function adminPreviewJuneSeasonIdIfOpen() {
+  return adminPreviewSeasonIdIfOpen();
 }
 
 function isValidAdminPreviewSeasonId(seasonId) {
   const sid = String(seasonId || '').trim();
-  const open = adminPreviewJuneSeasonIdIfOpen();
+  const open = adminPreviewSeasonIdIfOpen();
   return open != null && sid === open;
 }
 
@@ -6501,7 +6597,7 @@ function compareSeasonIdsWorker(a, b) {
 function ensureSeasonTrackAlignedToUtcMonth(chess) {
   if (!chess || typeof chess !== 'object') return false;
   const utcSid = utcChessSeasonIdNow();
-  const previewOpen = adminPreviewJuneSeasonIdIfOpen();
+  const previewOpen = adminPreviewSeasonIdIfOpen();
   let st = chess.seasonTrack && typeof chess.seasonTrack === 'object' ? chess.seasonTrack : {};
   const stSid = String(st.seasonId || '').trim();
   let changed = false;
@@ -6687,6 +6783,11 @@ function snapshotSeasonEarnBaselineFromChess(chess) {
     winsFinishedBefore10amCt: Math.max(0, Number(lt.winsFinishedBefore10amCt) || 0),
     winsFinishedGoldenHourCt: Math.max(0, Number(lt.winsFinishedGoldenHourCt) || 0),
     winsFinishedAfter9pmCt: Math.max(0, Number(lt.winsFinishedAfter9pmCt) || 0),
+    creativeFullOrchestraWins: Math.max(0, Number(lt.creativeFullOrchestraWins) || 0),
+    creativeRookLadderWins: Math.max(0, Number(lt.creativeRookLadderWins) || 0),
+    creativeForkFeastWins: Math.max(0, Number(lt.creativeForkFeastWins) || 0),
+    checkmateWithKnight: Math.max(0, Number(lt.checkmateWithKnight) || 0),
+    creativeQueenDownWins: Math.max(0, Number(lt.creativeQueenDownWins) || 0),
   };
 }
 
@@ -6712,6 +6813,11 @@ const SEASON_STEP_EARN_RULES = Object.freeze({
   underpromote: { type: 'lifetime', key: 'underpromotions', target: 1 },
   checkmate_bishop: { type: 'lifetime', key: 'checkmateWithBishop', target: 1 },
   solstice_win_night_ct: { type: 'lifetime', key: 'winsFinishedAfter9pmCt', target: 1 },
+  flair_orchestra_1: { type: 'lifetime', key: 'creativeFullOrchestraWins', target: 1 },
+  flair_rook_highway_1: { type: 'lifetime', key: 'creativeRookLadderWins', target: 1 },
+  flair_forks_1: { type: 'lifetime', key: 'creativeForkFeastWins', target: 1 },
+  checkmate_knight: { type: 'lifetime', key: 'checkmateWithKnight', target: 1 },
+  flair_phoenix_1: { type: 'lifetime', key: 'creativeQueenDownWins', target: 1 },
 });
 
 function readEarnBaselineField(baseline, key) {
@@ -7285,6 +7391,11 @@ const LB_ROW_PRESET_MIN_NODES = Object.freeze({
   dusk_ember: 7,
   champagne_band: 7,
   solstice_finale: 10,
+  pitch_grass: 4,
+  stadium_lights: 4,
+  victory_march: 7,
+  cup_anthem: 7,
+  world_cup_finale: 10,
 });
 
 /** Purchasable solid row tints (keep in sync with `js/chess_lb_row.js`). */

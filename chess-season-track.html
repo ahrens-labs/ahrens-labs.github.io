@@ -50,6 +50,27 @@
         .st-main.st-season-june .st-stat-value {
             color: #b45309;
         }
+        .st-main.st-season-july {
+            background:
+                radial-gradient(ellipse 120% 80% at 50% -30%, rgba(34, 197, 94, 0.22), transparent 55%),
+                radial-gradient(ellipse 90% 60% at 100% 40%, rgba(234, 179, 8, 0.16), transparent 50%),
+                linear-gradient(165deg, #f0fdf4 0%, #dcfce7 35%, #fefce8 70%, #ecfccb 100%);
+            background-color: #f0fdf4;
+        }
+        .st-main.st-season-july .st-panel {
+            box-shadow:
+                0 4px 6px rgba(15, 23, 42, 0.04),
+                0 20px 48px rgba(34, 197, 94, 0.12),
+                0 0 0 1px rgba(255, 255, 255, 0.85) inset;
+            border-color: rgba(34, 197, 94, 0.22);
+        }
+        .st-main.st-season-july .st-stat {
+            background: linear-gradient(135deg, rgba(220, 252, 231, 0.55), rgba(254, 249, 195, 0.4));
+            border-color: rgba(34, 197, 94, 0.22);
+        }
+        .st-main.st-season-july .st-stat-value {
+            color: #15803d;
+        }
         .st-hero {
             width: 100vw;
             margin-left: calc(-50vw + 50%);
@@ -1002,15 +1023,37 @@
         );
       }
 
-      /** Live-month progress while admin is previewing a future month (May UTC only). */
+      function getUpcomingPreviewSeasonId(CS) {
+        if (!CS) return null;
+        if (typeof CS.getUpcomingPreviewSeasonId === 'function') {
+          return CS.getUpcomingPreviewSeasonId();
+        }
+        if (typeof CS.getUpcomingJunePreviewSeasonId === 'function') {
+          return CS.getUpcomingJunePreviewSeasonId();
+        }
+        return null;
+      }
+
+      function previewMonthLabelFromSeasonId(seasonId) {
+        var mm = String(seasonId || '').split('-')[1] || '';
+        if (mm === '07') return 'July';
+        if (mm === '06') return 'June';
+        return 'Upcoming season';
+      }
+
+      function previewOpensLabelFromSeasonId(seasonId) {
+        var mm = String(seasonId || '').split('-')[1] || '';
+        if (mm === '07') return 'July 1 UTC';
+        if (mm === '06') return 'June 1 UTC';
+        return 'the first day of that month UTC';
+      }
+
+      /** Live-month progress while admin is previewing a future month. */
       function getMainSeasonTrackForDisplay(data, displaySid, CS) {
         var st =
           data && data.seasonTrack && typeof data.seasonTrack === 'object' ? data.seasonTrack : {};
         var stSid = String(st.seasonId || '').trim();
-        var previewSid =
-          CS && typeof CS.getUpcomingJunePreviewSeasonId === 'function'
-            ? CS.getUpcomingJunePreviewSeasonId()
-            : null;
+        var previewSid = getUpcomingPreviewSeasonId(CS);
         if (previewSid) {
           var saved =
             data &&
@@ -1056,9 +1099,9 @@
       function applySeasonPageChrome(meta) {
         var main = document.querySelector('.st-main');
         if (!main) return;
-        var isJune =
-          meta && meta.theme && meta.theme.key === 'june_solstice_gold';
-        main.classList.toggle('st-season-june', !!isJune);
+        var themeKey = meta && meta.theme ? meta.theme.key : '';
+        main.classList.toggle('st-season-june', themeKey === 'june_solstice_gold');
+        main.classList.toggle('st-season-july', themeKey === 'july_world_cup');
       }
 
       /** Preview progress uses the real `seasonTrack` once admin has started the preview month. */
@@ -1123,11 +1166,11 @@
         return html;
       }
 
-      /** Admin-only preview of upcoming June track (hidden from public until June 1 UTC). */
-      function buildJunePreviewSection(data, userEmail, CS, currentSid) {
-        if (!CS || typeof CS.getUpcomingJunePreviewSeasonId !== 'function') return '';
+      /** Admin-only preview of upcoming hidden season track. */
+      function buildUpcomingPreviewSection(data, userEmail, CS, currentSid) {
+        if (!CS) return '';
         if (!isSeasonAdminPreviewAccount(userEmail)) return '';
-        var previewSid = CS.getUpcomingJunePreviewSeasonId();
+        var previewSid = getUpcomingPreviewSeasonId(CS);
         if (!previewSid) return '';
         if (CS.isSeasonPubliclyVisible && CS.isSeasonPubliclyVisible(previewSid)) return '';
 
@@ -1137,20 +1180,33 @@
         var pst = getPreviewSeasonTrackState(data, previewSid);
         var nodesDone = Math.max(0, Math.floor(Number(pst.nodesCompleted) || 0));
         if (nodesDone > nodes.length) nodesDone = nodes.length;
+        var monthLabel = previewMonthLabelFromSeasonId(previewSid);
+        var opensLabel = previewOpensLabelFromSeasonId(previewSid);
+        var isJuly = meta.theme && meta.theme.key === 'july_world_cup';
+        var themePanelStyle = isJuly
+          ? 'margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(240,253,244,0.95),rgba(254,249,195,0.9));border-color:rgba(34,197,94,0.35)'
+          : 'margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9));border-color:rgba(245,158,11,0.35)';
+        var themeAccent = isJuly ? '#15803d' : '#b45309';
 
         var html = '<div class="st-preview-wrap" id="st-preview-wrap">';
         html +=
           '<div class="st-preview-banner"><strong>Admin preview</strong> — ' +
-          escapeHtml(meta.theme && meta.theme.name ? meta.theme.name : 'June season') +
+          escapeHtml(meta.theme && meta.theme.name ? meta.theme.name : monthLabel + ' season') +
           ' (<code>' +
           escapeHtml(previewSid) +
-          '</code>) is hidden from everyone else until June 1 UTC. ' +
+          '</code>) is hidden from everyone else until ' +
+          escapeHtml(opensLabel) +
+          '. ' +
           'Claims here use the same server path as the live season — only the in-game challenge is skipped for testing. Your current month track is stashed until you reset preview.</div>';
 
         if (meta.theme && meta.theme.name) {
           html +=
-            '<div class="st-panel" style="margin-bottom:1rem;padding:1.1rem 1.2rem;background:linear-gradient(125deg,rgba(255,251,235,0.95),rgba(254,243,199,0.9));border-color:rgba(245,158,11,0.35)">' +
-            '<p style="margin:0 0 0.35rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;color:#b45309;font-weight:700">Upcoming month theme</p>' +
+            '<div class="st-panel" style="' +
+            themePanelStyle +
+            '">' +
+            '<p style="margin:0 0 0.35rem;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;color:' +
+            themeAccent +
+            ';font-weight:700">Upcoming month theme</p>' +
             '<p style="margin:0 0 0.5rem;font-family:Orbitron,sans-serif;font-size:1.15rem;color:#0f172a;font-weight:800">' +
             escapeHtml(meta.theme.name) +
             '</p>' +
@@ -1164,7 +1220,9 @@
           escapeHtml(meta.seasonId) +
           ' · ' +
           escapeHtml(bounds.label) +
-          '. Opens to all players on June 1 UTC.</p>';
+          '. Opens to all players on ' +
+          escapeHtml(opensLabel) +
+          '.</p>';
         html += '<div class="st-stats">';
         html +=
           '<div class="st-stat"><div class="st-stat-label">Preview steps cleared</div><div class="st-stat-value">' +
@@ -1173,7 +1231,7 @@
           nodes.length +
           '</div></div>';
         html += '</div>';
-        html += '<h3 class="st-track-title">June track (preview)</h3>';
+        html += '<h3 class="st-track-title">' + escapeHtml(monthLabel) + ' track (preview)</h3>';
         html += '<ol class="st-timeline">';
 
         for (var i = 0; i < nodes.length; i++) {
@@ -1209,7 +1267,9 @@
               '<p class="st-status-msg">Claimed. The list above is what that claim added to your account — use cosmetics in TrifangX Settings / Shop and flair on your account dashboard.</p>';
           } else if (i === nodesDone) {
             html +=
-              '<p class="st-status-msg">Admin test — same claim as June live; challenge skipped, no shop-point buyout.</p>' +
+              '<p class="st-status-msg">Admin test — same claim as ' +
+              escapeHtml(monthLabel) +
+              ' live; challenge skipped, no shop-point buyout.</p>' +
               '<div class="st-claim-row">' +
               '<button type="button" class="st-claim-btn" data-st-preview-step="' +
               i +
@@ -1260,10 +1320,7 @@
 
         var flair = stMain.lbFlair && typeof stMain.lbFlair === 'object' ? stMain.lbFlair : {};
         var mainTrackData = Object.assign({}, data, { seasonTrack: stMain });
-        var previewSid =
-          typeof CS.getUpcomingJunePreviewSeasonId === 'function'
-            ? CS.getUpcomingJunePreviewSeasonId()
-            : null;
+        var previewSid = getUpcomingPreviewSeasonId(CS);
         var previewActiveOnSave = !!(previewSid && cloudSid === previewSid);
         var flairLine = '';
         if (flair.title || flair.prefix || flair.suffix || flair.frame) {
@@ -1296,7 +1353,9 @@
         html += syncNote;
         if (previewActiveOnSave) {
           html +=
-            '<p class="st-note"><strong>Preview mode on your save</strong> — cloud track is on the upcoming June season while May is still live. Claim only from the <strong>June preview</strong> section below (not this track).</p>';
+            '<p class="st-note"><strong>Preview mode on your save</strong> — cloud track is on the upcoming ' +
+            escapeHtml(previewMonthLabelFromSeasonId(previewSid)) +
+            ' season while the current month is still live. Claim only from the <strong>preview</strong> section below (not this track).</p>';
         }
         html += flairLine;
 
@@ -1520,7 +1579,7 @@
         }
 
         document.getElementById('st-content').innerHTML =
-          html + buildJunePreviewSection(data, userEmail, CS, currentSid);
+          html + buildUpcomingPreviewSection(data, userEmail, CS, currentSid);
       }
 
       function showLogin() {
