@@ -129,14 +129,31 @@
       font-weight: 700; cursor: pointer; font-family: inherit; padding: 4px 0;
     }
     .sd-selected-clear:hover { text-decoration: underline; }
-    .sd-selected-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sd-selected-hint {
+      margin: 0; font-size: 0.76rem; line-height: 1.4; color: #64748b; font-weight: 500;
+    }
+    .sd-selected-chips { display: flex; flex-direction: column; gap: 6px; }
     .sd-pick-chip {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 10px 6px 6px; border-radius: 999px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px 8px 8px; border-radius: 12px;
       background: #fff; border: 1px solid #cbd5e1;
       font-size: 0.82rem; font-weight: 700; color: #0f172a;
       box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
     }
+    .sd-pick-order {
+      flex-shrink: 0; min-width: 1.4rem; text-align: center;
+      font-size: 0.72rem; font-weight: 800; color: #94a3b8;
+    }
+    .sd-pick-reorder {
+      display: inline-flex; flex-direction: column; gap: 2px; margin-left: auto; flex-shrink: 0;
+    }
+    .sd-pick-reorder button {
+      border: none; background: #f1f5f9; color: #475569; width: 24px; height: 18px;
+      border-radius: 4px; cursor: pointer; font-size: 0.68rem; line-height: 1; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sd-pick-reorder button:hover:not(:disabled) { background: #dbeafe; color: #1d4ed8; }
+    .sd-pick-reorder button:disabled { opacity: 0.35; cursor: default; }
     .sd-pick-chip img, .sd-pick-chip .sd-team-logo-fallback {
       width: 24px; height: 24px; border-radius: 50%; object-fit: contain; flex-shrink: 0;
     }
@@ -144,12 +161,12 @@
     .sd-pick-chip .sd-pick-sport {
       font-size: 0.95rem; line-height: 1; flex-shrink: 0;
     }
-    .sd-pick-chip button {
-      border: none; background: #f1f5f9; color: #64748b; width: 20px; height: 20px;
+    .sd-pick-chip .sd-pick-remove {
+      border: none; background: #f1f5f9; color: #64748b; width: 24px; height: 24px;
       border-radius: 50%; cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0;
-      display: flex; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .sd-pick-chip button:hover { background: #fee2e2; color: #b91c1c; }
+    .sd-pick-chip .sd-pick-remove:hover { background: #fee2e2; color: #b91c1c; }
     .sd-browse-panel {
       margin: 0 0 22px; padding: 16px; border-radius: 16px;
       border: 1px solid #e2e8f0; background: #f8fafc;
@@ -455,6 +472,7 @@
             <span class="sd-selected-label">Your teams</span>
             <button type="button" class="sd-selected-clear" id="sd-clear-all">Clear all</button>
           </div>
+          <p class="sd-selected-hint">Teams at the top appear first in your email. Use ↑ ↓ to reorder.</p>
           <div class="sd-selected-chips" id="sd-selected-chips"></div>
         </div>
         <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
@@ -534,7 +552,42 @@
       let activeLeague = 'mlb';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
-      let selectedTeamIds = new Set();
+      let selectedTeamOrder = [];
+
+      function isTeamSelected(id) {
+        return selectedTeamOrder.indexOf(id) >= 0;
+      }
+
+      function addSelectedTeam(id) {
+        if (!id || isTeamSelected(id)) return;
+        selectedTeamOrder.push(id);
+      }
+
+      function removeSelectedTeam(id) {
+        const i = selectedTeamOrder.indexOf(id);
+        if (i >= 0) selectedTeamOrder.splice(i, 1);
+      }
+
+      function moveSelectedTeam(id, delta) {
+        const i = selectedTeamOrder.indexOf(id);
+        if (i < 0) return;
+        const j = i + delta;
+        if (j < 0 || j >= selectedTeamOrder.length) return;
+        const tmp = selectedTeamOrder[i];
+        selectedTeamOrder[i] = selectedTeamOrder[j];
+        selectedTeamOrder[j] = tmp;
+      }
+
+      function dedupeTeamOrder(ids) {
+        const seen = {};
+        const out = [];
+        (ids || []).forEach(function (id) {
+          if (!id || seen[id]) return;
+          seen[id] = true;
+          out.push(id);
+        });
+        return out;
+      }
 
       function normalizeHmInput(val) {
         if (!val || typeof val !== 'string') return null;
@@ -661,7 +714,7 @@
       }
 
       function updateTeamCount() {
-        const n = selectedTeamIds.size;
+        const n = selectedTeamOrder.length;
         const el = document.getElementById('sd-team-count');
         el.textContent = n + ' team' + (n === 1 ? '' : 's') + ' selected';
         el.className = 'sd-team-count' + (n > catalog.maxTeams ? ' warn' : '');
@@ -672,13 +725,10 @@
         const strip = document.getElementById('sd-selected-strip');
         const wrap = document.getElementById('sd-selected-chips');
         const clearBtn = document.getElementById('sd-clear-all');
-        const checked = [...selectedTeamIds]
+        const ordered = selectedTeamOrder
           .map(function (id) { return teamById.get(id); })
-          .filter(Boolean)
-          .sort(function (a, b) {
-            return (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' });
-          });
-        if (!checked.length) {
+          .filter(Boolean);
+        if (!ordered.length) {
           strip.classList.remove('visible');
           wrap.innerHTML = '';
           if (clearBtn) clearBtn.style.display = 'none';
@@ -686,21 +736,43 @@
         }
         strip.classList.add('visible');
         if (clearBtn) clearBtn.style.display = '';
-        wrap.innerHTML = checked.map(function (t) {
+        wrap.innerHTML = ordered.map(function (t, idx) {
           const accent = leagueAccent(t.league, t.color);
           const logo = t.logoUrl
             ? '<img src="' + escapeHtml(t.logoUrl) + '" alt="">'
             : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
               escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
-          return '<span class="sd-pick-chip">' + logo +
+          const atTop = idx === 0;
+          const atBottom = idx === ordered.length - 1;
+          return '<span class="sd-pick-chip">' +
+            '<span class="sd-pick-order" aria-hidden="true">' + (idx + 1) + '</span>' +
+            logo +
             '<span>' + escapeHtml(t.label) + '</span>' +
             '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
-            '<button type="button" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
+            '<span class="sd-pick-reorder">' +
+            '<button type="button" class="sd-move-up" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
+            escapeHtml(t.label) + ' up"' + (atTop ? ' disabled' : '') + '>↑</button>' +
+            '<button type="button" class="sd-move-down" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
+            escapeHtml(t.label) + ' down"' + (atBottom ? ' disabled' : '') + '>↓</button>' +
+            '</span>' +
+            '<button type="button" class="sd-pick-remove" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
         wrap.querySelectorAll('button[data-remove]').forEach(function (btn) {
           btn.addEventListener('click', function () {
-            selectedTeamIds.delete(btn.getAttribute('data-remove'));
+            removeSelectedTeam(btn.getAttribute('data-remove'));
+            renderTeamGrid();
+          });
+        });
+        wrap.querySelectorAll('button.sd-move-up').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            moveSelectedTeam(btn.getAttribute('data-move'), -1);
+            renderTeamGrid();
+          });
+        });
+        wrap.querySelectorAll('button.sd-move-down').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            moveSelectedTeam(btn.getAttribute('data-move'), 1);
             renderTeamGrid();
           });
         });
@@ -750,7 +822,7 @@
           label.style.setProperty('--team-accent', leagueAccent(t.league, t.color));
           label.innerHTML =
             '<input type="checkbox" name="sd-team" value="' + escapeHtml(t.id) + '"' +
-            (selectedTeamIds.has(t.id) ? ' checked' : '') + '>' +
+            (isTeamSelected(t.id) ? ' checked' : '') + '>' +
             '<span class="sd-team-logo-wrap">' + teamLogoMarkup(t) + '</span>' +
             '<div class="sd-team-meta">' +
               '<div class="sd-team-label">' + escapeHtml(t.label) + '</div>' +
@@ -759,8 +831,8 @@
             '</div>' +
             '<span class="sd-team-check" aria-hidden="true">✓</span>';
           label.querySelector('input').addEventListener('change', function (e) {
-            if (e.target.checked) selectedTeamIds.add(t.id);
-            else selectedTeamIds.delete(t.id);
+            if (e.target.checked) addSelectedTeam(t.id);
+            else removeSelectedTeam(t.id);
             updateTeamCount();
           });
           grid.appendChild(label);
@@ -830,7 +902,7 @@
       function applyPrefs(prefs) {
         document.getElementById('sd-enabled').checked = !!(prefs && prefs.enabled);
         document.getElementById('sd-top-headlines').checked = !!(prefs && prefs.includeTopHeadlines);
-        selectedTeamIds = new Set((prefs && prefs.teams) || []);
+        selectedTeamOrder = dedupeTeamOrder((prefs && prefs.teams) || []);
         if (prefs && prefs.frequency) {
           document.getElementById('sd-frequency').value = prefs.frequency;
         }
@@ -851,7 +923,7 @@
         return {
           enabled: document.getElementById('sd-enabled').checked,
           includeTopHeadlines: document.getElementById('sd-top-headlines').checked,
-          teams: [...selectedTeamIds],
+          teams: selectedTeamOrder.slice(),
           frequency: frequency,
           customTimes: customTimes.slice(),
           customDays: customDays.slice(),
@@ -917,18 +989,18 @@
         document.getElementById('sd-search').addEventListener('input', renderTeamGrid);
         document.getElementById('sd-select-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
-            selectedTeamIds.add(t.id);
+            addSelectedTeam(t.id);
           });
           renderTeamGrid();
         });
         document.getElementById('sd-clear-visible').addEventListener('click', function () {
           filteredTeams().forEach(function (t) {
-            selectedTeamIds.delete(t.id);
+            removeSelectedTeam(t.id);
           });
           renderTeamGrid();
         });
         document.getElementById('sd-clear-all').addEventListener('click', function () {
-          selectedTeamIds.clear();
+          selectedTeamOrder = [];
           renderTeamGrid();
         });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {

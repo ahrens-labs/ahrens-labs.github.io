@@ -96,6 +96,20 @@ function mapLegacyTeamId(id, now = new Date()) {
   return LEGACY_TEAM_ID_MAP[id] || null;
 }
 
+/** Dedupe team ids while preserving first-seen order (user priority). */
+export function normalizeTeamIdsOrdered(raw, now = new Date()) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const id of raw) {
+    const mapped = mapLegacyTeamId(id, now);
+    if (!mapped || seen.has(mapped)) continue;
+    seen.add(mapped);
+    out.push(mapped);
+  }
+  return out;
+}
+
 function normalizeCustomTimes(raw) {
   if (!Array.isArray(raw)) return [];
   const out = [];
@@ -118,9 +132,7 @@ function normalizeCustomDays(raw) {
 
 export function normalizeSportsDigestPrefs(raw, now = new Date()) {
   const src = raw && typeof raw === 'object' ? raw : {};
-  const teams = Array.isArray(src.teams)
-    ? [...new Set(src.teams.map((id) => mapLegacyTeamId(id, now)).filter(Boolean))]
-    : [];
+  const teams = normalizeTeamIdsOrdered(src.teams, now);
   const customTimes = normalizeCustomTimes(src.customTimes);
   const customDays = normalizeCustomDays(src.customDays);
   let frequency =
@@ -163,7 +175,7 @@ export function validateSportsDigestSave(body) {
   if (!Array.isArray(body.teams)) {
     return { ok: false, error: 'Send teams (array of team ids)' };
   }
-  const teams = [...new Set(body.teams.map((id) => mapLegacyTeamId(id)).filter(Boolean))];
+  const teams = normalizeTeamIdsOrdered(body.teams);
   if (body.enabled && teams.length === 0) {
     return { ok: false, error: 'Choose at least one team when Digest is on.' };
   }
