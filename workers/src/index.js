@@ -114,6 +114,8 @@ export default {
         return handleEmailPreferences(request, env, corsHeaders);
       } else if (path === '/api/header-nav-preferences' && request.method === 'POST') {
         return handleHeaderNavPreferences(request, env, corsHeaders);
+      } else if (path === '/api/contact' && request.method === 'POST') {
+        return handleContactForm(request, env, corsHeaders);
       } else if (path === '/api/sports-digest-catalog' && request.method === 'GET') {
         return handleSportsDigestCatalog(corsHeaders);
       } else if (path === '/api/sports-digest-preferences' && request.method === 'POST') {
@@ -2389,6 +2391,142 @@ async function handleHeaderNavPreferences(request, env, corsHeaders) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     }
   );
+}
+
+const CONTACT_INBOX_EMAIL = 'caleb@ahrenslabs.com';
+const CONTACT_MAX_MESSAGE_LEN = 8000;
+const CONTACT_MAX_NAME_LEN = 120;
+const CONTACT_RATE_LIMIT_PER_HOUR = 5;
+
+function escapeContactHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+async function checkContactFormRateLimit(env, clientKey) {
+  if (!env.DAILY_DIGEST_KV || !clientKey) return { ok: true };
+  const bucket = Math.floor(Date.now() / 3600000);
+  const key = `contact-form:${clientKey}:${bucket}`;
+  const raw = await env.DAILY_DIGEST_KV.get(key);
+  const count = raw ? parseInt(raw, 10) || 0 : 0;
+  if (count >= CONTACT_RATE_LIMIT_PER_HOUR) {
+    return { ok: false };
+  }
+  await env.DAILY_DIGEST_KV.put(key, String(count + 1), { expirationTtl: 7200 });
+  return { ok: true };
+}
+
+async function handleContactForm(request, env, corsHeaders) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!body || typeof body !== 'object') {
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const honeypot = String(body.website || body.company || '').trim();
+  if (honeypot) {
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const replyEmail = normalizeEmail(body.email);
+  const name = body.name != null ? String(body.name).trim().slice(0, CONTACT_MAX_NAME_LEN) : '';
+  const message = body.message != null ? String(body.message).trim() : '';
+
+  if (!replyEmail || !isLikelyRealEmail(replyEmail)) {
+    return new Response(JSON.stringify({ error: 'Enter a valid email address so we can reply.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (!message) {
+    return new Response(JSON.stringify({ error: 'Message is required.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (message.length > CONTACT_MAX_MESSAGE_LEN) {
+    return new Response(JSON.stringify({ error: 'Message is too long.' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const clientKey =
+    request.headers.get('CF-Connecting-IP') ||
+    request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ||
+    replyEmail;
+  const rate = await checkContactFormRateLimit(env, clientKey);
+  if (!rate.ok) {
+    return new Response(
+      JSON.stringify({ error: 'Too many messages from your network. Please try again in an hour.' }),
+      {
+        status: 429,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const inbox = String(env.CONTACT_INBOX_EMAIL || CONTACT_INBOX_EMAIL).trim() || CONTACT_INBOX_EMAIL;
+  const subject = name ? `Ahrens Labs contact: ${name}` : 'Ahrens Labs contact';
+  const textLines = [];
+  if (name) textLines.push(`Name: ${name}`);
+  textLines.push(`Reply-to: ${replyEmail}`, '', message);
+  const text = textLines.join('\n');
+
+  const htmlParts = [];
+  if (name) {
+    htmlParts.push(`<p style="margin:0 0 10px 0;"><strong>Name:</strong> ${escapeContactHtml(name)}</p>`);
+  }
+  htmlParts.push(
+    `<p style="margin:0 0 16px 0;"><strong>Reply-to:</strong> <a href="mailto:${escapeContactHtml(replyEmail)}">${escapeContactHtml(replyEmail)}</a></p>`,
+    `<div style="white-space:pre-wrap;font-size:15px;line-height:1.55;color:#334155;">${escapeContactHtml(message).replace(/\r\n/g, '\n').split('\n').join('<br/>')}</div>`
+  );
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"></head><body style="margin:0;padding:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f8fafc;color:#0f172a;"><div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:22px 24px;">${htmlParts.join('')}</div></body></html>`;
+
+  try {
+    await dispatchTransactionalEmail(env, {
+      to: inbox,
+      subject,
+      html,
+      text,
+      fromAddr: ADMIN_BROADCAST_FROM_EMAIL,
+      fromName: ADMIN_BROADCAST_FROM_NAME,
+      headers: {
+        'Reply-To': replyEmail,
+      },
+    });
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    const w = summarizeEmailSendError(err);
+    console.error('contact form send failed:', w.code, w.message, w.hint || '');
+    return new Response(
+      JSON.stringify({
+        error: w.hint || w.message || 'Could not send your message. Try again later or email caleb@ahrenslabs.com directly.',
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
 }
 
 function handleSportsDigestCatalog(corsHeaders) {
