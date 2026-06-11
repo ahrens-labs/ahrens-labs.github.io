@@ -495,6 +495,9 @@
     gold_filament: 1,
     amber_corona: 1,
     solstice_flare: 1,
+    cup_filament: 1,
+    stadium_corona: 1,
+    world_cup_flare: 1,
   };
 
   function buildLbUsernameInnerHtml(r) {
