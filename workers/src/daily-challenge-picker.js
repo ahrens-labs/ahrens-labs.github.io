@@ -161,10 +161,186 @@ const FALLBACK_DAILY_CHALLENGE_IDS = [
 ];
 
 export function utcDateString(d) {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const x = d instanceof Date ? d : new Date(d || Date.now());
+  const y = x.getUTCFullYear();
+  const m = String(x.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(x.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Normalize legacy `Date#toDateString()` or YYYY-MM-DD to UTC calendar day. */
+export function normalizeDailyCalendarDateString(raw) {
+  if (raw == null || raw === '') return '';
+  const str = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const parsed = Date.parse(str);
+  if (Number.isFinite(parsed)) return utcDateString(new Date(parsed));
+  return str;
+}
+
+function compareDailyCalendarDates(a, b) {
+  const na = normalizeDailyCalendarDateString(a);
+  const nb = normalizeDailyCalendarDateString(b);
+  if (!na && !nb) return 0;
+  if (!na) return -1;
+  if (!nb) return 1;
+  if (na === nb) return 0;
+  return na < nb ? -1 : 1;
+}
+
+const DAILY_STATS_SUM_KEYS = [
+  'gamesPlayedToday',
+  'gamesWonToday',
+  'winsAsWhiteToday',
+  'winsAsBlackToday',
+  'gamesStartedAsBlackToday',
+  'quickWinsToday',
+  'fastWins30Today',
+  'kingMovesToday',
+  'pawnMovesToday',
+  'movesMadeToday',
+  'capturesToday',
+  'checksGivenToday',
+  'promotionsToday',
+  'castlingToday',
+  'bishopMovesInBlindfoldToday',
+  'knightMovesInPureBlindfoldToday',
+  'gamesCastledToday',
+  'gamesPromotedToday',
+  'winsWithMaterialAdvantageToday',
+  'gamesWithEnPassantToday',
+  'underpromotionsToday',
+  'underpromotionMovesToday',
+  'queenSacrificeWinsToday',
+  'timePressureWinsToday',
+  'perfectWinsToday',
+  'varietyPromotionGamesToday',
+  'comebackWinsToday',
+  'pieceHunterGamesToday',
+  'triplePromotionGamesToday',
+  'queenTourGamesToday',
+  'rookLadderGamesToday',
+  'bishopPairWinsToday',
+  'knightForkGamesToday',
+  'pawnStormGamesToday',
+  'kingWalkGamesToday',
+  'pieceCycleGamesToday',
+  'squareMasterGamesToday',
+  'pureBlindfoldWinsToday',
+  'sacrificeChainGamesToday',
+  'centerControlGamesToday',
+  'pawnIslandGamesToday',
+  'rookBatteryGamesToday',
+  'pinMasterGamesToday',
+  'skewerKingGamesToday',
+  'discoveredAttackGamesToday',
+  'windmillGamesToday',
+  'zwischenzugGamesToday',
+  'rookMovesInBlindfoldToday',
+  'queenMovesInBlindfoldToday',
+  'pawnMovesInPureBlindfoldToday',
+  'gamesCastledByMove12Today',
+];
+
+const DAILY_STATS_ARRAY_KEYS = [
+  'uniqueSquaresVisitedToday',
+  'uniqueOpeningsPlayedToday',
+  'uniqueCheckmatePiecesToday',
+  'castlingTypesToday',
+  'completedVerifiableCombosToday',
+  'completedGameEndDailiesToday',
+];
+
+function mergeStringArraysUnion(a, b) {
+  const out = [];
+  const seen = new Set();
+  for (const arr of [a, b]) {
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      const key = String(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+function mergeSameDayDailyStats(prevDs, incDs) {
+  const p = prevDs && typeof prevDs === 'object' ? prevDs : {};
+  const v = incDs && typeof incDs === 'object' ? incDs : {};
+  const out = { ...p, ...v };
+  const day = normalizeDailyCalendarDateString(v.lastResetDate || p.lastResetDate);
+  out.lastResetDate = day || utcDateString(new Date());
+  out.dailyPickDate = normalizeDailyCalendarDateString(v.dailyPickDate || p.dailyPickDate) || out.lastResetDate;
+
+  for (const key of DAILY_STATS_SUM_KEYS) {
+    out[key] = Math.max(0, Number(p[key]) || 0) + Math.max(0, Number(v[key]) || 0);
+  }
+
+  const pFast = Number(p.fastestWinToday);
+  const vFast = Number(v.fastestWinToday);
+  const pFastOk = Number.isFinite(pFast) && pFast > 0 && pFast < Infinity;
+  const vFastOk = Number.isFinite(vFast) && vFast > 0 && vFast < Infinity;
+  if (pFastOk && vFastOk) out.fastestWinToday = Math.min(pFast, vFast);
+  else if (vFastOk) out.fastestWinToday = vFast;
+  else if (pFastOk) out.fastestWinToday = pFast;
+  else out.fastestWinToday = Infinity;
+
+  out.longestGameToday = Math.max(Number(p.longestGameToday) || 0, Number(v.longestGameToday) || 0);
+  out.maxChecksInSingleGameToday = Math.max(
+    Number(p.maxChecksInSingleGameToday) || 0,
+    Number(v.maxChecksInSingleGameToday) || 0
+  );
+
+  for (const key of DAILY_STATS_ARRAY_KEYS) {
+    out[key] = mergeStringArraysUnion(p[key], v[key]);
+  }
+
+  const pTc = p.winsByTimeControlToday && typeof p.winsByTimeControlToday === 'object' ? p.winsByTimeControlToday : {};
+  const vTc = v.winsByTimeControlToday && typeof v.winsByTimeControlToday === 'object' ? v.winsByTimeControlToday : {};
+  const tcOut = { ...pTc };
+  for (const sk of new Set([...Object.keys(pTc), ...Object.keys(vTc)])) {
+    tcOut[sk] = Math.max(0, Number(pTc[sk]) || 0) + Math.max(0, Number(vTc[sk]) || 0);
+  }
+  out.winsByTimeControlToday = tcOut;
+
+  const pCap = p.playerCapturesByTypeToday && typeof p.playerCapturesByTypeToday === 'object' ? p.playerCapturesByTypeToday : {};
+  const vCap = v.playerCapturesByTypeToday && typeof v.playerCapturesByTypeToday === 'object' ? v.playerCapturesByTypeToday : {};
+  const capOut = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+  for (const k of ['p', 'n', 'b', 'r', 'q']) {
+    capOut[k] = Math.max(0, Number(pCap[k]) || 0) + Math.max(0, Number(vCap[k]) || 0);
+  }
+  out.playerCapturesByTypeToday = capOut;
+
+  const pIds = Array.isArray(p.todayDailyIds) ? p.todayDailyIds : null;
+  const vIds = Array.isArray(v.todayDailyIds) ? v.todayDailyIds : null;
+  if (pIds && vIds && pIds.length === vIds.length && pIds.every((id, i) => id === vIds[i])) {
+    out.todayDailyIds = pIds.slice();
+  } else if (vIds && vIds.length) {
+    out.todayDailyIds = vIds.slice();
+  } else if (pIds && pIds.length) {
+    out.todayDailyIds = pIds.slice();
+  }
+
+  return out;
+}
+
+/** Merge synced daily counters across devices; prefers today's UTC bucket over stale days. */
+export function mergeDailyStatsForSync(prevDs, incDs, now = new Date()) {
+  const p = prevDs && typeof prevDs === 'object' ? prevDs : {};
+  const v = incDs && typeof incDs === 'object' ? incDs : {};
+  const pDate = normalizeDailyCalendarDateString(p.lastResetDate);
+  const vDate = normalizeDailyCalendarDateString(v.lastResetDate);
+  const today = utcDateString(now);
+
+  if (!pDate && !vDate) return { ...v };
+  if (!pDate) return { ...v };
+  if (!vDate) return { ...p };
+  if (pDate === vDate) return mergeSameDayDailyStats(p, v);
+  if (pDate === today && vDate !== today) return { ...p };
+  if (vDate === today && pDate !== today) return { ...v };
+  return compareDailyCalendarDates(pDate, vDate) > 0 ? { ...v } : { ...p };
 }
 
 function hashStringToSeed(str) {
@@ -212,7 +388,7 @@ export function getDeterministicDailyChallengeIds(dateString, validList, maxPick
   return selected.slice(0, 3);
 }
 
-/** @param {string} dateString Local or zoned calendar day YYYY-MM-DD (not necessarily UTC). */
+/** @param {string} dateString UTC calendar day YYYY-MM-DD (see `utcDateString`). */
 export function getDailyChallengeIdsForUtcDate(dateString) {
   return getDeterministicDailyChallengeIds(dateString, FALLBACK_DAILY_CHALLENGE_IDS, 3);
 }

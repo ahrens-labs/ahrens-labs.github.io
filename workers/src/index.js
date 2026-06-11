@@ -2,6 +2,7 @@
 
 import {
   getDailyChallengeIdsForUtcDate,
+  mergeDailyStatsForSync,
   utcDateString,
   DAILY_CHALLENGE_DIGEST_BLURBS,
   DAILY_CHALLENGE_CARD_INFO,
@@ -6091,9 +6092,7 @@ function mergeLifetimeStatsMonotonic(prevLt, incLt, fullReplace) {
     } else if (v && typeof v === 'object' && !Array.isArray(v)) {
       const pObj = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
       if (key === 'dailyStats') {
-        const pDate = pObj.lastResetDate != null ? String(pObj.lastResetDate) : '';
-        const vDate = v.lastResetDate != null ? String(v.lastResetDate) : '';
-        merged[key] = vDate >= pDate ? { ...pObj, ...v } : { ...v, ...pObj };
+        merged[key] = mergeDailyStatsForSync(pObj, v);
       } else if (key === 'winsByTimeControl' || key === 'winsByPersonality') {
         const out = { ...pObj };
         for (const sk of new Set([...Object.keys(pObj), ...Object.keys(v)])) {

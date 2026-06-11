@@ -11063,7 +11063,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           
           const dailySubtitle = document.createElement('div');
           dailySubtitle.textContent =
-            'They refresh every day. You can complete the three picks in any order.';
+            'They refresh at midnight UTC each day (same set as the daily roundup email). Complete the three picks in any order.';
           dailySubtitle.style.cssText = 'color: #d35400; font-style: italic; font-size: 0.85em;';
           dailyTitleCard.appendChild(dailySubtitle);
           
@@ -11812,7 +11812,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     // ========================================================================
     // DAILY CHALLENGES CONFIGURATION
     // ========================================================================
-    // Three challenges per local calendar day (device time) are chosen deterministically.
+    // Three challenges per UTC calendar day are chosen deterministically (matches daily roundup email).
     // Keep this list aligned with workers/src/daily-challenge-picker.js.
     // Do not add dailies that require tactic-pattern detection (forks, pins, etc.) — tracking is unreliable.
     // Piece→square "route" dailies use VERIFIABLE_DAILY_COMBO_DEFS + bumpVerifiableComboDailies (same game, your moves only).
@@ -11923,11 +11923,164 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
     
     // ========================================================================
-    // DAILY CHALLENGES — same three for each calendar day in your time zone
+    // DAILY CHALLENGES — same three per UTC calendar day (matches roundup email)
     // ========================================================================
-    // Picks use a deterministic shuffle from a local YYYY-MM-DD date plus salt.
+    // Picks use a deterministic shuffle from UTC YYYY-MM-DD plus salt.
 
     const DAILY_CHALLENGE_PICK_SALT = 'ahrenslabs-chess-daily-v2';
+
+    /** UTC calendar day YYYY-MM-DD — keep aligned with workers/src/daily-challenge-picker.js `utcDateString`. */
+    function getDailyCalendarDateString(d) {
+      const x = d instanceof Date ? d : new Date(d || Date.now());
+      const y = x.getUTCFullYear();
+      const m = String(x.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(x.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function normalizeDailyCalendarDateString(raw) {
+      if (raw == null || raw === '') return '';
+      const str = String(raw).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const parsed = Date.parse(str);
+      if (Number.isFinite(parsed)) return getDailyCalendarDateString(new Date(parsed));
+      return str;
+    }
+
+    function compareDailyCalendarDates(a, b) {
+      const na = normalizeDailyCalendarDateString(a);
+      const nb = normalizeDailyCalendarDateString(b);
+      if (!na && !nb) return 0;
+      if (!na) return -1;
+      if (!nb) return 1;
+      if (na === nb) return 0;
+      return na < nb ? -1 : 1;
+    }
+
+    const DAILY_STATS_SUM_KEYS = [
+      'gamesPlayedToday', 'gamesWonToday', 'winsAsWhiteToday', 'winsAsBlackToday', 'gamesStartedAsBlackToday',
+      'quickWinsToday', 'fastWins30Today', 'kingMovesToday', 'pawnMovesToday', 'movesMadeToday', 'capturesToday',
+      'checksGivenToday', 'promotionsToday', 'castlingToday', 'bishopMovesInBlindfoldToday', 'knightMovesInPureBlindfoldToday',
+      'gamesCastledToday', 'gamesPromotedToday', 'winsWithMaterialAdvantageToday', 'gamesWithEnPassantToday',
+      'underpromotionsToday', 'underpromotionMovesToday', 'queenSacrificeWinsToday', 'timePressureWinsToday',
+      'perfectWinsToday', 'varietyPromotionGamesToday', 'comebackWinsToday',
+      'pieceHunterGamesToday', 'triplePromotionGamesToday', 'queenTourGamesToday', 'rookLadderGamesToday',
+      'bishopPairWinsToday', 'knightForkGamesToday', 'pawnStormGamesToday', 'kingWalkGamesToday', 'pieceCycleGamesToday',
+      'squareMasterGamesToday', 'pureBlindfoldWinsToday', 'sacrificeChainGamesToday', 'centerControlGamesToday',
+      'pawnIslandGamesToday', 'rookBatteryGamesToday', 'pinMasterGamesToday', 'skewerKingGamesToday',
+      'discoveredAttackGamesToday', 'windmillGamesToday', 'zwischenzugGamesToday', 'rookMovesInBlindfoldToday',
+      'queenMovesInBlindfoldToday', 'pawnMovesInPureBlindfoldToday', 'gamesCastledByMove12Today',
+    ];
+
+    const DAILY_STATS_ARRAY_KEYS = [
+      'uniqueSquaresVisitedToday', 'uniqueOpeningsPlayedToday', 'uniqueCheckmatePiecesToday', 'castlingTypesToday',
+      'completedVerifiableCombosToday', 'completedGameEndDailiesToday',
+    ];
+
+    function mergeDailyStringArraysUnion(a, b) {
+      const out = [];
+      const seen = new Set();
+      [a, b].forEach(function (arr) {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(function (item) {
+          const key = String(item);
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push(item);
+        });
+      });
+      return out;
+    }
+
+    function mergeSameDayDailyStatsClient(prevDs, incDs) {
+      const p = prevDs && typeof prevDs === 'object' ? prevDs : {};
+      const v = incDs && typeof incDs === 'object' ? incDs : {};
+      const out = Object.assign({}, p, v);
+      const day = normalizeDailyCalendarDateString(v.lastResetDate || p.lastResetDate);
+      out.lastResetDate = day || getDailyCalendarDateString(new Date());
+      out.dailyPickDate = normalizeDailyCalendarDateString(v.dailyPickDate || p.dailyPickDate) || out.lastResetDate;
+
+      DAILY_STATS_SUM_KEYS.forEach(function (key) {
+        out[key] = Math.max(0, Number(p[key]) || 0) + Math.max(0, Number(v[key]) || 0);
+      });
+
+      const pFast = Number(p.fastestWinToday);
+      const vFast = Number(v.fastestWinToday);
+      const pFastOk = Number.isFinite(pFast) && pFast > 0 && pFast < Infinity;
+      const vFastOk = Number.isFinite(vFast) && vFast > 0 && vFast < Infinity;
+      if (pFastOk && vFastOk) out.fastestWinToday = Math.min(pFast, vFast);
+      else if (vFastOk) out.fastestWinToday = vFast;
+      else if (pFastOk) out.fastestWinToday = pFast;
+      else out.fastestWinToday = Infinity;
+
+      out.longestGameToday = Math.max(Number(p.longestGameToday) || 0, Number(v.longestGameToday) || 0);
+      out.maxChecksInSingleGameToday = Math.max(
+        Number(p.maxChecksInSingleGameToday) || 0,
+        Number(v.maxChecksInSingleGameToday) || 0
+      );
+
+      DAILY_STATS_ARRAY_KEYS.forEach(function (key) {
+        out[key] = mergeDailyStringArraysUnion(p[key], v[key]);
+      });
+
+      const pTc = p.winsByTimeControlToday && typeof p.winsByTimeControlToday === 'object' ? p.winsByTimeControlToday : {};
+      const vTc = v.winsByTimeControlToday && typeof v.winsByTimeControlToday === 'object' ? v.winsByTimeControlToday : {};
+      const tcOut = Object.assign({}, pTc);
+      new Set(Object.keys(pTc).concat(Object.keys(vTc))).forEach(function (sk) {
+        tcOut[sk] = Math.max(0, Number(pTc[sk]) || 0) + Math.max(0, Number(vTc[sk]) || 0);
+      });
+      out.winsByTimeControlToday = tcOut;
+
+      const pCap = p.playerCapturesByTypeToday && typeof p.playerCapturesByTypeToday === 'object' ? p.playerCapturesByTypeToday : {};
+      const vCap = v.playerCapturesByTypeToday && typeof v.playerCapturesByTypeToday === 'object' ? v.playerCapturesByTypeToday : {};
+      const capOut = { p: 0, n: 0, b: 0, r: 0, q: 0 };
+      ['p', 'n', 'b', 'r', 'q'].forEach(function (k) {
+        capOut[k] = Math.max(0, Number(pCap[k]) || 0) + Math.max(0, Number(vCap[k]) || 0);
+      });
+      out.playerCapturesByTypeToday = capOut;
+
+      const pIds = Array.isArray(p.todayDailyIds) ? p.todayDailyIds : null;
+      const vIds = Array.isArray(v.todayDailyIds) ? v.todayDailyIds : null;
+      if (pIds && vIds && pIds.length === vIds.length && pIds.every(function (id, i) { return id === vIds[i]; })) {
+        out.todayDailyIds = pIds.slice();
+      } else if (vIds && vIds.length) {
+        out.todayDailyIds = vIds.slice();
+      } else if (pIds && pIds.length) {
+        out.todayDailyIds = pIds.slice();
+      }
+      return out;
+    }
+
+    function mergeDailyStatsForSyncClient(prevDs, incDs, now) {
+      const p = prevDs && typeof prevDs === 'object' ? prevDs : {};
+      const v = incDs && typeof incDs === 'object' ? incDs : {};
+      const pDate = normalizeDailyCalendarDateString(p.lastResetDate);
+      const vDate = normalizeDailyCalendarDateString(v.lastResetDate);
+      const today = getDailyCalendarDateString(now || new Date());
+      if (!pDate && !vDate) return Object.assign({}, v);
+      if (!pDate) return Object.assign({}, v);
+      if (!vDate) return Object.assign({}, p);
+      if (pDate === vDate) return mergeSameDayDailyStatsClient(p, v);
+      if (pDate === today && vDate !== today) return Object.assign({}, p);
+      if (vDate === today && pDate !== today) return Object.assign({}, v);
+      return compareDailyCalendarDates(pDate, vDate) > 0 ? Object.assign({}, v) : Object.assign({}, p);
+    }
+
+    function stripAllDailyAchievementsFromList() {
+      const allDailyIds = getAllDailyChallengeIds();
+      let changed = false;
+      allDailyIds.forEach(function (id) {
+        const index = achievements.indexOf(id);
+        if (index > -1) {
+          achievements.splice(index, 1);
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveAchievements();
+        if (typeof updateTotalPoints === 'function') updateTotalPoints();
+      }
+    }
 
     function hashStringToSeed(str) {
       let h = 2166136261 >>> 0;
@@ -11981,8 +12134,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const ds = lifetimeStats.dailyStats;
         if (!ds) return [];
 
-        const now = new Date();
-        const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const dateString = getDailyCalendarDateString(new Date());
 
         const validList = getAllDailyChallengeIds();
         const validSet = new Set(validList);
@@ -11994,7 +12146,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         const selected = getDeterministicDailyChallengeIds(dateString, validList, 3);
         const sameLen = Array.isArray(ds.todayDailyIds) && ds.todayDailyIds.length === selected.length;
         const sameIds = sameLen && ds.todayDailyIds.every((id, i) => id === selected[i]);
-        if (ds.dailyPickDate === dateString && sameIds && selected.every(id => validSet.has(id))) {
+        if (normalizeDailyCalendarDateString(ds.dailyPickDate) === dateString && sameIds && selected.every(id => validSet.has(id))) {
           return ds.todayDailyIds;
         }
 
@@ -12082,11 +12234,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function resetDailyStatsIfNeeded() {
-      const today = new Date().toDateString();
+      const today = getDailyCalendarDateString(new Date());
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       
-      if (!lifetimeStats.dailyStats || lifetimeStats.dailyStats.lastResetDate !== today) {
+      if (!lifetimeStats.dailyStats || normalizeDailyCalendarDateString(lifetimeStats.dailyStats.lastResetDate) !== today) {
         // Track days played in a row
         if (lifetimeStats.lastPlayDate) {
           const lastPlayDate = new Date(lifetimeStats.lastPlayDate);
@@ -12111,15 +12263,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         }
         lifetimeStats.lastPlayDate = todayDate.toISOString();
         
-        // Clear ALL daily achievements when date changes
-        const allDailyIds = getAllDailyChallengeIds();
-        allDailyIds.forEach(id => {
-          const index = achievements.indexOf(id);
-          if (index > -1) {
-            achievements.splice(index, 1);
-          }
-        });
-        saveAchievements();
+        stripAllDailyAchievementsFromList();
         
         lifetimeStats.dailyStats = createFreshDailyStats(today);
         saveLifetimeStats();
@@ -12270,9 +12414,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } else if (v && typeof v === 'object' && !Array.isArray(v)) {
           const pObj = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
           if (key === 'dailyStats') {
-            const pDate = pObj.lastResetDate != null ? String(pObj.lastResetDate) : '';
-            const vDate = v.lastResetDate != null ? String(v.lastResetDate) : '';
-            merged[key] = vDate >= pDate ? { ...pObj, ...v } : { ...v, ...pObj };
+            merged[key] = mergeDailyStatsForSyncClient(pObj, v);
           } else if (key === 'winsByTimeControl' || key === 'winsByPersonality') {
             const out = { ...pObj };
             Object.keys(v).forEach(function (sk) {
@@ -14595,6 +14737,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         hydrateChessCareerStateFromCloud(true);
         resetDailyStatsIfNeeded();
+        trifangxScheduleDeferredTask(function () {
+          try {
+            checkAndUnlockAchievements();
+          } catch (eDailySync) {
+            console.warn('post-load daily achievement check failed', eDailySync);
+          }
+        });
         if (shouldRunChessCareerRepairOnThisPage()) {
           trifangxScheduleDeferredTask(function () {
             maybeRepairChessCareerFromCloud();
