@@ -220,6 +220,8 @@ export default {
         return handleLinkConsumeBridge(request, env);
       } else if (path === '/internal/user-profile' && request.method === 'GET') {
         return handleInternalUserProfile(request, env);
+      } else if (path === '/internal/grace-ahrens/send' && request.method === 'POST') {
+        return handleGraceAhrensSend(request, env);
       } else if (path === '/api/debug' && request.method === 'GET') {
         const testEmail = url.searchParams.get('email') || 'debug@test.com';
         const userId = generateUserId(testEmail);
@@ -3374,11 +3376,13 @@ function getCloudflareEmailBinding(env) {
 
 async function dispatchTransactionalEmail(env, {
   to,
+  bcc,
   subject,
   html,
   text,
   fromAddr: fromOverride,
   fromName: fromNameOverride,
+  replyTo,
   headers,
 }) {
   const envFrom = String(env.SENDER_EMAIL || env.VERIFICATION_FROM_EMAIL || '').trim();
@@ -3422,6 +3426,8 @@ async function dispatchTransactionalEmail(env, {
         html,
         text,
       };
+      if (bcc) sendPayload.bcc = bcc;
+      if (replyTo) sendPayload.replyTo = replyTo;
       if (headers && typeof headers === 'object' && Object.keys(headers).length) {
         sendPayload.headers = headers;
       }
@@ -9107,6 +9113,78 @@ function timingSafeEqualStrings(a, b) {
   let x = 0;
   for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return x === 0;
+}
+
+/** Same idea as sports-digest send-test: isolate Worker email from signup logic. */
+async function handleGraceAhrensSend(request, env) {
+  const expected = env.GRACE_EMAIL_SECRET;
+  if (!expected || typeof expected !== 'string') {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        reason: 'not_configured',
+        message: 'Set GRACE_EMAIL_SECRET on chess-accounts (wrangler secret put GRACE_EMAIL_SECRET).',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const provided = request.headers.get('X-Grace-Email-Secret') || '';
+  if (!timingSafeEqualStrings(provided, expected)) {
+    return new Response(JSON.stringify({ ok: false, reason: 'unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ ok: false, reason: 'invalid_json' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const to = body.to;
+  if (!to) {
+    return new Response(JSON.stringify({ ok: false, reason: 'missing_to' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const fromAddr =
+    body.fromAddr || (body.from && body.from.email) || 'caleb@ahrenslabs.com';
+  const fromName =
+    body.fromName || (body.from && body.from.name) || 'Grace Ahrens';
+
+  try {
+    const result = await dispatchTransactionalEmail(env, {
+      to,
+      bcc: body.bcc,
+      subject: String(body.subject || ''),
+      html: body.html,
+      text: body.text,
+      fromAddr,
+      fromName,
+      replyTo: body.replyTo || 'grace@graceahrens.com',
+    });
+    return new Response(
+      JSON.stringify({ ok: true, messageId: result.messageId, via: result.provider }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        reason: err?.code || 'send_failed',
+        message: err?.message || String(err),
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
 }
 
 /** Same idea as sports-digest send-test: isolate Worker email from signup logic. */
