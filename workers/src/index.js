@@ -3374,6 +3374,67 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
+/** Grace Ahrens mail — Cloudflare Email Sending only (never Resend). */
+async function dispatchCloudflareEmailOnly(env, {
+  to,
+  bcc,
+  subject,
+  html,
+  text,
+  fromAddr,
+  fromName,
+  replyTo,
+  headers,
+}) {
+  const cfMail = getCloudflareEmailBinding(env);
+  if (!cfMail) {
+    const err = new Error(
+      'Cloudflare Email Sending is not configured (missing EMAIL_TRANSACTIONAL binding on chess-accounts).'
+    );
+    err.code = 'missing_email_binding';
+    throw err;
+  }
+
+  const sendPayload = {
+    from: { email: fromAddr, name: fromName },
+    to,
+    subject,
+    html,
+    text,
+  };
+  if (bcc) sendPayload.bcc = bcc;
+  if (replyTo) sendPayload.replyTo = replyTo;
+  if (headers && typeof headers === 'object' && Object.keys(headers).length) {
+    sendPayload.headers = headers;
+  }
+
+  try {
+    const result = await cfMail.send(sendPayload);
+    const messageId = extractCloudflareEmailMessageId(result);
+    if (!messageId) {
+      console.warn('EmailService send returned no messageId; treating as delivered', { subject, to });
+      return { provider: 'cloudflare', messageId: '' };
+    }
+    console.log('Grace Ahrens EmailService send ok', { messageId, subject, to });
+    return { provider: 'cloudflare', messageId };
+  } catch (err) {
+    console.error('Grace Ahrens EmailService send failed', {
+      code: err?.code,
+      message: err?.message,
+      subject,
+      to,
+    });
+    if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
+      const hint = new Error(
+        'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). Check Email Sending setup for graceahrens.com in the Cloudflare dashboard.'
+      );
+      hint.code = err.code;
+      throw hint;
+    }
+    throw err;
+  }
+}
+
 async function dispatchTransactionalEmail(env, {
   to,
   bcc,
@@ -9156,12 +9217,12 @@ async function handleGraceAhrensSend(request, env) {
   }
 
   const fromAddr =
-    body.fromAddr || (body.from && body.from.email) || 'caleb@ahrenslabs.com';
+    body.fromAddr || (body.from && body.from.email) || 'grace@graceahrens.com';
   const fromName =
     body.fromName || (body.from && body.from.name) || 'Grace Ahrens';
 
   try {
-    const result = await dispatchTransactionalEmail(env, {
+    const result = await dispatchCloudflareEmailOnly(env, {
       to,
       bcc: body.bcc,
       subject: String(body.subject || ''),
