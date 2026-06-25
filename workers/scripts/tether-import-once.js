@@ -5,7 +5,7 @@
  */
 
 import { TetherProject } from '../src/tether.js';
-import { backfillRecurrenceDueDate } from '../../scripts/todoist-recurrence.js';
+import { mapTodoistDate, applyScheduleToTask, backfillRecurrenceDueDate, stripLabelsFromTitle } from '../../scripts/todoist-recurrence.js';
 
 export { TetherProject };
 
@@ -204,6 +204,31 @@ export default {
         }
         if (fixed) await saveInboxTasks(env, userId, inboxTasks);
         return Response.json({ success: true, fixed, total: inboxTasks.length });
+      }
+
+      if (body.action === 'reconcile-todoist-schedules') {
+        const schedules = Array.isArray(body.schedules) ? body.schedules : [];
+        if (!schedules.length) return Response.json({ error: 'No schedules provided' }, { status: 400 });
+        const byTitle = new Map();
+        for (const row of schedules) {
+          const key = stripLabelsFromTitle(String(row.title || '')).trim().toLowerCase();
+          if (key) byTitle.set(key, row);
+        }
+        const inboxTasks = await getInboxTasks(env, userId);
+        let updated = 0;
+        let unmatched = 0;
+        for (const task of inboxTasks) {
+          const key = stripLabelsFromTitle(String(task.title || '')).trim().toLowerCase();
+          const row = byTitle.get(key);
+          if (!row?.date) {
+            unmatched++;
+            continue;
+          }
+          applyScheduleToTask(task, mapTodoistDate(row.date));
+          updated++;
+        }
+        await saveInboxTasks(env, userId, inboxTasks);
+        return Response.json({ success: true, updated, unmatched, total: inboxTasks.length });
       }
 
       const projectTitle = String(body.projectTitle || 'Inbox').trim();
