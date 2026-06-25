@@ -1763,7 +1763,6 @@
         </div>
       </div>
       <div class="th-my-task-subline">
-        <div class="th-my-task-project-picker">${projectPickerHtml(t.id, t.projectId || null)}</div>
         ${taskLabels(t).length ? myTasksLabelsHtml(taskLabels(t)) : ''}
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
@@ -1799,7 +1798,6 @@
     wireMyTasksLabelFilters(el);
     wireStartButtons(el);
     wireCompleteButtons(el);
-    wireProjectPickers(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async (e) => {
         if (e.target.closest('button') || e.target.closest('[data-my-label-filter]')) return;
