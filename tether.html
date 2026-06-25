@@ -179,6 +179,18 @@
       border: 1px solid var(--th-line); border-radius: 10px; padding: 7px 10px;
       font: inherit; font-size: 0.82rem; background: #fff; max-width: 200px;
     }
+    .th-project-picker {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .th-project-picker-label {
+      font-size: 0.72rem; font-weight: 600; color: var(--th-muted); white-space: nowrap;
+    }
+    .th-task-card-actions .th-project-picker { flex: 1; min-width: 0; }
+    .th-task-card-actions .th-move-select {
+      max-width: 160px; min-width: 0; font-size: 0.75rem; padding: 4px 8px; flex: 1;
+    }
+    .th-my-task-project-picker { margin-top: 4px; }
+    .th-my-task-project-picker .th-move-select { max-width: 220px; font-size: 0.78rem; }
     .th-dod {
       margin: 0 0 16px; padding: 14px 18px; border-radius: 16px;
       background: #fff; border: 1px solid var(--th-line);
@@ -915,6 +927,14 @@
           </div>
           <p class="th-field-hint" style="margin:0;">Recurring tasks reset to To do with a new due date when you complete them.</p>
         </section>
+        <section class="th-task-section" id="task-project-section" style="display:none;">
+          <h4 class="th-task-section-title">Project</h4>
+          <div class="th-field">
+            <label for="task-project-input">Move to</label>
+            <select id="task-project-input" class="th-move-select"></select>
+            <p class="th-field-hint" style="margin:0;">Changes where this task lives. Pick Inbox to remove it from a project.</p>
+          </div>
+        </section>
         <section class="th-task-section">
           <h4 class="th-task-section-title">People &amp; blockers</h4>
           <div class="th-field">
@@ -950,10 +970,6 @@
       </div>
       <div class="th-task-modal-foot">
         <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-detail-start" style="display:none;">Start</button>
-        <div id="task-detail-move-wrap" style="display:none;align-items:center;gap:8px;">
-          <select id="task-detail-move-project" class="th-move-select" aria-label="Move to project"></select>
-          <button type="button" class="th-btn th-btn-ghost" id="task-detail-move">Move to project</button>
-        </div>
         <button type="button" class="th-btn th-btn-ghost" id="task-detail-complete" style="margin-right:auto;">Mark complete</button>
         <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
@@ -1045,6 +1061,8 @@
   let viewingTaskId = null;
   let viewingTaskFromMyTasks = false;
   let viewingTaskFromInbox = false;
+  let viewingTaskSourceProjectId = null;
+  let editingTaskFromProjectId = null;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -1137,6 +1155,95 @@
     });
     wireStartButtons(el);
     wireCompleteButtons(el);
+    wireProjectPickers(el);
+  }
+
+  function projectPickerOptions(currentProjectId) {
+    let html = `<option value=""${!currentProjectId ? ' selected' : ''}>Inbox</option>`;
+    for (const p of sortedProjects(projects)) {
+      html += `<option value="${escapeAttr(p.id)}"${p.id === currentProjectId ? ' selected' : ''}>${escapeHtml(p.title)}</option>`;
+    }
+    return html;
+  }
+
+  function projectPickerSelectHtml(taskId, fromProjectId) {
+    return `<select class="th-move-select th-task-project-select" data-task-id="${escapeAttr(taskId)}" data-from-project="${fromProjectId ? escapeAttr(fromProjectId) : ''}" aria-label="Move task to project">
+      ${projectPickerOptions(fromProjectId || null)}
+    </select>`;
+  }
+
+  function projectPickerHtml(taskId, fromProjectId) {
+    return `<label class="th-project-picker">
+      <span class="th-project-picker-label">Project</span>
+      ${projectPickerSelectHtml(taskId, fromProjectId)}
+    </label>`;
+  }
+
+  function wireProjectPickers(root) {
+    (root || document).querySelectorAll('.th-task-project-select').forEach(sel => {
+      if (sel.dataset.wired === '1') return;
+      sel.dataset.wired = '1';
+      sel.addEventListener('click', (e) => e.stopPropagation());
+      sel.addEventListener('mousedown', (e) => e.stopPropagation());
+      sel.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const taskId = sel.getAttribute('data-task-id');
+        const fromProjectId = sel.getAttribute('data-from-project') || null;
+        const toProjectId = sel.value || null;
+        if ((fromProjectId || null) === (toProjectId || null)) return;
+        const prev = fromProjectId || '';
+        try {
+          await moveTask(taskId, fromProjectId, toProjectId);
+          if (document.getElementById('modal-task-detail').classList.contains('open') && viewingTaskId === taskId) {
+            viewingTaskSourceProjectId = toProjectId;
+            sel.setAttribute('data-from-project', toProjectId || '');
+            const movedAway =
+              (appTab === 'inbox' && toProjectId) ||
+              (appTab === 'projects' && activeProject && fromProjectId === activeProject.id && toProjectId !== activeProject.id) ||
+              (appTab === 'projects' && activeProject && !fromProjectId && toProjectId && toProjectId !== activeProject.id);
+            if (movedAway) {
+              viewingTaskId = null;
+              closeModal('modal-task-detail');
+            } else {
+              openTaskDetailModal(taskId, {
+                fromMyTasks: viewingTaskFromMyTasks,
+                fromInbox: !toProjectId,
+                projectId: toProjectId,
+              });
+            }
+          }
+        } catch (err) {
+          showBanner(err.message);
+          sel.value = prev;
+        }
+      });
+    });
+  }
+
+  async function moveTask(taskId, fromProjectId, toProjectId) {
+    if (!taskId) throw new Error('Task not found');
+    if ((fromProjectId || null) === (toProjectId || null)) return;
+    await api('/api/tether/task/move', {
+      method: 'POST',
+      body: JSON.stringify({
+        taskId,
+        fromProjectId: fromProjectId || null,
+        toProjectId: toProjectId || null,
+      }),
+    });
+    invalidateSearchCache();
+    if (fromProjectId == null || toProjectId == null) await loadInbox();
+    await loadProjects();
+    if (activeProject && (activeProject.id === fromProjectId || activeProject.id === toProjectId)) {
+      await loadProject(activeProject.id);
+    } else if (appTab === 'projects' && activeProject) {
+      renderProjectView();
+    }
+    if (appTab === 'my-tasks') await loadMyTasks();
+    const dest = toProjectId
+      ? (projects.find(p => p.id === toProjectId)?.title || 'project')
+      : 'Inbox';
+    showBanner(`Moved to ${dest}`, 'ok');
   }
 
   function renderInboxTaskCardHtml(t, allTasks) {
@@ -1166,6 +1273,7 @@
                 ${(t.dependsOnTaskIds || []).length ? '⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : 'Not in a project'}
               </div>
               <div class="th-task-card-actions">
+                ${projectPickerHtml(t.id, null)}
                 <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                 <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
               </div>
@@ -1186,18 +1294,7 @@
   }
 
   async function moveInboxTaskToProject(taskId, projectId) {
-    if (!taskId || !projectId) throw new Error('Pick a project');
-    await api('/api/tether/inbox/move-to-project', {
-      method: 'POST',
-      body: JSON.stringify({ taskId, projectId }),
-    });
-    invalidateSearchCache();
-    await loadInbox();
-    await loadProjects();
-    if (activeProject && activeProject.id === projectId) {
-      await loadProject(projectId);
-    }
-    showBanner('Task moved to project', 'ok');
+    return moveTask(taskId, null, projectId);
   }
 
   async function clearInboxCompletedTasks() {
@@ -1208,13 +1305,10 @@
     showBanner('Completed tasks cleared', 'ok');
   }
 
-  function populateMoveProjectSelect() {
-    const sel = document.getElementById('task-detail-move-project');
+  function populateTaskProjectSelect(currentProjectId) {
+    const sel = document.getElementById('task-project-input');
     if (!sel) return;
-    const opts = sortedProjects(projects).map(p =>
-      `<option value="${escapeAttr(p.id)}">${escapeHtml(p.title)}</option>`
-    ).join('');
-    sel.innerHTML = opts || '<option value="">No projects yet</option>';
+    sel.innerHTML = projectPickerOptions(currentProjectId || null);
   }
 
   function invalidateSearchCache() {
@@ -1621,7 +1715,7 @@
         </div>
       </div>
       <div class="th-my-task-subline">
-        <span class="th-my-task-project">${escapeHtml(t.projectTitle || 'Project')}</span>
+        <div class="th-my-task-project-picker">${projectPickerHtml(t.id, t.projectId || null)}</div>
         ${taskLabels(t).length ? labelsHtml(taskLabels(t), false) : ''}
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
@@ -1649,6 +1743,7 @@
     el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
     wireStartButtons(el);
     wireCompleteButtons(el);
+    wireProjectPickers(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async (e) => {
         if (e.target.closest('button')) return;
@@ -1684,7 +1779,7 @@
       if (!activeProject || activeProject.id !== projectId) {
         await fetchProjectData(projectId);
       }
-      openTaskDetailModal(taskId, { fromMyTasks: true });
+      openTaskDetailModal(taskId, { fromMyTasks: true, projectId: projectId || null, fromInbox: !projectId });
     } catch (e) {
       viewingTaskFromMyTasks = false;
       showBanner(e.message);
@@ -2038,6 +2133,7 @@
                     ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : ''}
                   </div>
                   <div class="th-task-card-actions">
+                    ${projectPickerHtml(t.id, activeProject.id)}
                     <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                     <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
                   </div>
@@ -2063,6 +2159,7 @@
     });
     wireStartButtons(document.getElementById('list-view'));
     wireCompleteButtons(document.getElementById('list-view'));
+    wireProjectPickers(document.getElementById('list-view'));
   }
 
   function renderTaskCardHtml(t, allTasks, memberMap) {
@@ -2093,6 +2190,7 @@
                 ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : ''}
               </div>
               <div class="th-task-card-actions">
+                ${projectPickerHtml(t.id, activeProject ? activeProject.id : null)}
                 <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
                 <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
               </div>
@@ -2117,6 +2215,7 @@
     });
     wireStartButtons(root);
     wireCompleteButtons(root);
+    wireProjectPickers(root);
   }
 
   function renderLabelsView() {
@@ -2886,43 +2985,61 @@
   function openTaskDetailModal(taskId, opts) {
     opts = opts || {};
     const fromMyTasks = opts.fromMyTasks === true || viewingTaskFromMyTasks;
-    const fromInbox = opts.fromInbox === true || viewingTaskFromInbox || appTab === 'inbox';
+    const fromInbox = opts.fromInbox === true || (!fromMyTasks && (viewingTaskFromInbox || appTab === 'inbox'));
     viewingTaskFromInbox = fromInbox && !fromMyTasks;
     viewingTaskFromMyTasks = fromMyTasks;
     viewingTaskId = taskId;
-    const resolved = (fromInbox ? inboxTasks : (activeProject?.tasks || [])).find(t => t.id === taskId)
-      || inboxTasks.find(t => t.id === taskId);
+
+    const sourceProjectId = opts.projectId !== undefined
+      ? (opts.projectId || null)
+      : (fromInbox ? null : (activeProject?.id || null));
+    viewingTaskSourceProjectId = sourceProjectId;
+
+    let resolved = null;
+    let tasks = [];
+    if (sourceProjectId == null) {
+      resolved = inboxTasks.find(t => t.id === taskId);
+      tasks = inboxTasks;
+    } else if (activeProject && activeProject.id === sourceProjectId) {
+      tasks = activeProject.tasks || [];
+      resolved = tasks.find(t => t.id === taskId);
+    } else {
+      resolved = myTasks.find(t => t.id === taskId && t.projectId === sourceProjectId) || null;
+      tasks = resolved ? [resolved] : [];
+    }
+    if (!resolved) {
+      resolved = inboxTasks.find(t => t.id === taskId)
+        || (activeProject?.tasks || []).find(t => t.id === taskId);
+      if (resolved && !tasks.length) {
+        tasks = inboxTasks.some(t => t.id === taskId) ? inboxTasks : (activeProject?.tasks || []);
+      }
+    }
     if (!resolved) return;
-    const tasks = fromInbox ? inboxTasks : (activeProject?.tasks || []);
-    const memberMap = fromInbox ? {} : memberLabelMap();
+
+    const inInbox = sourceProjectId == null;
+    const memberMap = inInbox ? {} : memberLabelMap();
     document.getElementById('task-detail-title').textContent = resolved.title;
-    document.getElementById('task-detail-subtitle').textContent = fromInbox
+    document.getElementById('task-detail-subtitle').textContent = inInbox
       ? 'Personal inbox · not in a project'
-      : (activeProject ? 'In project · ' + activeProject.title : '');
+      : ('In project · ' + (projects.find(p => p.id === sourceProjectId)?.title || activeProject?.title || 'Project'));
     document.getElementById('task-detail-body').innerHTML = `
+      <div class="th-detail-row"><div class="th-detail-label">Project</div><div class="th-detail-value">${projectPickerSelectHtml(taskId, sourceProjectId)}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${resolved.status || 'todo'}">${statusLabel(resolved.status)}</span></div></div>
       <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(resolved.dueDate)}</div></div>
       ${resolved.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(resolved.recurrence, resolved.recurrenceDay))}</div></div>` : ''}
       ${taskLabels(resolved).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(resolved), false)}</div></div>` : ''}
       <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(resolved.definitionOfDone || '—')}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(resolved.notes || '—')}</div></div>
-      ${fromInbox ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
+      ${inInbox ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
     `;
+    wireProjectPickers(document.getElementById('task-detail-body'));
     const completeBtn = document.getElementById('task-detail-complete');
     const startBtn = document.getElementById('task-detail-start');
-    const moveWrap = document.getElementById('task-detail-move-wrap');
     const blocked = isTaskCompletionBlocked(resolved, tasks);
     const st = resolved.status || 'todo';
     startBtn.style.display = st === 'todo' ? 'inline-block' : 'none';
-    if (fromInbox) {
-      populateMoveProjectSelect();
-      moveWrap.style.display = projects.length ? 'flex' : 'none';
-      completeBtn.style.marginRight = '0';
-    } else {
-      moveWrap.style.display = 'none';
-      completeBtn.style.marginRight = 'auto';
-    }
+    completeBtn.style.marginRight = 'auto';
     if (st === 'done') {
       completeBtn.textContent = 'Mark active';
       completeBtn.style.display = 'inline-block';
@@ -2997,6 +3114,9 @@
   function openTaskModal(taskId) {
     editingTaskId = taskId || null;
     const inInbox = appTab === 'inbox';
+    editingTaskFromProjectId = taskId
+      ? (inInbox ? null : (activeProject?.id || null))
+      : (inInbox ? null : (activeProject?.id || null));
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
     document.getElementById('modal-task-subtitle').textContent = inInbox
       ? 'Personal inbox · not in a project'
@@ -3017,6 +3137,14 @@
     syncRecurrenceWeeklyVisibility();
     document.getElementById('task-edit-start').style.display =
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
+
+    const projectSection = document.getElementById('task-project-section');
+    if (taskId) {
+      projectSection.style.display = '';
+      populateTaskProjectSelect(editingTaskFromProjectId);
+    } else {
+      projectSection.style.display = 'none';
+    }
 
     const assigneesEl = document.getElementById('task-assignees');
     const peopleSection = assigneesEl.closest('.th-task-section');
@@ -3379,15 +3507,19 @@
     } catch (e) { showBanner(e.message); }
   });
 
-  document.getElementById('task-detail-move').addEventListener('click', async () => {
-    if (!viewingTaskId) return;
-    const projectId = document.getElementById('task-detail-move-project').value;
+  document.getElementById('task-project-input').addEventListener('change', async () => {
+    if (!editingTaskId) return;
+    const to = document.getElementById('task-project-input').value || null;
+    const from = editingTaskFromProjectId;
+    if ((from || null) === (to || null)) return;
     try {
-      await moveInboxTaskToProject(viewingTaskId, projectId);
-      viewingTaskId = null;
-      viewingTaskFromInbox = false;
-      closeModal('modal-task-detail');
-    } catch (e) { showBanner(e.message); }
+      await moveTask(editingTaskId, from, to);
+      editingTaskFromProjectId = to;
+      closeModal('modal-task');
+    } catch (e) {
+      showBanner(e.message);
+      populateTaskProjectSelect(from);
+    }
   });
 
   document.getElementById('share-btn').addEventListener('click', async () => {

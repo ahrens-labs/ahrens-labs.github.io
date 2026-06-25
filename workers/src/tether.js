@@ -433,6 +433,94 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     return jsonResponse({ task: moved, projectId, tasks: inboxTasks }, corsHeaders);
   }
 
+  if (path === '/api/tether/task/move' && request.method === 'POST') {
+    const body = await request.json();
+    const taskId = String(body.taskId || '').trim();
+    const fromProjectId = body.fromProjectId != null && String(body.fromProjectId).trim() !== ''
+      ? String(body.fromProjectId).trim()
+      : null;
+    const toProjectId = body.toProjectId != null && String(body.toProjectId).trim() !== ''
+      ? String(body.toProjectId).trim()
+      : null;
+
+    if (!taskId) return jsonResponse({ error: 'taskId required' }, corsHeaders, 400);
+    if (fromProjectId === toProjectId) {
+      return jsonResponse({ error: 'Task is already there' }, corsHeaders, 400);
+    }
+
+    let targetProject = null;
+    if (toProjectId) {
+      targetProject = await fetchProject(env, toProjectId);
+      if (!targetProject) return jsonResponse({ error: 'Target project not found' }, corsHeaders, 404);
+      if (!userCanAccessProject(targetProject, userId)) {
+        return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+      }
+    }
+
+    let sourceProject = null;
+    let inboxTasks = null;
+    let task = null;
+
+    if (!fromProjectId) {
+      inboxTasks = await getInboxTasks(env, userId);
+      const taskIdx = inboxTasks.findIndex((t) => t.id === taskId);
+      if (taskIdx < 0) return jsonResponse({ error: 'Task not found in inbox' }, corsHeaders, 404);
+      [task] = inboxTasks.splice(taskIdx, 1);
+    } else {
+      sourceProject = await fetchProject(env, fromProjectId);
+      if (!sourceProject) return jsonResponse({ error: 'Source project not found' }, corsHeaders, 404);
+      if (!userCanAccessProject(sourceProject, userId)) {
+        return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+      }
+      const taskIdx = (sourceProject.tasks || []).findIndex((t) => t.id === taskId);
+      if (taskIdx < 0) return jsonResponse({ error: 'Task not found in project' }, corsHeaders, 404);
+      [task] = sourceProject.tasks.splice(taskIdx, 1);
+      sourceProject.updatedAt = Date.now();
+    }
+
+    const moved = { ...task, dependsOnTaskIds: [] };
+
+    if (!toProjectId) {
+      moved.assigneeUserIds = [];
+      if (!inboxTasks) inboxTasks = await getInboxTasks(env, userId);
+      moved.sortOrder = inboxTasks.length;
+      inboxTasks.push(moved);
+      await saveInboxTasks(env, userId, inboxTasks);
+      if (sourceProject) {
+        const stub = tetherProjectStub(env, sourceProject.id);
+        await stub.fetch(
+          new Request('http://do/save', { method: 'POST', body: JSON.stringify(sourceProject) })
+        );
+      }
+      return jsonResponse({ task: moved, fromProjectId, toProjectId: null }, corsHeaders);
+    }
+
+    if (!fromProjectId) {
+      moved.assigneeUserIds = [userId];
+    }
+    moved.sortOrder = (targetProject.tasks || []).length;
+    targetProject.tasks = [...(targetProject.tasks || []), moved];
+    targetProject.updatedAt = Date.now();
+
+    const depError = validateTaskDependencyCompletion(targetProject.tasks);
+    if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
+
+    if (!fromProjectId) {
+      await saveInboxTasks(env, userId, inboxTasks);
+    } else if (sourceProject) {
+      const sourceStub = tetherProjectStub(env, sourceProject.id);
+      await sourceStub.fetch(
+        new Request('http://do/save', { method: 'POST', body: JSON.stringify(sourceProject) })
+      );
+    }
+
+    const targetStub = tetherProjectStub(env, toProjectId);
+    await targetStub.fetch(
+      new Request('http://do/save', { method: 'POST', body: JSON.stringify(targetProject) })
+    );
+    return jsonResponse({ task: moved, fromProjectId, toProjectId }, corsHeaders);
+  }
+
   if (path === '/api/tether/inbox/unpack-project' && request.method === 'POST') {
     const body = await request.json();
     const projectId = String(body.projectId || '').trim();
