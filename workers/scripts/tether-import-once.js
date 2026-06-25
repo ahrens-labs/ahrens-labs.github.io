@@ -72,6 +72,85 @@ async function saveProject(env, project) {
   );
 }
 
+async function getInboxTasks(env, userId) {
+  const stub = userAccountStub(env, userId);
+  const res = await stub.fetch(new Request('http://do/getTetherInbox', { method: 'GET' }));
+  const data = await res.json();
+  return Array.isArray(data.tasks) ? data.tasks : [];
+}
+
+async function saveInboxTasks(env, userId, tasks) {
+  const stub = userAccountStub(env, userId);
+  await stub.fetch(
+    new Request('http://do/saveTetherInbox', {
+      method: 'PUT',
+      body: JSON.stringify({ tasks }),
+    })
+  );
+}
+
+async function removeTetherProjectId(env, userId, projectId) {
+  const stub = userAccountStub(env, userId);
+  await stub.fetch(
+    new Request('http://do/removeTetherProjectId', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    })
+  );
+}
+
+async function deleteProject(env, projectId) {
+  const stub = tetherProjectStub(env, projectId);
+  await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+}
+
+async function unpackProjectToInbox(env, userId, projectId) {
+  const project = await fetchProject(env, projectId);
+  if (!project) throw new Error('Project not found');
+
+  const inboxTasks = await getInboxTasks(env, userId);
+  const existingTitles = new Set(inboxTasks.map((t) => String(t.title || '').trim().toLowerCase()));
+  let moved = 0;
+  for (const task of project.tasks || []) {
+    const key = String(task.title || '').trim().toLowerCase();
+    if (!key || existingTitles.has(key)) continue;
+    existingTitles.add(key);
+    inboxTasks.push({
+      ...task,
+      dependsOnTaskIds: [],
+      assigneeUserIds: [],
+      sortOrder: inboxTasks.length,
+    });
+    moved++;
+  }
+
+  await saveInboxTasks(env, userId, inboxTasks);
+  for (const member of project.members || []) {
+    if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
+  }
+  await deleteProject(env, projectId);
+  return { moved, inboxTaskCount: inboxTasks.length };
+}
+
+async function importToInbox(env, userId, incomingTasks) {
+  const inboxTasks = await getInboxTasks(env, userId);
+  const existingTitles = new Set(inboxTasks.map((t) => String(t.title || '').trim().toLowerCase()));
+  let added = 0;
+  let skipped = 0;
+  for (const task of incomingTasks) {
+    const key = String(task.title || '').trim().toLowerCase();
+    if (!key || existingTitles.has(key)) {
+      skipped++;
+      continue;
+    }
+    existingTitles.add(key);
+    inboxTasks.push({ ...task, sortOrder: inboxTasks.length });
+    added++;
+  }
+  await saveInboxTasks(env, userId, inboxTasks);
+  return { added, skipped, totalTasks: inboxTasks.length };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -92,15 +171,32 @@ export default {
     }
 
     if (request.method !== 'POST') {
-      return new Response('POST JSON { userId, projectTitle, tasks } to import Todoist tasks.', { status: 405 });
+      return new Response('POST JSON to import or unpack tasks.', { status: 405 });
     }
 
     try {
       const body = await request.json();
       const userId = String(body.userId || '').trim();
+      if (!userId) return Response.json({ error: 'userId required' }, { status: 400 });
+
+      if (body.action === 'unpack-project') {
+        const projectId = String(body.projectId || '').trim();
+        if (!projectId) return Response.json({ error: 'projectId required' }, { status: 400 });
+        const result = await unpackProjectToInbox(env, userId, projectId);
+        return Response.json({ success: true, ...result });
+      }
+
+      if (body.action === 'import-inbox') {
+        const incomingTasks = Array.isArray(body.tasks) ? body.tasks : [];
+        if (!incomingTasks.length) return Response.json({ error: 'No tasks to import' }, { status: 400 });
+        const profile = await fetchUserProfile(env, userId);
+        if (!profile) return Response.json({ error: 'User profile not found' }, { status: 404 });
+        const result = await importToInbox(env, userId, incomingTasks);
+        return Response.json({ success: true, ...result });
+      }
+
       const projectTitle = String(body.projectTitle || 'Inbox').trim();
       const incomingTasks = Array.isArray(body.tasks) ? body.tasks : [];
-      if (!userId) return Response.json({ error: 'userId required' }, { status: 400 });
       if (!incomingTasks.length) return Response.json({ error: 'No tasks to import' }, { status: 400 });
 
       const profile = await fetchUserProfile(env, userId);

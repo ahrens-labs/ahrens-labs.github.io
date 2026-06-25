@@ -99,6 +99,39 @@ async function removeTetherProjectId(env, userId, projectId) {
   );
 }
 
+async function getInboxTasks(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return [];
+  const res = await stub.fetch(new Request('http://do/getTetherInbox', { method: 'GET' }));
+  const data = await res.json();
+  return Array.isArray(data.tasks) ? data.tasks : [];
+}
+
+async function saveInboxTasks(env, userId, tasks) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) throw new Error('Account not found');
+  const res = await stub.fetch(
+    new Request('http://do/saveTetherInbox', {
+      method: 'PUT',
+      body: JSON.stringify({ tasks }),
+    })
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save inbox');
+  return Array.isArray(data.tasks) ? data.tasks : tasks;
+}
+
+function enrichTaskWithDeps(task, allTasks) {
+  const byId = new Map(allTasks.map((t) => [t.id, t]));
+  const depIds = task.dependsOnTaskIds || [];
+  const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
+  const blockedByIncomplete = depIds
+    .map((id) => byId.get(id))
+    .filter((dep) => dep && (dep.status || 'todo') !== 'done')
+    .map((dep) => dep.title);
+  return { dependsOnTitles, blockedByIncomplete };
+}
+
 async function fetchProject(env, projectId) {
   const stub = tetherProjectStub(env, projectId);
   if (!stub) return null;
@@ -299,7 +332,20 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
     const projectIds = await getTetherProjectIds(env, userId);
     const accessible = await fetchAccessibleProjects(env, projectIds, userId);
+    const inboxTasks = await getInboxTasks(env, userId);
     const tasks = [];
+
+    for (const task of inboxTasks) {
+      const { dependsOnTitles, blockedByIncomplete } = enrichTaskWithDeps(task, inboxTasks);
+      tasks.push({
+        ...task,
+        projectId: null,
+        projectTitle: 'Inbox',
+        dependsOnTitles,
+        blockedByIncomplete,
+      });
+    }
+
     for (const project of accessible) {
       const projectTasks = project.tasks || [];
       const byId = new Map(projectTasks.map((t) => [t.id, t]));
@@ -329,6 +375,99 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       return String(a.title || '').localeCompare(String(b.title || ''));
     });
     return jsonResponse({ tasks }, corsHeaders);
+  }
+
+  if (path === '/api/tether/inbox' && request.method === 'GET') {
+    const tasks = await getInboxTasks(env, userId);
+    return jsonResponse({ tasks }, corsHeaders);
+  }
+
+  if (path === '/api/tether/inbox' && request.method === 'PUT') {
+    const body = await request.json();
+    const tasks = Array.isArray(body.tasks) ? body.tasks : [];
+    const depError = validateTaskDependencyCompletion(tasks);
+    if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
+    const saved = await saveInboxTasks(env, userId, tasks);
+    return jsonResponse({ tasks: saved }, corsHeaders);
+  }
+
+  if (path === '/api/tether/inbox/move-to-project' && request.method === 'POST') {
+    const body = await request.json();
+    const taskId = String(body.taskId || '').trim();
+    const projectId = String(body.projectId || '').trim();
+    if (!taskId || !projectId) {
+      return jsonResponse({ error: 'taskId and projectId required' }, corsHeaders, 400);
+    }
+
+    const inboxTasks = await getInboxTasks(env, userId);
+    const taskIdx = inboxTasks.findIndex((t) => t.id === taskId);
+    if (taskIdx < 0) return jsonResponse({ error: 'Task not found in inbox' }, corsHeaders, 404);
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userCanAccessProject(project, userId)) {
+      return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+    }
+
+    const [task] = inboxTasks.splice(taskIdx, 1);
+    const moved = {
+      ...task,
+      dependsOnTaskIds: [],
+      assigneeUserIds: [userId],
+      sortOrder: (project.tasks || []).length,
+    };
+    project.tasks = [...(project.tasks || []), moved];
+    project.updatedAt = Date.now();
+
+    const depError = validateTaskDependencyCompletion(project.tasks);
+    if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
+
+    await saveInboxTasks(env, userId, inboxTasks);
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(
+      new Request('http://do/save', {
+        method: 'POST',
+        body: JSON.stringify(project),
+      })
+    );
+    return jsonResponse({ task: moved, projectId, tasks: inboxTasks }, corsHeaders);
+  }
+
+  if (path === '/api/tether/inbox/unpack-project' && request.method === 'POST') {
+    const body = await request.json();
+    const projectId = String(body.projectId || '').trim();
+    if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+
+    const project = await fetchProject(env, projectId);
+    if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
+    if (!userIsOwner(project, userId)) {
+      return jsonResponse({ error: 'Only the project owner can move tasks to inbox' }, corsHeaders, 403);
+    }
+
+    const inboxTasks = await getInboxTasks(env, userId);
+    const existingTitles = new Set(inboxTasks.map((t) => String(t.title || '').trim().toLowerCase()));
+    let moved = 0;
+    for (const task of project.tasks || []) {
+      const key = String(task.title || '').trim().toLowerCase();
+      if (!key || existingTitles.has(key)) continue;
+      existingTitles.add(key);
+      inboxTasks.push({
+        ...task,
+        dependsOnTaskIds: [],
+        assigneeUserIds: [],
+        sortOrder: inboxTasks.length,
+      });
+      moved++;
+    }
+
+    await saveInboxTasks(env, userId, inboxTasks);
+    for (const member of project.members || []) {
+      if (member.userId) await removeTetherProjectId(env, member.userId, projectId);
+    }
+    const stub = tetherProjectStub(env, projectId);
+    await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+
+    return jsonResponse({ moved, inboxTaskCount: inboxTasks.length }, corsHeaders);
   }
 
   if (path === '/api/tether/projects' && request.method === 'POST') {

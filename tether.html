@@ -174,7 +174,10 @@
     .th-btn-primary { background: var(--th-accent); color: #fff; }
     .th-btn-primary:hover { filter: brightness(1.05); }
     .th-btn-ghost { background: #fff; border: 1px solid var(--th-line); color: var(--th-ink); }
-    .th-btn-danger { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+    .th-move-select {
+      border: 1px solid var(--th-line); border-radius: 10px; padding: 7px 10px;
+      font: inherit; font-size: 0.82rem; background: #fff; max-width: 200px;
+    }
     .th-dod {
       margin: 0 0 16px; padding: 14px 18px; border-radius: 16px;
       background: #fff; border: 1px solid var(--th-line);
@@ -717,9 +720,24 @@
       <div id="th-banner" class="th-banner"></div>
 
       <div class="th-app-tabs">
+        <button type="button" id="tab-inbox" data-app-tab="inbox">Inbox</button>
         <button type="button" class="active" id="tab-projects" data-app-tab="projects">My Projects</button>
         <button type="button" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
       </div>
+
+      <section class="th-card th-main" id="inbox-panel" style="display:none;padding:22px 24px;">
+        <div class="th-toolbar">
+          <h2>Inbox</h2>
+          <div class="th-toolbar-actions">
+            <button type="button" class="th-btn th-btn-ghost" id="btn-clear-inbox-completed" style="display:none;">Clear completed</button>
+            <button type="button" class="th-btn th-btn-primary" id="btn-add-inbox-task">+ Task<span class="th-kbd-hint">q</span></button>
+            <button type="button" class="th-btn th-btn-ghost" id="btn-search-inbox" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
+          </div>
+        </div>
+        <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Personal tasks not tied to a project yet. Add them to a project when you're ready.</p>
+        <div id="inbox-stats" class="th-project-stats"></div>
+        <div id="inbox-list-view"></div>
+      </section>
 
       <div class="th-shell" id="shell-projects">
         <aside class="th-card th-sidebar">
@@ -931,6 +949,10 @@
       </div>
       <div class="th-task-modal-foot">
         <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-detail-start" style="display:none;">Start</button>
+        <div id="task-detail-move-wrap" style="display:none;align-items:center;gap:8px;">
+          <select id="task-detail-move-project" class="th-move-select" aria-label="Move to project"></select>
+          <button type="button" class="th-btn th-btn-ghost" id="task-detail-move">Move to project</button>
+        </div>
         <button type="button" class="th-btn th-btn-ghost" id="task-detail-complete" style="margin-right:auto;">Mark complete</button>
         <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
@@ -1013,6 +1035,7 @@
   let appTab = 'projects';
   let projectSort = 'alpha';
   let myTasks = [];
+  let inboxTasks = [];
   let editingTaskId = null;
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
@@ -1020,6 +1043,7 @@
   let confirmResolve = null;
   let viewingTaskId = null;
   let viewingTaskFromMyTasks = false;
+  let viewingTaskFromInbox = false;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -1029,10 +1053,168 @@
   let ganttShowCompleted = false;
   let myTasksViewFilter = 'active';
   let listLabelFilter = null;
+  let inboxLabelFilter = null;
   let searchTasksCache = null;
   let searchLoadPromise = null;
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
+
+  function isInboxContext() {
+    return appTab === 'inbox' || viewingTaskFromInbox;
+  }
+
+  function tasksMatchingInboxLabelFilter(tasks) {
+    if (!inboxLabelFilter) return tasks;
+    return tasks.filter(t => taskLabels(t).includes(inboxLabelFilter));
+  }
+
+  async function loadInbox() {
+    const data = await api('/api/tether/inbox', { method: 'GET' });
+    inboxTasks = data.tasks || [];
+    renderInboxView();
+  }
+
+  async function saveInbox(tasks) {
+    const payload = tasks || inboxTasks;
+    const data = await api('/api/tether/inbox', {
+      method: 'PUT',
+      body: JSON.stringify({ tasks: payload }),
+    });
+    inboxTasks = data.tasks || payload;
+    invalidateSearchCache();
+    if (appTab === 'inbox') renderInboxView();
+    if (appTab === 'my-tasks') await loadMyTasks();
+  }
+
+  function renderInboxView() {
+    const el = document.getElementById('inbox-list-view');
+    const allTasks = sortTasks(inboxTasks);
+    const tasks = tasksMatchingInboxLabelFilter(allTasks);
+    const statsEl = document.getElementById('inbox-stats');
+    if (statsEl) {
+      const total = allTasks.length;
+      const done = allTasks.filter(t => t.status === 'done').length;
+      const inProg = allTasks.filter(t => t.status === 'in_progress').length;
+      const dueSoon = allTasks.filter(t => t.dueDate && isDueWithinDays(t.dueDate, 7) && t.status !== 'done').length;
+      if (!total) {
+        statsEl.innerHTML = '';
+      } else {
+        statsEl.innerHTML = `
+          <span class="th-stat-pill active-stat"><em>${total - done}</em> active</span>
+          <span class="th-stat-pill ok"><em>${done}</em> completed</span>
+          <span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>
+          ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
+        `;
+      }
+    }
+    const completedCount = allTasks.filter(t => t.status === 'done').length;
+    document.getElementById('btn-clear-inbox-completed').style.display = completedCount ? 'inline-block' : 'none';
+
+    if (!allTasks.length) {
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">Your inbox is empty. Capture a task here, then move it to a project when you are ready to work on it with others.</p>';
+      return;
+    }
+    el.innerHTML = `
+      ${renderLabelFilterBar(allTasks, inboxLabelFilter, 'inbox')}
+      ${!tasks.length ? '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks with this label.</p>' : ''}
+      <div class="th-task-cards">
+        ${tasks.map(t => renderInboxTaskCardHtml(t, allTasks)).join('')}
+      </div>
+    `;
+    wireInboxLabelFilters(el);
+    el.querySelectorAll('[data-view-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task'), { fromInbox: true }));
+    });
+    el.querySelectorAll('[data-edit-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
+    });
+    el.querySelectorAll('[data-del-task]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const task = inboxTasks.find(t => t.id === btn.getAttribute('data-del-task'));
+        if (task) openDeleteTaskModal(task.id, task.title);
+      });
+    });
+    wireStartButtons(el);
+    wireCompleteButtons(el);
+  }
+
+  function renderInboxTaskCardHtml(t, allTasks) {
+    const st = t.status || 'todo';
+    const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
+    const blocked = isTaskCompletionBlocked(t, allTasks);
+    const labels = taskLabels(t);
+    return `
+      <article class="th-task-card status-${st}">
+        <div class="th-task-card-row">
+          ${completeBtnHtml(t.id, st, false, blocked)}
+          <div class="th-task-card-main">
+            <div class="th-task-card-headline">
+              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+              <div class="th-task-card-badges">
+                ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
+                <span class="th-status ${st}">${statusLabel(st)}</span>
+                ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t.recurrence, t.recurrenceDay))}</span>` : ''}
+                <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
+              </div>
+            </div>
+            ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
+            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
+            ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+            <div class="th-task-card-bottom">
+              <div class="th-task-card-meta">
+                ${(t.dependsOnTaskIds || []).length ? '⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : 'Not in a project'}
+              </div>
+              <div class="th-task-card-actions">
+                <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
+                <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  function wireInboxLabelFilters(root) {
+    (root || document).querySelectorAll('[data-inbox-label-filter]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const val = chip.getAttribute('data-inbox-label-filter');
+        inboxLabelFilter = val || null;
+        renderInboxView();
+      });
+    });
+  }
+
+  async function moveInboxTaskToProject(taskId, projectId) {
+    if (!taskId || !projectId) throw new Error('Pick a project');
+    await api('/api/tether/inbox/move-to-project', {
+      method: 'POST',
+      body: JSON.stringify({ taskId, projectId }),
+    });
+    invalidateSearchCache();
+    await loadInbox();
+    await loadProjects();
+    if (activeProject && activeProject.id === projectId) {
+      await loadProject(projectId);
+    }
+    showBanner('Task moved to project', 'ok');
+  }
+
+  async function clearInboxCompletedTasks() {
+    const before = inboxTasks.length;
+    inboxTasks = inboxTasks.filter(t => t.status !== 'done');
+    if (inboxTasks.length === before) return;
+    await saveInbox();
+    showBanner('Completed tasks cleared', 'ok');
+  }
+
+  function populateMoveProjectSelect() {
+    const sel = document.getElementById('task-detail-move-project');
+    if (!sel) return;
+    const opts = sortedProjects(projects).map(p =>
+      `<option value="${escapeAttr(p.id)}">${escapeHtml(p.title)}</option>`
+    ).join('');
+    sel.innerHTML = opts || '<option value="">No projects yet</option>';
+  }
 
   function invalidateSearchCache() {
     searchTasksCache = null;
@@ -1158,6 +1340,17 @@
           });
         } catch { /* skip inaccessible projects */ }
       }));
+      try {
+        const inboxData = await api('/api/tether/inbox', { method: 'GET' });
+        (inboxData.tasks || []).forEach(t => {
+          all.push({
+            ...t,
+            projectId: null,
+            projectTitle: 'Inbox',
+            labels: taskLabels(t),
+          });
+        });
+      } catch { /* inbox optional */ }
       searchTasksCache = all;
       return all;
     })();
@@ -1204,6 +1397,12 @@
         const projectId = btn.getAttribute('data-search-project');
         const taskId = btn.getAttribute('data-search-task');
         closeModal('modal-search');
+        if (!projectId) {
+          setAppTab('inbox', { skipUrlSync: true });
+          await loadInbox();
+          openTaskDetailModal(taskId, { fromInbox: true });
+          return;
+        }
         setAppTab('projects', { skipUrlSync: true });
         await loadProject(projectId, taskId);
         openTaskDetailModal(taskId);
@@ -1225,13 +1424,15 @@
     }
   }
 
-  function renderLabelFilterBar(tasks) {
+  function renderLabelFilterBar(tasks, activeFilter, scope) {
     const labels = collectProjectLabels(tasks);
     if (!labels.length) return '';
+    const attr = scope === 'inbox' ? 'data-inbox-label-filter' : 'data-label-filter';
+    const current = scope === 'inbox' ? inboxLabelFilter : listLabelFilter;
     return `<div class="th-label-filter-bar">
       <span>Labels</span>
-      <span class="th-label-chip filterable${listLabelFilter ? '' : ' active'}" data-label-filter="">All</span>
-      ${labels.map(l => `<span class="th-label-chip filterable${listLabelFilter === l ? ' active' : ''}" data-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+      <span class="th-label-chip filterable${current ? '' : ' active'}" ${attr}="">All</span>
+      ${labels.map(l => `<span class="th-label-chip filterable${current === l ? ' active' : ''}" ${attr}="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
     </div>`;
   }
 
@@ -1284,6 +1485,9 @@
     if (state.view === 'my-tasks') {
       u.searchParams.set('view', 'my-tasks');
       if (state.taskId) u.searchParams.set('task', state.taskId);
+    } else if (state.view === 'inbox') {
+      u.searchParams.set('view', 'inbox');
+      if (state.taskId) u.searchParams.set('task', state.taskId);
     } else {
       if (state.projectId) u.searchParams.set('project', state.projectId);
       if (state.taskId) u.searchParams.set('task', state.taskId);
@@ -1302,11 +1506,16 @@
     const skipUrlSync = opts && opts.skipUrlSync;
     const skipLoad = opts && opts.skipLoad;
     appTab = tab;
+    document.getElementById('tab-inbox').classList.toggle('active', tab === 'inbox');
     document.getElementById('tab-projects').classList.toggle('active', tab === 'projects');
     document.getElementById('tab-my-tasks').classList.toggle('active', tab === 'my-tasks');
+    document.getElementById('inbox-panel').style.display = tab === 'inbox' ? 'block' : 'none';
     document.getElementById('shell-projects').style.display = tab === 'projects' ? 'grid' : 'none';
     document.getElementById('my-tasks-panel').style.display = tab === 'my-tasks' ? 'block' : 'none';
-    if (tab === 'my-tasks') {
+    if (tab === 'inbox') {
+      if (!skipUrlSync) syncUrlState({ view: 'inbox' });
+      if (!skipLoad) loadInbox();
+    } else if (tab === 'my-tasks') {
       if (!skipUrlSync) syncUrlState({ view: 'my-tasks' });
       if (!skipLoad) loadMyTasks();
     } else if (!skipUrlSync) {
@@ -1462,7 +1671,13 @@
   }
 
   async function openMyTaskDetailModal(projectId, taskId) {
-    if (!projectId || !taskId) return;
+    if (!taskId) return;
+    if (!projectId) {
+      viewingTaskFromInbox = true;
+      if (!inboxTasks.length) await loadInbox();
+      openTaskDetailModal(taskId, { fromInbox: true });
+      return;
+    }
     viewingTaskFromMyTasks = true;
     try {
       if (!activeProject || activeProject.id !== projectId) {
@@ -2459,7 +2674,7 @@
           if (projectId) {
             await setMyTaskStatus(projectId, btn.getAttribute('data-start-task'), 'in_progress');
           } else {
-            await setTaskStatus(btn.getAttribute('data-start-task'), 'in_progress');
+            await setInboxTaskStatus(btn.getAttribute('data-start-task'), 'in_progress');
           }
         } catch (err) { showBanner(err.message); }
       });
@@ -2467,11 +2682,36 @@
   }
 
   async function setTaskStatus(taskId, status) {
-    const task = getTaskById(taskId);
+    const task = getTaskById(taskId) || inboxTasks.find(t => t.id === taskId);
     if (!task || task.status === status) return;
     task.status = status;
-    await saveProject(activeProject);
+    if (isInboxContext() || inboxTasks.some(t => t.id === taskId)) await saveInbox();
+    else await saveProject(activeProject);
     showBanner(status === 'in_progress' ? 'Task marked in progress' : 'Task updated', 'ok');
+  }
+
+  async function setInboxTaskStatus(taskId, status) {
+    const task = inboxTasks.find(t => t.id === taskId);
+    if (!task) throw new Error('Task not found');
+    let recurringReset = false;
+    if (status === 'done') {
+      recurringReset = applyRecurrenceOnComplete(task);
+      if (!recurringReset) task.status = 'done';
+    } else {
+      task.status = status;
+    }
+    await saveInbox();
+    if (appTab === 'my-tasks') await loadMyTasks();
+    const bannerMsg = recurringReset
+      ? recurrenceCompleteMessage(task)
+      : status === 'in_progress'
+        ? 'Task marked in progress'
+        : status === 'done'
+          ? 'Task marked complete'
+          : status === 'todo'
+            ? 'Task marked active'
+            : 'Task updated';
+    showBanner(bannerMsg, 'ok');
   }
 
   async function setMyTaskStatus(projectId, taskId, status) {
@@ -2530,6 +2770,27 @@
   }
 
   async function toggleMyTaskComplete(projectId, taskId) {
+    if (!projectId) {
+      const local = myTasks.find(t => t.id === taskId && !t.projectId);
+      if (!local) return;
+      const currentStatus = local.status || 'todo';
+      if (currentStatus !== 'done' && (local.blockedByIncomplete || []).length > 0) {
+        const names = local.blockedByIncomplete.map(n => `"${n}"`).join(', ');
+        showBanner(
+          local.blockedByIncomplete.length === 1
+            ? `Complete ${names} first — this task depends on it.`
+            : `Complete these tasks first: ${names}.`
+        );
+        return;
+      }
+      const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
+      try {
+        await setInboxTaskStatus(taskId, nextStatus);
+      } catch (e) {
+        showBanner(e.message);
+      }
+      return;
+    }
     const local = myTasks.find(t => t.id === taskId && t.projectId === projectId);
     if (!local) return;
     const currentStatus = local.status || 'todo';
@@ -2551,9 +2812,12 @@
   }
 
   async function toggleTaskComplete(taskId) {
-    const task = getTaskById(taskId);
+    const inInbox = isInboxContext() || inboxTasks.some(t => t.id === taskId);
+    const task = inInbox
+      ? inboxTasks.find(t => t.id === taskId)
+      : getTaskById(taskId);
     if (!task) return;
-    const tasks = activeProject.tasks || [];
+    const tasks = inInbox ? inboxTasks : (activeProject?.tasks || []);
     if (task.status !== 'done') {
       const blocked = completionBlockedMessage(task, tasks);
       if (blocked) {
@@ -2569,20 +2833,31 @@
       task.status = 'todo';
     }
     try {
-      await saveProject(activeProject);
+      if (inInbox) await saveInbox();
+      else await saveProject(activeProject);
       showBanner(
         recurringReset ? recurrenceCompleteMessage(task)
           : task.status === 'done' ? 'Task marked complete' : 'Task marked active',
         'ok'
       );
       if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
-        openTaskDetailModal(taskId, { fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks' });
+        openTaskDetailModal(taskId, {
+          fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks',
+          fromInbox: inInbox,
+        });
       }
     } catch (e) { showBanner(e.message); }
   }
 
   function getTaskById(taskId) {
-    return (activeProject.tasks || []).find(t => t.id === taskId) || null;
+    if (isInboxContext()) {
+      return inboxTasks.find(t => t.id === taskId) || null;
+    }
+    return (activeProject?.tasks || []).find(t => t.id === taskId) || null;
+  }
+
+  function getActiveTaskList() {
+    return isInboxContext() ? inboxTasks : (activeProject?.tasks || []);
   }
 
   /** Dependency tasks that must be done before this one can be completed. */
@@ -2610,31 +2885,43 @@
   function openTaskDetailModal(taskId, opts) {
     opts = opts || {};
     const fromMyTasks = opts.fromMyTasks === true || viewingTaskFromMyTasks;
-    const task = getTaskById(taskId);
-    if (!task) return;
-    viewingTaskId = taskId;
+    const fromInbox = opts.fromInbox === true || viewingTaskFromInbox || appTab === 'inbox';
+    viewingTaskFromInbox = fromInbox && !fromMyTasks;
     viewingTaskFromMyTasks = fromMyTasks;
-    const tasks = activeProject.tasks || [];
-    const memberMap = memberLabelMap();
-    document.getElementById('task-detail-title').textContent = task.title;
-    document.getElementById('task-detail-subtitle').textContent = activeProject
-      ? 'In project · ' + activeProject.title
-      : '';
+    viewingTaskId = taskId;
+    const resolved = (fromInbox ? inboxTasks : (activeProject?.tasks || [])).find(t => t.id === taskId)
+      || inboxTasks.find(t => t.id === taskId);
+    if (!resolved) return;
+    const tasks = fromInbox ? inboxTasks : (activeProject?.tasks || []);
+    const memberMap = fromInbox ? {} : memberLabelMap();
+    document.getElementById('task-detail-title').textContent = resolved.title;
+    document.getElementById('task-detail-subtitle').textContent = fromInbox
+      ? 'Personal inbox · not in a project'
+      : (activeProject ? 'In project · ' + activeProject.title : '');
     document.getElementById('task-detail-body').innerHTML = `
-      <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${task.status || 'todo'}">${statusLabel(task.status)}</span></div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(task.dueDate)}</div></div>
-      ${task.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(task.recurrence, task.recurrenceDay))}</div></div>` : ''}
-      ${taskLabels(task).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(task), false)}</div></div>` : ''}
-      <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(task.definitionOfDone || '—')}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(task.notes || '—')}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(task.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(task.dependsOnTaskIds, tasks)}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${resolved.status || 'todo'}">${statusLabel(resolved.status)}</span></div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(resolved.dueDate)}</div></div>
+      ${resolved.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(resolved.recurrence, resolved.recurrenceDay))}</div></div>` : ''}
+      ${taskLabels(resolved).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(resolved), false)}</div></div>` : ''}
+      <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(resolved.definitionOfDone || '—')}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(resolved.notes || '—')}</div></div>
+      ${fromInbox ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
+      <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
     `;
     const completeBtn = document.getElementById('task-detail-complete');
     const startBtn = document.getElementById('task-detail-start');
-    const blocked = isTaskCompletionBlocked(task, tasks);
-    const st = task.status || 'todo';
+    const moveWrap = document.getElementById('task-detail-move-wrap');
+    const blocked = isTaskCompletionBlocked(resolved, tasks);
+    const st = resolved.status || 'todo';
     startBtn.style.display = st === 'todo' ? 'inline-block' : 'none';
+    if (fromInbox) {
+      populateMoveProjectSelect();
+      moveWrap.style.display = projects.length ? 'flex' : 'none';
+      completeBtn.style.marginRight = '0';
+    } else {
+      moveWrap.style.display = 'none';
+      completeBtn.style.marginRight = 'auto';
+    }
     if (st === 'done') {
       completeBtn.textContent = 'Mark active';
       completeBtn.style.display = 'inline-block';
@@ -2646,7 +2933,7 @@
       completeBtn.style.display = 'inline-block';
       completeBtn.classList.remove('done-toggle');
       completeBtn.disabled = true;
-      completeBtn.title = completionBlockedMessage(task, tasks);
+      completeBtn.title = completionBlockedMessage(resolved, tasks);
     } else {
       completeBtn.textContent = 'Mark complete';
       completeBtn.style.display = 'inline-block';
@@ -2657,6 +2944,8 @@
     openModal('modal-task-detail');
     if (fromMyTasks) {
       syncUrlState({ view: 'my-tasks', taskId });
+    } else if (fromInbox) {
+      syncUrlState({ view: 'inbox', taskId });
     } else if (activeProject) {
       syncUrlState({ projectId: activeProject.id, taskId });
     }
@@ -2669,15 +2958,24 @@
   }
 
   async function deleteTaskById(taskId) {
-    activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
-    activeProject.tasks.forEach(t => {
-      t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
-    });
+    if (isInboxContext()) {
+      inboxTasks = inboxTasks.filter(t => t.id !== taskId);
+      inboxTasks.forEach(t => {
+        t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
+      });
+    } else {
+      activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
+      activeProject.tasks.forEach(t => {
+        t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
+      });
+    }
     if (viewingTaskId === taskId) {
       viewingTaskId = null;
+      viewingTaskFromInbox = false;
       closeModal('modal-task-detail');
     }
-    await saveProject(activeProject);
+    if (isInboxContext()) await saveInbox();
+    else await saveProject(activeProject);
     showBanner('Task deleted', 'ok');
   }
 
@@ -2697,12 +2995,13 @@
 
   function openTaskModal(taskId) {
     editingTaskId = taskId || null;
+    const inInbox = appTab === 'inbox';
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
-    document.getElementById('modal-task-subtitle').textContent = activeProject
-      ? 'In project · ' + activeProject.title
-      : '';
+    document.getElementById('modal-task-subtitle').textContent = inInbox
+      ? 'Personal inbox · not in a project'
+      : (activeProject ? 'In project · ' + activeProject.title : '');
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
-    const tasks = activeProject.tasks || [];
+    const tasks = inInbox ? inboxTasks : (activeProject?.tasks || []);
     const task = taskId ? tasks.find(t => t.id === taskId) : null;
     document.getElementById('task-title-input').value = task ? task.title : '';
     document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
@@ -2719,7 +3018,13 @@
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
 
     const assigneesEl = document.getElementById('task-assignees');
-    assigneesEl.innerHTML = (activeProject.members || []).map(m => {
+    const peopleSection = assigneesEl.closest('.th-task-section');
+    if (inInbox) {
+      if (peopleSection) peopleSection.style.display = 'none';
+      assigneesEl.innerHTML = '';
+    } else {
+      if (peopleSection) peopleSection.style.display = '';
+      assigneesEl.innerHTML = (activeProject.members || []).map(m => {
       const label = m.username || m.email || m.userId;
       return `
       <label class="th-chip-check">
@@ -2729,6 +3034,7 @@
         ${escapeHtml(label)}
       </label>`;
     }).join('') || '<span style="font-size:0.82rem;color:var(--th-muted);">Share the project to add members</span>';
+    }
 
     const depsEl = document.getElementById('task-deps');
     const otherTasks = tasks.filter(t => t.id !== taskId);
@@ -2834,8 +3140,14 @@
     return t.dueDate || isoDate(new Date());
   }
 
+  document.getElementById('tab-inbox').addEventListener('click', () => setAppTab('inbox'));
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
+  document.getElementById('btn-add-inbox-task').addEventListener('click', () => openTaskModal(null));
+  document.getElementById('btn-search-inbox').addEventListener('click', () => openSearchModal());
+  document.getElementById('btn-clear-inbox-completed').addEventListener('click', () => {
+    clearInboxCompletedTasks().catch(e => showBanner(e.message));
+  });
   document.getElementById('my-tasks-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-my-tasks-filter]');
     if (!btn) return;
@@ -2856,9 +3168,13 @@
     btn.addEventListener('click', () => {
       viewingTaskId = null;
       const wasMyTasks = viewingTaskFromMyTasks || appTab === 'my-tasks';
+      const wasInbox = viewingTaskFromInbox || appTab === 'inbox';
       viewingTaskFromMyTasks = false;
+      viewingTaskFromInbox = false;
       if (wasMyTasks) {
         syncUrlState({ view: 'my-tasks' });
+      } else if (wasInbox) {
+        syncUrlState({ view: 'inbox' });
       } else if (activeProject) {
         syncUrlState({ projectId: activeProject.id, taskId: null });
       }
@@ -2878,6 +3194,8 @@
     const taskId = params.get('task');
     if (view === 'my-tasks') {
       setAppTab('my-tasks', { skipUrlSync: true, skipLoad: true });
+    } else if (view === 'inbox') {
+      setAppTab('inbox', { skipUrlSync: true, skipLoad: true });
     } else if (projectId) {
       setAppTab('projects', { skipUrlSync: true });
       showProjectLoadingPreview(projectId);
@@ -2892,6 +3210,9 @@
           const mt = myTasks.find(t => t.id === taskId);
           if (mt) await openMyTaskDetailModal(mt.projectId, taskId);
         }
+      } else if (view === 'inbox') {
+        await loadInbox();
+        if (taskId) openTaskDetailModal(taskId, { fromInbox: true });
       }
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
@@ -3001,10 +3322,13 @@
   document.getElementById('save-task-btn').addEventListener('click', async () => {
     const title = document.getElementById('task-title-input').value.trim();
     if (!title) { showBanner('Task title is required'); return; }
+    const inInbox = appTab === 'inbox';
+    if (!inInbox && !activeProject) { showBanner('Select a project first'); return; }
     const recurrence = document.getElementById('task-recurrence-input').value || null;
     const recurrenceDay = recurrence === 'weekly'
       ? Number(document.getElementById('task-recurrence-day').value)
       : undefined;
+    const taskList = inInbox ? inboxTasks : (activeProject.tasks || []);
     const task = {
       id: editingTaskId || crypto.randomUUID(),
       title,
@@ -3012,11 +3336,11 @@
       notes: document.getElementById('task-notes-input').value.trim(),
       dueDate: document.getElementById('task-due-input').value,
       status: document.getElementById('task-status-input').value,
-      assigneeUserIds: [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
+      assigneeUserIds: inInbox ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
       labels: extractLabels(title),
       recurrence,
-      sortOrder: editingTaskId ? undefined : (activeProject.tasks || []).length,
+      sortOrder: editingTaskId ? undefined : taskList.length,
     };
     if (recurrence === 'weekly') task.recurrenceDay = recurrenceDay;
     else delete task.recurrenceDay;
@@ -3025,7 +3349,7 @@
       delete task.recurrenceDay;
     }
     if (task.status === 'done') {
-      const blocked = completionBlockedMessage(task, activeProject.tasks || []);
+      const blocked = completionBlockedMessage(task, taskList);
       if (blocked) {
         showBanner(blocked);
         return;
@@ -3033,19 +3357,35 @@
       if (recurrence) applyRecurrenceOnComplete(task);
     }
     if (editingTaskId) {
-      const idx = activeProject.tasks.findIndex(t => t.id === editingTaskId);
+      const idx = taskList.findIndex(t => t.id === editingTaskId);
       if (idx >= 0) {
-        task.sortOrder = activeProject.tasks[idx].sortOrder;
-        activeProject.tasks[idx] = task;
+        task.sortOrder = taskList[idx].sortOrder;
+        taskList[idx] = task;
       }
     } else {
-      activeProject.tasks = activeProject.tasks || [];
-      activeProject.tasks.push(task);
+      taskList.push(task);
     }
     closeModal('modal-task');
     try {
-      await saveProject(activeProject);
+      if (inInbox) {
+        inboxTasks = taskList;
+        await saveInbox();
+      } else {
+        activeProject.tasks = taskList;
+        await saveProject(activeProject);
+      }
       showBanner(task.recurrence && task.status !== 'done' ? recurrenceCompleteMessage(task) : 'Task saved', 'ok');
+    } catch (e) { showBanner(e.message); }
+  });
+
+  document.getElementById('task-detail-move').addEventListener('click', async () => {
+    if (!viewingTaskId) return;
+    const projectId = document.getElementById('task-detail-move-project').value;
+    try {
+      await moveInboxTaskToProject(viewingTaskId, projectId);
+      viewingTaskId = null;
+      viewingTaskFromInbox = false;
+      closeModal('modal-task-detail');
     } catch (e) { showBanner(e.message); }
   });
 
@@ -3163,7 +3503,10 @@
     if (isTypingContext(e.target)) return;
     if (isAnyModalOpen()) return;
     if (e.key === 'q' || e.key === 'Q') {
-      if (appTab === 'projects' && activeProject) {
+      if (appTab === 'inbox') {
+        e.preventDefault();
+        openTaskModal(null);
+      } else if (appTab === 'projects' && activeProject) {
         e.preventDefault();
         openTaskModal(null);
       }

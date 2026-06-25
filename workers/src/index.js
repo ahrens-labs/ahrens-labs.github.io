@@ -9808,6 +9808,17 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getTetherInbox' && request.method === 'GET') {
+        const tasks = await this.getTetherInboxTasks();
+        return new Response(JSON.stringify({ tasks }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveTetherInbox' && request.method === 'PUT') {
+        const { tasks } = await request.json();
+        const saved = await this.saveTetherInboxTasks(tasks);
+        return new Response(JSON.stringify({ success: true, tasks: saved }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -9914,7 +9925,8 @@ export class UserAccount {
         }
       },
       tether: {
-        projectIds: []
+        projectIds: [],
+        inboxTasks: [],
       }
     };
 
@@ -9955,6 +9967,23 @@ export class UserAccount {
     if (!userData || !userData.tether || !Array.isArray(userData.tether.projectIds)) return;
     userData.tether.projectIds = userData.tether.projectIds.filter((id) => id !== pid);
     await this.storage.put('userData', userData);
+  }
+
+  async getTetherInboxTasks() {
+    const userData = await this.storage.get('userData');
+    if (!userData?.tether?.inboxTasks) return [];
+    return userData.tether.inboxTasks.filter((t) => t && typeof t === 'object');
+  }
+
+  async saveTetherInboxTasks(tasks) {
+    const userData = await this.storage.get('userData');
+    if (!userData) throw new Error('User not found');
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [] };
+    }
+    userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
+    await this.storage.put('userData', userData);
+    return userData.tether.inboxTasks;
   }
 
   async authenticate(password) {
