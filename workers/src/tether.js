@@ -121,6 +121,28 @@ async function saveInboxTasks(env, userId, tasks) {
   return Array.isArray(data.tasks) ? data.tasks : tasks;
 }
 
+async function getLabelColors(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return {};
+  const res = await stub.fetch(new Request('http://do/getTetherLabelColors', { method: 'GET' }));
+  const data = await res.json();
+  return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : {};
+}
+
+async function saveLabelColors(env, userId, labelColors) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) throw new Error('Account not found');
+  const res = await stub.fetch(
+    new Request('http://do/saveTetherLabelColors', {
+      method: 'PUT',
+      body: JSON.stringify({ labelColors }),
+    })
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save label colors');
+  return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : labelColors;
+}
+
 function enrichTaskWithDeps(task, allTasks) {
   const byId = new Map(allTasks.map((t) => [t.id, t]));
   const depIds = task.dependsOnTaskIds || [];
@@ -389,6 +411,25 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
     const saved = await saveInboxTasks(env, userId, tasks);
     return jsonResponse({ tasks: saved }, corsHeaders);
+  }
+
+  if (path === '/api/tether/label-colors' && request.method === 'GET') {
+    const labelColors = await getLabelColors(env, userId);
+    return jsonResponse({ labelColors }, corsHeaders);
+  }
+
+  if (path === '/api/tether/label-colors' && request.method === 'PUT') {
+    const body = await request.json();
+    const raw = body.labelColors && typeof body.labelColors === 'object' ? body.labelColors : {};
+    const labelColors = {};
+    for (const [key, val] of Object.entries(raw)) {
+      const label = String(key || '').trim().toLowerCase();
+      const idx = Number(val);
+      if (!label || !Number.isInteger(idx) || idx < 0 || idx > 11) continue;
+      labelColors[label] = idx;
+    }
+    const saved = await saveLabelColors(env, userId, labelColors);
+    return jsonResponse({ labelColors: saved }, corsHeaders);
   }
 
   if (path === '/api/tether/inbox/move-to-project' && request.method === 'POST') {

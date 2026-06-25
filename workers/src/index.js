@@ -9819,6 +9819,17 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true, tasks: saved }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getTetherLabelColors' && request.method === 'GET') {
+        const labelColors = await this.getTetherLabelColors();
+        return new Response(JSON.stringify({ labelColors }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveTetherLabelColors' && request.method === 'PUT') {
+        const { labelColors } = await request.json();
+        const saved = await this.saveTetherLabelColors(labelColors);
+        return new Response(JSON.stringify({ success: true, labelColors: saved }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -9984,6 +9995,31 @@ export class UserAccount {
     userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
     await this.storage.put('userData', userData);
     return userData.tether.inboxTasks;
+  }
+
+  async getTetherLabelColors() {
+    const userData = await this.storage.get('userData');
+    const raw = userData?.tether?.labelColors;
+    if (!raw || typeof raw !== 'object') return {};
+    const out = {};
+    for (const [key, val] of Object.entries(raw)) {
+      const label = String(key || '').trim().toLowerCase();
+      const idx = Number(val);
+      if (!label || !Number.isInteger(idx) || idx < 0 || idx > 11) continue;
+      out[label] = idx;
+    }
+    return out;
+  }
+
+  async saveTetherLabelColors(labelColors) {
+    const userData = await this.storage.get('userData');
+    if (!userData) throw new Error('User not found');
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [] };
+    }
+    userData.tether.labelColors = labelColors && typeof labelColors === 'object' ? labelColors : {};
+    await this.storage.put('userData', userData);
+    return userData.tether.labelColors;
   }
 
   async authenticate(password) {

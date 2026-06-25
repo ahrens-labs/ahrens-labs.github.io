@@ -322,6 +322,29 @@
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px;
     }
     .th-label-filter-bar > span { font-size: 0.72rem; font-weight: 700; color: var(--th-muted); margin-right: 2px; }
+    .th-label-filter-hint { flex-basis: 100%; font-size: 0.68rem; color: var(--th-muted); margin: -2px 0 0; }
+    .th-label-color-popover {
+      position: fixed; z-index: 10200; min-width: 220px; padding: 12px 14px;
+      background: #fff; border: 1px solid var(--th-line); border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14);
+    }
+    .th-label-color-popover-title {
+      margin: 0 0 10px; font-size: 0.78rem; font-weight: 700; color: var(--th-ink);
+    }
+    .th-label-color-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 10px;
+    }
+    .th-label-color-swatch {
+      width: 28px; height: 28px; border-radius: 999px; border: 2px solid transparent;
+      cursor: pointer; padding: 0; transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .th-label-color-swatch:hover { transform: scale(1.08); }
+    .th-label-color-swatch.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--th-accent); }
+    .th-label-color-reset {
+      width: 100%; border: none; background: transparent; color: var(--th-muted);
+      font: inherit; font-size: 0.76rem; font-weight: 600; cursor: pointer; padding: 4px 0;
+    }
+    .th-label-color-reset:hover { color: var(--th-accent); }
     .th-label-group { margin-bottom: 18px; }
     .th-label-group-head {
       display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 6px;
@@ -551,6 +574,8 @@
     .th-field { margin-bottom: 12px; }
     .th-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--th-muted); margin-bottom: 4px; }
     .th-field-hint { margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--th-muted); }
+    .th-recurrence-nth-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .th-recurrence-nth-row select { flex: 1; min-width: 120px; }
     .th-field input, .th-field textarea, .th-field select {
       width: 100%; box-sizing: border-box; border: 1px solid var(--th-line); border-radius: 10px;
       padding: 9px 11px; font: inherit; font-size: 0.88rem;
@@ -764,8 +789,8 @@
       <div id="th-banner" class="th-banner"></div>
 
       <div class="th-app-tabs">
-        <button type="button" class="active" id="tab-projects" data-app-tab="projects">My Projects</button>
         <button type="button" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
+        <button type="button" class="active" id="tab-projects" data-app-tab="projects">My Projects</button>
       </div>
 
       <div class="th-shell" id="shell-projects">
@@ -952,6 +977,38 @@
               <option value="6">Saturday</option>
             </select>
           </div>
+          <div class="th-field" id="task-recurrence-monthly-wrap" style="display:none;">
+            <label for="task-recurrence-monthly-mode">Monthly on</label>
+            <select id="task-recurrence-monthly-mode">
+              <option value="day-of-month">Same day each month</option>
+              <option value="nth-weekday">Nth weekday (e.g. 1st Saturday)</option>
+            </select>
+          </div>
+          <div class="th-field" id="task-recurrence-dom-wrap" style="display:none;">
+            <label for="task-recurrence-dom">Day of month</label>
+            <select id="task-recurrence-dom"></select>
+          </div>
+          <div class="th-field" id="task-recurrence-nth-wrap" style="display:none;">
+            <label>Weekday</label>
+            <div class="th-recurrence-nth-row">
+              <select id="task-recurrence-nth" aria-label="Which occurrence">
+                <option value="1">1st</option>
+                <option value="2">2nd</option>
+                <option value="3">3rd</option>
+                <option value="4">4th</option>
+                <option value="-1">Last</option>
+              </select>
+              <select id="task-recurrence-nth-day" aria-label="Day of week">
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+          </div>
           <p class="th-field-hint" style="margin:0;">Recurring tasks reset to To do with a new due date when you complete them.</p>
         </section>
         <section class="th-task-section" id="task-project-section" style="display:none;">
@@ -1031,6 +1088,13 @@
     </div>
   </div>
 
+  <!-- Label color picker -->
+  <div id="label-color-popover" class="th-label-color-popover" style="display:none;" role="dialog" aria-label="Label color">
+    <p class="th-label-color-popover-title">Color for @<span id="label-color-target"></span></p>
+    <div class="th-label-color-grid" id="label-color-grid"></div>
+    <button type="button" class="th-label-color-reset" id="label-color-reset">Use default color</button>
+  </div>
+
   <!-- Search modal -->
   <div class="th-modal-backdrop" id="modal-search">
     <div class="th-modal th-search-modal">
@@ -1090,6 +1154,8 @@
   let viewingTaskSourceProjectId = null;
   let editingTaskFromProjectId = null;
   let editingTaskLabels = [];
+  let labelColorOverrides = {};
+  let labelColorPopoverLabel = null;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -1277,6 +1343,7 @@
         renderTaskLabelsEditor(editingTaskLabels);
       });
     });
+    wireLabelColorPickers(el);
   }
 
   function renderTaskLabelsEditor(labels) {
@@ -1288,12 +1355,14 @@
     } else {
       list.innerHTML = editingTaskLabels.map(l => labelChipHtml(l, { editable: true })).join('');
       list.querySelectorAll('[data-remove-label]').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const l = btn.getAttribute('data-remove-label');
           editingTaskLabels = editingTaskLabels.filter(x => x !== l);
           renderTaskLabelsEditor(editingTaskLabels);
         });
       });
+      wireLabelColorPickers(list);
     }
     renderTaskLabelSuggestions();
   }
@@ -1351,14 +1420,19 @@
   ];
 
   function labelColorIndex(label) {
+    const key = String(label || '').trim().toLowerCase();
+    if (labelColorOverrides[key] != null) return labelColorOverrides[key];
     let h = 0;
-    const s = String(label || '');
-    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    for (let i = 0; i < key.length; i++) h = ((h << 5) - h + key.charCodeAt(i)) | 0;
     return Math.abs(h) % LABEL_PALETTE.length;
   }
 
+  function labelColorsFor(label) {
+    return LABEL_PALETTE[labelColorIndex(label)];
+  }
+
   function labelChipStyle(label, active) {
-    const c = LABEL_PALETTE[labelColorIndex(label)];
+    const c = labelColorsFor(label);
     if (active) return `background:${c.text};border-color:${c.text};color:#fff;`;
     return `background:${c.bg};border-color:${c.border};color:${c.text};`;
   }
@@ -1370,7 +1444,11 @@
     if (opts.filterable) parts.push('filterable');
     if (opts.editable) parts.push('th-label-chip-editable');
     if (active) parts.push('active');
-    const attrs = opts.attrs ? ' ' + opts.attrs : '';
+    const attrParts = [];
+    if (opts.attrs) attrParts.push(opts.attrs);
+    attrParts.push(`data-label-name="${escapeAttr(String(label || '').trim().toLowerCase())}"`);
+    attrParts.push('title="Right-click to change color"');
+    const attrs = attrParts.length ? ' ' + attrParts.join(' ') : '';
     const style = ` style="${labelChipStyle(label, active)}"`;
     const inner = opts.editable
       ? `@${escapeHtml(label)}<button type="button" data-remove-label="${escapeAttr(label)}" aria-label="Remove label">×</button>`
@@ -1391,6 +1469,121 @@
     const set = new Set();
     (tasks || []).forEach(t => taskLabels(t).forEach(l => set.add(l)));
     return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  async function loadLabelColors() {
+    try {
+      const data = await api('/api/tether/label-colors', { method: 'GET' });
+      labelColorOverrides = data.labelColors || {};
+    } catch {
+      labelColorOverrides = {};
+    }
+    return labelColorOverrides;
+  }
+
+  async function saveLabelColors() {
+    const data = await api('/api/tether/label-colors', {
+      method: 'PUT',
+      body: JSON.stringify({ labelColors: labelColorOverrides }),
+    });
+    labelColorOverrides = data.labelColors || labelColorOverrides;
+  }
+
+  function refreshViewsAfterLabelColorChange() {
+    if (appTab === 'my-tasks') renderMyTasksView();
+    else if (activeProject) {
+      if (viewMode === 'list') renderListView();
+      else if (viewMode === 'labels') renderLabelsView();
+      else renderGanttView();
+    }
+    if (document.getElementById('modal-task').classList.contains('open')) {
+      renderTaskLabelsEditor(editingTaskLabels);
+    }
+  }
+
+  function closeLabelColorPopover() {
+    const pop = document.getElementById('label-color-popover');
+    if (pop) pop.style.display = 'none';
+    labelColorPopoverLabel = null;
+  }
+
+  function syncLabelColorPopoverSelection() {
+    const grid = document.getElementById('label-color-grid');
+    if (!grid || !labelColorPopoverLabel) return;
+    const current = labelColorIndex(labelColorPopoverLabel);
+    grid.querySelectorAll('.th-label-color-swatch').forEach((btn, i) => {
+      btn.classList.toggle('selected', i === current);
+    });
+  }
+
+  function openLabelColorPopover(label, anchorEl) {
+    labelColorPopoverLabel = String(label || '').trim().toLowerCase();
+    if (!labelColorPopoverLabel) return;
+    document.getElementById('label-color-target').textContent = labelColorPopoverLabel;
+    syncLabelColorPopoverSelection();
+    const pop = document.getElementById('label-color-popover');
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.display = 'block';
+    const popRect = pop.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - popRect.width - 8;
+    if (top + popRect.height > window.innerHeight - 8) top = rect.top - popRect.height - 6;
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.top = Math.max(8, top) + 'px';
+  }
+
+  function initLabelColorPopover() {
+    const grid = document.getElementById('label-color-grid');
+    grid.innerHTML = LABEL_PALETTE.map((c, i) =>
+      `<button type="button" class="th-label-color-swatch" data-color-index="${i}" style="background:${c.text};" title="Color ${i + 1}"></button>`
+    ).join('');
+    grid.querySelectorAll('.th-label-color-swatch').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!labelColorPopoverLabel) return;
+        const idx = Number(btn.getAttribute('data-color-index'));
+        labelColorOverrides[labelColorPopoverLabel] = idx;
+        try {
+          await saveLabelColors();
+          closeLabelColorPopover();
+          refreshViewsAfterLabelColorChange();
+        } catch (e) {
+          showBanner(e.message);
+        }
+      });
+    });
+    document.getElementById('label-color-reset').addEventListener('click', async () => {
+      if (!labelColorPopoverLabel) return;
+      delete labelColorOverrides[labelColorPopoverLabel];
+      try {
+        await saveLabelColors();
+        closeLabelColorPopover();
+        refreshViewsAfterLabelColorChange();
+      } catch (e) {
+        showBanner(e.message);
+      }
+    });
+    document.addEventListener('click', (e) => {
+      const pop = document.getElementById('label-color-popover');
+      if (pop.style.display === 'none') return;
+      if (pop.contains(e.target)) return;
+      closeLabelColorPopover();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLabelColorPopover();
+    });
+  }
+
+  function wireLabelColorPickers(root) {
+    (root || document).querySelectorAll('[data-label-name]').forEach(chip => {
+      if (chip.dataset.colorPickerWired === '1') return;
+      chip.dataset.colorPickerWired = '1';
+      chip.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openLabelColorPopover(chip.getAttribute('data-label-name'), chip);
+      });
+    });
   }
 
   function recurrenceLabel(taskOrRecurrence, recurrenceDay) {
@@ -1562,17 +1755,90 @@
     return `Recurring task reset — next due ${due} (${label})`;
   }
 
-  function syncRecurrenceWeeklyVisibility() {
+  function syncRecurrenceFormVisibility() {
     const recurrence = document.getElementById('task-recurrence-input').value;
+    const monthlyMode = document.getElementById('task-recurrence-monthly-mode').value;
     document.getElementById('task-recurrence-weekly-wrap').style.display =
       recurrence === 'weekly' ? 'block' : 'none';
+    document.getElementById('task-recurrence-monthly-wrap').style.display =
+      recurrence === 'monthly' ? 'block' : 'none';
+    document.getElementById('task-recurrence-dom-wrap').style.display =
+      recurrence === 'monthly' && monthlyMode === 'day-of-month' ? 'block' : 'none';
+    document.getElementById('task-recurrence-nth-wrap').style.display =
+      recurrence === 'monthly' && monthlyMode === 'nth-weekday' ? 'block' : 'none';
+  }
+
+  function populateRecurrenceFormFromTask(task) {
+    document.getElementById('task-recurrence-input').value = task && task.recurrence ? task.recurrence : '';
+    document.getElementById('task-recurrence-day').value = String(
+      task && task.recurrenceDay != null ? task.recurrenceDay
+        : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 0) ?? 0
+    );
+    const monthlyMode = task && task.recurrence === 'monthly' && task.recurrenceWeekOfMonth != null
+      ? 'nth-weekday'
+      : 'day-of-month';
+    document.getElementById('task-recurrence-monthly-mode').value = monthlyMode;
+    const dom = task && task.recurrenceDay != null && monthlyMode === 'day-of-month'
+      ? task.recurrenceDay
+      : (task && task.dueDate ? parseIso(task.dueDate)?.getDate() : new Date().getDate()) ?? 1;
+    document.getElementById('task-recurrence-dom').value = String(dom);
+    document.getElementById('task-recurrence-nth').value = String(
+      task && task.recurrenceWeekOfMonth != null ? task.recurrenceWeekOfMonth : 1
+    );
+    document.getElementById('task-recurrence-nth-day').value = String(
+      task && task.recurrenceDay != null ? task.recurrenceDay
+        : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 6) ?? 6
+    );
+    syncRecurrenceFormVisibility();
+  }
+
+  function applyRecurrenceFieldsToTask(task, recurrence) {
+    if (!recurrence) {
+      delete task.recurrence;
+      delete task.recurrenceDay;
+      delete task.recurrenceWeekOfMonth;
+      delete task.recurrenceMonth;
+      delete task.recurrenceInterval;
+      return;
+    }
+    task.recurrence = recurrence;
+    delete task.recurrenceMonth;
+    delete task.recurrenceInterval;
+    if (recurrence === 'weekly') {
+      task.recurrenceDay = Number(document.getElementById('task-recurrence-day').value);
+      delete task.recurrenceWeekOfMonth;
+      return;
+    }
+    if (recurrence === 'monthly') {
+      const mode = document.getElementById('task-recurrence-monthly-mode').value;
+      if (mode === 'nth-weekday') {
+        task.recurrenceWeekOfMonth = Number(document.getElementById('task-recurrence-nth').value);
+        task.recurrenceDay = Number(document.getElementById('task-recurrence-nth-day').value);
+      } else {
+        task.recurrenceDay = Number(document.getElementById('task-recurrence-dom').value);
+        delete task.recurrenceWeekOfMonth;
+      }
+      return;
+    }
+    delete task.recurrenceDay;
+    delete task.recurrenceWeekOfMonth;
   }
 
   function syncRecurrenceDayFromDueDate() {
     const due = document.getElementById('task-due-input').value;
-    if (!due || document.getElementById('task-recurrence-input').value !== 'weekly') return;
+    if (!due) return;
     const d = parseIso(due);
-    if (d) document.getElementById('task-recurrence-day').value = String(d.getDay());
+    if (!d) return;
+    const recurrence = document.getElementById('task-recurrence-input').value;
+    if (recurrence === 'weekly') {
+      document.getElementById('task-recurrence-day').value = String(d.getDay());
+    } else if (recurrence === 'monthly') {
+      if (document.getElementById('task-recurrence-monthly-mode').value === 'day-of-month') {
+        document.getElementById('task-recurrence-dom').value = String(d.getDate());
+      } else {
+        document.getElementById('task-recurrence-nth-day').value = String(d.getDay());
+      }
+    }
   }
 
   function isTypingContext(el) {
@@ -1658,6 +1924,7 @@
       </div>`;
     }).join('');
     wireRichTextLinks(el);
+    wireLabelColorPickers(el);
     el.querySelectorAll('[data-search-task]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         if (e.target.closest('a.th-text-link')) return;
@@ -1702,6 +1969,7 @@
         active: listLabelFilter === l,
         attrs: `data-label-filter="${escapeAttr(l)}"`,
       })).join('')}
+      <span class="th-label-filter-hint">Right-click a label to change its color</span>
     </div>`;
   }
 
@@ -1738,6 +2006,7 @@
         active: myTasksLabelFilter === l,
         attrs: `data-my-label-filter="${escapeAttr(l)}"`,
       })).join('')}
+      <span class="th-label-filter-hint">Right-click a label to change its color</span>
     </div>`;
   }
 
@@ -2067,10 +2336,12 @@
     if (!tasks.length) {
       el.innerHTML = `${labelBar}<p style="color:var(--th-muted);font-size:0.88rem;">No tasks with this label.</p>`;
       wireMyTasksLabelFilters(el);
+      wireLabelColorPickers(el);
       return;
     }
     el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('')}</div>`;
     wireMyTasksLabelFilters(el);
+    wireLabelColorPickers(el);
     wireRichTextLinks(el);
     wireStartButtons(el);
     wireCompleteButtons(el);
@@ -2471,6 +2742,7 @@
       </div>
     `;
     wireLabelFilters(document.getElementById('list-view'));
+    wireLabelColorPickers(document.getElementById('list-view'));
     wireRichTextLinks(document.getElementById('list-view'));
     document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -2591,6 +2863,7 @@
       ${unlabeledHtml}
     `;
     wireLabelFilters(document.getElementById('list-view'));
+    wireLabelColorPickers(document.getElementById('list-view'));
     wireTaskCardActions(document.getElementById('list-view'));
   }
 
@@ -3389,6 +3662,7 @@
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
     `;
     wireProjectPickers(document.getElementById('task-detail-body'));
+    wireLabelColorPickers(document.getElementById('task-detail-body'));
     wireRichTextLinks(document.getElementById('modal-task-detail'));
     const completeBtn = document.getElementById('task-detail-complete');
     const startBtn = document.getElementById('task-detail-start');
@@ -3503,12 +3777,7 @@
     document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
-    document.getElementById('task-recurrence-input').value = task && task.recurrence ? task.recurrence : '';
-    document.getElementById('task-recurrence-day').value = String(
-      task && task.recurrenceDay != null ? task.recurrenceDay
-        : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 0) ?? 0
-    );
-    syncRecurrenceWeeklyVisibility();
+    populateRecurrenceFormFromTask(task);
     document.getElementById('task-edit-start').style.display =
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
 
@@ -3687,6 +3956,11 @@
     return t.dueDate || isoDate(new Date());
   }
 
+  document.getElementById('task-recurrence-dom').innerHTML = Array.from({ length: 31 }, (_, i) => {
+    const n = i + 1;
+    return `<option value="${n}">${n}</option>`;
+  }).join('');
+
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
   document.getElementById('btn-add-my-task').addEventListener('click', () => openTaskModal(null));
@@ -3738,7 +4012,8 @@
       showProjectLoadingPreview(projectId);
     }
     try {
-      const jobs = [loadUser(), loadProjects()];
+      initLabelColorPopover();
+      const jobs = [loadUser(), loadProjects(), loadLabelColors()];
       if (projectId && view !== 'my-tasks') jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
       if (view === 'my-tasks') {
@@ -3785,9 +4060,10 @@
     if (e.target.id === 'modal-search') closeModal('modal-search');
   });
   document.getElementById('task-recurrence-input').addEventListener('change', () => {
-    syncRecurrenceWeeklyVisibility();
+    syncRecurrenceFormVisibility();
     syncRecurrenceDayFromDueDate();
   });
+  document.getElementById('task-recurrence-monthly-mode').addEventListener('change', syncRecurrenceFormVisibility);
   document.getElementById('task-due-input').addEventListener('change', syncRecurrenceDayFromDueDate);
   document.getElementById('task-labels-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -3865,9 +4141,6 @@
     const noProject = editingTaskFromProjectId == null;
     if (!noProject && !activeProject) { showBanner('Select a project first'); return; }
     const recurrence = document.getElementById('task-recurrence-input').value || null;
-    const recurrenceDay = recurrence === 'weekly'
-      ? Number(document.getElementById('task-recurrence-day').value)
-      : undefined;
     const taskList = noProject ? personalTasks : (activeProject.tasks || []);
     const labels = [...new Set([...labelsForTaskEditor(), ...extractLabels(rawTitle)])];
     const title = stripLabelsFromTitle(rawTitle) || rawTitle;
@@ -3881,16 +4154,11 @@
       assigneeUserIds: noProject ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
       labels,
-      recurrence,
       sortOrder: editingTaskId ? undefined : taskList.length,
     };
     if (!labels.length) delete task.labels;
-    if (recurrence === 'weekly') task.recurrenceDay = recurrenceDay;
-    else delete task.recurrenceDay;
-    if (!recurrence) {
-      delete task.recurrence;
-      delete task.recurrenceDay;
-    }
+    applyRecurrenceFieldsToTask(task, recurrence);
+    ensureRecurrenceDueDate(task);
     if (task.status === 'done') {
       const blocked = completionBlockedMessage(task, taskList);
       if (blocked) {
