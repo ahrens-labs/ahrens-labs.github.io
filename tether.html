@@ -2365,7 +2365,7 @@
         if (e.target.closest('button') || e.target.closest('[data-my-label-filter]') || e.target.closest('a.th-text-link')) return;
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
-        await openTaskEditor(pid, tid);
+        await openTaskEditor(tid, { fromMyTasks: true, projectId: pid || null });
       });
     });
   }
@@ -2383,7 +2383,7 @@
   }
 
   async function openTaskEditor(taskId, opts) {
-    opts = opts || {};
+    opts = opts && typeof opts === 'object' ? opts : {};
     if (!taskId) {
       openTaskModal(null, opts);
       return;
