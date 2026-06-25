@@ -1050,28 +1050,6 @@
     </div>
   </div>
 
-  <!-- Task detail modal -->
-  <div class="th-modal-backdrop" id="modal-task-detail">
-    <div class="th-modal th-task-modal">
-      <div class="th-task-modal-head">
-        <button type="button" class="th-modal-close" data-close="modal-task-detail" aria-label="Close">&times;</button>
-        <span class="th-task-modal-kicker">✦ Task details</span>
-        <h3 id="task-detail-title"></h3>
-        <p id="task-detail-subtitle" class="th-task-modal-sub"></p>
-      </div>
-      <div class="th-task-modal-body">
-        <div class="th-detail-grid" id="task-detail-body"></div>
-      </div>
-      <div class="th-task-modal-foot">
-        <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-detail-start" style="display:none;">Start</button>
-        <button type="button" class="th-btn th-btn-ghost" id="task-detail-complete" style="margin-right:auto;">Mark complete</button>
-        <button type="button" class="th-btn th-btn-danger" id="task-detail-delete">Delete</button>
-        <button type="button" class="th-btn th-btn-ghost" data-close="modal-task-detail">Close</button>
-        <button type="button" class="th-btn th-btn-primary" id="task-detail-edit">Edit task</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Delete task modal -->
   <div class="th-modal-backdrop" id="modal-delete-task">
     <div class="th-modal">
@@ -1254,7 +1232,8 @@
         const prev = fromProjectId || '';
         try {
           await moveTask(taskId, fromProjectId, toProjectId);
-          if (document.getElementById('modal-task-detail').classList.contains('open') && viewingTaskId === taskId) {
+          if (document.getElementById('modal-task').classList.contains('open') && editingTaskId === taskId) {
+            editingTaskFromProjectId = toProjectId;
             viewingTaskSourceProjectId = toProjectId;
             sel.setAttribute('data-from-project', toProjectId || '');
             const movedAway =
@@ -1262,12 +1241,13 @@
               (appTab === 'projects' && activeProject && fromProjectId === activeProject.id && toProjectId !== activeProject.id) ||
               (appTab === 'projects' && activeProject && !fromProjectId && toProjectId && toProjectId !== activeProject.id);
             if (movedAway) {
-              viewingTaskId = null;
-              closeModal('modal-task-detail');
+              clearTaskViewState();
+              closeModal('modal-task');
             } else {
-              openTaskDetailModal(taskId, {
+              openTaskModal(taskId, {
                 fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks',
                 projectId: toProjectId,
+                skipUrlSync: false,
               });
             }
           }
@@ -1970,12 +1950,11 @@
         if (!projectId) {
           setAppTab('my-tasks', { skipUrlSync: true });
           await loadMyTasks();
-          openTaskDetailModal(taskId, { fromMyTasks: true, projectId: null });
+          openTaskEditor(taskId, { fromMyTasks: true, projectId: null });
           return;
         }
         setAppTab('projects', { skipUrlSync: true });
         await loadProject(projectId, taskId);
-        openTaskDetailModal(taskId);
       });
     });
   }
@@ -2386,7 +2365,7 @@
         if (e.target.closest('button') || e.target.closest('[data-my-label-filter]') || e.target.closest('a.th-text-link')) return;
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
-        await openMyTaskDetailModal(pid, tid);
+        await openTaskEditor(pid, tid);
       });
     });
   }
@@ -2403,18 +2382,21 @@
     return activeProject;
   }
 
-  async function openMyTaskDetailModal(projectId, taskId) {
-    if (!taskId) return;
-    viewingTaskFromMyTasks = true;
-    try {
-      if (projectId && (!activeProject || activeProject.id !== projectId)) {
-        await fetchProjectData(projectId);
-      }
-      openTaskDetailModal(taskId, { fromMyTasks: true, projectId: projectId || null });
-    } catch (e) {
-      viewingTaskFromMyTasks = false;
-      showBanner(e.message);
+  async function openTaskEditor(taskId, opts) {
+    opts = opts || {};
+    if (!taskId) {
+      openTaskModal(null, opts);
+      return;
     }
+    let projectId = opts.projectId;
+    if (projectId === undefined) {
+      projectId = myTasks.find(t => t.id === taskId)?.projectId ?? null;
+      if (projectId == null && !isPersonalTaskId(taskId)) projectId = activeProject?.id ?? null;
+    }
+    if (projectId && (!activeProject || activeProject.id !== projectId)) {
+      await fetchProjectData(projectId);
+    }
+    openTaskModal(taskId, { ...opts, projectId: projectId ?? null });
   }
 
   function authHeaders() {
@@ -2528,7 +2510,7 @@
       renderProjectView();
       syncUrlState({ projectId: activeProject.id, taskId: taskIdFromUrl || viewingTaskId || null });
       renderProjectList();
-      if (taskIdFromUrl) openTaskDetailModal(taskIdFromUrl);
+      if (taskIdFromUrl) openTaskEditor(taskIdFromUrl);
     } catch (e) {
       if (loadId !== activeProjectLoadId) return;
       activeProject = null;
@@ -2783,7 +2765,7 @@
     document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         if (e.target.closest('a.th-text-link')) return;
-        openTaskDetailModal(btn.getAttribute('data-view-task'));
+        openTaskEditor(btn.getAttribute('data-view-task'));
       });
     });
     document.getElementById('list-view').querySelectorAll('[data-edit-task]').forEach(btn => {
@@ -2842,7 +2824,7 @@
     root.querySelectorAll('[data-view-task]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         if (e.target.closest('a.th-text-link')) return;
-        openTaskDetailModal(btn.getAttribute('data-view-task'));
+        openTaskEditor(btn.getAttribute('data-view-task'));
       });
     });
     root.querySelectorAll('[data-edit-task]').forEach(btn => {
@@ -2921,8 +2903,8 @@
       t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !completedIds.has(id));
     });
     if (viewingTaskId && completedIds.has(viewingTaskId)) {
-      viewingTaskId = null;
-      closeModal('modal-task-detail');
+      clearTaskViewState();
+      closeModal('modal-task');
     }
     await saveProject(activeProject);
     showBanner('Completed tasks cleared', 'ok');
@@ -2982,9 +2964,8 @@
         }
       }
       if (viewingTaskId && allRemovedIds.has(viewingTaskId)) {
-        viewingTaskId = null;
-        viewingTaskFromMyTasks = false;
-        closeModal('modal-task-detail');
+        clearTaskViewState();
+        closeModal('modal-task');
       }
       await loadMyTasks();
       if (myTasksViewFilter === 'completed' && !myCompletedTasks().length) {
@@ -3005,7 +2986,7 @@
     body.querySelectorAll('[data-view-task]').forEach(el => {
       el.addEventListener('click', (e) => {
         if (e.target.closest('[data-gantt-delete]') || e.target.closest('[data-complete-task]')) return;
-        openTaskDetailModal(el.getAttribute('data-view-task'));
+        openTaskEditor(el.getAttribute('data-view-task'));
       });
     });
     body.querySelectorAll('[data-gantt-delete]').forEach(btn => {
@@ -3595,10 +3576,11 @@
           : task.status === 'done' ? 'Task marked complete' : 'Task marked active',
         'ok'
       );
-      if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
-        openTaskDetailModal(taskId, {
+      if (viewingTaskId === taskId && document.getElementById('modal-task').classList.contains('open')) {
+        openTaskModal(taskId, {
           fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks',
           projectId: viewingTaskSourceProjectId,
+          skipUrlSync: true,
         });
       }
     } catch (e) { showBanner(e.message); }
@@ -3607,6 +3589,7 @@
   function getTaskById(taskId) {
     return personalTasks.find(t => t.id === taskId)
       || (activeProject?.tasks || []).find(t => t.id === taskId)
+      || myTasks.find(t => t.id === taskId)
       || null;
   }
 
@@ -3648,89 +3631,14 @@
     return (task?.status || 'todo') !== 'done' && getIncompleteDependencies(task, tasks).length > 0;
   }
 
-  function openTaskDetailModal(taskId, opts) {
-    opts = opts || {};
-    const fromMyTasks = opts.fromMyTasks === true || viewingTaskFromMyTasks;
-    viewingTaskFromMyTasks = fromMyTasks;
-    viewingTaskId = taskId;
-
-    const sourceProjectId = opts.projectId !== undefined
-      ? (opts.projectId || null)
-      : (activeProject?.id || null);
-    viewingTaskSourceProjectId = sourceProjectId;
-
-    let resolved = null;
-    let tasks = [];
-    if (sourceProjectId == null) {
-      resolved = personalTasks.find(t => t.id === taskId);
-      tasks = personalTasks;
-    } else if (activeProject && activeProject.id === sourceProjectId) {
-      tasks = activeProject.tasks || [];
-      resolved = tasks.find(t => t.id === taskId);
-    } else {
-      resolved = myTasks.find(t => t.id === taskId && t.projectId === sourceProjectId) || null;
-      tasks = resolved ? [resolved] : [];
-    }
-    if (!resolved) {
-      resolved = personalTasks.find(t => t.id === taskId)
-        || (activeProject?.tasks || []).find(t => t.id === taskId);
-      if (resolved && !tasks.length) {
-        tasks = personalTasks.some(t => t.id === taskId) ? personalTasks : (activeProject?.tasks || []);
-      }
-    }
-    if (!resolved) return;
-
-    const noProject = sourceProjectId == null;
-    const memberMap = noProject ? {} : memberLabelMap();
-    document.getElementById('task-detail-title').innerHTML = formatTaskTitleHtml(resolved);
-    document.getElementById('task-detail-subtitle').textContent = noProject
-      ? 'No project'
-      : ('In project · ' + (projects.find(p => p.id === sourceProjectId)?.title || activeProject?.title || 'Project'));
-    document.getElementById('task-detail-body').innerHTML = `
-      <div class="th-detail-row"><div class="th-detail-label">Project</div><div class="th-detail-value">${projectPickerSelectHtml(taskId, sourceProjectId)}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${resolved.status || 'todo'}">${statusLabel(resolved.status)}</span></div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(resolved.dueDate)}</div></div>
-      ${resolved.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(resolved))}</div></div>` : ''}
-      ${taskLabels(resolved).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(resolved), false)}</div></div>` : ''}
-      <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value th-rich-text">${resolved.definitionOfDone ? formatRichText(resolved.definitionOfDone, { breaks: true, autolink: true, wrap: false }) : '—'}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value th-rich-text">${resolved.notes ? formatRichText(resolved.notes, { breaks: true, autolink: true, wrap: false }) : '—'}</div></div>
-      ${noProject ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
-      <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
-    `;
-    wireProjectPickers(document.getElementById('task-detail-body'));
-    wireLabelColorPickers(document.getElementById('task-detail-body'));
-    wireRichTextLinks(document.getElementById('modal-task-detail'));
-    const completeBtn = document.getElementById('task-detail-complete');
-    const startBtn = document.getElementById('task-detail-start');
-    const blocked = isTaskCompletionBlocked(resolved, tasks);
-    const st = resolved.status || 'todo';
-    startBtn.style.display = st === 'todo' ? 'inline-block' : 'none';
-    completeBtn.style.marginRight = 'auto';
-    if (st === 'done') {
-      completeBtn.textContent = 'Mark active';
-      completeBtn.style.display = 'inline-block';
-      completeBtn.classList.add('done-toggle');
-      completeBtn.disabled = false;
-      completeBtn.title = '';
-    } else if (blocked) {
-      completeBtn.textContent = 'Blocked by dependencies';
-      completeBtn.style.display = 'inline-block';
-      completeBtn.classList.remove('done-toggle');
-      completeBtn.disabled = true;
-      completeBtn.title = completionBlockedMessage(resolved, tasks);
-    } else {
-      completeBtn.textContent = 'Mark complete';
-      completeBtn.style.display = 'inline-block';
-      completeBtn.classList.remove('done-toggle');
-      completeBtn.disabled = false;
-      completeBtn.title = '';
-    }
-    openModal('modal-task-detail');
-    if (fromMyTasks) {
-      syncUrlState({ view: 'my-tasks', taskId });
-    } else if (activeProject) {
-      syncUrlState({ projectId: activeProject.id, taskId });
-    }
+  function clearTaskViewState() {
+    const wasMyTasks = viewingTaskFromMyTasks || appTab === 'my-tasks';
+    viewingTaskId = null;
+    editingTaskId = null;
+    viewingTaskFromMyTasks = false;
+    if (wasMyTasks) syncUrlState({ view: 'my-tasks' });
+    else if (activeProject) syncUrlState({ projectId: activeProject.id, taskId: null });
+    else syncUrlState({});
   }
 
   function openDeleteTaskModal(taskId, taskTitle) {
@@ -3774,8 +3682,8 @@
       }
     }
     if (viewingTaskId === taskId) {
-      viewingTaskId = null;
-      closeModal('modal-task-detail');
+      clearTaskViewState();
+      closeModal('modal-task');
     }
     if (appTab === 'my-tasks') await loadMyTasks();
     showBanner('Task deleted', 'ok');
@@ -3795,14 +3703,29 @@
     return String(name || '?').slice(0, 2).toUpperCase();
   }
 
-  function openTaskModal(taskId) {
+  function openTaskModal(taskId, opts) {
+    opts = opts || {};
+    const isEdit = !!taskId;
     editingTaskId = taskId || null;
-    editingTaskFromProjectId = resolveEditingProjectId(taskId);
+    if (isEdit) {
+      viewingTaskId = taskId;
+      viewingTaskFromMyTasks = opts.fromMyTasks != null ? !!opts.fromMyTasks : appTab === 'my-tasks';
+      viewingTaskSourceProjectId = opts.projectId !== undefined
+        ? (opts.projectId || null)
+        : resolveEditingProjectId(taskId);
+      editingTaskFromProjectId = viewingTaskSourceProjectId;
+    } else {
+      viewingTaskId = null;
+      editingTaskFromProjectId = resolveEditingProjectId(null);
+    }
     const noProject = editingTaskFromProjectId == null;
+    const projectTitle = noProject
+      ? null
+      : (projects.find(p => p.id === editingTaskFromProjectId)?.title || activeProject?.title || 'Project');
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
     document.getElementById('modal-task-subtitle').textContent = noProject
       ? 'No project'
-      : (activeProject ? 'In project · ' + activeProject.title : '');
+      : ('In project · ' + projectTitle);
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = noProject ? personalTasks : (activeProject?.tasks || []);
     const task = taskId ? (getTaskById(taskId) || tasks.find(t => t.id === taskId)) : null;
@@ -3855,6 +3778,15 @@
     `).join('') : '<span style="font-size:0.82rem;color:var(--th-muted);">No other tasks yet</span>';
 
     openModal('modal-task');
+    if (isEdit && !opts.skipUrlSync) {
+      if (viewingTaskFromMyTasks || appTab === 'my-tasks') {
+        syncUrlState({ view: 'my-tasks', taskId });
+      } else if (activeProject) {
+        syncUrlState({ projectId: activeProject.id, taskId });
+      } else if (viewingTaskSourceProjectId) {
+        syncUrlState({ projectId: viewingTaskSourceProjectId, taskId });
+      }
+    }
     const titleInput = document.getElementById('task-title-input');
     requestAnimationFrame(() => titleInput.focus());
   }
@@ -4016,16 +3948,9 @@
     renderProjectList();
   });
 
-  document.querySelectorAll('[data-close="modal-task-detail"]').forEach(btn => {
+  document.querySelectorAll('[data-close="modal-task"]').forEach(btn => {
     btn.addEventListener('click', () => {
-      viewingTaskId = null;
-      const wasMyTasks = viewingTaskFromMyTasks || appTab === 'my-tasks';
-      viewingTaskFromMyTasks = false;
-      if (wasMyTasks) {
-        syncUrlState({ view: 'my-tasks' });
-      } else if (activeProject) {
-        syncUrlState({ projectId: activeProject.id, taskId: null });
-      }
+      if (editingTaskId) clearTaskViewState();
     });
   });
 
@@ -4056,7 +3981,7 @@
         await loadMyTasks();
         if (taskId) {
           const mt = myTasks.find(t => t.id === taskId);
-          if (mt) await openMyTaskDetailModal(mt.projectId, taskId);
+          if (mt) await openTaskEditor(taskId, { fromMyTasks: true, projectId: mt.projectId || null });
         }
       }
     } catch (e) {
@@ -4213,6 +4138,7 @@
       taskList.push(task);
     }
     closeModal('modal-task');
+    clearTaskViewState();
     try {
       if (noProject) {
         personalTasks = taskList;
@@ -4233,6 +4159,7 @@
     try {
       await moveTask(editingTaskId, from, to);
       editingTaskFromProjectId = to;
+      clearTaskViewState();
       closeModal('modal-task');
     } catch (e) {
       showBanner(e.message);
@@ -4255,38 +4182,16 @@
     } catch (e) { showBanner(e.message); }
   });
 
-  document.getElementById('task-detail-complete').addEventListener('click', () => {
-    if (!viewingTaskId) return;
-    toggleTaskComplete(viewingTaskId);
-  });
-
-  document.getElementById('task-detail-start').addEventListener('click', async () => {
-    if (!viewingTaskId) return;
-    try {
-      await setTaskStatus(viewingTaskId, 'in_progress');
-      openTaskDetailModal(viewingTaskId, { fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks' });
-    } catch (e) { showBanner(e.message); }
-  });
-
   document.getElementById('task-edit-start').addEventListener('click', async () => {
     if (!editingTaskId) return;
     try {
       await setTaskStatus(editingTaskId, 'in_progress');
-      closeModal('modal-task');
+      openTaskModal(editingTaskId, {
+        fromMyTasks: viewingTaskFromMyTasks,
+        projectId: editingTaskFromProjectId,
+        skipUrlSync: true,
+      });
     } catch (e) { showBanner(e.message); }
-  });
-
-  document.getElementById('task-detail-edit').addEventListener('click', () => {
-    if (!viewingTaskId) return;
-    closeModal('modal-task-detail');
-    openTaskModal(viewingTaskId);
-  });
-
-  document.getElementById('task-detail-delete').addEventListener('click', () => {
-    if (!viewingTaskId) return;
-    const task = getTaskById(viewingTaskId);
-    closeModal('modal-task-detail');
-    openDeleteTaskModal(viewingTaskId, task ? taskDisplayTitle(task) : '');
   });
 
   document.getElementById('delete-task-from-edit').addEventListener('click', () => {
