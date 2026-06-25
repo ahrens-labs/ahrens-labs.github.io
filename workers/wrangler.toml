@@ -76,9 +76,12 @@ service = "sports-digest"
 
 # Use binding name EMAIL_TRANSACTIONAL (not "EMAIL") so a dashboard allowlist stuck on an old EMAIL binding does not apply.
 # Must NOT set allowed_destination_addresses or destination_address — those cause E_RECIPIENT_NOT_ALLOWED for arbitrary users.
-# Omit `remote = true` on deployed Workers (that flag is for wrangler dev hitting real Email Service). Add it back only for local dev if needed.
+# GRACE_EMAIL_SEND is a separate unrestricted binding for graceahrens.com mail (avoids dashboard allowlists on EMAIL_TRANSACTIONAL).
 [[send_email]]
 name = "EMAIL_TRANSACTIONAL"
+
+[[send_email]]
+name = "GRACE_EMAIL_SEND"
 
 [vars]
 # From address — must be allowed by Cloudflare Email Sending and/or Resend (same domain ok if root domain is verified).

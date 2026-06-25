@@ -3374,27 +3374,17 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
-/** Grace Ahrens mail — Cloudflare Email Sending only (never Resend). */
-async function dispatchCloudflareEmailOnly(env, {
-  to,
-  bcc,
-  subject,
-  html,
-  text,
-  fromAddr,
-  fromName,
-  replyTo,
-  headers,
-}) {
-  const cfMail = getCloudflareEmailBinding(env);
-  if (!cfMail) {
-    const err = new Error(
-      'Cloudflare Email Sending is not configured (missing EMAIL_TRANSACTIONAL binding on chess-accounts).'
-    );
-    err.code = 'missing_email_binding';
-    throw err;
-  }
+/** Prefer GRACE_EMAIL_SEND so grace mail is not blocked by unrelated EMAIL_TRANSACTIONAL allowlists. */
+function getGraceEmailBinding(env) {
+  return env.GRACE_EMAIL_SEND || env.EMAIL_TRANSACTIONAL || env.EMAIL;
+}
 
+const GRACE_SENDER_ERRORS = new Set([
+  'E_SENDER_NOT_VERIFIED',
+  'E_SENDER_DOMAIN_NOT_AVAILABLE',
+]);
+
+async function sendViaCloudflareBinding(cfMail, { fromAddr, fromName, to, bcc, subject, html, text, replyTo, headers }) {
   const sendPayload = {
     from: { email: fromAddr, name: fromName },
     to,
@@ -3408,31 +3398,91 @@ async function dispatchCloudflareEmailOnly(env, {
     sendPayload.headers = headers;
   }
 
-  try {
-    const result = await cfMail.send(sendPayload);
-    const messageId = extractCloudflareEmailMessageId(result);
-    if (!messageId) {
-      console.warn('EmailService send returned no messageId; treating as delivered', { subject, to });
-      return { provider: 'cloudflare', messageId: '' };
-    }
-    console.log('Grace Ahrens EmailService send ok', { messageId, subject, to });
-    return { provider: 'cloudflare', messageId };
-  } catch (err) {
-    console.error('Grace Ahrens EmailService send failed', {
-      code: err?.code,
-      message: err?.message,
-      subject,
-      to,
-    });
-    if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
-      const hint = new Error(
-        'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). Check Email Sending setup for graceahrens.com in the Cloudflare dashboard.'
-      );
-      hint.code = err.code;
-      throw hint;
-    }
-    throw err;
+  const result = await cfMail.send(sendPayload);
+  const messageId = extractCloudflareEmailMessageId(result);
+  if (!messageId) {
+    console.warn('EmailService send returned no messageId; treating as delivered', { subject, to, fromAddr });
+    return { provider: 'cloudflare', messageId: '', fromAddr };
   }
+  console.log('Grace Ahrens EmailService send ok', { messageId, subject, to, fromAddr });
+  return { provider: 'cloudflare', messageId, fromAddr };
+}
+
+/** Grace Ahrens mail — always from grace@; Cloudflare first, then Resend with the same From. */
+async function dispatchGraceEmail(env, {
+  to,
+  bcc,
+  subject,
+  html,
+  text,
+  fromName = 'Grace Ahrens',
+  replyTo,
+  headers,
+}) {
+  const fromAddr = 'grace@graceahrens.com';
+  const sendOpts = {
+    fromAddr,
+    fromName,
+    to,
+    bcc,
+    subject,
+    html,
+    text,
+    replyTo: replyTo || fromAddr,
+    headers,
+  };
+
+  const cfMail = getGraceEmailBinding(env);
+  if (cfMail) {
+    try {
+      return await sendViaCloudflareBinding(cfMail, sendOpts);
+    } catch (err) {
+      console.error('Grace Ahrens EmailService send failed', {
+        code: err?.code,
+        message: err?.message,
+        subject,
+        to,
+        fromAddr,
+      });
+
+      if (
+        env.RESEND_API_KEY &&
+        typeof env.RESEND_API_KEY === 'string' &&
+        err?.code !== 'E_NO_MESSAGE_ID'
+      ) {
+        console.warn('Falling back to Resend for Grace mail (same From address)', err?.code || '');
+        return await sendViaResend(env, sendOpts);
+      }
+
+      if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
+        const hint = new Error(
+          'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). In the dashboard, open Workers → chess-accounts → Settings → Bindings and ensure GRACE_EMAIL_SEND has no destination allowlist. Also onboard graceahrens.com under Email → Email Sending.'
+        );
+        hint.code = err.code;
+        throw hint;
+      }
+
+      if (GRACE_SENDER_ERRORS.has(err?.code)) {
+        const hint = new Error(
+          `${fromAddr} is not verified for sending yet. Onboard graceahrens.com under Cloudflare Email → Email Sending, or verify the domain in Resend and set RESEND_API_KEY on chess-accounts.`
+        );
+        hint.code = err.code;
+        throw hint;
+      }
+
+      throw err;
+    }
+  }
+
+  if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
+    return await sendViaResend(env, sendOpts);
+  }
+
+  const err = new Error(
+    'Grace mail is not configured: add GRACE_EMAIL_SEND on chess-accounts and onboard graceahrens.com for Email Sending, or set RESEND_API_KEY with graceahrens.com verified in Resend.'
+  );
+  err.code = 'missing_email_binding';
+  throw err;
 }
 
 async function dispatchTransactionalEmail(env, {
@@ -9216,21 +9266,19 @@ async function handleGraceAhrensSend(request, env) {
     });
   }
 
-  const fromAddr =
-    body.fromAddr || (body.from && body.from.email) || 'grace@graceahrens.com';
+  const graceFrom = 'grace@graceahrens.com';
   const fromName =
     body.fromName || (body.from && body.from.name) || 'Grace Ahrens';
 
   try {
-    const result = await dispatchCloudflareEmailOnly(env, {
+    const result = await dispatchGraceEmail(env, {
       to,
       bcc: body.bcc,
       subject: String(body.subject || ''),
       html: body.html,
       text: body.text,
-      fromAddr,
       fromName,
-      replyTo: body.replyTo || 'grace@graceahrens.com',
+      replyTo: body.replyTo || graceFrom,
     });
     return new Response(
       JSON.stringify({ ok: true, messageId: result.messageId, via: result.provider }),
