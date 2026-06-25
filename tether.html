@@ -1150,7 +1150,7 @@
     el.querySelectorAll('[data-del-task]').forEach(btn => {
       btn.addEventListener('click', () => {
         const task = inboxTasks.find(t => t.id === btn.getAttribute('data-del-task'));
-        if (task) openDeleteTaskModal(task.id, task.title);
+        if (task) openDeleteTaskModal(task.id, taskDisplayTitle(task));
       });
     });
     wireStartButtons(el);
@@ -1257,7 +1257,7 @@
           ${completeBtnHtml(t.id, st, false, blocked)}
           <div class="th-task-card-main">
             <div class="th-task-card-headline">
-              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
               <div class="th-task-card-badges">
                 ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                 <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -1322,6 +1322,18 @@
     let m;
     while ((m = re.exec(String(text || '')))) labels.push(m[1].toLowerCase());
     return [...new Set(labels)];
+  }
+
+  function stripLabelsFromTitle(text) {
+    return String(text || '')
+      .replace(/@([a-zA-Z0-9_-]+)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function taskDisplayTitle(t) {
+    const title = typeof t === 'string' ? t : (t?.title || '');
+    return stripLabelsFromTitle(title) || title.trim();
   }
 
   function taskLabels(t) {
@@ -1478,7 +1490,7 @@
       const st = t.status || 'todo';
       const labels = taskLabels(t);
       return `<button type="button" class="th-search-result" data-search-project="${escapeAttr(t.projectId)}" data-search-task="${escapeAttr(t.id)}">
-        <div class="th-search-result-title">${escapeHtml(t.title)}</div>
+        <div class="th-search-result-title">${escapeHtml(taskDisplayTitle(t))}</div>
         <div class="th-search-result-meta">
           <span>${escapeHtml(t.projectTitle || 'Project')}</span>
           <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -1706,7 +1718,7 @@
     return `<article class="th-my-task-item status-${st}" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
       <div class="th-my-task-headline">
         ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
-        <h3 class="th-my-task-title">${escapeHtml(t.title)}</h3>
+        <h3 class="th-my-task-title">${escapeHtml(taskDisplayTitle(t))}</h3>
         <div class="th-my-task-badges">
           ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
           <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -1717,7 +1729,7 @@
       <div class="th-my-task-subline">
         <div class="th-my-task-project-picker">${projectPickerHtml(t.id, t.projectId || null)}</div>
         ${taskLabels(t).length ? labelsHtml(taskLabels(t), false) : ''}
-        ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.join(', '))}</span>` : ''}
+        ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
       </div>
       ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
@@ -2116,7 +2128,7 @@
               ${completeBtnHtml(t.id, st, false, blocked)}
               <div class="th-task-card-main">
                 <div class="th-task-card-headline">
-                  <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+                  <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
                   <div class="th-task-card-badges">
                     ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                     <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -2154,7 +2166,7 @@
     document.getElementById('list-view').querySelectorAll('[data-del-task]').forEach(btn => {
       btn.addEventListener('click', () => {
         const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-del-task'));
-        openDeleteTaskModal(task.id, task.title);
+        openDeleteTaskModal(task.id, taskDisplayTitle(task));
       });
     });
     wireStartButtons(document.getElementById('list-view'));
@@ -2173,7 +2185,7 @@
           ${completeBtnHtml(t.id, st, false, blocked)}
           <div class="th-task-card-main">
             <div class="th-task-card-headline">
-              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
               <div class="th-task-card-badges">
                 ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                 <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -2210,7 +2222,7 @@
     root.querySelectorAll('[data-del-task]').forEach(btn => {
       btn.addEventListener('click', () => {
         const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-del-task'));
-        openDeleteTaskModal(task.id, task.title);
+        openDeleteTaskModal(task.id, taskDisplayTitle(task));
       });
     });
     wireStartButtons(root);
@@ -2357,7 +2369,7 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-gantt-delete'));
-        if (task) openDeleteTaskModal(task.id, task.title);
+        if (task) openDeleteTaskModal(task.id, taskDisplayTitle(task));
       });
     });
     wireCompleteButtons(body);
@@ -2401,7 +2413,7 @@
 
     const ok = await showConfirm({
       title: 'Add dependency?',
-      message: `"${dependent.title}" will wait on "${blocker.title}" and can't be marked complete until that task is done.`,
+      message: `"${taskDisplayTitle(dependent)}" will wait on "${taskDisplayTitle(blocker)}" and can't be marked complete until that task is done.`,
       confirmLabel: 'Add dependency',
     });
     if (!ok) return;
@@ -2565,7 +2577,7 @@
       const blocked = isTaskCompletionBlocked(t, allTasks);
       const deps = t.dependsOnTaskIds || [];
       const blockerTitle = deps.length
-        ? ' · waits on ' + deps.map(id => tasks.find(x => x.id === id)?.title).filter(Boolean).join(', ')
+        ? ' · waits on ' + deps.map(id => taskDisplayTitle(tasks.find(x => x.id === id))).filter(Boolean).join(', ')
         : '';
       return `
         <div class="th-gantt-row" data-task-row="${escapeAttr(t.id)}" style="min-height:${rowHeight}px">
@@ -2573,7 +2585,7 @@
             ${completeBtnHtml(t.id, status, true, blocked)}
             ${status === 'todo' ? startTaskBtnHtml(t.id, status) : ''}
             <div class="th-gantt-row-label-main">
-              <span class="th-gantt-row-label-text">${escapeHtml(t.title)}</span>
+              <span class="th-gantt-row-label-text">${escapeHtml(taskDisplayTitle(t))}</span>
               <span class="th-gantt-row-label-dates">${t.dueDate ? 'Due ' + formatShort(t.dueDate) : 'No due date'}</span>
             </div>
             <span class="th-gantt-row-actions">
@@ -2585,7 +2597,7 @@
             <div class="th-gantt-grid-bg" style="width:${trackWidth}px"></div>
             <div class="th-gantt-due-highlight ${status}${doneCls}" data-view-task="${escapeAttr(t.id)}"
               style="left:${cell.left}px;width:${cell.width}px"
-              title="${escapeAttr(t.title + blockerTitle)} · Due ${formatDate(cell.due)}"></div>
+              title="${escapeAttr(taskDisplayTitle(t) + blockerTitle)} · Due ${formatDate(cell.due)}"></div>
           </div>
         </div>
       `;
@@ -2875,7 +2887,7 @@
       if (!local) return;
       const currentStatus = local.status || 'todo';
       if (currentStatus !== 'done' && (local.blockedByIncomplete || []).length > 0) {
-        const names = local.blockedByIncomplete.map(n => `"${n}"`).join(', ');
+        const names = local.blockedByIncomplete.map(n => `"${stripLabelsFromTitle(n)}"`).join(', ');
         showBanner(
           local.blockedByIncomplete.length === 1
             ? `Complete ${names} first — this task depends on it.`
@@ -2895,12 +2907,12 @@
     if (!local) return;
     const currentStatus = local.status || 'todo';
     if (currentStatus !== 'done' && (local.blockedByIncomplete || []).length > 0) {
-      const names = local.blockedByIncomplete.map(n => `"${n}"`).join(', ');
+      const names = local.blockedByIncomplete.map(n => `"${stripLabelsFromTitle(n)}"`).join(', ');
       showBanner(
         local.blockedByIncomplete.length === 1
           ? `Complete ${names} first — this task depends on it.`
           : `Complete these tasks first: ${names}.`
-      );
+        );
       return;
     }
     const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
@@ -2972,7 +2984,7 @@
   function completionBlockedMessage(task, tasks) {
     const blockers = getIncompleteDependencies(task, tasks);
     if (!blockers.length) return '';
-    const names = blockers.map(t => `"${t.title}"`).join(', ');
+    const names = blockers.map(t => `"${taskDisplayTitle(t)}"`).join(', ');
     return blockers.length === 1
       ? `Complete ${names} first — this task depends on it.`
       : `Complete these tasks first: ${names}.`;
@@ -3018,7 +3030,7 @@
 
     const inInbox = sourceProjectId == null;
     const memberMap = inInbox ? {} : memberLabelMap();
-    document.getElementById('task-detail-title').textContent = resolved.title;
+    document.getElementById('task-detail-title').textContent = taskDisplayTitle(resolved);
     document.getElementById('task-detail-subtitle').textContent = inInbox
       ? 'Personal inbox · not in a project'
       : ('In project · ' + (projects.find(p => p.id === sourceProjectId)?.title || activeProject?.title || 'Project'));
@@ -3171,7 +3183,7 @@
       <label class="th-chip-check">
         <input type="checkbox" value="${escapeAttr(t.id)}"
           ${task && (task.dependsOnTaskIds || []).includes(t.id) ? 'checked' : ''}>
-        ${escapeHtml(t.title)}
+        ${escapeHtml(taskDisplayTitle(t))}
       </label>
     `).join('') : '<span style="font-size:0.82rem;color:var(--th-muted);">No other tasks yet</span>';
 
@@ -3182,7 +3194,7 @@
 
   async function deleteTask(taskId) {
     const task = getTaskById(taskId);
-    if (task) openDeleteTaskModal(taskId, task.title);
+    if (task) openDeleteTaskModal(taskId, taskDisplayTitle(task));
   }
 
   function sortTasks(tasks) {
@@ -3205,7 +3217,7 @@
     if (!depIds || !depIds.length) return '—';
     const titles = depIds.map(id => {
       const t = tasks.find(x => x.id === id);
-      return t ? t.title : id;
+      return t ? taskDisplayTitle(t) : id;
     });
     return escapeHtml(titles.join(', '));
   }
@@ -3568,14 +3580,14 @@
     if (!viewingTaskId) return;
     const task = getTaskById(viewingTaskId);
     closeModal('modal-task-detail');
-    openDeleteTaskModal(viewingTaskId, task ? task.title : '');
+    openDeleteTaskModal(viewingTaskId, task ? taskDisplayTitle(task) : '');
   });
 
   document.getElementById('delete-task-from-edit').addEventListener('click', () => {
     if (!editingTaskId) return;
     const task = getTaskById(editingTaskId);
     closeModal('modal-task');
-    openDeleteTaskModal(editingTaskId, task ? task.title : '');
+    openDeleteTaskModal(editingTaskId, task ? taskDisplayTitle(task) : '');
   });
 
   document.getElementById('confirm-delete-task').addEventListener('click', async () => {
