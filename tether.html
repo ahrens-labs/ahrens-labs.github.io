@@ -856,11 +856,6 @@
         <div class="th-toolbar">
           <h2>My Tasks</h2>
           <div class="th-toolbar-actions">
-            <div class="th-view-toggle" id="my-tasks-filter" role="group" aria-label="Filter my tasks">
-              <button type="button" class="active" id="my-tasks-filter-active" data-my-tasks-filter="active">Active</button>
-              <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
-            </div>
-            <button type="button" class="th-btn th-btn-ghost" id="btn-clear-my-completed" style="display:none;">Clear completed</button>
             <button type="button" class="th-btn th-btn-primary" id="btn-add-my-task">+ Task<span class="th-kbd-hint">q</span></button>
             <button type="button" class="th-btn th-btn-ghost" id="btn-search-my-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
           </div>
@@ -1151,7 +1146,6 @@
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
-  let myTasksViewFilter = 'active';
   let myTasksLabelFilter = null;
   let listLabelFilter = null;
   let searchTasksCache = null;
@@ -2122,29 +2116,7 @@
   }
 
   function visibleMyTasks() {
-    if (myTasksViewFilter === 'completed') {
-      return myTasks.filter(t => (t.status || 'todo') === 'done');
-    }
     return myTasks.filter(t => (t.status || 'todo') !== 'done');
-  }
-
-  function myCompletedTasks() {
-    return myTasks.filter(t => (t.status || 'todo') === 'done');
-  }
-
-  function syncMyTasksFilterButtons() {
-    const activeBtn = document.getElementById('my-tasks-filter-active');
-    const completedBtn = document.getElementById('my-tasks-filter-completed');
-    const clearBtn = document.getElementById('btn-clear-my-completed');
-    if (!activeBtn || !completedBtn) return;
-    const completedCount = myCompletedTasks().length;
-    const activeCount = myTasks.filter(t => (t.status || 'todo') !== 'done').length;
-    activeBtn.classList.toggle('active', myTasksViewFilter === 'active');
-    completedBtn.classList.toggle('active', myTasksViewFilter === 'completed');
-    completedBtn.classList.toggle('active-completed', myTasksViewFilter === 'completed');
-    activeBtn.textContent = activeCount ? `Active (${activeCount})` : 'Active';
-    completedBtn.textContent = completedCount ? `Completed (${completedCount})` : 'Completed';
-    if (clearBtn) clearBtn.style.display = completedCount ? 'inline-block' : 'none';
   }
 
   function isDueOverdue(iso, status) {
@@ -2206,12 +2178,11 @@
   }
 
   function buildMyTasksDaySections(tasks) {
-    const isCompleted = myTasksViewFilter === 'completed';
     const byKey = new Map();
     for (const t of tasks) {
       let key;
       if (!t.dueDate) key = '__none__';
-      else if (!isCompleted && isDueOverdue(t.dueDate, t.status)) key = '__overdue__';
+      else if (isDueOverdue(t.dueDate, t.status)) key = '__overdue__';
       else key = t.dueDate;
       if (!byKey.has(key)) byKey.set(key, []);
       byKey.get(key).push(t);
@@ -2219,67 +2190,47 @@
 
     const sections = [];
 
-    if (!isCompleted) {
-      if (byKey.has('__overdue__')) {
-        sections.push({
-          key: '__overdue__',
-          label: 'Overdue',
-          tasks: sortMyTasksForDay(byKey.get('__overdue__')),
-          empty: false,
-          overdue: true,
-        });
-        byKey.delete('__overdue__');
-      }
-      const start = parseIso(isoDate(new Date()));
-      for (let i = 0; i < MY_TASKS_DAY_HORIZON; i++) {
-        const d = new Date(start);
-        d.setDate(d.getDate() + i);
-        const key = isoDate(d);
-        const dayTasks = sortMyTasksForDay(byKey.get(key) || []);
-        sections.push({
-          key,
-          label: myTasksDayHeaderLabel(key),
-          tasks: dayTasks,
-          empty: dayTasks.length === 0,
-        });
-        byKey.delete(key);
-      }
-      const extraDates = [...byKey.keys()].filter(k => k !== '__none__').sort();
-      for (const key of extraDates) {
-        sections.push({
-          key,
-          label: myTasksDayHeaderLabel(key),
-          tasks: sortMyTasksForDay(byKey.get(key)),
-          empty: false,
-        });
-        byKey.delete(key);
-      }
-      if (byKey.has('__none__')) {
-        sections.push({
-          key: '__none__',
-          label: 'No date',
-          tasks: sortMyTasksForDay(byKey.get('__none__')),
-          empty: false,
-        });
-      }
-    } else {
-      const dated = [...byKey.entries()].filter(([k]) => k !== '__none__').sort((a, b) => b[0].localeCompare(a[0]));
-      for (const [key, dayTasks] of dated) {
-        sections.push({
-          key,
-          label: myTasksDayHeaderLabel(key),
-          tasks: sortMyTasksForDay(dayTasks),
-          empty: false,
-        });
-      }
-      if (byKey.has('__none__')) {
-        sections.push({
-          key: '__none__',
-          label: 'No date',
-          tasks: sortMyTasksForDay(byKey.get('__none__')),
-          empty: false,
-        });
-      }
+    if (byKey.has('__overdue__')) {
+      sections.push({
+        key: '__overdue__',
+        label: 'Overdue',
+        tasks: sortMyTasksForDay(byKey.get('__overdue__')),
+        empty: false,
+        overdue: true,
+      });
+      byKey.delete('__overdue__');
+    }
+    const start = parseIso(isoDate(new Date()));
+    for (let i = 0; i < MY_TASKS_DAY_HORIZON; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      const key = isoDate(d);
+      const dayTasks = sortMyTasksForDay(byKey.get(key) || []);
+      sections.push({
+        key,
+        label: myTasksDayHeaderLabel(key),
+        tasks: dayTasks,
+        empty: dayTasks.length === 0,
+      });
+      byKey.delete(key);
+    }
+    const extraDates = [...byKey.keys()].filter(k => k !== '__none__').sort();
+    for (const key of extraDates) {
+      sections.push({
+        key,
+        label: myTasksDayHeaderLabel(key),
+        tasks: sortMyTasksForDay(byKey.get(key)),
+        empty: false,
+      });
+      byKey.delete(key);
+    }
+    if (byKey.has('__none__')) {
+      sections.push({
+        key: '__none__',
+        label: 'No date',
+        tasks: sortMyTasksForDay(byKey.get('__none__')),
+        empty: false,
+      });
     }
     return sections;
   }
@@ -2315,8 +2266,6 @@
         ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
         <h3 class="th-my-task-title">${formatTaskTitleHtml(t)}</h3>
         <div class="th-my-task-badges">
-          ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
-          <span class="th-status ${st}">${statusLabel(st)}</span>
           ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t))}</span>` : ''}
           ${showDue ? `<span class="th-task-due-badge${dueCls}">${dueText}</span>` : ''}
         </div>
@@ -2333,17 +2282,13 @@
 
   function renderMyTasksView() {
     const el = document.getElementById('my-tasks-list');
-    syncMyTasksFilterButtons();
     if (!myTasks.length) {
       el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks yet. Add one with + Task, or assign yourself on a project task.</p>';
       return;
     }
     const statusFiltered = visibleMyTasks();
     if (!statusFiltered.length) {
-      el.innerHTML =
-        myTasksViewFilter === 'completed'
-          ? '<p style="color:var(--th-muted);font-size:0.88rem;">No completed tasks yet. Check off a task to see it here.</p>'
-          : '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now. Switch to <strong>Completed</strong> to see finished work.</p>';
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now.</p>';
       return;
     }
     const labelBar = renderMyTasksLabelFilterBar(statusFiltered);
@@ -2358,7 +2303,6 @@
     wireMyTasksLabelFilters(el);
     wireLabelColorPickers(el);
     wireRichTextLinks(el);
-    wireStartButtons(el);
     wireCompleteButtons(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async (e) => {
@@ -2908,73 +2852,6 @@
     }
     await saveProject(activeProject);
     showBanner('Completed tasks cleared', 'ok');
-  }
-
-  async function clearMyCompletedTasks() {
-    const completed = myCompletedTasks();
-    if (!completed.length) return;
-    const noun = completed.length === 1 ? 'task' : 'tasks';
-    const ok = await showConfirm({
-      title: 'Clear completed tasks?',
-      message: `Remove ${completed.length} completed ${noun} assigned to you from their projects? This cannot be undone.`,
-      confirmLabel: 'Clear completed',
-      danger: true,
-    });
-    if (!ok) return;
-
-    const byProject = new Map();
-    const personalIds = [];
-    for (const t of completed) {
-      if (t.projectId == null) personalIds.push(t.id);
-      else {
-        if (!byProject.has(t.projectId)) byProject.set(t.projectId, []);
-        byProject.get(t.projectId).push(t.id);
-      }
-    }
-    const allRemovedIds = new Set(completed.map(t => t.id));
-
-    try {
-      if (personalIds.length) {
-        const removeIds = new Set(personalIds);
-        personalTasks = personalTasks.filter(t => !removeIds.has(t.id));
-        personalTasks.forEach(t => {
-          t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !removeIds.has(id));
-        });
-        await savePersonalTasks();
-      }
-      for (const [projectId, taskIds] of byProject) {
-        const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId));
-        const project = data.project;
-        const removeIds = new Set(taskIds);
-        project.tasks = (project.tasks || []).filter(t => !removeIds.has(t.id));
-        project.tasks.forEach(t => {
-          t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !removeIds.has(id));
-        });
-        const saveData = await api('/api/tether/project', {
-          method: 'PUT',
-          body: JSON.stringify({
-            projectId: project.id,
-            title: project.title,
-            description: projectDescription(project),
-            tasks: project.tasks,
-          }),
-        });
-        if (activeProject && activeProject.id === projectId) {
-          activeProject = saveData.project;
-        }
-      }
-      if (viewingTaskId && allRemovedIds.has(viewingTaskId)) {
-        clearTaskViewState();
-        closeModal('modal-task');
-      }
-      await loadMyTasks();
-      if (myTasksViewFilter === 'completed' && !myCompletedTasks().length) {
-        myTasksViewFilter = 'active';
-      }
-      showBanner('Completed tasks cleared', 'ok');
-    } catch (e) {
-      showBanner(e.message);
-    }
   }
 
   function wireGanttTaskInteractions() {
@@ -3932,17 +3809,6 @@
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
   document.getElementById('btn-add-my-task').addEventListener('click', () => openTaskModal(null));
-  document.getElementById('my-tasks-filter').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-my-tasks-filter]');
-    if (!btn) return;
-    const next = btn.getAttribute('data-my-tasks-filter');
-    if (next !== 'active' && next !== 'completed') return;
-    myTasksViewFilter = next;
-    renderMyTasksView();
-  });
-  document.getElementById('btn-clear-my-completed').addEventListener('click', () => {
-    clearMyCompletedTasks().catch(e => showBanner(e.message));
-  });
   document.getElementById('project-sort').addEventListener('change', (e) => {
     projectSort = e.target.value;
     renderProjectList();
