@@ -5,6 +5,7 @@
  */
 
 import { TetherProject } from '../src/tether.js';
+import { backfillRecurrenceDueDate } from '../../scripts/todoist-recurrence.js';
 
 export { TetherProject };
 
@@ -193,6 +194,16 @@ export default {
         if (!profile) return Response.json({ error: 'User profile not found' }, { status: 404 });
         const result = await importToInbox(env, userId, incomingTasks);
         return Response.json({ success: true, ...result });
+      }
+
+      if (body.action === 'fix-recurrence-due-dates') {
+        const inboxTasks = await getInboxTasks(env, userId);
+        let fixed = 0;
+        for (const task of inboxTasks) {
+          if (backfillRecurrenceDueDate(task)) fixed++;
+        }
+        if (fixed) await saveInboxTasks(env, userId, inboxTasks);
+        return Response.json({ success: true, fixed, total: inboxTasks.length });
       }
 
       const projectTitle = String(body.projectTitle || 'Inbox').trim();

@@ -54,6 +54,51 @@ function isoDate(d) {
   return `${y}-${m}-${day}`;
 }
 
+function noonToday(today = new Date()) {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
+}
+
+/** Next occurrence of weekday (0=Sun), including today. */
+export function initialWeeklyDue(recurrenceDay, today = new Date()) {
+  const target = recurrenceDay != null ? Number(recurrenceDay) : 0;
+  const d = noonToday(today);
+  for (let i = 0; i < 7; i++) {
+    if (d.getDay() === target) return isoDate(d);
+    d.setDate(d.getDate() + 1);
+  }
+  return isoDate(d);
+}
+
+/** Next occurrence of day-of-month (1–31), including today. */
+export function initialMonthlyDue(dayOfMonth, today = new Date()) {
+  const dom = Math.min(Math.max(Number(dayOfMonth) || 1, 1), 31);
+  const now = noonToday(today);
+  let d = new Date(now.getFullYear(), now.getMonth(), dom, 12, 0, 0, 0);
+  if (d < now) d = new Date(now.getFullYear(), now.getMonth() + 1, dom, 12, 0, 0, 0);
+  return isoDate(d);
+}
+
+/** First due date for a Tether recurrence rule. */
+export function initialDueForRecurrence(recurrence, recurrenceDay, today = new Date()) {
+  if (!recurrence) return '';
+  if (recurrence === 'daily') return isoDate(noonToday(today));
+  if (recurrence === 'weekly') return initialWeeklyDue(recurrenceDay, today);
+  if (recurrence === 'monthly') {
+    const dom = recurrenceDay != null ? Number(recurrenceDay) : noonToday(today).getDate();
+    return initialMonthlyDue(dom, today);
+  }
+  return '';
+}
+
+/** Set dueDate on tasks imported with recurrence but no due date. Returns true if changed. */
+export function backfillRecurrenceDueDate(task, today = new Date()) {
+  if (!task?.recurrence || task.dueDate) return false;
+  const due = initialDueForRecurrence(task.recurrence, task.recurrenceDay, today);
+  if (!due) return false;
+  task.dueDate = due;
+  return true;
+}
+
 function extractLabels(title) {
   const labels = [];
   const re = /@([a-zA-Z0-9_-]+)/g;
@@ -70,7 +115,7 @@ function parseAnnualDate(raw, today = new Date()) {
     const day = Number(m1[1]);
     if (month != null && day >= 1 && day <= 31) {
       let d = new Date(today.getFullYear(), month, day, 12, 0, 0, 0);
-      if (d < new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0)) {
+      if (d < noonToday(today)) {
         d = new Date(today.getFullYear() + 1, month, day, 12, 0, 0, 0);
       }
       return isoDate(d);
@@ -82,7 +127,7 @@ function parseAnnualDate(raw, today = new Date()) {
     const day = Number(m2[2]);
     if (month != null && day >= 1 && day <= 31) {
       let d = new Date(today.getFullYear(), month, day, 12, 0, 0, 0);
-      if (d < new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0)) {
+      if (d < noonToday(today)) {
         d = new Date(today.getFullYear() + 1, month, day, 12, 0, 0, 0);
       }
       return isoDate(d);
@@ -113,19 +158,41 @@ export function mapTodoistDate(raw, today = new Date()) {
     const key = weeklyDay[1].replace(/day$/, '').slice(0, 3);
     const dayKey = Object.keys(DAY_NAMES).find((k) => key.startsWith(k.slice(0, 3))) || weeklyDay[1];
     const recurrenceDay = DAY_NAMES[dayKey] ?? DAY_NAMES[weeklyDay[1].slice(0, 3)] ?? 0;
-    return { dueDate: '', recurrence: 'weekly', recurrenceDay };
+    return {
+      dueDate: initialWeeklyDue(recurrenceDay, today),
+      recurrence: 'weekly',
+      recurrenceDay,
+    };
   }
 
   if (/^every\s+week\b/.test(lower)) {
-    return { dueDate: '', recurrence: 'weekly', recurrenceDay: 0 };
+    const recurrenceDay = noonToday(today).getDay();
+    return {
+      dueDate: initialWeeklyDue(recurrenceDay, today),
+      recurrence: 'weekly',
+      recurrenceDay,
+    };
   }
 
-  if (/^every\s+month\b/.test(lower) || /^every\s+1st\s+day\b/.test(lower)) {
-    return { dueDate: '', recurrence: 'monthly' };
+  if (/^every\s+1st\s+day\b/.test(lower)) {
+    return {
+      dueDate: initialMonthlyDue(1, today),
+      recurrence: 'monthly',
+      recurrenceDay: 1,
+    };
+  }
+
+  if (/^every\s+month\b/.test(lower)) {
+    const dom = noonToday(today).getDate();
+    return {
+      dueDate: initialMonthlyDue(dom, today),
+      recurrence: 'monthly',
+      recurrenceDay: dom,
+    };
   }
 
   if (/^every\s+day\b/.test(lower)) {
-    return { dueDate: '', recurrence: 'daily' };
+    return { dueDate: isoDate(noonToday(today)), recurrence: 'daily' };
   }
 
   const annualDue = parseAnnualDate(lower, today);
@@ -165,9 +232,7 @@ export function buildTetherTask(row, userId, sortOrder, today = new Date()) {
 
   if (schedule.recurrence) {
     task.recurrence = schedule.recurrence;
-    if (schedule.recurrence === 'weekly' && schedule.recurrenceDay != null) {
-      task.recurrenceDay = schedule.recurrenceDay;
-    }
+    if (schedule.recurrenceDay != null) task.recurrenceDay = schedule.recurrenceDay;
   }
 
   return task;

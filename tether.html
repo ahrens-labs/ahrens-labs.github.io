@@ -1092,6 +1092,18 @@
   async function loadPersonalTasks() {
     const data = await api('/api/tether/inbox', { method: 'GET' });
     personalTasks = data.tasks || [];
+    let changed = false;
+    for (const t of personalTasks) {
+      if (ensureRecurrenceDueDate(t)) changed = true;
+    }
+    if (changed) {
+      const saved = await api('/api/tether/inbox', {
+        method: 'PUT',
+        body: JSON.stringify({ tasks: personalTasks }),
+      });
+      personalTasks = saved.tasks || personalTasks;
+      invalidateSearchCache();
+    }
     return personalTasks;
   }
 
@@ -1103,7 +1115,11 @@
     });
     personalTasks = data.tasks || payload;
     invalidateSearchCache();
-    if (appTab === 'my-tasks') await loadMyTasks();
+    if (appTab === 'my-tasks') {
+      const myData = await api('/api/tether/my-tasks', { method: 'GET' });
+      myTasks = myData.tasks || [];
+      renderMyTasksView();
+    }
   }
 
   function projectPickerOptions(currentProjectId) {
@@ -1351,6 +1367,35 @@
       return isoDate(d);
     }
     return fromIso;
+  }
+
+  function initialWeeklyDue(recurrenceDay) {
+    const target = recurrenceDay != null ? Number(recurrenceDay) : 0;
+    const d = parseIso(isoDate(new Date()));
+    for (let i = 0; i < 7; i++) {
+      if (d.getDay() === target) return isoDate(d);
+      d.setDate(d.getDate() + 1);
+    }
+    return isoDate(d);
+  }
+
+  function initialMonthlyDue(dayOfMonth) {
+    const dom = Math.min(Math.max(Number(dayOfMonth) || 1, 1), 31);
+    const now = parseIso(isoDate(new Date()));
+    let d = new Date(now.getFullYear(), now.getMonth(), dom, 12, 0, 0, 0);
+    if (d < now) d = new Date(now.getFullYear(), now.getMonth() + 1, dom, 12, 0, 0, 0);
+    return isoDate(d);
+  }
+
+  function ensureRecurrenceDueDate(task) {
+    if (!task?.recurrence || task.dueDate) return false;
+    if (task.recurrence === 'daily') task.dueDate = isoDate(new Date());
+    else if (task.recurrence === 'weekly') task.dueDate = initialWeeklyDue(task.recurrenceDay);
+    else if (task.recurrence === 'monthly') {
+      const dom = task.recurrenceDay != null ? task.recurrenceDay : new Date().getDate();
+      task.dueDate = initialMonthlyDue(dom);
+    } else return false;
+    return true;
   }
 
   function applyRecurrenceOnComplete(task) {
@@ -1625,10 +1670,8 @@
   }
 
   async function loadMyTasks() {
-    const [myData] = await Promise.all([
-      api('/api/tether/my-tasks', { method: 'GET' }),
-      loadPersonalTasks(),
-    ]);
+    await loadPersonalTasks();
+    const myData = await api('/api/tether/my-tasks', { method: 'GET' });
     myTasks = myData.tasks || [];
     renderMyTasksView();
   }
