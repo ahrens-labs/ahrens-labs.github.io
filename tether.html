@@ -265,6 +265,53 @@
     .th-task-due-badge { font-size: 0.66rem; font-weight: 700; color: var(--th-muted); white-space: nowrap; }
     .th-task-due-badge.soon { color: var(--th-orange); }
     .th-task-due-badge.overdue { color: #c2410c; }
+    .th-recurrence-badge {
+      font-size: 0.64rem; font-weight: 700; color: #6366f1; white-space: nowrap;
+    }
+    .th-label-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+    .th-label-chip {
+      display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px;
+      background: #eef2ff; border: 1px solid #c7d2fe; font-size: 0.64rem; font-weight: 700; color: #4338ca;
+    }
+    .th-label-chip.filterable { cursor: pointer; transition: all 0.15s; }
+    .th-label-chip.filterable:hover { background: #e0e7ff; border-color: #818cf8; }
+    .th-label-chip.active { background: var(--th-accent); border-color: var(--th-accent); color: #fff; }
+    .th-label-filter-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px;
+    }
+    .th-label-filter-bar > span { font-size: 0.72rem; font-weight: 700; color: var(--th-muted); margin-right: 2px; }
+    .th-label-group { margin-bottom: 18px; }
+    .th-label-group-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--th-line);
+    }
+    .th-label-group-head h3 {
+      margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--th-accent);
+    }
+    .th-label-group-count { font-size: 0.72rem; font-weight: 600; color: var(--th-muted); }
+    .th-kbd-hint {
+      display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 5px;
+      border-radius: 4px; border: 1px solid var(--th-line); background: #f8fafc;
+      font-size: 0.62rem; font-weight: 700; color: var(--th-muted); font-family: inherit;
+    }
+    .th-search-modal { width: min(640px, 100%); padding: 0; overflow: hidden; }
+    .th-search-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--th-line); }
+    .th-search-head input {
+      width: 100%; box-sizing: border-box; border: 1px solid var(--th-line); border-radius: 12px;
+      padding: 11px 14px; font: inherit; font-size: 0.95rem;
+    }
+    .th-search-head input:focus {
+      outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .th-search-results { max-height: min(60vh, 480px); overflow-y: auto; padding: 8px; }
+    .th-search-result {
+      display: block; width: 100%; text-align: left; border: 1px solid transparent; background: #fff;
+      border-radius: 12px; padding: 10px 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .th-search-result:hover { background: #f8fafc; border-color: #c7d2fe; }
+    .th-search-result-title { font-size: 0.88rem; font-weight: 700; color: var(--th-ink); margin-bottom: 3px; }
+    .th-search-result-meta { font-size: 0.72rem; color: var(--th-muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .th-search-empty { padding: 24px 16px; text-align: center; color: var(--th-muted); font-size: 0.88rem; }
     .th-status {
       display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 0.64rem; font-weight: 700;
       white-space: nowrap;
@@ -694,13 +741,15 @@
               <div class="th-toolbar-actions">
                 <div class="th-view-toggle">
                   <button type="button" data-view="list" class="active" id="view-list">Tasks</button>
+                  <button type="button" data-view="labels" id="view-labels">Labels</button>
                   <button type="button" data-view="gantt" id="view-gantt">Timeline</button>
                 </div>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-share">Share</button>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-edit-project">Edit</button>
                 <button type="button" class="th-btn th-btn-ghost th-btn-delete-compact" id="btn-delete-project" style="display:none;">Delete</button>
                 <button type="button" class="th-btn th-btn-ghost" id="btn-clear-completed" style="display:none;">Clear completed</button>
-                <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task</button>
+                <button type="button" class="th-btn th-btn-primary" id="btn-add-task">+ Task<span class="th-kbd-hint">q</span></button>
+                <button type="button" class="th-btn th-btn-ghost" id="btn-search-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
               </div>
             </div>
 
@@ -728,6 +777,7 @@
               <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
             </div>
             <button type="button" class="th-btn th-btn-ghost" id="btn-clear-my-completed" style="display:none;">Clear completed</button>
+            <button type="button" class="th-btn th-btn-ghost" id="btn-search-my-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
           </div>
         </div>
         <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Tasks assigned to you across all projects.</p>
@@ -788,7 +838,7 @@
           <h4 class="th-task-section-title">What to do</h4>
           <div class="th-field">
             <label for="task-title-input">Task name</label>
-            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done? Use @label for tags (e.g. Weekly review @admin)">
           </div>
           <div class="th-field">
             <label for="task-dod-input">Definition of Done</label>
@@ -814,6 +864,28 @@
             <label for="task-due-input">Due date</label>
             <input type="date" id="task-due-input">
           </div>
+          <div class="th-field">
+            <label for="task-recurrence-input">Repeats</label>
+            <select id="task-recurrence-input">
+              <option value="">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
+            <label for="task-recurrence-day">Repeat on</label>
+            <select id="task-recurrence-day">
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </div>
+          <p class="th-field-hint" style="margin:0;">Recurring tasks reset to To do with a new due date when you complete them.</p>
         </section>
         <section class="th-task-section">
           <h4 class="th-task-section-title">People &amp; blockers</h4>
@@ -884,6 +956,18 @@
     </div>
   </div>
 
+  <!-- Search modal -->
+  <div class="th-modal-backdrop" id="modal-search">
+    <div class="th-modal th-search-modal">
+      <div class="th-search-head">
+        <input type="search" id="search-input" placeholder="Search tasks across all projects…" autocomplete="off" aria-label="Search tasks">
+      </div>
+      <div class="th-search-results" id="search-results">
+        <p class="th-search-empty">Type to search task names, notes, labels, and projects.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Share modal -->
   <div class="th-modal-backdrop" id="modal-share">
     <div class="th-modal">
@@ -935,8 +1019,229 @@
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
   let myTasksViewFilter = 'active';
+  let listLabelFilter = null;
+  let searchTasksCache = null;
+  let searchLoadPromise = null;
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
+
+  function invalidateSearchCache() {
+    searchTasksCache = null;
+    searchLoadPromise = null;
+  }
+
+  function extractLabels(text) {
+    const labels = [];
+    const re = /@([a-zA-Z0-9_-]+)/g;
+    let m;
+    while ((m = re.exec(String(text || '')))) labels.push(m[1].toLowerCase());
+    return [...new Set(labels)];
+  }
+
+  function taskLabels(t) {
+    if (Array.isArray(t.labels) && t.labels.length) return t.labels;
+    return extractLabels(t.title || '');
+  }
+
+  function labelsHtml(labels, filterable) {
+    if (!labels || !labels.length) return '';
+    return `<span class="th-label-chips">${labels.map(l => {
+      const cls = 'th-label-chip' + (filterable ? ' filterable' + (listLabelFilter === l ? ' active' : '') : '');
+      const attrs = filterable ? ` data-label-filter="${escapeAttr(l)}"` : '';
+      return `<span class="${cls}"${attrs}>@${escapeHtml(l)}</span>`;
+    }).join('')}</span>`;
+  }
+
+  function collectProjectLabels(tasks) {
+    const set = new Set();
+    (tasks || []).forEach(t => taskLabels(t).forEach(l => set.add(l)));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  function recurrenceLabel(recurrence, recurrenceDay) {
+    if (!recurrence) return '';
+    if (recurrence === 'daily') return 'Daily';
+    if (recurrence === 'monthly') return 'Monthly';
+    if (recurrence === 'weekly') {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return 'Weekly · ' + (days[recurrenceDay != null ? recurrenceDay : 0] || 'Sunday');
+    }
+    return recurrence;
+  }
+
+  function computeNextDueDate(fromIso, recurrence, recurrenceDay) {
+    const d = parseIso(fromIso || isoDate(new Date()));
+    if (!d) return isoDate(new Date());
+    if (recurrence === 'daily') {
+      d.setDate(d.getDate() + 1);
+      return isoDate(d);
+    }
+    if (recurrence === 'weekly') {
+      const target = recurrenceDay != null ? Number(recurrenceDay) : 0;
+      d.setDate(d.getDate() + 1);
+      for (let i = 0; i < 8; i++) {
+        if (d.getDay() === target) return isoDate(d);
+        d.setDate(d.getDate() + 1);
+      }
+      return isoDate(d);
+    }
+    if (recurrence === 'monthly') {
+      d.setMonth(d.getMonth() + 1);
+      return isoDate(d);
+    }
+    return fromIso;
+  }
+
+  function applyRecurrenceOnComplete(task) {
+    if (!task.recurrence) return false;
+    const nextDue = computeNextDueDate(isoDate(new Date()), task.recurrence, task.recurrenceDay);
+    task.status = 'todo';
+    task.dueDate = nextDue;
+    return true;
+  }
+
+  function recurrenceCompleteMessage(task) {
+    const label = recurrenceLabel(task.recurrence, task.recurrenceDay);
+    const due = task.dueDate ? formatDate(task.dueDate) : 'soon';
+    return `Recurring task reset — next due ${due} (${label})`;
+  }
+
+  function syncRecurrenceWeeklyVisibility() {
+    const recurrence = document.getElementById('task-recurrence-input').value;
+    document.getElementById('task-recurrence-weekly-wrap').style.display =
+      recurrence === 'weekly' ? 'block' : 'none';
+  }
+
+  function syncRecurrenceDayFromDueDate() {
+    const due = document.getElementById('task-due-input').value;
+    if (!due || document.getElementById('task-recurrence-input').value !== 'weekly') return;
+    const d = parseIso(due);
+    if (d) document.getElementById('task-recurrence-day').value = String(d.getDay());
+  }
+
+  function isTypingContext(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  }
+
+  function isAnyModalOpen() {
+    return [...document.querySelectorAll('.th-modal-backdrop.open')].some(el => el.id !== 'modal-search');
+  }
+
+  async function loadAllTasksForSearch() {
+    if (searchTasksCache) return searchTasksCache;
+    if (searchLoadPromise) return searchLoadPromise;
+    searchLoadPromise = (async () => {
+      const ids = projects.map(p => p.id);
+      const all = [];
+      await Promise.all(ids.map(async (pid) => {
+        try {
+          const data = await api('/api/tether/project?projectId=' + encodeURIComponent(pid), { method: 'GET' });
+          const proj = data.project;
+          (proj.tasks || []).forEach(t => {
+            all.push({
+              ...t,
+              projectId: proj.id,
+              projectTitle: proj.title,
+              labels: taskLabels(t),
+            });
+          });
+        } catch { /* skip inaccessible projects */ }
+      }));
+      searchTasksCache = all;
+      return all;
+    })();
+    return searchLoadPromise;
+  }
+
+  function renderSearchResults(query) {
+    const el = document.getElementById('search-results');
+    const q = String(query || '').trim().toLowerCase();
+    if (!q) {
+      el.innerHTML = '<p class="th-search-empty">Type to search task names, notes, labels, and projects.</p>';
+      return;
+    }
+    const tasks = searchTasksCache || [];
+    const matches = tasks.filter(t => {
+      const hay = [
+        t.title,
+        t.notes,
+        t.definitionOfDone,
+        t.projectTitle,
+        ...(taskLabels(t)),
+      ].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    if (!matches.length) {
+      el.innerHTML = '<p class="th-search-empty">No tasks match your search.</p>';
+      return;
+    }
+    el.innerHTML = matches.slice(0, 40).map(t => {
+      const st = t.status || 'todo';
+      const labels = taskLabels(t);
+      return `<button type="button" class="th-search-result" data-search-project="${escapeAttr(t.projectId)}" data-search-task="${escapeAttr(t.id)}">
+        <div class="th-search-result-title">${escapeHtml(t.title)}</div>
+        <div class="th-search-result-meta">
+          <span>${escapeHtml(t.projectTitle || 'Project')}</span>
+          <span class="th-status ${st}">${statusLabel(st)}</span>
+          ${t.dueDate ? `<span>Due ${formatDate(t.dueDate)}</span>` : ''}
+          ${labels.length ? labelsHtml(labels, false) : ''}
+        </div>
+      </button>`;
+    }).join('');
+    el.querySelectorAll('[data-search-task]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const projectId = btn.getAttribute('data-search-project');
+        const taskId = btn.getAttribute('data-search-task');
+        closeModal('modal-search');
+        setAppTab('projects', { skipUrlSync: true });
+        await loadProject(projectId, taskId);
+        openTaskDetailModal(taskId);
+      });
+    });
+  }
+
+  async function openSearchModal() {
+    openModal('modal-search');
+    const input = document.getElementById('search-input');
+    input.value = '';
+    document.getElementById('search-results').innerHTML = '<p class="th-search-empty">Loading tasks…</p>';
+    input.focus();
+    try {
+      await loadAllTasksForSearch();
+      renderSearchResults('');
+    } catch (e) {
+      document.getElementById('search-results').innerHTML = `<p class="th-search-empty">${escapeHtml(e.message || 'Could not load tasks')}</p>`;
+    }
+  }
+
+  function renderLabelFilterBar(tasks) {
+    const labels = collectProjectLabels(tasks);
+    if (!labels.length) return '';
+    return `<div class="th-label-filter-bar">
+      <span>Labels</span>
+      <span class="th-label-chip filterable${listLabelFilter ? '' : ' active'}" data-label-filter="">All</span>
+      ${labels.map(l => `<span class="th-label-chip filterable${listLabelFilter === l ? ' active' : ''}" data-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+    </div>`;
+  }
+
+  function wireLabelFilters(root) {
+    (root || document).querySelectorAll('[data-label-filter]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = chip.getAttribute('data-label-filter');
+        listLabelFilter = val || null;
+        if (viewMode === 'list') renderListView();
+        else if (viewMode === 'labels') renderLabelsView();
+      });
+    });
+  }
+
+  function tasksMatchingLabelFilter(tasks) {
+    if (!listLabelFilter) return tasks;
+    return tasks.filter(t => taskLabels(t).includes(listLabelFilter));
+  }
 
   const projectsCacheKey = () => 'tether_projects_' + (sessionId || 'none');
 
@@ -1092,11 +1397,13 @@
         <div class="th-my-task-badges">
           ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
           <span class="th-status ${st}">${statusLabel(st)}</span>
+          ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t.recurrence, t.recurrenceDay))}</span>` : ''}
           <span class="th-task-due-badge${dueCls}">${dueText}</span>
         </div>
       </div>
       <div class="th-my-task-subline">
         <span class="th-my-task-project">${escapeHtml(t.projectTitle || 'Project')}</span>
+        ${taskLabels(t).length ? labelsHtml(taskLabels(t), false) : ''}
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
       </div>
@@ -1307,6 +1614,7 @@
       }),
     });
     activeProject = data.project;
+    invalidateSearchCache();
     await loadProjects();
     if (appTab === 'my-tasks') {
       await loadMyTasks();
@@ -1427,6 +1735,7 @@
 
     renderProjectList();
     if (viewMode === 'list') renderListView();
+    else if (viewMode === 'labels') renderLabelsView();
     else renderGanttView();
   }
 
@@ -1465,18 +1774,22 @@
   function renderListView() {
     document.getElementById('list-view').style.display = 'block';
     document.getElementById('gantt-view').style.display = 'none';
-    const tasks = sortTasks(activeProject.tasks || []);
-    if (!tasks.length) {
+    const allTasks = sortTasks(activeProject.tasks || []);
+    const tasks = tasksMatchingLabelFilter(allTasks);
+    if (!allTasks.length) {
       document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">No tasks in this project yet. Add a step — deploy worker, fix UI, write tests, whatever moves the project forward.</p>';
       return;
     }
     const memberMap = memberLabelMap();
     document.getElementById('list-view').innerHTML = `
+      ${renderLabelFilterBar(allTasks)}
+      ${!tasks.length ? '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks with this label.</p>' : ''}
       <div class="th-task-cards">
         ${tasks.map(t => {
           const st = t.status || 'todo';
           const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
-          const blocked = isTaskCompletionBlocked(t, tasks);
+          const blocked = isTaskCompletionBlocked(t, allTasks);
+          const labels = taskLabels(t);
           return `
           <article class="th-task-card status-${st}">
             <div class="th-task-card-row">
@@ -1487,15 +1800,17 @@
                   <div class="th-task-card-badges">
                     ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                     <span class="th-status ${st}">${statusLabel(st)}</span>
+                    ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t.recurrence, t.recurrenceDay))}</span>` : ''}
                     <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
                   </div>
                 </div>
+                ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
                 ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
                 ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
                 <div class="th-task-card-bottom">
                   <div class="th-task-card-meta">
                     ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
-                    ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, tasks) : ''}
+                    ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : ''}
                   </div>
                   <div class="th-task-card-actions">
                     <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
@@ -1508,6 +1823,7 @@
         }).join('')}
       </div>
     `;
+    wireLabelFilters(document.getElementById('list-view'));
     document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
       btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task')));
     });
@@ -1522,6 +1838,102 @@
     });
     wireStartButtons(document.getElementById('list-view'));
     wireCompleteButtons(document.getElementById('list-view'));
+  }
+
+  function renderTaskCardHtml(t, allTasks, memberMap) {
+    const st = t.status || 'todo';
+    const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
+    const blocked = isTaskCompletionBlocked(t, allTasks);
+    const labels = taskLabels(t);
+    return `
+      <article class="th-task-card status-${st}">
+        <div class="th-task-card-row">
+          ${completeBtnHtml(t.id, st, false, blocked)}
+          <div class="th-task-card-main">
+            <div class="th-task-card-headline">
+              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(t.title)}</button></h4>
+              <div class="th-task-card-badges">
+                ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
+                <span class="th-status ${st}">${statusLabel(st)}</span>
+                ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t.recurrence, t.recurrenceDay))}</span>` : ''}
+                <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
+              </div>
+            </div>
+            ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
+            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
+            ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+            <div class="th-task-card-bottom">
+              <div class="th-task-card-meta">
+                ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
+                ${(t.dependsOnTaskIds || []).length ? ' · ⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : ''}
+              </div>
+              <div class="th-task-card-actions">
+                <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
+                <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  function wireTaskCardActions(root) {
+    root.querySelectorAll('[data-view-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task')));
+    });
+    root.querySelectorAll('[data-edit-task]').forEach(btn => {
+      btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
+    });
+    root.querySelectorAll('[data-del-task]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const task = (activeProject.tasks || []).find(t => t.id === btn.getAttribute('data-del-task'));
+        openDeleteTaskModal(task.id, task.title);
+      });
+    });
+    wireStartButtons(root);
+    wireCompleteButtons(root);
+  }
+
+  function renderLabelsView() {
+    document.getElementById('list-view').style.display = 'block';
+    document.getElementById('gantt-view').style.display = 'none';
+    const allTasks = sortTasks(activeProject.tasks || []);
+    if (!allTasks.length) {
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">No tasks in this project yet. Add @labels to task names to group them here.</p>';
+      return;
+    }
+    const memberMap = memberLabelMap();
+    const labels = collectProjectLabels(allTasks);
+    const visibleLabels = listLabelFilter ? labels.filter(l => l === listLabelFilter) : labels;
+    const groupsHtml = visibleLabels.map(label => {
+      const groupTasks = allTasks.filter(t => taskLabels(t).includes(label));
+      return `<section class="th-label-group">
+        <div class="th-label-group-head">
+          <h3>@${escapeHtml(label)}</h3>
+          <span class="th-label-group-count">${groupTasks.length} ${groupTasks.length === 1 ? 'task' : 'tasks'}</span>
+        </div>
+        <div class="th-task-cards">${groupTasks.map(t => renderTaskCardHtml(t, allTasks, memberMap)).join('')}</div>
+      </section>`;
+    }).join('');
+    const unlabeled = listLabelFilter ? [] : allTasks.filter(t => !taskLabels(t).length);
+    const unlabeledHtml = unlabeled.length ? `<section class="th-label-group">
+      <div class="th-label-group-head">
+        <h3 style="color:var(--th-muted);">Unlabeled</h3>
+        <span class="th-label-group-count">${unlabeled.length} ${unlabeled.length === 1 ? 'task' : 'tasks'}</span>
+      </div>
+      <div class="th-task-cards">${unlabeled.map(t => renderTaskCardHtml(t, allTasks, memberMap)).join('')}</div>
+    </section>` : '';
+    if (!labels.length && !unlabeled.length) {
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">Add @labels to task names (e.g. <strong>Weekly review @admin</strong>) to group tasks here.</p>';
+      return;
+    }
+    document.getElementById('list-view').innerHTML = `
+      ${renderLabelFilterBar(allTasks)}
+      ${groupsHtml || '<p style="color:var(--th-muted);font-size:0.88rem;">No labeled tasks match this filter.</p>'}
+      ${unlabeledHtml}
+    `;
+    wireLabelFilters(document.getElementById('list-view'));
+    wireTaskCardActions(document.getElementById('list-view'));
   }
 
   async function clearCompletedTasks() {
@@ -2058,7 +2470,13 @@
     const project = data.project;
     const task = (project.tasks || []).find(t => t.id === taskId);
     if (!task) throw new Error('Task not found');
-    task.status = status;
+    let recurringReset = false;
+    if (status === 'done') {
+      recurringReset = applyRecurrenceOnComplete(task);
+      if (!recurringReset) task.status = 'done';
+    } else {
+      task.status = status;
+    }
     const saveData = await api('/api/tether/project', {
       method: 'PUT',
       body: JSON.stringify({
@@ -2070,12 +2488,14 @@
     });
     if (activeProject && activeProject.id === projectId) {
       activeProject = saveData.project;
+      invalidateSearchCache();
     }
     const refreshed = await api('/api/tether/my-tasks', { method: 'GET' });
     myTasks = refreshed.tasks || [];
     renderMyTasksView();
-    const bannerMsg =
-      status === 'in_progress'
+    const bannerMsg = recurringReset
+      ? recurrenceCompleteMessage(task)
+      : status === 'in_progress'
         ? 'Task marked in progress'
         : status === 'done'
           ? 'Task marked complete'
@@ -2132,10 +2552,20 @@
         return;
       }
     }
-    task.status = task.status === 'done' ? 'todo' : 'done';
+    let recurringReset = false;
+    if (task.status !== 'done') {
+      recurringReset = applyRecurrenceOnComplete(task);
+      if (!recurringReset) task.status = 'done';
+    } else {
+      task.status = 'todo';
+    }
     try {
       await saveProject(activeProject);
-      showBanner(task.status === 'done' ? 'Task marked complete' : 'Task marked active', 'ok');
+      showBanner(
+        recurringReset ? recurrenceCompleteMessage(task)
+          : task.status === 'done' ? 'Task marked complete' : 'Task marked active',
+        'ok'
+      );
       if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
         openTaskDetailModal(taskId, { fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks' });
       }
@@ -2184,6 +2614,8 @@
     document.getElementById('task-detail-body').innerHTML = `
       <div class="th-detail-row"><div class="th-detail-label">Status</div><div class="th-detail-value"><span class="th-status ${task.status || 'todo'}">${statusLabel(task.status)}</span></div></div>
       <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(task.dueDate)}</div></div>
+      ${task.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(task.recurrence, task.recurrenceDay))}</div></div>` : ''}
+      ${taskLabels(task).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(task), false)}</div></div>` : ''}
       <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(task.definitionOfDone || '—')}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(task.notes || '—')}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(task.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>
@@ -2268,6 +2700,12 @@
     document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
+    document.getElementById('task-recurrence-input').value = task && task.recurrence ? task.recurrence : '';
+    document.getElementById('task-recurrence-day').value = String(
+      task && task.recurrenceDay != null ? task.recurrenceDay
+        : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 0) ?? 0
+    );
+    syncRecurrenceWeeklyVisibility();
     document.getElementById('task-edit-start').style.display =
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
 
@@ -2476,6 +2914,17 @@
   document.getElementById('btn-new-project-empty').addEventListener('click', () => openProjectModal('create'));
   document.getElementById('btn-edit-project').addEventListener('click', () => openProjectModal('edit'));
   document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
+  document.getElementById('btn-search-tasks').addEventListener('click', () => openSearchModal());
+  document.getElementById('btn-search-my-tasks').addEventListener('click', () => openSearchModal());
+  document.getElementById('search-input').addEventListener('input', (e) => renderSearchResults(e.target.value));
+  document.getElementById('modal-search').addEventListener('click', (e) => {
+    if (e.target.id === 'modal-search') closeModal('modal-search');
+  });
+  document.getElementById('task-recurrence-input').addEventListener('change', () => {
+    syncRecurrenceWeeklyVisibility();
+    syncRecurrenceDayFromDueDate();
+  });
+  document.getElementById('task-due-input').addEventListener('change', syncRecurrenceDayFromDueDate);
   document.getElementById('btn-clear-completed').addEventListener('click', () => {
     clearCompletedTasks().catch(e => showBanner(e.message));
   });
@@ -2543,6 +2992,10 @@
   document.getElementById('save-task-btn').addEventListener('click', async () => {
     const title = document.getElementById('task-title-input').value.trim();
     if (!title) { showBanner('Task title is required'); return; }
+    const recurrence = document.getElementById('task-recurrence-input').value || null;
+    const recurrenceDay = recurrence === 'weekly'
+      ? Number(document.getElementById('task-recurrence-day').value)
+      : undefined;
     const task = {
       id: editingTaskId || crypto.randomUUID(),
       title,
@@ -2552,14 +3005,23 @@
       status: document.getElementById('task-status-input').value,
       assigneeUserIds: [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
+      labels: extractLabels(title),
+      recurrence,
       sortOrder: editingTaskId ? undefined : (activeProject.tasks || []).length,
     };
+    if (recurrence === 'weekly') task.recurrenceDay = recurrenceDay;
+    else delete task.recurrenceDay;
+    if (!recurrence) {
+      delete task.recurrence;
+      delete task.recurrenceDay;
+    }
     if (task.status === 'done') {
       const blocked = completionBlockedMessage(task, activeProject.tasks || []);
       if (blocked) {
         showBanner(blocked);
         return;
       }
+      if (recurrence) applyRecurrenceOnComplete(task);
     }
     if (editingTaskId) {
       const idx = activeProject.tasks.findIndex(t => t.id === editingTaskId);
@@ -2574,7 +3036,7 @@
     closeModal('modal-task');
     try {
       await saveProject(activeProject);
-      showBanner('Task saved', 'ok');
+      showBanner(task.recurrence && task.status !== 'done' ? recurrenceCompleteMessage(task) : 'Task saved', 'ok');
     } catch (e) { showBanner(e.message); }
   });
 
@@ -2660,14 +3122,46 @@
   document.getElementById('view-list').addEventListener('click', () => {
     viewMode = 'list';
     document.getElementById('view-list').classList.add('active');
+    document.getElementById('view-labels').classList.remove('active');
     document.getElementById('view-gantt').classList.remove('active');
     renderListView();
+  });
+  document.getElementById('view-labels').addEventListener('click', () => {
+    viewMode = 'labels';
+    document.getElementById('view-labels').classList.add('active');
+    document.getElementById('view-list').classList.remove('active');
+    document.getElementById('view-gantt').classList.remove('active');
+    renderLabelsView();
   });
   document.getElementById('view-gantt').addEventListener('click', () => {
     viewMode = 'gantt';
     document.getElementById('view-gantt').classList.add('active');
     document.getElementById('view-list').classList.remove('active');
+    document.getElementById('view-labels').classList.remove('active');
     renderGanttView();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    const searchOpen = document.getElementById('modal-search').classList.contains('open');
+    if (searchOpen) {
+      if (e.key === 'Escape') {
+        closeModal('modal-search');
+        e.preventDefault();
+      }
+      return;
+    }
+    if (isTypingContext(e.target)) return;
+    if (isAnyModalOpen()) return;
+    if (e.key === 'q' || e.key === 'Q') {
+      if (appTab === 'projects' && activeProject) {
+        e.preventDefault();
+        openTaskModal(null);
+      }
+    } else if (e.key === '/') {
+      e.preventDefault();
+      openSearchModal();
+    }
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
