@@ -303,11 +303,10 @@
     .th-label-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
     .th-label-chip {
       display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px;
-      background: #eff6ff; border: 1px solid #bfdbfe; font-size: 0.64rem; font-weight: 700; color: #1d4ed8;
+      border: 1px solid transparent; font-size: 0.64rem; font-weight: 700;
     }
-    .th-label-chip.filterable { cursor: pointer; transition: all 0.15s; }
-    .th-label-chip.filterable:hover { background: #dbeafe; border-color: #60a5fa; }
-    .th-label-chip.active { background: var(--th-accent); border-color: var(--th-accent); color: #fff; }
+    .th-label-chip.filterable { cursor: pointer; transition: filter 0.15s, opacity 0.15s; }
+    .th-label-chip.filterable:hover { filter: brightness(0.94); }
     .th-label-chip-editable {
       display: inline-flex; align-items: center; gap: 4px; padding-right: 6px;
     }
@@ -331,6 +330,7 @@
     .th-label-group-head h3 {
       margin: 0; font-size: 0.88rem; font-weight: 800; color: var(--th-accent);
     }
+    .th-label-group-head .th-label-chip { font-size: 0.72rem; padding: 2px 9px; }
     .th-label-group-count { font-size: 0.72rem; font-weight: 600; color: var(--th-muted); }
     .th-kbd-hint {
       display: inline-flex; align-items: center; margin-left: 6px; padding: 1px 5px;
@@ -679,7 +679,19 @@
       display: none; margin-bottom: 14px; padding: 10px 14px; border-radius: 12px; font-size: 0.86rem;
     }
     .th-banner.err { display: block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .th-my-tasks-list { display: flex; flex-direction: column; gap: 4px; }
+    .th-my-tasks-list { display: flex; flex-direction: column; gap: 0; }
+    .th-my-tasks-day { margin-bottom: 18px; }
+    .th-my-tasks-day:last-child { margin-bottom: 0; }
+    .th-my-tasks-day-head {
+      margin: 0 0 8px; padding: 0 0 6px; font-size: 0.82rem; font-weight: 800;
+      color: var(--th-ink); border-bottom: 1px solid var(--th-line);
+    }
+    .th-my-tasks-day-head.empty { color: #94a3b8; font-weight: 600; }
+    .th-my-tasks-day-head.overdue { color: #c2410c; }
+    .th-my-tasks-day-tasks { display: flex; flex-direction: column; gap: 4px; }
+    .th-my-tasks-day-empty {
+      margin: 0; padding: 2px 0 4px; font-size: 0.72rem; color: #94a3b8; font-weight: 500;
+    }
     .th-my-tasks-summary {
       display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;
     }
@@ -1256,7 +1268,7 @@
       return;
     }
     el.innerHTML = `<span class="th-field-hint" style="margin:0;">Existing:</span>${available.map(l =>
-      `<button type="button" class="th-label-chip filterable" data-add-label="${escapeAttr(l)}">@${escapeHtml(l)}</button>`
+      labelChipHtml(l, { filterable: true, attrs: `data-add-label="${escapeAttr(l)}"` })
     ).join('')}`;
     el.querySelectorAll('[data-add-label]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1274,12 +1286,7 @@
     if (!editingTaskLabels.length) {
       list.innerHTML = '<span class="th-field-hint" style="margin:0;">No labels yet</span>';
     } else {
-      list.innerHTML = editingTaskLabels.map(l => `
-        <span class="th-label-chip th-label-chip-editable">
-          @${escapeHtml(l)}
-          <button type="button" data-remove-label="${escapeAttr(l)}" aria-label="Remove label">×</button>
-        </span>
-      `).join('');
+      list.innerHTML = editingTaskLabels.map(l => labelChipHtml(l, { editable: true })).join('');
       list.querySelectorAll('[data-remove-label]').forEach(btn => {
         btn.addEventListener('click', () => {
           const l = btn.getAttribute('data-remove-label');
@@ -1328,13 +1335,56 @@
     return extractLabels(t.title || '');
   }
 
+  const LABEL_PALETTE = [
+    { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8' },
+    { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d' },
+    { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
+    { bg: '#fce7f3', border: '#f9a8d4', text: '#be185d' },
+    { bg: '#f3e8ff', border: '#d8b4fe', text: '#7e22ce' },
+    { bg: '#ecfeff', border: '#a5f3fc', text: '#0e7490' },
+    { bg: '#fef9c3', border: '#fde047', text: '#a16207' },
+    { bg: '#ffe4e6', border: '#fda4af', text: '#be123c' },
+    { bg: '#ecfccb', border: '#bef264', text: '#4d7c0f' },
+    { bg: '#e0e7ff', border: '#c7d2fe', text: '#4338ca' },
+    { bg: '#ccfbf1', border: '#99f6e4', text: '#0f766e' },
+    { bg: '#fae8ff', border: '#f0abfc', text: '#a21caf' },
+  ];
+
+  function labelColorIndex(label) {
+    let h = 0;
+    const s = String(label || '');
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h) % LABEL_PALETTE.length;
+  }
+
+  function labelChipStyle(label, active) {
+    const c = LABEL_PALETTE[labelColorIndex(label)];
+    if (active) return `background:${c.text};border-color:${c.text};color:#fff;`;
+    return `background:${c.bg};border-color:${c.border};color:${c.text};`;
+  }
+
+  function labelChipHtml(label, opts) {
+    opts = opts || {};
+    const active = !!opts.active;
+    const parts = ['th-label-chip'];
+    if (opts.filterable) parts.push('filterable');
+    if (opts.editable) parts.push('th-label-chip-editable');
+    if (active) parts.push('active');
+    const attrs = opts.attrs ? ' ' + opts.attrs : '';
+    const style = ` style="${labelChipStyle(label, active)}"`;
+    const inner = opts.editable
+      ? `@${escapeHtml(label)}<button type="button" data-remove-label="${escapeAttr(label)}" aria-label="Remove label">×</button>`
+      : `@${escapeHtml(label)}`;
+    return `<span class="${parts.join(' ')}"${style}${attrs}>${inner}</span>`;
+  }
+
   function labelsHtml(labels, filterable) {
     if (!labels || !labels.length) return '';
-    return `<span class="th-label-chips">${labels.map(l => {
-      const cls = 'th-label-chip' + (filterable ? ' filterable' + (listLabelFilter === l ? ' active' : '') : '');
-      const attrs = filterable ? ` data-label-filter="${escapeAttr(l)}"` : '';
-      return `<span class="${cls}"${attrs}>@${escapeHtml(l)}</span>`;
-    }).join('')}</span>`;
+    return `<span class="th-label-chips">${labels.map(l => labelChipHtml(l, {
+      filterable,
+      active: filterable && listLabelFilter === l,
+      attrs: filterable ? `data-label-filter="${escapeAttr(l)}"` : '',
+    })).join('')}</span>`;
   }
 
   function collectProjectLabels(tasks) {
@@ -1646,8 +1696,12 @@
     if (!labels.length) return '';
     return `<div class="th-label-filter-bar">
       <span>Labels</span>
-      <span class="th-label-chip filterable${listLabelFilter ? '' : ' active'}" data-label-filter="">All</span>
-      ${labels.map(l => `<span class="th-label-chip filterable${listLabelFilter === l ? ' active' : ''}" data-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+      <span class="th-label-chip filterable${listLabelFilter ? '' : ' active'}" data-label-filter="" style="${listLabelFilter ? 'background:#f8fafc;border-color:#e2e8f0;color:#64748b;' : 'background:var(--th-accent);border-color:var(--th-accent);color:#fff;'}">All</span>
+      ${labels.map(l => labelChipHtml(l, {
+        filterable: true,
+        active: listLabelFilter === l,
+        attrs: `data-label-filter="${escapeAttr(l)}"`,
+      })).join('')}
     </div>`;
   }
 
@@ -1678,8 +1732,12 @@
     if (!labels.length) return '';
     return `<div class="th-label-filter-bar">
       <span>Labels</span>
-      <span class="th-label-chip filterable${myTasksLabelFilter ? '' : ' active'}" data-my-label-filter="">All</span>
-      ${labels.map(l => `<span class="th-label-chip filterable${myTasksLabelFilter === l ? ' active' : ''}" data-my-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+      <span class="th-label-chip filterable${myTasksLabelFilter ? '' : ' active'}" data-my-label-filter="" style="${myTasksLabelFilter ? 'background:#f8fafc;border-color:#e2e8f0;color:#64748b;' : 'background:var(--th-accent);border-color:var(--th-accent);color:#fff;'}">All</span>
+      ${labels.map(l => labelChipHtml(l, {
+        filterable: true,
+        active: myTasksLabelFilter === l,
+        attrs: `data-my-label-filter="${escapeAttr(l)}"`,
+      })).join('')}
     </div>`;
   }
 
@@ -1695,10 +1753,11 @@
 
   function myTasksLabelsHtml(labels) {
     if (!labels || !labels.length) return '';
-    return `<span class="th-label-chips">${labels.map(l => {
-      const cls = 'th-label-chip filterable' + (myTasksLabelFilter === l ? ' active' : '');
-      return `<span class="${cls}" data-my-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`;
-    }).join('')}</span>`;
+    return `<span class="th-label-chips">${labels.map(l => labelChipHtml(l, {
+      filterable: true,
+      active: myTasksLabelFilter === l,
+      attrs: `data-my-label-filter="${escapeAttr(l)}"`,
+    })).join('')}</span>`;
   }
 
   const projectsCacheKey = () => 'tether_projects_' + (sessionId || 'none');
@@ -1844,10 +1903,124 @@
     return `<button type="button" class="th-task-start-btn"${attrs}>Start</button>`;
   }
 
-  function renderMyTaskCard(t) {
+  const MY_TASKS_DAY_HORIZON = 14;
+
+  function myTasksDayHeaderLabel(iso) {
+    const today = isoDate(new Date());
+    const d1 = parseIso(today);
+    d1.setDate(d1.getDate() + 1);
+    const tomorrow = isoDate(d1);
+    if (iso === today) return 'Today';
+    if (iso === tomorrow) return 'Tomorrow';
+    const d = parseIso(iso);
+    if (!d) return iso;
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+
+  function sortMyTasksForDay(tasks) {
+    return [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || taskDisplayTitle(a).localeCompare(taskDisplayTitle(b)));
+  }
+
+  function buildMyTasksDaySections(tasks) {
+    const isCompleted = myTasksViewFilter === 'completed';
+    const byKey = new Map();
+    for (const t of tasks) {
+      let key;
+      if (!t.dueDate) key = '__none__';
+      else if (!isCompleted && isDueOverdue(t.dueDate, t.status)) key = '__overdue__';
+      else key = t.dueDate;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(t);
+    }
+
+    const sections = [];
+
+    if (!isCompleted) {
+      if (byKey.has('__overdue__')) {
+        sections.push({
+          key: '__overdue__',
+          label: 'Overdue',
+          tasks: sortMyTasksForDay(byKey.get('__overdue__')),
+          empty: false,
+          overdue: true,
+        });
+        byKey.delete('__overdue__');
+      }
+      const start = parseIso(isoDate(new Date()));
+      for (let i = 0; i < MY_TASKS_DAY_HORIZON; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const key = isoDate(d);
+        const dayTasks = sortMyTasksForDay(byKey.get(key) || []);
+        sections.push({
+          key,
+          label: myTasksDayHeaderLabel(key),
+          tasks: dayTasks,
+          empty: dayTasks.length === 0,
+        });
+        byKey.delete(key);
+      }
+      const extraDates = [...byKey.keys()].filter(k => k !== '__none__').sort();
+      for (const key of extraDates) {
+        sections.push({
+          key,
+          label: myTasksDayHeaderLabel(key),
+          tasks: sortMyTasksForDay(byKey.get(key)),
+          empty: false,
+        });
+        byKey.delete(key);
+      }
+      if (byKey.has('__none__')) {
+        sections.push({
+          key: '__none__',
+          label: 'No date',
+          tasks: sortMyTasksForDay(byKey.get('__none__')),
+          empty: false,
+        });
+      }
+    } else {
+      const dated = [...byKey.entries()].filter(([k]) => k !== '__none__').sort((a, b) => b[0].localeCompare(a[0]));
+      for (const [key, dayTasks] of dated) {
+        sections.push({
+          key,
+          label: myTasksDayHeaderLabel(key),
+          tasks: sortMyTasksForDay(dayTasks),
+          empty: false,
+        });
+      }
+      if (byKey.has('__none__')) {
+        sections.push({
+          key: '__none__',
+          label: 'No date',
+          tasks: sortMyTasksForDay(byKey.get('__none__')),
+          empty: false,
+        });
+      }
+    }
+    return sections;
+  }
+
+  function renderMyTasksDaySection(section) {
+    const headCls = 'th-my-tasks-day-head'
+      + (section.empty ? ' empty' : '')
+      + (section.overdue ? ' overdue' : '');
+    const hideDue = section.key !== '__overdue__' && section.key !== '__none__';
+    const tasksHtml = section.tasks.length
+      ? `<div class="th-my-tasks-day-tasks">${section.tasks.map(t => renderMyTaskCard(t, { hideDue })).join('')}</div>`
+      : '';
+    const emptyHint = section.empty ? '<p class="th-my-tasks-day-empty">No tasks</p>' : '';
+    return `<section class="th-my-tasks-day">
+      <h4 class="${headCls}">${escapeHtml(section.label)}</h4>
+      ${tasksHtml}${emptyHint}
+    </section>`;
+  }
+
+  function renderMyTaskCard(t, opts) {
+    opts = opts || {};
     const st = t.status || 'todo';
     const overdue = isDueOverdue(t.dueDate, st);
     const dueCls = overdue ? ' overdue' : (isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '');
+    const showDue = !opts.hideDue;
     const dueText = t.dueDate
       ? (overdue ? 'Overdue · ' : 'Due ') + formatDate(t.dueDate)
       : 'No due date';
@@ -1861,7 +2034,7 @@
           ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
           <span class="th-status ${st}">${statusLabel(st)}</span>
           ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t))}</span>` : ''}
-          <span class="th-task-due-badge${dueCls}">${dueText}</span>
+          ${showDue ? `<span class="th-task-due-badge${dueCls}">${dueText}</span>` : ''}
         </div>
       </div>
       <div class="th-my-task-subline">
@@ -1896,7 +2069,7 @@
       wireMyTasksLabelFilters(el);
       return;
     }
-    el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
+    el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('')}</div>`;
     wireMyTasksLabelFilters(el);
     wireRichTextLinks(el);
     wireStartButtons(el);
@@ -2394,7 +2567,7 @@
       const groupTasks = allTasks.filter(t => taskLabels(t).includes(label));
       return `<section class="th-label-group">
         <div class="th-label-group-head">
-          <h3>@${escapeHtml(label)}</h3>
+          ${labelChipHtml(label)}
           <span class="th-label-group-count">${groupTasks.length} ${groupTasks.length === 1 ? 'task' : 'tasks'}</span>
         </div>
         <div class="th-task-cards">${groupTasks.map(t => renderTaskCardHtml(t, allTasks, memberMap)).join('')}</div>
