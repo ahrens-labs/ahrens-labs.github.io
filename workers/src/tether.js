@@ -340,7 +340,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       tasks.push({
         ...task,
         projectId: null,
-        projectTitle: 'Inbox',
+        projectTitle: 'None',
         dependsOnTitles,
         blockedByIncomplete,
       });

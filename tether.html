@@ -744,24 +744,9 @@
       <div id="th-banner" class="th-banner"></div>
 
       <div class="th-app-tabs">
-        <button type="button" id="tab-inbox" data-app-tab="inbox">Inbox</button>
         <button type="button" class="active" id="tab-projects" data-app-tab="projects">My Projects</button>
         <button type="button" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
       </div>
-
-      <section class="th-card th-main" id="inbox-panel" style="display:none;padding:22px 24px;">
-        <div class="th-toolbar">
-          <h2>Inbox</h2>
-          <div class="th-toolbar-actions">
-            <button type="button" class="th-btn th-btn-ghost" id="btn-clear-inbox-completed" style="display:none;">Clear completed</button>
-            <button type="button" class="th-btn th-btn-primary" id="btn-add-inbox-task">+ Task<span class="th-kbd-hint">q</span></button>
-            <button type="button" class="th-btn th-btn-ghost" id="btn-search-inbox" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
-          </div>
-        </div>
-        <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Personal tasks not tied to a project yet. Add them to a project when you're ready.</p>
-        <div id="inbox-stats" class="th-project-stats"></div>
-        <div id="inbox-list-view"></div>
-      </section>
 
       <div class="th-shell" id="shell-projects">
         <aside class="th-card th-sidebar">
@@ -828,10 +813,11 @@
               <button type="button" id="my-tasks-filter-completed" data-my-tasks-filter="completed">Completed</button>
             </div>
             <button type="button" class="th-btn th-btn-ghost" id="btn-clear-my-completed" style="display:none;">Clear completed</button>
+            <button type="button" class="th-btn th-btn-primary" id="btn-add-my-task">+ Task<span class="th-kbd-hint">q</span></button>
             <button type="button" class="th-btn th-btn-ghost" id="btn-search-my-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
           </div>
         </div>
-        <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Tasks assigned to you across all projects.</p>
+        <p style="margin:0 0 14px;font-size:0.88rem;color:var(--th-muted);">Your tasks across all projects, including tasks with no project.</p>
         <div id="my-tasks-list"></div>
       </section>
     </main>
@@ -953,7 +939,7 @@
           <div class="th-field">
             <label for="task-project-input">Move to</label>
             <select id="task-project-input" class="th-move-select"></select>
-            <p class="th-field-hint" style="margin:0;">Changes where this task lives. Pick Inbox to remove it from a project.</p>
+            <p class="th-field-hint" style="margin:0;">Changes where this task lives. Pick None to remove it from a project.</p>
           </div>
         </section>
         <section class="th-task-section">
@@ -1073,7 +1059,7 @@
   let appTab = 'projects';
   let projectSort = 'alpha';
   let myTasks = [];
-  let inboxTasks = [];
+  let personalTasks = [];
   let editingTaskId = null;
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
@@ -1081,7 +1067,6 @@
   let confirmResolve = null;
   let viewingTaskId = null;
   let viewingTaskFromMyTasks = false;
-  let viewingTaskFromInbox = false;
   let viewingTaskSourceProjectId = null;
   let editingTaskFromProjectId = null;
   let editingTaskLabels = [];
@@ -1093,95 +1078,36 @@
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
   let myTasksViewFilter = 'active';
+  let myTasksLabelFilter = null;
   let listLabelFilter = null;
-  let inboxLabelFilter = null;
   let searchTasksCache = null;
   let searchLoadPromise = null;
   let projectsLoadPromise = null;
   let activeProjectLoadId = 0;
 
-  function isInboxContext() {
-    return appTab === 'inbox' || viewingTaskFromInbox;
+  function isPersonalTaskId(taskId) {
+    return personalTasks.some(t => t.id === taskId);
   }
 
-  function tasksMatchingInboxLabelFilter(tasks) {
-    if (!inboxLabelFilter) return tasks;
-    return tasks.filter(t => taskLabels(t).includes(inboxLabelFilter));
-  }
-
-  async function loadInbox() {
+  async function loadPersonalTasks() {
     const data = await api('/api/tether/inbox', { method: 'GET' });
-    inboxTasks = data.tasks || [];
-    renderInboxView();
+    personalTasks = data.tasks || [];
+    return personalTasks;
   }
 
-  async function saveInbox(tasks) {
-    const payload = tasks || inboxTasks;
+  async function savePersonalTasks(tasks) {
+    const payload = tasks || personalTasks;
     const data = await api('/api/tether/inbox', {
       method: 'PUT',
       body: JSON.stringify({ tasks: payload }),
     });
-    inboxTasks = data.tasks || payload;
+    personalTasks = data.tasks || payload;
     invalidateSearchCache();
-    if (appTab === 'inbox') renderInboxView();
     if (appTab === 'my-tasks') await loadMyTasks();
   }
 
-  function renderInboxView() {
-    const el = document.getElementById('inbox-list-view');
-    const allTasks = sortTasks(inboxTasks);
-    const tasks = tasksMatchingInboxLabelFilter(allTasks);
-    const statsEl = document.getElementById('inbox-stats');
-    if (statsEl) {
-      const total = allTasks.length;
-      const done = allTasks.filter(t => t.status === 'done').length;
-      const inProg = allTasks.filter(t => t.status === 'in_progress').length;
-      const dueSoon = allTasks.filter(t => t.dueDate && isDueWithinDays(t.dueDate, 7) && t.status !== 'done').length;
-      if (!total) {
-        statsEl.innerHTML = '';
-      } else {
-        statsEl.innerHTML = `
-          <span class="th-stat-pill active-stat"><em>${total - done}</em> active</span>
-          <span class="th-stat-pill ok"><em>${done}</em> completed</span>
-          <span class="th-stat-pill warn"><em>${inProg}</em> in progress</span>
-          ${dueSoon ? `<span class="th-stat-pill warn"><em>${dueSoon}</em> due this week</span>` : ''}
-        `;
-      }
-    }
-    const completedCount = allTasks.filter(t => t.status === 'done').length;
-    document.getElementById('btn-clear-inbox-completed').style.display = completedCount ? 'inline-block' : 'none';
-
-    if (!allTasks.length) {
-      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">Your inbox is empty. Capture a task here, then move it to a project when you are ready to work on it with others.</p>';
-      return;
-    }
-    el.innerHTML = `
-      ${renderLabelFilterBar(allTasks, inboxLabelFilter, 'inbox')}
-      ${!tasks.length ? '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks with this label.</p>' : ''}
-      <div class="th-task-cards">
-        ${tasks.map(t => renderInboxTaskCardHtml(t, allTasks)).join('')}
-      </div>
-    `;
-    wireInboxLabelFilters(el);
-    el.querySelectorAll('[data-view-task]').forEach(btn => {
-      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task'), { fromInbox: true }));
-    });
-    el.querySelectorAll('[data-edit-task]').forEach(btn => {
-      btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
-    });
-    el.querySelectorAll('[data-del-task]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const task = inboxTasks.find(t => t.id === btn.getAttribute('data-del-task'));
-        if (task) openDeleteTaskModal(task.id, taskDisplayTitle(task));
-      });
-    });
-    wireStartButtons(el);
-    wireCompleteButtons(el);
-    wireProjectPickers(el);
-  }
-
   function projectPickerOptions(currentProjectId) {
-    let html = `<option value=""${!currentProjectId ? ' selected' : ''}>Inbox</option>`;
+    let html = `<option value=""${!currentProjectId ? ' selected' : ''}>None</option>`;
     for (const p of sortedProjects(projects)) {
       html += `<option value="${escapeAttr(p.id)}"${p.id === currentProjectId ? ' selected' : ''}>${escapeHtml(p.title)}</option>`;
     }
@@ -1220,7 +1146,7 @@
             viewingTaskSourceProjectId = toProjectId;
             sel.setAttribute('data-from-project', toProjectId || '');
             const movedAway =
-              (appTab === 'inbox' && toProjectId) ||
+              (appTab === 'my-tasks' && toProjectId && !fromProjectId) ||
               (appTab === 'projects' && activeProject && fromProjectId === activeProject.id && toProjectId !== activeProject.id) ||
               (appTab === 'projects' && activeProject && !fromProjectId && toProjectId && toProjectId !== activeProject.id);
             if (movedAway) {
@@ -1228,8 +1154,7 @@
               closeModal('modal-task-detail');
             } else {
               openTaskDetailModal(taskId, {
-                fromMyTasks: viewingTaskFromMyTasks,
-                fromInbox: !toProjectId,
+                fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks',
                 projectId: toProjectId,
               });
             }
@@ -1254,7 +1179,7 @@
       }),
     });
     invalidateSearchCache();
-    if (fromProjectId == null || toProjectId == null) await loadInbox();
+    if (fromProjectId == null || toProjectId == null) await loadPersonalTasks();
     await loadProjects();
     if (activeProject && (activeProject.id === fromProjectId || activeProject.id === toProjectId)) {
       await loadProject(activeProject.id);
@@ -1264,67 +1189,8 @@
     if (appTab === 'my-tasks') await loadMyTasks();
     const dest = toProjectId
       ? (projects.find(p => p.id === toProjectId)?.title || 'project')
-      : 'Inbox';
+      : 'None';
     showBanner(`Moved to ${dest}`, 'ok');
-  }
-
-  function renderInboxTaskCardHtml(t, allTasks) {
-    const st = t.status || 'todo';
-    const dueCls = isDueSoon(t.dueDate) && st !== 'done' ? ' soon' : '';
-    const blocked = isTaskCompletionBlocked(t, allTasks);
-    const labels = taskLabels(t);
-    return `
-      <article class="th-task-card status-${st}">
-        <div class="th-task-card-row">
-          ${completeBtnHtml(t.id, st, false, blocked)}
-          <div class="th-task-card-main">
-            <div class="th-task-card-headline">
-              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
-              <div class="th-task-card-badges">
-                ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
-                <span class="th-status ${st}">${statusLabel(st)}</span>
-                ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t.recurrence, t.recurrenceDay))}</span>` : ''}
-                <span class="th-task-due-badge${dueCls}">${t.dueDate ? 'Due ' + formatDate(t.dueDate) : 'No due date'}</span>
-              </div>
-            </div>
-            ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
-            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
-            ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
-            <div class="th-task-card-bottom">
-              <div class="th-task-card-meta">
-                ${(t.dependsOnTaskIds || []).length ? '⛓ ' + depLabels(t.dependsOnTaskIds, allTasks) : 'Not in a project'}
-              </div>
-              <div class="th-task-card-actions">
-                ${projectPickerHtml(t.id, null)}
-                <button type="button" data-edit-task="${escapeAttr(t.id)}">Edit</button>
-                <button type="button" class="danger" data-del-task="${escapeAttr(t.id)}">Delete</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>`;
-  }
-
-  function wireInboxLabelFilters(root) {
-    (root || document).querySelectorAll('[data-inbox-label-filter]').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const val = chip.getAttribute('data-inbox-label-filter');
-        inboxLabelFilter = val || null;
-        renderInboxView();
-      });
-    });
-  }
-
-  async function moveInboxTaskToProject(taskId, projectId) {
-    return moveTask(taskId, null, projectId);
-  }
-
-  async function clearInboxCompletedTasks() {
-    const before = inboxTasks.length;
-    inboxTasks = inboxTasks.filter(t => t.status !== 'done');
-    if (inboxTasks.length === before) return;
-    await saveInbox();
-    showBanner('Completed tasks cleared', 'ok');
   }
 
   function populateTaskProjectSelect(currentProjectId) {
@@ -1352,7 +1218,7 @@
   }
 
   function tasksForLabelSuggestions() {
-    if (appTab === 'inbox') return inboxTasks;
+    if (appTab === 'my-tasks') return personalTasks;
     return activeProject?.tasks || [];
   }
 
@@ -1550,7 +1416,7 @@
           all.push({
             ...t,
             projectId: null,
-            projectTitle: 'Inbox',
+            projectTitle: 'None',
             labels: taskLabels(t),
           });
         });
@@ -1602,9 +1468,9 @@
         const taskId = btn.getAttribute('data-search-task');
         closeModal('modal-search');
         if (!projectId) {
-          setAppTab('inbox', { skipUrlSync: true });
-          await loadInbox();
-          openTaskDetailModal(taskId, { fromInbox: true });
+          setAppTab('my-tasks', { skipUrlSync: true });
+          await loadMyTasks();
+          openTaskDetailModal(taskId, { fromMyTasks: true, projectId: null });
           return;
         }
         setAppTab('projects', { skipUrlSync: true });
@@ -1628,15 +1494,13 @@
     }
   }
 
-  function renderLabelFilterBar(tasks, activeFilter, scope) {
+  function renderLabelFilterBar(tasks) {
     const labels = collectProjectLabels(tasks);
     if (!labels.length) return '';
-    const attr = scope === 'inbox' ? 'data-inbox-label-filter' : 'data-label-filter';
-    const current = scope === 'inbox' ? inboxLabelFilter : listLabelFilter;
     return `<div class="th-label-filter-bar">
       <span>Labels</span>
-      <span class="th-label-chip filterable${current ? '' : ' active'}" ${attr}="">All</span>
-      ${labels.map(l => `<span class="th-label-chip filterable${current === l ? ' active' : ''}" ${attr}="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+      <span class="th-label-chip filterable${listLabelFilter ? '' : ' active'}" data-label-filter="">All</span>
+      ${labels.map(l => `<span class="th-label-chip filterable${listLabelFilter === l ? ' active' : ''}" data-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
     </div>`;
   }
 
@@ -1655,6 +1519,39 @@
   function tasksMatchingLabelFilter(tasks) {
     if (!listLabelFilter) return tasks;
     return tasks.filter(t => taskLabels(t).includes(listLabelFilter));
+  }
+
+  function myTasksMatchingLabelFilter(tasks) {
+    if (!myTasksLabelFilter) return tasks;
+    return tasks.filter(t => taskLabels(t).includes(myTasksLabelFilter));
+  }
+
+  function renderMyTasksLabelFilterBar(tasks) {
+    const labels = collectProjectLabels(tasks);
+    if (!labels.length) return '';
+    return `<div class="th-label-filter-bar">
+      <span>Labels</span>
+      <span class="th-label-chip filterable${myTasksLabelFilter ? '' : ' active'}" data-my-label-filter="">All</span>
+      ${labels.map(l => `<span class="th-label-chip filterable${myTasksLabelFilter === l ? ' active' : ''}" data-my-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`).join('')}
+    </div>`;
+  }
+
+  function wireMyTasksLabelFilters(root) {
+    (root || document).querySelectorAll('[data-my-label-filter]').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        myTasksLabelFilter = chip.getAttribute('data-my-label-filter') || null;
+        renderMyTasksView();
+      });
+    });
+  }
+
+  function myTasksLabelsHtml(labels) {
+    if (!labels || !labels.length) return '';
+    return `<span class="th-label-chips">${labels.map(l => {
+      const cls = 'th-label-chip filterable' + (myTasksLabelFilter === l ? ' active' : '');
+      return `<span class="${cls}" data-my-label-filter="${escapeAttr(l)}">@${escapeHtml(l)}</span>`;
+    }).join('')}</span>`;
   }
 
   const projectsCacheKey = () => 'tether_projects_' + (sessionId || 'none');
@@ -1690,7 +1587,7 @@
       u.searchParams.set('view', 'my-tasks');
       if (state.taskId) u.searchParams.set('task', state.taskId);
     } else if (state.view === 'inbox') {
-      u.searchParams.set('view', 'inbox');
+      u.searchParams.set('view', 'my-tasks');
       if (state.taskId) u.searchParams.set('task', state.taskId);
     } else {
       if (state.projectId) u.searchParams.set('project', state.projectId);
@@ -1709,17 +1606,13 @@
   function setAppTab(tab, opts) {
     const skipUrlSync = opts && opts.skipUrlSync;
     const skipLoad = opts && opts.skipLoad;
+    if (tab === 'inbox') tab = 'my-tasks';
     appTab = tab;
-    document.getElementById('tab-inbox').classList.toggle('active', tab === 'inbox');
     document.getElementById('tab-projects').classList.toggle('active', tab === 'projects');
     document.getElementById('tab-my-tasks').classList.toggle('active', tab === 'my-tasks');
-    document.getElementById('inbox-panel').style.display = tab === 'inbox' ? 'block' : 'none';
     document.getElementById('shell-projects').style.display = tab === 'projects' ? 'grid' : 'none';
     document.getElementById('my-tasks-panel').style.display = tab === 'my-tasks' ? 'block' : 'none';
-    if (tab === 'inbox') {
-      if (!skipUrlSync) syncUrlState({ view: 'inbox' });
-      if (!skipLoad) loadInbox();
-    } else if (tab === 'my-tasks') {
+    if (tab === 'my-tasks') {
       if (!skipUrlSync) syncUrlState({ view: 'my-tasks' });
       if (!skipLoad) loadMyTasks();
     } else if (!skipUrlSync) {
@@ -1732,8 +1625,11 @@
   }
 
   async function loadMyTasks() {
-    const data = await api('/api/tether/my-tasks', { method: 'GET' });
-    myTasks = data.tasks || [];
+    const [myData] = await Promise.all([
+      api('/api/tether/my-tasks', { method: 'GET' }),
+      loadPersonalTasks(),
+    ]);
+    myTasks = myData.tasks || [];
     renderMyTasksView();
   }
 
@@ -1825,7 +1721,7 @@
       </div>
       <div class="th-my-task-subline">
         <div class="th-my-task-project-picker">${projectPickerHtml(t.id, t.projectId || null)}</div>
-        ${taskLabels(t).length ? labelsHtml(taskLabels(t), false) : ''}
+        ${taskLabels(t).length ? myTasksLabelsHtml(taskLabels(t)) : ''}
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
       </div>
@@ -1838,24 +1734,32 @@
     const el = document.getElementById('my-tasks-list');
     syncMyTasksFilterButtons();
     if (!myTasks.length) {
-      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks assigned to you yet. Assign yourself on a project task to see it here.</p>';
+      el.innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">No tasks yet. Add one with + Task, or assign yourself on a project task.</p>';
       return;
     }
-    const tasks = visibleMyTasks();
-    if (!tasks.length) {
+    const statusFiltered = visibleMyTasks();
+    if (!statusFiltered.length) {
       el.innerHTML =
         myTasksViewFilter === 'completed'
           ? '<p style="color:var(--th-muted);font-size:0.88rem;">No completed tasks yet. Check off a task to see it here.</p>'
           : '<p style="color:var(--th-muted);font-size:0.88rem;">No active tasks assigned to you right now. Switch to <strong>Completed</strong> to see finished work.</p>';
       return;
     }
-    el.innerHTML = `${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
+    const labelBar = renderMyTasksLabelFilterBar(statusFiltered);
+    const tasks = myTasksMatchingLabelFilter(statusFiltered);
+    if (!tasks.length) {
+      el.innerHTML = `${labelBar}<p style="color:var(--th-muted);font-size:0.88rem;">No tasks with this label.</p>`;
+      wireMyTasksLabelFilters(el);
+      return;
+    }
+    el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
+    wireMyTasksLabelFilters(el);
     wireStartButtons(el);
     wireCompleteButtons(el);
     wireProjectPickers(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async (e) => {
-        if (e.target.closest('button')) return;
+        if (e.target.closest('button') || e.target.closest('[data-my-label-filter]')) return;
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
         await openMyTaskDetailModal(pid, tid);
@@ -1877,18 +1781,12 @@
 
   async function openMyTaskDetailModal(projectId, taskId) {
     if (!taskId) return;
-    if (!projectId) {
-      viewingTaskFromInbox = true;
-      if (!inboxTasks.length) await loadInbox();
-      openTaskDetailModal(taskId, { fromInbox: true });
-      return;
-    }
     viewingTaskFromMyTasks = true;
     try {
-      if (!activeProject || activeProject.id !== projectId) {
+      if (projectId && (!activeProject || activeProject.id !== projectId)) {
         await fetchProjectData(projectId);
       }
-      openTaskDetailModal(taskId, { fromMyTasks: true, projectId: projectId || null, fromInbox: !projectId });
+      openTaskDetailModal(taskId, { fromMyTasks: true, projectId: projectId || null });
     } catch (e) {
       viewingTaskFromMyTasks = false;
       showBanner(e.message);
@@ -2407,13 +2305,25 @@
     if (!ok) return;
 
     const byProject = new Map();
+    const personalIds = [];
     for (const t of completed) {
-      if (!byProject.has(t.projectId)) byProject.set(t.projectId, []);
-      byProject.get(t.projectId).push(t.id);
+      if (t.projectId == null) personalIds.push(t.id);
+      else {
+        if (!byProject.has(t.projectId)) byProject.set(t.projectId, []);
+        byProject.get(t.projectId).push(t.id);
+      }
     }
     const allRemovedIds = new Set(completed.map(t => t.id));
 
     try {
+      if (personalIds.length) {
+        const removeIds = new Set(personalIds);
+        personalTasks = personalTasks.filter(t => !removeIds.has(t.id));
+        personalTasks.forEach(t => {
+          t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => !removeIds.has(id));
+        });
+        await savePersonalTasks();
+      }
       for (const [projectId, taskIds] of byProject) {
         const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId));
         const project = data.project;
@@ -2883,7 +2793,7 @@
           if (projectId) {
             await setMyTaskStatus(projectId, btn.getAttribute('data-start-task'), 'in_progress');
           } else {
-            await setInboxTaskStatus(btn.getAttribute('data-start-task'), 'in_progress');
+            await setPersonalTaskStatus(btn.getAttribute('data-start-task'), 'in_progress');
           }
         } catch (err) { showBanner(err.message); }
       });
@@ -2891,16 +2801,16 @@
   }
 
   async function setTaskStatus(taskId, status) {
-    const task = getTaskById(taskId) || inboxTasks.find(t => t.id === taskId);
+    const task = getTaskById(taskId) || personalTasks.find(t => t.id === taskId);
     if (!task || task.status === status) return;
     task.status = status;
-    if (isInboxContext() || inboxTasks.some(t => t.id === taskId)) await saveInbox();
+    if (isPersonalTaskId(taskId)) await savePersonalTasks();
     else await saveProject(activeProject);
     showBanner(status === 'in_progress' ? 'Task marked in progress' : 'Task updated', 'ok');
   }
 
-  async function setInboxTaskStatus(taskId, status) {
-    const task = inboxTasks.find(t => t.id === taskId);
+  async function setPersonalTaskStatus(taskId, status) {
+    const task = personalTasks.find(t => t.id === taskId);
     if (!task) throw new Error('Task not found');
     let recurringReset = false;
     if (status === 'done') {
@@ -2909,7 +2819,7 @@
     } else {
       task.status = status;
     }
-    await saveInbox();
+    await savePersonalTasks();
     if (appTab === 'my-tasks') await loadMyTasks();
     const bannerMsg = recurringReset
       ? recurrenceCompleteMessage(task)
@@ -2994,7 +2904,7 @@
       }
       const nextStatus = currentStatus === 'done' ? 'todo' : 'done';
       try {
-        await setInboxTaskStatus(taskId, nextStatus);
+        await setPersonalTaskStatus(taskId, nextStatus);
       } catch (e) {
         showBanner(e.message);
       }
@@ -3021,12 +2931,12 @@
   }
 
   async function toggleTaskComplete(taskId) {
-    const inInbox = isInboxContext() || inboxTasks.some(t => t.id === taskId);
-    const task = inInbox
-      ? inboxTasks.find(t => t.id === taskId)
+    const isPersonal = isPersonalTaskId(taskId);
+    const task = isPersonal
+      ? personalTasks.find(t => t.id === taskId)
       : getTaskById(taskId);
     if (!task) return;
-    const tasks = inInbox ? inboxTasks : (activeProject?.tasks || []);
+    const tasks = isPersonal ? personalTasks : (activeProject?.tasks || []);
     if (task.status !== 'done') {
       const blocked = completionBlockedMessage(task, tasks);
       if (blocked) {
@@ -3042,7 +2952,7 @@
       task.status = 'todo';
     }
     try {
-      if (inInbox) await saveInbox();
+      if (isPersonal) await savePersonalTasks();
       else await saveProject(activeProject);
       showBanner(
         recurringReset ? recurrenceCompleteMessage(task)
@@ -3052,21 +2962,32 @@
       if (viewingTaskId === taskId && document.getElementById('modal-task-detail').classList.contains('open')) {
         openTaskDetailModal(taskId, {
           fromMyTasks: viewingTaskFromMyTasks || appTab === 'my-tasks',
-          fromInbox: inInbox,
+          projectId: viewingTaskSourceProjectId,
         });
       }
     } catch (e) { showBanner(e.message); }
   }
 
   function getTaskById(taskId) {
-    if (isInboxContext()) {
-      return inboxTasks.find(t => t.id === taskId) || null;
-    }
-    return (activeProject?.tasks || []).find(t => t.id === taskId) || null;
+    return personalTasks.find(t => t.id === taskId)
+      || (activeProject?.tasks || []).find(t => t.id === taskId)
+      || null;
   }
 
   function getActiveTaskList() {
-    return isInboxContext() ? inboxTasks : (activeProject?.tasks || []);
+    if (editingTaskFromProjectId == null) return personalTasks;
+    return activeProject?.tasks || [];
+  }
+
+  function resolveEditingProjectId(taskId) {
+    if (taskId) {
+      if (viewingTaskId === taskId) return viewingTaskSourceProjectId;
+      const mt = myTasks.find(t => t.id === taskId);
+      if (mt) return mt.projectId || null;
+      if (isPersonalTaskId(taskId)) return null;
+      return activeProject?.id || null;
+    }
+    return appTab === 'my-tasks' ? null : (activeProject?.id || null);
   }
 
   /** Dependency tasks that must be done before this one can be completed. */
@@ -3094,21 +3015,19 @@
   function openTaskDetailModal(taskId, opts) {
     opts = opts || {};
     const fromMyTasks = opts.fromMyTasks === true || viewingTaskFromMyTasks;
-    const fromInbox = opts.fromInbox === true || (!fromMyTasks && (viewingTaskFromInbox || appTab === 'inbox'));
-    viewingTaskFromInbox = fromInbox && !fromMyTasks;
     viewingTaskFromMyTasks = fromMyTasks;
     viewingTaskId = taskId;
 
     const sourceProjectId = opts.projectId !== undefined
       ? (opts.projectId || null)
-      : (fromInbox ? null : (activeProject?.id || null));
+      : (activeProject?.id || null);
     viewingTaskSourceProjectId = sourceProjectId;
 
     let resolved = null;
     let tasks = [];
     if (sourceProjectId == null) {
-      resolved = inboxTasks.find(t => t.id === taskId);
-      tasks = inboxTasks;
+      resolved = personalTasks.find(t => t.id === taskId);
+      tasks = personalTasks;
     } else if (activeProject && activeProject.id === sourceProjectId) {
       tasks = activeProject.tasks || [];
       resolved = tasks.find(t => t.id === taskId);
@@ -3117,19 +3036,19 @@
       tasks = resolved ? [resolved] : [];
     }
     if (!resolved) {
-      resolved = inboxTasks.find(t => t.id === taskId)
+      resolved = personalTasks.find(t => t.id === taskId)
         || (activeProject?.tasks || []).find(t => t.id === taskId);
       if (resolved && !tasks.length) {
-        tasks = inboxTasks.some(t => t.id === taskId) ? inboxTasks : (activeProject?.tasks || []);
+        tasks = personalTasks.some(t => t.id === taskId) ? personalTasks : (activeProject?.tasks || []);
       }
     }
     if (!resolved) return;
 
-    const inInbox = sourceProjectId == null;
-    const memberMap = inInbox ? {} : memberLabelMap();
+    const noProject = sourceProjectId == null;
+    const memberMap = noProject ? {} : memberLabelMap();
     document.getElementById('task-detail-title').textContent = taskDisplayTitle(resolved);
-    document.getElementById('task-detail-subtitle').textContent = inInbox
-      ? 'Personal inbox · not in a project'
+    document.getElementById('task-detail-subtitle').textContent = noProject
+      ? 'No project'
       : ('In project · ' + (projects.find(p => p.id === sourceProjectId)?.title || activeProject?.title || 'Project'));
     document.getElementById('task-detail-body').innerHTML = `
       <div class="th-detail-row"><div class="th-detail-label">Project</div><div class="th-detail-value">${projectPickerSelectHtml(taskId, sourceProjectId)}</div></div>
@@ -3139,7 +3058,7 @@
       ${taskLabels(resolved).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(resolved), false)}</div></div>` : ''}
       <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(resolved.definitionOfDone || '—')}</div></div>
       <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(resolved.notes || '—')}</div></div>
-      ${inInbox ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
+      ${noProject ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
     `;
     wireProjectPickers(document.getElementById('task-detail-body'));
@@ -3171,8 +3090,6 @@
     openModal('modal-task-detail');
     if (fromMyTasks) {
       syncUrlState({ view: 'my-tasks', taskId });
-    } else if (fromInbox) {
-      syncUrlState({ view: 'inbox', taskId });
     } else if (activeProject) {
       syncUrlState({ projectId: activeProject.id, taskId });
     }
@@ -3185,24 +3102,44 @@
   }
 
   async function deleteTaskById(taskId) {
-    if (isInboxContext()) {
-      inboxTasks = inboxTasks.filter(t => t.id !== taskId);
-      inboxTasks.forEach(t => {
+    const mt = myTasks.find(t => t.id === taskId);
+    const projectId = viewingTaskSourceProjectId ?? mt?.projectId ?? activeProject?.id ?? null;
+
+    if (projectId == null || isPersonalTaskId(taskId)) {
+      personalTasks = personalTasks.filter(t => t.id !== taskId);
+      personalTasks.forEach(t => {
         t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
       });
+      await savePersonalTasks();
     } else {
-      activeProject.tasks = (activeProject.tasks || []).filter(t => t.id !== taskId);
-      activeProject.tasks.forEach(t => {
+      let project = activeProject?.id === projectId ? activeProject : null;
+      if (!project) {
+        const data = await api('/api/tether/project?projectId=' + encodeURIComponent(projectId));
+        project = data.project;
+      }
+      project.tasks = (project.tasks || []).filter(t => t.id !== taskId);
+      project.tasks.forEach(t => {
         t.dependsOnTaskIds = (t.dependsOnTaskIds || []).filter(id => id !== taskId);
       });
+      await api('/api/tether/project', {
+        method: 'PUT',
+        body: JSON.stringify({
+          projectId: project.id,
+          title: project.title,
+          description: projectDescription(project),
+          tasks: project.tasks,
+        }),
+      });
+      if (activeProject?.id === projectId) {
+        activeProject = project;
+        renderProjectView();
+      }
     }
     if (viewingTaskId === taskId) {
       viewingTaskId = null;
-      viewingTaskFromInbox = false;
       closeModal('modal-task-detail');
     }
-    if (isInboxContext()) await saveInbox();
-    else await saveProject(activeProject);
+    if (appTab === 'my-tasks') await loadMyTasks();
     showBanner('Task deleted', 'ok');
   }
 
@@ -3222,17 +3159,15 @@
 
   function openTaskModal(taskId) {
     editingTaskId = taskId || null;
-    const inInbox = appTab === 'inbox';
-    editingTaskFromProjectId = taskId
-      ? (inInbox ? null : (activeProject?.id || null))
-      : (inInbox ? null : (activeProject?.id || null));
+    editingTaskFromProjectId = resolveEditingProjectId(taskId);
+    const noProject = editingTaskFromProjectId == null;
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
-    document.getElementById('modal-task-subtitle').textContent = inInbox
-      ? 'Personal inbox · not in a project'
+    document.getElementById('modal-task-subtitle').textContent = noProject
+      ? 'No project'
       : (activeProject ? 'In project · ' + activeProject.title : '');
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
-    const tasks = inInbox ? inboxTasks : (activeProject?.tasks || []);
-    const task = taskId ? tasks.find(t => t.id === taskId) : null;
+    const tasks = noProject ? personalTasks : (activeProject?.tasks || []);
+    const task = taskId ? (getTaskById(taskId) || tasks.find(t => t.id === taskId)) : null;
     document.getElementById('task-title-input').value = task ? taskDisplayTitle(task) : '';
     renderTaskLabelsEditor(task ? taskLabels(task) : []);
     document.getElementById('task-labels-input').value = '';
@@ -3259,7 +3194,7 @@
 
     const assigneesEl = document.getElementById('task-assignees');
     const peopleSection = assigneesEl.closest('.th-task-section');
-    if (inInbox) {
+    if (noProject) {
       if (peopleSection) peopleSection.style.display = 'none';
       assigneesEl.innerHTML = '';
     } else {
@@ -3380,14 +3315,9 @@
     return t.dueDate || isoDate(new Date());
   }
 
-  document.getElementById('tab-inbox').addEventListener('click', () => setAppTab('inbox'));
   document.getElementById('tab-projects').addEventListener('click', () => setAppTab('projects'));
   document.getElementById('tab-my-tasks').addEventListener('click', () => setAppTab('my-tasks'));
-  document.getElementById('btn-add-inbox-task').addEventListener('click', () => openTaskModal(null));
-  document.getElementById('btn-search-inbox').addEventListener('click', () => openSearchModal());
-  document.getElementById('btn-clear-inbox-completed').addEventListener('click', () => {
-    clearInboxCompletedTasks().catch(e => showBanner(e.message));
-  });
+  document.getElementById('btn-add-my-task').addEventListener('click', () => openTaskModal(null));
   document.getElementById('my-tasks-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-my-tasks-filter]');
     if (!btn) return;
@@ -3408,13 +3338,9 @@
     btn.addEventListener('click', () => {
       viewingTaskId = null;
       const wasMyTasks = viewingTaskFromMyTasks || appTab === 'my-tasks';
-      const wasInbox = viewingTaskFromInbox || appTab === 'inbox';
       viewingTaskFromMyTasks = false;
-      viewingTaskFromInbox = false;
       if (wasMyTasks) {
         syncUrlState({ view: 'my-tasks' });
-      } else if (wasInbox) {
-        syncUrlState({ view: 'inbox' });
       } else if (activeProject) {
         syncUrlState({ projectId: activeProject.id, taskId: null });
       }
@@ -3429,13 +3355,12 @@
       renderProjectList();
     }
     const params = new URLSearchParams(window.location.search);
-    const view = params.get('view');
+    let view = params.get('view');
     const projectId = params.get('project');
     const taskId = params.get('task');
+    if (view === 'inbox') view = 'my-tasks';
     if (view === 'my-tasks') {
       setAppTab('my-tasks', { skipUrlSync: true, skipLoad: true });
-    } else if (view === 'inbox') {
-      setAppTab('inbox', { skipUrlSync: true, skipLoad: true });
     } else if (projectId) {
       setAppTab('projects', { skipUrlSync: true });
       showProjectLoadingPreview(projectId);
@@ -3450,9 +3375,6 @@
           const mt = myTasks.find(t => t.id === taskId);
           if (mt) await openMyTaskDetailModal(mt.projectId, taskId);
         }
-      } else if (view === 'inbox') {
-        await loadInbox();
-        if (taskId) openTaskDetailModal(taskId, { fromInbox: true });
       }
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
@@ -3568,13 +3490,13 @@
   document.getElementById('save-task-btn').addEventListener('click', async () => {
     const rawTitle = document.getElementById('task-title-input').value.trim();
     if (!rawTitle) { showBanner('Task title is required'); return; }
-    const inInbox = appTab === 'inbox';
-    if (!inInbox && !activeProject) { showBanner('Select a project first'); return; }
+    const noProject = editingTaskFromProjectId == null;
+    if (!noProject && !activeProject) { showBanner('Select a project first'); return; }
     const recurrence = document.getElementById('task-recurrence-input').value || null;
     const recurrenceDay = recurrence === 'weekly'
       ? Number(document.getElementById('task-recurrence-day').value)
       : undefined;
-    const taskList = inInbox ? inboxTasks : (activeProject.tasks || []);
+    const taskList = noProject ? personalTasks : (activeProject.tasks || []);
     const labels = [...new Set([...labelsForTaskEditor(), ...extractLabels(rawTitle)])];
     const title = stripLabelsFromTitle(rawTitle) || rawTitle;
     const task = {
@@ -3584,7 +3506,7 @@
       notes: document.getElementById('task-notes-input').value.trim(),
       dueDate: document.getElementById('task-due-input').value,
       status: document.getElementById('task-status-input').value,
-      assigneeUserIds: inInbox ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
+      assigneeUserIds: noProject ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
       labels,
       recurrence,
@@ -3616,9 +3538,9 @@
     }
     closeModal('modal-task');
     try {
-      if (inInbox) {
-        inboxTasks = taskList;
-        await saveInbox();
+      if (noProject) {
+        personalTasks = taskList;
+        await savePersonalTasks();
       } else {
         activeProject.tasks = taskList;
         await saveProject(activeProject);
@@ -3756,7 +3678,7 @@
     if (isTypingContext(e.target)) return;
     if (isAnyModalOpen()) return;
     if (e.key === 'q' || e.key === 'Q') {
-      if (appTab === 'inbox') {
+      if (appTab === 'my-tasks') {
         e.preventDefault();
         openTaskModal(null);
       } else if (appTab === 'projects' && activeProject) {
