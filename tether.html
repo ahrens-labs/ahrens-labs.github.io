@@ -245,6 +245,14 @@
       margin: 1px 0 0; font-size: 0.7rem; color: var(--th-slate); line-height: 1.3;
       display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
     }
+    .th-rich-text a.th-text-link {
+      color: var(--th-accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: #93c5fd;
+    }
+    .th-rich-text a.th-text-link:hover { color: #1d4ed8; text-decoration-color: var(--th-accent); }
+    .th-detail-value.th-rich-text { line-height: 1.5; }
     .th-task-card-bottom {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
       gap: 4px 8px; margin-top: 3px;
@@ -1589,18 +1597,20 @@
     el.innerHTML = matches.slice(0, 40).map(t => {
       const st = t.status || 'todo';
       const labels = taskLabels(t);
-      return `<button type="button" class="th-search-result" data-search-project="${escapeAttr(t.projectId)}" data-search-task="${escapeAttr(t.id)}">
-        <div class="th-search-result-title">${escapeHtml(taskDisplayTitle(t))}</div>
+      return `<div class="th-search-result" role="button" tabindex="0" data-search-project="${escapeAttr(t.projectId)}" data-search-task="${escapeAttr(t.id)}">
+        <div class="th-search-result-title">${formatTaskTitleHtml(t)}</div>
         <div class="th-search-result-meta">
           <span>${escapeHtml(t.projectTitle || 'Project')}</span>
           <span class="th-status ${st}">${statusLabel(st)}</span>
           ${t.dueDate ? `<span>Due ${formatDate(t.dueDate)}</span>` : ''}
           ${labels.length ? labelsHtml(labels, false) : ''}
         </div>
-      </button>`;
+      </div>`;
     }).join('');
+    wireRichTextLinks(el);
     el.querySelectorAll('[data-search-task]').forEach(btn => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', async (e) => {
+        if (e.target.closest('a.th-text-link')) return;
         const projectId = btn.getAttribute('data-search-project');
         const taskId = btn.getAttribute('data-search-task');
         closeModal('modal-search');
@@ -1846,7 +1856,7 @@
     return `<article class="th-my-task-item status-${st}" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
       <div class="th-my-task-headline">
         ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
-        <h3 class="th-my-task-title">${escapeHtml(taskDisplayTitle(t))}</h3>
+        <h3 class="th-my-task-title">${formatTaskTitleHtml(t)}</h3>
         <div class="th-my-task-badges">
           ${st === 'todo' ? startTaskBtnHtml(t.id, st, t.projectId) : ''}
           <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -1859,8 +1869,8 @@
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
         ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
       </div>
-      ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
-      ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+      ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${formatTaskNotesHtml(t.definitionOfDone)}</p>` : ''}
+      ${t.notes ? `<p class="th-task-notes-preview">${formatTaskNotesHtml(t.notes)}</p>` : ''}
     </article>`;
   }
 
@@ -1888,11 +1898,12 @@
     }
     el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${tasks.map(renderMyTaskCard).join('')}</div>`;
     wireMyTasksLabelFilters(el);
+    wireRichTextLinks(el);
     wireStartButtons(el);
     wireCompleteButtons(el);
     el.querySelectorAll('[data-my-task]').forEach(item => {
       item.addEventListener('click', async (e) => {
-        if (e.target.closest('button') || e.target.closest('[data-my-label-filter]')) return;
+        if (e.target.closest('button') || e.target.closest('[data-my-label-filter]') || e.target.closest('a.th-text-link')) return;
         const pid = item.getAttribute('data-my-project');
         const tid = item.getAttribute('data-my-task');
         await openMyTaskDetailModal(pid, tid);
@@ -2158,7 +2169,9 @@
     view.style.display = 'block';
     document.getElementById('project-title').textContent = activeProject.title;
     const desc = projectDescription(activeProject);
-    document.getElementById('project-description').textContent = desc || 'Add a description when you edit this project.';
+    document.getElementById('project-description').innerHTML = desc
+      ? formatTaskNotesHtml(desc)
+      : 'Add a description when you edit this project.';
     renderProjectStats(activeProject.tasks || []);
     const completedCount = (activeProject.tasks || []).filter(t => t.status === 'done').length;
     document.getElementById('btn-clear-completed').style.display = completedCount ? 'inline-block' : 'none';
@@ -2256,7 +2269,7 @@
               ${completeBtnHtml(t.id, st, false, blocked)}
               <div class="th-task-card-main">
                 <div class="th-task-card-headline">
-                  <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
+                  <h4><span class="th-task-link" data-view-task="${escapeAttr(t.id)}" role="button" tabindex="0">${formatTaskTitleHtml(t)}</span></h4>
                   <div class="th-task-card-badges">
                     ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                     <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -2265,8 +2278,8 @@
                   </div>
                 </div>
                 ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
-                ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
-                ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+                ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${formatTaskNotesHtml(t.definitionOfDone)}</p>` : ''}
+                ${t.notes ? `<p class="th-task-notes-preview">${formatTaskNotesHtml(t.notes)}</p>` : ''}
                 <div class="th-task-card-bottom">
                   <div class="th-task-card-meta">
                     ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
@@ -2285,8 +2298,12 @@
       </div>
     `;
     wireLabelFilters(document.getElementById('list-view'));
+    wireRichTextLinks(document.getElementById('list-view'));
     document.getElementById('list-view').querySelectorAll('[data-view-task]').forEach(btn => {
-      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task')));
+      btn.addEventListener('click', (e) => {
+        if (e.target.closest('a.th-text-link')) return;
+        openTaskDetailModal(btn.getAttribute('data-view-task'));
+      });
     });
     document.getElementById('list-view').querySelectorAll('[data-edit-task]').forEach(btn => {
       btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
@@ -2313,7 +2330,7 @@
           ${completeBtnHtml(t.id, st, false, blocked)}
           <div class="th-task-card-main">
             <div class="th-task-card-headline">
-              <h4><button type="button" class="th-task-link" data-view-task="${escapeAttr(t.id)}">${escapeHtml(taskDisplayTitle(t))}</button></h4>
+              <h4><span class="th-task-link" data-view-task="${escapeAttr(t.id)}" role="button" tabindex="0">${formatTaskTitleHtml(t)}</span></h4>
               <div class="th-task-card-badges">
                 ${st === 'todo' ? startTaskBtnHtml(t.id, st) : ''}
                 <span class="th-status ${st}">${statusLabel(st)}</span>
@@ -2322,8 +2339,8 @@
               </div>
             </div>
             ${labels.length ? `<div style="margin-top:3px;">${labelsHtml(labels, true)}</div>` : ''}
-            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
-            ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
+            ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>DoD:</strong> ${formatTaskNotesHtml(t.definitionOfDone)}</p>` : ''}
+            ${t.notes ? `<p class="th-task-notes-preview">${formatTaskNotesHtml(t.notes)}</p>` : ''}
             <div class="th-task-card-bottom">
               <div class="th-task-card-meta">
                 ${(t.assigneeUserIds || []).length ? '👤 ' + (t.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') : 'Unassigned'}
@@ -2342,7 +2359,10 @@
 
   function wireTaskCardActions(root) {
     root.querySelectorAll('[data-view-task]').forEach(btn => {
-      btn.addEventListener('click', () => openTaskDetailModal(btn.getAttribute('data-view-task')));
+      btn.addEventListener('click', (e) => {
+        if (e.target.closest('a.th-text-link')) return;
+        openTaskDetailModal(btn.getAttribute('data-view-task'));
+      });
     });
     root.querySelectorAll('[data-edit-task]').forEach(btn => {
       btn.addEventListener('click', () => openTaskModal(btn.getAttribute('data-edit-task')));
@@ -2356,6 +2376,7 @@
     wireStartButtons(root);
     wireCompleteButtons(root);
     wireProjectPickers(root);
+    wireRichTextLinks(root);
   }
 
   function renderLabelsView() {
@@ -3179,7 +3200,7 @@
 
     const noProject = sourceProjectId == null;
     const memberMap = noProject ? {} : memberLabelMap();
-    document.getElementById('task-detail-title').textContent = taskDisplayTitle(resolved);
+    document.getElementById('task-detail-title').innerHTML = formatTaskTitleHtml(resolved);
     document.getElementById('task-detail-subtitle').textContent = noProject
       ? 'No project'
       : ('In project · ' + (projects.find(p => p.id === sourceProjectId)?.title || activeProject?.title || 'Project'));
@@ -3189,12 +3210,13 @@
       <div class="th-detail-row"><div class="th-detail-label">Due</div><div class="th-detail-value">${formatDate(resolved.dueDate)}</div></div>
       ${resolved.recurrence ? `<div class="th-detail-row"><div class="th-detail-label">Repeats</div><div class="th-detail-value">${escapeHtml(recurrenceLabel(resolved))}</div></div>` : ''}
       ${taskLabels(resolved).length ? `<div class="th-detail-row"><div class="th-detail-label">Labels</div><div class="th-detail-value">${labelsHtml(taskLabels(resolved), false)}</div></div>` : ''}
-      <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value">${escapeHtml(resolved.definitionOfDone || '—')}</div></div>
-      <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value">${escapeHtml(resolved.notes || '—')}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Definition of Done</div><div class="th-detail-value th-rich-text">${resolved.definitionOfDone ? formatRichText(resolved.definitionOfDone, { breaks: true, autolink: true, wrap: false }) : '—'}</div></div>
+      <div class="th-detail-row"><div class="th-detail-label">Notes</div><div class="th-detail-value th-rich-text">${resolved.notes ? formatRichText(resolved.notes, { breaks: true, autolink: true, wrap: false }) : '—'}</div></div>
       ${noProject ? '' : `<div class="th-detail-row"><div class="th-detail-label">Assignees</div><div class="th-detail-value">${(resolved.assigneeUserIds || []).map(id => escapeHtml(memberMap[id] || id)).join(', ') || '—'}</div></div>`}
       <div class="th-detail-row"><div class="th-detail-label">Blocked by</div><div class="th-detail-value">${depLabels(resolved.dependsOnTaskIds, tasks)}</div></div>
     `;
     wireProjectPickers(document.getElementById('task-detail-body'));
+    wireRichTextLinks(document.getElementById('modal-task-detail'));
     const completeBtn = document.getElementById('task-detail-complete');
     const startBtn = document.getElementById('task-detail-start');
     const blocked = isTaskCompletionBlocked(resolved, tasks);
@@ -3393,6 +3415,50 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
   function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+
+  function safeLinkHref(url) {
+    const raw = String(url || '').trim();
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^mailto:/i.test(raw)) return raw;
+    return null;
+  }
+
+  function formatRichText(text, opts) {
+    const options = opts || {};
+    const raw = String(text || '');
+    if (!raw) return options.empty || '';
+    let s = escapeHtml(raw);
+    s = s.replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_, label, url) => {
+      const href = safeLinkHref(url.trim());
+      if (!href) return `[${label}](${url})`;
+      return `<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" class="th-text-link">${label || escapeHtml(href)}</a>`;
+    });
+    if (options.autolink) {
+      s = s.replace(/(^|[\s(])((https?:\/\/)[^\s<]+)/g, (m, pre, url) => {
+        const trimmed = url.replace(/[.,;:!?)]+$/g, '');
+        const trail = url.slice(trimmed.length);
+        const href = safeLinkHref(trimmed);
+        if (!href) return m;
+        return `${pre}<a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" class="th-text-link">${trimmed}</a>${trail}`;
+      });
+    }
+    if (options.breaks) s = s.replace(/\n/g, '<br>');
+    return options.wrap === false ? s : `<span class="th-rich-text">${s}</span>`;
+  }
+
+  function formatTaskTitleHtml(t) {
+    return formatRichText(taskDisplayTitle(t));
+  }
+
+  function formatTaskNotesHtml(text) {
+    return formatRichText(text, { breaks: true, autolink: true });
+  }
+
+  function wireRichTextLinks(root) {
+    (root || document).querySelectorAll('.th-rich-text a.th-text-link').forEach(a => {
+      a.addEventListener('click', (e) => e.stopPropagation());
+    });
+  }
 
   function formatDate(d) {
     if (!d) return '—';
