@@ -300,6 +300,17 @@
     .th-label-chip.filterable { cursor: pointer; transition: all 0.15s; }
     .th-label-chip.filterable:hover { background: #dbeafe; border-color: #60a5fa; }
     .th-label-chip.active { background: var(--th-accent); border-color: var(--th-accent); color: #fff; }
+    .th-label-chip-editable {
+      display: inline-flex; align-items: center; gap: 4px; padding-right: 6px;
+    }
+    .th-label-chip-editable button {
+      border: none; background: transparent; color: inherit; cursor: pointer;
+      font-size: 0.9rem; line-height: 1; padding: 0 2px; opacity: 0.7;
+    }
+    .th-label-chip-editable button:hover { opacity: 1; }
+    .th-task-labels-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; margin-bottom: 8px; }
+    .th-task-labels-suggestions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+    .th-task-labels-suggestions .th-label-chip { cursor: pointer; }
     .th-label-filter-bar {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px;
     }
@@ -878,7 +889,7 @@
           <h4 class="th-task-section-title">What to do</h4>
           <div class="th-field">
             <label for="task-title-input">Task name</label>
-            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done? Use @label for tags (e.g. Weekly review @admin)">
+            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
           </div>
           <div class="th-field">
             <label for="task-dod-input">Definition of Done</label>
@@ -896,6 +907,16 @@
               <button type="button" class="th-status-pill done" data-status="done">Completed</button>
             </div>
             <input type="hidden" id="task-status-input" value="todo">
+          </div>
+        </section>
+        <section class="th-task-section">
+          <h4 class="th-task-section-title">Labels</h4>
+          <div class="th-field">
+            <label for="task-labels-input">Tags</label>
+            <div class="th-task-labels-list" id="task-labels-list"></div>
+            <input type="text" id="task-labels-input" maxlength="120" placeholder="Type a label and press Enter">
+            <div class="th-task-labels-suggestions" id="task-labels-suggestions"></div>
+            <p class="th-field-hint" style="margin:8px 0 0;">Optional. Use labels to filter and group tasks in the Labels view.</p>
           </div>
         </section>
         <section class="th-task-section">
@@ -1063,6 +1084,7 @@
   let viewingTaskFromInbox = false;
   let viewingTaskSourceProjectId = null;
   let editingTaskFromProjectId = null;
+  let editingTaskLabels = [];
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -1314,6 +1336,81 @@
   function invalidateSearchCache() {
     searchTasksCache = null;
     searchLoadPromise = null;
+  }
+
+  function normalizeLabel(raw) {
+    return String(raw || '').trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  }
+
+  function parseLabelsInput(text) {
+    return [...new Set(String(text || '').split(/[,\s]+/).map(normalizeLabel).filter(Boolean))];
+  }
+
+  function labelsForTaskEditor() {
+    const pending = parseLabelsInput(document.getElementById('task-labels-input')?.value || '');
+    return [...new Set([...editingTaskLabels, ...pending])];
+  }
+
+  function tasksForLabelSuggestions() {
+    if (appTab === 'inbox') return inboxTasks;
+    return activeProject?.tasks || [];
+  }
+
+  function renderTaskLabelSuggestions() {
+    const el = document.getElementById('task-labels-suggestions');
+    if (!el) return;
+    const pool = collectProjectLabels(tasksForLabelSuggestions());
+    const available = pool.filter(l => !editingTaskLabels.includes(l));
+    if (!available.length) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = `<span class="th-field-hint" style="margin:0;">Existing:</span>${available.map(l =>
+      `<button type="button" class="th-label-chip filterable" data-add-label="${escapeAttr(l)}">@${escapeHtml(l)}</button>`
+    ).join('')}`;
+    el.querySelectorAll('[data-add-label]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const l = btn.getAttribute('data-add-label');
+        if (l && !editingTaskLabels.includes(l)) editingTaskLabels.push(l);
+        renderTaskLabelsEditor(editingTaskLabels);
+      });
+    });
+  }
+
+  function renderTaskLabelsEditor(labels) {
+    editingTaskLabels = [...(labels || [])];
+    const list = document.getElementById('task-labels-list');
+    if (!list) return;
+    if (!editingTaskLabels.length) {
+      list.innerHTML = '<span class="th-field-hint" style="margin:0;">No labels yet</span>';
+    } else {
+      list.innerHTML = editingTaskLabels.map(l => `
+        <span class="th-label-chip th-label-chip-editable">
+          @${escapeHtml(l)}
+          <button type="button" data-remove-label="${escapeAttr(l)}" aria-label="Remove label">×</button>
+        </span>
+      `).join('');
+      list.querySelectorAll('[data-remove-label]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const l = btn.getAttribute('data-remove-label');
+          editingTaskLabels = editingTaskLabels.filter(x => x !== l);
+          renderTaskLabelsEditor(editingTaskLabels);
+        });
+      });
+    }
+    renderTaskLabelSuggestions();
+  }
+
+  function addLabelFromInput() {
+    const input = document.getElementById('task-labels-input');
+    if (!input) return;
+    const added = parseLabelsInput(input.value);
+    if (!added.length) return;
+    for (const l of added) {
+      if (!editingTaskLabels.includes(l)) editingTaskLabels.push(l);
+    }
+    input.value = '';
+    renderTaskLabelsEditor(editingTaskLabels);
   }
 
   function extractLabels(text) {
@@ -1730,7 +1827,7 @@
         <div class="th-my-task-project-picker">${projectPickerHtml(t.id, t.projectId || null)}</div>
         ${taskLabels(t).length ? labelsHtml(taskLabels(t), false) : ''}
         ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
-        ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.join(', '))}</span>` : ''}
+        ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
       </div>
       ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${escapeHtml(t.definitionOfDone)}</p>` : ''}
       ${t.notes ? `<p class="th-task-notes-preview">${escapeHtml(t.notes)}</p>` : ''}
@@ -2235,7 +2332,7 @@
     document.getElementById('gantt-view').style.display = 'none';
     const allTasks = sortTasks(activeProject.tasks || []);
     if (!allTasks.length) {
-      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">No tasks in this project yet. Add @labels to task names to group them here.</p>';
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;line-height:1.5;">No tasks in this project yet. Add a step — deploy worker, fix UI, write tests, whatever moves the project forward.</p>';
       return;
     }
     const memberMap = memberLabelMap();
@@ -2260,7 +2357,7 @@
       <div class="th-task-cards">${unlabeled.map(t => renderTaskCardHtml(t, allTasks, memberMap)).join('')}</div>
     </section>` : '';
     if (!labels.length && !unlabeled.length) {
-      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">Add @labels to task names (e.g. <strong>Weekly review @admin</strong>) to group tasks here.</p>';
+      document.getElementById('list-view').innerHTML = '<p style="color:var(--th-muted);font-size:0.88rem;">Add labels when creating or editing a task to group them here.</p>';
       return;
     }
     document.getElementById('list-view').innerHTML = `
@@ -3136,7 +3233,9 @@
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = inInbox ? inboxTasks : (activeProject?.tasks || []);
     const task = taskId ? tasks.find(t => t.id === taskId) : null;
-    document.getElementById('task-title-input').value = task ? task.title : '';
+    document.getElementById('task-title-input').value = task ? taskDisplayTitle(task) : '';
+    renderTaskLabelsEditor(task ? taskLabels(task) : []);
+    document.getElementById('task-labels-input').value = '';
     document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
     document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
@@ -3396,6 +3495,12 @@
     syncRecurrenceDayFromDueDate();
   });
   document.getElementById('task-due-input').addEventListener('change', syncRecurrenceDayFromDueDate);
+  document.getElementById('task-labels-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addLabelFromInput();
+    }
+  });
   document.getElementById('btn-clear-completed').addEventListener('click', () => {
     clearCompletedTasks().catch(e => showBanner(e.message));
   });
@@ -3461,8 +3566,8 @@
   });
 
   document.getElementById('save-task-btn').addEventListener('click', async () => {
-    const title = document.getElementById('task-title-input').value.trim();
-    if (!title) { showBanner('Task title is required'); return; }
+    const rawTitle = document.getElementById('task-title-input').value.trim();
+    if (!rawTitle) { showBanner('Task title is required'); return; }
     const inInbox = appTab === 'inbox';
     if (!inInbox && !activeProject) { showBanner('Select a project first'); return; }
     const recurrence = document.getElementById('task-recurrence-input').value || null;
@@ -3470,6 +3575,8 @@
       ? Number(document.getElementById('task-recurrence-day').value)
       : undefined;
     const taskList = inInbox ? inboxTasks : (activeProject.tasks || []);
+    const labels = [...new Set([...labelsForTaskEditor(), ...extractLabels(rawTitle)])];
+    const title = stripLabelsFromTitle(rawTitle) || rawTitle;
     const task = {
       id: editingTaskId || crypto.randomUUID(),
       title,
@@ -3479,10 +3586,11 @@
       status: document.getElementById('task-status-input').value,
       assigneeUserIds: inInbox ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
       dependsOnTaskIds: [...document.querySelectorAll('#task-deps input:checked')].map(el => el.value),
-      labels: extractLabels(title),
+      labels,
       recurrence,
       sortOrder: editingTaskId ? undefined : taskList.length,
     };
+    if (!labels.length) delete task.labels;
     if (recurrence === 'weekly') task.recurrenceDay = recurrenceDay;
     else delete task.recurrenceDay;
     if (!recurrence) {
