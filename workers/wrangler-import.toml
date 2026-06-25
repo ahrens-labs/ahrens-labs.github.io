@@ -1,0 +1,18 @@
+# Ephemeral config for one-shot Todoist → Tether import via `wrangler dev --remote`.
+name = "chess-accounts"
+main = "scripts/tether-import-once.js"
+compatibility_date = "2025-05-01"
+
+[durable_objects]
+bindings = [
+  { name = "USER_ACCOUNT", class_name = "UserAccount", script_name = "chess-accounts" },
+  { name = "TETHER_PROJECT", class_name = "TetherProject", script_name = "chess-accounts" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserAccount"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["TetherProject"]
