@@ -455,14 +455,24 @@ export function initialDueForRecurrence(task, today = new Date()) {
     const schedule = mapTodoistDate(task.todoistSchedule, today);
     return schedule.dueDate || '';
   }
-  if (task.recurrence === 'daily') return isoDate(noonToday(today));
+  if (task.recurrence === 'daily') {
+    const iv = task.recurrenceInterval || 1;
+    return isoDate(addDays(noonToday(today), iv > 1 ? iv : 0));
+  }
   if (task.recurrence === 'weekly') {
     if (task.recurrenceWeekOfMonth != null) {
       return nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, null, today);
     }
+    const iv = task.recurrenceInterval || 1;
+    if (iv > 1) return isoDate(addDays(noonToday(today), 7 * iv));
     return initialWeeklyDue(task.recurrenceDay, today);
   }
   if (task.recurrence === 'monthly') {
+    if (task.recurrenceWeekOfMonth != null) {
+      return nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, null, today);
+    }
+    const iv = task.recurrenceInterval || 1;
+    if (iv > 1) return isoDate(addMonths(noonToday(today), iv));
     const dom = task.recurrenceDay != null ? task.recurrenceDay : noonToday(today).getDate();
     return initialMonthlyDue(dom, today);
   }
@@ -499,7 +509,8 @@ export function recurrenceLabelForTask(task) {
   if (task.recurrence === 'monthly') {
     if (task.recurrenceWeekOfMonth != null) {
       const ord = task.recurrenceWeekOfMonth === -1 ? 'Last' : `${task.recurrenceWeekOfMonth}${['st', 'nd', 'rd', 'th'][Math.min(task.recurrenceWeekOfMonth - 1, 3)]}`;
-      return `${ord} ${days[task.recurrenceDay ?? 0]} monthly`;
+      const pattern = `${ord} ${days[task.recurrenceDay ?? 0]}`;
+      return iv === 1 ? `${pattern} monthly` : `Every ${iv} months · ${pattern}`;
     }
     const dom = task.recurrenceDay ?? 1;
     return iv === 1 ? `Monthly · day ${dom}` : `Every ${iv} months · day ${dom}`;

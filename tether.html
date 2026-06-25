@@ -576,6 +576,9 @@
     .th-field-hint { margin: 6px 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--th-muted); }
     .th-recurrence-nth-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .th-recurrence-nth-row select { flex: 1; min-width: 120px; }
+    .th-recurrence-interval-row { display: flex; align-items: center; gap: 8px; }
+    .th-recurrence-interval-row input { width: 72px; }
+    .th-recurrence-interval-row span { font-size: 0.88rem; color: var(--th-muted); }
     .th-field input, .th-field textarea, .th-field select {
       width: 100%; box-sizing: border-box; border: 1px solid var(--th-line); border-radius: 10px;
       padding: 9px 11px; font: inherit; font-size: 0.88rem;
@@ -964,6 +967,13 @@
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
+          </div>
+          <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
+            <label for="task-recurrence-interval">Every</label>
+            <div class="th-recurrence-interval-row">
+              <input type="number" id="task-recurrence-interval" min="1" max="365" value="1" aria-describedby="task-recurrence-interval-unit">
+              <span id="task-recurrence-interval-unit">weeks</span>
+            </div>
           </div>
           <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
             <label for="task-recurrence-day">Repeat on</label>
@@ -1606,7 +1616,8 @@
     if (task.recurrence === 'monthly') {
       if (task.recurrenceWeekOfMonth != null) {
         const ord = task.recurrenceWeekOfMonth === -1 ? 'Last' : `${task.recurrenceWeekOfMonth}${['st', 'nd', 'rd', 'th'][Math.min(task.recurrenceWeekOfMonth - 1, 3)]}`;
-        return `${ord} ${days[task.recurrenceDay ?? 0]} monthly`;
+        const pattern = `${ord} ${days[task.recurrenceDay ?? 0]}`;
+        return iv === 1 ? `${pattern} monthly` : `Every ${iv} months · ${pattern}`;
       }
       const dom = task.recurrenceDay ?? 1;
       return iv === 1 ? `Monthly · day ${dom}` : `Every ${iv} months · day ${dom}`;
@@ -1720,16 +1731,28 @@
   function ensureRecurrenceDueDate(task) {
     if (!task?.recurrence) return false;
     if (task.dueDate) return false;
-    if (task.recurrence === 'daily') task.dueDate = isoDate(new Date());
-    else if (task.recurrence === 'weekly') {
+    const interval = task.recurrenceInterval || 1;
+    if (task.recurrence === 'daily') {
+      const d = parseIso(isoDate(new Date()));
+      d.setDate(d.getDate() + (interval > 1 ? interval : 0));
+      task.dueDate = isoDate(d);
+    } else if (task.recurrence === 'weekly') {
       if (task.recurrenceWeekOfMonth != null) {
         task.dueDate = nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, null);
+      } else if (interval > 1) {
+        const d = parseIso(isoDate(new Date()));
+        d.setDate(d.getDate() + 7 * interval);
+        task.dueDate = isoDate(d);
       } else {
         task.dueDate = initialWeeklyDue(task.recurrenceDay);
       }
     } else if (task.recurrence === 'monthly') {
       if (task.recurrenceWeekOfMonth != null) {
         task.dueDate = nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, null);
+      } else if (interval > 1) {
+        const d = parseIso(isoDate(new Date()));
+        d.setMonth(d.getMonth() + interval);
+        task.dueDate = isoDate(d);
       } else {
         const dom = task.recurrenceDay != null ? task.recurrenceDay : new Date().getDate();
         task.dueDate = initialMonthlyDue(dom);
@@ -1755,9 +1778,19 @@
     return `Recurring task reset — next due ${due} (${label})`;
   }
 
+  function recurrenceIntervalUnit(recurrence) {
+    if (recurrence === 'daily') return 'days';
+    if (recurrence === 'weekly') return 'weeks';
+    if (recurrence === 'monthly') return 'months';
+    return '';
+  }
+
   function syncRecurrenceFormVisibility() {
     const recurrence = document.getElementById('task-recurrence-input').value;
     const monthlyMode = document.getElementById('task-recurrence-monthly-mode').value;
+    const hasInterval = recurrence === 'daily' || recurrence === 'weekly' || recurrence === 'monthly';
+    document.getElementById('task-recurrence-interval-wrap').style.display = hasInterval ? 'block' : 'none';
+    document.getElementById('task-recurrence-interval-unit').textContent = recurrenceIntervalUnit(recurrence);
     document.getElementById('task-recurrence-weekly-wrap').style.display =
       recurrence === 'weekly' ? 'block' : 'none';
     document.getElementById('task-recurrence-monthly-wrap').style.display =
@@ -1770,6 +1803,7 @@
 
   function populateRecurrenceFormFromTask(task) {
     document.getElementById('task-recurrence-input').value = task && task.recurrence ? task.recurrence : '';
+    document.getElementById('task-recurrence-interval').value = String(task?.recurrenceInterval || 1);
     document.getElementById('task-recurrence-day').value = String(
       task && task.recurrenceDay != null ? task.recurrenceDay
         : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 0) ?? 0
@@ -1803,7 +1837,9 @@
     }
     task.recurrence = recurrence;
     delete task.recurrenceMonth;
-    delete task.recurrenceInterval;
+    const interval = Math.max(1, Number(document.getElementById('task-recurrence-interval').value) || 1);
+    if (interval > 1) task.recurrenceInterval = interval;
+    else delete task.recurrenceInterval;
     if (recurrence === 'weekly') {
       task.recurrenceDay = Number(document.getElementById('task-recurrence-day').value);
       delete task.recurrenceWeekOfMonth;
