@@ -793,16 +793,18 @@
       font-size: 0.68rem; color: var(--th-muted); line-height: 1.25;
     }
     .th-my-task-footer {
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-      gap: 5px 8px; margin-top: 2px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-top: 2px; min-height: 0;
+    }
+    .th-my-task-footer .th-task-notes-preview {
+      flex: 1; min-width: 0; margin: 0; text-align: left;
     }
     .th-my-task-labels {
       display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px;
-      margin-left: auto;
+      flex-shrink: 0; margin-left: auto;
     }
     .th-my-task-blocked { color: #c2410c; font-weight: 600; }
-    .th-my-task-item .th-task-dod-preview,
-    .th-my-task-item .th-task-notes-preview { margin-top: 2px; }
+    .th-my-task-item .th-task-dod-preview { margin-top: 2px; }
     .th-banner.ok { display: block; background: #ecfdf5; border: 1px solid #86efac; color: #166534; }
   </style>
 </head>
@@ -2416,6 +2418,8 @@
       : 'No due date';
     const blocked = (t.blockedByIncomplete || []).length > 0;
     const deps = t.dependsOnTitles || [];
+    const labels = taskLabels(t);
+    const hasBottomRow = !!(t.notes || labels.length);
     return `<article class="th-my-task-item status-${st}" data-my-task="${escapeAttr(t.id)}" data-my-project="${escapeAttr(t.projectId)}">
       <div class="th-my-task-headline">
         ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
@@ -2425,15 +2429,15 @@
           ${showDue ? `<span class="th-task-due-badge${dueCls}">${dueText}</span>` : ''}
         </div>
       </div>
-      <div class="th-my-task-footer">
-        ${blocked || deps.length ? `<div class="th-my-task-subline">
-          ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
-          ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
-        </div>` : ''}
-        ${taskLabels(t).length ? `<div class="th-my-task-labels">${myTasksLabelsHtml(taskLabels(t))}</div>` : ''}
-      </div>
+      ${blocked || deps.length ? `<div class="th-my-task-subline">
+        ${blocked ? `<span class="th-my-task-blocked">Blocked by ${escapeHtml(t.blockedByIncomplete.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
+        ${!blocked && deps.length ? `<span>Depends on ${escapeHtml(deps.map(stripLabelsFromTitle).join(', '))}</span>` : ''}
+      </div>` : ''}
       ${t.definitionOfDone ? `<p class="th-task-dod-preview"><strong>Definition of Done:</strong> ${formatTaskNotesHtml(t.definitionOfDone)}</p>` : ''}
-      ${t.notes ? `<p class="th-task-notes-preview">${formatTaskNotesHtml(t.notes)}</p>` : ''}
+      ${hasBottomRow ? `<div class="th-my-task-footer">
+        ${t.notes ? `<p class="th-task-notes-preview">${formatTaskNotesHtml(t.notes)}</p>` : ''}
+        ${labels.length ? `<div class="th-my-task-labels">${myTasksLabelsHtml(labels)}</div>` : ''}
+      </div>` : ''}
     </article>`;
   }
 
