@@ -118,27 +118,39 @@
 }
 
 /* Subtle TrifangX mark on lobby / live / replay game shells */
-.trifangx-game-header-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 0.45rem;
-  vertical-align: middle;
-  opacity: 0.82;
-  line-height: 0;
-  flex-shrink: 0;
-  transition: opacity 0.15s ease;
+.logo-link {
+  position: relative;
 }
 
-.trifangx-game-header-mark:hover {
-  opacity: 1;
+.trifangx-game-header-mark {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  line-height: 0;
+  pointer-events: none;
 }
 
 .trifangx-game-header-mark img {
   display: block;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
+}
+
+a.trifangx-game-header-mark {
+  pointer-events: auto;
+}
+
+a.trifangx-game-header-mark:hover {
+  opacity: 1;
 }
 
 .trifangx-shell-loading-mark {

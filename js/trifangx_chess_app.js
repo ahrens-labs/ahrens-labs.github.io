@@ -4803,20 +4803,19 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         const headerContent = document.querySelector('header .header-content');
         if (headerContent && !headerContent.querySelector('.trifangx-game-header-mark')) {
-          const h1 = headerContent.querySelector('h1');
-          const mark = document.createElement('a');
-          mark.href = 'trifangx.html';
+          const logoLink = headerContent.querySelector('.logo-link');
+          const mark = document.createElement('span');
           mark.className = 'trifangx-game-header-mark';
-          mark.title = 'About TrifangX';
+          mark.setAttribute('role', 'img');
           mark.setAttribute('aria-label', 'TrifangX');
           const markImg = document.createElement('img');
           markImg.src = 'img/trifangx-icon.png';
           markImg.alt = '';
-          markImg.width = 26;
-          markImg.height = 26;
+          markImg.width = 22;
+          markImg.height = 22;
           markImg.decoding = 'async';
           mark.appendChild(markImg);
-          if (h1) h1.insertAdjacentElement('afterend', mark);
+          if (logoLink) logoLink.appendChild(mark);
           else headerContent.appendChild(mark);
         }
 
