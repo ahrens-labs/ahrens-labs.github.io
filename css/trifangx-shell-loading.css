@@ -116,3 +116,61 @@
 .page-theme-space .trifangx-shell-loading-logo {
   filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.45));
 }
+
+/* Subtle TrifangX mark on lobby / live / replay game shells */
+.trifangx-game-header-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.45rem;
+  vertical-align: middle;
+  opacity: 0.82;
+  line-height: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+
+.trifangx-game-header-mark:hover {
+  opacity: 1;
+}
+
+.trifangx-game-header-mark img {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.trifangx-shell-loading-mark {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  opacity: 0.88;
+}
+
+.trifangx-footer-mark {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: -0.2em;
+  margin-right: 0.3rem;
+  opacity: 0.7;
+  object-fit: contain;
+}
+
+html.trifangx-dashboard-embed .trifangx-game-header-mark,
+html.trifangx-dashboard-embed .trifangx-footer-mark {
+  display: none !important;
+}
+
+body.trifangx-page-live .trifangx-shell-loading,
+body.trifangx-page-replay .trifangx-shell-loading {
+  min-height: min(240px, 38vh);
+  padding: 1.25rem 1rem;
+}
+
+body.trifangx-page-live .trifangx-shell-loading-inner,
+body.trifangx-page-replay .trifangx-shell-loading-inner {
+  padding: 1.2rem 1.5rem;
+  gap: 0.85rem;
+}

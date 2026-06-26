@@ -4795,6 +4795,59 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
+    /** Small TrifangX mark on lobby / live / replay — not on dashboard embed. */
+    function initTrifangxGameBranding() {
+      try {
+        if (window.TRIFANGX_DASHBOARD_EMBED) return;
+        if (!isTrifangxChessShellPage()) return;
+
+        const headerContent = document.querySelector('header .header-content');
+        if (headerContent && !headerContent.querySelector('.trifangx-game-header-mark')) {
+          const h1 = headerContent.querySelector('h1');
+          const mark = document.createElement('a');
+          mark.href = 'trifangx.html';
+          mark.className = 'trifangx-game-header-mark';
+          mark.title = 'About TrifangX';
+          mark.setAttribute('aria-label', 'TrifangX');
+          const markImg = document.createElement('img');
+          markImg.src = 'img/trifangx-icon.png';
+          markImg.alt = '';
+          markImg.width = 26;
+          markImg.height = 26;
+          markImg.decoding = 'async';
+          mark.appendChild(markImg);
+          if (h1) h1.insertAdjacentElement('afterend', mark);
+          else headerContent.appendChild(mark);
+        }
+
+        const loadingInner = document.querySelector('.trifangx-shell-loading-inner');
+        if (loadingInner && !loadingInner.querySelector('.trifangx-shell-loading-mark')) {
+          const spinner = loadingInner.querySelector('.trifangx-shell-loading-spinner');
+          const loadImg = document.createElement('img');
+          loadImg.src = 'img/trifangx-icon.png';
+          loadImg.alt = '';
+          loadImg.className = 'trifangx-shell-loading-mark';
+          loadImg.width = 36;
+          loadImg.height = 36;
+          loadImg.decoding = 'async';
+          if (spinner) loadingInner.insertBefore(loadImg, spinner);
+          else loadingInner.prepend(loadImg);
+        }
+
+        const feedback = document.querySelector('.trifangx-feedback-note');
+        if (feedback && !feedback.querySelector('.trifangx-footer-mark')) {
+          const footImg = document.createElement('img');
+          footImg.src = 'img/trifangx-icon.png';
+          footImg.alt = '';
+          footImg.className = 'trifangx-footer-mark';
+          footImg.width = 16;
+          footImg.height = 16;
+          footImg.decoding = 'async';
+          feedback.insertBefore(footImg, feedback.firstChild);
+        }
+      } catch (eBrand) {}
+    }
+
     function setTrifangxShellLoadingMessage(text) {
       const msg = document.getElementById('trifangx-shell-loading-text');
       if (msg && typeof text === 'string' && text.trim()) {
@@ -5250,6 +5303,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
  $(document).ready(async function() {
+        initTrifangxGameBranding();
         console.log("The page has finished loading!");
 
         if (isTrifangxChessShellPage()) {
