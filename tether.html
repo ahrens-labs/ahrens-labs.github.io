@@ -35,32 +35,38 @@
       font-family: "DM Sans", Inter, system-ui, sans-serif;
     }
     body.th-page .wrapper { background: transparent; }
+    body.th-page header { padding: 0.45em 1em; }
+    body.th-page .header-content h1 { font-size: 1.25rem; margin: 0.1em 0 0.2em; }
+    body.th-page .header-logo { width: 44px; height: auto; }
+    body.th-page nav ul { margin-top: 0.15em; }
+    body.th-page nav a { padding: 0.35em 0.65em; font-size: 0.82rem; }
+    body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 10px 14px 16px; }
     .th-hero {
-      margin: -8px -20px 20px;
-      padding: 28px 24px 24px;
-      border-radius: 0 0 24px 24px;
+      margin: 0 0 10px;
+      padding: 12px 16px 10px;
+      border-radius: 16px;
       background: linear-gradient(135deg, #ffffff 0%, #eff6ff 55%, #fff7ed 100%);
       border: 1px solid var(--th-line);
       box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
       text-align: center;
     }
     .th-hero h1 {
-      margin: 0 0 6px;
+      margin: 0 0 2px;
       font-family: Orbitron, Inter, sans-serif;
-      font-size: clamp(1.6rem, 3.5vw, 2.1rem);
+      font-size: clamp(1.15rem, 2.5vw, 1.45rem);
       font-weight: 900;
       color: var(--th-ink);
     }
     .th-hero p {
-      margin: 0 auto; color: var(--th-muted); max-width: none; line-height: 1.55; font-size: 0.98rem;
+      margin: 0 auto; color: var(--th-muted); max-width: none; line-height: 1.35; font-size: 0.82rem;
       text-align: center;
     }
     .th-app-tabs {
-      display: flex; gap: 6px; margin-bottom: 14px;
+      display: flex; gap: 6px; margin-bottom: 10px;
     }
     .th-app-tabs button {
-      flex: 1; border: 1px solid var(--th-line); background: #fff; border-radius: 12px;
-      padding: 9px 12px; font-size: 0.82rem; font-weight: 700; cursor: pointer; color: var(--th-muted);
+      flex: 1; border: 1px solid var(--th-line); background: #fff; border-radius: 10px;
+      padding: 7px 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: var(--th-muted);
     }
     .th-app-tabs button.active {
       background: var(--th-accent-soft); border-color: #93c5fd; color: var(--th-accent);
@@ -74,16 +80,16 @@
       font: inherit; font-size: 0.72rem; background: #fff;
     }
     .th-hero-tagline {
-      display: inline-block; margin-bottom: 10px; padding: 5px 12px; border-radius: 999px;
+      display: inline-block; margin-bottom: 4px; padding: 3px 10px; border-radius: 999px;
       background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.15);
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
       color: var(--th-accent);
     }
     .th-hero-logo {
       display: block;
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 14px;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 6px;
     }
     .th-shell {
       display: grid;
@@ -142,9 +148,9 @@
     .th-empty h3 { margin: 0; color: var(--th-ink); }
     .th-toolbar {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-      gap: 12px; margin-bottom: 16px;
+      gap: 8px; margin-bottom: 10px;
     }
-    .th-toolbar h2 { margin: 0; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; color: var(--th-ink); }
+    .th-toolbar h2 { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; color: var(--th-ink); }
     .th-project-stats {
       display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;
     }
@@ -708,13 +714,14 @@
     }
     .th-banner.err { display: block; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
     .th-my-tasks-list { display: flex; flex-direction: column; gap: 0; }
-    .th-my-tasks-day { margin-bottom: 18px; }
+    .th-my-tasks-day { margin-bottom: 10px; }
+    .th-my-tasks-day:has(.th-my-tasks-day-head.empty) { margin-bottom: 4px; }
     .th-my-tasks-day:last-child { margin-bottom: 0; }
     .th-my-tasks-day-head {
       margin: 0 0 8px; padding: 0 0 6px; font-size: 0.82rem; font-weight: 800;
       color: var(--th-ink); border-bottom: 1px solid var(--th-line);
     }
-    .th-my-tasks-day-head.empty { color: #94a3b8; font-weight: 600; }
+    .th-my-tasks-day-head.empty { color: #94a3b8; font-weight: 600; margin-bottom: 0; padding-bottom: 2px; }
     .th-my-tasks-day-head.overdue { color: #c2410c; }
     .th-my-tasks-day-tasks { display: flex; flex-direction: column; gap: 4px; }
     .th-my-tasks-day-empty {
@@ -785,9 +792,9 @@
       </div>
     </header>
 
-    <main style="max-width:1200px;margin:0 auto;padding:20px;">
+    <main class="th-main-wrap">
       <section class="th-hero">
-        <img src="img/tether-logo.svg" alt="" class="th-hero-logo" width="72" height="72">
+        <img src="img/tether-logo.svg" alt="" class="th-hero-logo" width="40" height="40">
         <span class="th-hero-tagline">Ahrens Labs · project queue</span>
         <h1>Tether</h1>
         <p>Track what you're building — one place for the goal, the tasks, who's on what, and when things are due. Share a project with anyone on Ahrens Labs to stay aligned while you ship.</p>
@@ -856,7 +863,7 @@
         </section>
       </div>
 
-      <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:22px 24px;">
+      <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:14px 16px;">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
           <div class="th-toolbar-actions">
@@ -2212,7 +2219,16 @@
     return `<button type="button" class="th-task-start-btn"${attrs}>Start</button>`;
   }
 
-  const MY_TASKS_DAY_HORIZON = 14;
+  function myTasksFutureDayCount(tasks) {
+    const today = isoDate(new Date());
+    let maxDue = today;
+    for (const t of tasks) {
+      if (t.dueDate && !isDueOverdue(t.dueDate, t.status) && t.dueDate > maxDue) {
+        maxDue = t.dueDate;
+      }
+    }
+    return Math.max(1, dayIndex(today, maxDue) + 1);
+  }
 
   function myTasksDayHeaderLabel(iso) {
     const today = isoDate(new Date());
@@ -2254,7 +2270,8 @@
       byKey.delete('__overdue__');
     }
     const start = parseIso(isoDate(new Date()));
-    for (let i = 0; i < MY_TASKS_DAY_HORIZON; i++) {
+    const dayCount = myTasksFutureDayCount(tasks);
+    for (let i = 0; i < dayCount; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
       const key = isoDate(d);
@@ -2296,10 +2313,9 @@
     const tasksHtml = section.tasks.length
       ? `<div class="th-my-tasks-day-tasks">${section.tasks.map(t => renderMyTaskCard(t, { hideDue })).join('')}</div>`
       : '';
-    const emptyHint = section.empty ? '<p class="th-my-tasks-day-empty">No tasks</p>' : '';
     return `<section class="th-my-tasks-day">
       <h4 class="${headCls}">${escapeHtml(section.label)}</h4>
-      ${tasksHtml}${emptyHint}
+      ${tasksHtml}
     </section>`;
   }
 
