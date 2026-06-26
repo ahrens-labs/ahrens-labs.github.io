@@ -968,6 +968,7 @@
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
             </select>
           </div>
           <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
@@ -1020,6 +1021,30 @@
                 <option value="6">Saturday</option>
               </select>
             </div>
+          </div>
+          <div class="th-field" id="task-recurrence-yearly-wrap" style="display:none;">
+            <label for="task-recurrence-yearly-mode">Yearly on</label>
+            <select id="task-recurrence-yearly-mode">
+              <option value="date">Same date each year</option>
+              <option value="nth-weekday">Nth weekday in month (e.g. last Monday in May)</option>
+            </select>
+          </div>
+          <div class="th-field" id="task-recurrence-year-month-wrap" style="display:none;">
+            <label for="task-recurrence-year-month">Month</label>
+            <select id="task-recurrence-year-month">
+              <option value="0">January</option>
+              <option value="1">February</option>
+              <option value="2">March</option>
+              <option value="3">April</option>
+              <option value="4">May</option>
+              <option value="5">June</option>
+              <option value="6">July</option>
+              <option value="7">August</option>
+              <option value="8">September</option>
+              <option value="9">October</option>
+              <option value="10">November</option>
+              <option value="11">December</option>
+            </select>
           </div>
           <p class="th-field-hint" style="margin:0;">Recurring tasks reset to To do with a new due date when you complete them.</p>
         </section>
@@ -1709,6 +1734,15 @@
     return isoDate(d);
   }
 
+  function initialYearlyDue(month, dayOfMonth) {
+    const m = Math.min(Math.max(Number(month) || 0, 0), 11);
+    const dom = Math.min(Math.max(Number(dayOfMonth) || 1, 1), 31);
+    const now = parseIso(isoDate(new Date()));
+    let d = new Date(now.getFullYear(), m, dom, 12, 0, 0, 0);
+    if (d < now) d = new Date(now.getFullYear() + 1, m, dom, 12, 0, 0, 0);
+    return isoDate(d);
+  }
+
   function ensureRecurrenceDueDate(task) {
     if (!task?.recurrence) return false;
     if (task.dueDate) return false;
@@ -1739,7 +1773,13 @@
         task.dueDate = initialMonthlyDue(dom);
       }
     } else if (task.recurrence === 'yearly') {
-      task.dueDate = computeNextDueDate(isoDate(new Date()), task);
+      if (task.recurrenceWeekOfMonth != null && task.recurrenceMonth != null) {
+        task.dueDate = nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, task.recurrenceMonth);
+      } else if (task.recurrenceMonth != null && task.recurrenceDay != null) {
+        task.dueDate = initialYearlyDue(task.recurrenceMonth, task.recurrenceDay);
+      } else {
+        task.dueDate = computeNextDueDate(isoDate(new Date()), task);
+      }
     } else return false;
     return !!task.dueDate;
   }
@@ -1763,23 +1803,31 @@
     if (recurrence === 'daily') return 'days';
     if (recurrence === 'weekly') return 'weeks';
     if (recurrence === 'monthly') return 'months';
+    if (recurrence === 'yearly') return 'years';
     return '';
   }
 
   function syncRecurrenceFormVisibility() {
     const recurrence = document.getElementById('task-recurrence-input').value;
     const monthlyMode = document.getElementById('task-recurrence-monthly-mode').value;
-    const hasInterval = recurrence === 'daily' || recurrence === 'weekly' || recurrence === 'monthly';
+    const yearlyMode = document.getElementById('task-recurrence-yearly-mode').value;
+    const hasInterval = recurrence === 'daily' || recurrence === 'weekly' || recurrence === 'monthly' || recurrence === 'yearly';
     document.getElementById('task-recurrence-interval-wrap').style.display = hasInterval ? 'block' : 'none';
     document.getElementById('task-recurrence-interval-unit').textContent = recurrenceIntervalUnit(recurrence);
     document.getElementById('task-recurrence-weekly-wrap').style.display =
       recurrence === 'weekly' ? 'block' : 'none';
     document.getElementById('task-recurrence-monthly-wrap').style.display =
       recurrence === 'monthly' ? 'block' : 'none';
+    document.getElementById('task-recurrence-yearly-wrap').style.display =
+      recurrence === 'yearly' ? 'block' : 'none';
+    document.getElementById('task-recurrence-year-month-wrap').style.display =
+      recurrence === 'yearly' ? 'block' : 'none';
     document.getElementById('task-recurrence-dom-wrap').style.display =
-      recurrence === 'monthly' && monthlyMode === 'day-of-month' ? 'block' : 'none';
+      (recurrence === 'monthly' && monthlyMode === 'day-of-month') ||
+      (recurrence === 'yearly' && yearlyMode === 'date') ? 'block' : 'none';
     document.getElementById('task-recurrence-nth-wrap').style.display =
-      recurrence === 'monthly' && monthlyMode === 'nth-weekday' ? 'block' : 'none';
+      (recurrence === 'monthly' && monthlyMode === 'nth-weekday') ||
+      (recurrence === 'yearly' && yearlyMode === 'nth-weekday') ? 'block' : 'none';
   }
 
   function populateRecurrenceFormFromTask(task) {
@@ -1793,15 +1841,26 @@
       ? 'nth-weekday'
       : 'day-of-month';
     document.getElementById('task-recurrence-monthly-mode').value = monthlyMode;
-    const dom = task && task.recurrenceDay != null && monthlyMode === 'day-of-month'
+    const yearlyMode = task && task.recurrence === 'yearly' && task.recurrenceWeekOfMonth != null
+      ? 'nth-weekday'
+      : 'date';
+    document.getElementById('task-recurrence-yearly-mode').value = yearlyMode;
+    document.getElementById('task-recurrence-year-month').value = String(
+      task && task.recurrenceMonth != null ? task.recurrenceMonth
+        : (task && task.dueDate ? parseIso(task.dueDate)?.getMonth() : new Date().getMonth()) ?? 0
+    );
+    const dom = task && task.recurrenceDay != null && monthlyMode === 'day-of-month' && task.recurrence !== 'yearly'
       ? task.recurrenceDay
+      : task && task.recurrence === 'yearly' && yearlyMode === 'date' && task.recurrenceDay != null
+        ? task.recurrenceDay
       : (task && task.dueDate ? parseIso(task.dueDate)?.getDate() : new Date().getDate()) ?? 1;
     document.getElementById('task-recurrence-dom').value = String(dom);
     document.getElementById('task-recurrence-nth').value = String(
       task && task.recurrenceWeekOfMonth != null ? task.recurrenceWeekOfMonth : 1
     );
     document.getElementById('task-recurrence-nth-day').value = String(
-      task && task.recurrenceDay != null ? task.recurrenceDay
+      task && task.recurrenceDay != null && (monthlyMode === 'nth-weekday' || yearlyMode === 'nth-weekday')
+        ? task.recurrenceDay
         : (task && task.dueDate ? parseIso(task.dueDate)?.getDay() : 6) ?? 6
     );
     syncRecurrenceFormVisibility();
@@ -1837,6 +1896,18 @@
       }
       return;
     }
+    if (recurrence === 'yearly') {
+      const mode = document.getElementById('task-recurrence-yearly-mode').value;
+      task.recurrenceMonth = Number(document.getElementById('task-recurrence-year-month').value);
+      if (mode === 'nth-weekday') {
+        task.recurrenceWeekOfMonth = Number(document.getElementById('task-recurrence-nth').value);
+        task.recurrenceDay = Number(document.getElementById('task-recurrence-nth-day').value);
+      } else {
+        task.recurrenceDay = Number(document.getElementById('task-recurrence-dom').value);
+        delete task.recurrenceWeekOfMonth;
+      }
+      return;
+    }
     delete task.recurrenceDay;
     delete task.recurrenceWeekOfMonth;
   }
@@ -1851,6 +1922,13 @@
       document.getElementById('task-recurrence-day').value = String(d.getDay());
     } else if (recurrence === 'monthly') {
       if (document.getElementById('task-recurrence-monthly-mode').value === 'day-of-month') {
+        document.getElementById('task-recurrence-dom').value = String(d.getDate());
+      } else {
+        document.getElementById('task-recurrence-nth-day').value = String(d.getDay());
+      }
+    } else if (recurrence === 'yearly') {
+      document.getElementById('task-recurrence-year-month').value = String(d.getMonth());
+      if (document.getElementById('task-recurrence-yearly-mode').value === 'date') {
         document.getElementById('task-recurrence-dom').value = String(d.getDate());
       } else {
         document.getElementById('task-recurrence-nth-day').value = String(d.getDay());
@@ -3899,6 +3977,7 @@
     syncRecurrenceDayFromDueDate();
   });
   document.getElementById('task-recurrence-monthly-mode').addEventListener('change', syncRecurrenceFormVisibility);
+  document.getElementById('task-recurrence-yearly-mode').addEventListener('change', syncRecurrenceFormVisibility);
   document.getElementById('task-due-input').addEventListener('change', syncRecurrenceDayFromDueDate);
   document.getElementById('task-labels-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {

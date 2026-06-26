@@ -116,6 +116,16 @@ export function initialMonthlyDue(dayOfMonth, today = new Date()) {
   return isoDate(d);
 }
 
+/** Next occurrence of month/day (month 0–11), including today. */
+export function initialYearlyDue(month, dayOfMonth, today = new Date()) {
+  const m = Math.min(Math.max(Number(month) || 0, 0), 11);
+  const dom = Math.min(Math.max(Number(dayOfMonth) || 1, 1), 31);
+  const now = noonToday(today);
+  let d = new Date(now.getFullYear(), m, dom, 12, 0, 0, 0);
+  if (d < now) d = new Date(now.getFullYear() + 1, m, dom, 12, 0, 0, 0);
+  return isoDate(d);
+}
+
 export function nextNthWeekdayDue(nth, weekday, month, today = new Date()) {
   const now = noonToday(today);
   if (month != null) {
@@ -476,7 +486,15 @@ export function initialDueForRecurrence(task, today = new Date()) {
     const dom = task.recurrenceDay != null ? task.recurrenceDay : noonToday(today).getDate();
     return initialMonthlyDue(dom, today);
   }
-  if (task.recurrence === 'yearly') return advanceRecurrenceDueDate(task, today);
+  if (task.recurrence === 'yearly') {
+    if (task.recurrenceWeekOfMonth != null && task.recurrenceMonth != null) {
+      return nextNthWeekdayDue(task.recurrenceWeekOfMonth, task.recurrenceDay ?? 0, task.recurrenceMonth, today);
+    }
+    if (task.recurrenceMonth != null && task.recurrenceDay != null) {
+      return initialYearlyDue(task.recurrenceMonth, task.recurrenceDay, today);
+    }
+    return advanceRecurrenceDueDate(task, today);
+  }
   return '';
 }
 
