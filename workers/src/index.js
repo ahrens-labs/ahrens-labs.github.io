@@ -3374,9 +3374,9 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
-/** Prefer GRACE_EMAIL_SEND so grace mail is not blocked by unrelated EMAIL_TRANSACTIONAL allowlists. */
+/** Use EMAIL_TRANSACTIONAL — the binding that already sends to arbitrary users for ahrenslabs.com. */
 function getGraceEmailBinding(env) {
-  return env.GRACE_EMAIL_SEND || env.EMAIL_TRANSACTIONAL || env.EMAIL;
+  return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
 const GRACE_SENDER_ERRORS = new Set([
@@ -3408,81 +3408,75 @@ async function sendViaCloudflareBinding(cfMail, { fromAddr, fromName, to, bcc, s
   return { provider: 'cloudflare', messageId, fromAddr };
 }
 
-/** Grace Ahrens mail — always from grace@; Cloudflare first, then Resend with the same From. */
-async function dispatchGraceEmail(env, {
+/** Grace Ahrens mail — Cloudflare Email Sending only (never Resend). */
+async function dispatchCloudflareEmailOnly(env, {
   to,
   bcc,
   subject,
   html,
   text,
-  fromName = 'Grace Ahrens',
+  fromAddr,
+  fromName,
   replyTo,
   headers,
 }) {
-  const fromAddr = 'grace@graceahrens.com';
-  const sendOpts = {
-    fromAddr,
-    fromName,
-    to,
-    bcc,
-    subject,
-    html,
-    text,
-    replyTo: replyTo || fromAddr,
-    headers,
-  };
-
   const cfMail = getGraceEmailBinding(env);
-  if (cfMail) {
-    try {
-      return await sendViaCloudflareBinding(cfMail, sendOpts);
-    } catch (err) {
-      console.error('Grace Ahrens EmailService send failed', {
-        code: err?.code,
-        message: err?.message,
-        subject,
-        to,
-        fromAddr,
+  if (!cfMail) {
+    const err = new Error(
+      'Cloudflare Email Sending is not configured (missing GRACE_EMAIL_SEND binding on chess-accounts).'
+    );
+    err.code = 'missing_email_binding';
+    throw err;
+  }
+
+  const primaryFrom = String(fromAddr || '').trim();
+  const fallbackFrom = String(env.GRACE_FALLBACK_FROM_EMAIL || 'caleb@ahrenslabs.com').trim();
+  const sendOpts = { fromName, to, bcc, subject, html, text, replyTo, headers };
+
+  try {
+    const result = await sendViaCloudflareBinding(cfMail, { ...sendOpts, fromAddr: primaryFrom });
+    return result;
+  } catch (err) {
+    console.error('Grace Ahrens EmailService send failed', {
+      code: err?.code,
+      message: err?.message,
+      subject,
+      to,
+      fromAddr: primaryFrom,
+    });
+
+    if (
+      GRACE_SENDER_ERRORS.has(err?.code) &&
+      fallbackFrom &&
+      primaryFrom !== fallbackFrom
+    ) {
+      console.warn('Retrying Grace mail with verified ahrenslabs sender until graceahrens.com is onboarded', {
+        code: err.code,
+        primaryFrom,
+        fallbackFrom,
       });
-
-      if (
-        env.RESEND_API_KEY &&
-        typeof env.RESEND_API_KEY === 'string' &&
-        err?.code !== 'E_NO_MESSAGE_ID'
-      ) {
-        console.warn('Falling back to Resend for Grace mail (same From address)', err?.code || '');
-        return await sendViaResend(env, sendOpts);
+      try {
+        const retry = await sendViaCloudflareBinding(cfMail, { ...sendOpts, fromAddr: fallbackFrom });
+        return { ...retry, usedFallbackSender: true };
+      } catch (retryErr) {
+        console.error('Grace Ahrens fallback sender also failed', {
+          code: retryErr?.code,
+          message: retryErr?.message,
+        });
+        throw retryErr;
       }
-
-      if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
-        const hint = new Error(
-          'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). In the dashboard, open Workers → chess-accounts → Settings → Bindings and ensure GRACE_EMAIL_SEND has no destination allowlist. Also onboard graceahrens.com under Email → Email Sending.'
-        );
-        hint.code = err.code;
-        throw hint;
-      }
-
-      if (GRACE_SENDER_ERRORS.has(err?.code)) {
-        const hint = new Error(
-          `${fromAddr} is not verified for sending yet. Onboard graceahrens.com under Cloudflare Email → Email Sending, or verify the domain in Resend and set RESEND_API_KEY on chess-accounts.`
-        );
-        hint.code = err.code;
-        throw hint;
-      }
-
-      throw err;
     }
-  }
 
-  if (env.RESEND_API_KEY && typeof env.RESEND_API_KEY === 'string') {
-    return await sendViaResend(env, sendOpts);
-  }
+    if (err?.code === 'E_RECIPIENT_NOT_ALLOWED') {
+      const hint = new Error(
+        'Cloudflare blocked this recipient (E_RECIPIENT_NOT_ALLOWED). In the dashboard, open Workers → chess-accounts → Settings → Bindings and ensure GRACE_EMAIL_SEND has no destination allowlist. Also onboard graceahrens.com under Email → Email Sending.'
+      );
+      hint.code = err.code;
+      throw hint;
+    }
 
-  const err = new Error(
-    'Grace mail is not configured: add GRACE_EMAIL_SEND on chess-accounts and onboard graceahrens.com for Email Sending, or set RESEND_API_KEY with graceahrens.com verified in Resend.'
-  );
-  err.code = 'missing_email_binding';
-  throw err;
+    throw err;
+  }
 }
 
 async function dispatchTransactionalEmail(env, {
@@ -9267,19 +9261,37 @@ async function handleGraceAhrensSend(request, env) {
   }
 
   const graceFrom = 'grace@graceahrens.com';
+  const fallbackFrom = String(env.GRACE_FALLBACK_FROM_EMAIL || 'caleb@ahrenslabs.com').trim();
+  const fromAddr =
+    body.fromAddr || (body.from && body.from.email) || graceFrom;
   const fromName =
     body.fromName || (body.from && body.from.name) || 'Grace Ahrens';
 
+  const sendOpts = {
+    to,
+    bcc: body.bcc,
+    subject: String(body.subject || ''),
+    html: body.html,
+    text: body.text,
+    fromName,
+    replyTo: body.replyTo || graceFrom,
+  };
+
   try {
-    const result = await dispatchGraceEmail(env, {
-      to,
-      bcc: body.bcc,
-      subject: String(body.subject || ''),
-      html: body.html,
-      text: body.text,
-      fromName,
-      replyTo: body.replyTo || graceFrom,
-    });
+    let result;
+    let lastErr;
+    for (const addr of [graceFrom, fallbackFrom]) {
+      try {
+        result = await dispatchTransactionalEmail(env, { ...sendOpts, fromAddr: addr });
+        break;
+      } catch (err) {
+        lastErr = err;
+        if (addr === fallbackFrom) throw err;
+        console.warn('Grace mail failed with grace@, retrying with ahrenslabs sender', {
+          message: err?.message,
+        });
+      }
+    }
     return new Response(
       JSON.stringify({ ok: true, messageId: result.messageId, via: result.provider }),
       { headers: { 'Content-Type': 'application/json' } }
@@ -9808,28 +9820,6 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
-      } else if (path === '/getTetherInbox' && request.method === 'GET') {
-        const tasks = await this.getTetherInboxTasks();
-        return new Response(JSON.stringify({ tasks }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      } else if (path === '/saveTetherInbox' && request.method === 'PUT') {
-        const { tasks } = await request.json();
-        const saved = await this.saveTetherInboxTasks(tasks);
-        return new Response(JSON.stringify({ success: true, tasks: saved }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      } else if (path === '/getTetherLabelColors' && request.method === 'GET') {
-        const labelColors = await this.getTetherLabelColors();
-        return new Response(JSON.stringify({ labelColors }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      } else if (path === '/saveTetherLabelColors' && request.method === 'PUT') {
-        const { labelColors } = await request.json();
-        const saved = await this.saveTetherLabelColors(labelColors);
-        return new Response(JSON.stringify({ success: true, labelColors: saved }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -9936,8 +9926,7 @@ export class UserAccount {
         }
       },
       tether: {
-        projectIds: [],
-        inboxTasks: [],
+        projectIds: []
       }
     };
 
@@ -9978,48 +9967,6 @@ export class UserAccount {
     if (!userData || !userData.tether || !Array.isArray(userData.tether.projectIds)) return;
     userData.tether.projectIds = userData.tether.projectIds.filter((id) => id !== pid);
     await this.storage.put('userData', userData);
-  }
-
-  async getTetherInboxTasks() {
-    const userData = await this.storage.get('userData');
-    if (!userData?.tether?.inboxTasks) return [];
-    return userData.tether.inboxTasks.filter((t) => t && typeof t === 'object');
-  }
-
-  async saveTetherInboxTasks(tasks) {
-    const userData = await this.storage.get('userData');
-    if (!userData) throw new Error('User not found');
-    if (!userData.tether || typeof userData.tether !== 'object') {
-      userData.tether = { projectIds: [], inboxTasks: [] };
-    }
-    userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
-    await this.storage.put('userData', userData);
-    return userData.tether.inboxTasks;
-  }
-
-  async getTetherLabelColors() {
-    const userData = await this.storage.get('userData');
-    const raw = userData?.tether?.labelColors;
-    if (!raw || typeof raw !== 'object') return {};
-    const out = {};
-    for (const [key, val] of Object.entries(raw)) {
-      const label = String(key || '').trim().toLowerCase();
-      const idx = Number(val);
-      if (!label || !Number.isInteger(idx) || idx < 0 || idx > 11) continue;
-      out[label] = idx;
-    }
-    return out;
-  }
-
-  async saveTetherLabelColors(labelColors) {
-    const userData = await this.storage.get('userData');
-    if (!userData) throw new Error('User not found');
-    if (!userData.tether || typeof userData.tether !== 'object') {
-      userData.tether = { projectIds: [], inboxTasks: [] };
-    }
-    userData.tether.labelColors = labelColors && typeof labelColors === 'object' ? labelColors : {};
-    await this.storage.put('userData', userData);
-    return userData.tether.labelColors;
   }
 
   async authenticate(password) {
