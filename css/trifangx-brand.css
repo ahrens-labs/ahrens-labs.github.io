@@ -1,18 +1,23 @@
 /* TrifangX logo — icon (no wordmark) and full mark assets */
 
 .trifangx-brand-logo-plate {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  z-index: 1;
-  margin: 0 auto 1.15rem;
-  padding: 0.6rem 0.75rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.15rem;
+  padding: 0.65rem;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow:
     0 4px 16px rgba(15, 23, 42, 0.1),
     0 0 0 1px rgba(15, 23, 42, 0.07);
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
 }
 
 .trifangx-brand-logo-plate--on-dark {
@@ -43,9 +48,10 @@
 }
 
 .trifangx-brand-logo--card {
+  display: block;
   width: 64px;
   height: 64px;
-  margin: 0 0 0.75rem;
+  margin: 0 auto 0.75rem;
   padding: 0.35rem;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.95);
