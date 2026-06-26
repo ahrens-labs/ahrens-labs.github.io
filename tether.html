@@ -720,10 +720,6 @@
     .th-my-tasks-day-empty {
       margin: 0; padding: 2px 0 4px; font-size: 0.72rem; color: #94a3b8; font-weight: 500;
     }
-    .th-my-tasks-summary {
-      display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px;
-    }
-    .th-my-tasks-summary .th-stat-pill { padding: 3px 8px; font-size: 0.68rem; }
     .th-my-task-item {
       border: 1px solid var(--th-line); border-radius: 10px; padding: 6px 10px; background: #fff;
       cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
@@ -2208,33 +2204,6 @@
     return iso < isoDate(new Date());
   }
 
-  function countProjectsInProgress(taskList) {
-    const ids = new Set();
-    for (const t of taskList) {
-      if (t.status === 'in_progress' && t.projectId) ids.add(t.projectId);
-    }
-    return ids.size;
-  }
-
-  function myTaskSummaryHtml(tasks) {
-    const activeTasks = tasks.filter(t => (t.status || 'todo') !== 'done');
-    const projectsInProgress = countProjectsInProgress(tasks);
-    const dueSoon = activeTasks.filter(t => isDueSoon(t.dueDate)).length;
-    const overdue = activeTasks.filter(t => isDueOverdue(t.dueDate, t.status)).length;
-    const blocked = activeTasks.filter(t => (t.blockedByIncomplete || []).length > 0).length;
-    const pills = [
-      `<span class="th-stat-pill"><em>${tasks.length}</em> shown</span>`,
-    ];
-    if (activeTasks.length) pills.push(`<span class="th-stat-pill active-stat"><em>${activeTasks.length}</em> active</span>`);
-    if (projectsInProgress) {
-      pills.push(`<span class="th-stat-pill warn"><em>${projectsInProgress}</em> ${projectsInProgress === 1 ? 'project' : 'projects'} in progress</span>`);
-    }
-    if (dueSoon) pills.push(`<span class="th-stat-pill warn"><em>${dueSoon}</em> due soon</span>`);
-    if (overdue) pills.push(`<span class="th-stat-pill warn"><em>${overdue}</em> overdue</span>`);
-    if (blocked) pills.push(`<span class="th-stat-pill"><em>${blocked}</em> blocked</span>`);
-    return `<div class="th-my-tasks-summary">${pills.join('')}</div>`;
-  }
-
   function startTaskBtnHtml(taskId, status, projectId) {
     if ((status || 'todo') !== 'todo') return '';
     const attrs = projectId
@@ -2385,7 +2354,7 @@
       wireLabelColorPickers(el);
       return;
     }
-    el.innerHTML = `${labelBar}${myTaskSummaryHtml(tasks)}<div class="th-my-tasks-list">${buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('')}</div>`;
+    el.innerHTML = `${labelBar}<div class="th-my-tasks-list">${buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('')}</div>`;
     wireMyTasksLabelFilters(el);
     wireLabelColorPickers(el);
     wireRichTextLinks(el);
