@@ -597,7 +597,7 @@
     .th-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     /* Task modal — elevated layout */
     .th-task-modal {
-      width: min(560px, 100%); padding: 0; overflow: hidden;
+      width: min(720px, 100%); padding: 0; overflow: hidden;
       border: 1px solid rgba(37, 99, 235, 0.12);
       box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(255,255,255,0.6) inset;
     }
@@ -628,7 +628,55 @@
       display: flex; align-items: center; justify-content: center; transition: all 0.15s;
     }
     .th-modal-close:hover { background: #fff; color: var(--th-ink); border-color: #bfdbfe; }
-    .th-task-modal-body { padding: 18px 22px 8px; max-height: min(62vh, 520px); overflow-y: auto; }
+    .th-task-modal-body { padding: 18px 22px 8px; max-height: min(68vh, 560px); overflow-y: auto; }
+    .th-task-modal-layout {
+      display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start;
+    }
+    @media (max-width: 640px) {
+      .th-task-modal-layout { grid-template-columns: 1fr; }
+    }
+    .th-task-modal-meta .th-task-section { margin-bottom: 10px; }
+    .th-task-modal-meta .th-task-section:last-child { margin-bottom: 0; }
+    .th-task-modal-meta .th-field-hint { font-size: 0.72rem; }
+    .th-task-due-compact .th-task-due-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .th-task-due-compact input[type="date"] {
+      flex: 1; min-width: 0; border: 1px solid #dbeafe; background: #fff; border-radius: 12px;
+      padding: 8px 10px; font: inherit; font-size: 0.82rem;
+    }
+    .th-task-due-compact input[type="date"]:focus {
+      outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .th-recurrence-toggle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+      border: 1px solid var(--th-line); background: #fff; color: var(--th-muted);
+      cursor: pointer; font-size: 1rem; line-height: 1; transition: all 0.15s;
+    }
+    .th-recurrence-toggle:hover { border-color: #93c5fd; color: var(--th-accent); background: #f8fafc; }
+    .th-recurrence-toggle.active {
+      background: var(--th-accent-soft); border-color: #93c5fd; color: var(--th-accent);
+    }
+    .th-recurrence-summary {
+      display: block; margin-top: 5px; font-size: 0.72rem; line-height: 1.35;
+      color: var(--th-muted); font-weight: 600;
+    }
+    .th-recurrence-add-link {
+      display: inline-block; margin-top: 6px; padding: 0; border: none; background: none;
+      font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--th-accent);
+      cursor: pointer; text-decoration: underline; text-decoration-color: transparent;
+    }
+    .th-recurrence-add-link:hover { text-decoration-color: #93c5fd; }
+    .th-task-recurrence-panel {
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--th-line);
+    }
+    .th-task-recurrence-panel .th-field { margin-bottom: 8px; }
+    .th-task-recurrence-panel .th-field label { font-size: 0.72rem; }
+    .th-task-recurrence-panel select,
+    .th-task-recurrence-panel input[type="number"] {
+      width: 100%; font-size: 0.82rem; padding: 7px 10px;
+    }
     .th-task-section {
       margin-bottom: 16px; padding: 14px 14px 12px; border-radius: 14px;
       background: #f8fafc; border: 1px solid var(--th-line);
@@ -924,141 +972,149 @@
         <p id="modal-task-subtitle" class="th-task-modal-sub"></p>
       </div>
       <div class="th-task-modal-body">
-        <section class="th-task-section">
-          <h4 class="th-task-section-title">What to do</h4>
-          <div class="th-field">
-            <label for="task-title-input">Task name</label>
-            <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+        <div class="th-task-modal-layout">
+          <div class="th-task-modal-main">
+            <section class="th-task-section">
+              <h4 class="th-task-section-title">What to do</h4>
+              <div class="th-field">
+                <label for="task-title-input">Task name</label>
+                <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+              </div>
+              <div class="th-field">
+                <label for="task-dod-input">Definition of Done</label>
+                <textarea id="task-dod-input" placeholder="How will you know this step is finished?"></textarea>
+              </div>
+              <div class="th-field">
+                <label for="task-notes-input">Description / Notes</label>
+                <textarea id="task-notes-input" placeholder="Extra context, links, or details…"></textarea>
+              </div>
+              <div class="th-field">
+                <label>Status</label>
+                <div class="th-status-pills" id="task-status-pills">
+                  <button type="button" class="th-status-pill todo" data-status="todo">To do</button>
+                  <button type="button" class="th-status-pill in_progress" data-status="in_progress">In progress</button>
+                  <button type="button" class="th-status-pill done" data-status="done">Completed</button>
+                </div>
+                <input type="hidden" id="task-status-input" value="todo">
+              </div>
+            </section>
           </div>
-          <div class="th-field">
-            <label for="task-dod-input">Definition of Done</label>
-            <textarea id="task-dod-input" placeholder="How will you know this step is finished?"></textarea>
-          </div>
-          <div class="th-field">
-            <label for="task-notes-input">Description / Notes</label>
-            <textarea id="task-notes-input" placeholder="Extra context, links, or details beyond the task name…"></textarea>
-          </div>
-          <div class="th-field">
-            <label>Status</label>
-            <div class="th-status-pills" id="task-status-pills">
-              <button type="button" class="th-status-pill todo" data-status="todo">To do</button>
-              <button type="button" class="th-status-pill in_progress" data-status="in_progress">In progress</button>
-              <button type="button" class="th-status-pill done" data-status="done">Completed</button>
-            </div>
-            <input type="hidden" id="task-status-input" value="todo">
-          </div>
-        </section>
-        <section class="th-task-section">
-          <h4 class="th-task-section-title">Labels</h4>
-          <div class="th-field">
-            <label for="task-labels-input">Tags</label>
-            <div class="th-task-labels-list" id="task-labels-list"></div>
-            <input type="text" id="task-labels-input" maxlength="120" placeholder="Type a label and press Enter">
-            <div class="th-task-labels-suggestions" id="task-labels-suggestions"></div>
-            <p class="th-field-hint" style="margin:8px 0 0;">Optional. Use labels to filter and group tasks in the Labels view.</p>
-          </div>
-        </section>
-        <section class="th-task-section">
-          <h4 class="th-task-section-title">Due date</h4>
-          <div class="th-field">
-            <label for="task-due-input">Due date</label>
-            <input type="date" id="task-due-input">
-          </div>
-          <div class="th-field">
-            <label for="task-recurrence-input">Repeats</label>
-            <select id="task-recurrence-input">
-              <option value="">Does not repeat</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </div>
-          <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
-            <label for="task-recurrence-interval">Every</label>
-            <div class="th-recurrence-interval-row">
-              <input type="number" id="task-recurrence-interval" min="1" max="365" value="1" aria-describedby="task-recurrence-interval-unit">
-              <span id="task-recurrence-interval-unit">weeks</span>
-            </div>
-          </div>
-          <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
-            <label for="task-recurrence-day">Repeat on</label>
-            <select id="task-recurrence-day">
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
-            </select>
-          </div>
-          <div class="th-field" id="task-recurrence-monthly-wrap" style="display:none;">
-            <label for="task-recurrence-monthly-mode">Monthly on</label>
-            <select id="task-recurrence-monthly-mode">
-              <option value="day-of-month">Same day each month</option>
-              <option value="nth-weekday">Nth weekday (e.g. 1st Saturday)</option>
-            </select>
-          </div>
-          <div class="th-field" id="task-recurrence-dom-wrap" style="display:none;">
-            <label for="task-recurrence-dom">Day of month</label>
-            <select id="task-recurrence-dom"></select>
-          </div>
-          <div class="th-field" id="task-recurrence-nth-wrap" style="display:none;">
-            <label>Weekday</label>
-            <div class="th-recurrence-nth-row">
-              <select id="task-recurrence-nth" aria-label="Which occurrence">
-                <option value="1">1st</option>
-                <option value="2">2nd</option>
-                <option value="3">3rd</option>
-                <option value="4">4th</option>
-                <option value="-1">Last</option>
-              </select>
-              <select id="task-recurrence-nth-day" aria-label="Day of week">
-                <option value="0">Sunday</option>
-                <option value="1">Monday</option>
-                <option value="2">Tuesday</option>
-                <option value="3">Wednesday</option>
-                <option value="4">Thursday</option>
-                <option value="5">Friday</option>
-                <option value="6">Saturday</option>
-              </select>
-            </div>
-          </div>
-          <div class="th-field" id="task-recurrence-yearly-wrap" style="display:none;">
-            <label for="task-recurrence-yearly-mode">Yearly on</label>
-            <select id="task-recurrence-yearly-mode">
-              <option value="date">Same date each year</option>
-              <option value="nth-weekday">Nth weekday in month (e.g. last Monday in May)</option>
-            </select>
-          </div>
-          <div class="th-field" id="task-recurrence-year-month-wrap" style="display:none;">
-            <label for="task-recurrence-year-month">Month</label>
-            <select id="task-recurrence-year-month">
-              <option value="0">January</option>
-              <option value="1">February</option>
-              <option value="2">March</option>
-              <option value="3">April</option>
-              <option value="4">May</option>
-              <option value="5">June</option>
-              <option value="6">July</option>
-              <option value="7">August</option>
-              <option value="8">September</option>
-              <option value="9">October</option>
-              <option value="10">November</option>
-              <option value="11">December</option>
-            </select>
-          </div>
-          <p class="th-field-hint" style="margin:0;">Recurring tasks reset to To do with a new due date when you complete them.</p>
-        </section>
-        <section class="th-task-section" id="task-project-section" style="display:none;">
-          <h4 class="th-task-section-title">Project</h4>
-          <div class="th-field">
-            <label for="task-project-input">Move to</label>
-            <select id="task-project-input" class="th-move-select"></select>
-            <p class="th-field-hint" style="margin:0;">Changes where this task lives. Pick None to remove it from a project.</p>
-          </div>
-        </section>
+          <aside class="th-task-modal-meta">
+            <section class="th-task-section">
+              <h4 class="th-task-section-title">Labels</h4>
+              <div class="th-field">
+                <div class="th-task-labels-list" id="task-labels-list"></div>
+                <input type="text" id="task-labels-input" maxlength="120" placeholder="Add label…">
+                <div class="th-task-labels-suggestions" id="task-labels-suggestions"></div>
+              </div>
+            </section>
+            <section class="th-task-section" id="task-project-section">
+              <h4 class="th-task-section-title">Project</h4>
+              <div class="th-field">
+                <select id="task-project-input" class="th-move-select"></select>
+              </div>
+            </section>
+            <section class="th-task-section th-task-due-compact">
+              <h4 class="th-task-section-title">Due date</h4>
+              <div class="th-field">
+                <div class="th-task-due-row">
+                  <input type="date" id="task-due-input" aria-label="Due date">
+                  <button type="button" class="th-recurrence-toggle" id="task-recurrence-toggle" title="Repeat settings" aria-label="Repeat settings" aria-expanded="false" style="display:none;">↻</button>
+                </div>
+                <span class="th-recurrence-summary" id="task-recurrence-summary" style="display:none;"></span>
+                <button type="button" class="th-recurrence-add-link" id="task-recurrence-add">Repeat…</button>
+              </div>
+              <div id="task-recurrence-panel" class="th-task-recurrence-panel" style="display:none;">
+                <div class="th-field">
+                  <label for="task-recurrence-input">Repeats</label>
+                  <select id="task-recurrence-input">
+                    <option value="">Does not repeat</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+                <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
+                  <label for="task-recurrence-interval">Every</label>
+                  <div class="th-recurrence-interval-row">
+                    <input type="number" id="task-recurrence-interval" min="1" max="365" value="1" aria-describedby="task-recurrence-interval-unit">
+                    <span id="task-recurrence-interval-unit">weeks</span>
+                  </div>
+                </div>
+                <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
+                  <label for="task-recurrence-day">Repeat on</label>
+                  <select id="task-recurrence-day">
+                    <option value="0">Sunday</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                  </select>
+                </div>
+                <div class="th-field" id="task-recurrence-monthly-wrap" style="display:none;">
+                  <label for="task-recurrence-monthly-mode">Monthly on</label>
+                  <select id="task-recurrence-monthly-mode">
+                    <option value="day-of-month">Same day each month</option>
+                    <option value="nth-weekday">Nth weekday (e.g. 1st Saturday)</option>
+                  </select>
+                </div>
+                <div class="th-field" id="task-recurrence-dom-wrap" style="display:none;">
+                  <label for="task-recurrence-dom">Day of month</label>
+                  <select id="task-recurrence-dom"></select>
+                </div>
+                <div class="th-field" id="task-recurrence-nth-wrap" style="display:none;">
+                  <label>Weekday</label>
+                  <div class="th-recurrence-nth-row">
+                    <select id="task-recurrence-nth" aria-label="Which occurrence">
+                      <option value="1">1st</option>
+                      <option value="2">2nd</option>
+                      <option value="3">3rd</option>
+                      <option value="4">4th</option>
+                      <option value="-1">Last</option>
+                    </select>
+                    <select id="task-recurrence-nth-day" aria-label="Day of week">
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="th-field" id="task-recurrence-yearly-wrap" style="display:none;">
+                  <label for="task-recurrence-yearly-mode">Yearly on</label>
+                  <select id="task-recurrence-yearly-mode">
+                    <option value="date">Same date each year</option>
+                    <option value="nth-weekday">Nth weekday in month</option>
+                  </select>
+                </div>
+                <div class="th-field" id="task-recurrence-year-month-wrap" style="display:none;">
+                  <label for="task-recurrence-year-month">Month</label>
+                  <select id="task-recurrence-year-month">
+                    <option value="0">January</option>
+                    <option value="1">February</option>
+                    <option value="2">March</option>
+                    <option value="3">April</option>
+                    <option value="4">May</option>
+                    <option value="5">June</option>
+                    <option value="6">July</option>
+                    <option value="7">August</option>
+                    <option value="8">September</option>
+                    <option value="9">October</option>
+                    <option value="10">November</option>
+                    <option value="11">December</option>
+                  </select>
+                </div>
+                <p class="th-field-hint" style="margin:0;">Resets to To do with a new due date when completed.</p>
+              </div>
+            </section>
+          </aside>
+        </div>
         <section class="th-task-section">
           <h4 class="th-task-section-title">People &amp; blockers</h4>
           <div class="th-field">
@@ -1163,6 +1219,7 @@
   let myTasks = [];
   let personalTasks = [];
   let editingTaskId = null;
+  let recurrencePanelOpen = false;
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
   let pendingDeleteTaskId = null;
@@ -1831,6 +1888,46 @@
     document.getElementById('task-recurrence-nth-wrap').style.display =
       (recurrence === 'monthly' && monthlyMode === 'nth-weekday') ||
       (recurrence === 'yearly' && yearlyMode === 'nth-weekday') ? 'block' : 'none';
+    syncRecurrenceUi();
+  }
+
+  function readRecurrencePreviewTask() {
+    const recurrence = document.getElementById('task-recurrence-input').value || null;
+    if (!recurrence) return null;
+    const task = {};
+    applyRecurrenceFieldsToTask(task, recurrence);
+    return task;
+  }
+
+  function setRecurrencePanelOpen(open) {
+    recurrencePanelOpen = open;
+    const panel = document.getElementById('task-recurrence-panel');
+    if (panel) panel.style.display = open ? 'block' : 'none';
+    const toggle = document.getElementById('task-recurrence-toggle');
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function syncRecurrenceUi() {
+    const preview = readRecurrencePreviewTask();
+    const has = !!preview;
+    const toggle = document.getElementById('task-recurrence-toggle');
+    const addBtn = document.getElementById('task-recurrence-add');
+    const summary = document.getElementById('task-recurrence-summary');
+    if (toggle) {
+      toggle.style.display = has ? 'inline-flex' : 'none';
+      toggle.classList.toggle('active', has);
+    }
+    if (addBtn) addBtn.style.display = has ? 'none' : 'inline-block';
+    if (summary) {
+      if (has) {
+        summary.textContent = recurrenceLabel(preview);
+        summary.style.display = 'block';
+      } else {
+        summary.textContent = '';
+        summary.style.display = 'none';
+        if (recurrencePanelOpen) setRecurrencePanelOpen(false);
+      }
+    }
   }
 
   function populateRecurrenceFormFromTask(task) {
@@ -3671,9 +3768,7 @@
       ? null
       : (projects.find(p => p.id === editingTaskFromProjectId)?.title || activeProject?.title || 'Project');
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
-    document.getElementById('modal-task-subtitle').textContent = noProject
-      ? 'No project'
-      : ('In project · ' + projectTitle);
+    document.getElementById('modal-task-subtitle').textContent = '';
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = noProject ? personalTasks : (activeProject?.tasks || []);
     const task = taskId ? (getTaskById(taskId) || tasks.find(t => t.id === taskId)) : null;
@@ -3685,16 +3780,12 @@
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
     populateRecurrenceFormFromTask(task);
+    setRecurrencePanelOpen(!!(task && task.recurrence));
+    syncRecurrenceUi();
     document.getElementById('task-edit-start').style.display =
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
 
-    const projectSection = document.getElementById('task-project-section');
-    if (taskId) {
-      projectSection.style.display = '';
-      populateTaskProjectSelect(editingTaskFromProjectId);
-    } else {
-      projectSection.style.display = 'none';
-    }
+    populateTaskProjectSelect(editingTaskFromProjectId);
 
     const assigneesEl = document.getElementById('task-assignees');
     const peopleSection = assigneesEl.closest('.th-task-section');
@@ -3961,9 +4052,23 @@
     syncRecurrenceFormVisibility();
     syncRecurrenceDayFromDueDate();
   });
+  document.getElementById('task-recurrence-panel').addEventListener('change', () => {
+    syncRecurrenceFormVisibility();
+    syncRecurrenceUi();
+  });
+  document.getElementById('task-recurrence-toggle').addEventListener('click', () => {
+    setRecurrencePanelOpen(!recurrencePanelOpen);
+  });
+  document.getElementById('task-recurrence-add').addEventListener('click', () => {
+    setRecurrencePanelOpen(true);
+    document.getElementById('task-recurrence-input').focus();
+  });
   document.getElementById('task-recurrence-monthly-mode').addEventListener('change', syncRecurrenceFormVisibility);
   document.getElementById('task-recurrence-yearly-mode').addEventListener('change', syncRecurrenceFormVisibility);
-  document.getElementById('task-due-input').addEventListener('change', syncRecurrenceDayFromDueDate);
+  document.getElementById('task-due-input').addEventListener('change', () => {
+    syncRecurrenceDayFromDueDate();
+    syncRecurrenceUi();
+  });
   document.getElementById('task-labels-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
