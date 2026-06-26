@@ -3862,10 +3862,22 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         bar.className = 'shop-preview-lb-row';
         bar.style.cssText =
           'width:100%;min-height:38px;border-radius:8px;border:1px solid rgba(148,163,184,0.45);box-sizing:border-box;';
-        if (item.rowHex) {
+        const unlocked = getUnlockedItems();
+        const owned = (unlocked.leaderboardRowColors || []).includes(item.id);
+        if (owned && item.rowHex) {
           bar.style.background = item.rowHex;
-        } else {
+        } else if (owned) {
           bar.style.background = 'linear-gradient(90deg,#64748b 0%,#0ea5e9 35%,#a855f7 68%,#f43f5e 100%)';
+        } else {
+          bar.style.background = '#e2e8f0';
+          bar.style.display = 'flex';
+          bar.style.alignItems = 'center';
+          bar.style.justifyContent = 'center';
+          bar.style.fontSize = '0.85rem';
+          bar.style.fontWeight = '700';
+          bar.style.color = '#64748b';
+          bar.textContent = '🔒';
+          bar.setAttribute('aria-label', 'Unlock to preview this row tint');
         }
         wrap.appendChild(bar);
       } else {

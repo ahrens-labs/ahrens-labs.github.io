@@ -1714,6 +1714,18 @@
       return U.normalizeLbHex(t);
     }
 
+    function dashLbRowStoredValueAllowed(val) {
+      const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
+      const chess = dashLbPreviewChessRef;
+      if (!U || !val) return false;
+      if (val.indexOf('lbrow:') === 0) {
+        return U.isLbRowPresetUnlocked(chess, val.slice(6));
+      }
+      const hx = U.normalizeLbHex(val);
+      if (!hx) return false;
+      return U.isLbRowHexAllowedForUser(hx, chess);
+    }
+
     function updateDashLbRowSwatchSelectionState() {
       document.querySelectorAll('.dash-lb-row-swatch').forEach((lab) => {
         const inp = lab.querySelector('input[name="dash-lb-row-bg"]');
@@ -1744,13 +1756,15 @@
       return U.normalizeLbHex(v);
     }
 
-    /** Row tint for previews: use the form when set; otherwise fall back to cloud profile (e.g. before chess sync). */
+    /** Row tint for previews: only colors the account is allowed to use. */
     function getDashLbRowPreviewDisplayColor() {
       const rad = getDashLbRowBgCheckedRadio();
       if (rad && rad.value === '__clear__') return null;
       const eff = getDashLbRowEffectiveRowColor();
-      if (eff != null) return eff;
-      return normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+      if (eff != null && dashLbRowStoredValueAllowed(eff)) return eff;
+      const saved = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
+      if (saved && dashLbRowStoredValueAllowed(saved)) return saved;
+      return null;
     }
 
     function dashLbRowPaintPreview() {
@@ -1782,8 +1796,9 @@
       const s = typeof raw === 'string' ? raw.trim() : '';
       let sel = '__clear__';
       if (s) {
-        if (/^lbrow:/i.test(s)) sel = s.toLowerCase();
-        else {
+        if (/^lbrow:/i.test(s)) {
+          if (U.isLbRowPresetUnlocked(dashLbPreviewChessRef, s.slice(6))) sel = s.toLowerCase();
+        } else {
           const hx = U.normalizeLbHex(s);
           if (hx) {
             if (U.isLbRowBasicHex(hx)) sel = hx;
@@ -1792,7 +1807,6 @@
               const c = document.getElementById('dash-lb-row-custom-hex');
               if (c) c.value = hx;
             } else if (U.isLbRowHexAllowedForUser(hx, dashLbPreviewChessRef)) sel = hx;
-            else sel = hx;
           }
         }
       }
@@ -1805,10 +1819,13 @@
       });
       if (!hit) {
         const savedNorm = normalizeDashLbSavedRowColor(dashLbPreviewUserRef);
-        if (!savedNorm) {
+        if (!savedNorm || !dashLbRowStoredValueAllowed(savedNorm)) {
           radios.forEach((r) => {
             if (r.value === '__clear__') r.checked = true;
           });
+          if (savedNorm && !dashLbRowStoredValueAllowed(savedNorm)) {
+            void persistLbRowColorFromUi();
+          }
         }
       }
       updateDashLbRowSwatchSelectionState();
@@ -1819,19 +1836,19 @@
       const U = typeof ChessLbRowUi !== 'undefined' ? ChessLbRowUi : null;
       const basicHost = document.getElementById('dash-lb-row-picks-basic');
       const seasonHost = document.getElementById('dash-lb-row-picks-season');
+      const seasonBlock = document.getElementById('dash-lb-row-picks-season-block');
       const shopHost = document.getElementById('dash-lb-row-picks-shop');
       const shopBlock = document.getElementById('dash-lb-row-picks-shop-block');
       const customWrap = document.getElementById('dash-lb-row-custom-wrap');
       if (!basicHost || !seasonHost || !U || !U.LB_ROW_BASIC_HEXES) return;
 
-      function makeSwatch(value, cap, fillStyle, unlocked) {
+      function makeSwatch(value, cap, fillStyle) {
         const lab = document.createElement('label');
-        lab.className = 'dash-lb-row-swatch' + (unlocked === false ? ' dash-lb-row-swatch--disabled' : '');
+        lab.className = 'dash-lb-row-swatch';
         const inp = document.createElement('input');
         inp.type = 'radio';
         inp.name = 'dash-lb-row-bg';
         inp.value = value;
-        if (unlocked === false) inp.disabled = true;
         const fill = document.createElement('span');
         fill.className = 'dash-lb-row-swatch-fill';
         if (fillStyle) fill.setAttribute('style', fillStyle);
@@ -1849,7 +1866,7 @@
       seasonHost.innerHTML = '';
       if (shopHost) shopHost.innerHTML = '';
 
-      basicHost.appendChild(makeSwatch('__clear__', 'Default', 'background:#ffffff', true));
+      basicHost.appendChild(makeSwatch('__clear__', 'Default', 'background:#ffffff'));
       const basicCap = {
         '#ffffff': 'White',
         '#f8fafc': 'Snow',
@@ -1861,7 +1878,7 @@
         '#94a3b8': 'Mist',
       };
       U.LB_ROW_BASIC_HEXES.forEach((hex) => {
-        basicHost.appendChild(makeSwatch(hex, basicCap[hex] || 'Tint', 'background:' + hex + ' !important', true));
+        basicHost.appendChild(makeSwatch(hex, basicCap[hex] || 'Tint', 'background:' + hex + ' !important'));
       });
 
       const ch = dashLbPreviewChessRef;
@@ -1870,23 +1887,24 @@
       if (shopHost && shopBlock) {
         shopSolids.forEach((row) => {
           shopHost.appendChild(
-            makeSwatch(row.hex, row.label, 'background:' + row.hex + ' !important', true)
+            makeSwatch(row.hex, row.label, 'background:' + row.hex + ' !important')
           );
         });
         shopBlock.style.display = shopSolids.length ? 'block' : 'none';
       }
 
+      let unlockedSeasonCount = 0;
       Object.keys(U.LB_ROW_PRESETS || {}).forEach((pid) => {
+        if (!U.isLbRowPresetUnlocked(dashLbPreviewChessRef, pid)) return;
         const def = U.LB_ROW_PRESETS[pid];
         const token = 'lbrow:' + pid;
-        const ok = U.isLbRowPresetUnlocked(dashLbPreviewChessRef, pid);
-        const need = def.minNodes;
-        const cap = (ok ? '' : '🔒 ') + def.label;
+        unlockedSeasonCount += 1;
         const fillSt = 'background:' + def.bg + ' !important;border:none;';
-        const sw = makeSwatch(token, cap, fillSt, ok);
-        if (!ok) sw.title = 'Claim at least ' + need + ' monthly season steps (this UTC month) to unlock.';
-        seasonHost.appendChild(sw);
+        seasonHost.appendChild(makeSwatch(token, def.label, fillSt));
       });
+      if (seasonBlock) {
+        seasonBlock.style.display = unlockedSeasonCount > 0 ? 'block' : 'none';
+      }
 
       if (customWrap) {
         customWrap.style.display = U.isLbRowShopCustomHexUnlocked(dashLbPreviewChessRef) ? 'block' : 'none';
@@ -2228,11 +2246,17 @@
       if (v === '__custom__') {
         const el = document.getElementById('dash-lb-row-custom-hex');
         const hx = U.normalizeLbHex(el && el.value ? el.value : '');
-        if (!hx) return undefined;
+        if (!hx || !U.isLbRowShopCustomHexUnlocked(dashLbPreviewChessRef)) return undefined;
         return hx;
       }
-      if (v.indexOf('lbrow:') === 0) return v.toLowerCase();
-      return U.normalizeLbHex(v);
+      if (v.indexOf('lbrow:') === 0) {
+        const tok = v.toLowerCase();
+        if (!U.isLbRowPresetUnlocked(dashLbPreviewChessRef, tok.slice(6))) return undefined;
+        return tok;
+      }
+      const hx = U.normalizeLbHex(v);
+      if (!hx || !U.isLbRowHexAllowedForUser(hx, dashLbPreviewChessRef)) return undefined;
+      return hx;
     }
 
     function lbRowColorPayloadsMatchSaved(desired) {
