@@ -639,7 +639,7 @@
     .th-task-modal-meta .th-task-section:last-child { margin-bottom: 0; }
     .th-task-modal-meta .th-field-hint { font-size: 0.72rem; }
     .th-task-due-compact .th-task-due-row {
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 6px; max-width: 280px;
     }
     .th-task-due-compact input[type="date"] {
       flex: 1; min-width: 0; border: 1px solid #dbeafe; background: #fff; border-radius: 12px;
@@ -977,10 +977,107 @@
         <div class="th-task-modal-layout">
           <div class="th-task-modal-main">
             <section class="th-task-section">
-              <h4 class="th-task-section-title">What to do</h4>
+              <h4 class="th-task-section-title">Info</h4>
               <div class="th-field">
                 <label for="task-title-input">Task name</label>
                 <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+              </div>
+              <div class="th-field th-task-due-compact">
+                <label for="task-due-input">Due Date</label>
+                <div class="th-task-due-row">
+                  <input type="date" id="task-due-input" aria-label="Due Date">
+                  <button type="button" class="th-recurrence-toggle" id="task-recurrence-toggle" title="Repeat settings" aria-label="Repeat settings" aria-expanded="false" style="display:none;">↻</button>
+                </div>
+                <span class="th-recurrence-summary" id="task-recurrence-summary" style="display:none;"></span>
+                <button type="button" class="th-recurrence-add-link" id="task-recurrence-add">Repeat…</button>
+                <div id="task-recurrence-panel" class="th-task-recurrence-panel" style="display:none;">
+                  <div class="th-field">
+                    <label for="task-recurrence-input">Repeats</label>
+                    <select id="task-recurrence-input">
+                      <option value="">Does not repeat</option>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                    </select>
+                  </div>
+                  <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
+                    <label for="task-recurrence-interval">Every</label>
+                    <div class="th-recurrence-interval-row">
+                      <input type="number" id="task-recurrence-interval" min="1" max="365" value="1" aria-describedby="task-recurrence-interval-unit">
+                      <span id="task-recurrence-interval-unit">weeks</span>
+                    </div>
+                  </div>
+                  <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
+                    <label for="task-recurrence-day">Repeat on</label>
+                    <select id="task-recurrence-day">
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                    </select>
+                  </div>
+                  <div class="th-field" id="task-recurrence-monthly-wrap" style="display:none;">
+                    <label for="task-recurrence-monthly-mode">Monthly on</label>
+                    <select id="task-recurrence-monthly-mode">
+                      <option value="day-of-month">Same day each month</option>
+                      <option value="nth-weekday">Nth weekday (e.g. 1st Saturday)</option>
+                    </select>
+                  </div>
+                  <div class="th-field" id="task-recurrence-dom-wrap" style="display:none;">
+                    <label for="task-recurrence-dom">Day of month</label>
+                    <select id="task-recurrence-dom"></select>
+                  </div>
+                  <div class="th-field" id="task-recurrence-nth-wrap" style="display:none;">
+                    <label>Weekday</label>
+                    <div class="th-recurrence-nth-row">
+                      <select id="task-recurrence-nth" aria-label="Which occurrence">
+                        <option value="1">1st</option>
+                        <option value="2">2nd</option>
+                        <option value="3">3rd</option>
+                        <option value="4">4th</option>
+                        <option value="-1">Last</option>
+                      </select>
+                      <select id="task-recurrence-nth-day" aria-label="Day of week">
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="th-field" id="task-recurrence-yearly-wrap" style="display:none;">
+                    <label for="task-recurrence-yearly-mode">Yearly on</label>
+                    <select id="task-recurrence-yearly-mode">
+                      <option value="date">Same date each year</option>
+                      <option value="nth-weekday">Nth weekday in month</option>
+                    </select>
+                  </div>
+                  <div class="th-field" id="task-recurrence-year-month-wrap" style="display:none;">
+                    <label for="task-recurrence-year-month">Month</label>
+                    <select id="task-recurrence-year-month">
+                      <option value="0">January</option>
+                      <option value="1">February</option>
+                      <option value="2">March</option>
+                      <option value="3">April</option>
+                      <option value="4">May</option>
+                      <option value="5">June</option>
+                      <option value="6">July</option>
+                      <option value="7">August</option>
+                      <option value="8">September</option>
+                      <option value="9">October</option>
+                      <option value="10">November</option>
+                      <option value="11">December</option>
+                    </select>
+                  </div>
+                  <p class="th-field-hint" style="margin:0;">Resets to To do with a new due date when completed.</p>
+                </div>
               </div>
               <div class="th-field">
                 <label for="task-dod-input">Definition of Done</label>
@@ -993,105 +1090,6 @@
             </section>
           </div>
           <aside class="th-task-modal-meta">
-            <section class="th-task-section th-task-due-compact">
-              <h4 class="th-task-section-title">Due Date</h4>
-              <div class="th-field">
-                <div class="th-task-due-row">
-                  <input type="date" id="task-due-input" aria-label="Due Date">
-                  <button type="button" class="th-recurrence-toggle" id="task-recurrence-toggle" title="Repeat settings" aria-label="Repeat settings" aria-expanded="false" style="display:none;">↻</button>
-                </div>
-                <span class="th-recurrence-summary" id="task-recurrence-summary" style="display:none;"></span>
-                <button type="button" class="th-recurrence-add-link" id="task-recurrence-add">Repeat…</button>
-              </div>
-              <div id="task-recurrence-panel" class="th-task-recurrence-panel" style="display:none;">
-                <div class="th-field">
-                  <label for="task-recurrence-input">Repeats</label>
-                  <select id="task-recurrence-input">
-                    <option value="">Does not repeat</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
-                </div>
-                <div class="th-field" id="task-recurrence-interval-wrap" style="display:none;">
-                  <label for="task-recurrence-interval">Every</label>
-                  <div class="th-recurrence-interval-row">
-                    <input type="number" id="task-recurrence-interval" min="1" max="365" value="1" aria-describedby="task-recurrence-interval-unit">
-                    <span id="task-recurrence-interval-unit">weeks</span>
-                  </div>
-                </div>
-                <div class="th-field" id="task-recurrence-weekly-wrap" style="display:none;">
-                  <label for="task-recurrence-day">Repeat on</label>
-                  <select id="task-recurrence-day">
-                    <option value="0">Sunday</option>
-                    <option value="1">Monday</option>
-                    <option value="2">Tuesday</option>
-                    <option value="3">Wednesday</option>
-                    <option value="4">Thursday</option>
-                    <option value="5">Friday</option>
-                    <option value="6">Saturday</option>
-                  </select>
-                </div>
-                <div class="th-field" id="task-recurrence-monthly-wrap" style="display:none;">
-                  <label for="task-recurrence-monthly-mode">Monthly on</label>
-                  <select id="task-recurrence-monthly-mode">
-                    <option value="day-of-month">Same day each month</option>
-                    <option value="nth-weekday">Nth weekday (e.g. 1st Saturday)</option>
-                  </select>
-                </div>
-                <div class="th-field" id="task-recurrence-dom-wrap" style="display:none;">
-                  <label for="task-recurrence-dom">Day of month</label>
-                  <select id="task-recurrence-dom"></select>
-                </div>
-                <div class="th-field" id="task-recurrence-nth-wrap" style="display:none;">
-                  <label>Weekday</label>
-                  <div class="th-recurrence-nth-row">
-                    <select id="task-recurrence-nth" aria-label="Which occurrence">
-                      <option value="1">1st</option>
-                      <option value="2">2nd</option>
-                      <option value="3">3rd</option>
-                      <option value="4">4th</option>
-                      <option value="-1">Last</option>
-                    </select>
-                    <select id="task-recurrence-nth-day" aria-label="Day of week">
-                      <option value="0">Sunday</option>
-                      <option value="1">Monday</option>
-                      <option value="2">Tuesday</option>
-                      <option value="3">Wednesday</option>
-                      <option value="4">Thursday</option>
-                      <option value="5">Friday</option>
-                      <option value="6">Saturday</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="th-field" id="task-recurrence-yearly-wrap" style="display:none;">
-                  <label for="task-recurrence-yearly-mode">Yearly on</label>
-                  <select id="task-recurrence-yearly-mode">
-                    <option value="date">Same date each year</option>
-                    <option value="nth-weekday">Nth weekday in month</option>
-                  </select>
-                </div>
-                <div class="th-field" id="task-recurrence-year-month-wrap" style="display:none;">
-                  <label for="task-recurrence-year-month">Month</label>
-                  <select id="task-recurrence-year-month">
-                    <option value="0">January</option>
-                    <option value="1">February</option>
-                    <option value="2">March</option>
-                    <option value="3">April</option>
-                    <option value="4">May</option>
-                    <option value="5">June</option>
-                    <option value="6">July</option>
-                    <option value="7">August</option>
-                    <option value="8">September</option>
-                    <option value="9">October</option>
-                    <option value="10">November</option>
-                    <option value="11">December</option>
-                  </select>
-                </div>
-                <p class="th-field-hint" style="margin:0;">Resets to To do with a new due date when completed.</p>
-              </div>
-            </section>
             <section class="th-task-section">
               <h4 class="th-task-section-title">Labels</h4>
               <div class="th-field">
