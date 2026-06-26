@@ -1,24 +1,54 @@
-/* TrifangX logo — official mark (transparent background) */
+/* TrifangX logo — icon (no wordmark) and full mark assets */
+
+.trifangx-brand-logo-plate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  margin: 0 auto 1.15rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(15, 23, 42, 0.07);
+}
+
+.trifangx-brand-logo-plate--on-dark {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0 24px rgba(255, 255, 255, 0.12);
+}
+
 .trifangx-brand-logo {
   display: block;
-  width: 200px;
-  height: auto;
-  max-width: 100%;
-  margin: 0 auto 1rem;
   object-fit: contain;
 }
 
 .trifangx-brand-logo--hero {
+  width: 96px;
+  height: 96px;
+  margin: 0;
+}
+
+.trifangx-brand-logo--wordmark {
   width: min(280px, 78vw);
   height: auto;
   max-height: 140px;
-  margin-bottom: 1.15rem;
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.28));
+  margin: 0 auto 1.15rem;
+  filter: drop-shadow(0 4px 14px rgba(15, 23, 42, 0.15));
 }
 
 .trifangx-brand-logo--card {
-  width: 140px;
-  height: auto;
-  max-height: 56px;
+  width: 64px;
+  height: 64px;
   margin: 0 0 0.75rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+  box-sizing: content-box;
 }
