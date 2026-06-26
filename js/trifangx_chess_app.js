@@ -4795,29 +4795,11 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
     }
 
-    /** Small TrifangX mark on lobby / live / replay — not on dashboard embed. */
+    /** Subtle TrifangX mark on lobby / live / replay loading & footer — not on dashboard embed. */
     function initTrifangxGameBranding() {
       try {
         if (window.TRIFANGX_DASHBOARD_EMBED) return;
         if (!isTrifangxChessShellPage()) return;
-
-        const headerContent = document.querySelector('header .header-content');
-        if (headerContent && !headerContent.querySelector('.trifangx-game-header-mark')) {
-          const logoLink = headerContent.querySelector('.logo-link');
-          const mark = document.createElement('span');
-          mark.className = 'trifangx-game-header-mark';
-          mark.setAttribute('role', 'img');
-          mark.setAttribute('aria-label', 'TrifangX');
-          const markImg = document.createElement('img');
-          markImg.src = 'img/trifangx-icon.png';
-          markImg.alt = '';
-          markImg.width = 22;
-          markImg.height = 22;
-          markImg.decoding = 'async';
-          mark.appendChild(markImg);
-          if (logoLink) logoLink.appendChild(mark);
-          else headerContent.appendChild(mark);
-        }
 
         const loadingInner = document.querySelector('.trifangx-shell-loading-inner');
         if (loadingInner && !loadingInner.querySelector('.trifangx-shell-loading-mark')) {
