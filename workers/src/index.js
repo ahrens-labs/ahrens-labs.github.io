@@ -3374,9 +3374,9 @@ function getCloudflareEmailBinding(env) {
   return env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
-/** Use EMAIL_TRANSACTIONAL — the binding that already sends to arbitrary users for ahrenslabs.com. */
+/** Prefer GRACE_EMAIL_SEND — unrestricted binding for graceahrens.com mail. */
 function getGraceEmailBinding(env) {
-  return env.EMAIL_TRANSACTIONAL || env.EMAIL;
+  return env.GRACE_EMAIL_SEND || env.EMAIL_TRANSACTIONAL || env.EMAIL;
 }
 
 const GRACE_SENDER_ERRORS = new Set([
@@ -3431,7 +3431,8 @@ async function dispatchCloudflareEmailOnly(env, {
 
   const primaryFrom = String(fromAddr || '').trim();
   const fallbackFrom = String(env.GRACE_FALLBACK_FROM_EMAIL || 'caleb@ahrenslabs.com').trim();
-  const sendOpts = { fromName, to, bcc, subject, html, text, replyTo, headers };
+  const displayName = String(fromName || env.GRACE_FROM_NAME || 'Grace Ahrens').trim();
+  const sendOpts = { fromName: displayName, to, bcc, subject, html, text, replyTo, headers };
 
   try {
     const result = await sendViaCloudflareBinding(cfMail, { ...sendOpts, fromAddr: primaryFrom });
@@ -3476,6 +3477,61 @@ async function dispatchCloudflareEmailOnly(env, {
     }
 
     throw err;
+  }
+}
+
+/** Grace Ahrens site mail — Cloudflare (GRACE_EMAIL_SEND) first, then Resend; always prefer grace@ as From. */
+async function dispatchGraceAhrensEmail(env, opts) {
+  const graceFrom = String(env.GRACE_SENDER_EMAIL || 'grace@ahrenslabs.com').trim();
+  const fallbackFrom = String(env.GRACE_FALLBACK_FROM_EMAIL || 'caleb@ahrenslabs.com').trim();
+  const defaultReplyTo = String(env.GRACE_REPLY_TO_EMAIL || 'grace@graceahrens.com').trim();
+  const fromName = String(
+    opts.fromName || (opts.from && opts.from.name) || env.GRACE_FROM_NAME || 'Grace Ahrens'
+  ).trim();
+  const sendOpts = {
+    ...opts,
+    fromAddr: graceFrom,
+    fromName,
+    replyTo: opts.replyTo || defaultReplyTo,
+  };
+
+  try {
+    const result = await dispatchCloudflareEmailOnly(env, sendOpts);
+    return {
+      ...result,
+      fromAddr: result.fromAddr || (result.usedFallbackSender ? fallbackFrom : graceFrom),
+    };
+  } catch (cfErr) {
+    if (!env.RESEND_API_KEY || typeof env.RESEND_API_KEY !== 'string') {
+      throw cfErr;
+    }
+    console.warn('Grace Cloudflare send failed, trying Resend', {
+      code: cfErr?.code,
+      message: cfErr?.message,
+    });
+    let lastErr = cfErr;
+    for (const addr of [graceFrom, fallbackFrom]) {
+      try {
+        const result = await sendViaResend(env, {
+          ...opts,
+          fromAddr: addr,
+          fromName,
+          replyTo: sendOpts.replyTo,
+        });
+        return {
+          ...result,
+          fromAddr: addr,
+          usedFallbackSender: addr !== graceFrom,
+        };
+      } catch (err) {
+        lastErr = err;
+        if (addr === fallbackFrom) throw err;
+        console.warn('Grace Resend failed with grace@, trying fallback sender', {
+          message: err?.message,
+        });
+      }
+    }
+    throw lastErr;
   }
 }
 
@@ -9260,12 +9316,13 @@ async function handleGraceAhrensSend(request, env) {
     });
   }
 
-  const graceFrom = 'grace@graceahrens.com';
-  const fallbackFrom = String(env.GRACE_FALLBACK_FROM_EMAIL || 'caleb@ahrenslabs.com').trim();
-  const fromAddr =
-    body.fromAddr || (body.from && body.from.email) || graceFrom;
+  const graceFrom = String(env.GRACE_SENDER_EMAIL || 'grace@ahrenslabs.com').trim();
+  const defaultReplyTo = String(env.GRACE_REPLY_TO_EMAIL || 'grace@graceahrens.com').trim();
   const fromName =
-    body.fromName || (body.from && body.from.name) || 'Grace Ahrens';
+    body.fromName ||
+    (body.from && body.from.name) ||
+    env.GRACE_FROM_NAME ||
+    'Grace Ahrens';
 
   const sendOpts = {
     to,
@@ -9274,26 +9331,19 @@ async function handleGraceAhrensSend(request, env) {
     html: body.html,
     text: body.text,
     fromName,
-    replyTo: body.replyTo || graceFrom,
+    replyTo: body.replyTo || defaultReplyTo,
   };
 
   try {
-    let result;
-    let lastErr;
-    for (const addr of [graceFrom, fallbackFrom]) {
-      try {
-        result = await dispatchTransactionalEmail(env, { ...sendOpts, fromAddr: addr });
-        break;
-      } catch (err) {
-        lastErr = err;
-        if (addr === fallbackFrom) throw err;
-        console.warn('Grace mail failed with grace@, retrying with ahrenslabs sender', {
-          message: err?.message,
-        });
-      }
-    }
+    const result = await dispatchGraceAhrensEmail(env, sendOpts);
     return new Response(
-      JSON.stringify({ ok: true, messageId: result.messageId, via: result.provider }),
+      JSON.stringify({
+        ok: true,
+        messageId: result.messageId,
+        via: result.provider,
+        from: result.fromAddr,
+        usedFallbackSender: Boolean(result.usedFallbackSender),
+      }),
       { headers: { 'Content-Type': 'application/json' } }
     );
   } catch (err) {
@@ -9820,6 +9870,28 @@ export class UserAccount {
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getTetherInbox' && request.method === 'GET') {
+        const tasks = await this.getTetherInbox();
+        return new Response(JSON.stringify({ tasks }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveTetherInbox' && request.method === 'PUT') {
+        const { tasks } = await request.json();
+        const saved = await this.saveTetherInbox(tasks);
+        return new Response(JSON.stringify({ tasks: saved }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/getTetherLabelColors' && request.method === 'GET') {
+        const labelColors = await this.getTetherLabelColors();
+        return new Response(JSON.stringify({ labelColors }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveTetherLabelColors' && request.method === 'PUT') {
+        const { labelColors } = await request.json();
+        const saved = await this.saveTetherLabelColors(labelColors);
+        return new Response(JSON.stringify({ labelColors: saved }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -9926,7 +9998,9 @@ export class UserAccount {
         }
       },
       tether: {
-        projectIds: []
+        projectIds: [],
+        inboxTasks: [],
+        labelColors: {},
       }
     };
 
@@ -9967,6 +10041,44 @@ export class UserAccount {
     if (!userData || !userData.tether || !Array.isArray(userData.tether.projectIds)) return;
     userData.tether.projectIds = userData.tether.projectIds.filter((id) => id !== pid);
     await this.storage.put('userData', userData);
+  }
+
+  async getTetherInbox() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.tether || !Array.isArray(userData.tether.inboxTasks)) {
+      return [];
+    }
+    return userData.tether.inboxTasks;
+  }
+
+  async saveTetherInbox(tasks) {
+    const userData = await this.storage.get('userData');
+    if (!userData) throw new Error('Account not found');
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {} };
+    }
+    userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
+    await this.storage.put('userData', userData);
+    return userData.tether.inboxTasks;
+  }
+
+  async getTetherLabelColors() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.tether || typeof userData.tether.labelColors !== 'object') {
+      return {};
+    }
+    return userData.tether.labelColors;
+  }
+
+  async saveTetherLabelColors(labelColors) {
+    const userData = await this.storage.get('userData');
+    if (!userData) throw new Error('Account not found');
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {} };
+    }
+    userData.tether.labelColors = labelColors && typeof labelColors === 'object' ? labelColors : {};
+    await this.storage.put('userData', userData);
+    return userData.tether.labelColors;
   }
 
   async authenticate(password) {

@@ -103,8 +103,13 @@ async function getInboxTasks(env, userId) {
   const stub = userAccountStub(env, userId);
   if (!stub) return [];
   const res = await stub.fetch(new Request('http://do/getTetherInbox', { method: 'GET' }));
-  const data = await res.json();
-  return Array.isArray(data.tasks) ? data.tasks : [];
+  if (!res.ok) return [];
+  try {
+    const data = await res.json();
+    return Array.isArray(data.tasks) ? data.tasks : [];
+  } catch {
+    return [];
+  }
 }
 
 async function saveInboxTasks(env, userId, tasks) {
@@ -125,8 +130,13 @@ async function getLabelColors(env, userId) {
   const stub = userAccountStub(env, userId);
   if (!stub) return {};
   const res = await stub.fetch(new Request('http://do/getTetherLabelColors', { method: 'GET' }));
-  const data = await res.json();
-  return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : {};
+  if (!res.ok) return {};
+  try {
+    const data = await res.json();
+    return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : {};
+  } catch {
+    return {};
+  }
 }
 
 async function saveLabelColors(env, userId, labelColors) {
