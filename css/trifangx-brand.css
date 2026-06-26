@@ -5,6 +5,8 @@
   height: 72px;
   margin: 0 auto 1rem;
   object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
 
 .trifangx-brand-logo--hero {

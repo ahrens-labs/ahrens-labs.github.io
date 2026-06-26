@@ -23,12 +23,25 @@
   border: 1px solid rgba(52, 152, 219, 0.12);
 }
 
+.trifangx-shell-loading-spinner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(52, 152, 219, 0.18);
+  border-top-color: #3498db;
+  border-right-color: #2980b9;
+  animation: trifangx-shell-spin 0.9s linear infinite;
+  box-shadow: 0 0 24px rgba(52, 152, 219, 0.15);
+}
+
 .trifangx-shell-loading-logo {
   width: 56px;
   height: 56px;
   object-fit: contain;
   animation: trifangx-shell-logo-pulse 1.35s ease-in-out infinite;
   filter: drop-shadow(0 4px 14px rgba(23, 48, 76, 0.18));
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
 
 .trifangx-shell-loading-text {
@@ -57,6 +70,12 @@
   pointer-events: none;
 }
 
+@keyframes trifangx-shell-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes trifangx-shell-logo-pulse {
   0%,
   100% {
@@ -82,6 +101,14 @@
 .page-theme-space .trifangx-shell-loading-text,
 .page-theme-cyber .trifangx-shell-loading-text {
   color: rgba(236, 240, 241, 0.82);
+}
+
+.page-theme-dark .trifangx-shell-loading-spinner,
+.page-theme-midnight .trifangx-shell-loading-spinner,
+.page-theme-space .trifangx-shell-loading-spinner {
+  border-color: rgba(236, 240, 241, 0.12);
+  border-top-color: #5dade2;
+  border-right-color: #3498db;
 }
 
 .page-theme-dark .trifangx-shell-loading-logo,
