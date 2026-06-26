@@ -702,18 +702,6 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
     .th-task-modal .th-field textarea { min-height: 72px; }
-    .th-status-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-    .th-status-pill {
-      flex: 1; min-width: 0; border: 1px solid var(--th-line); border-radius: 12px;
-      padding: 10px 8px; background: #fff; cursor: pointer; font: inherit;
-      font-size: 0.8rem; font-weight: 700; color: var(--th-muted); transition: all 0.15s;
-      text-align: center;
-    }
-    .th-status-pill.todo.active { background: #eff6ff; border-color: #60a5fa; color: #1d4ed8; box-shadow: 0 0 0 2px rgba(37,99,235,0.12); }
-    .th-status-pill.in_progress.active { background: var(--th-orange-soft); border-color: #fdba74; color: #c2410c; box-shadow: 0 0 0 2px rgba(234,88,12,0.1); }
-    .th-status-pill.done.active { background: var(--th-green-soft); border-color: #6ee7b7; color: #047857; box-shadow: 0 0 0 2px rgba(5,150,105,0.1); }
-    .th-task-modal-meta .th-status-pills { flex-direction: column; gap: 6px; }
-    .th-task-modal-meta .th-status-pill { flex: none; width: 100%; padding: 8px 10px; font-size: 0.78rem; }
     .th-chip-check-group {
       display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;
     }
@@ -1101,12 +1089,11 @@
             <section class="th-task-section">
               <h4 class="th-task-section-title">Status</h4>
               <div class="th-field">
-                <div class="th-status-pills" id="task-status-pills">
-                  <button type="button" class="th-status-pill todo" data-status="todo">To do</button>
-                  <button type="button" class="th-status-pill in_progress" data-status="in_progress">In progress</button>
-                  <button type="button" class="th-status-pill done" data-status="done">Completed</button>
-                </div>
-                <input type="hidden" id="task-status-input" value="todo">
+                <select id="task-status-input" aria-label="Status">
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Completed</option>
+                </select>
               </div>
             </section>
             <section class="th-task-section" id="task-project-section">
@@ -3736,12 +3723,8 @@
     showBanner('Task deleted', 'ok');
   }
 
-  function setTaskStatusPill(status) {
-    const val = status || 'todo';
-    document.getElementById('task-status-input').value = val;
-    document.querySelectorAll('.th-status-pill').forEach(p => {
-      p.classList.toggle('active', p.getAttribute('data-status') === val);
-    });
+  function setTaskStatus(status) {
+    document.getElementById('task-status-input').value = status || 'todo';
   }
 
   function memberInitials(name) {
@@ -3780,7 +3763,7 @@
     document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
     document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
-    setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
+    setTaskStatus(task ? (task.status || 'todo') : 'todo');
     populateRecurrenceFormFromTask(task);
     setRecurrencePanelOpen(false);
     syncRecurrenceUi();
@@ -4086,9 +4069,6 @@
     confirmResolve = null;
     document.getElementById('modal-confirm').classList.remove('open');
     resolve(true);
-  });
-  document.querySelectorAll('.th-status-pill').forEach(pill => {
-    pill.addEventListener('click', () => setTaskStatusPill(pill.getAttribute('data-status')));
   });
   document.getElementById('btn-share').addEventListener('click', () => {
     document.getElementById('share-input').value = '';
