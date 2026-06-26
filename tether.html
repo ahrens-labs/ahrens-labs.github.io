@@ -1000,25 +1000,11 @@
             </section>
           </div>
           <aside class="th-task-modal-meta">
-            <section class="th-task-section">
-              <h4 class="th-task-section-title">Labels</h4>
-              <div class="th-field">
-                <div class="th-task-labels-list" id="task-labels-list"></div>
-                <input type="text" id="task-labels-input" maxlength="120" placeholder="Add label…">
-                <div class="th-task-labels-suggestions" id="task-labels-suggestions"></div>
-              </div>
-            </section>
-            <section class="th-task-section" id="task-project-section">
-              <h4 class="th-task-section-title">Project</h4>
-              <div class="th-field">
-                <select id="task-project-input" class="th-move-select"></select>
-              </div>
-            </section>
             <section class="th-task-section th-task-due-compact">
-              <h4 class="th-task-section-title">Due date</h4>
+              <h4 class="th-task-section-title">Due Date</h4>
               <div class="th-field">
                 <div class="th-task-due-row">
-                  <input type="date" id="task-due-input" aria-label="Due date">
+                  <input type="date" id="task-due-input" aria-label="Due Date">
                   <button type="button" class="th-recurrence-toggle" id="task-recurrence-toggle" title="Repeat settings" aria-label="Repeat settings" aria-expanded="false" style="display:none;">↻</button>
                 </div>
                 <span class="th-recurrence-summary" id="task-recurrence-summary" style="display:none;"></span>
@@ -1111,6 +1097,20 @@
                   </select>
                 </div>
                 <p class="th-field-hint" style="margin:0;">Resets to To do with a new due date when completed.</p>
+              </div>
+            </section>
+            <section class="th-task-section">
+              <h4 class="th-task-section-title">Labels</h4>
+              <div class="th-field">
+                <div class="th-task-labels-list" id="task-labels-list"></div>
+                <input type="text" id="task-labels-input" maxlength="120" placeholder="Add label…">
+                <div class="th-task-labels-suggestions" id="task-labels-suggestions"></div>
+              </div>
+            </section>
+            <section class="th-task-section" id="task-project-section">
+              <h4 class="th-task-section-title">Project</h4>
+              <div class="th-field">
+                <select id="task-project-input" class="th-move-select"></select>
               </div>
             </section>
           </aside>
@@ -3780,7 +3780,7 @@
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatusPill(task ? (task.status || 'todo') : 'todo');
     populateRecurrenceFormFromTask(task);
-    setRecurrencePanelOpen(!!(task && task.recurrence));
+    setRecurrencePanelOpen(false);
     syncRecurrenceUi();
     document.getElementById('task-edit-start').style.display =
       task && (task.status || 'todo') === 'todo' ? 'inline-block' : 'none';
