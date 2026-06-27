@@ -324,6 +324,10 @@ export function layout(title: string, content: string): string {
       .calendar-header .day-abbr {
         display: inline !important;
       }
+      .interactions-calendar .calendar-cell {
+        aspect-ratio: auto !important;
+        min-height: 72px !important;
+      }
     }
     @media (max-width: 480px) {
       .calendar-container {
@@ -351,6 +355,9 @@ export function layout(title: string, content: string): string {
       .calendar-header > div {
         font-size: 0.45rem !important;
         padding: 1px !important;
+      }
+      .interactions-calendar .calendar-cell {
+        min-height: 64px !important;
       }
     }
     /* Show full day names by default */
@@ -2892,7 +2899,7 @@ function getCalendarHtml(year: number, month: number, interactionsByDate: Map<st
   const nextYear = month === 11 ? year + 1 : year;
   
   let calendarHtml = `
-    <div class="calendar-container" style="background: white; border-radius: 0.5rem; padding: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div class="calendar-container interactions-calendar" style="background: white; border-radius: 0.5rem; padding: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
         <button onclick="navigateMonth(${prevYear}, ${prevMonth})" class="btn btn-secondary" style="padding: 0.5rem 1rem;">‹</button>
         <h3 style="font-weight: 600; font-size: 1.125rem;">${monthNames[month]} ${year}</h3>
