@@ -99,6 +99,7 @@ export function layout(title: string, content: string): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
@@ -204,7 +205,7 @@ export function layout(title: string, content: string): string {
     .th-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
     .th-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
     .th-site-menu nav > ul {
-      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+      display: flex; flex-direction: column; align-items: stretch; gap: 6px;
       list-style: none; margin: 0; padding: 0;
     }
     .th-site-menu nav > ul > li { margin: 0; width: 100%; }
@@ -213,19 +214,43 @@ export function layout(title: string, content: string): string {
       margin-top: auto; padding: 12px 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.12);
     }
     .th-site-menu-signout,
-    .th-site-menu nav a {
-      display: block; padding: 0.65em 0.85em; border-radius: 10px; color: rgba(255, 255, 255, 0.92);
+    .th-site-menu nav > ul > li > a,
+    .th-site-menu nav > ul > li > .nav-dropdown-trigger {
+      display: block; padding: 0.65em 0.85em; border-radius: 12px; color: rgba(255, 255, 255, 0.92);
       text-decoration: none; font-size: 0.92rem; font-weight: 600; text-align: left;
+      box-sizing: border-box;
+      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
     .th-site-menu-signout:hover,
-    .th-site-menu nav a:hover,
-    .th-site-menu nav a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .th-site-menu nav > ul > li > a:hover,
+    .th-site-menu nav > ul > li > .nav-dropdown-trigger:hover,
+    .th-site-menu nav a.active {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+      border-color: rgba(255, 255, 255, 0.34);
+      color: #fff;
+      transform: none;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .th-site-menu nav a::before,
+    .th-site-menu nav a::after { display: none; }
     .th-site-menu nav ul.nav-dropdown-menu {
       display: block; position: static; transform: none; min-width: 0; margin: 0 0 4px;
       padding: 0 0 0 12px; background: transparent; border: none; box-shadow: none;
     }
     .th-site-menu nav ul.nav-dropdown-menu a {
-      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.78); padding: 0.5em 0.85em;
+      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.85); padding: 0.5em 0.85em;
+      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.06));
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+    }
+    .th-site-menu nav ul.nav-dropdown-menu a:hover,
+    .th-site-menu nav ul.nav-dropdown-menu a.active {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
     }
     body.th-site-menu-open { overflow: hidden; }
     .logo { 
