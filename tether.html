@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627f">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627g">
   <link rel="icon" href="/img/tether-favicon.svg?v=12" type="image/svg+xml">
   <link rel="icon" type="image/png" sizes="192x192" href="/img/tether-favicon-192.png?v=12">
   <link rel="icon" type="image/png" sizes="128x128" href="/img/tether-favicon-128.png?v=12">
@@ -46,10 +46,22 @@
       background: var(--th-bg);
       font-family: "DM Sans", Inter, system-ui, sans-serif;
     }
-    body.th-page .wrapper { background: transparent; }
-    body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 88px; }
-    body.th-page.th-tab-my-tasks #my-tasks-panel {
+    body.th-page .wrapper { background: transparent; width: 100%; }
+    body.th-page main.th-main-wrap {
+      max-width: 1200px;
       width: 100%;
+      margin: 0 auto;
+      padding: 0 14px 88px;
+      box-sizing: border-box;
+    }
+    .th-shell-my-tasks {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      min-height: 520px;
+      width: 100%;
+    }
+    body.th-page.th-tab-my-tasks #my-tasks-panel {
       min-height: calc(100dvh - 68px - 88px);
     }
     .th-page .th-topbar-title {
@@ -126,6 +138,7 @@
       grid-template-columns: 260px 1fr;
       gap: 16px;
       min-height: 520px;
+      width: 100%;
       font-family: Inter, system-ui, sans-serif;
     }
     @media (max-width: 900px) {
@@ -968,16 +981,18 @@
         </section>
       </div>
 
-      <section class="th-card th-main" id="my-tasks-panel">
-        <div class="th-toolbar">
-          <h2>My Tasks</h2>
-          <div class="th-toolbar-actions">
-            <button type="button" class="th-btn th-btn-primary" id="btn-add-my-task">+ Task<span class="th-kbd-hint">q</span></button>
-            <button type="button" class="th-btn th-btn-ghost" id="btn-search-my-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
+      <div class="th-shell th-shell-my-tasks" id="shell-my-tasks">
+        <section class="th-card th-main" id="my-tasks-panel">
+          <div class="th-toolbar">
+            <h2>My Tasks</h2>
+            <div class="th-toolbar-actions">
+              <button type="button" class="th-btn th-btn-primary" id="btn-add-my-task">+ Task<span class="th-kbd-hint">q</span></button>
+              <button type="button" class="th-btn th-btn-ghost" id="btn-search-my-tasks" title="Search all tasks">Search<span class="th-kbd-hint">/</span></button>
+            </div>
           </div>
-        </div>
-        <div id="my-tasks-list"></div>
-      </section>
+          <div id="my-tasks-list"></div>
+        </section>
+      </div>
     </main>
     <div class="push"></div>
   </div>
@@ -2498,7 +2513,7 @@
     document.getElementById('tab-projects').classList.toggle('active', tab === 'projects');
     document.getElementById('tab-my-tasks').classList.toggle('active', tab === 'my-tasks');
     document.getElementById('shell-projects').style.display = tab === 'projects' ? 'grid' : 'none';
-    document.getElementById('my-tasks-panel').style.display = tab === 'my-tasks' ? 'block' : 'none';
+    document.getElementById('shell-my-tasks').style.display = tab === 'my-tasks' ? 'grid' : 'none';
     if (tab === 'my-tasks') {
       if (!skipUrlSync) syncUrlState({ view: 'my-tasks' });
       if (!skipLoad) loadMyTasks();

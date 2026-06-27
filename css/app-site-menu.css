@@ -375,4 +375,6 @@ body.th-page .push {
 
 body.th-page main.th-main-wrap {
   gap: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
