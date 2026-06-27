@@ -26,8 +26,8 @@ function navUserLabel(user: { ahrens_username?: string | null }): string {
 }
 
 function linkHamburgerButton(light = false): string {
-  const cls = light ? 'link-hamburger link-hamburger--light' : 'link-hamburger'
-  return `<button type="button" class="${cls}" id="link-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="link-site-menu"><span></span><span></span><span></span></button>`
+  const cls = light ? 'th-hamburger th-hamburger--light' : 'th-hamburger'
+  return `<button type="button" class="${cls}" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu"><span></span><span></span><span></span></button>`
 }
 
 function linkNavLogo(href: string, style = '', lightHamburger = false): string {
@@ -37,18 +37,18 @@ function linkNavLogo(href: string, style = '', lightHamburger = false): string {
 
 function linkSiteMenuHtml(): string {
   return `
-  <div id="link-site-menu-backdrop" class="link-site-menu-backdrop" hidden></div>
-  <div id="link-site-menu" class="link-site-menu" aria-hidden="true">
-    <div class="link-site-menu-head">
-      <a href="https://ahrenslabs.com/index.html" class="link-site-menu-brand">
+  <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+  <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+    <div class="th-site-menu-head">
+      <a href="https://ahrenslabs.com/index.html" class="th-site-menu-brand">
         <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" width="36" height="36">
         <span>Ahrens Labs</span>
       </a>
-      <button type="button" class="link-site-menu-close" id="link-site-menu-close" aria-label="Close menu">&times;</button>
+      <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
     </div>
     <nav><ul></ul></nav>
-    <div class="link-site-menu-footer">
-      <a href="/auth/signout" class="link-site-menu-signout al-site-menu-signout">Sign Out</a>
+    <div class="th-site-menu-footer">
+      <a href="/auth/signout" class="th-site-menu-signout al-site-menu-signout">Sign Out</a>
     </div>
   </div>`
 }
@@ -72,6 +72,7 @@ export function layout(title: string, content: string): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260627a">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
@@ -94,76 +95,6 @@ export function layout(title: string, content: string): string {
     .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
     .nav-leading { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .nav-left { display: flex; align-items: center; gap: 10px; }
-    .link-hamburger {
-      display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
-      width: 40px; height: 40px; padding: 0 10px; border: 1px solid #e5e7eb;
-      border-radius: 10px; background: #fff; cursor: pointer; flex-shrink: 0;
-      transition: border-color 0.15s, background 0.15s;
-    }
-    .link-hamburger:hover { border-color: #86efac; background: #f0fdf4; }
-    .link-hamburger span {
-      display: block; height: 2px; width: 100%; border-radius: 1px; background: #111827;
-    }
-    .link-hamburger--light {
-      background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.35);
-    }
-    .link-hamburger--light:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); }
-    .link-hamburger--light span { background: #fff; }
-    .link-site-menu-backdrop {
-      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 19990;
-    }
-    .link-site-menu {
-      position: fixed; top: 0; left: 0; bottom: 0; z-index: 20000;
-      width: min(320px, 88vw); max-width: 100%;
-      background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
-      color: #fff; box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
-      transform: translateX(-105%); transition: transform 0.22s ease;
-      overflow-y: auto; padding: 0 0 24px;
-      display: flex; flex-direction: column;
-    }
-    .link-site-menu.open { transform: translateX(0); }
-    .link-site-menu-head {
-      display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 16px 16px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    }
-    .link-site-menu-brand {
-      display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none;
-      font-weight: 800; font-size: 1.05rem;
-    }
-    .link-site-menu-brand img { width: 36px; height: auto; }
-    .link-site-menu-close {
-      width: 36px; height: 36px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px;
-      background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1.4rem; line-height: 1;
-      cursor: pointer;
-    }
-    .link-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
-    .link-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
-    .link-site-menu nav > ul {
-      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
-      list-style: none; margin: 0; padding: 0;
-    }
-    .link-site-menu nav > ul > li { margin: 0; width: 100%; }
-    .link-site-menu nav .nav-caret { display: none; }
-    .link-site-menu-footer {
-      margin-top: auto; padding: 12px 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.12);
-    }
-    .link-site-menu-signout,
-    .link-site-menu nav a {
-      display: block; padding: 0.65em 0.85em; border-radius: 10px; color: rgba(255, 255, 255, 0.92);
-      text-decoration: none; font-size: 0.92rem; font-weight: 600; text-align: left;
-    }
-    .link-site-menu-signout:hover,
-    .link-site-menu nav a:hover,
-    .link-site-menu nav a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
-    .link-site-menu nav ul.nav-dropdown-menu {
-      display: block; position: static; transform: none; min-width: 0; margin: 0 0 4px;
-      padding: 0 0 0 12px; background: transparent; border: none; box-shadow: none;
-    }
-    .link-site-menu nav ul.nav-dropdown-menu a {
-      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.78); padding: 0.5em 0.85em;
-    }
-    .link-site-menu nav .nav-caret { display: none; }
-    body.link-site-menu-open { overflow: hidden; }
     .link-nav-brand {
       display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none;
     }

@@ -1,0 +1,323 @@
+/* Shared Ahrens Labs app shell: hamburger + site nav drawer (Classify / Tether / Link). */
+:root {
+  --th-ink: #0f172a;
+  --th-line: #e2e8f0;
+}
+
+header.th-app-header {
+  padding: 0 1rem;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
+  z-index: 40;
+}
+
+header.th-app-header::before {
+  display: none;
+}
+
+.th-app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0 12px;
+  margin-bottom: 0;
+}
+
+.th-topbar-start,
+.nav-leading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.th-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.th-topbar-brand img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.th-topbar-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--th-ink);
+}
+
+.th-hamburger {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--th-line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.th-hamburger:hover {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.th-hamburger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  border-radius: 1px;
+  background: var(--th-ink);
+}
+
+.th-hamburger--light {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.th-hamburger--light:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.th-hamburger--light span {
+  background: #fff;
+}
+
+.dark .th-hamburger {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark .th-hamburger:hover {
+  border-color: #38bdf8;
+  background: #0f172a;
+}
+
+.dark .th-hamburger span {
+  background: #f1f5f9;
+}
+
+.th-topbar-auth {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.th-topbar-auth-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.th-topbar-auth-login {
+  background: #3498db;
+  color: #fff;
+}
+
+.th-topbar-auth-signup {
+  background: #2ecc71;
+  color: #fff;
+}
+
+.th-topbar-username {
+  display: none;
+  padding: 6px 4px;
+  color: var(--th-ink);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.dark .th-topbar-username {
+  color: #f1f5f9;
+}
+
+.th-site-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  z-index: 19990;
+}
+
+.th-site-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 20000;
+  width: min(320px, 88vw);
+  max-width: 100%;
+  background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+  color: #fff;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+  transform: translateX(-105%);
+  transition: transform 0.22s ease;
+  overflow-y: auto;
+  padding: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.th-site-menu.open {
+  transform: translateX(0);
+}
+
+.th-site-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.th-site-menu-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.th-site-menu-brand img {
+  width: 36px;
+  height: auto;
+}
+
+.th-site-menu-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.th-site-menu-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.th-site-menu nav {
+  padding: 12px 10px 0;
+  flex: 1 1 auto;
+}
+
+.th-site-menu nav > ul {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.th-site-menu nav > ul > li {
+  margin: 0;
+  width: 100%;
+}
+
+.th-site-menu nav .nav-caret {
+  display: none;
+}
+
+.th-site-menu-footer {
+  margin-top: auto;
+  padding: 12px 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.th-site-menu-signout,
+.th-site-menu nav > ul > li > a,
+.th-site-menu nav > ul > li > .nav-dropdown-trigger {
+  display: block;
+  padding: 0.65em 0.85em;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.th-site-menu-signout:hover,
+.th-site-menu nav > ul > li > a:hover,
+.th-site-menu nav > ul > li > .nav-dropdown-trigger:hover,
+.th-site-menu nav a.active {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+  transform: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.th-site-menu nav a::before,
+.th-site-menu nav a::after {
+  display: none;
+}
+
+.th-site-menu nav ul.nav-dropdown-menu {
+  display: block;
+  position: static;
+  transform: none;
+  min-width: 0;
+  margin: 0 0 4px;
+  padding: 0 0 0 12px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.th-site-menu nav ul.nav-dropdown-menu a {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.5em 0.85em;
+  background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+}
+
+.th-site-menu nav ul.nav-dropdown-menu a:hover,
+.th-site-menu nav ul.nav-dropdown-menu a.active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
+body.th-site-menu-open {
+  overflow: hidden;
+}

@@ -401,7 +401,7 @@
   }
 
   function renderHeaderNav() {
-    const uls = document.querySelectorAll('header nav ul, #th-site-menu nav ul, #link-site-menu nav ul');
+    const uls = document.querySelectorAll('header nav ul, #th-site-menu nav ul');
     if (!uls.length) return;
 
     const selectedIds = getStoredNavIds();
@@ -464,13 +464,6 @@
       backdropId: 'th-site-menu-backdrop',
       closeId: 'th-site-menu-close',
       bodyClass: 'th-site-menu-open',
-    });
-    wireSiteMenu({
-      buttonId: 'link-site-menu-btn',
-      menuId: 'link-site-menu',
-      backdropId: 'link-site-menu-backdrop',
-      closeId: 'link-site-menu-close',
-      bodyClass: 'link-site-menu-open',
     });
   }
 
