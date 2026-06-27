@@ -470,7 +470,7 @@
       menuId: 'link-site-menu',
       backdropId: 'link-site-menu-backdrop',
       closeId: 'link-site-menu-close',
-      bodyClass: 'link-site-menu-open',
+      bodyClass: 'th-site-menu-open',
     });
   }
 
