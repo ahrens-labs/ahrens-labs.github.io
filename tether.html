@@ -9,14 +9,14 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/app-site-menu.css?v=20260627l">
-  <link rel="icon" href="/img/tether-favicon.svg?v=15" type="image/svg+xml">
-  <link rel="icon" type="image/png" sizes="192x192" href="/img/tether-favicon-192.png?v=15">
-  <link rel="icon" type="image/png" sizes="128x128" href="/img/tether-favicon-128.png?v=15">
-  <link rel="icon" type="image/png" sizes="96x96" href="/img/tether-favicon-96.png?v=15">
-  <link rel="icon" type="image/png" sizes="48x48" href="/img/tether-favicon-48.png?v=15">
-  <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png?v=15">
-  <link rel="icon" href="/img/tether-favicon.ico?v=15" sizes="any">
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=15">
+  <link rel="icon" href="/img/tether-favicon.svg?v=17" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="192x192" href="/img/tether-favicon-192.png?v=17">
+  <link rel="icon" type="image/png" sizes="128x128" href="/img/tether-favicon-128.png?v=17">
+  <link rel="icon" type="image/png" sizes="96x96" href="/img/tether-favicon-96.png?v=17">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/tether-favicon-48.png?v=17">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png?v=17">
+  <link rel="icon" href="/img/tether-favicon.ico?v=17" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=17">
   <link rel="manifest" href="/tether-manifest.webmanifest">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
@@ -863,6 +863,76 @@
       color: var(--th-accent); cursor: pointer; text-decoration: underline; text-decoration-color: transparent;
     }
     .th-my-tasks-extend-btn:hover { text-decoration-color: #93c5fd; }
+    .th-settings-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--th-line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--th-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .th-settings-btn:hover {
+      border-color: #93c5fd;
+      background: #f8fafc;
+      color: var(--th-accent);
+    }
+    .th-settings-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .th-settings-group {
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+    .th-settings-group legend {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--th-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      padding: 0;
+    }
+    .th-settings-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--th-line);
+      border-radius: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      background: #fff;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .th-settings-option:hover { border-color: #bfdbfe; background: #f8fafc; }
+    .th-settings-option input { margin-top: 2px; flex-shrink: 0; accent-color: var(--th-accent); }
+    .th-settings-option-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 0.88rem;
+      color: var(--th-ink);
+    }
+    .th-settings-option-text small {
+      font-size: 0.78rem;
+      color: var(--th-muted);
+      font-weight: 500;
+      line-height: 1.4;
+    }
     .th-my-task-item {
       border: 1px solid var(--th-line); border-radius: 10px; padding: 6px 10px; background: #fff;
       cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
@@ -915,11 +985,14 @@
             <span></span><span></span><span></span>
           </button>
           <div class="th-topbar-brand">
-            <img src="/img/tether-logo.png?v=15" alt="" width="44" height="44">
+            <img src="/img/tether-logo.png?v=17" alt="" width="44" height="44">
             <h1 class="th-topbar-title">Tether</h1>
           </div>
         </div>
         <div class="th-topbar-auth" id="header-auth-buttons">
+          <button type="button" class="th-settings-btn" id="btn-tether-settings" aria-label="Tether settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+          </button>
           <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html'">Login</button>
           <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html'">Sign Up</button>
           <span id="header-username" class="th-topbar-username"></span>
@@ -1294,6 +1367,33 @@
     </div>
   </div>
 
+  <!-- Tether settings -->
+  <div class="th-modal-backdrop" id="modal-settings">
+    <div class="th-modal">
+      <h3>Tether settings</h3>
+      <fieldset class="th-settings-group">
+        <legend>My Tasks view</legend>
+        <label class="th-settings-option">
+          <input type="radio" name="my-tasks-days" id="setting-my-tasks-days-tasks-only" value="tasks-only">
+          <span class="th-settings-option-text">
+            Only days with tasks
+            <small>Hide empty days and jump straight to scheduled work.</small>
+          </span>
+        </label>
+        <label class="th-settings-option">
+          <input type="radio" name="my-tasks-days" id="setting-my-tasks-days-all" value="all-days">
+          <span class="th-settings-option-text">
+            Show all days in range
+            <small>List every day through your task horizon, including empty ones.</small>
+          </span>
+        </label>
+      </fieldset>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-primary" data-close="modal-settings">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Share modal -->
   <div class="th-modal-backdrop" id="modal-share">
     <div class="th-modal">
@@ -1354,6 +1454,24 @@
   const GANTT_ROW_PX = 36;
   const GANTT_LABEL_PX = 220;
   const GANTT_DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const TETHER_SETTINGS_KEY = 'tether_settings';
+  const defaultTetherSettings = { myTasksShowAllDays: false };
+
+  function loadTetherSettings() {
+    try {
+      const raw = localStorage.getItem(TETHER_SETTINGS_KEY);
+      if (!raw) return { ...defaultTetherSettings };
+      return { ...defaultTetherSettings, ...JSON.parse(raw) };
+    } catch {
+      return { ...defaultTetherSettings };
+    }
+  }
+
+  function saveTetherSettings() {
+    localStorage.setItem(TETHER_SETTINGS_KEY, JSON.stringify(tetherSettings));
+  }
+
+  let tetherSettings = loadTetherSettings();
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
   let myTasksLabelFilter = null;
@@ -2670,13 +2788,14 @@
   }
 
   function renderMyTasksDaySection(section) {
-    if (section.empty) return '';
+    if (section.empty && !tetherSettings.myTasksShowAllDays) return '';
     const headCls = 'th-my-tasks-day-head'
+      + (section.empty ? ' empty' : '')
       + (section.overdue ? ' overdue' : '');
     const hideDue = section.key !== '__overdue__' && section.key !== '__none__';
     const tasksHtml = section.tasks.length
       ? `<div class="th-my-tasks-day-tasks">${section.tasks.map(t => renderMyTaskCard(t, { hideDue })).join('')}</div>`
-      : '';
+      : (tetherSettings.myTasksShowAllDays ? '<p class="th-my-tasks-day-empty">No tasks</p>' : '');
     return `<section class="th-my-tasks-day">
       <h4 class="${headCls}">${escapeHtml(section.label)}</h4>
       ${tasksHtml}
@@ -2810,6 +2929,26 @@
       confirmResolve = null;
       resolve(false);
     }
+  }
+
+  function syncSettingsModalUi() {
+    const tasksOnly = document.getElementById('setting-my-tasks-days-tasks-only');
+    const allDays = document.getElementById('setting-my-tasks-days-all');
+    if (tasksOnly) tasksOnly.checked = !tetherSettings.myTasksShowAllDays;
+    if (allDays) allDays.checked = !!tetherSettings.myTasksShowAllDays;
+  }
+
+  function openSettingsModal() {
+    syncSettingsModalUi();
+    openModal('modal-settings');
+  }
+
+  function applyMyTasksDaySetting(value) {
+    const showAllDays = value === 'all-days';
+    if (tetherSettings.myTasksShowAllDays === showAllDays) return;
+    tetherSettings.myTasksShowAllDays = showAllDays;
+    saveTetherSettings();
+    if (appTab === 'my-tasks') renderMyTasksView();
   }
 
   function showConfirm(opts) {
@@ -4342,6 +4481,12 @@
   document.getElementById('btn-add-task').addEventListener('click', () => openTaskModal(null));
   document.getElementById('btn-search-tasks').addEventListener('click', () => openSearchModal());
   document.getElementById('btn-search-my-tasks').addEventListener('click', () => openSearchModal());
+  document.getElementById('btn-tether-settings').addEventListener('click', () => openSettingsModal());
+  document.querySelectorAll('input[name="my-tasks-days"]').forEach(input => {
+    input.addEventListener('change', () => {
+      if (input.checked) applyMyTasksDaySetting(input.value);
+    });
+  });
   document.getElementById('search-input').addEventListener('input', (e) => renderSearchResults(e.target.value));
   document.getElementById('modal-search').addEventListener('click', (e) => {
     if (e.target.id === 'modal-search') closeModal('modal-search');
