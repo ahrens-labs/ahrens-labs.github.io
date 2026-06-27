@@ -365,13 +365,14 @@ body.th-site-menu-open {
 
 /* Drawer is portaled to body; keep it above fixed app footers on Classify / Tether / Link */
 body.th-site-menu-open .th-bottom-nav,
-body.th-site-menu-open .bottom-nav {
+body.th-site-menu-open .bottom-nav,
+body.th-site-menu-open .cl-app-footer {
   z-index: var(--th-site-chrome-z);
 }
 
 /* Standalone app pages use their own footers — never the Ahrens Labs site footer */
 body.th-page > footer,
-body.classify-app > footer,
+body.classify-app > footer:not(.cl-app-footer),
 body.link-app > footer {
   display: none !important;
 }
