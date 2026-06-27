@@ -48,6 +48,20 @@
     }
     body.th-page .wrapper { background: transparent; }
     body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 88px; }
+    body.th-page.th-tab-my-tasks main.th-main-wrap {
+      max-width: none;
+      width: 100%;
+      margin: 0;
+      padding: 0 0 88px;
+    }
+    body.th-page.th-tab-my-tasks #my-tasks-panel {
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      box-shadow: none;
+      width: 100%;
+      min-height: calc(100dvh - 68px - 88px);
+    }
     .th-page .th-topbar-title {
       font-family: Orbitron, Inter, sans-serif;
       font-weight: 900;
@@ -868,7 +882,7 @@
     .th-banner.ok { display: block; background: #ecfdf5; border: 1px solid #86efac; color: #166534; }
   </style>
 </head>
-<body class="th-page">
+<body class="th-page th-tab-my-tasks">
   <div class="wrapper">
     <header class="th-app-header">
       <div class="th-app-topbar">
@@ -964,7 +978,7 @@
         </section>
       </div>
 
-      <section class="th-card th-main" id="my-tasks-panel" style="padding:14px 16px;">
+      <section class="th-card th-main" id="my-tasks-panel">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
           <div class="th-toolbar-actions">
@@ -2489,6 +2503,8 @@
     const skipLoad = opts && opts.skipLoad;
     if (tab === 'inbox') tab = 'my-tasks';
     appTab = tab;
+    document.body.classList.toggle('th-tab-my-tasks', tab === 'my-tasks');
+    document.body.classList.toggle('th-tab-projects', tab === 'projects');
     document.getElementById('tab-projects').classList.toggle('active', tab === 'projects');
     document.getElementById('tab-my-tasks').classList.toggle('active', tab === 'my-tasks');
     document.getElementById('shell-projects').style.display = tab === 'projects' ? 'grid' : 'none';
