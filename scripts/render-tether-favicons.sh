@@ -6,7 +6,7 @@ IMG="$ROOT/img"
 cd "$IMG"
 
 if [[ -f tether-logo.png ]]; then
-  for size in 16 32 48 180 192 512; do
+  for size in 16 32 48 96 128 180 192 512; do
     convert tether-logo.png -resize "${size}x${size}" "tether-favicon-${size}.png"
   done
   if [[ -f tether-logo.svg ]]; then
@@ -16,11 +16,11 @@ if [[ -f tether-logo.png ]]; then
   fi
 else
   cp tether-logo.svg tether-favicon.svg
-  for size in 16 32 48 180; do
+  for size in 16 32 48 96 128 180 192 512; do
     npx --yes @resvg/resvg-js-cli --fit-width "$size" tether-logo.svg "tether-favicon-${size}.png"
   done
 fi
 
 convert tether-favicon-16.png tether-favicon-32.png tether-favicon-48.png tether-favicon.ico
-rm -f tether-favicon-16.png tether-favicon-48.png
+rm -f tether-favicon-16.png
 echo "Updated tether favicons from tether-logo.png or tether-logo.svg"
