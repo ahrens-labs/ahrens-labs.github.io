@@ -416,3 +416,46 @@ body.th-page main.th-main-wrap {
   width: 100%;
   box-sizing: border-box;
 }
+
+@media (max-width: 768px) {
+  header.th-app-header {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .th-app-topbar {
+    position: relative;
+    padding: 6px 0 10px;
+  }
+
+  .th-topbar-start {
+    max-width: calc(100% - 132px);
+    padding-right: 8px;
+  }
+
+  .th-topbar-auth {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-left: 0;
+    z-index: 2;
+    justify-content: flex-end;
+    max-width: min(56vw, 220px);
+  }
+
+  .th-topbar-username {
+    padding: 4px 0;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .th-topbar-auth-btn {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+}

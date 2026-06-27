@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627k">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627l">
   <link rel="icon" href="/img/tether-favicon.svg?v=15" type="image/svg+xml">
   <link rel="icon" type="image/png" sizes="192x192" href="/img/tether-favicon-192.png?v=15">
   <link rel="icon" type="image/png" sizes="128x128" href="/img/tether-favicon-128.png?v=15">
@@ -150,8 +150,21 @@
       min-width: 0;
     }
     @media (max-width: 900px) {
-      .th-shell { grid-template-columns: 1fr; }
+      .th-shell { grid-template-columns: 1fr; min-height: 0; }
       .th-sidebar { order: 2; }
+      #main-panel.th-main { min-height: 0; padding: 14px 16px 10px; }
+      #main-panel .th-empty {
+        min-height: 0;
+        padding: 4px 0 10px;
+        gap: 8px;
+        justify-content: flex-start;
+      }
+      #main-panel .th-empty h3 { font-size: 1.05rem; }
+      #main-panel .th-empty p {
+        margin: 0;
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
     }
     .th-card {
       background: var(--th-card);
