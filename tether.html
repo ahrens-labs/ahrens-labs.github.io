@@ -886,11 +886,7 @@
     .th-settings-btn svg {
       width: 18px;
       height: 18px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      fill: currentColor;
     }
     .th-settings-group {
       margin: 0;
@@ -985,7 +981,7 @@
             <span></span><span></span><span></span>
           </button>
           <button type="button" class="th-settings-btn" id="btn-tether-settings" aria-label="Tether settings" title="Settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.94 3a8.994 8.994 0 0 0-1.41-4.86l1.52-1.52a1 1 0 1 0-1.41-1.41l-1.52 1.52A8.994 8.994 0 0 0 13 3.06V1h-2v2.06a8.994 8.994 0 0 0-4.86 1.41L4.62 2.95a1 1 0 1 0-1.41 1.41l1.52 1.52A8.994 8.994 0 0 0 3.06 11H1v2h2.06a8.994 8.994 0 0 0 1.41 4.86l-1.52 1.52a1 1 0 1 0 1.41 1.41l1.52-1.52A8.994 8.994 0 0 0 11 20.94V23h2v-2.06a8.994 8.994 0 0 0 4.86-1.41l1.52 1.52a1 1 0 1 0 1.41-1.41l-1.52-1.52A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06z"></path></svg>
           </button>
           <div class="th-topbar-brand">
             <img src="/img/tether-logo.png?v=17" alt="" width="44" height="44">
@@ -2795,7 +2791,7 @@
     const hideDue = section.key !== '__overdue__' && section.key !== '__none__';
     const tasksHtml = section.tasks.length
       ? `<div class="th-my-tasks-day-tasks">${section.tasks.map(t => renderMyTaskCard(t, { hideDue })).join('')}</div>`
-      : (tetherSettings.myTasksShowAllDays ? '<p class="th-my-tasks-day-empty">No tasks</p>' : '');
+      : '';
     return `<section class="th-my-tasks-day">
       <h4 class="${headCls}">${escapeHtml(section.label)}</h4>
       ${tasksHtml}
