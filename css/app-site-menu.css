@@ -355,3 +355,24 @@ body.th-page > footer,
 body.classify-app > footer {
   display: none;
 }
+
+/* App pages are not centered marketing layouts — pin chrome to the top */
+body.th-page,
+body.classify-app {
+  justify-content: flex-start;
+}
+
+body.th-page .wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+}
+
+body.th-page .push {
+  display: none;
+}
+
+body.th-page main.th-main-wrap {
+  gap: 0;
+}
