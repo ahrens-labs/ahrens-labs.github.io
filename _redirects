@@ -1,5 +1,4 @@
 /open-link.html /link/dashboard 302
 /open-link /link/dashboard 302
-/tether.html /tether/ 301
-/tether /tether/ 301
+/tether /tether.html 200
 /tether/ /tether.html 200
