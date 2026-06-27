@@ -24,7 +24,6 @@ const AHRENS_HEADER = `
     </div>
   </header>
 </div>
-<link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
 <script src="https://ahrenslabs.com/js/script.js"></script>
 <script src="https://ahrenslabs.com/js/link_auth.js"></script>
 <style>

@@ -86,7 +86,8 @@ export function layout(title: string, content: string): string {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260627d">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260627e">
   <style>
     .link-topbar-title { color: #16a34a; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -438,6 +439,22 @@ export function layout(title: string, content: string): string {
       .contact-name-abbr {
         display: inline;
       }
+    }
+    .th-site-menu nav ul,
+    .th-site-menu nav li {
+      list-style: none !important;
+    }
+    .th-site-menu nav a::before,
+    .th-site-menu nav a::after,
+    .th-site-menu nav > ul > li::after,
+    .th-site-menu nav li.nav-dropdown::after {
+      display: none !important;
+      content: none !important;
+    }
+    .th-site-menu nav a,
+    .th-site-menu nav a.active {
+      animation: none !important;
+      transform: none !important;
     }
   </style>
 </head>
