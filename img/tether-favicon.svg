@@ -1,28 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Tether">
   <defs>
-    <linearGradient id="th-arc" x1="32" y1="38" x2="32" y2="62" gradientUnits="userSpaceOnUse">
+    <linearGradient id="th-g" x1="32" y1="10" x2="32" y2="56" gradientUnits="userSpaceOnUse">
       <stop stop-color="#3b82f6"/>
+      <stop offset="0.55" stop-color="#2563eb"/>
       <stop offset="1" stop-color="#1e40af"/>
     </linearGradient>
-    <linearGradient id="th-check" x1="22" y1="18" x2="48" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#e0f2fe"/>
-      <stop offset="0.4" stop-color="#38bdf8"/>
-      <stop offset="1" stop-color="#0284c7"/>
-    </linearGradient>
   </defs>
-  <!-- tether arc -->
+  <!-- One piece: list card; bottom edge forms an attached check -->
   <path
-    d="M 11 43 Q 32 61 53 43"
-    stroke="url(#th-arc)"
-    stroke-width="7"
-    stroke-linecap="round"
-    fill="none"/>
-  <!-- task check -->
-  <path
-    d="M 20 29 L 29 38 L 48 19"
-    stroke="url(#th-check)"
-    stroke-width="6"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"/>
+    fill-rule="evenodd"
+    fill="url(#th-g)"
+    d="M 14 11
+       H 50
+       C 52.8 11 55 13.2 55 16
+       V 31
+       H 41
+       L 32 42
+       L 23 31
+       H 9
+       V 16
+       C 9 13.2 11.2 11 14 11
+       Z
+       M 17 18.5 H 47 V 22 H 17 V 18.5 Z
+       M 17 25 H 40 V 28.5 H 17 V 25 Z
+       M 17 31.5 H 33 V 35 H 17 V 31.5 Z"/>
 </svg>
