@@ -1,35 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Tether">
   <defs>
-    <linearGradient id="th-card" x1="32" y1="10" x2="32" y2="40" gradientUnits="userSpaceOnUse">
+    <linearGradient id="th-mark" x1="32" y1="4" x2="32" y2="56" gradientUnits="userSpaceOnUse">
       <stop stop-color="#3b82f6"/>
       <stop offset="0.55" stop-color="#2563eb"/>
       <stop offset="1" stop-color="#1d4ed8"/>
     </linearGradient>
-    <linearGradient id="th-shine" x1="32" y1="12" x2="32" y2="28" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#93c5fd" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#93c5fd" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="th-link" x1="14" y1="48" x2="50" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#60a5fa"/>
-      <stop offset="0.5" stop-color="#2563eb"/>
-      <stop offset="1" stop-color="#60a5fa"/>
-    </linearGradient>
   </defs>
-  <!-- connection arc (tether between tasks) -->
-  <path d="M14 47 Q32 58 50 47" stroke="url(#th-link)" stroke-width="3.25" stroke-linecap="round" fill="none"/>
-  <!-- anchor nodes -->
-  <circle cx="14" cy="47" r="5.25" fill="#1e40af"/>
-  <circle cx="50" cy="47" r="5.25" fill="#1e40af"/>
-  <circle cx="14" cy="46" r="1.75" fill="#93c5fd" opacity="0.55"/>
-  <circle cx="50" cy="46" r="1.75" fill="#93c5fd" opacity="0.55"/>
-  <!-- task card -->
-  <rect x="16" y="11" width="32" height="30" rx="8" fill="url(#th-card)"/>
-  <rect x="16" y="11" width="32" height="12" rx="8" fill="url(#th-shine)"/>
-  <!-- list lines -->
-  <rect x="22" y="18" width="14" height="2.5" rx="1.25" fill="#bfdbfe" opacity="0.85"/>
-  <rect x="22" y="24" width="20" height="2.5" rx="1.25" fill="#dbeafe" opacity="0.7"/>
-  <!-- check -->
-  <path d="M24.5 33.5 L28.5 37.5 L39.5 26.5" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- active accent -->
-  <circle cx="42" cy="17" r="3" fill="#ea580c"/>
+  <path fill="url(#th-mark)" d="M32 54
+    C11 54 8 30 8 22
+    C8 9 18 4 26 18
+    L32 30
+    L38 18
+    C46 4 56 9 56 22
+    C56 30 53 54 32 54Z"/>
 </svg>
