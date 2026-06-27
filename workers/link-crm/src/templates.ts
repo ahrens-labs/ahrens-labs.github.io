@@ -32,7 +32,7 @@ function linkHamburgerButton(light = false): string {
 
 function linkNavLogo(href: string, style = '', lightHamburger = false): string {
   const styleAttr = style ? ` style="${style}"` : ''
-  return `<div class="nav-leading">${linkHamburgerButton(lightHamburger)}<a href="${href}" class="logo"${styleAttr}>link</a></div>`
+  return `<div class="nav-leading">${linkHamburgerButton(lightHamburger)}<a href="${href}" class="link-nav-brand"${styleAttr}><img src="/icon-192.png" alt="" width="32" height="32" class="link-nav-logo-img"><span class="logo">link</span></a></div>`
 }
 
 function linkSiteMenuHtml(): string {
@@ -47,6 +47,9 @@ function linkSiteMenuHtml(): string {
       <button type="button" class="link-site-menu-close" id="link-site-menu-close" aria-label="Close menu">&times;</button>
     </div>
     <nav><ul></ul></nav>
+    <div class="link-site-menu-footer">
+      <a href="/auth/signout" class="link-site-menu-signout al-site-menu-signout">Sign Out</a>
+    </div>
   </div>`
 }
 
@@ -116,6 +119,7 @@ export function layout(title: string, content: string): string {
       color: #fff; box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
       transform: translateX(-105%); transition: transform 0.22s ease;
       overflow-y: auto; padding: 0 0 24px;
+      display: flex; flex-direction: column;
     }
     .link-site-menu.open { transform: translateX(0); }
     .link-site-menu-head {
@@ -133,16 +137,22 @@ export function layout(title: string, content: string): string {
       cursor: pointer;
     }
     .link-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
-    .link-site-menu nav { padding: 12px 10px 0; }
+    .link-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
     .link-site-menu nav > ul {
       display: flex; flex-direction: column; align-items: stretch; gap: 2px;
       list-style: none; margin: 0; padding: 0;
     }
     .link-site-menu nav > ul > li { margin: 0; width: 100%; }
+    .link-site-menu nav .nav-caret { display: none; }
+    .link-site-menu-footer {
+      margin-top: auto; padding: 12px 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .link-site-menu-signout,
     .link-site-menu nav a {
       display: block; padding: 0.65em 0.85em; border-radius: 10px; color: rgba(255, 255, 255, 0.92);
       text-decoration: none; font-size: 0.92rem; font-weight: 600; text-align: left;
     }
+    .link-site-menu-signout:hover,
     .link-site-menu nav a:hover,
     .link-site-menu nav a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
     .link-site-menu nav ul.nav-dropdown-menu {
@@ -154,6 +164,10 @@ export function layout(title: string, content: string): string {
     }
     .link-site-menu nav .nav-caret { display: none; }
     body.link-site-menu-open { overflow: hidden; }
+    .link-nav-brand {
+      display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none;
+    }
+    .link-nav-logo-img { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; }
     .logo { 
       font-size: 1.75rem; 
       font-weight: 700; 
@@ -161,7 +175,9 @@ export function layout(title: string, content: string): string {
       text-decoration: none; 
       letter-spacing: -0.025em;
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1;
     }
+    .link-nav-brand .logo { color: inherit; }
     .btn { 
       padding: 0.5rem 1rem; 
       border-radius: 0.5rem; 
@@ -1216,7 +1232,6 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
           ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
       </nav>
@@ -1293,7 +1308,6 @@ export function newReminderPage(user: any, contacts: any[]): string {
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -1387,7 +1401,6 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -1750,7 +1763,6 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false): str
           ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
       </nav>
@@ -1812,7 +1824,6 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
-            <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
       </nav>
@@ -1893,7 +1904,6 @@ export function newContactPage(): string {
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -1978,7 +1988,6 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="margin-top: 2rem;">
@@ -2218,7 +2227,6 @@ export function editContactPage(contact: any): string {
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -2328,7 +2336,6 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -2457,7 +2464,6 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
     <div class="nav">
       <div class="nav-content">
         ${linkNavLogo('/dashboard')}
-        <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
@@ -3181,7 +3187,6 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
           ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
           </div>
         </div>
       </nav>

@@ -1,0 +1,27 @@
+{
+  "id": "ahrenslabs-tether",
+  "name": "Tether",
+  "short_name": "Tether",
+  "description": "Tether — project and task management by Ahrens Labs.",
+  "start_url": "/tether/",
+  "scope": "/tether/",
+  "display": "standalone",
+  "background_color": "#eef2f7",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "categories": ["productivity"],
+  "icons": [
+    {
+      "src": "/img/tether-favicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/tether-favicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

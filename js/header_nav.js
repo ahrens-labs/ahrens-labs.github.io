@@ -44,7 +44,7 @@
       children: [
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
         { id: 'classify', label: 'Classify Planner', href: 'classify.html' },
-        { id: 'tether', label: 'Tether', href: 'tether.html' },
+        { id: 'tether', label: 'Tether', href: '/tether/' },
         { id: 'link', label: 'Link', href: '/link/dashboard' },
         { id: 'digest', label: 'Digest', href: 'digest.html' },
         { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
@@ -237,6 +237,10 @@
 
     if (item.id === 'link') {
       return path.includes('/link');
+    }
+
+    if (item.id === 'tether') {
+      return path === '/tether' || path === '/tether/' || current === 'tether.html';
     }
 
     const base = hrefBasename(item.href);
@@ -445,7 +449,7 @@
     });
     if (closeBtn) closeBtn.addEventListener('click', closeMenu);
     if (backdrop) backdrop.addEventListener('click', closeMenu);
-    menu.querySelectorAll('nav a').forEach((a) => {
+    menu.querySelectorAll('nav a, .al-site-menu-signout').forEach((a) => {
       a.addEventListener('click', closeMenu);
     });
     document.addEventListener('keydown', (e) => {

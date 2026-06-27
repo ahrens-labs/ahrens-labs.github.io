@@ -23,6 +23,9 @@ const PROTECTED_PAGE_BASENAMES = [
 
 // Check if current page requires login
 function requiresLogin() {
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/link' || path.startsWith('/link/')) return true;
+    if (path === '/tether' || path === '/tether/') return true;
     const currentPage = window.location.pathname.split('/').pop() || '';
     const normalizedPage = currentPage.toLowerCase().replace(/\.html$/, '');
     return PROTECTED_PAGE_BASENAMES.includes(normalizedPage);
@@ -44,6 +47,7 @@ function resolveHeaderAuthGuest() {
     if (loginBtn) loginBtn.style.display = 'block';
     if (signupBtn) signupBtn.style.display = 'block';
     if (usernameSpan) usernameSpan.style.display = 'none';
+    setSiteMenuSignOutVisible(false);
     document.documentElement.classList.add('header-auth-ready');
 }
 
@@ -57,7 +61,14 @@ function resolveHeaderAuthUser(displayName) {
         usernameSpan.style.display = 'inline-block';
         usernameSpan.textContent = displayName || 'Signed in';
     }
+    setSiteMenuSignOutVisible(true);
     document.documentElement.classList.add('header-auth-ready');
+}
+
+function setSiteMenuSignOutVisible(visible) {
+    document.querySelectorAll('.al-site-menu-signout').forEach(function (el) {
+        el.style.display = visible ? 'block' : 'none';
+    });
 }
 
 function resolveHeaderAuthNone() {
@@ -67,6 +78,12 @@ function resolveHeaderAuthNone() {
 // Check login status on page load
 window.addEventListener('DOMContentLoaded', () => {
     checkLoginStatus();
+    document.querySelectorAll('.al-site-menu-signout[href="#"]').forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.preventDefault();
+            handleLogout();
+        });
+    });
 
     // account.html and account-dashboard.html stay usable while signed in (no auto-redirect to home).
 });
@@ -79,12 +96,16 @@ async function checkLoginStatus() {
     const signupBtn = document.getElementById('header-signup-btn');
 
     if (!loginBtn || !signupBtn) {
+        if (sessionId) {
+            resolveHeaderAuthUser(username);
+        } else {
+            resolveHeaderAuthGuest();
+        }
         if (!sessionId && requiresLogin()) {
             console.log('Not logged in on protected page (no header), redirecting...');
             const currentPage = getCurrentPageReturnTarget();
             window.location.href = `account.html?return=${currentPage}`;
         }
-        resolveHeaderAuthNone();
         return;
     }
 
@@ -165,3 +186,5 @@ async function handleLogout() {
 
     window.location.href = 'account.html';
 }
+
+window.handleLogout = handleLogout;

@@ -44,7 +44,7 @@ export function linkPwaPaths(request: Request): {
       base,
       startUrl: `${base}/dashboard`,
       scope: `${base}/`,
-      manifestId: `${base}/`,
+      manifestId: 'ahrenslabs-link',
     }
   }
   return {

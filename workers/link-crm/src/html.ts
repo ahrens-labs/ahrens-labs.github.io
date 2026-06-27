@@ -101,6 +101,7 @@ export function rewriteLinkHtml(html: string, basePath: string, request: Request
 
   let out = html
     .replace(/href="\//g, `href="${basePath}/`)
+    .replace(/src="\//g, `src="${basePath}/`)
     .replace(/action="\//g, `action="${basePath}/`)
     .replace(/fetch\('\//g, `fetch('${basePath}/`)
     .replace(/fetch\("\//g, `fetch("${basePath}/`)
