@@ -12,6 +12,13 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png">
   <link rel="icon" href="/img/tether-favicon.ico" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png">
+  <link rel="manifest" href="/tether/manifest.webmanifest">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tether">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="application-name" content="Tether">
   <script src="js/script.js"></script>
   <script src="js/header_nav.js"></script>
   <style>
@@ -44,6 +51,20 @@
     .th-app-topbar {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
       padding: 10px 0 12px; margin-bottom: 0;
+    }
+    .th-topbar-start {
+      display: flex; align-items: center; gap: 10px; min-width: 0;
+    }
+    .th-topbar-brand {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .th-topbar-brand img {
+      width: 32px; height: 32px; flex-shrink: 0;
+    }
+    .th-topbar-title {
+      margin: 0;
+      font-family: Orbitron, Inter, sans-serif;
+      font-size: 1.1rem; font-weight: 900; color: var(--th-ink); line-height: 1;
     }
     .th-hamburger {
       display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
@@ -115,26 +136,6 @@
     }
     .th-site-menu nav .nav-caret { display: none; }
     body.th-site-menu-open { overflow: hidden; }
-    .th-hero {
-      margin: 0 0 10px;
-      padding: 14px 16px 12px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #ffffff 0%, #eff6ff 55%, #fff7ed 100%);
-      border: 1px solid var(--th-line);
-      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
-      text-align: center;
-    }
-    .th-hero h1 {
-      margin: 0 0 2px;
-      font-family: Orbitron, Inter, sans-serif;
-      font-size: clamp(1.15rem, 2.5vw, 1.45rem);
-      font-weight: 900;
-      color: var(--th-ink);
-    }
-    .th-hero p {
-      margin: 0 auto; color: var(--th-muted); max-width: 52rem; line-height: 1.45; font-size: 0.88rem;
-      text-align: center;
-    }
     .th-app-tabs {
       display: flex; gap: 6px; margin-bottom: 10px;
     }
@@ -152,12 +153,6 @@
     .th-sidebar-sort select {
       border: 1px solid var(--th-line); border-radius: 8px; padding: 4px 8px;
       font: inherit; font-size: 0.72rem; background: #fff;
-    }
-    .th-hero-logo {
-      display: block;
-      width: 40px;
-      height: 40px;
-      margin: 0 auto 8px;
     }
     .th-shell {
       display: grid;
@@ -914,9 +909,15 @@
   <div class="wrapper">
     <header class="th-app-header">
       <div class="th-app-topbar">
-        <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
-          <span></span><span></span><span></span>
-        </button>
+        <div class="th-topbar-start">
+          <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="th-topbar-brand">
+            <img src="img/tether-logo.svg" alt="" width="32" height="32">
+            <h1 class="th-topbar-title">Tether</h1>
+          </div>
+        </div>
         <div class="th-topbar-auth" id="header-auth-buttons">
           <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html'">Login</button>
           <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html'">Sign Up</button>
@@ -939,12 +940,6 @@
     </header>
 
     <main class="th-main-wrap">
-      <section class="th-hero">
-        <img src="img/tether-logo.svg" alt="" class="th-hero-logo" width="40" height="40">
-        <h1>Tether</h1>
-        <p>Track what you're building — one place for the goal, the tasks, who's on what, and when things are due. Share a project with anyone on Ahrens Labs to stay aligned while you ship.</p>
-      </section>
-
       <div id="th-banner" class="th-banner"></div>
 
       <div class="th-app-tabs">
@@ -4631,6 +4626,14 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+  </script>
+  <script>
+  (function () {
+    if (!('serviceWorker' in navigator)) return;
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/tether/sw.js', { scope: '/tether/' }).catch(function () {});
+    });
+  })();
   </script>
 </body>
 </html>
