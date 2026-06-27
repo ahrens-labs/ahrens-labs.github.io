@@ -1457,21 +1457,47 @@
   const TETHER_SETTINGS_KEY = 'tether_settings';
   const defaultTetherSettings = { myTasksShowAllDays: false };
 
-  function loadTetherSettings() {
+  function normalizeTetherSettings(raw) {
+    const settings = { ...defaultTetherSettings };
+    if (raw && typeof raw === 'object' && typeof raw.myTasksShowAllDays === 'boolean') {
+      settings.myTasksShowAllDays = raw.myTasksShowAllDays;
+    }
+    return settings;
+  }
+
+  async function loadTetherSettings() {
+    if (!sessionId) return { ...defaultTetherSettings };
     try {
-      const raw = localStorage.getItem(TETHER_SETTINGS_KEY);
-      if (!raw) return { ...defaultTetherSettings };
-      return { ...defaultTetherSettings, ...JSON.parse(raw) };
+      const data = await api('/api/tether/settings', { method: 'GET' });
+      let settings = normalizeTetherSettings(data.settings);
+      try {
+        const raw = localStorage.getItem(TETHER_SETTINGS_KEY);
+        if (raw) {
+          const local = normalizeTetherSettings(JSON.parse(raw));
+          if (local.myTasksShowAllDays && !settings.myTasksShowAllDays) {
+            settings = local;
+            await saveTetherSettings(settings);
+          }
+          localStorage.removeItem(TETHER_SETTINGS_KEY);
+        }
+      } catch {}
+      return settings;
     } catch {
       return { ...defaultTetherSettings };
     }
   }
 
-  function saveTetherSettings() {
-    localStorage.setItem(TETHER_SETTINGS_KEY, JSON.stringify(tetherSettings));
+  async function saveTetherSettings(nextSettings) {
+    if (!sessionId) return;
+    tetherSettings = normalizeTetherSettings(nextSettings || tetherSettings);
+    const data = await api('/api/tether/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ settings: tetherSettings }),
+    });
+    tetherSettings = normalizeTetherSettings(data.settings || tetherSettings);
   }
 
-  let tetherSettings = loadTetherSettings();
+  let tetherSettings = { ...defaultTetherSettings };
   let ganttTodayLeft = 0;
   let ganttShowCompleted = false;
   let myTasksLabelFilter = null;
@@ -2946,8 +2972,10 @@
   function applyMyTasksDaySetting(value) {
     const showAllDays = value === 'all-days';
     if (tetherSettings.myTasksShowAllDays === showAllDays) return;
-    tetherSettings.myTasksShowAllDays = showAllDays;
-    saveTetherSettings();
+    tetherSettings = { ...tetherSettings, myTasksShowAllDays: showAllDays };
+    saveTetherSettings(tetherSettings).catch((e) => {
+      showBanner(e.message || 'Could not save settings');
+    });
     if (appTab === 'my-tasks') renderMyTasksView();
   }
 
@@ -4438,7 +4466,7 @@
     }
     try {
       initLabelColorPopover();
-      const jobs = [loadUser(), loadProjects(), loadLabelColors()];
+      const jobs = [loadUser(), loadProjects(), loadLabelColors(), loadTetherSettings().then(s => { tetherSettings = s; })];
       if (projectId && onProjects) jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
       if (onMyTasks) {

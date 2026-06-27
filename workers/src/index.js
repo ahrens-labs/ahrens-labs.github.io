@@ -9892,6 +9892,17 @@ export class UserAccount {
         return new Response(JSON.stringify({ labelColors: saved }), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getTetherSettings' && request.method === 'GET') {
+        const settings = await this.getTetherSettings();
+        return new Response(JSON.stringify({ settings }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/saveTetherSettings' && request.method === 'PUT') {
+        const { settings } = await request.json();
+        const saved = await this.saveTetherSettings(settings);
+        return new Response(JSON.stringify({ settings: saved }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/debug' && request.method === 'GET') {
         const allKeys = await this.storage.list();
         const userData = await this.storage.get('userData');
@@ -10001,6 +10012,7 @@ export class UserAccount {
         projectIds: [],
         inboxTasks: [],
         labelColors: {},
+        settings: {},
       }
     };
 
@@ -10055,7 +10067,7 @@ export class UserAccount {
     const userData = await this.storage.get('userData');
     if (!userData) throw new Error('Account not found');
     if (!userData.tether || typeof userData.tether !== 'object') {
-      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {} };
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {}, settings: {} };
     }
     userData.tether.inboxTasks = Array.isArray(tasks) ? tasks : [];
     await this.storage.put('userData', userData);
@@ -10074,11 +10086,34 @@ export class UserAccount {
     const userData = await this.storage.get('userData');
     if (!userData) throw new Error('Account not found');
     if (!userData.tether || typeof userData.tether !== 'object') {
-      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {} };
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {}, settings: {} };
     }
     userData.tether.labelColors = labelColors && typeof labelColors === 'object' ? labelColors : {};
     await this.storage.put('userData', userData);
     return userData.tether.labelColors;
+  }
+
+  async getTetherSettings() {
+    const userData = await this.storage.get('userData');
+    if (!userData || !userData.tether || typeof userData.tether.settings !== 'object') {
+      return {};
+    }
+    return userData.tether.settings;
+  }
+
+  async saveTetherSettings(settings) {
+    const userData = await this.storage.get('userData');
+    if (!userData) throw new Error('Account not found');
+    if (!userData.tether || typeof userData.tether !== 'object') {
+      userData.tether = { projectIds: [], inboxTasks: [], labelColors: {}, settings: {} };
+    }
+    const next = {};
+    if (settings && typeof settings === 'object' && typeof settings.myTasksShowAllDays === 'boolean') {
+      next.myTasksShowAllDays = settings.myTasksShowAllDays;
+    }
+    userData.tether.settings = next;
+    await this.storage.put('userData', userData);
+    return userData.tether.settings;
   }
 
   async authenticate(password) {

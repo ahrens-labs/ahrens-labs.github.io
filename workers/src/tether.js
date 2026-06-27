@@ -153,6 +153,44 @@ async function saveLabelColors(env, userId, labelColors) {
   return data.labelColors && typeof data.labelColors === 'object' ? data.labelColors : labelColors;
 }
 
+const DEFAULT_TETHER_SETTINGS = { myTasksShowAllDays: false };
+
+function normalizeTetherSettings(raw) {
+  const settings = { ...DEFAULT_TETHER_SETTINGS };
+  if (raw && typeof raw === 'object' && typeof raw.myTasksShowAllDays === 'boolean') {
+    settings.myTasksShowAllDays = raw.myTasksShowAllDays;
+  }
+  return settings;
+}
+
+async function getTetherSettings(env, userId) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) return { ...DEFAULT_TETHER_SETTINGS };
+  const res = await stub.fetch(new Request('http://do/getTetherSettings', { method: 'GET' }));
+  if (!res.ok) return { ...DEFAULT_TETHER_SETTINGS };
+  try {
+    const data = await res.json();
+    return normalizeTetherSettings(data.settings);
+  } catch {
+    return { ...DEFAULT_TETHER_SETTINGS };
+  }
+}
+
+async function saveTetherSettings(env, userId, settings) {
+  const stub = userAccountStub(env, userId);
+  if (!stub) throw new Error('Account not found');
+  const normalized = normalizeTetherSettings(settings);
+  const res = await stub.fetch(
+    new Request('http://do/saveTetherSettings', {
+      method: 'PUT',
+      body: JSON.stringify({ settings: normalized }),
+    })
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save settings');
+  return normalizeTetherSettings(data.settings);
+}
+
 function enrichTaskWithDeps(task, allTasks) {
   const byId = new Map(allTasks.map((t) => [t.id, t]));
   const depIds = task.dependsOnTaskIds || [];
@@ -440,6 +478,17 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     }
     const saved = await saveLabelColors(env, userId, labelColors);
     return jsonResponse({ labelColors: saved }, corsHeaders);
+  }
+
+  if (path === '/api/tether/settings' && request.method === 'GET') {
+    const settings = await getTetherSettings(env, userId);
+    return jsonResponse({ settings }, corsHeaders);
+  }
+
+  if (path === '/api/tether/settings' && request.method === 'PUT') {
+    const body = await request.json();
+    const saved = await saveTetherSettings(env, userId, body.settings);
+    return jsonResponse({ settings: saved }, corsHeaders);
   }
 
   if (path === '/api/tether/inbox/move-to-project' && request.method === 'POST') {
