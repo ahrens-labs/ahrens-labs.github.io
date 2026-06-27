@@ -10,7 +10,10 @@
 }
 
 header.th-app-header {
+  position: sticky;
+  top: 0;
   padding: 0 1rem;
+  padding-top: env(safe-area-inset-top, 0px);
   background: #fff;
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: none;
@@ -26,7 +29,7 @@ header.th-app-header::before {
 }
 
 .dark header.th-app-header {
-  background: transparent;
+  background: #0f172a;
   border-bottom-color: rgba(51, 65, 85, 0.6);
 }
 
