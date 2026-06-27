@@ -843,11 +843,11 @@
       <div id="th-banner" class="th-banner"></div>
 
       <div class="th-app-tabs">
-        <button type="button" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
-        <button type="button" class="active" id="tab-projects" data-app-tab="projects">My Projects</button>
+        <button type="button" class="active" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
+        <button type="button" id="tab-projects" data-app-tab="projects">My Projects</button>
       </div>
 
-      <div class="th-shell" id="shell-projects">
+      <div class="th-shell" id="shell-projects" style="display:none;">
         <aside class="th-card th-sidebar">
           <div class="th-sidebar-head">
             <h2>My projects</h2>
@@ -903,7 +903,7 @@
         </section>
       </div>
 
-      <section class="th-card th-main" id="my-tasks-panel" style="display:none;padding:14px 16px;">
+      <section class="th-card th-main" id="my-tasks-panel" style="padding:14px 16px;">
         <div class="th-toolbar">
           <h2>My Tasks</h2>
           <div class="th-toolbar-actions">
@@ -1205,7 +1205,7 @@
   let projects = [];
   let activeProject = null;
   let viewMode = 'list';
-  let appTab = 'projects';
+  let appTab = 'my-tasks';
   let projectSort = 'alpha';
   let myTasks = [];
   let personalTasks = [];
@@ -1651,6 +1651,16 @@
         openLabelColorPopover(chip.getAttribute('data-label-name'), chip);
       });
     });
+  }
+
+  function recurrenceLabelShort(task) {
+    if (!task?.recurrence) return '';
+    const iv = task.recurrenceInterval || 1;
+    if (task.recurrence === 'daily') return iv === 1 ? 'Daily' : `Every ${iv} days`;
+    if (task.recurrence === 'weekly') return iv === 1 ? 'Weekly' : `Every ${iv} weeks`;
+    if (task.recurrence === 'monthly') return iv === 1 ? 'Monthly' : `Every ${iv} months`;
+    if (task.recurrence === 'yearly') return iv === 1 ? 'Yearly' : `Every ${iv} years`;
+    return task.recurrence;
   }
 
   function recurrenceLabel(taskOrRecurrence, recurrenceDay) {
@@ -2242,13 +2252,11 @@
     u.searchParams.delete('project');
     u.searchParams.delete('task');
     u.searchParams.delete('view');
-    if (state.view === 'my-tasks') {
+    if (state.view === 'my-tasks' || state.view === 'inbox') {
       u.searchParams.set('view', 'my-tasks');
       if (state.taskId) u.searchParams.set('task', state.taskId);
-    } else if (state.view === 'inbox') {
-      u.searchParams.set('view', 'my-tasks');
-      if (state.taskId) u.searchParams.set('task', state.taskId);
-    } else {
+    } else if (state.view === 'projects' || state.projectId) {
+      u.searchParams.set('view', 'projects');
       if (state.projectId) u.searchParams.set('project', state.projectId);
       if (state.taskId) u.searchParams.set('task', state.taskId);
     }
@@ -2275,11 +2283,11 @@
       if (!skipUrlSync) syncUrlState({ view: 'my-tasks' });
       if (!skipLoad) loadMyTasks();
     } else if (!skipUrlSync) {
-      if (activeProject) {
-        syncUrlState({ projectId: activeProject.id, taskId: viewingTaskId || null });
-      } else {
-        syncUrlState({});
-      }
+      syncUrlState({
+        view: 'projects',
+        projectId: activeProject?.id || null,
+        taskId: viewingTaskId || null,
+      });
     }
   }
 
@@ -2425,7 +2433,7 @@
         ${completeBtnHtml(t.id, st, true, blocked, t.projectId)}
         <h3 class="th-my-task-title">${formatTaskTitleHtml(t)}</h3>
         <div class="th-my-task-badges">
-          ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabel(t))}</span>` : ''}
+          ${t.recurrence ? `<span class="th-recurrence-badge">↻ ${escapeHtml(recurrenceLabelShort(t))}</span>` : ''}
           ${showDue ? `<span class="th-task-due-badge${dueCls}">${dueText}</span>` : ''}
         </div>
       </div>
@@ -2613,7 +2621,7 @@
       else projects.push(listItem);
       writeProjectsCache(projects);
       renderProjectView();
-      syncUrlState({ projectId: activeProject.id, taskId: taskIdFromUrl || viewingTaskId || null });
+      syncUrlState({ view: 'projects', projectId: activeProject.id, taskId: taskIdFromUrl || viewingTaskId || null });
       renderProjectList();
       if (taskIdFromUrl) openTaskEditor(taskIdFromUrl);
     } catch (e) {
@@ -2716,7 +2724,7 @@
     if (activeProject && activeProject.id === projectId) {
       activeProject = null;
       viewingTaskId = null;
-      syncUrlState({});
+      syncUrlState({ view: 'projects' });
       document.getElementById('empty-state').style.display = 'flex';
       document.getElementById('project-view').style.display = 'none';
     }
@@ -3675,8 +3683,8 @@
     editingTaskId = null;
     viewingTaskFromMyTasks = false;
     if (wasMyTasks) syncUrlState({ view: 'my-tasks' });
-    else if (activeProject) syncUrlState({ projectId: activeProject.id, taskId: null });
-    else syncUrlState({});
+    else if (activeProject) syncUrlState({ view: 'projects', projectId: activeProject.id, taskId: null });
+    else syncUrlState({ view: 'projects' });
   }
 
   function openDeleteTaskModal(taskId, taskTitle) {
@@ -3810,9 +3818,9 @@
       if (viewingTaskFromMyTasks || appTab === 'my-tasks') {
         syncUrlState({ view: 'my-tasks', taskId });
       } else if (activeProject) {
-        syncUrlState({ projectId: activeProject.id, taskId });
+        syncUrlState({ view: 'projects', projectId: activeProject.id, taskId });
       } else if (viewingTaskSourceProjectId) {
-        syncUrlState({ projectId: viewingTaskSourceProjectId, taskId });
+        syncUrlState({ view: 'projects', projectId: viewingTaskSourceProjectId, taskId });
       }
     }
     const titleInput = document.getElementById('task-title-input');
@@ -3983,19 +3991,22 @@
     const projectId = params.get('project');
     const taskId = params.get('task');
     if (view === 'inbox') view = 'my-tasks';
-    if (view === 'my-tasks') {
+    const onMyTasks = view === 'my-tasks' || (!view && !projectId);
+    const onProjects = view === 'projects' || (!!projectId && view !== 'my-tasks');
+    if (onMyTasks) {
       setAppTab('my-tasks', { skipUrlSync: true, skipLoad: true });
-    } else if (projectId) {
+    } else if (onProjects) {
       setAppTab('projects', { skipUrlSync: true });
-      showProjectLoadingPreview(projectId);
+      if (projectId) showProjectLoadingPreview(projectId);
     }
     try {
       initLabelColorPopover();
       const jobs = [loadUser(), loadProjects(), loadLabelColors()];
-      if (projectId && view !== 'my-tasks') jobs.push(loadProject(projectId, taskId || null));
+      if (projectId && onProjects) jobs.push(loadProject(projectId, taskId || null));
       await Promise.all(jobs);
-      if (view === 'my-tasks') {
+      if (onMyTasks) {
         await loadMyTasks();
+        if (!view && !projectId) syncUrlState({ view: 'my-tasks' });
         if (taskId) {
           const mt = myTasks.find(t => t.id === taskId);
           if (mt) await openTaskEditor(taskId, { fromMyTasks: true, projectId: mt.projectId || null });
@@ -4113,7 +4124,7 @@
         activeProject = data.project;
         await loadProjects();
         renderProjectView();
-        syncUrlState({ projectId: activeProject.id, taskId: null });
+        syncUrlState({ view: 'projects', projectId: activeProject.id, taskId: null });
         showBanner('Project created', 'ok');
       } else {
         activeProject.title = title;
