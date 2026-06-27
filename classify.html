@@ -13,7 +13,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <script src="js/script.js"></script>
-  <script src="js/header_nav.js?v=20260627b"></script>
+  <script src="js/header_nav.js?v=20260627c"></script>
     
     <script>
         tailwind.config = {
@@ -123,7 +123,8 @@
         }
         header.th-app-header {
             padding: 0 1rem;
-            background: transparent;
+            background: #fff;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             box-shadow: none;
             backdrop-filter: none;
             display: block;
@@ -219,6 +220,9 @@
             font-weight: 600;
             font-size: 0.85rem;
             font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+            line-height: 1.25;
         }
         .th-topbar-auth-login { background: #3498db; color: #fff; }
         .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
@@ -358,6 +362,10 @@
             color: #fff;
         }
         body.th-site-menu-open { overflow: hidden; }
+        .dark header.th-app-header {
+            background: transparent;
+            border-bottom-color: rgba(51, 65, 85, 0.6);
+        }
         body.classify-app header.th-app-header {
             z-index: 40;
         }
@@ -546,7 +554,7 @@
     </style>
 </head>
 <body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen">
-    <header class="th-app-header border-b border-slate-200/80 dark:border-slate-700/60">
+    <header class="th-app-header">
         <div class="th-app-topbar">
             <div class="th-topbar-start">
                 <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">

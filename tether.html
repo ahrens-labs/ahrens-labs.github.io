@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="application-name" content="Tether">
   <script src="js/script.js"></script>
-  <script src="js/header_nav.js?v=20260627b"></script>
+  <script src="js/header_nav.js?v=20260627c"></script>
   <style>
     :root {
       --th-ink: #0f172a;
@@ -45,7 +45,8 @@
     body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 16px; }
     header.th-app-header {
       padding: 0 1rem;
-      background: transparent;
+      background: #fff;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
       box-shadow: none;
       backdrop-filter: none;
       display: block;
@@ -141,6 +142,9 @@
       font-weight: 600;
       font-size: 0.85rem;
       font-family: inherit;
+      text-decoration: none;
+      display: inline-block;
+      line-height: 1.25;
     }
     .th-topbar-auth-login { background: #3498db; color: #fff; }
     .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
@@ -1055,7 +1059,7 @@
 </head>
 <body class="th-page">
   <div class="wrapper">
-    <header class="th-app-header border-b border-slate-200/80 dark:border-slate-700/60">
+    <header class="th-app-header">
       <div class="th-app-topbar">
         <div class="th-topbar-start">
           <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">

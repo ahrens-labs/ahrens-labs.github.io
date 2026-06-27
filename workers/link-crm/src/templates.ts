@@ -33,7 +33,8 @@ const SITE_MENU_STYLES = `
     }
     header.th-app-header {
       padding: 0 1rem;
-      background: transparent;
+      background: #fff;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
       box-shadow: none;
       backdrop-filter: none;
       display: block;
@@ -129,6 +130,9 @@ const SITE_MENU_STYLES = `
       font-weight: 600;
       font-size: 0.85rem;
       font-family: inherit;
+      text-decoration: none;
+      display: inline-block;
+      line-height: 1.25;
     }
     .th-topbar-auth-login { background: #3498db; color: #fff; }
     .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
@@ -280,7 +284,7 @@ function linkAppHeader(authRight = ''): string {
                 ${authRight}
             </div>`
     : ''
-  return `    <header class="th-app-header border-b border-slate-200/80 dark:border-slate-700/60">
+  return `<header class="th-app-header">
         <div class="th-app-topbar">
             <div class="th-topbar-start">
                 <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
@@ -688,7 +692,7 @@ export function layout(title: string, content: string): string {
 <body>
   ${content}
   
-  <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627b"></script>
+  <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627c"></script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
@@ -1105,8 +1109,8 @@ function getVoiceAssistantScript(): string {
 export function landingPage(): string {
   return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
-    ${linkAppHeader(`<a href="/auth/signin" class="btn btn-secondary">Sign In</a>
-                <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>`)}
+    ${linkAppHeader(`<a href="/auth/signin" class="th-topbar-auth-btn th-topbar-auth-login">Login</a>
+                <a href="/auth/signup" class="th-topbar-auth-btn th-topbar-auth-signup">Sign Up</a>`)}
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
