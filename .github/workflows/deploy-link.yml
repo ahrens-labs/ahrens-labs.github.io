@@ -1,0 +1,32 @@
+# Deploy Link CRM worker when workers/link-crm changes.
+# REQUIRED: same CLOUDFLARE_API_TOKEN secret as deploy-pages.yml
+name: Deploy Link worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/link-crm/**'
+      - '.github/workflows/deploy-link.yml'
+  workflow_dispatch:
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Link worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7
+          workingDirectory: workers/link-crm
+          command: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 67e1b6f34b4b7cf8ed0d354dc5b2e9c7

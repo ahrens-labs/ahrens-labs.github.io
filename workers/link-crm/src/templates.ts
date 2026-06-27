@@ -268,36 +268,48 @@ const SITE_MENU_STYLES = `
       color: #fff;
     }
     body.th-site-menu-open { overflow: hidden; }
+    .link-topbar-title {
+      color: #16a34a;
+    }
 `
 
-function linkHamburgerButton(light = false): string {
-  const cls = light ? 'th-hamburger th-hamburger--light' : 'th-hamburger'
-  return `<button type="button" class="${cls}" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu"><span></span><span></span><span></span></button>`
-}
-
-function linkNavLogo(href: string, style = '', lightHamburger = false): string {
-  const styleAttr = style ? ` style="${style}"` : ''
-  return `<div class="nav-leading">${linkHamburgerButton(lightHamburger)}<a href="${href}" class="link-nav-brand"${styleAttr}><img src="/icon-192.png" alt="" width="32" height="32" class="link-nav-logo-img"><span class="logo">link</span></a></div>`
-}
-
-function linkSiteMenuHtml(): string {
-  return `
-  <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
-  <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
-    <div class="th-site-menu-head">
-      <a href="https://ahrenslabs.com/index.html" class="th-site-menu-brand">
-        <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" class="header-logo">
-        <span>Ahrens Labs</span>
-      </a>
-      <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
-    </div>
-    <nav>
-      <ul></ul>
-    </nav>
-    <div class="th-site-menu-footer">
-      <a href="/auth/signout" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
-    </div>
-  </div>`
+/** Same header + site menu markup as classify.html */
+function linkAppHeader(authRight = ''): string {
+  const authBlock = authRight
+    ? `            <div class="th-topbar-auth" id="header-auth-buttons">
+                ${authRight}
+            </div>`
+    : ''
+  return `    <header class="th-app-header border-b border-slate-200/80 dark:border-slate-700/60">
+        <div class="th-app-topbar">
+            <div class="th-topbar-start">
+                <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <div class="th-topbar-brand">
+                    <img src="/icon-192.png" alt="" width="32" height="32">
+                    <h1 class="th-topbar-title link-topbar-title">Link</h1>
+                </div>
+            </div>
+${authBlock}
+        </div>
+        <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+        <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+            <div class="th-site-menu-head">
+                <a href="https://ahrenslabs.com/index.html" class="th-site-menu-brand">
+                    <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" class="header-logo">
+                    <span>Ahrens Labs</span>
+                </a>
+                <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
+            </div>
+            <nav>
+                <ul></ul>
+            </nav>
+            <div class="th-site-menu-footer">
+                <a href="/auth/signout" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
+            </div>
+        </div>
+    </header>`
 }
 
 export function layout(title: string, content: string): string {
@@ -676,8 +688,7 @@ export function layout(title: string, content: string): string {
 <body>
   ${content}
   
-  ${linkSiteMenuHtml()}
-  <script src="https://ahrenslabs.com/js/header_nav.js"></script>
+  <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627b"></script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
@@ -1094,15 +1105,8 @@ function getVoiceAssistantScript(): string {
 export function landingPage(): string {
   return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
-      <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
-        <div class="nav-content">
-          ${linkNavLogo('/', 'color: white;', true)}
-          <div style="display: flex; gap: 0.5rem;">
-            <a href="/auth/signin" class="btn btn-secondary">Sign In</a>
-            <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>
-          </div>
-        </div>
-      </nav>
+    ${linkAppHeader(`<a href="/auth/signin" class="btn btn-secondary">Sign In</a>
+                <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>`)}
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
@@ -1142,6 +1146,7 @@ export function landingPage(): string {
 
 export function signinPage(error?: string): string {
   return layout('Sign In', `
+    ${linkAppHeader()}
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
@@ -1183,6 +1188,7 @@ export function signinPage(error?: string): string {
 
 export function signupPage(error?: string): string {
   return layout('Sign Up', `
+    ${linkAppHeader()}
     <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
       <div class="card" style="max-width: 400px; width: 100%;">
         <div style="text-align: center; margin-bottom: 2rem;">
@@ -1405,14 +1411,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
   
   return layout('Reminders', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1483,11 +1482,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
 
 export function newReminderPage(user: any, contacts: any[]): string {
   return layout('Add Reminder', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Reminder</h2>
@@ -1576,11 +1571,7 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
   const dateStr = new Date(reminder.date).toISOString().split('T')[0]
   
   return layout('Edit Reminder', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Edit Reminder</h2>
@@ -1936,14 +1927,7 @@ function getFooterLinks(): string {
 export function dashboardPage(user: any, hasGoogleAccount: boolean = false): string {
   return layout('Home', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
       
       <div class="container">
         <div class="grid grid-2" style="gap: 1rem; max-width: 800px; margin: 0 auto; margin-top: 2rem;">
@@ -1996,15 +1980,8 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
   return layout('People', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
+            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>`)}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -2079,11 +2056,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
 export function newContactPage(): string {
   return layout('Add Contact', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Contact</h2>
@@ -2163,11 +2136,7 @@ export function newContactPage(): string {
 
 export function contactDetailPage(contact: any, interactions: any[], dates: any[]): string {
   return layout(contact.name, `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/dashboard" style="color: #6b7280;">← Back to Dashboard</a>
@@ -2402,11 +2371,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
 
 export function editContactPage(contact: any): string {
   return layout('Edit Contact', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to Contact</a>
@@ -2511,11 +2476,7 @@ export function editContactPage(contact: any): string {
 
 export function editInteractionPage(contact: any, interaction: any, allContacts: any[]): string {
   return layout('Edit Interaction', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to ${contact.name}</a>
@@ -2639,11 +2600,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
 
 export function newInteractionPage(allContacts: any[], preselectedContactId?: string): string {
   return layout('Add Interaction', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader()}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/interactions" style="color: #6b7280;">← Back to Interactions</a>
@@ -2938,11 +2895,7 @@ export function newDatePage(contact: any): string {
   ];
   
   return layout(`Add Date - ${contact.name}`, `
-    <nav class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </nav>
+    ${linkAppHeader()}
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -2999,11 +2952,7 @@ export function editDatePage(contact: any, date: any): string {
   ];
   
   return layout(`Edit Date - ${contact.name}`, `
-    <nav class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </nav>
+    ${linkAppHeader()}
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -3360,14 +3309,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 
   return layout('Interactions', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -3576,14 +3518,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 export function privacyPolicyPage(user: any): string {
   return layout('Privacy Policy', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-left">
-          ${linkHamburgerButton()}
-          <a href="/dashboard" class="back-button">← Back</a>
-        </div>
-        <h1 class="nav-title">Privacy Policy</h1>
-        <div class="nav-right"></div>
-      </nav>
+      ${linkAppHeader(`<a href="/dashboard" class="back-button">← Back</a>`)}
       
       <div class="section">
         <div class="card">
@@ -3652,14 +3587,7 @@ export function privacyPolicyPage(user: any): string {
 export function termsOfServicePage(user: any): string {
   return layout('Terms of Service', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-left">
-          ${linkHamburgerButton()}
-          <a href="/dashboard" class="back-button">← Back</a>
-        </div>
-        <h1 class="nav-title">Terms of Service</h1>
-        <div class="nav-right"></div>
-      </nav>
+      ${linkAppHeader(`<a href="/dashboard" class="back-button">← Back</a>`)}
       
       <div class="section">
         <div class="card">
