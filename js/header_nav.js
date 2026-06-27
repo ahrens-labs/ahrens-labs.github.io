@@ -172,6 +172,21 @@
     return (window.location.pathname || '').toLowerCase();
   }
 
+  function isLinkAppContext() {
+    return getCurrentPathLower().startsWith('/link');
+  }
+
+  function resolveNavHref(href) {
+    const raw = String(href || '');
+    if (!isLinkAppContext()) return raw;
+    const clean = raw.split('?')[0].split('#')[0];
+    if (!clean || clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('/')) {
+      return raw;
+    }
+    const suffix = raw.slice(clean.length);
+    return '/' + clean.replace(/^\.\//, '') + suffix;
+  }
+
   function hrefBasename(href) {
     const clean = String(href || '').split('?')[0].split('#')[0];
     const parts = clean.split('/').filter(Boolean);
@@ -218,6 +233,10 @@
 
     if (item.id === 'digest') {
       return current === 'digest.html' || current === 'sports-digest.html';
+    }
+
+    if (item.id === 'link') {
+      return path.includes('/link');
     }
 
     const base = hrefBasename(item.href);
@@ -282,7 +301,7 @@
       if (isNavGroupActive({ ...entry, children })) li.classList.add('nav-dropdown--active');
 
       const trigger = document.createElement('a');
-      trigger.href = entry.href;
+      trigger.href = resolveNavHref(entry.href);
       trigger.className = 'nav-dropdown-trigger';
       if (isNavGroupActive({ ...entry, children })) trigger.classList.add('active');
       trigger.innerHTML =
@@ -294,7 +313,7 @@
       for (const child of children) {
         const childLi = document.createElement('li');
         const childA = document.createElement('a');
-        childA.href = child.href;
+        childA.href = resolveNavHref(child.href);
         childA.textContent = child.label;
         if (isNavLinkActive(child, entry.id)) childA.classList.add('active');
         childLi.appendChild(childA);
@@ -303,7 +322,7 @@
       li.appendChild(menu);
     } else {
       const a = document.createElement('a');
-      a.href = entry.href;
+      a.href = resolveNavHref(entry.href);
       a.textContent = entry.label;
       if (isNavLinkActive(entry, entry.id)) a.classList.add('active');
       li.appendChild(a);
@@ -378,18 +397,77 @@
   }
 
   function renderHeaderNav() {
-    const ul = document.querySelector('header nav ul');
-    if (!ul) return;
+    const uls = document.querySelectorAll('header nav ul, #th-site-menu nav ul, #link-site-menu nav ul');
+    if (!uls.length) return;
 
     const selectedIds = getStoredNavIds();
     const entries = deriveVisibleEntries(selectedIds);
     const selected = selectedIdSet(selectedIds);
 
-    ul.innerHTML = '';
-    for (const entry of entries) {
-      renderNavEntry(ul, entry, selected);
-    }
+    uls.forEach((ul) => {
+      ul.innerHTML = '';
+      for (const entry of entries) {
+        renderNavEntry(ul, entry, selected);
+      }
+    });
     wireHeaderDropdownHover();
+  }
+
+  function wireSiteMenu(config) {
+    const btn = document.getElementById(config.buttonId);
+    const menu = document.getElementById(config.menuId);
+    const backdrop = config.backdropId ? document.getElementById(config.backdropId) : null;
+    const closeBtn = config.closeId ? document.getElementById(config.closeId) : null;
+    if (!btn || !menu || btn.dataset.siteMenuWired === '1') return;
+    btn.dataset.siteMenuWired = '1';
+
+    const bodyClass = config.bodyClass || 'al-site-menu-open';
+
+    function closeMenu() {
+      menu.classList.remove('open');
+      menu.setAttribute('aria-hidden', 'true');
+      btn.setAttribute('aria-expanded', 'false');
+      if (backdrop) backdrop.hidden = true;
+      document.body.classList.remove(bodyClass);
+    }
+
+    function openMenu() {
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      btn.setAttribute('aria-expanded', 'true');
+      if (backdrop) backdrop.hidden = false;
+      document.body.classList.add(bodyClass);
+    }
+
+    btn.addEventListener('click', () => {
+      if (menu.classList.contains('open')) closeMenu();
+      else openMenu();
+    });
+    if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+    if (backdrop) backdrop.addEventListener('click', closeMenu);
+    menu.querySelectorAll('nav a').forEach((a) => {
+      a.addEventListener('click', closeMenu);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && menu.classList.contains('open')) closeMenu();
+    });
+  }
+
+  function wireSiteMenus() {
+    wireSiteMenu({
+      buttonId: 'th-site-menu-btn',
+      menuId: 'th-site-menu',
+      backdropId: 'th-site-menu-backdrop',
+      closeId: 'th-site-menu-close',
+      bodyClass: 'th-site-menu-open',
+    });
+    wireSiteMenu({
+      buttonId: 'link-site-menu-btn',
+      menuId: 'link-site-menu',
+      backdropId: 'link-site-menu-backdrop',
+      closeId: 'link-site-menu-close',
+      bodyClass: 'link-site-menu-open',
+    });
   }
 
   function escHtml(s) {
@@ -418,6 +496,7 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     renderHeaderNav();
+    wireSiteMenus();
   });
 
   window.addEventListener('storage', (ev) => {

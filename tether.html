@@ -4268,45 +4268,7 @@
     });
   });
 
-  function wireTetherSiteMenu() {
-    const btn = document.getElementById('th-site-menu-btn');
-    const menu = document.getElementById('th-site-menu');
-    const backdrop = document.getElementById('th-site-menu-backdrop');
-    const closeBtn = document.getElementById('th-site-menu-close');
-    if (!btn || !menu) return;
-
-    function closeMenu() {
-      menu.classList.remove('open');
-      menu.setAttribute('aria-hidden', 'true');
-      btn.setAttribute('aria-expanded', 'false');
-      if (backdrop) backdrop.hidden = true;
-      document.body.classList.remove('th-site-menu-open');
-    }
-
-    function openMenu() {
-      menu.classList.add('open');
-      menu.setAttribute('aria-hidden', 'false');
-      btn.setAttribute('aria-expanded', 'true');
-      if (backdrop) backdrop.hidden = false;
-      document.body.classList.add('th-site-menu-open');
-    }
-
-    btn.addEventListener('click', () => {
-      if (menu.classList.contains('open')) closeMenu();
-      else openMenu();
-    });
-    if (closeBtn) closeBtn.addEventListener('click', closeMenu);
-    if (backdrop) backdrop.addEventListener('click', closeMenu);
-    menu.querySelectorAll('nav a').forEach(a => {
-      a.addEventListener('click', closeMenu);
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && menu.classList.contains('open')) closeMenu();
-    });
-  }
-
   async function init() {
-    wireTetherSiteMenu();
     if (!sessionId) return;
     const cached = readProjectsCache();
     if (cached && cached.length) {

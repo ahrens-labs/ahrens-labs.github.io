@@ -25,6 +25,31 @@ function navUserLabel(user: { ahrens_username?: string | null }): string {
   return ''
 }
 
+function linkHamburgerButton(light = false): string {
+  const cls = light ? 'link-hamburger link-hamburger--light' : 'link-hamburger'
+  return `<button type="button" class="${cls}" id="link-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="link-site-menu"><span></span><span></span><span></span></button>`
+}
+
+function linkNavLogo(href: string, style = '', lightHamburger = false): string {
+  const styleAttr = style ? ` style="${style}"` : ''
+  return `<div class="nav-leading">${linkHamburgerButton(lightHamburger)}<a href="${href}" class="logo"${styleAttr}>link</a></div>`
+}
+
+function linkSiteMenuHtml(): string {
+  return `
+  <div id="link-site-menu-backdrop" class="link-site-menu-backdrop" hidden></div>
+  <div id="link-site-menu" class="link-site-menu" aria-hidden="true">
+    <div class="link-site-menu-head">
+      <a href="https://ahrenslabs.com/index.html" class="link-site-menu-brand">
+        <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" width="36" height="36">
+        <span>Ahrens Labs</span>
+      </a>
+      <button type="button" class="link-site-menu-close" id="link-site-menu-close" aria-label="Close menu">&times;</button>
+    </div>
+    <nav><ul></ul></nav>
+  </div>`
+}
+
 export function layout(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -58,7 +83,72 @@ export function layout(title: string, content: string): string {
     }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem; padding-bottom: 20px; }
     .nav { background: white; border-bottom: 1px solid #e5e7eb; padding: 1rem; }
-    .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+    .nav-leading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .link-hamburger {
+      display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+      width: 40px; height: 40px; padding: 0 10px; border: 1px solid #e5e7eb;
+      border-radius: 10px; background: #fff; cursor: pointer; flex-shrink: 0;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .link-hamburger:hover { border-color: #86efac; background: #f0fdf4; }
+    .link-hamburger span {
+      display: block; height: 2px; width: 100%; border-radius: 1px; background: #111827;
+    }
+    .link-hamburger--light {
+      background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.35);
+    }
+    .link-hamburger--light:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); }
+    .link-hamburger--light span { background: #fff; }
+    .link-site-menu-backdrop {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 19990;
+    }
+    .link-site-menu {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 20000;
+      width: min(320px, 88vw); max-width: 100%;
+      background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+      color: #fff; box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+      transform: translateX(-105%); transition: transform 0.22s ease;
+      overflow-y: auto; padding: 0 0 24px;
+    }
+    .link-site-menu.open { transform: translateX(0); }
+    .link-site-menu-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 16px 16px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .link-site-menu-brand {
+      display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none;
+      font-weight: 800; font-size: 1.05rem;
+    }
+    .link-site-menu-brand img { width: 36px; height: auto; }
+    .link-site-menu-close {
+      width: 36px; height: 36px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1.4rem; line-height: 1;
+      cursor: pointer;
+    }
+    .link-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
+    .link-site-menu nav { padding: 12px 10px 0; }
+    .link-site-menu nav > ul {
+      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+      list-style: none; margin: 0; padding: 0;
+    }
+    .link-site-menu nav > ul > li { margin: 0; width: 100%; }
+    .link-site-menu nav a {
+      display: block; padding: 0.65em 0.85em; border-radius: 10px; color: rgba(255, 255, 255, 0.92);
+      text-decoration: none; font-size: 0.92rem; font-weight: 600; text-align: left;
+    }
+    .link-site-menu nav a:hover,
+    .link-site-menu nav a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .link-site-menu nav ul.nav-dropdown-menu {
+      display: block; position: static; transform: none; min-width: 0; margin: 0 0 4px;
+      padding: 0 0 0 12px; background: transparent; border: none; box-shadow: none;
+    }
+    .link-site-menu nav ul.nav-dropdown-menu a {
+      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.78); padding: 0.5em 0.85em;
+    }
+    .link-site-menu nav .nav-caret { display: none; }
+    body.link-site-menu-open { overflow: hidden; }
     .logo { 
       font-size: 1.75rem; 
       font-weight: 700; 
@@ -386,6 +476,9 @@ export function layout(title: string, content: string): string {
 </head>
 <body>
   ${content}
+  
+  ${linkSiteMenuHtml()}
+  <script src="https://ahrenslabs.com/js/header_nav.js"></script>
   
   <div id="voiceAssistantIndicator" class="voice-indicator">
     🔴 Listening... Say your command
@@ -795,7 +888,7 @@ export function landingPage(): string {
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
       <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
         <div class="nav-content">
-          <a href="/" class="logo" style="color: white;">link</a>
+          ${linkNavLogo('/', 'color: white;', true)}
           <div style="display: flex; gap: 0.5rem;">
             <a href="/auth/signin" class="btn btn-secondary">Sign In</a>
             <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>
@@ -1106,7 +1199,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">link</a>
+          ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
@@ -1185,7 +1278,7 @@ export function newReminderPage(user: any, contacts: any[]): string {
   return layout('Add Reminder', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1279,7 +1372,7 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
   return layout('Edit Reminder', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1640,7 +1733,7 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false): str
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">link</a>
+          ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
@@ -1701,7 +1794,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">link</a>
+          ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
@@ -1785,7 +1878,7 @@ export function newContactPage(): string {
   return layout('Add Contact', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -1870,7 +1963,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
   return layout(contact.name, `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2110,7 +2203,7 @@ export function editContactPage(contact: any): string {
   return layout('Edit Contact', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2220,7 +2313,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
   return layout('Edit Interaction', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2349,7 +2442,7 @@ export function newInteractionPage(allContacts: any[], preselectedContactId?: st
   return layout('Add Interaction', `
     <div class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
         <a href="/auth/signout" class="btn btn-secondary">Sign Out</a>
       </div>
     </div>
@@ -2649,7 +2742,7 @@ export function newDatePage(contact: any): string {
   return layout(`Add Date - ${contact.name}`, `
     <nav class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
       </div>
     </nav>
     
@@ -2710,7 +2803,7 @@ export function editDatePage(contact: any, date: any): string {
   return layout(`Edit Date - ${contact.name}`, `
     <nav class="nav">
       <div class="nav-content">
-        <a href="/dashboard" class="logo">link</a>
+        ${linkNavLogo('/dashboard')}
       </div>
     </nav>
     
@@ -3071,7 +3164,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-content">
-          <a href="/dashboard" class="logo">link</a>
+          ${linkNavLogo('/dashboard')}
           <div class="flex" style="align-items: center; gap: 1rem;">
             <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
             <a href="/auth/signout" class="btn btn-secondary text-sm">Sign Out</a>
@@ -3288,6 +3381,7 @@ export function privacyPolicyPage(user: any): string {
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-left">
+          ${linkHamburgerButton()}
           <a href="/dashboard" class="back-button">← Back</a>
         </div>
         <h1 class="nav-title">Privacy Policy</h1>
@@ -3363,6 +3457,7 @@ export function termsOfServicePage(user: any): string {
     <div class="content-wrapper">
       <nav class="nav">
         <div class="nav-left">
+          ${linkHamburgerButton()}
           <a href="/dashboard" class="back-button">← Back</a>
         </div>
         <h1 class="nav-title">Terms of Service</h1>
