@@ -4,6 +4,9 @@
 :root {
   --th-ink: #0f172a;
   --th-line: #e2e8f0;
+  --th-site-chrome-z: 40;
+  --th-site-menu-backdrop-z: 25000;
+  --th-site-menu-z: 25001;
 }
 
 header.th-app-header {
@@ -15,7 +18,7 @@ header.th-app-header {
   display: block;
   overflow: visible;
   flex-shrink: 0;
-  z-index: 40;
+  z-index: var(--th-site-chrome-z);
 }
 
 header.th-app-header::before {
@@ -157,7 +160,7 @@ header.th-app-header::before {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.4);
-  z-index: 19990;
+  z-index: var(--th-site-menu-backdrop-z);
 }
 
 .th-site-menu {
@@ -165,7 +168,7 @@ header.th-app-header::before {
   top: 0;
   left: 0;
   bottom: 0;
-  z-index: 20000;
+  z-index: var(--th-site-menu-z);
   width: min(320px, 88vw);
   max-width: 100%;
   background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
@@ -348,6 +351,12 @@ header.th-app-header::before {
 
 body.th-site-menu-open {
   overflow: hidden;
+}
+
+/* Drawer is portaled to body; keep it above fixed app footers on Classify / Tether / Link */
+body.th-site-menu-open .th-bottom-nav,
+body.th-site-menu-open .bottom-nav {
+  z-index: var(--th-site-chrome-z);
 }
 
 /* Standalone app pages use bottom nav instead of the site footer */

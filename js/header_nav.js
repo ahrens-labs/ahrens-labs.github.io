@@ -466,6 +466,17 @@
     });
   }
 
+  function portalSiteMenuToBody() {
+    const backdrop = document.getElementById('th-site-menu-backdrop');
+    const menu = document.getElementById('th-site-menu');
+    if (backdrop && backdrop.parentElement !== document.body) {
+      document.body.appendChild(backdrop);
+    }
+    if (menu && menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+  }
+
   function wireSiteMenus() {
     wireSiteMenu({
       buttonId: 'th-site-menu-btn',
@@ -501,6 +512,7 @@
   };
 
   window.addEventListener('DOMContentLoaded', () => {
+    portalSiteMenuToBody();
     renderHeaderNav();
     wireSiteMenus();
   });
