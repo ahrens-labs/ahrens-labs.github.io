@@ -25,59 +25,32 @@ function navUserLabel(user: { ahrens_username?: string | null }): string {
   return ''
 }
 
-function linkHamburgerButton(): string {
-  return `<button type="button" class="th-hamburger" id="link-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="link-site-menu"><span></span><span></span><span></span></button>`
+function linkHamburgerButton(light = false): string {
+  const cls = light ? 'link-hamburger link-hamburger--light' : 'link-hamburger'
+  return `<button type="button" class="${cls}" id="link-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="link-site-menu"><span></span><span></span><span></span></button>`
 }
 
-function linkAccountUrl(): string {
-  return `https://ahrenslabs.com/account.html?return=${encodeURIComponent('/link/dashboard')}`
+function linkNavLogo(href: string, style = '', lightHamburger = false): string {
+  const styleAttr = style ? ` style="${style}"` : ''
+  return `<div class="nav-leading">${linkHamburgerButton(lightHamburger)}<a href="${href}" class="link-nav-brand"${styleAttr}><img src="/icon-192.png" alt="" width="32" height="32" class="link-nav-logo-img"><span class="logo">link</span></a></div>`
 }
 
 function linkSiteMenuHtml(): string {
   return `
-  <div id="link-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
-  <div id="link-site-menu" class="th-site-menu" aria-hidden="true">
-    <div class="th-site-menu-head">
-      <a href="https://ahrenslabs.com/index.html" class="th-site-menu-brand">
-        <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" class="header-logo">
+  <div id="link-site-menu-backdrop" class="link-site-menu-backdrop" hidden></div>
+  <div id="link-site-menu" class="link-site-menu" aria-hidden="true">
+    <div class="link-site-menu-head">
+      <a href="https://ahrenslabs.com/index.html" class="link-site-menu-brand">
+        <img src="https://ahrenslabs.com/img/EagleLogo.png" alt="" width="36" height="36">
         <span>Ahrens Labs</span>
       </a>
-      <button type="button" class="th-site-menu-close" id="link-site-menu-close" aria-label="Close menu">&times;</button>
+      <button type="button" class="link-site-menu-close" id="link-site-menu-close" aria-label="Close menu">&times;</button>
     </div>
-    <nav>
-      <ul></ul>
-    </nav>
-    <div class="th-site-menu-footer">
-      <a href="/auth/signout" class="th-site-menu-signout al-site-menu-signout">Sign Out</a>
+    <nav><ul></ul></nav>
+    <div class="link-site-menu-footer">
+      <a href="/auth/signout" class="link-site-menu-signout al-site-menu-signout">Sign Out</a>
     </div>
   </div>`
-}
-
-/** Tether-identical app header: top bar + slide-out site menu. */
-function linkAppHeader(homeHref = '/dashboard', trailingHtml = '', showAuth = true): string {
-  const authHtml = showAuth ? `
-    <div class="th-topbar-auth" id="header-auth-buttons">
-      ${trailingHtml}
-      <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='${linkAccountUrl()}'">Login</button>
-      <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='${linkAccountUrl()}'">Sign Up</button>
-      <span id="header-username" class="th-topbar-username"></span>
-    </div>` : (trailingHtml ? `<div class="th-topbar-auth">${trailingHtml}</div>` : '')
-  return `
-<header class="th-app-header">
-  <div class="th-app-topbar">
-    <div class="th-topbar-start">
-      ${linkHamburgerButton()}
-      <div class="th-topbar-brand">
-        <a href="${homeHref}" class="link-topbar-brand-link">
-          <img src="/icon-192.png" alt="" width="32" height="32">
-          <h1 class="th-topbar-title">Link</h1>
-        </a>
-      </div>
-    </div>
-    ${authHtml}
-  </div>
-  ${linkSiteMenuHtml()}
-</header>`
 }
 
 export function layout(title: string, content: string): string {
@@ -98,8 +71,7 @@ export function layout(title: string, content: string): string {
   <meta name="application-name" content="Link">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
@@ -118,67 +90,29 @@ export function layout(title: string, content: string): string {
       letter-spacing: -0.015em;
     }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem; padding-bottom: 20px; }
-    header.th-app-header {
-      padding: 0; background: transparent; box-shadow: none; backdrop-filter: none;
-      display: block; overflow: visible;
-    }
-    .th-app-topbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 10px 1rem 12px; margin-bottom: 0; max-width: 1200px; margin-left: auto; margin-right: auto;
-    }
-    .th-topbar-start {
-      display: flex; align-items: center; gap: 10px; min-width: 0;
-    }
-    .th-topbar-brand {
-      display: flex; align-items: center; gap: 8px; min-width: 0;
-    }
-    .link-topbar-brand-link {
-      display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit;
-    }
-    .link-topbar-brand-link img { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; }
-    .th-topbar-title {
-      margin: 0;
-      font-family: Orbitron, Inter, sans-serif;
-      font-size: 1.1rem; font-weight: 900; color: var(--th-ink); line-height: 1;
-    }
-    .th-topbar-auth {
-      display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto;
-    }
-    .th-topbar-auth-btn {
-      padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
-      font-weight: 600; font-size: 0.85rem; font-family: inherit;
-    }
-    .th-topbar-auth-login { background: #3498db; color: #fff; }
-    .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
-    .th-topbar-username {
-      display: none; padding: 6px 4px; color: var(--th-ink); font-weight: 700; font-size: 0.9rem;
-    }
-    .back-button {
-      color: var(--th-ink); text-decoration: none; font-weight: 600; font-size: 0.9rem; white-space: nowrap;
-    }
-    .back-button:hover { color: var(--th-accent, #2563eb); }
     .nav { background: white; border-bottom: 1px solid #e5e7eb; padding: 1rem; }
     .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
     .nav-leading { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .nav-left { display: flex; align-items: center; gap: 10px; }
-    :root {
-      --th-ink: #0f172a;
-      --th-line: #e2e8f0;
-    }
-    .th-hamburger {
+    .link-hamburger {
       display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
-      width: 40px; height: 40px; padding: 0 10px; border: 1px solid var(--th-line);
+      width: 40px; height: 40px; padding: 0 10px; border: 1px solid #e5e7eb;
       border-radius: 10px; background: #fff; cursor: pointer; flex-shrink: 0;
       transition: border-color 0.15s, background 0.15s;
     }
-    .th-hamburger:hover { border-color: #93c5fd; background: #f8fafc; }
-    .th-hamburger span {
-      display: block; height: 2px; width: 100%; border-radius: 1px; background: var(--th-ink);
+    .link-hamburger:hover { border-color: #86efac; background: #f0fdf4; }
+    .link-hamburger span {
+      display: block; height: 2px; width: 100%; border-radius: 1px; background: #111827;
     }
-    .th-site-menu-backdrop {
+    .link-hamburger--light {
+      background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.35);
+    }
+    .link-hamburger--light:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.5); }
+    .link-hamburger--light span { background: #fff; }
+    .link-site-menu-backdrop {
       position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); z-index: 19990;
     }
-    .th-site-menu {
+    .link-site-menu {
       position: fixed; top: 0; left: 0; bottom: 0; z-index: 20000;
       width: min(320px, 88vw); max-width: 100%;
       background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
@@ -187,72 +121,53 @@ export function layout(title: string, content: string): string {
       overflow-y: auto; padding: 0 0 24px;
       display: flex; flex-direction: column;
     }
-    .th-site-menu.open { transform: translateX(0); }
-    .th-site-menu-head {
+    .link-site-menu.open { transform: translateX(0); }
+    .link-site-menu-head {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
       padding: 16px 16px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.12);
     }
-    .th-site-menu-brand {
+    .link-site-menu-brand {
       display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none;
       font-weight: 800; font-size: 1.05rem;
     }
-    .th-site-menu-brand img { width: 36px; height: auto; }
-    .th-site-menu-close {
+    .link-site-menu-brand img { width: 36px; height: auto; }
+    .link-site-menu-close {
       width: 36px; height: 36px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px;
       background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1.4rem; line-height: 1;
       cursor: pointer;
     }
-    .th-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
-    .th-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
-    .th-site-menu nav > ul {
-      display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+    .link-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
+    .link-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
+    .link-site-menu nav > ul {
+      display: flex; flex-direction: column; align-items: stretch; gap: 2px;
       list-style: none; margin: 0; padding: 0;
     }
-    .th-site-menu nav > ul > li { margin: 0; width: 100%; }
-    .th-site-menu nav .nav-caret { display: none; }
-    .th-site-menu-footer {
+    .link-site-menu nav > ul > li { margin: 0; width: 100%; }
+    .link-site-menu nav .nav-caret { display: none; }
+    .link-site-menu-footer {
       margin-top: auto; padding: 12px 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.12);
     }
-    .th-site-menu-signout,
-    .th-site-menu nav > ul > li > a,
-    .th-site-menu nav > ul > li > .nav-dropdown-trigger {
-      display: block; padding: 0.65em 0.85em; border-radius: 12px; color: rgba(255, 255, 255, 0.92);
+    .link-site-menu-signout,
+    .link-site-menu nav a {
+      display: block; padding: 0.65em 0.85em; border-radius: 10px; color: rgba(255, 255, 255, 0.92);
       text-decoration: none; font-size: 0.92rem; font-weight: 600; text-align: left;
-      box-sizing: border-box;
-      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
-    .th-site-menu-signout:hover,
-    .th-site-menu nav > ul > li > a:hover,
-    .th-site-menu nav > ul > li > .nav-dropdown-trigger:hover,
-    .th-site-menu nav a.active {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
-      border-color: rgba(255, 255, 255, 0.34);
-      color: #fff;
-      transform: none;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    }
-    .th-site-menu nav a::before,
-    .th-site-menu nav a::after { display: none; }
-    .th-site-menu nav ul.nav-dropdown-menu {
+    .link-site-menu-signout:hover,
+    .link-site-menu nav a:hover,
+    .link-site-menu nav a.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .link-site-menu nav ul.nav-dropdown-menu {
       display: block; position: static; transform: none; min-width: 0; margin: 0 0 4px;
       padding: 0 0 0 12px; background: transparent; border: none; box-shadow: none;
     }
-    .th-site-menu nav ul.nav-dropdown-menu a {
-      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.85); padding: 0.5em 0.85em;
-      background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.06));
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 10px;
+    .link-site-menu nav ul.nav-dropdown-menu a {
+      font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.78); padding: 0.5em 0.85em;
     }
-    .th-site-menu nav ul.nav-dropdown-menu a:hover,
-    .th-site-menu nav ul.nav-dropdown-menu a.active {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.28);
-      color: #fff;
+    .link-site-menu nav .nav-caret { display: none; }
+    body.link-site-menu-open { overflow: hidden; }
+    .link-nav-brand {
+      display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none;
     }
-    body.th-site-menu-open { overflow: hidden; }
+    .link-nav-logo-img { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; }
     .logo { 
       font-size: 1.75rem; 
       font-weight: 700; 
@@ -262,6 +177,7 @@ export function layout(title: string, content: string): string {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       line-height: 1;
     }
+    .link-nav-brand .logo { color: inherit; }
     .btn { 
       padding: 0.5rem 1rem; 
       border-radius: 0.5rem; 
@@ -582,8 +498,7 @@ export function layout(title: string, content: string): string {
 <body>
   ${content}
   
-  <script src="https://ahrenslabs.com/js/script.js"></script>
-  <script src="https://ahrenslabs.com/js/link_auth.js"></script>
+  ${linkSiteMenuHtml()}
   <script src="https://ahrenslabs.com/js/header_nav.js"></script>
   <script>
   (function () {
@@ -1001,10 +916,15 @@ function getVoiceAssistantScript(): string {
 export function landingPage(): string {
   return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
-
-      <div style="position:absolute;top:0;left:0;right:0;z-index:10;">
-        ${linkAppHeader('/', `<a href="/auth/signin" class="btn btn-secondary">Sign In</a><a href="/auth/signup" class="btn btn-primary">Get Started</a>`, false)}
-      </div>
+      <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
+        <div class="nav-content">
+          ${linkNavLogo('/', 'color: white;', true)}
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="/auth/signin" class="btn btn-secondary">Sign In</a>
+            <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>
+          </div>
+        </div>
+      </nav>
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
@@ -1307,7 +1227,14 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
   
   return layout('Reminders', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard')}
+      <nav class="nav">
+        <div class="nav-content">
+          ${linkNavLogo('/dashboard')}
+          <div class="flex" style="align-items: center; gap: 1rem;">
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
+          </div>
+        </div>
+      </nav>
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1378,7 +1305,11 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
 
 export function newReminderPage(user: any, contacts: any[]): string {
   return layout('Add Reminder', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Reminder</h2>
@@ -1467,7 +1398,11 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
   const dateStr = new Date(reminder.date).toISOString().split('T')[0]
   
   return layout('Edit Reminder', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Edit Reminder</h2>
@@ -1823,7 +1758,14 @@ function getFooterLinks(): string {
 export function dashboardPage(user: any, hasGoogleAccount: boolean = false): string {
   return layout('Home', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard')}
+      <nav class="nav">
+        <div class="nav-content">
+          ${linkNavLogo('/dashboard')}
+          <div class="flex" style="align-items: center; gap: 1rem;">
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
+          </div>
+        </div>
+      </nav>
       
       <div class="container">
         <div class="grid grid-2" style="gap: 1rem; max-width: 800px; margin: 0 auto; margin-top: 2rem;">
@@ -1876,7 +1818,15 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
   return layout('People', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard', '<button type="button" onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>')}
+      <nav class="nav">
+        <div class="nav-content">
+          ${linkNavLogo('/dashboard')}
+          <div class="flex" style="align-items: center; gap: 1rem;">
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
+            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
+          </div>
+        </div>
+      </nav>
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1951,7 +1901,11 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
 export function newContactPage(): string {
   return layout('Add Contact', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Contact</h2>
@@ -2031,7 +1985,11 @@ export function newContactPage(): string {
 
 export function contactDetailPage(contact: any, interactions: any[], dates: any[]): string {
   return layout(contact.name, `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/dashboard" style="color: #6b7280;">← Back to Dashboard</a>
@@ -2266,7 +2224,11 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
 
 export function editContactPage(contact: any): string {
   return layout('Edit Contact', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to Contact</a>
@@ -2371,7 +2333,11 @@ export function editContactPage(contact: any): string {
 
 export function editInteractionPage(contact: any, interaction: any, allContacts: any[]): string {
   return layout('Edit Interaction', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to ${contact.name}</a>
@@ -2495,7 +2461,11 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
 
 export function newInteractionPage(allContacts: any[], preselectedContactId?: string): string {
   return layout('Add Interaction', `
-    ${linkAppHeader('/dashboard')}
+    <div class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </div>
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/interactions" style="color: #6b7280;">← Back to Interactions</a>
@@ -2790,7 +2760,11 @@ export function newDatePage(contact: any): string {
   ];
   
   return layout(`Add Date - ${contact.name}`, `
-    ${linkAppHeader('/dashboard')}
+    <nav class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </nav>
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -2847,7 +2821,11 @@ export function editDatePage(contact: any, date: any): string {
   ];
   
   return layout(`Edit Date - ${contact.name}`, `
-    ${linkAppHeader('/dashboard')}
+    <nav class="nav">
+      <div class="nav-content">
+        ${linkNavLogo('/dashboard')}
+      </div>
+    </nav>
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -3204,7 +3182,14 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 
   return layout('Interactions', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard')}
+      <nav class="nav">
+        <div class="nav-content">
+          ${linkNavLogo('/dashboard')}
+          <div class="flex" style="align-items: center; gap: 1rem;">
+            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
+          </div>
+        </div>
+      </nav>
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -3413,7 +3398,14 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 export function privacyPolicyPage(user: any): string {
   return layout('Privacy Policy', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard', '<a href="/dashboard" class="back-button">← Back</a>', false)}
+      <nav class="nav">
+        <div class="nav-left">
+          ${linkHamburgerButton()}
+          <a href="/dashboard" class="back-button">← Back</a>
+        </div>
+        <h1 class="nav-title">Privacy Policy</h1>
+        <div class="nav-right"></div>
+      </nav>
       
       <div class="section">
         <div class="card">
@@ -3482,7 +3474,14 @@ export function privacyPolicyPage(user: any): string {
 export function termsOfServicePage(user: any): string {
   return layout('Terms of Service', `
     <div class="content-wrapper">
-      ${linkAppHeader('/dashboard', '<a href="/dashboard" class="back-button">← Back</a>', false)}
+      <nav class="nav">
+        <div class="nav-left">
+          ${linkHamburgerButton()}
+          <a href="/dashboard" class="back-button">← Back</a>
+        </div>
+        <h1 class="nav-title">Terms of Service</h1>
+        <div class="nav-right"></div>
+      </nav>
       
       <div class="section">
         <div class="card">
