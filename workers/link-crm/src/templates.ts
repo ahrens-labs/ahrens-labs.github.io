@@ -72,7 +72,7 @@ export function layout(title: string, content: string): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>${title} - Link</title>
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png">
@@ -98,9 +98,16 @@ export function layout(title: string, content: string): string {
       overflow-x: hidden;
     }
     body { 
+      display: block !important;
+      min-height: 100vh;
+      justify-content: flex-start !important;
+      align-items: stretch !important;
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-      background: #f9fafb;
+      background: #f9fafb !important;
       color: #111827;
+    }
+    header.th-app-header {
+      padding-top: env(safe-area-inset-top, 0px);
     }
     h1, h2, h3, h4, h5, h6 { 
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -257,6 +264,7 @@ export function layout(title: string, content: string): string {
       display: flex;
       justify-content: space-around;
       padding: 0.5rem 0;
+      padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
       z-index: 9999;
       box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
       transform: translate3d(0, 0, 0);
