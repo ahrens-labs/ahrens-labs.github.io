@@ -120,6 +120,22 @@
         }
         body.classify-app header.th-app-header {
             z-index: 40;
+            flex-shrink: 0;
+        }
+        body.classify-app {
+            min-height: 100dvh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        body.classify-app .classify-app-shell {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+        }
+        body.classify-app .classify-app-sidebar {
+            align-self: stretch;
+            min-height: 100%;
+            flex-shrink: 0;
         }
         .classify-app .th-topbar-title {
             font-family: 'Plus Jakarta Sans', Inter, sans-serif;
@@ -305,7 +321,7 @@
         }
     </style>
 </head>
-<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen">
+<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen h-dvh overflow-hidden">
     <header class="th-app-header">
         <div class="th-app-topbar">
             <div class="th-topbar-start">
@@ -344,11 +360,11 @@
         </div>
     </header>
 
-    <div class="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+    <div class="classify-app-shell flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
     <canvas id="confetti-canvas"></canvas>
 
     <!-- Sidebar Navigation (Desktop) -->
-    <aside class="hidden md:flex flex-col w-64 sidebar-surface backdrop-blur-md border-r border-slate-200/70 dark:border-slate-700/50 h-full z-10 shadow-xl transition-colors duration-200 overflow-y-auto relative">
+    <aside class="classify-app-sidebar hidden md:flex flex-col w-64 sidebar-surface backdrop-blur-md border-r border-slate-200/70 dark:border-slate-700/50 self-stretch min-h-0 z-10 shadow-xl transition-colors duration-200 overflow-y-auto relative">
         <nav class="flex-1 px-4 space-y-1 mt-6">
             <button onclick="switchTab('dashboard')" class="nav-item nav-accent-blue w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left active-nav" data-tab="dashboard">
                 <i class="nav-icon fa-solid fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i>
@@ -415,7 +431,7 @@
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-1 h-full overflow-hidden relative">
+    <main class="flex-1 min-h-0 h-full overflow-hidden relative">
         
         <!-- Mobile Nav Menu (Overlay) -->
         <div id="mobileNav" class="hidden absolute top-0 left-0 w-full h-full bg-white dark:bg-dark-surface z-30 shadow-lg p-4 md:hidden flex flex-col gap-2 overflow-y-auto">
@@ -881,6 +897,7 @@
 
         </div>
     </main>
+    </div>
 
     <!-- Modal: Confirmation Dialog -->
     <div id="confirmModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center">
@@ -7643,6 +7660,5 @@
             showNotification('Tasks exported as CSV!', 'success');
         }
     </script>
-    </div>
 </body>
 </html>
