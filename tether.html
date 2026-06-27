@@ -791,6 +791,14 @@
     .th-my-tasks-day-empty {
       margin: 0; padding: 2px 0 4px; font-size: 0.72rem; color: #94a3b8; font-weight: 500;
     }
+    .th-my-tasks-extend {
+      margin: 14px 0 6px; padding-top: 12px; border-top: 1px dashed var(--th-line); text-align: center;
+    }
+    .th-my-tasks-extend-btn {
+      padding: 0; border: none; background: none; font: inherit; font-size: 0.82rem; font-weight: 700;
+      color: var(--th-accent); cursor: pointer; text-decoration: underline; text-decoration-color: transparent;
+    }
+    .th-my-tasks-extend-btn:hover { text-decoration-color: #93c5fd; }
     .th-my-task-item {
       border: 1px solid var(--th-line); border-radius: 10px; padding: 6px 10px; background: #fff;
       cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
@@ -1244,6 +1252,7 @@
   let appTab = 'my-tasks';
   let projectSort = 'alpha';
   let myTasks = [];
+  let myTasksHorizonYears = 1;
   let personalTasks = [];
   let editingTaskId = null;
   let recurrencePanelOpen = false;
@@ -2482,7 +2491,14 @@
     return `<button type="button" class="th-task-start-btn"${attrs}>Start</button>`;
   }
 
-  function myTasksFutureDayCount(tasks) {
+  function myTasksHorizonEndIso(years) {
+    const y = years != null ? years : myTasksHorizonYears;
+    const d = parseIso(isoDate(new Date()));
+    d.setFullYear(d.getFullYear() + y);
+    return isoDate(d);
+  }
+
+  function myTasksLatestDueIso(tasks) {
     const today = isoDate(new Date());
     let maxDue = today;
     for (const t of tasks) {
@@ -2490,7 +2506,20 @@
         maxDue = t.dueDate;
       }
     }
-    return Math.max(1, dayIndex(today, maxDue) + 1);
+    return maxDue;
+  }
+
+  function myTasksVisibleDayCount(tasks) {
+    const today = isoDate(new Date());
+    const horizonEnd = myTasksHorizonEndIso();
+    const maxDue = myTasksLatestDueIso(tasks);
+    const endIso = maxDue < horizonEnd ? maxDue : horizonEnd;
+    if (endIso < today) return 1;
+    return Math.max(1, dayIndex(today, endIso) + 1);
+  }
+
+  function myTasksCanExtendHorizon(tasks) {
+    return myTasksLatestDueIso(tasks) > myTasksHorizonEndIso();
   }
 
   function myTasksDayHeaderLabel(iso) {
@@ -2502,7 +2531,9 @@
     if (iso === tomorrow) return 'Tomorrow';
     const d = parseIso(iso);
     if (!d) return iso;
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    const opts = { weekday: 'long', month: 'short', day: 'numeric' };
+    if (d.getFullYear() > new Date().getFullYear()) opts.year = 'numeric';
+    return d.toLocaleDateString(undefined, opts);
   }
 
   function sortMyTasksForDay(tasks) {
@@ -2533,7 +2564,7 @@
       byKey.delete('__overdue__');
     }
     const start = parseIso(isoDate(new Date()));
-    const dayCount = myTasksFutureDayCount(tasks);
+    const dayCount = myTasksVisibleDayCount(tasks);
     for (let i = 0; i < dayCount; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
@@ -2544,16 +2575,6 @@
         label: myTasksDayHeaderLabel(key),
         tasks: dayTasks,
         empty: dayTasks.length === 0,
-      });
-      byKey.delete(key);
-    }
-    const extraDates = [...byKey.keys()].filter(k => k !== '__none__').sort();
-    for (const key of extraDates) {
-      sections.push({
-        key,
-        label: myTasksDayHeaderLabel(key),
-        tasks: sortMyTasksForDay(byKey.get(key)),
-        empty: false,
       });
       byKey.delete(key);
     }
@@ -2635,7 +2656,18 @@
       wireLabelColorPickers(el);
       return;
     }
-    el.innerHTML = `${labelBar}<div class="th-my-tasks-list">${buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('')}</div>`;
+    const sectionsHtml = buildMyTasksDaySections(tasks).map(renderMyTasksDaySection).join('');
+    const extendHtml = myTasksCanExtendHorizon(tasks)
+      ? `<p class="th-my-tasks-extend"><button type="button" class="th-my-tasks-extend-btn" id="my-tasks-extend-horizon">Show next year</button></p>`
+      : '';
+    el.innerHTML = `${labelBar}<div class="th-my-tasks-list">${sectionsHtml}${extendHtml}</div>`;
+    const extendBtn = el.querySelector('#my-tasks-extend-horizon');
+    if (extendBtn) {
+      extendBtn.addEventListener('click', () => {
+        myTasksHorizonYears += 1;
+        renderMyTasksView();
+      });
+    }
     wireMyTasksLabelFilters(el);
     wireLabelColorPickers(el);
     wireRichTextLinks(el);
