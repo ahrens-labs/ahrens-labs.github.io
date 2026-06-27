@@ -2644,8 +2644,8 @@
   }
 
   function renderMyTasksDaySection(section) {
+    if (section.empty) return '';
     const headCls = 'th-my-tasks-day-head'
-      + (section.empty ? ' empty' : '')
       + (section.overdue ? ' overdue' : '');
     const hideDue = section.key !== '__overdue__' && section.key !== '__none__';
     const tasksHtml = section.tasks.length
