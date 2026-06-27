@@ -29,9 +29,8 @@ function linkHamburgerButton(): string {
   return `<button type="button" class="th-hamburger" id="link-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="link-site-menu"><span></span><span></span><span></span></button>`
 }
 
-function linkNavLogo(href: string, style = ''): string {
-  const styleAttr = style ? ` style="${style}"` : ''
-  return `<div class="nav-leading">${linkHamburgerButton()}<a href="${href}" class="link-nav-brand"${styleAttr}><img src="/icon-192.png" alt="" width="32" height="32" class="link-nav-logo-img"><span class="logo">link</span></a></div>`
+function linkAccountUrl(): string {
+  return `https://ahrenslabs.com/account.html?return=${encodeURIComponent('/link/dashboard')}`
 }
 
 function linkSiteMenuHtml(): string {
@@ -54,6 +53,33 @@ function linkSiteMenuHtml(): string {
   </div>`
 }
 
+/** Tether-identical app header: top bar + slide-out site menu. */
+function linkAppHeader(homeHref = '/dashboard', trailingHtml = '', showAuth = true): string {
+  const authHtml = showAuth ? `
+    <div class="th-topbar-auth" id="header-auth-buttons">
+      ${trailingHtml}
+      <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='${linkAccountUrl()}'">Login</button>
+      <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='${linkAccountUrl()}'">Sign Up</button>
+      <span id="header-username" class="th-topbar-username"></span>
+    </div>` : (trailingHtml ? `<div class="th-topbar-auth">${trailingHtml}</div>` : '')
+  return `
+<header class="th-app-header">
+  <div class="th-app-topbar">
+    <div class="th-topbar-start">
+      ${linkHamburgerButton()}
+      <div class="th-topbar-brand">
+        <a href="${homeHref}" class="link-topbar-brand-link">
+          <img src="/icon-192.png" alt="" width="32" height="32">
+          <h1 class="th-topbar-title">Link</h1>
+        </a>
+      </div>
+    </div>
+    ${authHtml}
+  </div>
+  ${linkSiteMenuHtml()}
+</header>`
+}
+
 export function layout(title: string, content: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -72,7 +98,7 @@ export function layout(title: string, content: string): string {
   <meta name="application-name" content="Link">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { 
@@ -91,6 +117,45 @@ export function layout(title: string, content: string): string {
       letter-spacing: -0.015em;
     }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem; padding-bottom: 20px; }
+    header.th-app-header {
+      padding: 0; background: transparent; box-shadow: none; backdrop-filter: none;
+      display: block; overflow: visible;
+    }
+    .th-app-topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 1rem 12px; margin-bottom: 0; max-width: 1200px; margin-left: auto; margin-right: auto;
+    }
+    .th-topbar-start {
+      display: flex; align-items: center; gap: 10px; min-width: 0;
+    }
+    .th-topbar-brand {
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .link-topbar-brand-link {
+      display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none; color: inherit;
+    }
+    .link-topbar-brand-link img { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; }
+    .th-topbar-title {
+      margin: 0;
+      font-family: Orbitron, Inter, sans-serif;
+      font-size: 1.1rem; font-weight: 900; color: var(--th-ink); line-height: 1;
+    }
+    .th-topbar-auth {
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto;
+    }
+    .th-topbar-auth-btn {
+      padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
+      font-weight: 600; font-size: 0.85rem; font-family: inherit;
+    }
+    .th-topbar-auth-login { background: #3498db; color: #fff; }
+    .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
+    .th-topbar-username {
+      display: none; padding: 6px 4px; color: var(--th-ink); font-weight: 700; font-size: 0.9rem;
+    }
+    .back-button {
+      color: var(--th-ink); text-decoration: none; font-weight: 600; font-size: 0.9rem; white-space: nowrap;
+    }
+    .back-button:hover { color: var(--th-accent, #2563eb); }
     .nav { background: white; border-bottom: 1px solid #e5e7eb; padding: 1rem; }
     .nav-content { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
     .nav-leading { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -163,10 +228,6 @@ export function layout(title: string, content: string): string {
       font-size: 0.84rem; font-weight: 500; color: rgba(255, 255, 255, 0.78); padding: 0.5em 0.85em;
     }
     body.th-site-menu-open { overflow: hidden; }
-    .link-nav-brand {
-      display: flex; align-items: center; gap: 8px; min-width: 0; text-decoration: none;
-    }
-    .link-nav-logo-img { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; }
     .logo { 
       font-size: 1.75rem; 
       font-weight: 700; 
@@ -176,7 +237,6 @@ export function layout(title: string, content: string): string {
       font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       line-height: 1;
     }
-    .link-nav-brand .logo { color: inherit; }
     .btn { 
       padding: 0.5rem 1rem; 
       border-radius: 0.5rem; 
@@ -497,7 +557,8 @@ export function layout(title: string, content: string): string {
 <body>
   ${content}
   
-  ${linkSiteMenuHtml()}
+  <script src="https://ahrenslabs.com/js/script.js"></script>
+  <script src="https://ahrenslabs.com/js/link_auth.js"></script>
   <script src="https://ahrenslabs.com/js/header_nav.js"></script>
   <script>
   (function () {
@@ -915,15 +976,10 @@ function getVoiceAssistantScript(): string {
 export function landingPage(): string {
   return layout('Link', `
     <div style="min-height: 100vh; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);">
-      <nav class="nav" style="background: transparent; border-bottom: 1px solid rgba(255,255,255,0.2);">
-        <div class="nav-content">
-          ${linkNavLogo('/', 'color: white;')}
-          <div style="display: flex; gap: 0.5rem;">
-            <a href="/auth/signin" class="btn btn-secondary">Sign In</a>
-            <a href="/auth/signup" class="btn" style="background: white; color: #16a34a;">Get Started</a>
-          </div>
-        </div>
-      </nav>
+
+      <div style="position:absolute;top:0;left:0;right:0;z-index:10;">
+        ${linkAppHeader('/', `<a href="/auth/signin" class="btn btn-secondary">Sign In</a><a href="/auth/signup" class="btn btn-primary">Get Started</a>`, false)}
+      </div>
 
       <div class="container" style="padding-top: 4rem; padding-bottom: 4rem;">
         <div style="text-align: center; color: white; margin-bottom: 4rem;">
@@ -1226,14 +1282,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
   
   return layout('Reminders', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader('/dashboard')}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1304,11 +1353,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
 
 export function newReminderPage(user: any, contacts: any[]): string {
   return layout('Add Reminder', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Reminder</h2>
@@ -1397,11 +1442,7 @@ export function editReminderPage(user: any, reminder: any, contacts: any[]): str
   const dateStr = new Date(reminder.date).toISOString().split('T')[0]
   
   return layout('Edit Reminder', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Edit Reminder</h2>
@@ -1757,14 +1798,7 @@ function getFooterLinks(): string {
 export function dashboardPage(user: any, hasGoogleAccount: boolean = false): string {
   return layout('Home', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader('/dashboard')}
       
       <div class="container">
         <div class="grid grid-2" style="gap: 1rem; max-width: 800px; margin: 0 auto; margin-top: 2rem;">
@@ -1817,15 +1851,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
   return layout('People', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader('/dashboard', '<button type="button" onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>')}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1900,11 +1926,7 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
 export function newContactPage(): string {
   return layout('Add Contact', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div class="card">
         <h2 style="margin-bottom: 1.5rem;">Add New Contact</h2>
@@ -1984,11 +2006,7 @@ export function newContactPage(): string {
 
 export function contactDetailPage(contact: any, interactions: any[], dates: any[]): string {
   return layout(contact.name, `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/dashboard" style="color: #6b7280;">← Back to Dashboard</a>
@@ -2223,11 +2241,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
 
 export function editContactPage(contact: any): string {
   return layout('Edit Contact', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to Contact</a>
@@ -2332,11 +2346,7 @@ export function editContactPage(contact: any): string {
 
 export function editInteractionPage(contact: any, interaction: any, allContacts: any[]): string {
   return layout('Edit Interaction', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/contacts/${contact.id}" style="color: #6b7280;">← Back to ${contact.name}</a>
@@ -2460,11 +2470,7 @@ export function editInteractionPage(contact: any, interaction: any, allContacts:
 
 export function newInteractionPage(allContacts: any[], preselectedContactId?: string): string {
   return layout('Add Interaction', `
-    <div class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </div>
+    ${linkAppHeader('/dashboard')}
     <div class="container" style="max-width: 600px; margin-top: 2rem;">
       <div style="margin-bottom: 1rem;">
         <a href="/interactions" style="color: #6b7280;">← Back to Interactions</a>
@@ -2759,11 +2765,7 @@ export function newDatePage(contact: any): string {
   ];
   
   return layout(`Add Date - ${contact.name}`, `
-    <nav class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </nav>
+    ${linkAppHeader('/dashboard')}
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -2820,11 +2822,7 @@ export function editDatePage(contact: any, date: any): string {
   ];
   
   return layout(`Edit Date - ${contact.name}`, `
-    <nav class="nav">
-      <div class="nav-content">
-        ${linkNavLogo('/dashboard')}
-      </div>
-    </nav>
+    ${linkAppHeader('/dashboard')}
     
     <div class="container">
       <div style="margin-bottom: 1rem;">
@@ -3181,14 +3179,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 
   return layout('Interactions', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-content">
-          ${linkNavLogo('/dashboard')}
-          <div class="flex" style="align-items: center; gap: 1rem;">
-            <span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-          </div>
-        </div>
-      </nav>
+      ${linkAppHeader('/dashboard')}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -3397,14 +3388,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 export function privacyPolicyPage(user: any): string {
   return layout('Privacy Policy', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-left">
-          ${linkHamburgerButton()}
-          <a href="/dashboard" class="back-button">← Back</a>
-        </div>
-        <h1 class="nav-title">Privacy Policy</h1>
-        <div class="nav-right"></div>
-      </nav>
+      ${linkAppHeader('/dashboard', '<a href="/dashboard" class="back-button">← Back</a>', false)}
       
       <div class="section">
         <div class="card">
@@ -3473,14 +3457,7 @@ export function privacyPolicyPage(user: any): string {
 export function termsOfServicePage(user: any): string {
   return layout('Terms of Service', `
     <div class="content-wrapper">
-      <nav class="nav">
-        <div class="nav-left">
-          ${linkHamburgerButton()}
-          <a href="/dashboard" class="back-button">← Back</a>
-        </div>
-        <h1 class="nav-title">Terms of Service</h1>
-        <div class="nav-right"></div>
-      </nav>
+      ${linkAppHeader('/dashboard', '<a href="/dashboard" class="back-button">← Back</a>', false)}
       
       <div class="section">
         <div class="card">
