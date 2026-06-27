@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Tether — Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,20 +43,19 @@
     }
     body.th-page .wrapper { background: transparent; }
     body.th-page header.th-app-header {
-      padding: 0; background: transparent; box-shadow: none; backdrop-filter: none;
+      padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) 0 env(safe-area-inset-left, 0);
+      background: transparent; box-shadow: none; backdrop-filter: none;
       display: block; overflow: visible;
     }
     body.th-page header.th-app-header::before { display: none; }
     body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 16px; }
     .th-app-topbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      display: flex; align-items: center; gap: 10px;
       padding: 10px 0 12px; margin-bottom: 0;
     }
-    .th-topbar-start {
-      display: flex; align-items: center; gap: 10px; min-width: 0;
-    }
+    .th-topbar-spacer { flex: 1; min-width: 8px; }
     .th-topbar-brand {
-      display: flex; align-items: center; gap: 8px; min-width: 0;
+      display: flex; align-items: center; gap: 8px; min-width: 0; flex-shrink: 0;
     }
     .th-topbar-brand img {
       width: 32px; height: 32px; flex-shrink: 0;
@@ -65,6 +64,7 @@
       margin: 0;
       font-family: Orbitron, Inter, sans-serif;
       font-size: 1.1rem; font-weight: 900; color: var(--th-ink); line-height: 1;
+      white-space: nowrap;
     }
     .th-hamburger {
       display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
@@ -77,7 +77,15 @@
       display: block; height: 2px; width: 100%; border-radius: 1px; background: var(--th-ink);
     }
     .th-topbar-auth {
-      display: flex; gap: 8px; align-items: center; flex-shrink: 0; margin-left: auto;
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    }
+    @media (max-width: 640px) {
+      .th-hamburger { order: 0; }
+      .th-topbar-spacer { order: 1; }
+      .th-topbar-brand { order: 2; }
+      .th-topbar-auth { order: 3; }
+      .th-topbar-title { font-size: 1rem; }
+      .th-topbar-brand img { width: 28px; height: 28px; }
     }
     .th-topbar-auth-btn {
       padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
@@ -916,15 +924,14 @@
   <div class="wrapper">
     <header class="th-app-header">
       <div class="th-app-topbar">
-        <div class="th-topbar-start">
-          <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
-            <span></span><span></span><span></span>
-          </button>
-          <div class="th-topbar-brand">
-            <img src="img/tether-logo.svg" alt="" width="32" height="32">
-            <h1 class="th-topbar-title">Tether</h1>
-          </div>
+        <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="th-topbar-brand">
+          <img src="img/tether-logo.svg" alt="" width="32" height="32">
+          <h1 class="th-topbar-title">Tether</h1>
         </div>
+        <div class="th-topbar-spacer" aria-hidden="true"></div>
         <div class="th-topbar-auth" id="header-auth-buttons">
           <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html'">Login</button>
           <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html'">Sign Up</button>
