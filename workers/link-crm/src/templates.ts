@@ -87,7 +87,7 @@ export function layout(title: string, content: string): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
-  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260627i">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260627j">
   <style>
     .link-topbar-title { color: #16a34a; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -466,9 +466,11 @@ export function layout(title: string, content: string): string {
     }
   </style>
 </head>
-<body>
+<body class="link-app">
   ${content}
-  
+
+  <script src="https://ahrenslabs.com/js/script.js"></script>
+  <script src="https://ahrenslabs.com/js/link_auth.js"></script>
   <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627h"></script>
   <script>
   (function () {

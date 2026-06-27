@@ -366,10 +366,11 @@ body.th-site-menu-open .bottom-nav {
   z-index: var(--th-site-chrome-z);
 }
 
-/* Standalone app pages use bottom nav instead of the site footer */
+/* Standalone app pages use their own footers — never the Ahrens Labs site footer */
 body.th-page > footer,
-body.classify-app > footer {
-  display: none;
+body.classify-app > footer,
+body.link-app > footer {
+  display: none !important;
 }
 
 /* App pages are not centered marketing layouts — pin chrome to the top */
