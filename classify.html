@@ -117,6 +117,260 @@
         .dark .sidebar-surface {
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(17, 24, 39, 0.88) 45%, rgba(2, 6, 23, 0.92) 100%);
         }
+        :root {
+            --th-ink: #0f172a;
+            --th-line: #e2e8f0;
+        }
+        body.classify-app header.th-app-header {
+            padding: 0 1rem;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+            display: block;
+            overflow: visible;
+            flex-shrink: 0;
+            z-index: 40;
+        }
+        body.classify-app header.th-app-header::before { display: none; }
+        .th-app-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 0 12px;
+            margin-bottom: 0;
+        }
+        .th-topbar-start {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .th-topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .th-topbar-brand img {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+            object-fit: contain;
+        }
+        .th-topbar-title {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+            font-size: 1.1rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(to right, #2563eb, #06b6d4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .th-hamburger {
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+            width: 40px;
+            height: 40px;
+            padding: 0 10px;
+            border: 1px solid var(--th-line);
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .th-hamburger:hover { border-color: #93c5fd; background: #f8fafc; }
+        .th-hamburger span {
+            display: block;
+            height: 2px;
+            width: 100%;
+            border-radius: 1px;
+            background: var(--th-ink);
+        }
+        .dark .th-hamburger {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .dark .th-hamburger:hover { border-color: #38bdf8; background: #0f172a; }
+        .dark .th-hamburger span { background: #f1f5f9; }
+        .th-topbar-auth {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .th-topbar-auth-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+        .th-topbar-auth-login { background: #3498db; color: #fff; }
+        .th-topbar-auth-signup { background: #2ecc71; color: #fff; }
+        .th-topbar-username {
+            display: none;
+            padding: 6px 4px;
+            color: var(--th-ink);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .dark .th-topbar-username { color: #f1f5f9; }
+        .cl-app-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--th-line);
+            border-radius: 10px;
+            background: #fff;
+            color: #64748b;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .dark .cl-app-nav-btn {
+            background: #1e293b;
+            border-color: #334155;
+            color: #94a3b8;
+        }
+        .th-site-menu-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            z-index: 19990;
+        }
+        .th-site-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 20000;
+            width: min(320px, 88vw);
+            max-width: 100%;
+            background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+            color: #fff;
+            box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+            transform: translateX(-105%);
+            transition: transform 0.22s ease;
+            overflow-y: auto;
+            padding: 0 0 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .th-site-menu.open { transform: translateX(0); }
+        .th-site-menu-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .th-site-menu-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 1.05rem;
+        }
+        .th-site-menu-brand img { width: 36px; height: auto; }
+        .th-site-menu-close {
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 1.4rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .th-site-menu-close:hover { background: rgba(255, 255, 255, 0.14); }
+        .th-site-menu nav { padding: 12px 10px 0; flex: 1 1 auto; }
+        .th-site-menu nav > ul {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .th-site-menu nav > ul > li { margin: 0; width: 100%; }
+        .th-site-menu nav .nav-caret { display: none; }
+        .th-site-menu-footer {
+            margin-top: auto;
+            padding: 12px 10px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .th-site-menu-signout,
+        .th-site-menu nav > ul > li > a,
+        .th-site-menu nav > ul > li > .nav-dropdown-trigger {
+            display: block;
+            padding: 0.65em 0.85em;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.92);
+            text-decoration: none;
+            font-size: 0.92rem;
+            font-weight: 600;
+            text-align: left;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+        .th-site-menu-signout:hover,
+        .th-site-menu nav > ul > li > a:hover,
+        .th-site-menu nav > ul > li > .nav-dropdown-trigger:hover,
+        .th-site-menu nav a.active {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+            border-color: rgba(255, 255, 255, 0.34);
+            color: #fff;
+            transform: none;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+        .th-site-menu nav a::before,
+        .th-site-menu nav a::after { display: none; }
+        .th-site-menu nav ul.nav-dropdown-menu {
+            display: block;
+            position: static;
+            transform: none;
+            min-width: 0;
+            margin: 0 0 4px;
+            padding: 0 0 0 12px;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+        .th-site-menu nav ul.nav-dropdown-menu a {
+            font-size: 0.84rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.85);
+            padding: 0.5em 0.85em;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.06));
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+        }
+        .th-site-menu nav ul.nav-dropdown-menu a:hover,
+        .th-site-menu nav ul.nav-dropdown-menu a.active {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.28);
+            color: #fff;
+        }
+        body.th-site-menu-open { overflow: hidden; }
+
         .sidebar-surface::before {
             content: "";
             position: absolute;
@@ -275,53 +529,50 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen">
-    <div class="wrapper">
-        <header>
-            <div class="header-content">
-                <a href="index.html" class="logo-link">
-                    <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
-                </a>
-                <h1>Ahrens Labs</h1>
-                <nav>
-                    <ul>
-                        <li><a href="index.html">Home</a></li>
-                        <li><a href="labs.html">Labs &amp; Projects</a></li>
-                        <li><a href="coding-lab.html">Coding Lab</a></li>
-                        <li><a href="account-dashboard.html">Account</a></li>
-                    </ul>
-                </nav>
-                <div id="header-auth-buttons" style="position:absolute;top:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:1000;">
-                    <button id="header-login-btn" type="button" onclick="window.location.href='account.html?return=classify.html'" style="padding:6px 14px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Login</button>
-                    <button id="header-signup-btn" type="button" onclick="window.location.href='account.html?return=classify.html'" style="padding:6px 14px;background:#2ecc71;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85em;">Sign Up</button>
-                    <span id="header-username" style="display:none;padding:6px 14px;color:white;font-weight:600;font-size:0.9em;"></span>
+<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen">
+    <header class="th-app-header border-b border-slate-200/80 dark:border-slate-700/60">
+        <div class="th-app-topbar">
+            <div class="th-topbar-start">
+                <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+                    <span></span><span></span><span></span>
+                </button>
+                <div class="th-topbar-brand">
+                    <img src="classify.png" alt="" width="32" height="32">
+                    <h1 class="th-topbar-title">Classify</h1>
                 </div>
             </div>
-        </header>
-    </div>
+            <div class="th-topbar-auth" id="header-auth-buttons">
+                <button type="button" class="cl-app-nav-btn md:hidden" onclick="toggleMobileNav()" aria-label="Open Classify menu">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=classify.html'">Login</button>
+                <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=classify.html'">Sign Up</button>
+                <span id="header-username" class="th-topbar-username"></span>
+            </div>
+        </div>
+        <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+        <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+            <div class="th-site-menu-head">
+                <a href="index.html" class="th-site-menu-brand">
+                    <img src="img/EagleLogo.png" alt="" class="header-logo">
+                    <span>Ahrens Labs</span>
+                </a>
+                <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
+            </div>
+            <nav>
+                <ul></ul>
+            </nav>
+            <div class="th-site-menu-footer">
+                <a href="#" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
+            </div>
+        </div>
+    </header>
+
     <div class="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- Mobile Header -->
-    <header class="md:hidden bg-white dark:bg-dark-surface border-b border-slate-200 dark:border-dark-border p-4 flex justify-between items-center z-20">
-        <div class="flex items-center gap-2 text-brand-600 font-bold text-lg">
-            <img src="classify.png" alt="Classify logo" class="w-6 h-6 object-contain">
-            <span>Classify</span>
-        </div>
-        <button onclick="toggleMobileNav()" class="text-slate-500 dark:text-dark-muted">
-            <i class="fa-solid fa-bars text-xl"></i>
-        </button>
-    </header>
-
     <!-- Sidebar Navigation (Desktop) -->
     <aside class="hidden md:flex flex-col w-64 sidebar-surface backdrop-blur-md border-r border-slate-200/70 dark:border-slate-700/50 h-full z-10 shadow-xl transition-colors duration-200 overflow-y-auto relative">
-        <div class="p-6 flex items-center gap-3 bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text border-b border-slate-200/70 dark:border-slate-700/60">
-            <div class="w-10 h-10 rounded-lg bg-transparent border-2 border-blue-400/70 dark:border-blue-500/60 flex items-center justify-center text-white text-lg font-bold">
-                <img src="classify.png" alt="Classify logo" class="w-7 h-7 object-contain">
-            </div>
-            <span class="font-display font-bold text-xl text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text">Classify</span>
-        </div>
-        
         <nav class="flex-1 px-4 space-y-1 mt-6">
             <button onclick="switchTab('dashboard')" class="nav-item nav-accent-blue w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left active-nav" data-tab="dashboard">
                 <i class="nav-icon fa-solid fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i>
