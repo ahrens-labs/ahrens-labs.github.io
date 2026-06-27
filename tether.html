@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png">
   <link rel="icon" href="/img/tether-favicon.ico" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png">
-  <link rel="manifest" href="/tether/manifest.webmanifest">
+  <link rel="manifest" href="/tether-manifest.webmanifest">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4641,7 +4641,7 @@
   (function () {
     if (!('serviceWorker' in navigator)) return;
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/tether/sw.js', { scope: '/tether/' }).catch(function () {});
+      navigator.serviceWorker.register('/tether-sw.js', { scope: '/tether.html' }).catch(function () {});
     });
   })();
   </script>
