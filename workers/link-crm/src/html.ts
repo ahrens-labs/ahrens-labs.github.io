@@ -92,7 +92,7 @@ const AHRENS_HEADER = `
 
 const AHRENS_FOOTER = `
 <footer>
-  <p>&copy; 2025 Ahrens Labs. All rights reserved. · <a href="https://ahrenslabs.com/contact.html">Contact</a> · <a href="https://ahrenslabs.com/privacy.html">Privacy</a></p>
+  <p>&copy; 2025-2026 Ahrens Labs. All rights reserved. · <a href="https://ahrenslabs.com/contact.html">Contact</a> · <a href="https://ahrenslabs.com/privacy.html">Privacy</a></p>
 </footer>
 `
 
