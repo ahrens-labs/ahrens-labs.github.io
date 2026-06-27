@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare Tether logo PNG: remove checkerboard, boost checkmark, center on 512² canvas."""
+"""Prepare Tether logo PNG: remove checkerboard and center on 512² canvas."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,26 +28,6 @@ def background_mask(arr: np.ndarray) -> np.ndarray:
     return (sat < 38) & (bright > 120)
 
 
-def classify_pixels(arr: np.ndarray, fg: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    r = arr[..., 0].astype(int)
-    g = arr[..., 1].astype(int)
-    b = arr[..., 2].astype(int)
-    sat = np.maximum.reduce([np.abs(r - g), np.abs(g - b), np.abs(r - b)])
-    bright = (r + g + b) / 3
-    navy = fg & (bright < 140) & (b > 30) & (sat > 8)
-    white = fg & (bright > 190) & (sat < 28)
-    check = fg & ~navy & ~white & (b > 130) & (g > 110)
-    return navy, white, check
-
-
-def boost_check(arr: np.ndarray, check: np.ndarray) -> np.ndarray:
-    out = arr.copy()
-    out[check, 0] = np.clip(out[check, 0] * 0.88, 0, 255)
-    out[check, 1] = np.clip(out[check, 1] * 1.08, 0, 255)
-    out[check, 2] = np.clip(out[check, 2] * 1.12, 0, 255)
-    return out
-
-
 def compose_canvas(im: Image.Image, canvas: int = 512, fill: float = 0.94) -> Image.Image:
     bbox = im.getbbox()
     if not bbox:
@@ -66,10 +46,8 @@ def compose_canvas(im: Image.Image, canvas: int = 512, fill: float = 0.94) -> Im
 def main() -> None:
     arr = rgba_array(Image.open(SRC))
     fg = ~background_mask(arr)
-    _, _, check = classify_pixels(arr, fg)
     out = arr.copy()
     out[~fg, 3] = 0
-    out = boost_check(out, check)
     im = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
     result = compose_canvas(im)
     result.save(OUT, optimize=True)
