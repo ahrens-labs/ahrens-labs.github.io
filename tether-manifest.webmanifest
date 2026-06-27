@@ -12,16 +12,22 @@
   "categories": ["productivity"],
   "icons": [
     {
-      "src": "/img/tether-favicon-180.png",
-      "sizes": "180x180",
+      "src": "/img/tether-favicon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/img/tether-favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/img/tether-favicon-180.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
     }
   ]
 }

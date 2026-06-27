@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Tether — Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627d">
-  <link rel="icon" href="/img/tether-favicon.svg?v=10" type="image/svg+xml">
-  <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png?v=10">
-  <link rel="icon" href="/img/tether-favicon.ico?v=10" sizes="any">
-  <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=10">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627e">
+  <link rel="icon" href="/img/tether-favicon.svg?v=11" type="image/svg+xml">
+  <link rel="icon" type="image/png" sizes="48x48" href="/img/tether-favicon-48.png?v=11">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/tether-favicon-32.png?v=11">
+  <link rel="icon" href="/img/tether-favicon.ico?v=11" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=11">
   <link rel="manifest" href="/tether-manifest.webmanifest">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
@@ -47,16 +48,6 @@
     .th-page .th-topbar-title {
       font-family: Orbitron, Inter, sans-serif;
       font-weight: 900;
-    }
-    .th-app-tabs {
-      display: flex; gap: 6px; margin-bottom: 10px;
-    }
-    .th-app-tabs button {
-      flex: 1; border: 1px solid var(--th-line); background: #fff; border-radius: 10px;
-      padding: 7px 10px; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: var(--th-muted);
-    }
-    .th-app-tabs button.active {
-      background: var(--th-accent-soft); border-color: #93c5fd; color: var(--th-accent);
     }
     .th-bottom-nav {
       position: fixed;
@@ -883,7 +874,7 @@
             <span></span><span></span><span></span>
           </button>
           <div class="th-topbar-brand">
-            <img src="/img/tether-logo.png?v=10" alt="" width="32" height="32">
+            <img src="/img/tether-logo.png?v=10" alt="" width="44" height="44">
             <h1 class="th-topbar-title">Tether</h1>
           </div>
         </div>
@@ -913,11 +904,6 @@
 
     <main class="th-main-wrap">
       <div id="th-banner" class="th-banner"></div>
-
-      <div class="th-app-tabs">
-        <button type="button" class="active" id="tab-my-tasks" data-app-tab="my-tasks">My Tasks</button>
-        <button type="button" id="tab-projects" data-app-tab="projects">My Projects</button>
-      </div>
 
       <div class="th-shell" id="shell-projects" style="display:none;">
         <aside class="th-card th-sidebar">
@@ -989,9 +975,20 @@
     <div class="push"></div>
   </div>
 
-  <footer>
-    <p>&copy; 2025-2026 Ahrens Labs. All rights reserved. · <a href="contact.html">Contact</a> · <a href="privacy.html">Privacy</a></p>
-  </footer>
+  <nav class="th-bottom-nav" aria-label="Tether views">
+    <button type="button" class="th-bottom-nav-item active" id="tab-my-tasks" data-app-tab="my-tasks">
+      <span class="th-bottom-nav-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </span>
+      <span class="th-bottom-nav-label">My Tasks</span>
+    </button>
+    <button type="button" class="th-bottom-nav-item" id="tab-projects" data-app-tab="projects">
+      <span class="th-bottom-nav-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span class="th-bottom-nav-label">My Projects</span>
+    </button>
+  </nav>
 
   <!-- Project modal -->
   <div class="th-modal-backdrop" id="modal-project">

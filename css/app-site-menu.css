@@ -51,15 +51,15 @@ header.th-app-header::before {
 }
 
 .th-topbar-brand img {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   object-fit: contain;
 }
 
 .th-topbar-title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 800;
   line-height: 1;
   color: var(--th-ink);
@@ -348,4 +348,10 @@ header.th-app-header::before {
 
 body.th-site-menu-open {
   overflow: hidden;
+}
+
+/* Standalone app pages use bottom nav instead of the site footer */
+body.th-page > footer,
+body.classify-app > footer {
+  display: none;
 }

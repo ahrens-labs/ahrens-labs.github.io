@@ -6,7 +6,7 @@ IMG="$ROOT/img"
 cd "$IMG"
 
 if [[ -f tether-logo.png ]]; then
-  for size in 16 32 48 180; do
+  for size in 16 32 48 180 192 512; do
     convert tether-logo.png -resize "${size}x${size}" "tether-favicon-${size}.png"
   done
   if [[ -f tether-logo.svg ]]; then
