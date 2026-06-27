@@ -243,6 +243,15 @@
       return path === '/tether' || path === '/tether/' || current === 'tether.html';
     }
 
+    if (item.id === 'classify') {
+      return (
+        path === '/classify' ||
+        path === '/classify/' ||
+        current === 'classify.html' ||
+        current === 'classify'
+      );
+    }
+
     const base = hrefBasename(item.href);
     if (!base) return false;
     return current === base;

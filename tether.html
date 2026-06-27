@@ -21,7 +21,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="application-name" content="Tether">
   <script src="js/script.js"></script>
-  <script src="js/header_nav.js?v=20260627d"></script>
+  <script src="js/header_nav.js?v=20260627e"></script>
   <style>
     :root {
       --th-ink: #0f172a;
@@ -43,7 +43,7 @@
       font-family: "DM Sans", Inter, system-ui, sans-serif;
     }
     body.th-page .wrapper { background: transparent; }
-    body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 16px; }
+    body.th-page main.th-main-wrap { max-width: 1200px; margin: 0 auto; padding: 0 14px 88px; }
     .th-page .th-topbar-title {
       font-family: Orbitron, Inter, sans-serif;
       font-weight: 900;
@@ -57,6 +57,63 @@
     }
     .th-app-tabs button.active {
       background: var(--th-accent-soft); border-color: #93c5fd; color: var(--th-accent);
+    }
+    .th-bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-around;
+      gap: 4px;
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+      background: #fff;
+      border-top: 1px solid var(--th-line);
+      box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+    }
+    .th-bottom-nav-item {
+      flex: 1;
+      max-width: 160px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--th-muted);
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .th-bottom-nav-item:hover {
+      color: var(--th-accent);
+      background: #f8fafc;
+    }
+    .th-bottom-nav-item.active {
+      color: var(--th-accent);
+      background: var(--th-accent-soft);
+    }
+    .th-bottom-nav-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+    }
+    .th-bottom-nav-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
     .th-sidebar-sort {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;

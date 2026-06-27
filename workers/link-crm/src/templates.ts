@@ -444,7 +444,7 @@ export function layout(title: string, content: string): string {
 <body>
   ${content}
   
-  <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627d"></script>
+  <script src="https://ahrenslabs.com/js/header_nav.js?v=20260627e"></script>
   <script>
   (function () {
     if (!('serviceWorker' in navigator)) return;
