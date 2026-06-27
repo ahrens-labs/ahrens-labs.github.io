@@ -5,7 +5,7 @@ import { checkRateLimit, clearRateLimit, formatLockoutMessage } from './ratelimi
 import { getGoogleAuthUrl, handleGoogleCallback } from './oauth'
 import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interactionsPage, newContactPage, contactDetailPage, editContactPage, editInteractionPage, newInteractionPage, newDatePage, editDatePage, remindersPage, newReminderPage, editReminderPage, privacyPolicyPage, termsOfServicePage } from './templates'
 import { decryptContact, generateId, encryptContact } from './crypto'
-import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
+import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkPwaPaths, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
 import { serveLinkHtml } from './html'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -1173,24 +1173,75 @@ app.get('/icon-192.png', (c) => {
   })
 })
 
+app.get('/icon-512.png', (c) => {
+  const buf = base64ToArrayBuffer(ICON_192_BASE64)
+  return c.body(buf, 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=604800',
+  })
+})
+
+const LINK_SERVICE_WORKER = `
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(fetch(event.request));
+});
+`.trim()
+
+app.get('/sw.js', (c) => {
+  return c.body(LINK_SERVICE_WORKER, 200, {
+    'Content-Type': 'application/javascript; charset=utf-8',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Service-Worker-Allowed': linkPwaPaths(c.req.raw).scope,
+  })
+})
+
 // Serve manifest
 app.get('/manifest.json', (c) => {
+  const pwa = linkPwaPaths(c.req.raw)
   return c.json({
+    id: pwa.manifestId,
     name: 'Link',
     short_name: 'Link',
-    description: 'Link Person Relationship Manager',
-    start_url: '/',
+    description: 'Link Person Relationship Manager — stay connected with the people who matter most.',
+    start_url: pwa.startUrl,
+    scope: pwa.scope,
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#0ea5e9',
-    orientation: 'portrait',
+    background_color: '#f9fafb',
+    theme_color: '#16a34a',
+    orientation: 'portrait-primary',
+    categories: ['productivity', 'social'],
     icons: [
       {
-        src: '/icon-192.png',
+        src: `${pwa.base}/icon-192.png`,
         sizes: '192x192',
-        type: 'image/png'
-      }
-    ]
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: `${pwa.base}/icon-512.png`,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: `${pwa.base}/icon-512.png`,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+  }, 200, {
+    'Content-Type': 'application/manifest+json; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600',
   })
 })
 

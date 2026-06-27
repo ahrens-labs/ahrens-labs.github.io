@@ -32,6 +32,29 @@ export function linkBasePath(request: Request): string {
   return isAhrensHost(request) ? '/link' : ''
 }
 
+export function linkPwaPaths(request: Request): {
+  base: string
+  startUrl: string
+  scope: string
+  manifestId: string
+} {
+  const base = linkBasePath(request)
+  if (base) {
+    return {
+      base,
+      startUrl: `${base}/dashboard`,
+      scope: `${base}/`,
+      manifestId: `${base}/`,
+    }
+  }
+  return {
+    base: '',
+    startUrl: '/dashboard',
+    scope: '/',
+    manifestId: '/',
+  }
+}
+
 export function publicPath(request: Request, path: string): string {
   const base = linkBasePath(request)
   const p = path.startsWith('/') ? path : `/${path}`
