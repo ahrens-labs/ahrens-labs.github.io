@@ -606,3 +606,151 @@ export function reconcileTaskSchedule(task, todoistDateRaw, today = new Date()) 
   applyScheduleToTask(task, schedule);
   return task;
 }
+
+const WEEKDAY_WORD =
+  '(?:sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thur(?:s(?:day)?)?|fri(?:day)?|sat(?:urday)?)';
+
+function parseMonthDayPhrase(lower, today) {
+  const m1 = lower.match(
+    /^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{4}))?$/
+  );
+  if (m1) {
+    const month = parseMonth(m1[1]);
+    const day = Number(m1[2]);
+    const year = m1[3] ? Number(m1[3]) : today.getFullYear();
+    if (month != null && day >= 1 && day <= 31) {
+      let d = new Date(year, month, day, 12, 0, 0, 0);
+      if (!m1[3] && d < noonToday(today)) d = new Date(year + 1, month, day, 12, 0, 0, 0);
+      const out = scheduleBase('');
+      out.dueDate = isoDate(d);
+      return out;
+    }
+  }
+  const slash = lower.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (slash) {
+    const month = Number(slash[1]) - 1;
+    const day = Number(slash[2]);
+    let year = slash[3] ? Number(slash[3]) : today.getFullYear();
+    if (slash[3] && slash[3].length === 2) year = 2000 + year;
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      let d = new Date(year, month, day, 12, 0, 0, 0);
+      if (!slash[3] && d < noonToday(today)) d = new Date(year + 1, month, day, 12, 0, 0, 0);
+      const out = scheduleBase('');
+      out.dueDate = isoDate(d);
+      return out;
+    }
+  }
+  const iso = lower.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const out = scheduleBase('');
+    out.dueDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
+    return out;
+  }
+  return null;
+}
+
+function nextWeekdayAfter(fromDate, weekday) {
+  const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate(), 12, 0, 0, 0);
+  d.setDate(d.getDate() + 1);
+  for (let i = 0; i < 14; i++) {
+    if (d.getDay() === weekday) return d;
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+/** Parse a Todoist-style date or recurrence phrase (not full task text). */
+export function parseSchedulePhrase(phrase, today = new Date()) {
+  const s = String(phrase || '').trim();
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  const now = noonToday(today);
+
+  const mapped = mapTodoistDate(s, today);
+  if (mapped.dueDate || mapped.recurrence) return mapped;
+
+  if (lower === 'today') {
+    const out = scheduleBase('');
+    out.dueDate = isoDate(now);
+    return out;
+  }
+  if (lower === 'tomorrow') {
+    const out = scheduleBase('');
+    out.dueDate = isoDate(addDays(now, 1));
+    return out;
+  }
+
+  const monthDay = parseMonthDayPhrase(lower, today);
+  if (monthDay) return monthDay;
+
+  const nextWd = lower.match(new RegExp(`^next\\s+${WEEKDAY_WORD}$`));
+  if (nextWd) {
+    const weekday = parseWeekday(nextWd[1]);
+    if (weekday != null) {
+      const out = scheduleBase('');
+      out.dueDate = isoDate(nextWeekdayAfter(now, weekday));
+      return out;
+    }
+  }
+
+  const thisWd = lower.match(new RegExp(`^this\\s+${WEEKDAY_WORD}$`));
+  if (thisWd) {
+    const weekday = parseWeekday(thisWd[1]);
+    if (weekday != null) {
+      const out = scheduleBase('');
+      out.dueDate = initialWeeklyDue(weekday, today);
+      return out;
+    }
+  }
+
+  const standaloneWd = lower.match(new RegExp(`^${WEEKDAY_WORD}$`));
+  if (standaloneWd) {
+    const weekday = parseWeekday(standaloneWd[1]);
+    if (weekday != null) {
+      const out = scheduleBase('');
+      out.dueDate = initialWeeklyDue(weekday, today);
+      return out;
+    }
+  }
+
+  return null;
+}
+
+function stripTailPhrase(text, phrase) {
+  const t = String(text || '');
+  const p = String(phrase || '').trim();
+  if (!p) return t.replace(/\s+/g, ' ').trim();
+  const idx = t.toLowerCase().lastIndexOf(p.toLowerCase());
+  if (idx < 0) return t.replace(/\s+/g, ' ').trim();
+  return (t.slice(0, idx) + t.slice(idx + p.length)).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Parse Todoist-style quick-add text: title, @labels, due date, and recurrence.
+ * @returns {{ title: string, labels: string[], schedule: ReturnType<typeof scheduleBase> }}
+ */
+export function parseTodoistQuickAdd(raw, today = new Date()) {
+  const text = String(raw || '').trim();
+  const labels = extractLabels(text);
+  let scanText = stripLabelsFromTitle(text);
+
+  let schedule = scheduleBase('');
+  let matchedPhrase = '';
+
+  const words = scanText.split(/\s+/).filter(Boolean);
+  const maxLen = Math.min(words.length, 14);
+  for (let len = maxLen; len >= 1; len--) {
+    const phrase = words.slice(-len).join(' ');
+    const parsed = parseSchedulePhrase(phrase, today);
+    if (parsed && (parsed.dueDate || parsed.recurrence)) {
+      schedule = parsed;
+      matchedPhrase = phrase;
+      break;
+    }
+  }
+
+  let title = matchedPhrase ? stripTailPhrase(scanText, matchedPhrase) : scanText;
+  title = title.replace(/\s+/g, ' ').trim();
+
+  return { title, labels, schedule };
+}

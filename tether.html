@@ -629,6 +629,32 @@
     }
     .th-modal-close:hover { background: #fff; color: var(--th-ink); border-color: #bfdbfe; }
     .th-task-modal-body { padding: 18px 22px 8px; max-height: min(68vh, 560px); overflow-y: auto; }
+    .th-task-modal.th-task-modal-quick { width: min(520px, 100%); }
+    .th-task-quick-add { margin-bottom: 4px; }
+    .th-task-quick-add-input {
+      width: 100%; box-sizing: border-box; border: 1px solid #dbeafe; background: #fff;
+      border-radius: 14px; padding: 14px 16px; font: inherit; font-size: 1rem; line-height: 1.35;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .th-task-quick-add-input:focus {
+      outline: none; border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .th-task-quick-add-hint {
+      margin: 8px 0 0; font-size: 0.72rem; color: var(--th-muted); line-height: 1.4;
+    }
+    .th-task-quick-add-preview {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0;
+    }
+    .th-quick-add-chip {
+      display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 700; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;
+    }
+    .th-quick-add-expand {
+      display: inline-block; margin-top: 12px; padding: 0; border: none; background: none;
+      font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--th-accent); cursor: pointer;
+      text-decoration: underline; text-decoration-color: transparent;
+    }
+    .th-quick-add-expand:hover { text-decoration-color: #93c5fd; }
     .th-task-modal-layout {
       display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: start;
     }
@@ -964,6 +990,15 @@
         <p id="modal-task-subtitle" class="th-task-modal-sub"></p>
       </div>
       <div class="th-task-modal-body">
+        <div id="task-quick-add" class="th-task-quick-add" style="display:none;">
+          <input type="text" id="task-quick-add-input" class="th-task-quick-add-input" maxlength="240"
+            placeholder="What needs doing? Try @label tomorrow or every week"
+            aria-label="Quick add task">
+          <div id="task-quick-add-preview" class="th-task-quick-add-preview"></div>
+          <p class="th-task-quick-add-hint">Use @ for labels. Add dates and repeats in plain language (today, tomorrow, every Monday, every 2 weeks).</p>
+          <button type="button" class="th-quick-add-expand" id="task-quick-add-expand">More details</button>
+        </div>
+        <div id="task-modal-details">
         <div class="th-task-modal-layout">
           <div class="th-task-modal-main">
             <section class="th-task-section">
@@ -1117,6 +1152,7 @@
             <div class="th-chip-check-group" id="task-deps"></div>
           </div>
         </section>
+        </div>
       </div>
       <div class="th-task-modal-foot">
         <button type="button" class="th-btn th-btn-ghost th-task-start-btn" id="task-edit-start" style="display:none;">Start</button>
@@ -1211,6 +1247,10 @@
   let personalTasks = [];
   let editingTaskId = null;
   let recurrencePanelOpen = false;
+  let taskModalQuickMode = false;
+  let taskModalDetailsExpanded = false;
+  let quickAddParserPromise = null;
+  let quickAddPreviewTimer = null;
   let editingProjectMode = 'create';
   let pendingDeleteProjectId = null;
   let pendingDeleteTaskId = null;
@@ -1459,6 +1499,133 @@
       .replace(/@([a-zA-Z0-9_-]+)/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function loadQuickAddParser() {
+    if (!quickAddParserPromise) {
+      quickAddParserPromise = import('./scripts/todoist-recurrence.js');
+    }
+    return quickAddParserPromise;
+  }
+
+  function setTaskModalLayout() {
+    const quick = document.getElementById('task-quick-add');
+    const details = document.getElementById('task-modal-details');
+    const modal = document.querySelector('.th-task-modal');
+    const expandBtn = document.getElementById('task-quick-add-expand');
+    const onQuick = taskModalQuickMode && !taskModalDetailsExpanded;
+    if (quick) quick.style.display = taskModalQuickMode ? (onQuick ? 'block' : 'none') : 'none';
+    if (details) details.style.display = taskModalQuickMode && !taskModalDetailsExpanded ? 'none' : '';
+    if (modal) modal.classList.toggle('th-task-modal-quick', onQuick);
+    if (expandBtn) expandBtn.style.display = taskModalQuickMode && !taskModalDetailsExpanded ? 'inline-block' : 'none';
+    const saveBtn = document.getElementById('save-task-btn');
+    if (saveBtn) saveBtn.textContent = onQuick ? 'Add task' : 'Save task';
+  }
+
+  function schedulePreviewLabel(schedule) {
+    if (!schedule) return '';
+    if (schedule.recurrence) {
+      const temp = {
+        recurrence: schedule.recurrence,
+        recurrenceInterval: schedule.recurrenceInterval,
+        recurrenceDay: schedule.recurrenceDay,
+        recurrenceWeekOfMonth: schedule.recurrenceWeekOfMonth,
+        recurrenceMonth: schedule.recurrenceMonth,
+      };
+      return recurrenceLabelShort(temp);
+    }
+    if (schedule.dueDate) {
+      try {
+        return formatDate(schedule.dueDate);
+      } catch {
+        return schedule.dueDate;
+      }
+    }
+    return '';
+  }
+
+  async function syncQuickAddPreview() {
+    const preview = document.getElementById('task-quick-add-preview');
+    const input = document.getElementById('task-quick-add-input');
+    if (!preview || !input) return;
+    const raw = input.value.trim();
+    if (!raw) {
+      preview.innerHTML = '';
+      return;
+    }
+    try {
+      const mod = await loadQuickAddParser();
+      const parsed = mod.parseTodoistQuickAdd(raw);
+      const chips = [];
+      parsed.labels.forEach(label => chips.push(`@${label}`));
+      const schedLabel = schedulePreviewLabel(parsed.schedule);
+      if (schedLabel) chips.push(schedLabel);
+      preview.innerHTML = chips.map(text =>
+        `<span class="th-quick-add-chip">${escapeHtml(text)}</span>`
+      ).join('');
+    } catch {
+      preview.innerHTML = '';
+    }
+  }
+
+  function queueQuickAddPreview() {
+    clearTimeout(quickAddPreviewTimer);
+    quickAddPreviewTimer = setTimeout(() => { syncQuickAddPreview(); }, 120);
+  }
+
+  async function applyQuickAddParsed(parsed) {
+    document.getElementById('task-title-input').value = parsed.title || '';
+    renderTaskLabelsEditor(parsed.labels || []);
+    document.getElementById('task-labels-input').value = '';
+    const temp = {};
+    if (parsed.schedule) {
+      const mod = await loadQuickAddParser();
+      mod.applyScheduleToTask(temp, parsed.schedule);
+    }
+    document.getElementById('task-due-input').value = temp.dueDate || parsed.schedule?.dueDate || '';
+    populateRecurrenceFormFromTask(temp.recurrence ? temp : null);
+    setRecurrencePanelOpen(false);
+    syncRecurrenceUi();
+  }
+
+  async function expandTaskModalDetails() {
+    const raw = document.getElementById('task-quick-add-input').value.trim();
+    if (raw) {
+      try {
+        const mod = await loadQuickAddParser();
+        await applyQuickAddParsed(mod.parseTodoistQuickAdd(raw));
+      } catch (e) {
+        showBanner(e.message || 'Could not parse task text');
+        return;
+      }
+    }
+    taskModalDetailsExpanded = true;
+    setTaskModalLayout();
+    requestAnimationFrame(() => document.getElementById('task-title-input').focus());
+  }
+
+  async function buildTaskFromQuickAdd(raw) {
+    const mod = await loadQuickAddParser();
+    const parsed = mod.parseTodoistQuickAdd(raw);
+    if (!parsed.title) throw new Error('Task name is required');
+    const noProject = editingTaskFromProjectId == null;
+    const taskList = noProject ? personalTasks : (activeProject.tasks || []);
+    const task = {
+      id: crypto.randomUUID(),
+      title: parsed.title,
+      definitionOfDone: '',
+      notes: '',
+      dueDate: '',
+      status: 'todo',
+      assigneeUserIds: [],
+      dependsOnTaskIds: [],
+      labels: parsed.labels.length ? parsed.labels : undefined,
+      sortOrder: taskList.length,
+    };
+    if (!task.labels) delete task.labels;
+    if (parsed.schedule) mod.applyScheduleToTask(task, parsed.schedule);
+    ensureRecurrenceDueDate(task);
+    return task;
   }
 
   function taskDisplayTitle(t) {
@@ -3766,6 +3933,11 @@
       : (projects.find(p => p.id === editingTaskFromProjectId)?.title || activeProject?.title || 'Project');
     document.getElementById('modal-task-title').textContent = taskId ? 'Edit task' : 'New task';
     document.getElementById('modal-task-subtitle').textContent = '';
+    taskModalQuickMode = !isEdit;
+    taskModalDetailsExpanded = false;
+    document.getElementById('task-quick-add-input').value = '';
+    document.getElementById('task-quick-add-preview').innerHTML = '';
+    setTaskModalLayout();
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = noProject ? personalTasks : (activeProject?.tasks || []);
     const task = taskId ? (getTaskById(taskId) || tasks.find(t => t.id === taskId)) : null;
@@ -3824,7 +3996,11 @@
       }
     }
     const titleInput = document.getElementById('task-title-input');
-    requestAnimationFrame(() => titleInput.focus());
+    const quickInput = document.getElementById('task-quick-add-input');
+    requestAnimationFrame(() => {
+      if (taskModalQuickMode && !taskModalDetailsExpanded && quickInput) quickInput.focus();
+      else titleInput.focus();
+    });
   }
 
   async function deleteTask(taskId) {
@@ -3960,6 +4136,16 @@
     return t.dueDate || isoDate(new Date());
   }
 
+  document.getElementById('task-quick-add-expand').addEventListener('click', () => {
+    expandTaskModalDetails();
+  });
+  document.getElementById('task-quick-add-input').addEventListener('input', queueQuickAddPreview);
+  document.getElementById('task-quick-add-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('save-task-btn').click();
+    }
+  });
   document.getElementById('task-recurrence-dom').innerHTML = Array.from({ length: 31 }, (_, i) => {
     const n = i + 1;
     return `<option value="${n}">${n}</option>`;
@@ -4137,6 +4323,33 @@
   });
 
   document.getElementById('save-task-btn').addEventListener('click', async () => {
+    const quickActive = taskModalQuickMode && !taskModalDetailsExpanded;
+    if (quickActive) {
+      const raw = document.getElementById('task-quick-add-input').value.trim();
+      if (!raw) { showBanner('Enter a task'); return; }
+      const noProject = editingTaskFromProjectId == null;
+      if (!noProject && !activeProject) { showBanner('Select a project first'); return; }
+      try {
+        const task = await buildTaskFromQuickAdd(raw);
+        const taskList = noProject ? personalTasks : (activeProject.tasks || []);
+        taskList.push(task);
+        closeModal('modal-task');
+        clearTaskViewState();
+        if (noProject) {
+          personalTasks = taskList;
+          await savePersonalTasks();
+        } else {
+          activeProject.tasks = taskList;
+          await saveProject(activeProject);
+        }
+        if (appTab === 'my-tasks') await loadMyTasks();
+        else renderProjectView();
+        showBanner(task.recurrence ? recurrenceCompleteMessage(task) : 'Task added', 'ok');
+      } catch (e) {
+        showBanner(e.message || 'Could not add task');
+      }
+      return;
+    }
     const rawTitle = document.getElementById('task-title-input').value.trim();
     if (!rawTitle) { showBanner('Task title is required'); return; }
     const noProject = editingTaskFromProjectId == null;
