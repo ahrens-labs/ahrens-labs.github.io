@@ -1182,7 +1182,6 @@ app.get('/icon-512.png', (c) => {
 })
 
 const LINK_SERVICE_WORKER = `
-// link v2 — bump when UI changes should reach installed PWAs
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());
 });
