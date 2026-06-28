@@ -388,20 +388,12 @@ body.digest-app {
 
 body.classify-app {
   min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body.classify-app .classify-app-shell {
   flex: 1 1 auto;
-  min-height: 0;
   width: 100%;
-}
-
-body.classify-app .classify-app-sidebar {
-  align-self: stretch;
-  min-height: 100%;
-  flex-shrink: 0;
 }
 
 body.th-page .wrapper {

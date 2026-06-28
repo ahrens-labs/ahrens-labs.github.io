@@ -124,13 +124,14 @@
         }
         body.classify-app {
             min-height: 100dvh;
-            height: 100dvh;
-            overflow: hidden;
+            overflow-x: hidden;
         }
-        body.classify-app .classify-app-shell {
-            flex: 1 1 auto;
+        body.classify-app .classify-app-shell,
+        body.classify-app main,
+        body.classify-app #mainContainer {
+            overflow: visible;
+            height: auto;
             min-height: 0;
-            width: 100%;
         }
         .cl-app-footer {
             position: fixed;
@@ -217,12 +218,12 @@
             background: rgba(56, 189, 248, 0.14);
         }
         @media (max-width: 767px) {
-            #mainContainer {
+            body.classify-app #mainContainer {
                 padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)) !important;
             }
         }
         @media (min-width: 768px) {
-            #mainContainer {
+            body.classify-app #mainContainer {
                 padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
             }
         }
@@ -499,7 +500,7 @@
         }
     </style>
 </head>
-<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-screen h-dvh overflow-hidden">
+<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
     <header class="th-app-header">
         <div class="th-app-topbar">
             <div class="th-topbar-start">
@@ -538,12 +539,12 @@
         </div>
     </header>
 
-    <div class="classify-app-shell flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div class="classify-app-shell flex flex-col flex-1 w-full">
     <canvas id="confetti-canvas"></canvas>
 
     <!-- Main Content Area -->
-    <main class="flex-1 min-h-0 h-full overflow-hidden relative w-full">
-        <div class="h-full overflow-y-auto p-4 md:p-8 scroll-smooth" id="mainContainer">
+    <main class="flex-1 w-full relative">
+        <div class="p-4 md:p-8 scroll-smooth" id="mainContainer">
             
             <!-- VIEW: DASHBOARD -->
             <div id="dashboardTab" class="fade-in space-y-6 max-w-6xl mx-auto pb-10">
@@ -631,7 +632,7 @@
                     <!-- Today's Schedule -->
                     <div class="lg:col-span-2 space-y-6">
                         <!-- Smart Schedule -->
-                        <div class="card-gradient rounded-2xl border border-slate-200/30 dark:border-slate-700/30 shadow-lg overflow-hidden flex flex-col h-[500px] card-hover">
+                        <div class="card-gradient rounded-2xl border border-slate-200/30 dark:border-slate-700/30 shadow-lg overflow-hidden card-hover">
                             <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex justify-between items-center bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
                                 <div>
                                     <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white"><i class="fa-regular fa-clock mr-2 text-blue-500"></i>Today's Schedule</h2>
@@ -639,7 +640,7 @@
                                 </div>
                                 <span class="text-xs font-bold bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-3 py-1 rounded-full">Smart</span>
                             </div>
-                            <div id="todayList" class="divide-y divide-slate-200/20 dark:divide-slate-700/20 overflow-y-auto flex-1">
+                            <div id="todayList" class="divide-y divide-slate-200/20 dark:divide-slate-700/20">
                                 <!-- Timeline Items Injected Here -->
                             </div>
                         </div>
@@ -671,7 +672,7 @@
             </div>
 
             <!-- VIEW: TASKS -->
-            <div id="tasksTab" class="hidden fade-in max-w-5xl mx-auto h-full flex flex-col pb-6">
+            <div id="tasksTab" class="hidden fade-in max-w-5xl mx-auto pb-6">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                     <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Assignments</h2>
                     <div class="flex flex-wrap gap-2 w-full sm:w-auto items-center">
@@ -699,8 +700,8 @@
                     </div>
                 </div>
 
-                <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm flex-1 overflow-hidden flex flex-col">
-                    <div class="overflow-y-auto flex-1 p-2" id="fullTaskList">
+                <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm">
+                    <div class="p-2" id="fullTaskList">
                         <!-- Full Task List Rendered Here -->
                     </div>
                 </div>
@@ -774,7 +775,7 @@
             </div>
 
             <!-- VIEW: ANALYTICS -->
-            <div id="analyticsTab" class="hidden fade-in max-w-6xl mx-auto h-full flex flex-col pb-6 space-y-6">
+            <div id="analyticsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
                 <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-5 md:p-6 shadow-sm">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                         <div>
@@ -936,7 +937,7 @@
             </div>
 
             <!-- VIEW: INSIGHTS -->
-            <div id="insightsTab" class="hidden fade-in max-w-6xl mx-auto h-full flex flex-col pb-6 space-y-6">
+            <div id="insightsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
                 <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-5 md:p-6 shadow-sm">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                         <div>
@@ -5290,7 +5291,7 @@
                         <div class="text-sm font-semibold ${isVacation ? 'bg-amber-500 text-white w-7 h-7 flex items-center justify-center rounded-full' : (isToday ? 'bg-cyan-600 text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-slate-700 dark:text-slate-300')}">${d}</div>
                         <span class="text-[10px] font-semibold ${isVacation ? 'text-amber-700 dark:text-amber-300' : (dayTasks.length ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400')}">${isVacation ? 'Vacation' : (dayTasks.length || '')}</span>
                     </div>
-                    <div class="flex flex-col h-[122px] overflow-y-auto pr-1">${isVacation ? '<div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (taskListHTML || '<div class="text-[11px] text-slate-400 dark:text-slate-500 italic">No tasks</div>')}</div>
+                    <div class="flex flex-col pr-1">${isVacation ? '<div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (taskListHTML || '<div class="text-[11px] text-slate-400 dark:text-slate-500 italic">No tasks</div>')}</div>
                     ${isVacation ? '' : `<button onclick="openModalForDate('${dateStr}')" class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-cyan-600 transition-colors"><i class="fa-solid fa-plus-circle"></i></button>`}
                 </div>`;
             }
@@ -5365,7 +5366,7 @@
                             </div>
                             ${isVacation ? '<span class="text-[10px] font-semibold text-amber-700 dark:text-amber-300">Vacation</span>' : `<button onclick="openModalForDate('${dateStr}')" class="text-slate-400 hover:text-cyan-600"><i class="fa-solid fa-plus-circle"></i></button>`}
                         </div>
-                        <div class="space-y-2 max-h-[520px] overflow-y-auto pr-1">${isVacation ? '<div class="text-xs text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (items || '<div class="text-xs text-slate-400 dark:text-slate-500 italic">No assignments planned</div>')}</div>
+                        <div class="space-y-2 pr-1">${isVacation ? '<div class="text-xs text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (items || '<div class="text-xs text-slate-400 dark:text-slate-500 italic">No assignments planned</div>')}</div>
                     </div>`;
             }
         }
@@ -5454,7 +5455,7 @@
             dayGrid.innerHTML = `
                 <div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-3">
                     <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Day Timeline (${minToTime(startMin)} - ${minToTime(endMin)})</div>
-                    <div class="relative overflow-y-auto pr-1" style="max-height: 72vh;">
+                    <div class="relative pr-1">
                         <div class="relative" style="height:${timelineHeight}px;">
                             ${hourHtml}
                             ${timelineItems}
