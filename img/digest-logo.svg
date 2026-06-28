@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Digest">
+  <defs>
+    <linearGradient id="digest-bg" x1="8%" y1="6%" x2="92%" y2="94%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#digest-bg)"/>
+  <path
+    d="M108 148c0-18 14-32 32-32h232c18 0 32 14 32 32v28c0 8-3 15-9 20L256 268 117 196c-6-5-9-12-9-20v-28z"
+    fill="rgba(255,255,255,0.22)"
+  />
+  <path
+    d="M117 196l139 72 139-72"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="20"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    opacity="0.55"
+  />
+  <rect x="108" y="292" width="296" height="40" rx="20" fill="#ffffff" opacity="0.96"/>
+  <rect x="108" y="352" width="228" height="34" rx="17" fill="#ffffff" opacity="0.78"/>
+  <rect x="108" y="404" width="164" height="30" rx="15" fill="#ffffff" opacity="0.58"/>
+</svg>
