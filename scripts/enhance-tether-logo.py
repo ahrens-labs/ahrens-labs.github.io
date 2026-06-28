@@ -15,8 +15,12 @@ if not SRC.exists():
 OUT = IMG / "tether-logo.png"
 
 CHECK_SCALE = 1.18
-RING_RGB_MULT = (1.35, 1.12, 1.04)
-RING_RGB_ADD = (18.0, 22.0, 8.0)
+CHECK_OFFSET_X = 12.0  # nudge right
+CHECK_OFFSET_Y = -14.0  # nudge up
+RING_RGB_MULT = (1.25, 1.08, 1.02)
+RING_RGB_ADD = (12.0, 16.0, 6.0)
+RING_CHANNEL_MAX = (180.0, 224.0, 248.0)
+CHECK_RGB = (15.0, 40.0, 85.0)
 
 
 def rgba_array(im: Image.Image) -> np.ndarray:
@@ -48,10 +52,16 @@ def split_layers(arr: np.ndarray, fg: np.ndarray) -> tuple[np.ndarray, np.ndarra
 
 def lighten_rings(arr: np.ndarray, rings: np.ndarray) -> np.ndarray:
     out = arr.copy()
-    for idx, mult, add in zip(range(3), RING_RGB_MULT, RING_RGB_ADD):
+    for idx, (mult, add, cap) in enumerate(zip(RING_RGB_MULT, RING_RGB_ADD, RING_CHANNEL_MAX)):
         channel = out[..., idx]
-        channel[rings] = np.clip(channel[rings] * mult + add, 0, 255)
+        channel[rings] = np.clip(channel[rings] * mult + add, 0, cap)
         out[..., idx] = channel
+    r, g, b = out[..., 0], out[..., 1], out[..., 2]
+    bright = (r + g + b) / 3
+    bleached = rings & (bright > 210) & (g > 215) & (b > 215)
+    out[bleached, 0] = np.clip(r[bleached] * 0.72, 90, 175)
+    out[bleached, 1] = np.clip(g[bleached] * 0.92, 170, 228)
+    out[bleached, 2] = np.clip(b[bleached], 210, 248)
     return out
 
 
@@ -62,13 +72,27 @@ def mask_bbox_center(mask: np.ndarray) -> tuple[float, float]:
     return (float(xs.min() + xs.max()) / 2.0, float(ys.min() + ys.max()) / 2.0)
 
 
+def mask_centroid(mask: np.ndarray) -> tuple[float, float]:
+    ys, xs = np.where(mask)
+    if xs.size == 0:
+        raise RuntimeError("Layer has no opaque pixels")
+    return (float(xs.mean()), float(ys.mean()))
+
+
 def mask_from_image(im: Image.Image, alpha_min: int = 20) -> np.ndarray:
     return np.array(im)[..., 3] > alpha_min
 
 
+def median_check_rgb(arr: np.ndarray, check_body: np.ndarray) -> tuple[float, float, float]:
+    if not np.any(check_body):
+        return CHECK_RGB
+    pixels = arr[check_body, :3]
+    return tuple(float(np.median(pixels[:, idx])) for idx in range(3))
+
+
 def enlarge_check_layer(
     check_body_im: Image.Image,
-    check_full_im: Image.Image,
+    check_rgb: tuple[float, float, float],
     links_center: tuple[float, float],
 ) -> Image.Image:
     bbox = check_body_im.getbbox()
@@ -76,26 +100,27 @@ def enlarge_check_layer(
         raise RuntimeError("Checkmark layer is empty")
     x0, y0, x1, y1 = bbox
     body_crop = check_body_im.crop(bbox)
-    full_crop = check_full_im.crop(bbox)
+    alpha = body_crop.split()[3]
     cw, ch = body_crop.size
     nw = max(1, int(round(cw * CHECK_SCALE)))
     nh = max(1, int(round(ch * CHECK_SCALE)))
-    scaled_body = body_crop.resize((nw, nh), Image.Resampling.LANCZOS)
-    scaled_full = full_crop.resize((nw, nh), Image.Resampling.LANCZOS)
+    scaled_alpha = alpha.resize((nw, nh), Image.Resampling.LANCZOS)
+    scaled_body = Image.new("RGBA", (nw, nh), (*map(int, map(round, check_rgb)), 0))
+    scaled_body.putalpha(scaled_alpha)
 
     paste_x = x0
     paste_y = y1 - nh + 1
 
     w, h = check_body_im.size
     placed = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    placed.paste(scaled_full, (paste_x, paste_y), scaled_full)
+    placed.paste(scaled_body, (paste_x, paste_y), scaled_body)
 
     body_placed = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     body_placed.paste(scaled_body, (paste_x, paste_y), scaled_body)
-    cx, cy = mask_bbox_center(mask_from_image(body_placed))
+    cx, cy = mask_centroid(mask_from_image(body_placed))
     lx, ly = links_center
-    shift_x = int(round(lx - cx))
-    shift_y = int(round(ly - cy))
+    shift_x = int(round(lx - cx + CHECK_OFFSET_X))
+    shift_y = int(round(ly - cy + CHECK_OFFSET_Y))
 
     shifted = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     shifted.paste(placed, (shift_x, shift_y), placed)
@@ -132,15 +157,13 @@ def main() -> None:
 
     check_body_arr = np.zeros_like(out)
     check_body_arr[check_body] = out[check_body]
-    check_arr = np.zeros_like(out)
-    check_arr[check] = out[check]
 
     links_im = Image.fromarray(np.clip(links_arr, 0, 255).astype(np.uint8), "RGBA")
     check_body_im = Image.fromarray(np.clip(check_body_arr, 0, 255).astype(np.uint8), "RGBA")
-    check_im = Image.fromarray(np.clip(check_arr, 0, 255).astype(np.uint8), "RGBA")
-    links_center = mask_bbox_center(rings)
+    check_rgb = median_check_rgb(out, check_body)
+    links_center = mask_centroid(rings | weave)
 
-    enlarged_check = enlarge_check_layer(check_body_im, check_im, links_center)
+    enlarged_check = enlarge_check_layer(check_body_im, check_rgb, links_center)
     composed = Image.alpha_composite(links_im, enlarged_check)
     result = compose_canvas(composed)
     result.save(OUT, optimize=True)
