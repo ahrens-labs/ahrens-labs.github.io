@@ -7855,7 +7855,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `academic-tasks-${getDateStrLocal()}.json`;
+            a.download = `academic-tasks-${formatExportFilenameTimestamp()}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -7945,7 +7945,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `academic-tasks-${getDateStrLocal()}.csv`;
+            a.download = `academic-tasks-${formatExportFilenameTimestamp()}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

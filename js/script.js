@@ -188,3 +188,13 @@ async function handleLogout() {
 }
 
 window.handleLogout = handleLogout;
+
+/** Local timestamp for export download filenames (YYYY-MM-DD_HH-mm-ss). */
+function formatExportFilenameTimestamp(date = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
+    const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${safe.getFullYear()}-${pad(safe.getMonth() + 1)}-${pad(safe.getDate())}_${pad(safe.getHours())}-${pad(safe.getMinutes())}-${pad(safe.getSeconds())}`;
+}
+
+window.formatExportFilenameTimestamp = formatExportFilenameTimestamp;

@@ -752,13 +752,13 @@
       return;
     }
     const slug = slugForPgnFilename(getChessPgnPlayerName());
-    const datePart =
-      (rec.savedAt || '').slice(0, 10).replace(/-/g, '.') ||
-      new Date().toISOString().split('T')[0].replace(/-/g, '.');
+    const exportStamp = typeof formatExportFilenameTimestamp === 'function'
+      ? formatExportFilenameTimestamp()
+      : new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const action = await choosePgnExportAction();
     if (!action) return;
     if (action === 'download') {
-      downloadPgnString(pgn, 'chess_game_' + slug + '_' + datePart);
+      downloadPgnString(pgn, 'chess_game_' + slug + '_' + exportStamp);
       return;
     }
     const copied = await copyPgnToClipboard(pgn);

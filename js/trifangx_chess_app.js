@@ -997,7 +997,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           (lifetimeStats.dailyStats.gamesStartedAsBlackToday || 0) + 1;
       }
     }
-
+    
     function trackWinStats(moveCount, checkmatePiece = null) {
       gameStats._isWinGameEnd = true;
       // Track wins by time control
@@ -1472,7 +1472,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       evaluateGameEndDailyChallenges();
-
+      
       saveLifetimeStats();
       // Reset gameStats after committing
       resetGameStats();
@@ -2907,7 +2907,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         } else if (onLive && isLockHolder && gid && hasActiveLiveEngineSession()) {
           // Only same-tab reload keeps the server game; leaving the page always cancels.
           if (reloading) {
-            persistTrifangxLiveSnapshot();
+          persistTrifangxLiveSnapshot();
             skipRelease = true;
           }
         } else if (
@@ -3082,7 +3082,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const bsEl = document.getElementById('board-style');
       let style = bsEl && bsEl.value != null ? String(bsEl.value).trim() : 'classic';
       if (!style) style = 'classic';
-
+      
       // Check if unlocked
       if (!isUnlocked('boards', style)) {
         showNotification('This board style is locked. Visit the shop to unlock it.', 'info');
@@ -3116,7 +3116,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       const psEl = document.getElementById('piece-style');
       let style = psEl && psEl.value != null ? String(psEl.value).trim() : 'classic';
       if (!style) style = 'classic';
-
+      
       // Check if unlocked
       if (!isUnlocked('pieces', style)) {
         showNotification('This piece style is locked. Visit the shop to unlock it.', 'info');
@@ -3217,7 +3217,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         return false;
       }
     }
-
+    
     function showShop() {
       if (isChessShopPage()) {
         updateShopPoints();
@@ -3228,12 +3228,12 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       try {
         if (window.TRIFANGX_DASHBOARD_EMBED) {
-          if (!requireChessPregameForNonStatsModal()) return;
-          const modal = document.getElementById('shop-modal');
-          if (!modal) return;
-          modal.classList.add('show');
-          updateShopPoints();
-          renderShopItems();
+      if (!requireChessPregameForNonStatsModal()) return;
+      const modal = document.getElementById('shop-modal');
+      if (!modal) return;
+      modal.classList.add('show');
+      updateShopPoints();
+      renderShopItems();
           return;
         }
       } catch (eEmbed) {}
@@ -3243,7 +3243,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
       window.location.href = 'chess-shop.html';
     }
-
+    
     function closeShop() {
       if (isChessShopPage()) return;
       const modal = document.getElementById('shop-modal');
@@ -3336,15 +3336,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (isLiveShell) {
           ingameBar.style.display = 'none';
         } else {
-          const lp = document.getElementById('login-page');
-          if (lp && lp.style.display !== 'none') {
-            ingameBar.style.display = 'none';
-          } else {
-            const cs = document.getElementById('choose-side');
-            const gc = document.getElementById('game-container');
-            const sideHidden = cs && cs.style.display === 'none';
-            const gameVisible = gc && gc.style.display !== 'none';
-            // Hide ingame strip while replay uses the full pregame top bar (avoids duplicate buttons).
+        const lp = document.getElementById('login-page');
+        if (lp && lp.style.display !== 'none') {
+          ingameBar.style.display = 'none';
+        } else {
+          const cs = document.getElementById('choose-side');
+          const gc = document.getElementById('game-container');
+          const sideHidden = cs && cs.style.display === 'none';
+          const gameVisible = gc && gc.style.display !== 'none';
+          // Hide ingame strip while replay uses the full pregame top bar (avoids duplicate buttons).
             ingameBar.style.display = sideHidden && gameVisible && !isHistoryReplayMode ? 'flex' : 'none';
           }
         }
@@ -3936,13 +3936,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           currentShopTab === 'leaderboardRowColors'
             ? false
             : (currentShopTab === 'boards' && item.id === currentBoardStyle) ||
-              (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
-              (currentShopTab === 'highlightColors' && item.id === currentHighlightColor) ||
-              (currentShopTab === 'arrowColors' && item.id === currentArrowColor) ||
-              (currentShopTab === 'legalMoveDots' && item.id === currentLegalDot) ||
-              (currentShopTab === 'themes' && item.id === currentTheme) ||
-              (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
-              (currentShopTab === 'timeControls' && item.id === currentTime);
+                          (currentShopTab === 'pieces' && item.id === savedPieceStyle) ||
+                          (currentShopTab === 'highlightColors' && item.id === currentHighlightColor) ||
+                          (currentShopTab === 'arrowColors' && item.id === currentArrowColor) ||
+                          (currentShopTab === 'legalMoveDots' && item.id === currentLegalDot) ||
+                          (currentShopTab === 'themes' && item.id === currentTheme) ||
+                          (currentShopTab === 'checkmateEffects' ? checkmateEnabled.includes(item.id) : false) ||
+                          (currentShopTab === 'timeControls' && item.id === currentTime);
         const canAfford = item.price <= spendable;
         const isCheckmateAddon = currentShopTab === 'checkmateEffects';
         
@@ -3961,7 +3961,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             } catch (_) {}
           }
         }
-
+        
         const itemDiv = document.createElement('div');
         let itemClasses = `shop-item ${isUnlocked ? 'unlocked' : 'locked'}`;
         if (isSeasonTrackReward) itemClasses += ' shop-item-season-reward';
@@ -4135,7 +4135,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!['boards', 'pieces', 'checkmateEffects'].includes(category) && typeof saveChessDataToCloud === 'function') {
         void saveChessDataToCloud(true);
       }
-
+      
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
     }
@@ -4233,7 +4233,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         styleTag.id = 'dynamic-color-styles';
         document.head.appendChild(styleTag);
       }
-
+      
       if (colorId === 'rainbow') {
         const BT =
           '.board-theme-classic,.board-theme-blue,.board-theme-green,.board-theme-gray,.board-theme-purple,' +
@@ -4278,7 +4278,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       styleTag.textContent = '';
-      const colors = colorMap[colorId] || colorMap.red;
+        const colors = colorMap[colorId] || colorMap.red;
       root.style.setProperty('--trfx-hl-light', colors.highlightLight);
       root.style.setProperty('--trfx-hl-dark', colors.highlightDark);
     }
@@ -4366,7 +4366,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       if (!isLoggedIn || !currentSessionId) {
         return;
       }
-
+      
       currentPageTheme = themeId;
       if (!isTrifangxChessThemedShell()) {
         stripTrifangxPageThemeClasses();
@@ -4404,7 +4404,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         document.documentElement.classList.add('page-theme-forest');
         document.documentElement.classList.add('page-theme-season_world_cup');
       } else {
-        document.documentElement.classList.add('page-theme-' + themeId);
+      document.documentElement.classList.add('page-theme-' + themeId);
       }
     }
 
@@ -4932,10 +4932,10 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     }
 
     function revealTrifangxGameShellUnderLoading(isLiveShell) {
-      const gameTitle = document.getElementById('game-title');
-      const chooseSide = document.getElementById('choose-side');
-      const gameContainer = document.getElementById('game-container');
-      if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
+        const gameTitle = document.getElementById('game-title');
+        const chooseSide = document.getElementById('choose-side');
+        const gameContainer = document.getElementById('game-container');
+        if (gameTitle) gameTitle.style.display = isLiveShell ? 'none' : 'block';
       if (chooseSide) {
         chooseSide.style.display = isLiveShell ? 'none' : 'block';
         chooseSide.classList.add('trifangx-shell-pending');
@@ -5016,7 +5016,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       _lobbyDeferredStylesApplied = true;
       if (typeof updateStyleDropdowns === 'function') updateStyleDropdowns();
 
-      const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
+        const savedStyle = localStorage.getItem('chessboardStyle') || 'classic';
       const bsEl = document.getElementById('board-style');
       if (bsEl) {
         if (!isUnlocked('boards', savedStyle)) {
@@ -5028,7 +5028,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         changeBoardStyle();
       }
 
-      const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
+        const savedPieceStyle = localStorage.getItem('chessPieceStyle') || 'classic';
       const psEl = document.getElementById('piece-style');
       if (psEl) {
         if (!isUnlocked('pieces', savedPieceStyle)) {
@@ -5036,75 +5036,75 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           currentPieceStyle = 'classic';
           psEl.value = 'classic';
         } else {
-          currentPieceStyle = savedPieceStyle;
+        currentPieceStyle = savedPieceStyle;
           psEl.value = savedPieceStyle;
         }
-      }
-
+        }
+        
       const unlocked = getUnlockedItems();
-      currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
-      currentArrowColor = localStorage.getItem('arrowColor') || 'red';
-      const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
-      if (!(unlocked.highlightColors || []).includes(currentHighlightColor) && currentHighlightColor !== 'red') {
-        currentHighlightColor = 'red';
-        localStorage.setItem('highlightColor', 'red');
-      }
-      if (!(unlocked.arrowColors || []).includes(currentArrowColor) && currentArrowColor !== 'red') {
-        currentArrowColor = 'red';
-        localStorage.setItem('arrowColor', 'red');
-      }
-      if (!(unlocked.legalMoveDots || []).includes(currentLegalDot) && currentLegalDot !== 'blue-circle') {
-        localStorage.setItem('legalMoveDotStyle', 'blue-circle');
-      }
-      applyHighlightColor(currentHighlightColor);
-      applyArrowColor(currentArrowColor);
-      applyLegalMoveDotStyle(currentLegalDot);
+        currentHighlightColor = localStorage.getItem('highlightColor') || 'red';
+        currentArrowColor = localStorage.getItem('arrowColor') || 'red';
+        const currentLegalDot = localStorage.getItem('legalMoveDotStyle') || 'blue-circle';
+        if (!(unlocked.highlightColors || []).includes(currentHighlightColor) && currentHighlightColor !== 'red') {
+          currentHighlightColor = 'red';
+          localStorage.setItem('highlightColor', 'red');
+        }
+        if (!(unlocked.arrowColors || []).includes(currentArrowColor) && currentArrowColor !== 'red') {
+          currentArrowColor = 'red';
+          localStorage.setItem('arrowColor', 'red');
+        }
+        if (!(unlocked.legalMoveDots || []).includes(currentLegalDot) && currentLegalDot !== 'blue-circle') {
+          localStorage.setItem('legalMoveDotStyle', 'blue-circle');
+        }
+        applyHighlightColor(currentHighlightColor);
+        applyArrowColor(currentArrowColor);
+        applyLegalMoveDotStyle(currentLegalDot);
 
-      currentPageTheme = localStorage.getItem('pageTheme') || 'light';
-      currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
-      if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
-      if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
-      if (isLoggedIn && currentSessionId) {
-        applyPageTheme(currentPageTheme);
-      }
-      applyMoveEffect(currentMoveEffect);
-
+        currentPageTheme = localStorage.getItem('pageTheme') || 'light';
+        currentMoveEffect = localStorage.getItem('moveEffect') || 'default';
+        if (!(unlocked.themes || []).includes(currentPageTheme)) currentPageTheme = 'light';
+        if (!(unlocked.moveEffects || []).includes(currentMoveEffect)) currentMoveEffect = 'default';
+        if (isLoggedIn && currentSessionId) {
+          applyPageTheme(currentPageTheme);
+        }
+        applyMoveEffect(currentMoveEffect);
+        
       if (unlocked.boards.length === 0) unlockItem('boards', 'classic');
       if (unlocked.pieces.length === 0) unlockItem('pieces', 'classic');
       if (!(unlocked.highlightColors || []).includes('red')) unlockItem('highlightColors', 'red');
       if (!(unlocked.arrowColors || []).includes('red')) unlockItem('arrowColors', 'red');
       if (!(unlocked.legalMoveDots || []).includes('blue-circle')) unlockItem('legalMoveDots', 'blue-circle');
-      if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
-      if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
-      if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
+        if (!(unlocked.themes || []).length) unlockItem('themes', 'light');
+        if (!(unlocked.moveEffects || []).length) unlockItem('moveEffects', 'default');
+        if (!(unlocked.timeControls || []).length) unlockItem('timeControls', 'none');
+        
+        updateStyleDropdowns();
 
-      updateStyleDropdowns();
-
-      const savedTime = localStorage.getItem('timeControl') || 'none';
-      const tcSelect = document.getElementById('time-control');
-      if (tcSelect && (unlocked.timeControls || []).includes(savedTime)) {
-        tcSelect.value = savedTime;
-      }
+        const savedTime = localStorage.getItem('timeControl') || 'none';
+        const tcSelect = document.getElementById('time-control');
+        if (tcSelect && (unlocked.timeControls || []).includes(savedTime)) {
+          tcSelect.value = savedTime;
+        }
       if (tcSelect && !tcSelect.dataset.trifangxTcBound) {
         tcSelect.dataset.trifangxTcBound = '1';
         tcSelect.addEventListener('change', function () {
-          const v = this.value;
-          if (typeof isUnlocked === 'function' && isUnlocked('timeControls', v)) {
-            localStorage.setItem('timeControl', v);
-          }
-        });
-      }
+            const v = this.value;
+            if (typeof isUnlocked === 'function' && isUnlocked('timeControls', v)) {
+              localStorage.setItem('timeControl', v);
+            }
+          });
+        }
 
       bindLobbySideSelect();
 
-      const resetBtn = document.getElementById('reset-achievements-btn');
+        const resetBtn = document.getElementById('reset-achievements-btn');
       if (resetBtn && !resetBtn.dataset.trifangxBound && typeof resetAllAchievements === 'function') {
         resetBtn.dataset.trifangxBound = '1';
         resetBtn.addEventListener('click', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          resetAllAchievements();
-        });
+            e.preventDefault();
+            e.stopPropagation();
+            resetAllAchievements();
+          });
       }
     }
 
@@ -5147,7 +5147,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
       applyQuickBoardCosmeticsFromCloudOrStorage();
 
-      let liveResumed = false;
+        let liveResumed = false;
       let needsBoardReady = false;
 
       try {
@@ -7997,21 +7997,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         // Season finale flare: centered on the board — emerald / gold filaments (not sky rockets)
         if (addons.includes('season_finale_flare')) {
-          const board = document.getElementById('board');
+        const board = document.getElementById('board');
           const boardRect = board ? board.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
-          const centerX = boardRect.left + boardRect.width / 2;
-          const centerY = boardRect.top + boardRect.height / 2;
+        const centerX = boardRect.left + boardRect.width / 2;
+        const centerY = boardRect.top + boardRect.height / 2;
           const colors = ['#34d399', '#10b981', '#059669', '#fbbf24', '#fde68a', '#a7f3d0', '#ecfccb', '#d1fae5', '#f59e0b', '#047857', '#6ee7b7', '#facc15', '#22c55e', '#15803d'];
           for (let burst = 0; burst < 6; burst++) {
-            setTimeout(() => {
+          setTimeout(() => {
               const numParticles = 42;
-              for (let i = 0; i < numParticles; i++) {
-                const angle = (Math.PI * 2 * i) / numParticles;
+            for (let i = 0; i < numParticles; i++) {
+              const angle = (Math.PI * 2 * i) / numParticles;
                 const distance = 90 + Math.random() * 130;
                 const p = document.createElement('div');
                 p.className = 'particle';
-                const tx = Math.cos(angle) * distance;
-                const ty = Math.sin(angle) * distance;
+              const tx = Math.cos(angle) * distance;
+              const ty = Math.sin(angle) * distance;
                 p.style.setProperty('--tx', tx + 'px');
                 p.style.setProperty('--ty', ty + 'px');
                 p.style.left = centerX + 'px';
@@ -8021,21 +8021,21 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
                 p.style.animation = `particleTrail ${0.65 + Math.random() * 0.35}s ease-out forwards`;
                 document.body.appendChild(p);
                 setTimeout(() => p.remove(), 1200);
-              }
+            }
             }, burst * 240);
-          }
+        }
           for (let i = 0; i < 40; i++) {
-            setTimeout(() => {
-              const sparkle = document.createElement('div');
-              sparkle.className = 'sparkle';
+          setTimeout(() => {
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle';
               const angle = (Math.PI * 2 * i) / 40;
               const distance = 180 + Math.random() * 160;
-              sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
-              sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
+            sparkle.style.left = (centerX + Math.cos(angle) * distance) + 'px';
+            sparkle.style.top = (centerY + Math.sin(angle) * distance) + 'px';
               sparkle.style.width = (12 + Math.random() * 16) + 'px';
-              sparkle.style.height = sparkle.style.width;
+            sparkle.style.height = sparkle.style.width;
               sparkle.style.animation = `sparkle ${0.5 + Math.random() * 0.5}s ease-out`;
-              document.body.appendChild(sparkle);
+            document.body.appendChild(sparkle);
               setTimeout(() => sparkle.remove(), 1300);
             }, i * 35);
           }
@@ -8094,7 +8094,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
                 rocket.remove();
               }, 1100);
             }, r * 140);
-          }
+        }
         }
 
         // Add-on: pulse
@@ -8463,13 +8463,15 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
     async function exportPGN() {
       const result = inferResultFromGame();
-      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '.');
       const pgn = buildPgnStringForRecord(result);
       const slug = slugForPgnFilename(getChessPgnPlayerName());
+      const exportStamp = typeof formatExportFilenameTimestamp === 'function'
+        ? formatExportFilenameTimestamp()
+        : new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const action = await choosePgnExportAction();
       if (!action) return;
       if (action === 'download') {
-        downloadPgnString(pgn, 'chess_game_' + slug + '_' + dateStr);
+        downloadPgnString(pgn, 'chess_game_' + slug + '_' + exportStamp);
         return;
       }
       const copied = await copyPgnToClipboard(pgn);
@@ -8630,8 +8632,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           lookupOpts.replaySavedAt = options.replaySavedAt;
         }
         const rec = findGameHistoryRecordForReplay(lookupOpts);
-        if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
-          showNotification('Could not load that game', 'error');
+      if (!rec || !Array.isArray(rec.historySan) || rec.historySan.length === 0) {
+        showNotification('Could not load that game', 'error');
           return false;
         }
         if (
@@ -8640,78 +8642,78 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
           game &&
           game.history().length > 0
         ) {
-          const ok = await showGenericConfirmModal(
-            'Leave current game?',
-            'You have a game in progress. Open this saved game on the board anyway?',
-            'Continue',
-            'Cancel'
-          );
+        const ok = await showGenericConfirmModal(
+          'Leave current game?',
+          'You have a game in progress. Open this saved game on the board anyway?',
+          'Continue',
+          'Cancel'
+        );
           if (!ok) return false;
-        }
-        replayModeBackup = snapshotLiveGameStateForReplay();
-        isHistoryReplayMode = true;
-        reachedReplayEnd = false;
-        premoves = [];
-        selectedSquare = null;
+      }
+      replayModeBackup = snapshotLiveGameStateForReplay();
+      isHistoryReplayMode = true;
+      reachedReplayEnd = false;
+      premoves = [];
+      selectedSquare = null;
 
-        game.reset();
-        historyReplayFullSan = null;
-        for (let i = 0; i < rec.historySan.length; i++) {
-          const m = game.move(rec.historySan[i]);
-          if (!m) {
-            showNotification('Saved game could not be replayed.', 'error');
-            exitHistoryReplay();
+      game.reset();
+      historyReplayFullSan = null;
+      for (let i = 0; i < rec.historySan.length; i++) {
+        const m = game.move(rec.historySan[i]);
+        if (!m) {
+          showNotification('Saved game could not be replayed.', 'error');
+          exitHistoryReplay();
             return false;
-          }
         }
-        historyReplayFullSan = rec.historySan.slice();
-        moveHistory = [];
-        const tmp = new Chess();
-        for (let k = 0; k < rec.historySan.length; k++) {
-          tmp.move(rec.historySan[k]);
-          moveHistory.push(tmp.fen());
-        }
-        const mct = Array.isArray(rec.moveClockTimes) ? rec.moveClockTimes : [];
-        moveClockTimes = [];
-        for (let m = 0; m < rec.historySan.length; m++) {
-          moveClockTimes.push(mct[m] != null && mct[m] !== '' ? mct[m] : '—');
-        }
-        playerColor = rec.playerColor === 'black' ? 'black' : 'white';
-        gameOver = true;
-        resetGameStats();
-        rebuildCapturedPiecesFromSanList(rec.historySan);
-        const vhist = game.history({ verbose: true });
-        if (vhist.length) {
-          const lm = vhist[vhist.length - 1];
-          lastMoveSquares = { from: lm.from, to: lm.to };
-        } else {
-          lastMoveSquares = { from: null, to: null };
-        }
-        const h = game.history();
-        if (h.length) {
-          const li = h.length - 1;
-          const t = moveClockTimes[li] || '—';
-          lastLiveMoveDisplayText = h[li] + ' (' + t + ')';
-        } else {
-          lastLiveMoveDisplayText = 'None';
-        }
+      }
+      historyReplayFullSan = rec.historySan.slice();
+      moveHistory = [];
+      const tmp = new Chess();
+      for (let k = 0; k < rec.historySan.length; k++) {
+        tmp.move(rec.historySan[k]);
+        moveHistory.push(tmp.fen());
+      }
+      const mct = Array.isArray(rec.moveClockTimes) ? rec.moveClockTimes : [];
+      moveClockTimes = [];
+      for (let m = 0; m < rec.historySan.length; m++) {
+        moveClockTimes.push(mct[m] != null && mct[m] !== '' ? mct[m] : '—');
+      }
+      playerColor = rec.playerColor === 'black' ? 'black' : 'white';
+      gameOver = true;
+      resetGameStats();
+      rebuildCapturedPiecesFromSanList(rec.historySan);
+      const vhist = game.history({ verbose: true });
+      if (vhist.length) {
+        const lm = vhist[vhist.length - 1];
+        lastMoveSquares = { from: lm.from, to: lm.to };
+      } else {
+        lastMoveSquares = { from: null, to: null };
+      }
+      const h = game.history();
+      if (h.length) {
+        const li = h.length - 1;
+        const t = moveClockTimes[li] || '—';
+        lastLiveMoveDisplayText = h[li] + ' (' + t + ')';
+      } else {
+        lastLiveMoveDisplayText = 'None';
+      }
 
-        ensureReplaySidebarPanelsVisible();
+      ensureReplaySidebarPanelsVisible();
         const chooseSideEl = document.getElementById('choose-side');
         const gameContainerEl = document.getElementById('game-container');
         const gameTitleEl = document.getElementById('game-title');
         if (chooseSideEl) chooseSideEl.style.display = 'none';
         if (gameContainerEl) gameContainerEl.style.display = 'block';
         if (gameTitleEl) gameTitleEl.style.display = 'block';
-        syncBlindfoldGameShellUi();
+      syncBlindfoldGameShellUi();
 
-        if (board) {
-          board.orientation(playerColor);
+      if (board) {
+        board.orientation(playerColor);
           setBoardDragEnabled(false);
-        }
-        navigateToStart();
+      }
+      navigateToStart();
         currentMoveIndex = -2;
-        updateChessPregameToolsVisibility();
+      updateChessPregameToolsVisibility();
         if (!options.deferFinalize) {
           finalizeHistoryReplayView();
         }
@@ -8753,7 +8755,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         if (gt && !isTrifangxLiveDedicatedPage()) gt.style.display = 'block';
         gameOver = false;
         if (game) game.reset();
-        if (board) {
+      if (board) {
           board.position('start');
           setBoardDragEnabled(false);
         }
@@ -9502,7 +9504,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         });
         localStorage.setItem('achievements', JSON.stringify(o));
       }
-
+      
       // Auto-sync to account
       if (typeof autoSync === 'function') autoSync();
     }
@@ -11058,8 +11060,8 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
     function showAllAchievements(allowDuringGameRefresh) {
       if (!isChessAchievementsPage()) {
         if (!allowDuringGameRefresh) navigateToAchievementsPage();
-        return;
-      }
+          return;
+        }
       try {
         const modal = null;
         const container = document.getElementById('all-achievements-list');
@@ -11538,7 +11540,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       
       // Append the master grid to container
       container.appendChild(masterGrid);
-
+      
       if (modal) modal.classList.add('show');
       } catch (e) {
         console.error('Error in showAllAchievements:', e);
@@ -11712,16 +11714,16 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             earnBaseline: {
               games: 0,
               wins: 0,
-              castlingMoves: 0,
-              promotions: 0,
-              capturedRooks: 0,
+        castlingMoves: 0,
+        promotions: 0,
+        capturedRooks: 0,
               checkmateWithQueen: 0,
-              knightToF3: 0,
-              bishopToF4: 0,
+        knightToF3: 0,
+        bishopToF4: 0,
               enPassants: 0,
               capturesByQueen: 0,
               totalCaptures: 0,
-              checkmateWithRook: 0,
+        checkmateWithRook: 0,
             },
           };
         }
@@ -12794,7 +12796,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
             ${pointsText}
           `;
           document.body.appendChild(notification);
-
+          
           setTimeout(() => {
             notification.style.animation = 'slideOutRight 0.5s ease-in forwards';
             setTimeout(() => notification.remove(), 500);
@@ -13642,17 +13644,17 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       _lastMySlotsFull = false;
       markEngineLockHeldByThisTab();
       startHeartbeat();
-      try {
-        sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
-      } catch (eHand) {}
+        try {
+          sessionStorage.setItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY, '1');
+        } catch (eHand) {}
       writeFreshLiveHandoffSnapshot(gameId, lobbyOpts);
 
-      try {
-        window.location.replace(new URL('trifangx_live.html', window.location.href).href);
-      } catch (eNav) {
         try {
-          sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
-        } catch (eClr) {}
+          window.location.replace(new URL('trifangx_live.html', window.location.href).href);
+        } catch (eNav) {
+          try {
+            sessionStorage.removeItem(TRIFANGX_LIVE_PAGEHIDE_HANDOFF_KEY);
+          } catch (eClr) {}
         showNotification('Could not open the live game page. Try again.', 'error');
       }
     }
@@ -14716,7 +14718,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
         
         const data = await response.json();
         console.log('Raw data from cloud:', data);
-
+        
         const rawAch = data.achievements;
         const achievementsObj = {};
         if (Array.isArray(rawAch)) {
@@ -14799,7 +14801,7 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
 
         if ((cloudChessData.gameHistory || []).length !== gameHistoryLenBeforeTrim) {
           trifangxScheduleDeferredTask(function () {
-            saveChessDataToCloud(true);
+          saveChessDataToCloud(true);
           });
         }
         if (seasonTrackRolled) {
