@@ -132,11 +132,6 @@
             min-height: 0;
             width: 100%;
         }
-        body.classify-app .classify-app-sidebar {
-            align-self: stretch;
-            min-height: 100%;
-            flex-shrink: 0;
-        }
         .cl-app-footer {
             position: fixed;
             left: 0;
@@ -179,9 +174,6 @@
         @media (min-width: 768px) {
             .cl-footer-links {
                 display: flex;
-            }
-            .classify-app-sidebar {
-                padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
             }
         }
         .cl-bottom-nav {
@@ -241,23 +233,112 @@
             background-clip: text;
             color: transparent;
         }
-        .cl-app-nav-btn {
+        .th-settings-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             width: 40px;
             height: 40px;
-            border: 1px solid var(--th-line);
+            padding: 0;
+            border: 1px solid var(--th-line, #e2e8f0);
             border-radius: 10px;
             background: #fff;
             color: #64748b;
             cursor: pointer;
             flex-shrink: 0;
+            transition: border-color 0.15s, background 0.15s, color 0.15s;
         }
-        .dark .cl-app-nav-btn {
+        .th-settings-btn:hover {
+            border-color: #93c5fd;
+            background: #f8fafc;
+            color: #2563eb;
+        }
+        .th-settings-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .dark .th-settings-btn {
             background: #1e293b;
             border-color: #334155;
             color: #94a3b8;
+        }
+        .dark .th-settings-btn:hover {
+            border-color: #38bdf8;
+            background: #0f172a;
+            color: #38bdf8;
+        }
+        .cl-settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .cl-settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #0f172a;
+            font: inherit;
+            font-size: 0.92rem;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .cl-settings-item:hover {
+            background: #f8fafc;
+            border-color: #93c5fd;
+        }
+        .dark .cl-settings-item {
+            background: rgba(30, 41, 59, 0.7);
+            border-color: rgba(51, 65, 85, 0.9);
+            color: #f1f5f9;
+        }
+        .dark .cl-settings-item:hover {
+            background: rgba(51, 65, 85, 0.55);
+            border-color: #38bdf8;
+        }
+        .cl-settings-item-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .cl-settings-item-label i {
+            width: 1.1rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .cl-settings-kbd-hint {
+            margin: 14px 0 0;
+            font-size: 0.78rem;
+            color: #64748b;
+            line-height: 1.45;
+        }
+        .dark .cl-settings-kbd-hint { color: #94a3b8; }
+        .cl-settings-kbd-hint kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            font-family: inherit;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+        .dark .cl-settings-kbd-hint kbd {
+            border-color: #475569;
+            background: #1e293b;
         }
 
         .sidebar-surface::before {
@@ -431,12 +512,12 @@
                 </div>
             </div>
             <div class="th-topbar-auth" id="header-auth-buttons">
-                <button type="button" class="cl-app-nav-btn md:hidden" onclick="toggleMobileNav()" aria-label="Open Classify menu">
-                    <i class="fa-solid fa-bars text-lg"></i>
-                </button>
                 <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=classify.html'">Login</button>
                 <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=classify.html'">Sign Up</button>
                 <span id="header-username" class="th-topbar-username"></span>
+                <button type="button" class="th-settings-btn" id="btn-classify-settings" aria-label="Classify settings" title="Settings">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"></path><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path></svg>
+                </button>
             </div>
         </div>
         <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
@@ -457,97 +538,11 @@
         </div>
     </header>
 
-    <div class="classify-app-shell flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+    <div class="classify-app-shell flex flex-col flex-1 min-h-0 overflow-hidden">
     <canvas id="confetti-canvas"></canvas>
 
-    <!-- Sidebar Navigation (Desktop) -->
-    <aside class="classify-app-sidebar hidden md:flex flex-col w-64 sidebar-surface backdrop-blur-md border-r border-slate-200/70 dark:border-slate-700/50 self-stretch min-h-0 z-10 shadow-xl transition-colors duration-200 overflow-y-auto relative">
-        <nav class="flex-1 px-4 space-y-1 mt-6">
-            <button onclick="switchTab('dashboard')" class="nav-item nav-accent-blue w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left active-nav" data-tab="dashboard">
-                <i class="nav-icon fa-solid fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i>
-                <span class="font-medium">Dashboard</span>
-            </button>
-            <button onclick="switchTab('tasks')" class="nav-item nav-accent-emerald w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left" data-tab="tasks">
-                <i class="nav-icon fa-solid fa-list-check w-5 text-center group-hover:scale-110 transition-transform"></i>
-                <span class="font-medium">Assignments</span>
-            </button>
-            <button onclick="switchTab('calendar')" class="nav-item nav-accent-purple w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left" data-tab="calendar">
-                <i class="nav-icon fa-regular fa-calendar w-5 text-center group-hover:scale-110 transition-transform"></i>
-                <span class="font-medium">Calendar</span>
-            </button>
-            <button onclick="switchTab('analytics')" class="nav-item nav-accent-orange w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left" data-tab="analytics">
-                <i class="nav-icon fa-solid fa-chart-line w-5 text-center group-hover:scale-110 transition-transform"></i>
-                <span class="font-medium">Analytics</span>
-            </button>
-            <button onclick="switchTab('insights')" class="nav-item nav-accent-cyan w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-all group text-left" data-tab="insights">
-                <i class="nav-icon fa-solid fa-lightbulb w-5 text-center group-hover:scale-110 transition-transform"></i>
-                <span class="font-medium">Insights</span>
-            </button>
-        </nav>
-
-        <div class="p-4 border-t border-slate-200 dark:border-slate-700/50 space-y-4">
-            <div class="text-[11px] uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 font-semibold">Quick Settings</div>
-            <div class="rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 p-3 shadow-sm space-y-2">
-                <button onclick="toggleDarkMode()" class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-colors">
-                    <span class="flex items-center gap-2"><i class="fa-solid fa-moon text-indigo-500"></i>Dark Mode</span>
-                    <div class="w-9 h-5 bg-slate-200 dark:bg-slate-600 rounded-full relative">
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 dark:translate-x-4"></div>
-                    </div>
-                </button>
-            </div>
-
-            <div class="text-[11px] uppercase tracking-[0.25em] text-slate-400 dark:text-slate-500 font-semibold">Quick Actions</div>
-            <div class="rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 p-3 space-y-3 shadow-sm">
-                <button onclick="openModal()" class="w-full bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400 hover:from-blue-700 hover:via-cyan-600 hover:to-emerald-500 text-white font-semibold py-2.5 rounded-xl shadow-md shadow-blue-500/25 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
-                    <i class="fa-solid fa-plus"></i> New Assignment
-                </button>
-                <div class="grid grid-cols-1 gap-2">
-                    <button onclick="exportTasks()" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-download text-emerald-500"></i> Export
-                    </button>
-                    <button onclick="importTasks()" class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-upload text-cyan-500"></i> Import
-                    </button>
-                    <button onclick="openClearCompletedModal()" class="w-full px-3 py-2 rounded-xl border border-rose-200/70 dark:border-rose-700/60 bg-rose-50/70 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-trash"></i> Clear Completed
-                    </button>
-                </div>
-            </div>
-            <div class="rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 p-3 space-y-2 shadow-sm">
-                <button onclick="openSubjectManager()" class="w-full px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-book-open"></i> Manage Subjects
-                </button>
-                <button onclick="openBlockedTimesModal()" class="w-full px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-ban"></i> Block Times
-                </button>
-                <button onclick="startWeeklyPlanning()" class="w-full px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-calendar-week"></i> Plan This Week
-                </button>
-            </div>
-        </div>
-    </aside>
-
     <!-- Main Content Area -->
-    <main class="flex-1 min-h-0 h-full overflow-hidden relative">
-        
-        <!-- Mobile Nav Menu (Overlay) -->
-        <div id="mobileNav" class="hidden absolute top-0 left-0 w-full h-full bg-white dark:bg-dark-surface z-30 shadow-lg p-4 md:hidden flex flex-col gap-2 overflow-y-auto">
-            <div class="flex justify-end mb-4"><button onclick="toggleMobileNav()" class="text-2xl text-slate-500"><i class="fa-solid fa-xmark"></i></button></div>
-            <nav class="space-y-2 flex-1">
-                <button onclick="switchTab('dashboard'); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Dashboard</button>
-                <button onclick="switchTab('tasks'); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Assignments</button>
-                <button onclick="switchTab('calendar'); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Calendar</button>
-                <button onclick="switchTab('analytics'); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Analytics</button>
-                <button onclick="switchTab('insights'); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Insights</button>
-                <hr class="border-slate-200 dark:border-dark-border my-2">
-                <button onclick="toggleDarkMode()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Toggle Dark Mode</button>
-                <button onclick="startWeeklyPlanning(); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Plan This Week</button>
-                <button onclick="openSubjectManager(); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Manage Subjects</button>
-                <button onclick="openBlockedTimesModal(); toggleMobileNav()" class="w-full text-left p-3 rounded hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white">Block Times</button>
-                <button onclick="openModal(); toggleMobileNav()" class="w-full text-left p-3 rounded bg-brand-600 text-white font-medium">Add New Task</button>
-            </nav>
-        </div>
-
+    <main class="flex-1 min-h-0 h-full overflow-hidden relative w-full">
         <div class="h-full overflow-y-auto p-4 md:p-8 scroll-smooth" id="mainContainer">
             
             <!-- VIEW: DASHBOARD -->
@@ -1165,6 +1160,43 @@
             <div id="actualTimesList" class="space-y-2"></div>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeActualTimesModal()" class="px-4 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Classify Settings -->
+    <div id="classifySettingsModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeClassifySettings()"></div>
+        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-[84vh] overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Classify settings</h3>
+                <button onclick="closeClassifySettings()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="cl-settings-list">
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openBlockedTimesModal();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-ban text-slate-600 dark:text-slate-300"></i>Block times</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openSubjectManager();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-book-open text-indigo-500"></i>Manage subjects</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); exportTasks();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-download text-emerald-500"></i>Export assignments</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); importTasks();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-cyan-500"></i>Import assignments</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="toggleDarkMode(); syncClassifySettingsDarkToggle();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-indigo-500"></i>Dark mode</span>
+                    <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
+                </button>
+            </div>
+            <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> anywhere to add a new assignment. <kbd>Ctrl+N</kbd> also works.</p>
+            <div class="mt-4 flex justify-end">
+                <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
             </div>
         </div>
     </div>
@@ -1869,6 +1901,36 @@
         function toggleDarkMode() {
             document.documentElement.classList.toggle('dark');
             plannerSet('darkMode', document.documentElement.classList.contains('dark'));
+            syncClassifySettingsDarkToggle();
+        }
+
+        function syncClassifySettingsDarkToggle() {
+            const el = document.getElementById('cl-settings-dark-state');
+            if (!el) return;
+            el.textContent = document.documentElement.classList.contains('dark') ? 'On' : 'Off';
+        }
+
+        function openClassifySettings() {
+            syncClassifySettingsDarkToggle();
+            const modal = document.getElementById('classifySettingsModal');
+            const panel = document.getElementById('classifySettingsPanel');
+            if (!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeClassifySettings() {
+            const modal = document.getElementById('classifySettingsModal');
+            const panel = document.getElementById('classifySettingsPanel');
+            if (!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
         }
 
         // --- Utils & Dates ---
@@ -2932,9 +2994,7 @@
             }
         }
 
-        function toggleMobileNav() {
-            document.getElementById('mobileNav').classList.toggle('hidden');
-        }
+        document.getElementById('btn-classify-settings').addEventListener('click', openClassifySettings);
 
         // --- Data Management ---
         function saveData() {
@@ -5072,8 +5132,18 @@
             });
         }
 
+        function isTypingTarget(el) {
+            if (!el) return false;
+            const tag = el.tagName || '';
+            return el.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+        }
+
         // Keyboard Shortcuts
         document.addEventListener('keydown', (e) => {
+            if (e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
+                e.preventDefault();
+                openModal();
+            }
             if((e.ctrlKey || e.metaKey) && e.key === 'n') {
                 e.preventDefault();
                 openModal();
