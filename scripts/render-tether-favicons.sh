@@ -1,26 +1,57 @@
 #!/usr/bin/env bash
-# Regenerate Tether favicons from img/tether-logo.png (preferred) or img/tether-logo.svg.
+# Regenerate Tether favicons from img/tether-logo.png with safe padding for app icons.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMG="$ROOT/img"
 cd "$IMG"
 
-if [[ -f tether-logo.png ]]; then
-  for size in 16 32 48 96 128 180 192 512; do
-    convert tether-logo.png -resize "${size}x${size}" "tether-favicon-${size}.png"
-  done
-  if [[ -f tether-logo.svg ]]; then
-    cp tether-logo.svg tether-favicon.svg
-  else
-    cp tether-logo.png tether-favicon.svg
-  fi
-else
-  cp tether-logo.svg tether-favicon.svg
-  for size in 16 32 48 96 128 180 192 512; do
-    npx --yes @resvg/resvg-js-cli --fit-width "$size" tether-logo.svg "tether-favicon-${size}.png"
-  done
+inner_size() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+print(max(1, int(round(float(sys.argv[1]) * float(sys.argv[2])))))
+PY
+}
+
+render_padded_png() {
+  local size="$1"
+  local fill="$2"
+  local out="$3"
+  local inner
+  inner="$(inner_size "$size" "$fill")"
+  convert tether-logo.png \
+    -resize "${inner}x${inner}" \
+    -background none \
+    -gravity center \
+    -extent "${size}x${size}" \
+    "$out"
+}
+
+if [[ ! -f tether-logo.png ]]; then
+  echo "Missing img/tether-logo.png" >&2
+  exit 1
 fi
 
+# Browser tab favicons can stay a bit larger.
+render_padded_png 32 0.82 "tether-favicon-32.png"
+render_padded_png 48 0.80 "tether-favicon-48.png"
+render_padded_png 96 0.78 "tether-favicon-96.png"
+render_padded_png 128 0.76 "tether-favicon-128.png"
+
+# Home-screen / PWA icons need extra inset so masks do not clip the mark.
+render_padded_png 180 0.70 "tether-favicon-180.png"
+render_padded_png 192 0.70 "tether-favicon-192.png"
+render_padded_png 512 0.70 "tether-favicon-512.png"
+render_padded_png 192 0.64 "tether-favicon-192-maskable.png"
+render_padded_png 512 0.64 "tether-favicon-512-maskable.png"
+
+if [[ -f tether-logo.svg ]]; then
+  cp tether-logo.svg tether-favicon.svg
+else
+  cp tether-logo.png tether-favicon.svg
+fi
+
+render_padded_png 16 0.82 "tether-favicon-16.png"
 convert tether-favicon-16.png tether-favicon-32.png tether-favicon-48.png tether-favicon.ico
 rm -f tether-favicon-16.png
-echo "Updated tether favicons from tether-logo.png or tether-logo.svg"
+
+echo "Updated tether favicons from tether-logo.png"
