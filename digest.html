@@ -75,6 +75,32 @@
       font-size: 0.95rem;
     }
     .sd-hint { margin: 0 0 12px; font-size: 0.88rem; color: var(--sd-muted); line-height: 1.45; }
+    .sd-prefs-nudge {
+      margin: 0 0 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #bfdbfe;
+      background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: #334155;
+    }
+    .sd-prefs-nudge strong { color: #1e40af; }
+    .sd-prefs-nudge-btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 0;
+      border: none;
+      background: none;
+      color: #2563eb;
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .sd-prefs-nudge-btn:hover { color: #1d4ed8; }
     .sd-verify {
       display: none; padding: 12px 14px; background: #fffbeb; border: 1px solid #fcd34d;
       border-radius: 12px; color: #92400e; margin: 0 0 16px; font-size: 0.88rem; line-height: 1.45;
@@ -515,7 +541,11 @@
               <strong>Limited time:</strong> Follow any <strong>FIFA World Cup 2026</strong> nation through the tournament.
               Open the <strong>World Cup 2026</strong> tab to pick countries — available until July 20, 2026.
             </div>
-            <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams (up to 8 headlines per team per digest). Search by name or browse one league at a time. Set delivery time and team order in Preferences.</p>
+            <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams (up to 8 headlines per team per digest). Search by name or browse one league at a time.</p>
+            <div class="sd-prefs-nudge">
+              <strong>Delivery time and team order</strong> are set on the <strong>Preferences</strong> tab — open it when you are ready to choose when emails send and how teams are ordered.
+              <button type="button" class="sd-prefs-nudge-btn" id="sd-go-preferences">Go to Preferences →</button>
+            </div>
             <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
             <p class="sd-hint" id="sd-teams-empty">No teams selected yet. Browse below to add teams.</p>
             <div class="sd-selected-strip" id="sd-selected-strip-teams">
@@ -1184,6 +1214,7 @@
         });
         document.getElementById('sd-nav-teams').addEventListener('click', function () { setSdTab('teams'); });
         document.getElementById('sd-nav-preferences').addEventListener('click', function () { setSdTab('preferences'); });
+        document.getElementById('sd-go-preferences').addEventListener('click', function () { setSdTab('preferences'); });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {
           const select = document.getElementById('sd-add-time-select');
           const hm = normalizeHmInput(select.value);
