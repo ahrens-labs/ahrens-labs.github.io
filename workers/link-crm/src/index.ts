@@ -1146,7 +1146,7 @@ app.post('/api/reminders/:id', requireAuth, async (c) => {
 })
 
 // Serve favicon
-import { FAVICON_32_BASE64, ICON_192_BASE64 } from './favicon'
+import { FAVICON_32_BASE64, ICON_192_BASE64, ICON_512_BASE64 } from './favicon'
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64)
@@ -1174,7 +1174,7 @@ app.get('/icon-192.png', (c) => {
 })
 
 app.get('/icon-512.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_192_BASE64)
+  const buf = base64ToArrayBuffer(ICON_512_BASE64)
   return c.body(buf, 200, {
     'Content-Type': 'image/png',
     'Cache-Control': 'public, max-age=604800',
