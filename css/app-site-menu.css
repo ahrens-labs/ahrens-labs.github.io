@@ -119,7 +119,24 @@ header.th-app-header::before {
   gap: 8px;
   align-items: center;
   flex-shrink: 0;
+  flex-wrap: nowrap;
   margin-left: auto;
+}
+
+/* App chrome uses its own topbar — override global header auth rules from style.css */
+header.th-app-header .th-topbar-auth,
+header.th-app-header #header-auth-buttons {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  width: auto !important;
+  max-width: none;
+  margin-top: 0 !important;
+  grid-column: unset !important;
+  grid-row: unset !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
 }
 
 .th-topbar-auth-btn {
@@ -526,17 +543,19 @@ body.th-page main.th-main-wrap {
   }
 
   .th-app-topbar {
-    position: relative;
-    padding: 6px 0 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
+    padding: 6px 0 10px;
     flex-wrap: nowrap;
   }
 
   .th-topbar-start {
-    flex: 1 1 0;
+    grid-column: 1;
+    flex: none;
     min-width: 0;
-    max-width: none;
+    max-width: 100%;
     padding-right: 0;
   }
 
@@ -559,7 +578,8 @@ body.th-page main.th-main-wrap {
   }
 
   .th-topbar-auth {
-    position: static;
+    grid-column: 2;
+    justify-self: end;
     flex: 0 0 auto;
     margin-left: 0;
     max-width: none;
@@ -568,20 +588,35 @@ body.th-page main.th-main-wrap {
     justify-content: flex-end;
   }
 
-  .th-topbar-username {
-    padding: 4px 0;
-    font-size: 0.78rem;
+  .th-topbar-username,
+  .th-topbar-auth .link-nav-user {
+    display: inline-block;
+    padding: 4px 0 !important;
+    font-size: 0.78rem !important;
     line-height: 1.2;
-    max-width: min(28vw, 120px);
+    max-width: min(34vw, 132px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: right;
+    flex-shrink: 0;
+    color: var(--th-ink);
+    font-weight: 700;
+  }
+
+  .dark .th-topbar-username,
+  .dark .th-topbar-auth .link-nav-user {
+    color: #f1f5f9;
   }
 
   .th-topbar-auth-btn {
     padding: 5px 8px;
     font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+
+  .th-settings-btn {
+    flex-shrink: 0;
   }
 
   .th-hamburger,
@@ -615,23 +650,10 @@ body.th-page main.th-main-wrap {
 }
 
 @media (max-width: 420px) {
-  .th-app-topbar {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-
-  .th-topbar-start {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .th-topbar-auth {
-    flex: 1 1 100%;
-    justify-content: flex-end;
-  }
-
-  .th-topbar-username {
-    max-width: min(42vw, 160px);
+  .th-topbar-username,
+  .th-topbar-auth .link-nav-user {
+    max-width: min(38vw, 120px);
+    font-size: 0.74rem;
   }
 }
 

@@ -25,6 +25,12 @@ function navUserLabel(user: { ahrens_username?: string | null }): string {
   return ''
 }
 
+function linkHeaderUsername(user: { ahrens_username?: string | null }): string {
+  const label = navUserLabel(user)
+  if (!label) return ''
+  return `<span id="header-username" class="th-topbar-username" style="display:inline-block">${label}</span>`
+}
+
 /** Identical site-menu drawer markup as classify.html */
 const APP_SITE_MENU_DRAWER = `
         <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
@@ -87,7 +93,7 @@ export function layout(title: string, content: string): string {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://ahrenslabs.com/css/style.css">
-  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260628f">
+  <link rel="stylesheet" href="https://ahrenslabs.com/css/app-site-menu.css?v=20260628g">
   <style>
     .link-topbar-title { color: #16a34a; }
     .th-topbar-brand .link-topbar-logo {
@@ -1201,7 +1207,7 @@ export function remindersPage(user: any, reminders: any[], view: string = 'calen
   
   return layout('Reminders', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -1717,7 +1723,7 @@ function getFooterLinks(): string {
 export function dashboardPage(user: any, hasGoogleAccount: boolean = false): string {
   return layout('Home', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
         <div class="grid grid-2" style="gap: 1rem; max-width: 800px; margin: 0 auto; margin-top: 2rem;">
@@ -1770,13 +1776,15 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
 
   return layout('People', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>
-            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem; flex-wrap: wrap; gap: 0.75rem;">
           <h2 style="margin: 0;">People</h2>
-          <a href="/contacts/new" class="btn btn-primary">+ Add Person</a>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button onclick="openImportModal()" class="btn btn-primary text-sm">Import CSV</button>
+            <a href="/contacts/new" class="btn btn-primary">+ Add Person</a>
+          </div>
         </div>
         
         <div class="card" style="margin-bottom: 1rem;">
@@ -3099,7 +3107,7 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 
   return layout('Interactions', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<span class="text-sm text-gray link-nav-user">${navUserLabel(user)}</span>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; margin-top: 1rem;">
@@ -3308,10 +3316,11 @@ export function interactionsPage(user: any, recentInteractions: any[], searchQue
 export function privacyPolicyPage(user: any): string {
   return layout('Privacy Policy', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<a href="/dashboard" class="back-button">← Back</a>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="section">
         <div class="card">
+          <p style="margin-bottom: 1rem;"><a href="/dashboard" class="back-button">← Back</a></p>
           <h2>Privacy Policy for Link</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
@@ -3377,10 +3386,11 @@ export function privacyPolicyPage(user: any): string {
 export function termsOfServicePage(user: any): string {
   return layout('Terms of Service', `
     <div class="content-wrapper">
-      ${linkAppHeader(`<a href="/dashboard" class="back-button">← Back</a>`)}
+      ${linkAppHeader(linkHeaderUsername(user))}
       
       <div class="section">
         <div class="card">
+          <p style="margin-bottom: 1rem;"><a href="/dashboard" class="back-button">← Back</a></p>
           <h2>Terms of Service for Link</h2>
           <p><strong>Last Updated:</strong> ${new Date().toLocaleDateString()}</p>
           
