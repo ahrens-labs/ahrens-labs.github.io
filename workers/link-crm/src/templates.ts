@@ -57,7 +57,7 @@ function linkAppHeader(authRight = ''): string {
                     <span></span><span></span><span></span>
                 </button>
                 <div class="th-topbar-brand">
-                    <img src="/icon-192.png?v=3" alt="" width="52" height="52" class="link-topbar-logo">
+                    <img src="/icon-192.png?v=3" alt="" width="44" height="44" class="link-topbar-logo">
                     <h1 class="th-topbar-title link-topbar-title">Link</h1>
                 </div>
             </div>
@@ -91,8 +91,8 @@ export function layout(title: string, content: string): string {
   <style>
     .link-topbar-title { color: #16a34a; }
     .th-topbar-brand .link-topbar-logo {
-      width: 52px;
-      height: 52px;
+      width: 44px;
+      height: 44px;
       object-fit: contain;
       border-radius: 10px;
       flex-shrink: 0;
