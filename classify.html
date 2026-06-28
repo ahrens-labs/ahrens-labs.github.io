@@ -341,6 +341,31 @@
             border-color: #475569;
             background: #1e293b;
         }
+        .cl-new-assignment-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.75rem;
+            border: none;
+            background: linear-gradient(to right, #2563eb, #06b6d4, #34d399);
+            color: #fff;
+            font-size: 0.875rem;
+            font-weight: 600;
+            line-height: 1.25;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+            transition: filter 0.15s, transform 0.15s;
+            white-space: nowrap;
+        }
+        .cl-new-assignment-btn:hover {
+            filter: brightness(1.05);
+        }
+        .cl-new-assignment-btn--sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
 
         .sidebar-surface::before {
             content: "";
@@ -553,14 +578,9 @@
                         <h1 class="text-4xl md:text-5xl leading-[1.15] pb-1 font-display font-bold text-transparent bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text" id="greeting">Hello, Student</h1>
                         <p class="text-slate-500 dark:text-slate-400 mt-2 text-lg" id="currentDateDisplay">Today is...</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" onclick="openModal()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400 hover:from-blue-700 hover:via-cyan-600 hover:to-emerald-500 text-white text-sm font-semibold shadow-md shadow-blue-500/25 transition-all active:scale-95">
-                            <i class="fa-solid fa-plus"></i> New Assignment
-                        </button>
-                        <div class="text-right bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-200/20 dark:border-blue-800/30">
-                            <div class="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text" id="dashDueCount">0</div>
-                            <div class="text-sm text-slate-600 dark:text-slate-400 font-medium">Tasks Due Today</div>
-                        </div>
+                    <div class="text-right hidden sm:block bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-200/20 dark:border-blue-800/30">
+                        <div class="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text" id="dashDueCount">0</div>
+                        <div class="text-sm text-slate-600 dark:text-slate-400 font-medium">Tasks Due Today</div>
                     </div>
                 </div>
 
@@ -638,12 +658,17 @@
                     <div class="lg:col-span-2 space-y-6">
                         <!-- Smart Schedule -->
                         <div class="card-gradient rounded-2xl border border-slate-200/30 dark:border-slate-700/30 shadow-lg overflow-hidden card-hover">
-                            <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex justify-between items-center bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+                            <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex flex-wrap justify-between items-center gap-3 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
                                 <div>
                                     <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white"><i class="fa-regular fa-clock mr-2 text-blue-500"></i>Today's Schedule</h2>
                                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Optimized for focus</p>
                                 </div>
-                                <span class="text-xs font-bold bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-3 py-1 rounded-full">Smart</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-3 py-1 rounded-full">Smart</span>
+                                    <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm">
+                                        <i class="fa-solid fa-plus"></i> New Assignment
+                                    </button>
+                                </div>
                             </div>
                             <div id="todayList" class="divide-y divide-slate-200/20 dark:divide-slate-700/20">
                                 <!-- Timeline Items Injected Here -->
@@ -678,36 +703,32 @@
 
             <!-- VIEW: TASKS -->
             <div id="tasksTab" class="hidden fade-in max-w-5xl mx-auto pb-6">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Assignments</h2>
-                        <button type="button" onclick="openModal()" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400 hover:from-blue-700 hover:via-cyan-600 hover:to-emerald-500 text-white text-sm font-semibold shadow-md shadow-blue-500/25 transition-all active:scale-95">
-                            <i class="fa-solid fa-plus"></i> New Assignment
-                        </button>
+                <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-4">Assignments</h2>
+                <div class="flex flex-wrap gap-2 items-center mb-6">
+                    <div class="relative flex-1 min-w-[200px] sm:flex-none sm:max-w-xs">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="taskSearch" autocomplete="off" placeholder="Search tasks... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
                     </div>
-                    <div class="flex flex-wrap gap-2 w-full sm:w-auto items-center">
-                        <div class="relative flex-1 sm:flex-none">
-                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input type="text" id="taskSearch" autocomplete="off" placeholder="Search tasks... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
-                        </div>
-                        <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                            <option value="all">All Tasks</option>
-                            <option value="active">Active</option>
-                            <option value="weekplan">Weekly Planning Queue</option>
-                            <option value="thisweek">Due This Week</option>
-                            <option value="completed">Completed</option>
-                            <option value="overdue">Overdue</option>
-                        </select>
-                        <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                            <option value="date">Sort by Date</option>
-                            <option value="autoschedule">Sort by Auto-Schedule</option>
-                            <option value="priority">Sort by Priority</option>
-                            <option value="subject">Sort by Subject</option>
-                        </select>
-                        <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
-                            <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
-                        </button>
-                    </div>
+                    <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
+                        <option value="all">All Tasks</option>
+                        <option value="active">Active</option>
+                        <option value="weekplan">Weekly Planning Queue</option>
+                        <option value="thisweek">Due This Week</option>
+                        <option value="completed">Completed</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
+                    <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
+                        <option value="date">Sort by Date</option>
+                        <option value="autoschedule">Sort by Auto-Schedule</option>
+                        <option value="priority">Sort by Priority</option>
+                        <option value="subject">Sort by Subject</option>
+                    </select>
+                    <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
+                    </button>
+                    <button type="button" onclick="openModal()" class="cl-new-assignment-btn w-full sm:w-auto sm:ml-auto">
+                        <i class="fa-solid fa-plus"></i> New Assignment
+                    </button>
                 </div>
 
                 <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm">
@@ -720,15 +741,10 @@
             <!-- VIEW: CALENDAR -->
             <div id="calendarTab" class="hidden fade-in max-w-7xl mx-auto pb-10 space-y-5">
                 <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-4 md:p-6 shadow-sm">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <div>
-                                <h2 class="text-3xl font-display font-bold text-slate-900 dark:text-white">Calendar</h2>
-                                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Use month, week, day, and agenda layouts to plan at different levels.</p>
-                            </div>
-                            <button type="button" onclick="openModal()" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-emerald-400 hover:from-blue-700 hover:via-cyan-600 hover:to-emerald-500 text-white text-sm font-semibold shadow-md shadow-blue-500/25 transition-all active:scale-95 shrink-0">
-                                <i class="fa-solid fa-plus"></i> New Assignment
-                            </button>
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <h2 class="text-3xl font-display font-bold text-slate-900 dark:text-white">Calendar</h2>
+                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Use month, week, day, and agenda layouts to plan at different levels.</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-cyan-100 dark:border-slate-700 p-1.5 shadow-sm w-fit">
                             <div class="flex items-center bg-cyan-50 dark:bg-slate-800 rounded-lg p-1">
@@ -745,6 +761,9 @@
                                 <i class="fa-solid fa-chevron-right"></i>
                             </button>
                             <button onclick="goToCurrentMonth()" class="px-3 h-9 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 text-white transition-colors">Today</button>
+                            <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm h-9">
+                                <i class="fa-solid fa-plus"></i> New
+                            </button>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2 mt-4 text-xs">
