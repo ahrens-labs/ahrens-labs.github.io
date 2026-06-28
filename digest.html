@@ -635,7 +635,7 @@
             </div>
 
             <div class="sd-actions">
-              <button type="button" class="btn btn-primary" id="sd-save-teams">Save preferences</button>
+              <button type="button" class="btn btn-primary" id="sd-save-teams">Save teams</button>
             </div>
             <p class="sd-status" id="sd-status-teams"></p>
           </div>
@@ -770,6 +770,8 @@
       };
       let userProfile = null;
       let activeLeague = 'mlb';
+      const SD_SAVE_TEAMS_LABEL = 'Save teams';
+      const SD_SAVE_PREFS_LABEL = 'Save preferences';
       let activeSdTab = 'teams';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
@@ -1330,7 +1332,7 @@
           setStatus('Choose at most ' + (catalog.maxTeams || 25) + ' teams.', 'err', { tab: 'teams', switchTab: 'teams' });
           return;
         }
-        if (prefs.enabled && prefs.frequency === 'custom') {
+        if (prefs.enabled && prefs.frequency === 'custom' && sourceTab !== 'teams') {
           if (!prefs.customTimes.length) {
             setStatus('Add at least one custom send time.', 'err', { tab: 'preferences', switchTab: 'preferences' });
             return;
@@ -1340,10 +1342,9 @@
             return;
           }
         }
-        const saveBtns = [
-          document.getElementById('sd-save'),
-          document.getElementById('sd-save-teams'),
-        ].filter(Boolean);
+        const saveTeamsBtn = document.getElementById('sd-save-teams');
+        const savePrefsBtn = document.getElementById('sd-save');
+        const saveBtns = [savePrefsBtn, saveTeamsBtn].filter(Boolean);
         saveBtns.forEach(function (btn) {
           btn.disabled = true;
           btn.textContent = 'Saving…';
@@ -1359,14 +1360,24 @@
           });
           const data = await res.json().catch(function () { return {}; });
           if (res.ok && data.success) {
-            let msg = prefs.enabled
-              ? 'Saved. You will receive Digest emails on your chosen schedule.'
-              : 'Saved. Digest is off.';
-            if (data.warning) msg += ' ' + data.warning;
-            if (prefs.enabled && data.kvSynced === false && !data.warning) {
-              msg += ' Scheduled sends may not work until you save again or reload this page.';
+            let msg;
+            let kind = 'ok';
+            if (sourceTab === 'teams') {
+              msg = 'Teams saved. Go to Preferences to select scheduled time and order of teams.';
+              if (data.warning) {
+                msg += ' ' + data.warning;
+                kind = 'err';
+              }
+            } else {
+              msg = prefs.enabled
+                ? 'Saved. You will receive Digest emails on your chosen schedule.'
+                : 'Saved. Digest is off.';
+              if (data.warning) msg += ' ' + data.warning;
+              if (prefs.enabled && data.kvSynced === false && !data.warning) {
+                msg += ' Scheduled sends may not work until you save again or reload this page.';
+              }
+              kind = data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok';
             }
-            const kind = data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok';
             setStatus(msg, kind, { tab: sourceTab });
             if (data.sportsDigest) applyPrefs(data.sportsDigest);
             if (prefs.enabled) {
@@ -1383,10 +1394,14 @@
             setStatus(data.error || 'Could not save preferences.', 'err', { tab: sourceTab });
           }
         } finally {
-          saveBtns.forEach(function (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Save preferences';
-          });
+          if (saveTeamsBtn) {
+            saveTeamsBtn.disabled = false;
+            saveTeamsBtn.textContent = SD_SAVE_TEAMS_LABEL;
+          }
+          if (savePrefsBtn) {
+            savePrefsBtn.disabled = false;
+            savePrefsBtn.textContent = SD_SAVE_PREFS_LABEL;
+          }
         }
       }
 
