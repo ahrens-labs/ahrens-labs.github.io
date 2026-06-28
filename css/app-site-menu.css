@@ -179,11 +179,30 @@ header.th-app-header::before {
   box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
   transform: translateX(-105%);
   transition: transform 0.22s ease;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
   display: flex;
   flex-direction: column;
   font-family: Inter, system-ui, sans-serif;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.th-site-menu::-webkit-scrollbar {
+  width: 10px;
+}
+
+.th-site-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.th-site-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .th-site-menu.open {
@@ -196,7 +215,11 @@ header.th-app-header::before {
   justify-content: space-between;
   gap: 10px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
   padding: 16px 16px 12px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   background: #1a2433;
 }
@@ -234,13 +257,11 @@ header.th-app-header::before {
 
 .th-site-menu nav {
   padding: 12px 10px 24px;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   position: static;
   z-index: auto;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
+  background: transparent;
 }
 
 .th-site-menu nav > ul {
@@ -272,7 +293,10 @@ header.th-app-header::before {
 
 .th-site-menu-footer {
   flex-shrink: 0;
-  margin-top: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: auto;
   padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   background: #141c28;
