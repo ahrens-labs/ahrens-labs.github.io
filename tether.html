@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628e">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628f">
   <link rel="icon" href="/img/tether-favicon.svg?v=26" type="image/svg+xml">
   <link rel="icon" type="image/png" sizes="192x192" href="/img/tether-favicon-192.png?v=26">
   <link rel="icon" type="image/png" sizes="128x128" href="/img/tether-favicon-128.png?v=26">
@@ -65,7 +65,7 @@
       min-width: 100%;
     }
     body.th-page.th-tab-my-tasks #my-tasks-panel {
-      min-height: calc(100dvh - 68px - 88px);
+      min-height: calc(100dvh - 68px - 88px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     }
     .th-page .th-topbar-title {
       font-family: Orbitron, Inter, sans-serif;
@@ -153,6 +153,12 @@
       .th-shell { grid-template-columns: 1fr; min-height: 0; }
       .th-sidebar { order: 2; }
       #main-panel.th-main { min-height: 0; padding: 14px 16px 10px; }
+      body.th-page main.th-main-wrap {
+        padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+      }
+      body.th-page.th-tab-my-tasks #my-tasks-panel {
+        min-height: 0;
+      }
       #main-panel .th-empty {
         min-height: 0;
         padding: 4px 0 10px;
@@ -863,35 +869,6 @@
       color: var(--th-accent); cursor: pointer; text-decoration: underline; text-decoration-color: transparent;
     }
     .th-my-tasks-extend-btn:hover { text-decoration-color: #93c5fd; }
-    .th-settings-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      border: 1px solid var(--th-line);
-      border-radius: 10px;
-      background: #fff;
-      color: var(--th-muted);
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: border-color 0.15s, background 0.15s, color 0.15s;
-    }
-    .th-settings-btn:hover {
-      border-color: #93c5fd;
-      background: #f8fafc;
-      color: var(--th-accent);
-    }
-    .th-settings-btn svg {
-      width: 20px;
-      height: 20px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.75;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
     .th-settings-group {
       margin: 0;
       padding: 0;

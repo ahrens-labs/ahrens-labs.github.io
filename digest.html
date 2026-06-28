@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Digest — Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628e">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628f">
   <link rel="icon" type="image/png" sizes="192x192" href="/img/digest-favicon-192.png?v=20260628d">
   <link rel="icon" type="image/png" sizes="128x128" href="/img/digest-favicon-128.png?v=20260628d">
   <link rel="icon" type="image/png" sizes="96x96" href="/img/digest-favicon-96.png?v=20260628d">
@@ -523,6 +523,38 @@
       gap: 10px;
       align-items: center;
       margin-top: 8px;
+    }
+    @media (max-width: 768px) {
+      .sd-wrap {
+        padding-left: max(12px, env(safe-area-inset-left, 0px));
+        padding-right: max(12px, env(safe-area-inset-right, 0px));
+      }
+      .sd-card {
+        padding: 18px 16px 16px;
+        border-radius: 18px;
+      }
+      .sd-team-grid {
+        max-height: min(400px, calc(100dvh - 260px));
+      }
+      .sd-league-tabs {
+        gap: 6px;
+      }
+      .sd-tab {
+        padding: 7px 11px;
+        font-size: 0.78rem;
+      }
+    }
+    @media (max-width: 480px) {
+      .sd-section-title {
+        font-size: 0.98rem;
+      }
+      .sd-hint {
+        font-size: 0.84rem;
+      }
+      .sd-bottom-nav-item {
+        font-size: 0.68rem;
+        padding: 8px 6px;
+      }
     }
   </style>
 </head>
