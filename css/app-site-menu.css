@@ -366,7 +366,8 @@ body.th-site-menu-open {
 /* Drawer is portaled to body; keep it above fixed app footers on Classify / Tether / Link */
 body.th-site-menu-open .th-bottom-nav,
 body.th-site-menu-open .bottom-nav,
-body.th-site-menu-open .cl-app-footer {
+body.th-site-menu-open .cl-app-footer,
+body.th-site-menu-open .sd-bottom-nav {
   z-index: var(--th-site-chrome-z);
 }
 

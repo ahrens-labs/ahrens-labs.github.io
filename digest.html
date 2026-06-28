@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627l">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628a">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
   <script src="js/header_nav.js?v=20260627h"></script>
@@ -25,10 +25,39 @@
     }
     body.sd-page { background: var(--sd-page-bg); }
     body.sd-page .wrapper { background: transparent; }
-    .sd-wrap {
-      max-width: 900px; margin: 0 auto; padding: 20px 20px 64px;
-      font-family: Inter, system-ui, sans-serif;
+    body.digest-app {
+      min-height: 100dvh;
+      height: 100dvh;
+      overflow: hidden;
     }
+    body.digest-app .wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+    }
+    .sd-main {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sd-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px 16px calc(88px + env(safe-area-inset-bottom, 0px));
+      font-family: Inter, system-ui, sans-serif;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      box-sizing: border-box;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .sd-tab-panel { display: none; }
+    .sd-tab-panel.active { display: block; }
     .sd-card {
       background: var(--sd-card);
       border: 1px solid var(--sd-line);
@@ -197,7 +226,8 @@
     .sd-team-grid {
       display: grid; gap: 10px; margin: 0;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      max-height: 420px; overflow-y: auto; padding: 4px 6px 4px 2px;
+      max-height: min(520px, calc(100dvh - 320px));
+      overflow-y: auto; padding: 4px 6px 4px 2px;
       scrollbar-width: thin; scrollbar-color: #94a3b8 transparent;
     }
     @media (max-width: 720px) { .sd-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -253,8 +283,8 @@
       color: #fff;
     }
     .sd-schedule-block {
-      margin-top: 8px; padding-top: 20px;
-      border-top: 1px solid #e2e8f0;
+      margin-top: 0; padding-top: 0;
+      border-top: none;
     }
     .sd-form-row { margin-bottom: 16px; }
     .sd-form-row > label {
@@ -341,6 +371,63 @@
     }
     @keyframes sd-spin { to { transform: rotate(360deg); } }
     .sd-freq-detail { font-size: 0.82rem; color: #64748b; margin-top: 8px; font-weight: 500; }
+    .sd-bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-around;
+      gap: 4px;
+      padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+      background: #fff;
+      border-top: 1px solid var(--sd-line);
+      box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+    }
+    .sd-bottom-nav-item {
+      flex: 1;
+      max-width: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--sd-muted);
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .sd-bottom-nav-item:hover {
+      color: #2563eb;
+      background: #f8fafc;
+    }
+    .sd-bottom-nav-item.active {
+      color: #2563eb;
+      background: #eff6ff;
+    }
+    .sd-bottom-nav-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+    .sd-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body class="sd-page digest-app">
@@ -378,89 +465,111 @@
         </div>
       </div>
     </header>
-    <main class="sd-wrap">
-      <div id="sd-loading" class="sd-loading">Loading your account</div>
+    <main class="sd-main">
+      <div class="sd-wrap">
+        <div id="sd-loading" class="sd-loading">Loading your account</div>
 
-      <div id="sd-panel" class="sd-card" style="display:none;">
-        <p class="sd-account-line" id="sd-account-line"></p>
+        <div id="sd-panel" style="display:none;">
+          <div id="sd-tab-teams" class="sd-tab-panel sd-card active" data-sd-tab="teams">
+            <h2 class="sd-section-title"><span>🏟</span> Pick your teams</h2>
+            <div class="sd-limited-banner" id="sd-limited-banner" hidden>
+              <strong>Limited time:</strong> Follow any <strong>FIFA World Cup 2026</strong> nation through the tournament.
+              Open the <strong>World Cup 2026</strong> tab to pick countries — available until July 20, 2026.
+            </div>
+            <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams (up to 8 headlines per team per digest). Search by name or browse one league at a time. Set delivery time and team order in Preferences.</p>
+            <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
 
-        <div class="sd-verify" id="sd-verify-banner">
-          <strong>Confirm your email</strong> — open the link we sent when you signed up. Digest stays off until your address is verified.
-        </div>
-
-        <div class="sd-schedule-status" id="sd-schedule-status"></div>
-
-        <div class="sd-toggle">
-          <input type="checkbox" id="sd-enabled">
-          <div>
-            <label for="sd-enabled">Email me the Digest</label>
-            <p id="sd-enabled-hint">Turn on to receive updates at your account email.</p>
-          </div>
-        </div>
-
-        <div class="sd-toggle">
-          <input type="checkbox" id="sd-top-headlines">
-          <div>
-            <label for="sd-top-headlines">Include ESPN top headlines</label>
-            <p class="sd-hint" style="margin-top:4px;">Adds up to five biggest ESPN headlines from your digest window — ranked by story prominence, not publish time. Niche sports (cricket, rugby, tennis tour, etc.) are skipped.</p>
-          </div>
-        </div>
-
-        <h2 class="sd-section-title"><span>🏟</span> Pick your teams</h2>
-        <div class="sd-limited-banner" id="sd-limited-banner" hidden>
-          <strong>Limited time:</strong> Follow any <strong>FIFA World Cup 2026</strong> nation through the tournament.
-          Open the <strong>World Cup 2026</strong> tab to pick countries — available until July 20, 2026.
-        </div>
-        <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams (up to 8 headlines per team per digest). Search by name or browse one league at a time.</p>
-
-        <div class="sd-selected-strip" id="sd-selected-strip">
-          <div class="sd-selected-head">
-            <span class="sd-selected-label">Your teams</span>
-            <button type="button" class="sd-selected-clear" id="sd-clear-all">Clear all</button>
-          </div>
-          <p class="sd-selected-hint">Teams at the top appear first in your email. Use ↑ ↓ to reorder. Don't forget to save your preferences!</p>
-          <div class="sd-selected-chips" id="sd-selected-chips"></div>
-        </div>
-        <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
-
-        <div class="sd-browse-panel">
-          <p class="sd-browse-title">Add teams</p>
-          <div class="sd-toolbar">
-            <input type="search" class="sd-search" id="sd-search" placeholder="Search all teams…" autocomplete="off">
-          </div>
-          <div class="sd-league-tabs" id="sd-league-tabs"></div>
-          <p class="sd-browse-meta" id="sd-browse-meta"></p>
-          <div class="sd-toolbar" style="margin-bottom:8px;">
-            <button type="button" class="sd-mini-btn" id="sd-select-visible">Select all shown</button>
-            <button type="button" class="sd-mini-btn" id="sd-clear-visible">Clear shown</button>
-          </div>
-          <div class="sd-team-grid" id="sd-team-grid"></div>
-        </div>
-
-        <div class="sd-schedule-block sd-form-row">
-          <h2 class="sd-section-title"><span>🕐</span> Delivery schedule</h2>
-          <label for="sd-frequency">How often</label>
-          <select id="sd-frequency" aria-describedby="sd-freq-detail"></select>
-          <p class="sd-freq-detail" id="sd-freq-detail"></p>
-
-          <div class="sd-custom-panel" id="sd-custom-panel">
-            <p class="sd-hint" style="margin-top:0;">Choose <strong>Custom</strong> above, then add send times on 15-minute marks (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
-            <label class="sd-hint" style="font-weight:700;color:#334155;">Days</label>
-            <div class="sd-days" id="sd-custom-days"></div>
-            <label class="sd-hint" style="font-weight:700;color:#334155;">Times</label>
-            <div class="sd-time-chips" id="sd-time-chips"></div>
-            <div class="sd-add-time">
-              <select id="sd-add-time-select" aria-label="Pick a send time"></select>
-              <button type="button" class="sd-mini-btn" id="sd-add-time-btn">Add time</button>
+            <div class="sd-browse-panel">
+              <p class="sd-browse-title">Add teams</p>
+              <div class="sd-toolbar">
+                <input type="search" class="sd-search" id="sd-search" placeholder="Search all teams…" autocomplete="off">
+              </div>
+              <div class="sd-league-tabs" id="sd-league-tabs"></div>
+              <p class="sd-browse-meta" id="sd-browse-meta"></p>
+              <div class="sd-toolbar" style="margin-bottom:8px;">
+                <button type="button" class="sd-mini-btn" id="sd-select-visible">Select all shown</button>
+                <button type="button" class="sd-mini-btn" id="sd-clear-visible">Clear shown</button>
+              </div>
+              <div class="sd-team-grid" id="sd-team-grid"></div>
             </div>
           </div>
-        </div>
 
-        <button type="button" class="btn btn-primary" id="sd-save">Save preferences</button>
-        <button type="button" class="btn btn-ghost" id="sd-send-now" style="margin-left:10px;">Send preview now</button>
-        <p class="sd-status" id="sd-status"></p>
+          <div id="sd-tab-preferences" class="sd-tab-panel sd-card" data-sd-tab="preferences">
+            <p class="sd-account-line" id="sd-account-line"></p>
+
+            <div class="sd-verify" id="sd-verify-banner">
+              <strong>Confirm your email</strong> — open the link we sent when you signed up. Digest stays off until your address is verified.
+            </div>
+
+            <div class="sd-schedule-status" id="sd-schedule-status"></div>
+
+            <div class="sd-toggle">
+              <input type="checkbox" id="sd-enabled">
+              <div>
+                <label for="sd-enabled">Email me the Digest</label>
+                <p id="sd-enabled-hint">Turn on to receive updates at your account email.</p>
+              </div>
+            </div>
+
+            <div class="sd-toggle">
+              <input type="checkbox" id="sd-top-headlines">
+              <div>
+                <label for="sd-top-headlines">Include ESPN top headlines</label>
+                <p class="sd-hint" style="margin-top:4px;">Adds up to five biggest ESPN headlines from your digest window — ranked by story prominence, not publish time. Niche sports (cricket, rugby, tennis tour, etc.) are skipped.</p>
+              </div>
+            </div>
+
+            <h2 class="sd-section-title" style="margin-top:8px;"><span>↕</span> Team order</h2>
+            <p class="sd-hint">Teams at the top appear first in your email. Use ↑ ↓ to reorder.</p>
+            <p class="sd-hint" id="sd-order-empty">No teams selected yet. Pick teams on the Teams tab, then set their order here.</p>
+            <div class="sd-selected-strip" id="sd-selected-strip">
+              <div class="sd-selected-head">
+                <span class="sd-selected-label">Your teams</span>
+                <button type="button" class="sd-selected-clear" id="sd-clear-all">Clear all</button>
+              </div>
+              <div class="sd-selected-chips" id="sd-selected-chips"></div>
+            </div>
+
+            <div class="sd-schedule-block sd-form-row">
+              <h2 class="sd-section-title"><span>🕐</span> Delivery schedule</h2>
+              <p class="sd-hint" style="margin-top:-4px;">All send times are <strong>Central Time</strong>.</p>
+              <label for="sd-frequency">How often</label>
+              <select id="sd-frequency" aria-describedby="sd-freq-detail"></select>
+              <p class="sd-freq-detail" id="sd-freq-detail"></p>
+
+              <div class="sd-custom-panel" id="sd-custom-panel">
+                <p class="sd-hint" style="margin-top:0;">Choose <strong>Custom</strong> above, then add send times on 15-minute marks (Central Time). Up to <span id="sd-max-times">6</span> times.</p>
+                <label class="sd-hint" style="font-weight:700;color:#334155;">Days</label>
+                <div class="sd-days" id="sd-custom-days"></div>
+                <label class="sd-hint" style="font-weight:700;color:#334155;">Times</label>
+                <div class="sd-time-chips" id="sd-time-chips"></div>
+                <div class="sd-add-time">
+                  <select id="sd-add-time-select" aria-label="Pick a send time"></select>
+                  <button type="button" class="sd-mini-btn" id="sd-add-time-btn">Add time</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="sd-actions">
+              <button type="button" class="btn btn-primary" id="sd-save">Save preferences</button>
+              <button type="button" class="btn btn-ghost" id="sd-send-now">Send preview now</button>
+            </div>
+            <p class="sd-status" id="sd-status"></p>
+          </div>
+        </div>
       </div>
     </main>
+
+    <nav class="sd-bottom-nav" id="sd-bottom-nav" aria-label="Digest sections" hidden>
+      <button type="button" class="sd-bottom-nav-item active" id="sd-nav-teams" data-sd-tab="teams">
+        <span class="sd-bottom-nav-icon" aria-hidden="true">🏟</span>
+        <span>Teams</span>
+      </button>
+      <button type="button" class="sd-bottom-nav-item" id="sd-nav-preferences" data-sd-tab="preferences">
+        <span class="sd-bottom-nav-icon" aria-hidden="true">⚙</span>
+        <span>Preferences</span>
+      </button>
+    </nav>
   </div>
 
   <script>
@@ -485,6 +594,18 @@
         const el = document.getElementById('sd-status');
         el.textContent = msg || '';
         el.className = 'sd-status' + (kind ? ' ' + kind : '');
+        if (msg) setSdTab('preferences');
+      }
+
+      function setSdTab(tab) {
+        if (tab !== 'teams' && tab !== 'preferences') return;
+        activeSdTab = tab;
+        document.querySelectorAll('.sd-tab-panel').forEach(function (panel) {
+          panel.classList.toggle('active', panel.getAttribute('data-sd-tab') === tab);
+        });
+        document.querySelectorAll('.sd-bottom-nav-item').forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-sd-tab') === tab);
+        });
       }
 
       let catalog = {
@@ -496,6 +617,7 @@
       };
       let userProfile = null;
       let activeLeague = 'mlb';
+      let activeSdTab = 'teams';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
       let selectedTeamOrder = [];
@@ -671,6 +793,7 @@
         const strip = document.getElementById('sd-selected-strip');
         const wrap = document.getElementById('sd-selected-chips');
         const clearBtn = document.getElementById('sd-clear-all');
+        const emptyHint = document.getElementById('sd-order-empty');
         const ordered = selectedTeamOrder
           .map(function (id) { return teamById.get(id); })
           .filter(Boolean);
@@ -678,8 +801,10 @@
           strip.classList.remove('visible');
           wrap.innerHTML = '';
           if (clearBtn) clearBtn.style.display = 'none';
+          if (emptyHint) emptyHint.style.display = '';
           return;
         }
+        if (emptyHint) emptyHint.style.display = 'none';
         strip.classList.add('visible');
         if (clearBtn) clearBtn.style.display = '';
         wrap.innerHTML = ordered.map(function (t, idx) {
@@ -915,6 +1040,8 @@
 
         document.getElementById('sd-loading').style.display = 'none';
         document.getElementById('sd-panel').style.display = 'block';
+        document.getElementById('sd-bottom-nav').hidden = false;
+        setSdTab(activeSdTab);
 
         const email = userProfile.email || 'your account email';
         const uname = userProfile.username || 'there';
@@ -949,6 +1076,8 @@
           selectedTeamOrder = [];
           renderTeamGrid();
         });
+        document.getElementById('sd-nav-teams').addEventListener('click', function () { setSdTab('teams'); });
+        document.getElementById('sd-nav-preferences').addEventListener('click', function () { setSdTab('preferences'); });
         document.getElementById('sd-add-time-btn').addEventListener('click', function () {
           const select = document.getElementById('sd-add-time-select');
           const hm = normalizeHmInput(select.value);
@@ -992,10 +1121,12 @@
         const prefs = collectPrefs();
         setStatus('', '');
         if (prefs.enabled && prefs.teams.length === 0) {
+          setSdTab('teams');
           setStatus('Choose at least one team when Digest is on.', 'err');
           return;
         }
         if (prefs.enabled && prefs.teams.length > (catalog.maxTeams || 25)) {
+          setSdTab('teams');
           setStatus('Choose at most ' + (catalog.maxTeams || 25) + ' teams.', 'err');
           return;
         }
@@ -1056,6 +1187,7 @@
         const btn = document.getElementById('sd-send-now');
         const prefs = collectPrefs();
         if (!prefs.teams.length) {
+          setSdTab('teams');
           setStatus('Choose at least one team first.', 'err');
           return;
         }
