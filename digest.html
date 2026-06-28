@@ -9,7 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/app-site-menu.css?v=20260628c">
-  <link rel="icon" type="image/svg+xml" href="/img/digest-favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/digest-favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/digest-favicon-180.png">
   <script src="js/script.js"></script>
   <script src="js/header_nav.js?v=20260627h"></script>
   <style>
@@ -23,7 +24,16 @@
       --sd-line: #e2e8f0;
       --sd-page-bg: #f1f5f9;
     }
-    body.sd-page { background: var(--sd-page-bg); }
+    .digest-logo {
+      height: 44px;
+      width: auto;
+      max-width: 88px;
+      object-fit: contain;
+    }
+    .th-topbar-brand .digest-logo {
+      width: auto;
+      height: 44px;
+    }
     body.sd-page .wrapper { background: transparent; }
     body.digest-app {
       min-height: 100dvh;
@@ -518,7 +528,7 @@
             <span></span><span></span><span></span>
           </button>
           <div class="th-topbar-brand">
-            <img src="img/digest-logo.svg" alt="" class="digest-logo" width="44" height="44">
+            <img src="img/digest-logo.png" alt="" class="digest-logo">
             <h1 class="th-topbar-title">Digest</h1>
           </div>
         </div>
@@ -551,7 +561,7 @@
 
         <div id="sd-panel" style="display:none;">
           <div id="sd-tab-teams" class="sd-tab-panel sd-card active" data-sd-tab="teams">
-            <h2 class="sd-section-title"><img src="img/digest-logo.svg" alt="" class="sd-section-logo" width="28" height="28"> Pick your teams</h2>
+            <h2 class="sd-section-title"><img src="img/digest-logo-128.png" alt="" class="sd-section-logo" width="28" height="28"> Pick your teams</h2>
             <div class="sd-limited-banner" id="sd-limited-banner" hidden>
               <strong>Limited time:</strong> Follow any <strong>FIFA World Cup 2026</strong> nation through the tournament.
               Open the <strong>World Cup 2026</strong> tab to pick countries — available until July 20, 2026.
@@ -659,7 +669,7 @@
 
     <nav class="sd-bottom-nav" id="sd-bottom-nav" aria-label="Digest sections" hidden>
       <button type="button" class="sd-bottom-nav-item active" id="sd-nav-teams" data-sd-tab="teams">
-        <span class="sd-bottom-nav-icon" aria-hidden="true"><img src="img/digest-logo.svg" alt="" width="26" height="26"></span>
+        <span class="sd-bottom-nav-icon" aria-hidden="true"><img src="img/digest-logo-128.png" alt="" width="26" height="26"></span>
         <span>Teams</span>
       </button>
       <button type="button" class="sd-bottom-nav-item" id="sd-nav-preferences" data-sd-tab="preferences">
