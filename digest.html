@@ -8,9 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260627l">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
-  <script src="js/header_nav.js"></script>
+  <script src="js/header_nav.js?v=20260627h"></script>
   <style>
     :root {
       --sd-mlb: #c41230;
@@ -26,7 +27,7 @@
     body.sd-page .wrapper { background: transparent; }
     .sd-hero {
       position: relative;
-      margin: -8px -20px 28px;
+      margin: 0 -20px 28px;
       padding: 36px 24px 32px;
       overflow: hidden;
       border-radius: 0 0 28px 28px;
@@ -396,26 +397,38 @@
     .sd-back:hover { color: #1d4ed8; text-decoration: underline; }
   </style>
 </head>
-<body class="sd-page">
+<body class="sd-page digest-app">
   <div class="wrapper">
-    <header>
-      <div class="header-content">
-        <a href="index.html" class="logo-link">
-          <img src="img/EagleLogo.png" alt="Ahrens Labs logo" class="header-logo">
-        </a>
-        <h1>Ahrens Labs</h1>
+    <header class="th-app-header">
+      <div class="th-app-topbar">
+        <div class="th-topbar-start">
+          <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="th-topbar-brand">
+            <h1 class="th-topbar-title">Digest</h1>
+          </div>
+        </div>
+        <div class="th-topbar-auth" id="header-auth-buttons">
+          <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=digest.html'">Login</button>
+          <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=digest.html'">Sign Up</button>
+          <span id="header-username" class="th-topbar-username"></span>
+        </div>
+      </div>
+      <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+      <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+        <div class="th-site-menu-head">
+          <a href="index.html" class="th-site-menu-brand">
+            <img src="img/EagleLogo.png" alt="" class="header-logo">
+            <span>Ahrens Labs</span>
+          </a>
+          <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
+        </div>
         <nav>
-          <ul>
-            <li><a href="index.html">Home</a></li>
-            <li><a href="labs.html">Labs &amp; Projects</a></li>
-            <li><a href="account-dashboard.html">Account</a></li>
-            <li><a href="chess_engine.html">Chess Engine</a></li>
-          </ul>
+          <ul></ul>
         </nav>
-        <div id="header-auth-buttons" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; align-items: center; z-index: 1000;">
-          <button id="header-login-btn" onclick="window.location.href='account.html?return=digest.html'" style="padding: 6px 14px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Login</button>
-          <button id="header-signup-btn" onclick="window.location.href='account.html?return=digest.html'" style="padding: 6px 14px; background: #2ecc71; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;">Sign Up</button>
-          <span id="header-username" style="display: none; padding: 6px 14px; color: white; font-weight: 600; font-size: 0.9em;"></span>
+        <div class="th-site-menu-footer">
+          <a href="#" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
         </div>
       </div>
     </header>
