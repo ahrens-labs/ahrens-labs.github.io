@@ -407,8 +407,19 @@ body.th-page .wrapper {
 body.digest-app .wrapper {
   display: flex;
   flex-direction: column;
-  flex: 1;
   width: 100%;
+  flex: none;
+}
+
+body.digest-app main.sd-main {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  max-width: none;
+  margin: 0;
+  display: block;
+  gap: 0;
 }
 
 body.th-page .push {
