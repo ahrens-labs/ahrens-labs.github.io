@@ -6,7 +6,7 @@
   <title>Digest — Ahrens Labs</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/app-site-menu.css?v=20260627l">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
@@ -25,54 +25,6 @@
     }
     body.sd-page { background: var(--sd-page-bg); }
     body.sd-page .wrapper { background: transparent; }
-    .sd-hero {
-      position: relative;
-      margin: 0 -20px 28px;
-      padding: 36px 24px 32px;
-      overflow: hidden;
-      border-radius: 0 0 28px 28px;
-      background:
-        radial-gradient(ellipse 80% 60% at 15% 0%, rgba(59, 130, 246, 0.14), transparent 55%),
-        radial-gradient(ellipse 70% 55% at 90% 10%, rgba(16, 185, 129, 0.12), transparent 50%),
-        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(244, 114, 182, 0.08), transparent 55%),
-        linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #eef2ff 100%);
-      color: var(--sd-ink);
-      border: 1px solid var(--sd-line);
-      box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
-    }
-    .sd-hero::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px);
-      background-size: 18px 18px;
-      opacity: 0.5;
-      pointer-events: none;
-    }
-    .sd-hero-inner { position: relative; z-index: 1; max-width: 760px; }
-    .sd-kicker {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 12px; border-radius: 999px;
-      background: #fff; border: 1px solid var(--sd-line);
-      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      color: #475569; margin-bottom: 14px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-    }
-    .sd-hero h1 {
-      margin: 0 0 10px;
-      font-family: Orbitron, Inter, sans-serif;
-      font-size: clamp(1.85rem, 4vw, 2.45rem);
-      font-weight: 900;
-      letter-spacing: 0.02em;
-      background: linear-gradient(90deg, #0f172a 0%, #2563eb 42%, #059669 100%);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .sd-sub {
-      color: var(--sd-muted); margin: 0; line-height: 1.55; font-size: 1rem; max-width: 58ch;
-    }
-    .sd-sub strong { color: var(--sd-ink); }
     .sd-wrap {
       max-width: 900px; margin: 0 auto; padding: 20px 20px 64px;
       font-family: Inter, system-ui, sans-serif;
@@ -389,12 +341,6 @@
     }
     @keyframes sd-spin { to { transform: rotate(360deg); } }
     .sd-freq-detail { font-size: 0.82rem; color: #64748b; margin-top: 8px; font-weight: 500; }
-    .sd-back {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-bottom: 16px; font-size: 0.84rem; font-weight: 700;
-      color: #2563eb; text-decoration: none;
-    }
-    .sd-back:hover { color: #1d4ed8; text-decoration: underline; }
   </style>
 </head>
 <body class="sd-page digest-app">
@@ -433,19 +379,6 @@
       </div>
     </header>
     <main class="sd-wrap">
-      <a href="coding-lab.html" class="sd-back">← Back to Coding Lab</a>
-
-      <section class="sd-hero">
-        <div class="sd-hero-inner">
-          <div class="sd-kicker">⚾ 🏈 🏀 🏒 ⚽ MLB · NFL · NBA · NHL · Premier League · Big Ten · SEC</div>
-          <h1>Digest</h1>
-          <p class="sd-sub">
-            Schedules and headlines for the teams you pick —
-            delivered on your schedule. All send times are <strong>Central Time</strong>.
-          </p>
-        </div>
-      </section>
-
       <div id="sd-loading" class="sd-loading">Loading your account</div>
 
       <div id="sd-panel" class="sd-card" style="display:none;">
