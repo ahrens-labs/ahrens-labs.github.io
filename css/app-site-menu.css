@@ -217,11 +217,12 @@ header.th-app-header::before {
   flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 30;
   padding: 16px 16px 12px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   background: #1a2433;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
 }
 
 .th-site-menu-brand {
@@ -258,8 +259,8 @@ header.th-app-header::before {
 .th-site-menu nav {
   padding: 12px 10px 24px;
   flex: 0 0 auto;
-  position: static;
-  z-index: auto;
+  position: relative;
+  z-index: 0;
   overflow: visible;
   background: transparent;
 }
@@ -280,6 +281,12 @@ header.th-app-header::before {
   margin: 0 !important;
   width: 100% !important;
   position: static !important;
+  z-index: 0 !important;
+}
+
+.th-site-menu nav ul li.nav-dropdown {
+  position: static !important;
+  z-index: 0 !important;
 }
 
 .th-site-menu nav > ul > li::after {
@@ -295,11 +302,12 @@ header.th-app-header::before {
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: 30;
   margin-top: auto;
   padding: 12px 10px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   background: #141c28;
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.22);
 }
 
 .th-site-menu-signout,
@@ -347,6 +355,7 @@ header.th-app-header::before {
 .th-site-menu nav ul.nav-dropdown-menu {
   display: block !important;
   position: static !important;
+  z-index: 0 !important;
   transform: none !important;
   min-width: 0 !important;
   margin: 0 0 4px !important;
