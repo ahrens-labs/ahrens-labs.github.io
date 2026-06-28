@@ -478,6 +478,14 @@
             </div>
             <p class="sd-hint">Choose up to <span id="sd-max-teams">25</span> teams (up to 8 headlines per team per digest). Search by name or browse one league at a time. Set delivery time and team order in Preferences.</p>
             <p class="sd-team-count" id="sd-team-count">0 teams selected</p>
+            <p class="sd-hint" id="sd-teams-empty">No teams selected yet. Browse below to add teams.</p>
+            <div class="sd-selected-strip" id="sd-selected-strip-teams">
+              <div class="sd-selected-head">
+                <span class="sd-selected-label">Selected teams</span>
+                <button type="button" class="sd-selected-clear" id="sd-clear-all-teams">Clear all</button>
+              </div>
+              <div class="sd-selected-chips" id="sd-selected-chips-teams"></div>
+            </div>
 
             <div class="sd-browse-panel">
               <p class="sd-browse-title">Add teams</p>
@@ -789,24 +797,12 @@
         renderSelectedStrip();
       }
 
-      function renderSelectedStrip() {
-        const strip = document.getElementById('sd-selected-strip');
-        const wrap = document.getElementById('sd-selected-chips');
-        const clearBtn = document.getElementById('sd-clear-all');
-        const emptyHint = document.getElementById('sd-order-empty');
+      function renderSelectedChips(wrap, opts) {
+        if (!wrap) return;
+        const showReorder = !!(opts && opts.showReorder);
         const ordered = selectedTeamOrder
           .map(function (id) { return teamById.get(id); })
           .filter(Boolean);
-        if (!ordered.length) {
-          strip.classList.remove('visible');
-          wrap.innerHTML = '';
-          if (clearBtn) clearBtn.style.display = 'none';
-          if (emptyHint) emptyHint.style.display = '';
-          return;
-        }
-        if (emptyHint) emptyHint.style.display = 'none';
-        strip.classList.add('visible');
-        if (clearBtn) clearBtn.style.display = '';
         wrap.innerHTML = ordered.map(function (t, idx) {
           const accent = leagueAccent(t.league, t.color);
           const logo = t.logoUrl
@@ -815,17 +811,22 @@
               escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
           const atTop = idx === 0;
           const atBottom = idx === ordered.length - 1;
+          let reorderHtml = '';
+          if (showReorder) {
+            reorderHtml =
+              '<span class="sd-pick-reorder">' +
+              '<button type="button" class="sd-move-up" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
+              escapeHtml(t.label) + ' up"' + (atTop ? ' disabled' : '') + '>↑</button>' +
+              '<button type="button" class="sd-move-down" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
+              escapeHtml(t.label) + ' down"' + (atBottom ? ' disabled' : '') + '>↓</button>' +
+              '</span>';
+          }
           return '<span class="sd-pick-chip">' +
-            '<span class="sd-pick-order" aria-hidden="true">' + (idx + 1) + '</span>' +
+            (showReorder ? '<span class="sd-pick-order" aria-hidden="true">' + (idx + 1) + '</span>' : '') +
             logo +
             '<span>' + escapeHtml(t.label) + '</span>' +
             '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
-            '<span class="sd-pick-reorder">' +
-            '<button type="button" class="sd-move-up" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
-            escapeHtml(t.label) + ' up"' + (atTop ? ' disabled' : '') + '>↑</button>' +
-            '<button type="button" class="sd-move-down" data-move="' + escapeHtml(t.id) + '" aria-label="Move ' +
-            escapeHtml(t.label) + ' down"' + (atBottom ? ' disabled' : '') + '>↓</button>' +
-            '</span>' +
+            reorderHtml +
             '<button type="button" class="sd-pick-remove" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
@@ -835,18 +836,52 @@
             renderTeamGrid();
           });
         });
-        wrap.querySelectorAll('button.sd-move-up').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            moveSelectedTeam(btn.getAttribute('data-move'), -1);
-            renderTeamGrid();
+        if (showReorder) {
+          wrap.querySelectorAll('button.sd-move-up').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              moveSelectedTeam(btn.getAttribute('data-move'), -1);
+              renderTeamGrid();
+            });
           });
-        });
-        wrap.querySelectorAll('button.sd-move-down').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            moveSelectedTeam(btn.getAttribute('data-move'), 1);
-            renderTeamGrid();
+          wrap.querySelectorAll('button.sd-move-down').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              moveSelectedTeam(btn.getAttribute('data-move'), 1);
+              renderTeamGrid();
+            });
           });
-        });
+        }
+      }
+
+      function renderSelectedStrip() {
+        const ordered = selectedTeamOrder
+          .map(function (id) { return teamById.get(id); })
+          .filter(Boolean);
+        const hasTeams = ordered.length > 0;
+
+        const teamsStrip = document.getElementById('sd-selected-strip-teams');
+        const teamsWrap = document.getElementById('sd-selected-chips-teams');
+        const teamsEmpty = document.getElementById('sd-teams-empty');
+        const teamsClear = document.getElementById('sd-clear-all-teams');
+        if (teamsStrip) teamsStrip.classList.toggle('visible', hasTeams);
+        if (teamsEmpty) teamsEmpty.style.display = hasTeams ? 'none' : '';
+        if (teamsClear) teamsClear.style.display = hasTeams ? '' : 'none';
+        renderSelectedChips(teamsWrap, { showReorder: false });
+
+        const strip = document.getElementById('sd-selected-strip');
+        const wrap = document.getElementById('sd-selected-chips');
+        const clearBtn = document.getElementById('sd-clear-all');
+        const emptyHint = document.getElementById('sd-order-empty');
+        if (!hasTeams) {
+          if (strip) strip.classList.remove('visible');
+          if (wrap) wrap.innerHTML = '';
+          if (clearBtn) clearBtn.style.display = 'none';
+          if (emptyHint) emptyHint.style.display = '';
+          return;
+        }
+        if (emptyHint) emptyHint.style.display = 'none';
+        if (strip) strip.classList.add('visible');
+        if (clearBtn) clearBtn.style.display = '';
+        renderSelectedChips(wrap, { showReorder: true });
       }
 
       function renderLeagueTabs() {
@@ -1073,6 +1108,10 @@
           renderTeamGrid();
         });
         document.getElementById('sd-clear-all').addEventListener('click', function () {
+          selectedTeamOrder = [];
+          renderTeamGrid();
+        });
+        document.getElementById('sd-clear-all-teams').addEventListener('click', function () {
           selectedTeamOrder = [];
           renderTeamGrid();
         });
