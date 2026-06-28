@@ -155,18 +155,14 @@
     }
     .sd-pick-chip .sd-pick-remove:hover { background: #fee2e2; color: #b91c1c; }
     .sd-pick-chip-compact {
+      position: relative;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 3px;
-      padding: 8px 10px;
+      padding: 10px 8px 8px;
       min-width: 58px;
-      cursor: pointer;
       text-align: center;
-    }
-    .sd-pick-chip-compact:hover {
-      border-color: #fca5a5;
-      background: #fef2f2;
     }
     .sd-pick-chip-compact img,
     .sd-pick-chip-compact .sd-team-logo-fallback {
@@ -183,6 +179,14 @@
       font-weight: 800;
       letter-spacing: 0.05em;
       color: #475569;
+    }
+    .sd-pick-chip-compact .sd-pick-remove {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 18px;
+      height: 18px;
+      font-size: 0.82rem;
     }
     .sd-browse-panel {
       margin: 0 0 22px; padding: 16px; border-radius: 16px;
@@ -863,12 +867,13 @@
             : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
               escapeHtml(abbr.slice(0, 3)) + '</span>';
           if (compact) {
-            return '<button type="button" class="sd-pick-chip sd-pick-chip-compact" data-remove="' + escapeHtml(t.id) +
-              '" aria-label="Remove ' + escapeHtml(t.label) + '">' +
+            return '<span class="sd-pick-chip sd-pick-chip-compact">' +
+              '<button type="button" class="sd-pick-remove" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
+              escapeHtml(t.label) + '">&times;</button>' +
               logo +
               '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
               '<span class="sd-pick-abbr">' + escapeHtml(abbr) + '</span>' +
-              '</button>';
+              '</span>';
           }
           const atTop = idx === 0;
           const atBottom = idx === ordered.length - 1;
@@ -891,8 +896,9 @@
             '<button type="button" class="sd-pick-remove" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
-        wrap.querySelectorAll('[data-remove]').forEach(function (btn) {
-          btn.addEventListener('click', function () {
+        wrap.querySelectorAll('button[data-remove]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
             removeSelectedTeam(btn.getAttribute('data-remove'));
             renderTeamGrid();
           });
