@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628a">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260628b">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <script src="js/script.js"></script>
   <script src="js/header_nav.js?v=20260627h"></script>
@@ -27,34 +27,25 @@
     body.sd-page .wrapper { background: transparent; }
     body.digest-app {
       min-height: 100dvh;
-      height: 100dvh;
-      overflow: hidden;
+      overflow-x: hidden;
     }
     body.digest-app .wrapper {
       display: flex;
       flex-direction: column;
       flex: 1;
-      min-height: 0;
       width: 100%;
     }
     .sd-main {
       flex: 1 1 auto;
-      min-height: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      width: 100%;
     }
     .sd-wrap {
       max-width: 900px;
       margin: 0 auto;
       padding: 16px 16px calc(88px + env(safe-area-inset-bottom, 0px));
       font-family: Inter, system-ui, sans-serif;
-      flex: 1 1 auto;
-      min-height: 0;
       width: 100%;
       box-sizing: border-box;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
     }
     .sd-tab-panel { display: none; }
     .sd-tab-panel.active { display: block; }
@@ -291,9 +282,7 @@
     .sd-team-grid {
       display: grid; gap: 10px; margin: 0;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      max-height: min(520px, calc(100dvh - 320px));
-      overflow-y: auto; padding: 4px 6px 4px 2px;
-      scrollbar-width: thin; scrollbar-color: #94a3b8 transparent;
+      padding: 4px 6px 4px 2px;
     }
     @media (max-width: 720px) { .sd-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 480px) { .sd-team-grid { grid-template-columns: 1fr; } }

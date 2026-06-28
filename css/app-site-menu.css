@@ -386,7 +386,8 @@ body.digest-app {
   justify-content: flex-start;
 }
 
-body.classify-app {
+body.classify-app,
+body.digest-app {
   min-height: 100dvh;
   overflow-x: hidden;
 }
