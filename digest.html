@@ -115,6 +115,11 @@
       margin: 0; font-size: 0.76rem; line-height: 1.4; color: #64748b; font-weight: 500;
     }
     .sd-selected-chips { display: flex; flex-direction: column; gap: 6px; }
+    .sd-selected-chips-compact {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
     .sd-pick-chip {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 10px 8px 8px; border-radius: 12px;
@@ -149,6 +154,36 @@
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
     .sd-pick-chip .sd-pick-remove:hover { background: #fee2e2; color: #b91c1c; }
+    .sd-pick-chip-compact {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 8px 10px;
+      min-width: 58px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .sd-pick-chip-compact:hover {
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+    .sd-pick-chip-compact img,
+    .sd-pick-chip-compact .sd-team-logo-fallback {
+      width: 32px;
+      height: 32px;
+    }
+    .sd-pick-chip-compact .sd-team-logo-fallback { font-size: 0.65rem; }
+    .sd-pick-chip-compact .sd-pick-sport {
+      font-size: 0.88rem;
+      line-height: 1;
+    }
+    .sd-pick-chip-compact .sd-pick-abbr {
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: #475569;
+    }
     .sd-browse-panel {
       margin: 0 0 22px; padding: 16px; border-radius: 16px;
       border: 1px solid #e2e8f0; background: #f8fafc;
@@ -484,7 +519,7 @@
                 <span class="sd-selected-label">Selected teams</span>
                 <button type="button" class="sd-selected-clear" id="sd-clear-all-teams">Clear all</button>
               </div>
-              <div class="sd-selected-chips" id="sd-selected-chips-teams"></div>
+              <div class="sd-selected-chips sd-selected-chips-compact" id="sd-selected-chips-teams"></div>
             </div>
 
             <div class="sd-browse-panel">
@@ -500,6 +535,11 @@
               </div>
               <div class="sd-team-grid" id="sd-team-grid"></div>
             </div>
+
+            <div class="sd-actions">
+              <button type="button" class="btn btn-primary" id="sd-save-teams">Save preferences</button>
+            </div>
+            <p class="sd-status" id="sd-status-teams"></p>
           </div>
 
           <div id="sd-tab-preferences" class="sd-tab-panel sd-card" data-sd-tab="preferences">
@@ -598,11 +638,18 @@
         return localStorage.getItem('ahrenslabs_sessionId') || localStorage.getItem('chessSessionId');
       }
 
-      function setStatus(msg, kind) {
-        const el = document.getElementById('sd-status');
-        el.textContent = msg || '';
-        el.className = 'sd-status' + (kind ? ' ' + kind : '');
-        if (msg) setSdTab('preferences');
+      function setStatus(msg, kind, opts) {
+        opts = opts || {};
+        const targets = opts.tab
+          ? [opts.tab]
+          : ['teams', 'preferences'];
+        targets.forEach(function (tab) {
+          const el = document.getElementById(tab === 'teams' ? 'sd-status-teams' : 'sd-status');
+          if (!el) return;
+          el.textContent = msg || '';
+          el.className = 'sd-status' + (kind ? ' ' + kind : '');
+        });
+        if (msg && opts.switchTab) setSdTab(opts.switchTab);
       }
 
       function setSdTab(tab) {
@@ -797,18 +844,32 @@
         renderSelectedStrip();
       }
 
+      function teamAbbr(t) {
+        return String(t.abbr || t.label || '').slice(0, 4).toUpperCase();
+      }
+
       function renderSelectedChips(wrap, opts) {
         if (!wrap) return;
         const showReorder = !!(opts && opts.showReorder);
+        const compact = !!(opts && opts.compact);
         const ordered = selectedTeamOrder
           .map(function (id) { return teamById.get(id); })
           .filter(Boolean);
         wrap.innerHTML = ordered.map(function (t, idx) {
           const accent = leagueAccent(t.league, t.color);
+          const abbr = teamAbbr(t);
           const logo = t.logoUrl
             ? '<img src="' + escapeHtml(t.logoUrl) + '" alt="">'
             : '<span class="sd-team-logo-fallback" style="background:' + escapeHtml(accent) + '">' +
-              escapeHtml((t.abbr || t.label.slice(0, 2)).toUpperCase()) + '</span>';
+              escapeHtml(abbr.slice(0, 3)) + '</span>';
+          if (compact) {
+            return '<button type="button" class="sd-pick-chip sd-pick-chip-compact" data-remove="' + escapeHtml(t.id) +
+              '" aria-label="Remove ' + escapeHtml(t.label) + '">' +
+              logo +
+              '<span class="sd-pick-sport" aria-hidden="true">' + escapeHtml(leagueEmoji(t.league)) + '</span>' +
+              '<span class="sd-pick-abbr">' + escapeHtml(abbr) + '</span>' +
+              '</button>';
+          }
           const atTop = idx === 0;
           const atBottom = idx === ordered.length - 1;
           let reorderHtml = '';
@@ -830,7 +891,7 @@
             '<button type="button" class="sd-pick-remove" data-remove="' + escapeHtml(t.id) + '" aria-label="Remove ' +
             escapeHtml(t.label) + '">&times;</button></span>';
         }).join('');
-        wrap.querySelectorAll('button[data-remove]').forEach(function (btn) {
+        wrap.querySelectorAll('[data-remove]').forEach(function (btn) {
           btn.addEventListener('click', function () {
             removeSelectedTeam(btn.getAttribute('data-remove'));
             renderTeamGrid();
@@ -865,7 +926,7 @@
         if (teamsStrip) teamsStrip.classList.toggle('visible', hasTeams);
         if (teamsEmpty) teamsEmpty.style.display = hasTeams ? 'none' : '';
         if (teamsClear) teamsClear.style.display = hasTeams ? '' : 'none';
-        renderSelectedChips(teamsWrap, { showReorder: false });
+        renderSelectedChips(teamsWrap, { compact: true });
 
         const strip = document.getElementById('sd-selected-strip');
         const wrap = document.getElementById('sd-selected-chips');
@@ -1121,23 +1182,23 @@
           const select = document.getElementById('sd-add-time-select');
           const hm = normalizeHmInput(select.value);
           if (!hm) {
-            setStatus('Pick a valid time on a 15-minute mark (:00, :15, :30, :45).', 'err');
+            setStatus('Pick a valid time on a 15-minute mark (:00, :15, :30, :45).', 'err', { tab: 'preferences' });
             return;
           }
           document.getElementById('sd-frequency').value = 'custom';
           updateFreqDetail();
           if (customTimes.indexOf(hm) >= 0) {
-            setStatus('That time is already on your schedule.', 'err');
+            setStatus('That time is already on your schedule.', 'err', { tab: 'preferences' });
             return;
           }
           if (customTimes.length >= (catalog.maxCustomTimes || 6)) {
-            setStatus('At most ' + (catalog.maxCustomTimes || 6) + ' custom times.', 'err');
+            setStatus('At most ' + (catalog.maxCustomTimes || 6) + ' custom times.', 'err', { tab: 'preferences' });
             return;
           }
           customTimes.push(hm);
           customTimes.sort();
           renderTimeChips();
-          setStatus('Added ' + formatTime12(hm) + ' CT. Save preferences to activate.', 'ok');
+          setStatus('Added ' + formatTime12(hm) + ' CT. Save preferences to activate.', 'ok', { tab: 'preferences' });
         });
 
         const prefs = (userProfile.emailPreferences && userProfile.emailPreferences.sportsDigest) || {};
@@ -1155,33 +1216,37 @@
         }
       }
 
-      document.getElementById('sd-save').addEventListener('click', async function () {
+      async function savePreferences(sourceTab) {
+        sourceTab = sourceTab || activeSdTab;
         const sessionId = getSessionId();
         const prefs = collectPrefs();
-        setStatus('', '');
+        setStatus('', '', { tab: sourceTab });
         if (prefs.enabled && prefs.teams.length === 0) {
-          setSdTab('teams');
-          setStatus('Choose at least one team when Digest is on.', 'err');
+          setStatus('Choose at least one team when Digest is on.', 'err', { tab: 'teams', switchTab: 'teams' });
           return;
         }
         if (prefs.enabled && prefs.teams.length > (catalog.maxTeams || 25)) {
-          setSdTab('teams');
-          setStatus('Choose at most ' + (catalog.maxTeams || 25) + ' teams.', 'err');
+          setStatus('Choose at most ' + (catalog.maxTeams || 25) + ' teams.', 'err', { tab: 'teams', switchTab: 'teams' });
           return;
         }
         if (prefs.enabled && prefs.frequency === 'custom') {
           if (!prefs.customTimes.length) {
-            setStatus('Add at least one custom send time.', 'err');
+            setStatus('Add at least one custom send time.', 'err', { tab: 'preferences', switchTab: 'preferences' });
             return;
           }
           if (!prefs.customDays.length) {
-            setStatus('Choose at least one day for your custom schedule.', 'err');
+            setStatus('Choose at least one day for your custom schedule.', 'err', { tab: 'preferences', switchTab: 'preferences' });
             return;
           }
         }
-        const btn = document.getElementById('sd-save');
-        btn.disabled = true;
-        btn.textContent = 'Saving…';
+        const saveBtns = [
+          document.getElementById('sd-save'),
+          document.getElementById('sd-save-teams'),
+        ].filter(Boolean);
+        saveBtns.forEach(function (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Saving…';
+        });
         try {
           const res = await fetch(API_BASE + '/api/sports-digest-preferences', {
             method: 'POST',
@@ -1200,7 +1265,8 @@
             if (prefs.enabled && data.kvSynced === false && !data.warning) {
               msg += ' Scheduled sends may not work until you save again or reload this page.';
             }
-            setStatus(msg, data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok');
+            const kind = data.warning || (prefs.enabled && data.kvSynced === false) ? 'err' : 'ok';
+            setStatus(msg, kind, { tab: sourceTab });
             if (data.sportsDigest) applyPrefs(data.sportsDigest);
             if (prefs.enabled) {
               try {
@@ -1213,24 +1279,28 @@
               }
             }
           } else {
-            setStatus(data.error || 'Could not save preferences.', 'err');
+            setStatus(data.error || 'Could not save preferences.', 'err', { tab: sourceTab });
           }
         } finally {
-          btn.disabled = false;
-          btn.textContent = 'Save preferences';
+          saveBtns.forEach(function (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save preferences';
+          });
         }
-      });
+      }
+
+      document.getElementById('sd-save').addEventListener('click', function () { savePreferences('preferences'); });
+      document.getElementById('sd-save-teams').addEventListener('click', function () { savePreferences('teams'); });
 
       document.getElementById('sd-send-now').addEventListener('click', async function () {
         const sessionId = getSessionId();
         const btn = document.getElementById('sd-send-now');
         const prefs = collectPrefs();
         if (!prefs.teams.length) {
-          setSdTab('teams');
-          setStatus('Choose at least one team first.', 'err');
+          setStatus('Choose at least one team first.', 'err', { tab: 'teams', switchTab: 'teams' });
           return;
         }
-        setStatus('Building and sending preview… this can take up to a minute.', '');
+        setStatus('Building and sending preview… this can take up to a minute.', '', { tab: 'preferences' });
         btn.disabled = true;
         try {
           const res = await fetch(API_BASE + '/api/sports-digest-send-now', {
@@ -1243,7 +1313,7 @@
           });
           const data = await res.json().catch(function () { return {}; });
           if (res.ok && data.success) {
-            setStatus('Preview sent to ' + (data.to || 'your email') + '. Check your inbox (and spam).', 'ok');
+            setStatus('Preview sent to ' + (data.to || 'your email') + '. Check your inbox (and spam).', 'ok', { tab: 'preferences' });
             if (data.kvSynced) {
               try {
                 const statusRes = await fetch(API_BASE + '/api/sports-digest-status', {
@@ -1258,7 +1328,7 @@
             let msg = data.error || data.hint || 'Could not send preview.';
             if (data.step === 'build') msg = 'Could not build digest: ' + msg;
             if (data.step === 'send') msg = 'Digest built but email failed: ' + msg;
-            setStatus(msg, 'err');
+            setStatus(msg, 'err', { tab: 'preferences' });
           }
         } finally {
           btn.disabled = false;
