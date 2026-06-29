@@ -63,7 +63,7 @@ function linkAppHeader(authRight = ''): string {
                     <span></span><span></span><span></span>
                 </button>
                 <div class="th-topbar-brand">
-                    <img src="/icon-192.png?v=14" alt="" width="44" height="44" class="link-topbar-logo">
+                    <img src="/icon-192.png?v=18" alt="" width="44" height="44" class="link-topbar-logo">
                     <h1 class="th-topbar-title link-topbar-title">Link</h1>
                 </div>
             </div>
@@ -80,8 +80,8 @@ export function layout(title: string, content: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>${title} - Link</title>
-  <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=14">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=14">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=18">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=18">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#16a34a">
   <meta name="mobile-web-app-capable" content="yes">
@@ -480,6 +480,24 @@ export function layout(title: string, content: string): string {
   </style>
 </head>
 <body class="link-app">
+  <script>
+  (function () {
+    var base = location.pathname.startsWith('/link') ? '/link' : '';
+    window.LINK_API_BASE = base;
+    window.linkApi = function (path) {
+      if (!path || path.charAt(0) !== '/') return path;
+      return base ? base + path : path;
+    };
+    if (!base) return;
+    var origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      if (typeof input === 'string' && input.charAt(0) === '/' && input.indexOf(base + '/') !== 0) {
+        input = base + input;
+      }
+      return origFetch(input, init);
+    };
+  })();
+  </script>
   ${content}
 
   <script src="https://ahrenslabs.com/js/script.js"></script>
@@ -2093,7 +2111,7 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
         try {
           console.log("Fetching AI summary for contact:", '${contact.id}');
           const contactId = document.getElementById("contactId").textContent;
-          const url = '/api/contacts/' + contactId + '/ai-summary';
+          const url = linkApi('/api/contacts/' + contactId + '/ai-summary');
           console.log("URL:", url);
           const response = await fetch(url, {
             method: 'POST'
