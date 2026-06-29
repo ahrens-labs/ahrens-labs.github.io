@@ -21,7 +21,7 @@
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <script src="js/script.js"></script>
   <script src="js/header_nav.js?v=140260627h"></script>
     
@@ -278,12 +278,28 @@
                 padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
             }
         }
+        .classify-app .th-topbar-brand {
+            overflow: visible;
+        }
         .classify-app .th-topbar-title {
-            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
-            background: linear-gradient(to right, #ef4444, #dc2626);
+            font-family: 'Syne', 'Plus Jakarta Sans', sans-serif;
+            font-weight: 800;
+            font-size: 1.35rem;
+            letter-spacing: -0.03em;
+            line-height: 1.28;
+            padding-bottom: 0.08em;
+            overflow: visible;
+            display: inline-block;
+            background: linear-gradient(120deg, #fca5a5 0%, #f87171 22%, #ef4444 48%, #dc2626 72%, #991b1b 100%);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+        }
+        .classify-app .cl-greeting-title {
+            line-height: 1.28;
+            padding-bottom: 0.14em;
+            overflow: visible;
+            display: block;
         }
         .cl-settings-list {
             display: flex;
@@ -447,6 +463,10 @@
                 min-width: 0;
                 max-width: 9rem;
                 font-size: 0.875rem;
+            }
+            body.classify-app .th-topbar-title {
+                overflow: visible;
+                font-size: 1.2rem;
             }
             body.classify-app .cl-bottom-nav-item {
                 font-size: 0.58rem;
@@ -672,7 +692,7 @@
             <div id="dashboardTab" class="fade-in space-y-6 max-w-6xl mx-auto pb-10">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div class="min-w-0">
-                        <h1 class="text-4xl md:text-5xl leading-[1.15] pb-1 font-display font-bold text-transparent bg-gradient-to-r from-red-600 via-red-500 to-red-600 bg-clip-text" id="greeting">Hello, Student</h1>
+                        <h1 class="cl-greeting-title text-4xl md:text-5xl font-display font-bold text-transparent bg-gradient-to-r from-red-600 via-red-500 to-red-600 bg-clip-text" id="greeting">Hello, Student</h1>
                         <p class="text-slate-500 dark:text-slate-400 mt-2 text-lg" id="currentDateDisplay">Today is...</p>
                     </div>
                     <div class="text-right hidden sm:block bg-gradient-to-br from-slate-100/80 to-slate-100/80 rounded-2xl p-6 border border-slate-200/20 dark:border-slate-700/30">
