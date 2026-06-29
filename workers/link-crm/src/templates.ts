@@ -63,7 +63,7 @@ function linkAppHeader(authRight = ''): string {
                     <span></span><span></span><span></span>
                 </button>
                 <div class="th-topbar-brand">
-                    <img src="/icon-192.png?v=18" alt="" width="44" height="44" class="link-topbar-logo">
+                    <img src="/icon-192.png?v=20" alt="" width="44" height="44" class="link-topbar-logo">
                     <h1 class="th-topbar-title link-topbar-title">Link</h1>
                 </div>
             </div>
@@ -80,8 +80,8 @@ export function layout(title: string, content: string): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>${title} - Link</title>
-  <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=18">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=18">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png?v=20">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=20">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#16a34a">
   <meta name="mobile-web-app-capable" content="yes">
@@ -2121,7 +2121,8 @@ export function contactDetailPage(contact: any, interactions: any[], dates: any[
             document.getElementById('aiSummaryContent').innerHTML = data.summary.replace(/\\n/g, '<br>');
             document.getElementById('aiSummaryCard').style.display = 'block';
           } else {
-            alert('Error generating AI summary');
+            const data = await response.json().catch(function () { return {}; });
+            alert(data.error || 'Error generating AI summary');
           }
         } catch (error) {
           alert('Error generating AI summary');

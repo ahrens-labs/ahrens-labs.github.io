@@ -8,6 +8,28 @@ import { decryptContact, generateId, encryptContact } from './crypto'
 import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkPwaPaths, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
 import { serveLinkHtml } from './html'
 
+function parseContactTags(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'string') return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
+}
+
+function extractAiText(response: unknown): string {
+  if (!response) return ''
+  if (typeof response === 'string') return response
+  if (typeof response === 'object') {
+    const r = response as Record<string, unknown>
+    if (typeof r.response === 'string') return r.response
+    const nested = r.result as Record<string, unknown> | undefined
+    if (nested && typeof nested.response === 'string') return nested.response
+  }
+  return ''
+}
+
 const app = new Hono<{ Bindings: Env }>()
 
 async function redirectAhrensLogin(c: any, clearLinkSession = false) {
@@ -1296,7 +1318,7 @@ app.get('/contacts/:id', requireAuth, async (c) => {
   }
   
   const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
-  contact.tags = contactResult.tags ? JSON.parse(contactResult.tags) : []
+  contact.tags = parseContactTags(contactResult.tags)
   
   // Get interactions
   const interactionsResult = await c.env.DB.prepare(
@@ -1361,7 +1383,7 @@ app.get('/contacts/:id/edit', requireAuth, async (c) => {
   }
   
   const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
-  contact.tags = contactResult.tags ? JSON.parse(contactResult.tags) : []
+  contact.tags = parseContactTags(contactResult.tags)
   
   return serveLinkHtml(c, editContactPage(contact))
 })
@@ -1743,34 +1765,33 @@ app.delete('/api/interactions/:id', requireAuth, async (c) => {
 
 // API: Generate AI summary for contact
 app.post('/api/contacts/:id/ai-summary', requireAuth, async (c) => {
-  const user = c.get('user')
-  const contactId = c.req.param('id')
-  
-  // Get contact
-  const contactResult = await c.env.DB.prepare(
-    'SELECT * FROM contacts WHERE id = ? AND user_id = ?'
-  ).bind(contactId, user.id).first()
-  
-  if (!contactResult) {
-    return c.json({ error: 'Contact not found' }, 404)
-  }
-  
-  const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
-  contact.tags = contactResult.tags ? JSON.parse(contactResult.tags) : []
-  
-  // Get interactions
-  const interactionsResult = await c.env.DB.prepare(
-    'SELECT * FROM interactions WHERE contact_id = ? ORDER BY date DESC'
-  ).bind(contactId).all()
-  
-  const interactions = interactionsResult.results || []
-  
-  // Build prompt for AI
-  const interactionsList = interactions.map(i => 
-    `- ${new Date(i.date).toLocaleDateString()}: ${i.type} - ${i.notes}`
-  ).join('\n')
-  
-  const prompt = `Summarize this contact in 2-3 natural, conversational sentences as if speaking to someone. Use simple language without formal business jargon.
+  try {
+    const user = c.get('user')
+    const contactId = c.req.param('id')
+
+    const contactResult = await c.env.DB.prepare(
+      'SELECT * FROM contacts WHERE id = ? AND user_id = ?'
+    ).bind(contactId, user.id).first()
+
+    if (!contactResult) {
+      return c.json({ error: 'Contact not found' }, 404)
+    }
+
+    const contact = await decryptContact(contactResult, c.env.ENCRYPTION_KEY)
+    contact.tags = parseContactTags(contactResult.tags)
+
+    const interactionsResult = await c.env.DB.prepare(
+      'SELECT * FROM interactions WHERE contact_id = ? ORDER BY date DESC LIMIT 20'
+    ).bind(contactId).all()
+
+    const interactions = interactionsResult.results || []
+    const interactionsList = interactions.map((i: any) => {
+      const when = i.date ? new Date(Number(i.date)).toLocaleDateString() : 'Unknown date'
+      const notes = String(i.notes || '').slice(0, 300)
+      return `- ${when}: ${i.type || 'other'} - ${notes || 'No notes'}`
+    }).join('\n')
+
+    const prompt = `Summarize this contact in 2-3 natural, conversational sentences as if speaking to someone. Use simple language without formal business jargon.
 
 Name: ${contact.name}
 Email: ${contact.email || 'N/A'}
@@ -1783,18 +1804,20 @@ Recent Interactions:
 ${interactionsList || 'No interactions yet'}
 
 Focus on: who they are, your relationship with them, and recent activity. Sound natural and conversational, not formal or robotic.`
-  
-  // Call Cloudflare Workers AI (free!)
-  try {
+
+    if (!c.env.AI) {
+      return c.json({ error: 'AI is not configured' }, 503)
+    }
+
     const aiResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [
         { role: 'system', content: 'You are a voice assistant providing natural, conversational summaries. Speak clearly and concisely without formal language or markdown formatting.' },
-        { role: 'user', content: prompt }
-      ]
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 256,
     })
-    
-    const summary = aiResponse.response || 'Unable to generate summary.'
-    
+
+    const summary = extractAiText(aiResponse).trim() || 'Unable to generate summary.'
     return c.json({ summary })
   } catch (error) {
     console.error('AI summary error:', error)
