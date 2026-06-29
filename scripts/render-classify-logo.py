@@ -16,13 +16,13 @@ OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.98
-ASSET_VERSION = "14"
+ASSET_VERSION = "15"
 
 # Wide logo: scale to height with this fill (allows slight horizontal crop vs filling width).
-WIDE_HEIGHT_FILL = 0.68
-CLASSIFY_FAVICON_FILL = 0.76
-CLASSIFY_PWA_ANY_FILL = 0.72
-CLASSIFY_PWA_MASKABLE_FILL = 0.62
+WIDE_HEIGHT_FILL = 0.65
+CLASSIFY_FAVICON_FILL = 0.73
+CLASSIFY_PWA_ANY_FILL = 0.69
+CLASSIFY_PWA_MASKABLE_FILL = 0.59
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
