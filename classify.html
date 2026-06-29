@@ -4,17 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Classify | Advanced Planner</title>
-  <link rel="icon" type="image/png" sizes="512x512" href="/classify-favicon-512.png?v=9">
-  <link rel="icon" type="image/png" sizes="192x192" href="/classify-favicon-192.png?v=9">
-  <link rel="icon" type="image/png" sizes="128x128" href="/classify-favicon-128.png?v=9">
-  <link rel="icon" type="image/png" sizes="96x96" href="/classify-favicon-96.png?v=9">
-  <link rel="icon" type="image/png" sizes="48x48" href="/classify-favicon-48.png?v=9">
-  <link rel="icon" type="image/png" sizes="32x32" href="/classify-favicon-32.png?v=9">
-  <link rel="icon" href="/classify.ico?v=9" sizes="any">
-  <link rel="apple-touch-icon" sizes="180x180" href="/classify-favicon-180.png?v=9">
-  <link rel="manifest" href="/classify-manifest.webmanifest?v=9">
+    <meta name="theme-color" content="#dc2626">
+  <link rel="icon" type="image/png" sizes="512x512" href="/classify-favicon-512.png?v=10">
+  <link rel="icon" type="image/png" sizes="192x192" href="/classify-favicon-192.png?v=10">
+  <link rel="icon" type="image/png" sizes="128x128" href="/classify-favicon-128.png?v=10">
+  <link rel="icon" type="image/png" sizes="96x96" href="/classify-favicon-96.png?v=10">
+  <link rel="icon" type="image/png" sizes="48x48" href="/classify-favicon-48.png?v=10">
+  <link rel="icon" type="image/png" sizes="32x32" href="/classify-favicon-32.png?v=10">
+  <link rel="icon" href="/classify.ico?v=10" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="/classify-favicon-180.png?v=10">
+  <link rel="manifest" href="/classify-manifest.webmanifest?v=10">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/app-site-menu.css?v=90260628g">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=100260628g">
   <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome for Icons -->
@@ -22,7 +23,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <script src="js/script.js"></script>
-  <script src="js/header_nav.js?v=90260627h"></script>
+  <script src="js/header_nav.js?v=100260627h"></script>
     
     <script>
         tailwind.config = {
@@ -35,16 +36,16 @@
                     },
                     colors: {
                         brand: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c2d6b',
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
                         },
                         accent: {
                             indigo: '#4f46e5',
@@ -84,13 +85,13 @@
         
         /* Gradient Background */
         .bg-gradient-hero {
-            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(20, 184, 166, 0.1) 50%, rgba(59, 130, 246, 0.05) 100%);
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(20, 184, 166, 0.1) 50%, rgba(220, 38, 38, 0.05) 100%);
         }
         
         /* Premium Card Gradient */
         .card-gradient {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(240, 249, 255, 0.92) 100%);
-            border: 1px solid rgba(56, 189, 248, 0.18);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(254, 242, 242, 0.92) 100%);
+            border: 1px solid rgba(248, 113, 113, 0.18);
             backdrop-filter: blur(10px);
         }
         .dark .card-gradient {
@@ -104,7 +105,7 @@
         
         .card-hover:hover {
             transform: translateY(-4px);
-            border-color: rgba(56, 189, 248, 0.35);
+            border-color: rgba(248, 113, 113, 0.35);
             box-shadow: 0 20px 25px rgba(0, 0, 0, 0.1);
         }
 
@@ -116,7 +117,7 @@
             transform: translateY(1px) scale(0.99);
         }
         button:focus-visible {
-            outline: 2px solid rgba(56, 189, 248, 0.55);
+            outline: 2px solid rgba(248, 113, 113, 0.55);
             outline-offset: 2px;
         }
 
@@ -131,6 +132,12 @@
             flex-shrink: 0;
         }
         body.classify-app {
+            --accent: #f87171;
+            --accent-strong: #dc2626;
+            --accent-bg: rgba(220, 38, 38, 0.14);
+            --accent-bg-strong: rgba(220, 38, 38, 0.28);
+            --accent-border: rgba(220, 38, 38, 0.45);
+            --accent-glow: rgba(220, 38, 38, 0.25);
             min-height: 100dvh;
             overflow-x: hidden;
         }
@@ -174,11 +181,11 @@
             font-weight: 600;
         }
         .cl-footer-links a:hover {
-            color: #0284c7;
+            color: #dc2626;
             text-decoration: underline;
         }
         .dark .cl-footer-links a:hover {
-            color: #7dd3fc;
+            color: #fca5a5;
         }
         @media (min-width: 768px) {
             .cl-footer-links {
@@ -218,12 +225,12 @@
             font-size: 1rem;
         }
         .cl-bottom-nav-item.active {
-            color: #0284c7;
-            background: rgba(14, 165, 233, 0.12);
+            color: #dc2626;
+            background: rgba(220, 38, 38, 0.12);
         }
         .dark .cl-bottom-nav-item.active {
-            color: #7dd3fc;
-            background: rgba(56, 189, 248, 0.14);
+            color: #fca5a5;
+            background: rgba(248, 113, 113, 0.14);
         }
         @media (max-width: 767px) {
             body.classify-app #mainContainer {
@@ -237,7 +244,7 @@
         }
         .classify-app .th-topbar-title {
             font-family: 'Plus Jakarta Sans', Inter, sans-serif;
-            background: linear-gradient(to right, #2563eb, #06b6d4);
+            background: linear-gradient(to right, #ef4444, #dc2626);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -267,7 +274,7 @@
         }
         .cl-settings-item:hover {
             background: #f8fafc;
-            border-color: #93c5fd;
+            border-color: #fca5a5;
         }
         .dark .cl-settings-item {
             background: rgba(30, 41, 59, 0.7);
@@ -276,7 +283,7 @@
         }
         .dark .cl-settings-item:hover {
             background: rgba(51, 65, 85, 0.55);
-            border-color: #38bdf8;
+            border-color: #f87171;
         }
         .cl-settings-item-label {
             display: flex;
@@ -347,8 +354,8 @@
         .cl-settings-back-btn:hover,
         .cl-modal-header-close:hover {
             background: #f8fafc;
-            border-color: #93c5fd;
-            color: #2563eb;
+            border-color: #fca5a5;
+            color: #dc2626;
         }
         .dark .cl-settings-back-btn,
         .dark .cl-modal-header-close {
@@ -359,8 +366,8 @@
         .dark .cl-settings-back-btn:hover,
         .dark .cl-modal-header-close:hover {
             background: rgba(51, 65, 85, 0.55);
-            border-color: #38bdf8;
-            color: #38bdf8;
+            border-color: #f87171;
+            color: #f87171;
         }
         .cl-new-assignment-btn {
             display: inline-flex;
@@ -370,13 +377,13 @@
             padding: 0.5rem 1rem;
             border-radius: 0.75rem;
             border: none;
-            background: linear-gradient(to right, #2563eb, #06b6d4, #34d399);
+            background: linear-gradient(to right, #dc2626, #b91c1c, #ef4444);
             color: #fff;
             font-size: 0.875rem;
             font-weight: 600;
             line-height: 1.25;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+            box-shadow: 0 4px 14px rgba(185, 28, 28, 0.25);
             transition: filter 0.15s, transform 0.15s;
             white-space: nowrap;
         }
@@ -421,19 +428,19 @@
             content: "";
             position: absolute;
             inset: 0;
-            background: radial-gradient(120% 70% at 18% 0%, rgba(56, 189, 248, 0.18), transparent 60%);
+            background: radial-gradient(120% 70% at 18% 0%, rgba(248, 113, 113, 0.18), transparent 60%);
             pointer-events: none;
         }
         .sidebar-surface::after {
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(160deg, rgba(59, 130, 246, 0.12), rgba(14, 165, 233, 0.08) 35%, rgba(16, 185, 129, 0.1) 70%, transparent 100%);
+            background: linear-gradient(160deg, rgba(220, 38, 38, 0.12), rgba(220, 38, 38, 0.08) 35%, rgba(239, 68, 68, 0.08) 70%, transparent 100%);
             mix-blend-mode: multiply;
             pointer-events: none;
         }
         .dark .sidebar-surface::after {
-            background: linear-gradient(160deg, rgba(59, 130, 246, 0.25), rgba(56, 189, 248, 0.18) 35%, rgba(16, 185, 129, 0.18) 70%, transparent 100%);
+            background: linear-gradient(160deg, rgba(220, 38, 38, 0.25), rgba(248, 113, 113, 0.18) 35%, rgba(239, 68, 68, 0.12) 70%, transparent 100%);
             mix-blend-mode: screen;
         }
 
@@ -443,8 +450,8 @@
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
         }
         .nav-item .nav-icon {
-            color: var(--accent-strong, #0ea5e9);
-            filter: drop-shadow(0 4px 8px var(--accent-glow, rgba(14, 165, 233, 0.3)));
+            color: var(--accent-strong, #ef4444);
+            filter: drop-shadow(0 4px 8px var(--accent-glow, rgba(220, 38, 38, 0.3)));
         }
         .nav-item::after {
             content: "";
@@ -459,39 +466,40 @@
         }
         .nav-item:hover {
             transform: translateX(2px);
-            border-color: var(--accent-border, rgba(14, 165, 233, 0.35));
+            border-color: var(--accent-border, rgba(220, 38, 38, 0.35));
             box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
-            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(14, 165, 233, 0.2)), transparent 70%);
+            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(220, 38, 38, 0.2)), transparent 70%);
         }
         .dark .nav-item:hover {
-            border-color: var(--accent-border, rgba(56, 189, 248, 0.4));
+            border-color: var(--accent-border, rgba(248, 113, 113, 0.4));
             box-shadow: 0 12px 22px rgba(2, 6, 23, 0.55);
-            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(56, 189, 248, 0.24)), transparent 70%);
+            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(248, 113, 113, 0.24)), transparent 70%);
         }
         .nav-item.active-nav {
-            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(14, 165, 233, 0.28)), var(--accent-bg, rgba(14, 165, 233, 0.14)));
-            border-color: var(--accent-border, rgba(14, 165, 233, 0.45));
-            color: var(--accent-strong, #0284c7);
-            box-shadow: 0 12px 20px var(--accent-glow, rgba(14, 165, 233, 0.18));
+            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(220, 38, 38, 0.28)), var(--accent-bg, rgba(220, 38, 38, 0.14)));
+            border-color: var(--accent-border, rgba(220, 38, 38, 0.45));
+            color: var(--accent-strong, #dc2626);
+            box-shadow: 0 12px 20px var(--accent-glow, rgba(220, 38, 38, 0.18));
         }
         .dark .nav-item.active-nav {
-            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(56, 189, 248, 0.28)), var(--accent-bg, rgba(14, 116, 144, 0.2)));
-            border-color: var(--accent-border, rgba(56, 189, 248, 0.5));
-            color: var(--accent-strong, #7dd3fc);
+            background: linear-gradient(90deg, var(--accent-bg-strong, rgba(248, 113, 113, 0.28)), var(--accent-bg, rgba(127, 29, 29, 0.2)));
+            border-color: var(--accent-border, rgba(248, 113, 113, 0.5));
+            color: var(--accent-strong, #fca5a5);
             box-shadow: 0 14px 24px var(--accent-glow, rgba(2, 6, 23, 0.6));
         }
         .nav-item.active-nav::after {
-            background: linear-gradient(180deg, var(--accent, #38bdf8), var(--accent-strong, #0ea5e9));
-            box-shadow: 0 0 12px var(--accent-glow, rgba(14, 165, 233, 0.6));
+            background: linear-gradient(180deg, var(--accent, #f87171), var(--accent-strong, #ef4444));
+            box-shadow: 0 0 12px var(--accent-glow, rgba(220, 38, 38, 0.6));
         }
 
+        .nav-accent-red,
         .nav-accent-blue {
-            --accent: #38bdf8;
-            --accent-strong: #0ea5e9;
-            --accent-bg: rgba(14, 165, 233, 0.14);
-            --accent-bg-strong: rgba(14, 165, 233, 0.28);
-            --accent-border: rgba(14, 165, 233, 0.45);
-            --accent-glow: rgba(14, 165, 233, 0.25);
+            --accent: #f87171;
+            --accent-strong: #dc2626;
+            --accent-bg: rgba(220, 38, 38, 0.14);
+            --accent-bg-strong: rgba(220, 38, 38, 0.28);
+            --accent-border: rgba(220, 38, 38, 0.45);
+            --accent-glow: rgba(220, 38, 38, 0.25);
         }
         .nav-accent-emerald {
             --accent: #34d399;
@@ -519,7 +527,7 @@
         }
         .nav-accent-cyan {
             --accent: #22d3ee;
-            --accent-strong: #06b6d4;
+            --accent-strong: #b91c1c;
             --accent-bg: rgba(6, 182, 212, 0.14);
             --accent-bg-strong: rgba(6, 182, 212, 0.26);
             --accent-border: rgba(6, 182, 212, 0.45);
@@ -537,15 +545,15 @@
             box-shadow: 0 32px 80px rgba(2, 6, 23, 0.6);
         }
         .modal-header {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(34, 211, 238, 0.08) 100%);
+            background: linear-gradient(90deg, rgba(220, 38, 38, 0.08) 0%, rgba(34, 211, 238, 0.08) 100%);
         }
         .dark .modal-header {
             background: linear-gradient(90deg, rgba(30, 58, 138, 0.2) 0%, rgba(14, 116, 144, 0.18) 100%);
         }
 
         .checkbox-wrapper input:checked + div {
-            background: linear-gradient(135deg, #0ea5e9, #0284c7);
-            border-color: #0284c7;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-color: #dc2626;
         }
         .checkbox-wrapper input:checked + div svg {
             display: block;
@@ -575,7 +583,7 @@
         }
     </style>
 </head>
-<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-indigo-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
+<body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-red-950 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
     <header class="th-app-header">
         <div class="th-app-topbar">
             <div class="th-topbar-start">
@@ -625,11 +633,11 @@
             <div id="dashboardTab" class="fade-in space-y-6 max-w-6xl mx-auto pb-10">
                 <div class="flex flex-wrap justify-between items-start gap-4">
                     <div class="min-w-0">
-                        <h1 class="text-4xl md:text-5xl leading-[1.15] pb-1 font-display font-bold text-transparent bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text" id="greeting">Hello, Student</h1>
+                        <h1 class="text-4xl md:text-5xl leading-[1.15] pb-1 font-display font-bold text-transparent bg-gradient-to-r from-red-600 via-red-500 to-red-600 bg-clip-text" id="greeting">Hello, Student</h1>
                         <p class="text-slate-500 dark:text-slate-400 mt-2 text-lg" id="currentDateDisplay">Today is...</p>
                     </div>
-                    <div class="text-right hidden sm:block bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-2xl p-6 border border-blue-200/20 dark:border-blue-800/30">
-                        <div class="text-4xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text" id="dashDueCount">0</div>
+                    <div class="text-right hidden sm:block bg-gradient-to-br from-red-500/10 to-red-500/10 rounded-2xl p-6 border border-red-200/20 dark:border-red-800/30">
+                        <div class="text-4xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="dashDueCount">0</div>
                         <div class="text-sm text-slate-600 dark:text-slate-400 font-medium">Tasks Due Today</div>
                     </div>
                 </div>
@@ -638,7 +646,7 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="card-gradient rounded-2xl p-5 card-hover group">
                         <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Total Tasks</div>
-                        <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text" id="statTotal">0</div>
+                        <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="statTotal">0</div>
                     </div>
                     <div class="card-gradient rounded-2xl p-5 card-hover group">
                         <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Completed</div>
@@ -655,48 +663,48 @@
                     </div>
                 </div>
 
-                <div class="card-gradient rounded-2xl p-5 md:p-6 border border-cyan-200/40 dark:border-cyan-900/30 shadow-sm">
+                <div class="card-gradient rounded-2xl p-5 md:p-6 border border-red-200/40 dark:border-red-900/30 shadow-sm">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
-                            <h2 class="font-display font-bold text-xl text-slate-900 dark:text-white"><i class="fa-solid fa-calendar-week mr-2 text-cyan-500"></i>Weekly Planning Sprint</h2>
+                            <h2 class="font-display font-bold text-xl text-slate-900 dark:text-white"><i class="fa-solid fa-calendar-week mr-2 text-red-500"></i>Weekly Planning Sprint</h2>
                             <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Plan the week once, then execute daily with less stress.</p>
                         </div>
-                        <div class="text-sm font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-900/20 px-3 py-1.5 rounded-lg" id="weekRangeLabel">Week: --</div>
+                        <div class="text-sm font-semibold text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-1.5 rounded-lg" id="weekRangeLabel">Week: --</div>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-cyan-100 dark:border-slate-700 p-3">
+                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-red-100 dark:border-slate-700 p-3">
                             <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Due This Week</div>
-                            <div class="text-2xl font-bold text-cyan-600" id="weekDueCount">0</div>
+                            <div class="text-2xl font-bold text-red-600" id="weekDueCount">0</div>
                         </div>
-                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-cyan-100 dark:border-slate-700 p-3">
+                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-red-100 dark:border-slate-700 p-3">
                             <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Unscheduled</div>
                             <div class="text-2xl font-bold text-amber-600" id="weekUnscheduledCount">0</div>
                         </div>
-                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-cyan-100 dark:border-slate-700 p-3">
+                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-red-100 dark:border-slate-700 p-3">
                             <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Planned Minutes</div>
                             <div class="text-2xl font-bold text-emerald-600" id="weekPlannedMinutes">0</div>
                         </div>
-                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-cyan-100 dark:border-slate-700 p-3">
+                        <div class="rounded-xl bg-white/70 dark:bg-slate-800/70 border border-red-100 dark:border-slate-700 p-3">
                             <div class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Busiest Day</div>
                             <div class="text-base md:text-lg font-bold text-slate-800 dark:text-slate-100 truncate" id="weekBusiestDay">-</div>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2 mt-4">
-                        <button onclick="startWeeklyPlanning()" class="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors">
+                        <button onclick="startWeeklyPlanning()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">
                             <i class="fa-solid fa-list-check mr-1"></i> Open Weekly Queue
                         </button>
                         <button onclick="autoPlanWeek()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition-colors">
                             <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto-Plan Unscheduled
                         </button>
-                        <button onclick="autoBlockWeekTimes()" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">
+                        <button onclick="autoBlockWeekTimes()" class="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">
                             <i class="fa-regular fa-clock mr-1"></i> Auto Time-Block
                         </button>
-                        <button onclick="switchTab('calendar')" class="px-3 py-2 rounded-lg bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-cyan-100 dark:border-slate-700 text-sm font-medium hover:bg-white">
+                        <button onclick="switchTab('calendar')" class="px-3 py-2 rounded-lg bg-white/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-red-100 dark:border-slate-700 text-sm font-medium hover:bg-white">
                             <i class="fa-regular fa-calendar mr-1"></i> Review Week Grid
                         </button>
                     </div>
-                    <div class="mt-4 rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
-                        <div class="text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide mb-2">Suggested Weekly Focus Blocks</div>
+                    <div class="mt-4 rounded-xl border border-red-100 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-4">
+                        <div class="text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide mb-2">Suggested Weekly Focus Blocks</div>
                         <div id="weekActionList" class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                             <div class="text-slate-400 dark:text-slate-500 italic">No plan generated yet.</div>
                         </div>
@@ -708,13 +716,13 @@
                     <div class="lg:col-span-2 space-y-6">
                         <!-- Smart Schedule -->
                         <div class="card-gradient rounded-2xl border border-slate-200/30 dark:border-slate-700/30 shadow-lg overflow-hidden card-hover">
-                            <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex flex-wrap justify-between items-center gap-3 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+                            <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex flex-wrap justify-between items-center gap-3 bg-gradient-to-r from-red-500/5 to-red-500/5">
                                 <div>
-                                    <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white"><i class="fa-regular fa-clock mr-2 text-blue-500"></i>Today's Schedule</h2>
+                                    <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white"><i class="fa-regular fa-clock mr-2 text-red-500"></i>Today's Schedule</h2>
                                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Optimized for focus</p>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-xs font-bold bg-gradient-to-r from-blue-500 to-cyan-400 text-white px-3 py-1 rounded-full">Smart</span>
+                                    <span class="text-xs font-bold bg-gradient-to-r from-red-500 to-red-400 text-white px-3 py-1 rounded-full">Smart</span>
                                     <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm">
                                         <i class="fa-solid fa-plus"></i> New Assignment
                                     </button>
@@ -790,68 +798,68 @@
 
             <!-- VIEW: CALENDAR -->
             <div id="calendarTab" class="hidden fade-in max-w-7xl mx-auto pb-10 space-y-5">
-                <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-4 md:p-6 shadow-sm">
+                <div class="rounded-2xl border border-red-200/40 dark:border-red-800/40 bg-gradient-to-r from-red-50 via-white to-red-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-red-950/30 p-4 md:p-6 shadow-sm">
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                             <h2 class="text-3xl font-display font-bold text-slate-900 dark:text-white">Calendar</h2>
                             <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Use month, week, day, and agenda layouts to plan at different levels.</p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-cyan-100 dark:border-slate-700 p-1.5 shadow-sm w-fit">
-                            <div class="flex items-center bg-cyan-50 dark:bg-slate-800 rounded-lg p-1">
-                                <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="px-3 h-8 rounded-md text-xs font-semibold bg-cyan-600 text-white">Month</button>
+                        <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-red-100 dark:border-slate-700 p-1.5 shadow-sm w-fit">
+                            <div class="flex items-center bg-red-50 dark:bg-slate-800 rounded-lg p-1">
+                                <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="px-3 h-8 rounded-md text-xs font-semibold bg-red-600 text-white">Month</button>
                                 <button id="weekViewBtn" onclick="setCalendarViewMode('week')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Week</button>
                                 <button id="dayViewBtn" onclick="setCalendarViewMode('day')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Day</button>
                                 <button id="agendaViewBtn" onclick="setCalendarViewMode('agenda')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Week Agenda</button>
                             </div>
-                            <button onclick="changeCalendarPeriod(-1)" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-cyan-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            <button onclick="changeCalendarPeriod(-1)" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
                                 <i class="fa-solid fa-chevron-left"></i>
                             </button>
                             <span id="calendarMonthYear" class="font-bold text-slate-800 dark:text-white w-40 text-center select-none">Month Year</span>
-                            <button onclick="changeCalendarPeriod(1)" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-cyan-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            <button onclick="changeCalendarPeriod(1)" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300">
                                 <i class="fa-solid fa-chevron-right"></i>
                             </button>
-                            <button onclick="goToCurrentMonth()" class="px-3 h-9 rounded-lg text-sm font-medium bg-cyan-600 hover:bg-cyan-700 text-white transition-colors">Today</button>
+                            <button onclick="goToCurrentMonth()" class="px-3 h-9 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors">Today</button>
                             <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm h-9">
                                 <i class="fa-solid fa-plus"></i> New
                             </button>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2 mt-4 text-xs">
-                        <span class="px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">Click a task to edit</span>
-                        <span class="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Week view auto-places missing times</span>
+                        <span class="px-2.5 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">Click a task to edit</span>
+                        <span class="px-2.5 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">Week view auto-places missing times</span>
                     </div>
                 </div>
 
-                <div id="monthCalendarView" class="bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg overflow-hidden">
+                <div id="monthCalendarView" class="bg-white/95 dark:bg-dark-surface rounded-2xl border border-red-100 dark:border-dark-border shadow-lg overflow-hidden">
                     <!-- Weekday Headers -->
-                    <div class="grid grid-cols-7 border-b border-cyan-100 dark:border-dark-border bg-cyan-50/60 dark:bg-slate-800">
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Sun</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Mon</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Tue</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Wed</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Thu</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Fri</div>
-                        <div class="py-3 text-center text-xs font-bold text-cyan-700 dark:text-cyan-300 uppercase tracking-wide">Sat</div>
+                    <div class="grid grid-cols-7 border-b border-red-100 dark:border-dark-border bg-red-50/60 dark:bg-slate-800">
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Sun</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Mon</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Tue</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Wed</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Thu</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Fri</div>
+                        <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Sat</div>
                     </div>
                     <!-- Calendar Grid -->
-                    <div id="calendarGrid" class="grid grid-cols-7 bg-cyan-100/80 dark:bg-slate-700 gap-px">
+                    <div id="calendarGrid" class="grid grid-cols-7 bg-red-100/80 dark:bg-slate-700 gap-px">
                         <!-- Days injected via JS -->
                     </div>
                 </div>
 
-                <div id="weekCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="weekCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-red-100 dark:border-dark-border shadow-lg p-4 md:p-5">
                     <div id="weekCalendarGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <!-- Week cards injected via JS -->
                     </div>
                 </div>
 
-                <div id="dayCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="dayCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-red-100 dark:border-dark-border shadow-lg p-4 md:p-5">
                     <div id="dayCalendarGrid" class="space-y-3">
                         <!-- Day timeline injected via JS -->
                     </div>
                 </div>
 
-                <div id="agendaCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-cyan-100 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="agendaCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-red-100 dark:border-dark-border shadow-lg p-4 md:p-5">
                     <div id="agendaWeekList" class="space-y-4">
                         <!-- Weekly agenda injected via JS -->
                     </div>
@@ -860,13 +868,13 @@
 
             <!-- VIEW: ANALYTICS -->
             <div id="analyticsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
-                <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-5 md:p-6 shadow-sm">
+                <div class="rounded-2xl border border-red-200/40 dark:border-red-800/40 bg-gradient-to-r from-red-50 via-white to-red-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-red-950/30 p-5 md:p-6 shadow-sm">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                         <div>
                             <h2 class="text-2xl md:text-3xl font-display font-bold text-slate-900 dark:text-white">Task Analytics</h2>
                             <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Scan workload patterns, then jump straight into filtered task lists.</p>
                         </div>
-                        <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">
+                        <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
                             View All Tasks
                         </button>
                     </div>
@@ -878,8 +886,8 @@
                         <span class="text-xs text-slate-500 dark:text-slate-400">Tap a card to filter</span>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                        <button onclick="switchTab('tasks'); filterTasksBy('today')" class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-900/20 p-4 text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="filterDueToday">0</div>
+                        <button onclick="switchTab('tasks'); filterTasksBy('today')" class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20 p-4 text-left hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="filterDueToday">0</div>
                             <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Due Today</div>
                         </button>
                         <button onclick="switchTab('tasks'); filterTasksBy('week')" class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20 p-4 text-left hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
@@ -924,7 +932,7 @@
                     <!-- Remaining This Week -->
                     <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
                         <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-calendar-week text-cyan-500"></i> Remaining This Week
+                            <i class="fa-solid fa-calendar-week text-red-500"></i> Remaining This Week
                         </h3>
                         <div class="text-3xl font-bold text-slate-800 dark:text-white mb-1" id="remainingWeekMinutes">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="remainingWeekLabel">Scheduled minutes left</p>
@@ -986,9 +994,9 @@
                     <!-- On-Target Rate -->
                     <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
                         <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-cyan-500"></i> On-Target
+                            <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
                         </h3>
-                        <div class="text-3xl font-bold text-cyan-600 mb-1" id="onTargetRate">--</div>
+                        <div class="text-3xl font-bold text-red-600 mb-1" id="onTargetRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
                     </div>
                     
@@ -1022,14 +1030,14 @@
 
             <!-- VIEW: INSIGHTS -->
             <div id="insightsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
-                <div class="rounded-2xl border border-cyan-200/40 dark:border-cyan-800/40 bg-gradient-to-r from-cyan-50 via-white to-blue-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-blue-950/30 p-5 md:p-6 shadow-sm">
+                <div class="rounded-2xl border border-red-200/40 dark:border-red-800/40 bg-gradient-to-r from-red-50 via-white to-red-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-red-950/30 p-5 md:p-6 shadow-sm">
                     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                         <div>
                             <h2 class="text-2xl md:text-3xl font-display font-bold text-slate-900 dark:text-white">Planner Insights</h2>
                             <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Actionable suggestions to keep workload balanced and deadlines safe.</p>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            <button onclick="startWeeklyPlanning()" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">
+                            <button onclick="startWeeklyPlanning()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
                                 <i class="fa-solid fa-list-check mr-1"></i> Weekly Queue
                             </button>
                             <button onclick="autoPlanWeek()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors">
@@ -1041,7 +1049,7 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5 lg:col-span-2">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-forward mr-2 text-cyan-500"></i>Next Best Assignment</h3>
+                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-forward mr-2 text-red-500"></i>Next Best Assignment</h3>
                         <div id="insightsNextTask" class="text-sm text-slate-600 dark:text-slate-300">No active assignments.</div>
                     </div>
                     <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
@@ -1062,12 +1070,12 @@
                 </div>
 
                 <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-bullseye mr-2 text-cyan-500"></i>Today Focus Plan</h3>
+                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-bullseye mr-2 text-red-500"></i>Today Focus Plan</h3>
                     <div id="insightsTodayFocus" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
                 </div>
 
                 <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-lightbulb mr-2 text-blue-500"></i>Recommendations</h3>
+                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-lightbulb mr-2 text-red-500"></i>Recommendations</h3>
                     <div id="insightsRecommendations" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
                 </div>
             </div>
@@ -1212,17 +1220,17 @@
             </div>
             <div id="completionFullFields" class="mt-4">
                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Actual time (minutes)</label>
-                <input id="timeInput" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="e.g. 45">
+                <input id="timeInput" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. 45">
             </div>
             <div id="completionPartialFields" class="mt-4 hidden">
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Percent completed</label>
-                        <input id="completionPercent" type="number" min="1" max="99" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="e.g. 60">
+                        <input id="completionPercent" type="number" min="1" max="99" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. 60">
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Minutes remaining</label>
-                        <input id="completionRemaining" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="e.g. 30">
+                        <input id="completionRemaining" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. 30">
                     </div>
                 </div>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">A new assignment will be created for the remaining time.</p>
@@ -1263,7 +1271,7 @@
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openSubjectManager();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-book-open text-indigo-500"></i>Manage subjects</span>
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-book-open text-red-500"></i>Manage subjects</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); exportTasks();">
@@ -1271,11 +1279,11 @@
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); importTasks();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-cyan-500"></i>Import assignments</span>
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-upload text-red-500"></i>Import assignments</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="toggleDarkMode(); syncClassifySettingsDarkToggle();">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-indigo-500"></i>Dark mode</span>
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
                     <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
                 </button>
             </div>
@@ -1343,7 +1351,7 @@
                         <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Name</label>
                         <input id="defaultBreakLabelInput" type="text" class="h-10 w-48 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" placeholder="Break">
                     </div>
-                    <button onclick="saveScheduleDefaults()" class="h-10 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors">Save Defaults</button>
+                    <button onclick="saveScheduleDefaults()" class="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">Save Defaults</button>
                 </div>
                 </div>
             <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
@@ -1375,7 +1383,7 @@
                     Select a date to see current schedule times for that day.
                 </div>
                 <div class="mt-3">
-                    <button onclick="addScheduleDateOverride()" class="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors">Save Date Override</button>
+                    <button onclick="addScheduleDateOverride()" class="h-9 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors">Save Date Override</button>
                 </div>
                 <div id="scheduleOverridesList" class="space-y-2 mt-3"></div>
             </div>
@@ -1403,7 +1411,7 @@
                     <input id="blockDateInput" type="date" class="h-10 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
                     <input id="blockStartInput" type="time" class="h-10 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
                     <input id="blockEndInput" type="time" class="h-10 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
-                    <button onclick="addBlockedTime()" class="h-10 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium transition-colors"><i class="fa-solid fa-plus mr-1"></i>Add</button>
+                    <button onclick="addBlockedTime()" class="h-10 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors"><i class="fa-solid fa-plus mr-1"></i>Add</button>
                 </div>
                 <div class="mt-3">
                     <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Repeat</label>
@@ -1480,21 +1488,21 @@
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Basics</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Assignment Name <span class="text-rose-500">*</span></label>
-                            <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="e.g. History Essay" required>
+                            <input id="inputTitle" type="text" autocomplete="off" maxlength="100" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. History Essay" required>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Subject</label>
                                 <div class="relative">
-                                    <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400/60 text-sm"></i>
-                                    <input id="inputSubject" type="text" autocomplete="off" list="subjectSuggestions" oninput="handleSubjectInput(this.value)" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="Math">
+                                    <i class="fa-solid fa-book absolute left-3 top-1/2 -translate-y-1/2 text-red-400/60 text-sm"></i>
+                                    <input id="inputSubject" type="text" autocomplete="off" list="subjectSuggestions" oninput="handleSubjectInput(this.value)" class="w-full h-11 pl-9 pr-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="Math">
                                 </div>
                                 <datalist id="subjectSuggestions"></datalist>
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Color</label>
                                 <div class="flex items-center gap-3 h-11">
-                                    <input id="inputColor" type="color" class="h-11 w-12 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#06b6d4">
+                                    <input id="inputColor" type="color" class="h-11 w-12 rounded-xl cursor-pointer border-2 border-slate-300 dark:border-slate-600 p-1 bg-white dark:bg-slate-900" value="#b91c1c">
                                     <span class="text-xs text-slate-600 dark:text-slate-300 flex-1" id="colorSyncLabel">Subject color</span>
                                 </div>
                             </div>
@@ -1506,7 +1514,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Schedule By</label>
-                                <select id="inputScheduleType" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <select id="inputScheduleType" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                                     <option value="date" selected>Exact Date</option>
                                     <option value="week">Target Week</option>
                                     <option value="flexible">No Date Yet</option>
@@ -1514,27 +1522,27 @@
                             </div>
                             <div id="eventDateWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Date (Event)</label>
-                                <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="weekInputWrapper" class="hidden">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
-                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
-                                <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="startTimeWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
-                                <input id="inputTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
-                                <input id="inputDueTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <input id="inputDueTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
                     </div>
@@ -1544,7 +1552,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Priority</label>
-                                <select id="inputPriority" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <select id="inputPriority" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                                     <option value="Low">Low</option>
                                     <option value="Medium" selected>Medium</option>
                                     <option value="High">High</option>
@@ -1552,7 +1560,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Difficulty</label>
-                                <select id="inputDifficulty" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                                <select id="inputDifficulty" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                                     <option value="Easy">Easy</option>
                                     <option value="Medium" selected>Medium</option>
                                     <option value="Hard">Hard</option>
@@ -1561,7 +1569,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Duration (min)</label>
-                            <input id="inputDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all" placeholder="30">
+                            <input id="inputDuration" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="30">
                             <div class="flex gap-1 mt-2">
                                 <button type="button" onclick="document.getElementById('inputDuration').value=15" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">15m</button>
                                 <button type="button" onclick="document.getElementById('inputDuration').value=30" class="text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 px-2 py-1.5 rounded text-slate-700 dark:text-slate-200 transition-colors">30m</button>
@@ -1574,7 +1582,7 @@
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Repeat</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Repeat</label>
-                            <select id="inputRepeatType" onchange="updateRepeatInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
+                            <select id="inputRepeatType" onchange="updateRepeatInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                                 <option value="none" selected>Does not repeat</option>
                                 <option value="daily">Daily</option>
                                 <option value="weekly">Weekly</option>
@@ -1629,8 +1637,8 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Must Be After</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputMustAfterSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"></select>
-                                <button type="button" onclick="addDependency('after')" class="h-11 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">Add</button>
+                                <select id="inputMustAfterSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <button type="button" onclick="addDependency('after')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputMustAfterList" class="mt-2 space-y-1.5"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Same-subject assignments appear first.</p>
@@ -1638,8 +1646,8 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Must Be Before</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputMustBeforeSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"></select>
-                                <button type="button" onclick="addDependency('before')" class="h-11 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">Add</button>
+                                <select id="inputMustBeforeSelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <button type="button" onclick="addDependency('before')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputMustBeforeList" class="mt-2 space-y-1.5"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Choose one, click Add, and repeat.</p>
@@ -1647,8 +1655,8 @@
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Different Day Than</label>
                             <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                <select id="inputDifferentDaySelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"></select>
-                                <button type="button" onclick="addDependency('differentDay')" class="h-11 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-semibold transition-colors">Add</button>
+                                <select id="inputDifferentDaySelect" class="w-full h-11 px-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"></select>
+                                <button type="button" onclick="addDependency('differentDay')" class="h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">Add</button>
                             </div>
                             <div id="inputDifferentDayList" class="mt-2 space-y-1.5"></div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Keeps both assignments on separate dates.</p>
@@ -1659,7 +1667,7 @@
                 <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-2">
                     <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Notes</div>
                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Notes & Links</label>
-                    <textarea id="inputNotes" rows="3" maxlength="500" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none resize-none transition-all" placeholder="Chapter 4, pages 10-15..."></textarea>
+                    <textarea id="inputNotes" rows="3" maxlength="500" class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none transition-all" placeholder="Chapter 4, pages 10-15..."></textarea>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">URLs clickable | Max 500 chars</p>
                 </div>
             </div>
@@ -1668,7 +1676,7 @@
             <!-- Footer (Fixed) -->
             <div class="flex-shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60 px-6 md:px-8 py-4 flex justify-end gap-3">
                 <button onclick="closeModal()" class="px-5 py-2 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium transition-colors" type="button">Cancel</button>
-                <button type="submit" form="taskForm" class="px-6 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-medium shadow-lg shadow-cyan-500/30 transition-all active:scale-95">Save Assignment</button>
+                <button type="submit" form="taskForm" class="px-6 py-2 rounded-lg bg-gradient-to-r from-red-600 to-red-600 hover:from-red-700 hover:to-red-700 text-white font-medium shadow-lg shadow-red-500/30 transition-all active:scale-95">Save Assignment</button>
             </div>
         </div>
     </div>
@@ -3104,8 +3112,8 @@
         }
 
         function getTaskColor(t) {
-            if(!t) return '#3b82f6';
-            return subjectColors[t.subject] || t.color || '#3b82f6';
+            if(!t) return '#dc2626';
+            return subjectColors[t.subject] || t.color || '#dc2626';
         }
 
         function syncAllTaskDependencies() {
@@ -3632,12 +3640,12 @@
                         <div class="flex-1 pb-2">
                             <div class="flex justify-between items-start">
                                 <div>
-                                    <button onclick="editTask('${t.id}')" class="text-left font-semibold text-slate-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors">${t.title}</button>
+                                    <button onclick="editTask('${t.id}')" class="text-left font-semibold text-slate-800 dark:text-white hover:text-red-600 dark:hover:text-red-300 transition-colors">${t.title}</button>
                                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide mt-0.5" style="color:${color}">${t.subject}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     ${t.time ? `<button onclick="markTaskMissed('${t.id}')" class="text-slate-300 hover:text-amber-500 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right text-sm"></i></button>` : ''}
-                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Duplicate">
+                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors" title="Duplicate">
                                         <i class="fa-regular fa-copy text-sm"></i>
                                     </button>
                                     <button onclick="deleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors" title="Delete">
@@ -3785,10 +3793,10 @@
                 const dayLabel = new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
                 const items = schedule.map(item => {
                     const timeLabel = item.type === 'overflow' ? 'Late' : minToTime(item.start);
-                    const autoBadge = item.type === 'auto' ? ' <span class="text-[10px] text-cyan-600 dark:text-cyan-400">(Auto)</span>' : '';
+                    const autoBadge = item.type === 'auto' ? ' <span class="text-[10px] text-red-600 dark:text-red-400">(Auto)</span>' : '';
                     return `<div class="text-xs text-slate-600 dark:text-slate-300">${timeLabel} - ${item.task.title}${autoBadge}</div>`;
                 }).join('');
-                return `<div class="rounded-lg border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 px-3 py-2"><div class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">${dayLabel}</div>${items}</div>`;
+                return `<div class="rounded-lg border border-red-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 px-3 py-2"><div class="font-semibold text-slate-800 dark:text-slate-100 text-xs mb-1">${dayLabel}</div>${items}</div>`;
             }).filter(Boolean);
 
             if(weekActionList) {
@@ -3883,7 +3891,7 @@
                 const modeLabel = getTaskAssignmentModeLabel(t);
                 const modeBadgeClass = mode === 'FIXED'
                     ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300';
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
 
                 return `
                 <div class="group flex items-start gap-4 p-4 border-b border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${t.completed ? 'opacity-60' : 'bg-white dark:bg-dark-surface'}" style="border-left: 8px solid ${color};">
@@ -3912,8 +3920,8 @@
                     </div>
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
                         ${(!t.completed && t.time && t.date) ? `<button onclick="markTaskMissed('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-600 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right"></i></button>` : ''}
-                        <button onclick="duplicateTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-400 hover:text-indigo-600 transition-colors" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
-                        <button onclick="editTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-600 transition-colors"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="duplicateTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 transition-colors" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+                        <button onclick="editTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-pen"></i></button>
                         <button onclick="deleteTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-trash"></i></button>
                     </div>
                 </div>`;
@@ -4128,7 +4136,7 @@
         // Notification Toast
         function showNotification(message, type = 'success') {
             const toast = document.createElement('div');
-            const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+            const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-red-500';
             toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg z-[100] max-w-xs`;
             toast.innerText = message;
             document.body.appendChild(toast);
@@ -4157,11 +4165,11 @@
             const altBtn = document.getElementById('confirmAltBtn');
             if(altBtn) altBtn.classList.add('hidden');
             primaryBtn.innerText = buttonText;
-            primaryBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-blue-600', 'hover:bg-blue-700');
+            primaryBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-red-600', 'hover:bg-red-700');
             if(buttonText.includes('Delete')) {
                 primaryBtn.classList.add('bg-red-600', 'hover:bg-red-700');
             } else {
-                primaryBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                primaryBtn.classList.add('bg-red-600', 'hover:bg-red-700');
             }
         }
 
@@ -4171,11 +4179,11 @@
             if(!altBtn) return;
             pendingConfirmAltAction = altAction;
             altBtn.innerText = altText;
-            altBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-blue-600', 'hover:bg-blue-700', 'bg-amber-600', 'hover:bg-amber-700');
+            altBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'bg-red-600', 'hover:bg-red-700', 'bg-amber-600', 'hover:bg-amber-700');
             if(altText.includes('Delete')) {
                 altBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
             } else {
-                altBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                altBtn.classList.add('bg-red-600', 'hover:bg-red-700');
             }
             altBtn.classList.remove('hidden');
         }
@@ -4343,7 +4351,7 @@
             (tasks || []).forEach(t => {
                 const subject = (t?.subject || 'General').trim() || 'General';
                 if(!stats[subject]) {
-                    stats[subject] = { count: 0, color: subjectColors[subject] || t.color || '#3b82f6' };
+                    stats[subject] = { count: 0, color: subjectColors[subject] || t.color || '#dc2626' };
                 }
                 stats[subject].count += 1;
                 if(!stats[subject].color && t.color) stats[subject].color = t.color;
@@ -4368,7 +4376,7 @@
             }
             list.innerHTML = subjects.map(subject => {
                 const count = stats[subject].count || 0;
-                const color = stats[subject].color || '#3b82f6';
+                const color = stats[subject].color || '#dc2626';
                 const locked = subject === 'General';
                 return `
                     <div data-subject-row class="rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/70 dark:bg-slate-800/40">
@@ -4384,7 +4392,7 @@
                         </div>
                         <div class="mt-3 flex items-center justify-end gap-2">
                             ${locked ? '<span class="mr-auto text-xs text-slate-400 dark:text-slate-500 font-medium">Default subject (name locked)</span>' : ''}
-                            <button onclick="saveSubjectRow(decodeURIComponent('${encodeURIComponent(subject)}'), this)" class="px-3 py-1.5 rounded-lg text-sm bg-cyan-600 text-white hover:bg-cyan-700 transition-colors">Save</button>
+                            <button onclick="saveSubjectRow(decodeURIComponent('${encodeURIComponent(subject)}'), this)" class="px-3 py-1.5 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 transition-colors">Save</button>
                             ${locked
                                 ? ''
                                 : `<button onclick="removeSubject(decodeURIComponent('${encodeURIComponent(subject)}'))" class="px-3 py-1.5 rounded-lg text-sm bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">Remove</button>`
@@ -4404,7 +4412,7 @@
             const colorInput = row.querySelector('[data-subject-color]');
             const requestedName = (nameInput?.value || original).trim();
             const newName = original === 'General' ? 'General' : requestedName;
-            const newColor = (colorInput?.value || subjectColors[original] || '#3b82f6').trim();
+            const newColor = (colorInput?.value || subjectColors[original] || '#dc2626').trim();
 
             if(!newName) {
                 showNotification('Subject name cannot be empty', 'error');
@@ -4497,7 +4505,7 @@
                         <span class="font-semibold">${formatDateLabel(b.date)}</span>
                         <span class="ml-2">${minToTime(timeToMin(b.start))} - ${minToTime(timeToMin(b.end))}</span>
                         ${b.label ? `<span class="ml-2 text-[10px] font-semibold text-amber-600 dark:text-amber-300">${b.label}</span>` : ''}
-                        ${formatRepeatLabel(b.repeatRule) ? `<span class="ml-2 text-[10px] font-semibold text-cyan-600 dark:text-cyan-300">${formatRepeatLabel(b.repeatRule)}</span>` : ''}
+                        ${formatRepeatLabel(b.repeatRule) ? `<span class="ml-2 text-[10px] font-semibold text-red-600 dark:text-red-300">${formatRepeatLabel(b.repeatRule)}</span>` : ''}
                     </div>
                     <button onclick="removeBlockedTime('${b.id}')" class="text-rose-500 hover:text-rose-600 text-xs font-semibold">Remove</button>
                 </div>
@@ -5377,13 +5385,13 @@
                 }).join('');
                 const dropAttrs = isVacation ? '' : `ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDrop(event, '${dateStr}')"`
                 grid.innerHTML += `
-                <div class="min-h-[170px] p-3 transition-colors relative group border ${isVacation ? 'border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30' : 'bg-white dark:bg-dark-surface hover:bg-cyan-50/50 dark:hover:bg-slate-700 border-transparent hover:border-cyan-200 dark:hover:border-slate-600'}" ${dropAttrs}>
+                <div class="min-h-[170px] p-3 transition-colors relative group border ${isVacation ? 'border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30' : 'bg-white dark:bg-dark-surface hover:bg-red-50/50 dark:hover:bg-slate-700 border-transparent hover:border-red-200 dark:hover:border-slate-600'}" ${dropAttrs}>
                     <div class="flex justify-between items-center mb-2">
-                        <div class="text-sm font-semibold ${isVacation ? 'bg-amber-500 text-white w-7 h-7 flex items-center justify-center rounded-full' : (isToday ? 'bg-cyan-600 text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-slate-700 dark:text-slate-300')}">${d}</div>
-                        <span class="text-[10px] font-semibold ${isVacation ? 'text-amber-700 dark:text-amber-300' : (dayTasks.length ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400')}">${isVacation ? 'Vacation' : (dayTasks.length || '')}</span>
+                        <div class="text-sm font-semibold ${isVacation ? 'bg-amber-500 text-white w-7 h-7 flex items-center justify-center rounded-full' : (isToday ? 'bg-red-600 text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-slate-700 dark:text-slate-300')}">${d}</div>
+                        <span class="text-[10px] font-semibold ${isVacation ? 'text-amber-700 dark:text-amber-300' : (dayTasks.length ? 'text-red-600 dark:text-red-400' : 'text-slate-400')}">${isVacation ? 'Vacation' : (dayTasks.length || '')}</span>
                     </div>
                     <div class="flex flex-col pr-1">${isVacation ? '<div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (taskListHTML || '<div class="text-[11px] text-slate-400 dark:text-slate-500 italic">No tasks</div>')}</div>
-                    ${isVacation ? '' : `<button onclick="openModalForDate('${dateStr}')" class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-cyan-600 transition-colors"><i class="fa-solid fa-plus-circle"></i></button>`}
+                    ${isVacation ? '' : `<button onclick="openModalForDate('${dateStr}')" class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-plus-circle"></i></button>`}
                 </div>`;
             }
         }
@@ -5421,15 +5429,15 @@
                     const dueLabel = formatDueLabel(t, false);
                     const timeValue = item.type === 'overflow' ? '' : minToInputTime(item.start);
                     return `
-                        <div class="rounded-lg border border-cyan-100 dark:border-slate-700 p-2 bg-white/70 dark:bg-slate-800/70 cursor-grab active:cursor-grabbing" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDropOnTask(event, '${dateStr}', '${timeValue}')">
+                        <div class="rounded-lg border border-red-100 dark:border-slate-700 p-2 bg-white/70 dark:bg-slate-800/70 cursor-grab active:cursor-grabbing" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDropOnTask(event, '${dateStr}', '${timeValue}')">
                             <div class="flex items-center justify-between gap-2 mb-1">
-                                <span class="text-xs font-bold text-cyan-700 dark:text-cyan-300">Start ${timeLabel}</span>
+                                <span class="text-xs font-bold text-red-700 dark:text-red-300">Start ${timeLabel}</span>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${modeLabel}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">${modeLabel}</span>
                                     <button onclick="toggleComplete('${t.id}')" class="text-slate-300 hover:text-emerald-500 transition-colors" title="Mark complete">
                                         <i class="fa-regular fa-circle text-sm"></i>
                                     </button>
-                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Duplicate">
+                                    <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors" title="Duplicate">
                                         <i class="fa-regular fa-copy text-[11px]"></i>
                                     </button>
                                     <button onclick="deleteTask('${t.id}')" class="text-slate-300 hover:text-rose-500 transition-colors" title="Delete">
@@ -5449,13 +5457,13 @@
 
                 const dropAttrs = isVacation ? '' : `ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDrop(event, '${dateStr}')"`
                 weekGrid.innerHTML += `
-                    <div class="rounded-xl border ${isVacation ? 'border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30' : (isToday ? 'border-cyan-400 dark:border-cyan-500 bg-cyan-50/40 dark:bg-slate-900/40' : 'border-cyan-100 dark:border-slate-700 bg-cyan-50/40 dark:bg-slate-900/40')} p-3" ${dropAttrs}>
+                    <div class="rounded-xl border ${isVacation ? 'border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30' : (isToday ? 'border-red-400 dark:border-red-500 bg-red-50/40 dark:bg-slate-900/40' : 'border-red-100 dark:border-slate-700 bg-red-50/40 dark:bg-slate-900/40')} p-3" ${dropAttrs}>
                         <div class="flex items-center justify-between mb-3">
                             <div>
                                 <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">${dayDate.toLocaleDateString('en-US', { weekday: 'short' })}</div>
                                 <div class="text-sm font-bold text-slate-800 dark:text-slate-100">${dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
                             </div>
-                            ${isVacation ? '<span class="text-[10px] font-semibold text-amber-700 dark:text-amber-300">Vacation</span>' : `<button onclick="openModalForDate('${dateStr}')" class="text-slate-400 hover:text-cyan-600"><i class="fa-solid fa-plus-circle"></i></button>`}
+                            ${isVacation ? '<span class="text-[10px] font-semibold text-amber-700 dark:text-amber-300">Vacation</span>' : `<button onclick="openModalForDate('${dateStr}')" class="text-slate-400 hover:text-red-600"><i class="fa-solid fa-plus-circle"></i></button>`}
                         </div>
                         <div class="space-y-2 pr-1">${isVacation ? '<div class="text-xs text-amber-700 dark:text-amber-300 font-semibold italic">Vacation day</div>' : (items || '<div class="text-xs text-slate-400 dark:text-slate-500 italic">No assignments planned</div>')}</div>
                     </div>`;
@@ -5544,7 +5552,7 @@
                 : '';
 
             dayGrid.innerHTML = `
-                <div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-3">
+                <div class="rounded-xl border border-red-100 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-3">
                     <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">Day Timeline (${minToTime(startMin)} - ${minToTime(endMin)})</div>
                     <div class="relative pr-1">
                         <div class="relative" style="height:${timelineHeight}px;">
@@ -5632,7 +5640,7 @@
                         ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30'
                         : 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30');
                 if(schedule.length === 0) {
-                    return `<div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
+                    return `<div class="rounded-xl border border-red-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
                         <div class="flex items-center justify-between gap-2">
                             <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${label}</div>
                             <span class="text-[10px] px-2 py-0.5 rounded ${riskClass}">${riskBand}</span>
@@ -5653,18 +5661,18 @@
                             <div class="text-[11px] text-slate-500 dark:text-slate-400">${t.subject} · ${parseInt(t.duration, 10) || 30}m · ${urgency}</div>
                         </div>
                         <div class="text-right shrink-0">
-                            <div class="text-xs font-semibold text-cyan-700 dark:text-cyan-300">${timeLabel}</div>
+                            <div class="text-xs font-semibold text-red-700 dark:text-red-300">${timeLabel}</div>
                             <div class="text-[10px] text-slate-500 dark:text-slate-400">${modeLabel}</div>
                         </div>
                     </div>`;
                 }).join('');
 
-                return `<div class="rounded-xl border border-cyan-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
+                return `<div class="rounded-xl border border-red-100 dark:border-slate-700 bg-white/70 dark:bg-slate-800/60 p-3">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">${label}</div>
                         <div class="flex items-center gap-2">
                             <span class="text-[10px] px-2 py-0.5 rounded ${riskClass}">${riskBand}</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Score ${Math.round(riskScore)}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-red-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Score ${Math.round(riskScore)}</span>
                         </div>
                     </div>
                     ${items}
@@ -5685,19 +5693,19 @@
             const agendaBtn = document.getElementById('agendaViewBtn');
             const header = document.getElementById('calendarMonthYear');
 
-            monthBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'month');
+            monthBtn.classList.toggle('bg-red-600', calendarViewMode === 'month');
             monthBtn.classList.toggle('text-white', calendarViewMode === 'month');
             monthBtn.classList.toggle('text-slate-700', calendarViewMode !== 'month');
             monthBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'month');
-            weekBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'week');
+            weekBtn.classList.toggle('bg-red-600', calendarViewMode === 'week');
             weekBtn.classList.toggle('text-white', calendarViewMode === 'week');
             weekBtn.classList.toggle('text-slate-700', calendarViewMode !== 'week');
             weekBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'week');
-            dayBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'day');
+            dayBtn.classList.toggle('bg-red-600', calendarViewMode === 'day');
             dayBtn.classList.toggle('text-white', calendarViewMode === 'day');
             dayBtn.classList.toggle('text-slate-700', calendarViewMode !== 'day');
             dayBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'day');
-            agendaBtn.classList.toggle('bg-cyan-600', calendarViewMode === 'agenda');
+            agendaBtn.classList.toggle('bg-red-600', calendarViewMode === 'agenda');
             agendaBtn.classList.toggle('text-white', calendarViewMode === 'agenda');
             agendaBtn.classList.toggle('text-slate-700', calendarViewMode !== 'agenda');
             agendaBtn.classList.toggle('dark:text-slate-300', calendarViewMode !== 'agenda');
@@ -5917,7 +5925,7 @@
             document.getElementById('inputDuration').value = '';
             document.getElementById('inputPriority').value = 'Medium';
             document.getElementById('inputDifficulty').value = 'Medium';
-            document.getElementById('inputColor').value = '#06b6d4';
+            document.getElementById('inputColor').value = '#b91c1c';
             document.getElementById('inputNotes').value = '';
             document.getElementById('inputRepeatType').value = 'none';
             document.getElementById('inputWeekDueOnly').checked = false;
@@ -6815,7 +6823,7 @@
                 <div>
                     <div class="flex justify-between text-xs mb-1"><span>${l.label}</span><span>${l.capacity ? `${l.mins}/${l.capacity} min` : 'Vacation'}</span></div>
                     <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                        <div class="h-2 rounded-full ${l.capacity === 0 ? 'bg-amber-500' : (l.utilization > 1.1 ? 'bg-rose-500' : 'bg-cyan-500')}" style="width:${Math.round((Math.min(l.mins, maxLoad) / maxLoad) * 100)}%"></div>
+                        <div class="h-2 rounded-full ${l.capacity === 0 ? 'bg-amber-500' : (l.utilization > 1.1 ? 'bg-rose-500' : 'bg-red-500')}" style="width:${Math.round((Math.min(l.mins, maxLoad) / maxLoad) * 100)}%"></div>
                     </div>
                 </div>
             `).join('');
@@ -6876,7 +6884,7 @@
                                     <div class="font-medium text-slate-800 dark:text-slate-100">${t.title}</div>
                                     <div class="text-xs text-slate-500 dark:text-slate-400">${t.subject} • ${t.priority} • ${dueLabel}</div>
                                 </div>
-                                <div class="text-xs font-semibold ${isScheduled ? 'text-cyan-600 dark:text-cyan-400' : 'text-amber-600 dark:text-amber-400'}">${timeLabel}</div>
+                                <div class="text-xs font-semibold ${isScheduled ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}">${timeLabel}</div>
                             </div>
                         `;
                     }).join('');
