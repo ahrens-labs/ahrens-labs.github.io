@@ -14,13 +14,14 @@ OUT_PNG = IMG / "tether-logo.png"
 OUT_SVG = IMG / "tether-logo.svg"
 CANVAS = 512
 FILL = 0.92
+ASSET_VERSION = "30"
 
 CHECK = np.array([20, 49, 93], dtype=np.float32)
-# Darker chain palette with room for highlight gradients
-CHAIN_HIGHLIGHT = np.array([118, 188, 224], dtype=np.float32)
-CHAIN_MID = np.array([52, 138, 188], dtype=np.float32)
-CHAIN_DARK = np.array([24, 96, 148], dtype=np.float32)
-CHAIN_DEEP = np.array([14, 72, 118], dtype=np.float32)
+# Medium blue chain palette — lighter than prior pass, still gradient-friendly
+CHAIN_HIGHLIGHT = np.array([158, 214, 240], dtype=np.float32)
+CHAIN_MID = np.array([88, 168, 214], dtype=np.float32)
+CHAIN_DARK = np.array([54, 138, 194], dtype=np.float32)
+CHAIN_DEEP = np.array([36, 118, 176], dtype=np.float32)
 
 
 def load_template() -> np.ndarray:
@@ -133,7 +134,7 @@ def main() -> None:
     result.save(OUT_PNG, optimize=True)
     OUT_SVG.write_text(
         f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CANVAS} {CANVAS}" fill="none">
-  <image width="{CANVAS}" height="{CANVAS}" href="tether-logo.png"/>
+  <image width="{CANVAS}" height="{CANVAS}" href="tether-logo.png?v={ASSET_VERSION}"/>
 </svg>
 ''',
         encoding="utf-8",

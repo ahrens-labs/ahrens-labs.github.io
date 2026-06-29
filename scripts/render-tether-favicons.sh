@@ -50,8 +50,7 @@ else
   cp tether-logo.png tether-favicon.svg
 fi
 
-render_padded_png 16 0.92 "tether-favicon-16.png"
-convert tether-favicon-16.png tether-favicon-32.png tether-favicon-48.png tether-favicon.ico
-rm -f tether-favicon-16.png
+# Build .ico from the rendered PNG sizes (do not overwrite 32/48 sources).
+convert tether-favicon-32.png tether-favicon-48.png tether-favicon-96.png tether-favicon-128.png tether-favicon.ico
 
 echo "Updated tether favicons from tether-logo.png"
