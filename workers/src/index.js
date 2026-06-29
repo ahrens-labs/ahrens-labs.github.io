@@ -30,7 +30,7 @@ import {
   subscriberSendKey,
 } from './sports-digest-send.js';
 import { handleTetherRequest } from './tether.js';
-export { TetherProject } from './tether.js';
+export { TetherProject, TetherSync } from './tether.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */

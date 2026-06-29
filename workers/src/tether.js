@@ -38,6 +38,73 @@ function tetherProjectStub(env, projectId) {
   return env.TETHER_PROJECT.get(env.TETHER_PROJECT.idFromName(String(projectId)));
 }
 
+function tetherSyncStub(env, userId) {
+  if (!env.TETHER_SYNC || !userId) return null;
+  return env.TETHER_SYNC.get(env.TETHER_SYNC.idFromName(String(userId)));
+}
+
+function readSyncClientId(request, body) {
+  const fromHeader = String(request.headers.get('X-Tether-Sync-Client') || '').trim();
+  if (fromHeader) return fromHeader.slice(0, 64);
+  if (body && typeof body.syncClientId === 'string') {
+    const id = body.syncClientId.trim();
+    if (id) return id.slice(0, 64);
+  }
+  return null;
+}
+
+function projectMemberIds(project) {
+  const ids = new Set();
+  if (project?.ownerUserId) ids.add(project.ownerUserId);
+  for (const member of project?.members || []) {
+    if (member?.userId) ids.add(member.userId);
+  }
+  return ids;
+}
+
+async function notifyTetherSync(env, userId, payload) {
+  const stub = tetherSyncStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(
+      new Request('http://do/notify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    );
+  } catch {
+    /* sync is best-effort */
+  }
+}
+
+async function publishInboxSync(env, userId, sourceClientId) {
+  await notifyTetherSync(env, userId, {
+    type: 'inbox',
+    ts: Date.now(),
+    sourceClientId,
+  });
+}
+
+async function publishProjectSync(env, project, sourceClientId) {
+  const payload = {
+    type: 'project',
+    projectId: project?.id || null,
+    ts: Date.now(),
+    sourceClientId,
+  };
+  await Promise.all([...projectMemberIds(project)].map((uid) => notifyTetherSync(env, uid, payload)));
+}
+
+async function publishProjectsListSync(env, userIds, sourceClientId) {
+  const payload = {
+    type: 'projects',
+    ts: Date.now(),
+    sourceClientId,
+  };
+  const ids = userIds instanceof Set ? userIds : new Set(userIds || []);
+  await Promise.all([...ids].filter(Boolean).map((uid) => notifyTetherSync(env, uid, payload)));
+}
+
 function userAccountStub(env, userId) {
   if (!env.USER_ACCOUNT || !userId) return null;
   return env.USER_ACCOUNT.get(env.USER_ACCOUNT.idFromName(String(userId)));
@@ -387,8 +454,23 @@ function newProjectId() {
 }
 
 export async function handleTetherRequest(request, env, corsHeaders, path) {
-  const sessionId = parseBearerToken(request.headers.get('Authorization'));
+  const url = new URL(request.url);
+  let sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    sessionId = String(url.searchParams.get('session') || '').trim() || null;
+  }
   const userId = await sessionUserId(env, sessionId);
+
+  if (path === '/api/tether/sync') {
+    if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+    const stub = tetherSyncStub(env, userId);
+    if (!stub) return jsonResponse({ error: 'Sync unavailable' }, corsHeaders, 503);
+    if (request.headers.get('Upgrade') !== 'websocket') {
+      return jsonResponse({ error: 'Expected WebSocket upgrade' }, corsHeaders, 426);
+    }
+    return stub.fetch(request);
+  }
+
   if (!userId) {
     return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
   }
@@ -458,6 +540,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const depError = validateTaskDependencyCompletion(tasks);
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
     const saved = await saveInboxTasks(env, userId, tasks);
+    await publishInboxSync(env, userId, readSyncClientId(request, body));
     return jsonResponse({ tasks: saved }, corsHeaders);
   }
 
@@ -530,6 +613,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         body: JSON.stringify(project),
       })
     );
+    const syncClientId = readSyncClientId(request, body);
+    await publishInboxSync(env, userId, syncClientId);
+    await publishProjectSync(env, project, syncClientId);
     return jsonResponse({ task: moved, projectId, tasks: inboxTasks }, corsHeaders);
   }
 
@@ -592,6 +678,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
           new Request('http://do/save', { method: 'POST', body: JSON.stringify(sourceProject) })
         );
       }
+      const syncClientId = readSyncClientId(request, body);
+      await publishInboxSync(env, userId, syncClientId);
+      if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId);
       return jsonResponse({ task: moved, fromProjectId, toProjectId: null }, corsHeaders);
     }
 
@@ -618,6 +707,10 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     await targetStub.fetch(
       new Request('http://do/save', { method: 'POST', body: JSON.stringify(targetProject) })
     );
+    const syncClientId = readSyncClientId(request, body);
+    await publishInboxSync(env, userId, syncClientId);
+    if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId);
+    await publishProjectSync(env, targetProject, syncClientId);
     return jsonResponse({ task: moved, fromProjectId, toProjectId }, corsHeaders);
   }
 
@@ -655,6 +748,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const stub = tetherProjectStub(env, projectId);
     await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
 
+    const syncClientId = readSyncClientId(request, body);
+    await publishInboxSync(env, userId, syncClientId);
+    await publishProjectsListSync(env, projectMemberIds(project), syncClientId);
     return jsonResponse({ moved, inboxTaskCount: inboxTasks.length }, corsHeaders);
   }
 
@@ -696,6 +792,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await addTetherProjectId(env, userId, projectId);
+    await publishProjectsListSync(env, [userId], readSyncClientId(request, body));
     return jsonResponse({ project: { ...project, isOwner: true } }, corsHeaders, 201);
   }
 
@@ -751,6 +848,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         body: JSON.stringify(updated),
       })
     );
+    await publishProjectSync(env, updated, readSyncClientId(request, body));
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -770,6 +868,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     }
     const stub = tetherProjectStub(env, projectId);
     await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
+    await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null));
     return jsonResponse({ success: true }, corsHeaders);
   }
 
@@ -798,6 +897,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     }
 
     const updated = await addMemberToProject(env, project, target);
+    await publishProjectSync(env, updated, readSyncClientId(request, body));
+    await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body));
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -828,10 +929,59 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await removeTetherProjectId(env, removeUserId, projectId);
+    const syncClientId = readSyncClientId(request, body);
+    await publishProjectSync(env, updated, syncClientId);
+    await publishProjectsListSync(env, [removeUserId], syncClientId);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
   return null;
+}
+
+export class TetherSync {
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === '/notify' && request.method === 'POST') {
+      const payload = await request.json();
+      this.broadcast(payload);
+      return jsonResponse({ ok: true }, {});
+    }
+
+    if (request.headers.get('Upgrade') === 'websocket') {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+      this.state.acceptWebSocket(server);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    return jsonResponse({ error: 'Not found' }, {}, 404);
+  }
+
+  broadcast(payload) {
+    const message = JSON.stringify(payload);
+    for (const ws of this.state.getWebSockets()) {
+      try {
+        ws.send(message);
+      } catch {
+        /* ignore closed sockets */
+      }
+    }
+  }
+
+  async webSocketClose(ws, code, reason) {
+    try {
+      ws.close(code, reason);
+    } catch {
+      /* already closed */
+    }
+  }
 }
 
 export class TetherProject {

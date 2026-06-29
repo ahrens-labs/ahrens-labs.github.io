@@ -1426,6 +1426,10 @@
   let editingTaskLabels = [];
   let labelColorOverrides = {};
   let labelColorPopoverLabel = null;
+  const syncClientId = crypto.randomUUID();
+  let tetherSyncSocket = null;
+  let tetherSyncRefreshTimer = null;
+  let tetherSyncReconnectTimer = null;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -2914,7 +2918,89 @@
   }
 
   function authHeaders() {
-    return { Authorization: 'Bearer ' + sessionId, 'Content-Type': 'application/json' };
+    return {
+      Authorization: 'Bearer ' + sessionId,
+      'Content-Type': 'application/json',
+      'X-Tether-Sync-Client': syncClientId,
+    };
+  }
+
+  function tetherSyncWsUrl() {
+    const base = API.replace(/^http:\/\//i, 'ws://').replace(/^https:\/\//i, 'wss://');
+    return base + '/api/tether/sync?session=' + encodeURIComponent(sessionId);
+  }
+
+  function scheduleTetherSyncRefresh(evt) {
+    clearTimeout(tetherSyncRefreshTimer);
+    tetherSyncRefreshTimer = setTimeout(() => { refreshFromTetherSync(evt); }, 120);
+  }
+
+  async function refreshFromTetherSync(evt) {
+    if (!evt || evt.sourceClientId === syncClientId) return;
+    const keepTaskId = document.getElementById('modal-task').classList.contains('open')
+      ? editingTaskId
+      : (viewingTaskId || null);
+
+    try {
+      if (evt.type === 'inbox') {
+        await loadPersonalTasks();
+        if (appTab === 'my-tasks') await loadMyTasks();
+      }
+      if (evt.type === 'project' && evt.projectId) {
+        await loadProjects();
+        if (activeProject && activeProject.id === evt.projectId) {
+          await loadProject(evt.projectId, keepTaskId || null);
+        } else if (appTab === 'projects') {
+          renderProjectList();
+        }
+        if (appTab === 'my-tasks') await loadMyTasks();
+      }
+      if (evt.type === 'projects') {
+        await loadProjects();
+        if (appTab === 'projects') {
+          if (activeProject) {
+            const still = projects.find(p => p.id === activeProject.id);
+            if (still) await loadProject(activeProject.id, keepTaskId || null);
+            else {
+              activeProject = null;
+              document.getElementById('project-view').style.display = 'none';
+              document.getElementById('empty-state').style.display = 'flex';
+              renderProjectList();
+            }
+          } else {
+            renderProjectList();
+          }
+        }
+        if (appTab === 'my-tasks') await loadMyTasks();
+      }
+    } catch (e) {
+      console.warn('Tether sync refresh failed', e);
+    }
+  }
+
+  function connectTetherSync() {
+    if (!sessionId || tetherSyncSocket) return;
+    try {
+      tetherSyncSocket = new WebSocket(tetherSyncWsUrl());
+    } catch {
+      tetherSyncSocket = null;
+      return;
+    }
+    tetherSyncSocket.addEventListener('message', (e) => {
+      try {
+        scheduleTetherSyncRefresh(JSON.parse(e.data));
+      } catch {
+        /* ignore malformed payloads */
+      }
+    });
+    tetherSyncSocket.addEventListener('close', () => {
+      tetherSyncSocket = null;
+      clearTimeout(tetherSyncReconnectTimer);
+      tetherSyncReconnectTimer = setTimeout(connectTetherSync, 3000);
+    });
+    tetherSyncSocket.addEventListener('error', () => {
+      try { tetherSyncSocket.close(); } catch { /* ignore */ }
+    });
   }
 
   function showBanner(msg, type) {
@@ -4454,6 +4540,7 @@
           if (mt) await openTaskEditor(taskId, { fromMyTasks: true, projectId: mt.projectId || null });
         }
       }
+      connectTetherSync();
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
     }
