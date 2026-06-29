@@ -10,15 +10,18 @@ from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from pwa_icons import FAVICON_FILL, PWA_ANY_FILL, PWA_MASKABLE_FILL, fit_square  # noqa: E402
-
 IMG = ROOT / "img"
 SOURCE = IMG / "classify-logo-source.png"
 OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
-FILL = 0.92
-ASSET_VERSION = "8"
+FILL = 0.98
+ASSET_VERSION = "9"
+
+# Wide chain artwork reads tiny when scaled by width; favicons fill height instead.
+CLASSIFY_FAVICON_FILL = 0.98
+CLASSIFY_PWA_ANY_FILL = 0.94
+CLASSIFY_PWA_MASKABLE_FILL = 0.86
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -58,23 +61,44 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
     return out
 
 
+def fit_classify_square(im: Image.Image, size: int, fill: float) -> Image.Image:
+    """Scale wide Classify artwork by height so favicons fill the square."""
+    rgba = im.convert("RGBA")
+    bbox = rgba.getbbox()
+    if not bbox:
+        raise RuntimeError("Empty image")
+    cropped = rgba.crop(bbox)
+    target = max(1, int(round(size * fill)))
+    aspect = cropped.width / max(cropped.height, 1)
+    if aspect > 1.2:
+        scale = target / cropped.height
+    else:
+        scale = target / max(cropped.size)
+    nw = max(1, int(round(cropped.width * scale)))
+    nh = max(1, int(round(cropped.height * scale)))
+    resized = cropped.resize((nw, nh), Image.Resampling.LANCZOS)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(resized, ((size - nw) // 2, (size - nh) // 2), resized)
+    return out
+
+
 FAVICON_SIZES: list[tuple[int, float, str]] = [
-    (32, FAVICON_FILL, "classify-favicon-32.png"),
-    (48, FAVICON_FILL, "classify-favicon-48.png"),
-    (96, FAVICON_FILL, "classify-favicon-96.png"),
-    (128, FAVICON_FILL, "classify-favicon-128.png"),
-    (180, PWA_ANY_FILL, "classify-favicon-180.png"),
-    (192, PWA_ANY_FILL, "classify-favicon-192.png"),
-    (512, PWA_ANY_FILL, "classify-favicon-512.png"),
-    (192, PWA_MASKABLE_FILL, "classify-favicon-192-maskable.png"),
-    (512, PWA_MASKABLE_FILL, "classify-favicon-512-maskable.png"),
+    (32, CLASSIFY_FAVICON_FILL, "classify-favicon-32.png"),
+    (48, CLASSIFY_FAVICON_FILL, "classify-favicon-48.png"),
+    (96, CLASSIFY_FAVICON_FILL, "classify-favicon-96.png"),
+    (128, CLASSIFY_FAVICON_FILL, "classify-favicon-128.png"),
+    (180, CLASSIFY_PWA_ANY_FILL, "classify-favicon-180.png"),
+    (192, CLASSIFY_PWA_ANY_FILL, "classify-favicon-192.png"),
+    (512, CLASSIFY_PWA_ANY_FILL, "classify-favicon-512.png"),
+    (192, CLASSIFY_PWA_MASKABLE_FILL, "classify-favicon-192-maskable.png"),
+    (512, CLASSIFY_PWA_MASKABLE_FILL, "classify-favicon-512-maskable.png"),
 ]
 
 
 def write_favicons(logo: Image.Image) -> None:
     ico_parts: list[Image.Image] = []
     for size, fill, name in FAVICON_SIZES:
-        out = fit_square(logo, size, fill)
+        out = fit_classify_square(logo, size, fill)
         out.save(ROOT / name, optimize=True)
         if size in (32, 48, 96, 128):
             ico_parts.append(out)
@@ -88,7 +112,7 @@ def write_favicons(logo: Image.Image) -> None:
     )
     print("wrote classify.ico")
 
-    section = fit_square(logo, 128, PWA_ANY_FILL)
+    section = fit_classify_square(logo, 128, CLASSIFY_PWA_ANY_FILL)
     section.save(IMG / "classify-logo-128.png", optimize=True)
     print("wrote img/classify-logo-128.png")
 
