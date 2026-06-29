@@ -30,6 +30,28 @@ function extractAiText(response: unknown): string {
   return ''
 }
 
+const LINK_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8'
+
+async function runTextModel(
+  ai: Env['AI'],
+  messages: Array<{ role: string; content: string }>,
+) {
+  const models = [
+    LINK_TEXT_MODEL,
+    '@cf/meta/llama-3.2-3b-instruct',
+  ]
+  let lastError: unknown
+  for (const model of models) {
+    try {
+      return await ai.run(model, { messages })
+    } catch (error) {
+      lastError = error
+      console.error(`Workers AI model failed: ${model}`, error)
+    }
+  }
+  throw lastError
+}
+
 const app = new Hono<{ Bindings: Env }>()
 
 async function redirectAhrensLogin(c: any, clearLinkSession = false) {
@@ -1809,13 +1831,10 @@ Focus on: who they are, your relationship with them, and recent activity. Sound 
       return c.json({ error: 'AI is not configured' }, 503)
     }
 
-    const aiResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: 'You are a voice assistant providing natural, conversational summaries. Speak clearly and concisely without formal language or markdown formatting.' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 256,
-    })
+    const aiResponse = await runTextModel(c.env.AI, [
+      { role: 'system', content: 'You are a voice assistant providing natural, conversational summaries. Speak clearly and concisely without formal language or markdown formatting.' },
+      { role: 'user', content: prompt },
+    ])
 
     const summary = extractAiText(aiResponse).trim() || 'Unable to generate summary.'
     return c.json({ summary })
@@ -1924,9 +1943,7 @@ Examples:
 "Remind me to follow up with Sarah next week" -> {"action": "add_reminder", "contactName": "Sarah", "dateText": "next week", "text": "follow up with Sarah"}
 "Set reminder to call Mike tomorrow" -> {"action": "add_reminder", "contactName": "Mike", "dateText": "tomorrow", "text": "call Mike"}`
 
-    const intentResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [{ role: 'user', content: intentPrompt }]
-    })
+    const intentResponse = await runTextModel(c.env.AI, [{ role: 'user', content: intentPrompt }])
     
     let intent
     try {
@@ -2149,12 +2166,10 @@ Examples:
 "Called Mike" (no date) -> {"daysAgo":0}`
 
   try {
-    const dateResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: 'You are a date extraction assistant. Respond ONLY with valid JSON. Be precise with calculations.' },
-        { role: 'user', content: dateExtractionPrompt }
-      ]
-    })
+    const dateResponse = await runTextModel(c.env.AI, [
+      { role: 'system', content: 'You are a date extraction assistant. Respond ONLY with valid JSON. Be precise with calculations.' },
+      { role: 'user', content: dateExtractionPrompt },
+    ])
     
     const dateText = dateResponse.response || '{}'
     let dateInfo
@@ -2241,12 +2256,10 @@ Examples:
 "Watched football game with Garrett Kerr and Tim Lee" -> {"contacts":[{"name":"Garrett Kerr","email":null,"phone":null,"company":null},{"name":"Tim Lee","email":null,"phone":null,"company":null}],"interactionType":"other"}`
 
     try {
-      const extractResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
-          { role: 'system', content: 'You are a precise data extraction assistant. Extract contact information and respond ONLY with valid JSON. No explanations, just JSON.' },
-          { role: 'user', content: extractPrompt }
-        ]
-      })
+      const extractResponse = await runTextModel(c.env.AI, [
+        { role: 'system', content: 'You are a precise data extraction assistant. Extract contact information and respond ONLY with valid JSON. No explanations, just JSON.' },
+        { role: 'user', content: extractPrompt },
+      ])
       
       const extractText = extractResponse.response || '{}'
       console.log('AI extraction response:', extractText)
@@ -2638,12 +2651,10 @@ Examples:
 IMPORTANT: Always try to find a match by extracting names from the text. Only use empty array [] if absolutely no name match is possible.`
 
     try {
-      const aiResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant that analyzes interaction notes and matches them to contacts. Always respond with valid JSON only.' },
-          { role: 'user', content: prompt }
-        ]
-      })
+      const aiResponse = await runTextModel(c.env.AI, [
+        { role: 'system', content: 'You are a helpful assistant that analyzes interaction notes and matches them to contacts. Always respond with valid JSON only.' },
+        { role: 'user', content: prompt },
+      ])
       
       const responseText = aiResponse.response || '{}'
       console.log('[Contact Matching] Interaction text:', text)
