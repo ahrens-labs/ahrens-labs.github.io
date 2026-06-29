@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enhance the Tether logo template: transparent bg, richer chains, crisp check."""
+"""Enhance the Tether logo template and render matching favicons."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,14 +14,25 @@ OUT_PNG = IMG / "tether-logo.png"
 OUT_SVG = IMG / "tether-logo.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "30"
+ASSET_VERSION = "31"
 
 CHECK = np.array([20, 49, 93], dtype=np.float32)
-# Medium blue chain palette — lighter than prior pass, still gradient-friendly
 CHAIN_HIGHLIGHT = np.array([158, 214, 240], dtype=np.float32)
 CHAIN_MID = np.array([88, 168, 214], dtype=np.float32)
 CHAIN_DARK = np.array([54, 138, 194], dtype=np.float32)
 CHAIN_DEEP = np.array([36, 118, 176], dtype=np.float32)
+
+FAVICON_SIZES: list[tuple[int, float, str]] = [
+    (32, 0.96, "tether-favicon-32.png"),
+    (48, 0.94, "tether-favicon-48.png"),
+    (96, 0.92, "tether-favicon-96.png"),
+    (128, 0.90, "tether-favicon-128.png"),
+    (180, 0.90, "tether-favicon-180.png"),
+    (192, 0.90, "tether-favicon-192.png"),
+    (512, 0.90, "tether-favicon-512.png"),
+    (192, 0.84, "tether-favicon-192-maskable.png"),
+    (512, 0.84, "tether-favicon-512-maskable.png"),
+]
 
 
 def load_template() -> np.ndarray:
@@ -62,22 +73,17 @@ def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray)
     yy = np.arange(h, dtype=np.float32)[:, None]
     xx = np.arange(w, dtype=np.float32)[None, :]
 
-    # Vertical: lighter crest, darker underside
     v = np.clip((yy - y0) / y_span, 0, 1)
-    vertical = 1.0 - v
-    vertical = vertical**1.35
+    vertical = (1.0 - v) ** 1.35
 
-    # Horizontal: gentle shift between the two links
     hpos = np.clip((xx - x0) / x_span, 0, 1)
     horizontal = 0.88 + 0.12 * np.sin(hpos * np.pi)
 
-    # Radial depth under the checkmark
     cy = (y0 + y1) / 2.0
     cx = (x0 + x1) / 2.0 + x_span * 0.04
     dist = np.sqrt(((yy - cy) / (y_span * 0.55)) ** 2 + ((xx - cx) / (x_span * 0.42)) ** 2)
     radial = np.clip(1.0 - dist * 0.55, 0, 1) ** 1.2
 
-    # Top-left sheen
     sheen = np.clip(1.0 - ((yy - y0) / y_span) * 0.65 - ((xx - x0) / x_span) * 0.25, 0, 1)
 
     mix = np.clip(vertical * 0.45 + radial * 0.35 + sheen * 0.2, 0, 1)
@@ -111,6 +117,11 @@ def enhance(arr: np.ndarray) -> np.ndarray:
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
+def build_enhanced_master() -> Image.Image:
+    im = Image.fromarray(enhance(load_template()), "RGBA")
+    return im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=115, threshold=3))
+
+
 def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
     bbox = im.getbbox()
     if not bbox:
@@ -126,12 +137,87 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
     return out
 
 
+def is_check_pixel(r: float, g: float, b: float) -> bool:
+    return r < 80 and g < 100 and b > 70
+
+
+def boost_favicon_chains(im: Image.Image, strength: float) -> Image.Image:
+    """Reinforce chain gradient/contrast lost when downsampling to tab icon sizes."""
+    arr = np.array(im.convert("RGBA"), dtype=np.float32)
+    r, g, b, a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
+    visible = a > 128
+    check = visible & (r < 80) & (g < 100) & (b > 70)
+    chain = visible & ~check
+    if not np.any(chain):
+        return im
+
+    ys = np.where(chain)[0]
+    y0, y1 = ys.min(), ys.max()
+    span = max(y1 - y0, 1)
+    yy = np.arange(arr.shape[0], dtype=np.float32)[:, None]
+    v = np.clip((yy - y0) / span, 0, 1)
+    # Stronger top highlight and bottom shadow on chains only.
+    lift = (0.55 - v) * strength
+    rgb = arr[..., :3]
+    rgb = np.where(chain[..., None], np.clip(rgb * (1.0 + lift[..., None]), 0, 255), rgb)
+
+    # Remap chain luminance toward the logo's darker mids.
+    v_map = np.broadcast_to(v, chain.shape)
+    chain_idx = np.flatnonzero(chain.ravel())
+    v_chain = v_map.ravel()[chain_idx]
+    chain_rgb = rgb.reshape(-1, 3)[chain_idx]
+    target = np.clip(0.28 + (1.0 - v_chain) * 0.42, 0.18, 0.72)[:, None] * 255.0
+    blend = np.clip(strength * 0.85, 0.35, 0.75)
+    chain_rgb = chain_rgb * (1.0 - blend) + target * blend
+    rgb.reshape(-1, 3)[chain_idx] = chain_rgb
+    arr[..., :3] = rgb
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGBA")
+
+
+def render_variant(master: Image.Image, canvas: int, fill: float, favicon: bool) -> Image.Image:
+    if favicon:
+        # Downscale via an intermediate size so gradients survive better.
+        mid = max(canvas * 4, 128)
+        mid_im = fit_canvas(master, mid, fill)
+        strength = min(0.55, 0.22 + (128 / max(canvas, 1)) * 0.12)
+        mid_im = boost_favicon_chains(mid_im, strength)
+        out = mid_im.resize((canvas, canvas), Image.Resampling.LANCZOS)
+        radius = 0.8 if canvas <= 48 else 1.0
+        return out.filter(ImageFilter.UnsharpMask(radius=radius, percent=140, threshold=2))
+    return fit_canvas(master, canvas, fill)
+
+
+def write_favicons(master: Image.Image) -> None:
+    icons_for_ico: list[Image.Image] = []
+    for size, fill, name in FAVICON_SIZES:
+        favicon = size <= 128 or name.endswith("maskable.png")
+        out = render_variant(master, size, fill, favicon=favicon)
+        out.save(IMG / name, optimize=True)
+        if size in (32, 48, 96, 128):
+            icons_for_ico.append(out)
+        print(f"wrote {name}")
+
+    icons_for_ico[0].save(
+        IMG / "tether-favicon.ico",
+        format="ICO",
+        sizes=[(32, 32), (48, 48), (96, 96), (128, 128)],
+        append_images=icons_for_ico[1:],
+    )
+    print("wrote tether-favicon.ico")
+
+    (IMG / "tether-favicon.svg").write_text(
+        f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CANVAS} {CANVAS}" fill="none">
+  <image width="{CANVAS}" height="{CANVAS}" href="tether-logo.png?v={ASSET_VERSION}"/>
+</svg>
+''',
+        encoding="utf-8",
+    )
+
+
 def main() -> None:
-    raw = enhance(load_template())
-    im = Image.fromarray(raw, "RGBA")
-    im = im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=115, threshold=3))
-    result = fit_canvas(im, CANVAS, FILL)
-    result.save(OUT_PNG, optimize=True)
+    master = build_enhanced_master()
+    logo = render_variant(master, CANVAS, FILL, favicon=False)
+    logo.save(OUT_PNG, optimize=True)
     OUT_SVG.write_text(
         f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {CANVAS} {CANVAS}" fill="none">
   <image width="{CANVAS}" height="{CANVAS}" href="tether-logo.png?v={ASSET_VERSION}"/>
@@ -139,7 +225,8 @@ def main() -> None:
 ''',
         encoding="utf-8",
     )
-    print(f"Enhanced {TEMPLATE.name} -> {OUT_PNG} ({result.size[0]}x{result.size[1]})")
+    print(f"Enhanced {TEMPLATE.name} -> {OUT_PNG} ({logo.size[0]}x{logo.size[1]})")
+    write_favicons(master)
 
 
 if __name__ == "__main__":
