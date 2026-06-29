@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Link logo: Tether chain geometry, green palette, person icon instead of check."""
+"""Build Link logo: chain template + green gradient + person icon."""
 from __future__ import annotations
 
 from io import BytesIO
@@ -12,27 +12,21 @@ from PIL import Image, ImageFilter
 ROOT = Path(__file__).resolve().parents[1]
 IMG = ROOT / "img"
 CRM = ROOT / "workers" / "link-crm"
-TEMPLATE = IMG / "tether-logo-template.png"
+CHAIN_TEMPLATE = IMG / "link-chain-template.png"
+PERSON_TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = CRM / "link_logo.png"
 CANVAS = 512
 FILL = 0.92
+ASSET_VERSION = "5"
 
-# Match Tether check geometry for layer split
 CHECK_REF = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_REF = np.array([98, 192, 232], dtype=np.float32)
 
-# Link green palette (chains + person)
-PERSON = np.array([20, 83, 45], dtype=np.float32)
+PERSON_COLOR = "#14532d"
 CHAIN_HIGHLIGHT = np.array([146, 228, 168], dtype=np.float32)
 CHAIN_MID = np.array([48, 168, 96], dtype=np.float32)
 CHAIN_DARK = np.array([24, 132, 72], dtype=np.float32)
 CHAIN_DEEP = np.array([16, 104, 58], dtype=np.float32)
-
-
-def load_template() -> np.ndarray:
-    if not TEMPLATE.exists():
-        raise FileNotFoundError(f"Missing Tether template (chain source): {TEMPLATE}")
-    return np.array(Image.open(TEMPLATE).convert("RGBA"), dtype=np.float32)
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -41,14 +35,22 @@ def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
     return (bright > 246) | ((bright > 235) & (sat < 18))
 
 
-def layer_masks(r: np.ndarray, g: np.ndarray, b: np.ndarray, bg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    fg = ~bg
+def chain_mask_from_template(arr: np.ndarray) -> np.ndarray:
+    r, g, b, a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
+    bg = is_background(r, g, b) | (a < 128)
+    return ~bg
+
+
+def person_bbox_from_tether() -> tuple[int, int, int, int]:
+    arr = np.array(Image.open(PERSON_TEMPLATE).convert("RGBA"), dtype=np.float32)
+    r, g, b, _a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
+    bg = is_background(r, g, b)
     rgb = np.stack([r, g, b], axis=-1)
     d_check = np.sum((rgb - CHECK_REF) ** 2, axis=-1)
     d_chain = np.sum((rgb - CHAIN_REF) ** 2, axis=-1)
-    check = fg & (d_check <= d_chain)
-    chain = fg & ~check
-    return check, chain
+    check = (~bg) & (d_check <= d_chain)
+    ys, xs = np.where(check)
+    return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
 
 
 def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray) -> np.ndarray:
@@ -96,8 +98,7 @@ def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray)
 
 def render_chains(arr: np.ndarray) -> Image.Image:
     r, g, b, _a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
-    bg = is_background(r, g, b)
-    _check, chain = layer_masks(r, g, b, bg)
+    chain = chain_mask_from_template(arr)
     chain_rgb = shade_chains(r, g, b, chain)
 
     out = np.zeros_like(arr)
@@ -107,11 +108,6 @@ def render_chains(arr: np.ndarray) -> Image.Image:
     return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
 
 
-def check_bbox(check: np.ndarray) -> tuple[int, int, int, int]:
-    ys, xs = np.where(check)
-    return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
-
-
 def render_person(w: int, h: int, bbox: tuple[int, int, int, int]) -> Image.Image:
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
@@ -119,16 +115,18 @@ def render_person(w: int, h: int, bbox: tuple[int, int, int, int]) -> Image.Imag
     cx = (x0 + x1) / 2
     head_cy = y0 + bh * 0.27
     head_r = bw * 0.155
-    shoulder_y = y0 + bh * 0.72
+    # Shoulders meet the head with a short neck (minimal gap).
+    shoulder_top = head_cy + head_r * 0.88
+    shoulder_y = shoulder_top + bh * 0.06
     body_bottom = y1 - bh * 0.04
     shoulder_half = bw * 0.34
+    neck_half = head_r * 0.38
 
-    color = "#14532d"
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
-  <circle cx="{cx:.1f}" cy="{head_cy:.1f}" r="{head_r:.1f}" fill="{color}"/>
-  <path fill="{color}" d="M {cx - shoulder_half:.1f} {body_bottom:.1f}
-    C {cx - shoulder_half:.1f} {shoulder_y:.1f}, {cx - head_r * 0.55:.1f} {shoulder_y - bh * 0.04:.1f}, {cx:.1f} {shoulder_y - bh * 0.04:.1f}
-    C {cx + head_r * 0.55:.1f} {shoulder_y - bh * 0.04:.1f}, {cx + shoulder_half:.1f} {shoulder_y:.1f}, {cx + shoulder_half:.1f} {body_bottom:.1f} Z"/>
+  <circle cx="{cx:.1f}" cy="{head_cy:.1f}" r="{head_r:.1f}" fill="{PERSON_COLOR}"/>
+  <path fill="{PERSON_COLOR}" d="M {cx - shoulder_half:.1f} {body_bottom:.1f}
+    C {cx - shoulder_half:.1f} {shoulder_y:.1f}, {cx - neck_half:.1f} {shoulder_top:.1f}, {cx:.1f} {shoulder_top:.1f}
+    C {cx + neck_half:.1f} {shoulder_top:.1f}, {cx + shoulder_half:.1f} {shoulder_y:.1f}, {cx + shoulder_half:.1f} {body_bottom:.1f} Z"/>
 </svg>'''
     return Image.open(BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h))).convert("RGBA")
 
@@ -149,13 +147,9 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
 
 
 def compose() -> Image.Image:
-    arr = load_template()
-    r, g, b, _a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
-    bg = is_background(r, g, b)
-    check, _chain = layer_masks(r, g, b, bg)
-    bbox = check_bbox(check)
-
+    arr = np.array(Image.open(CHAIN_TEMPLATE).convert("RGBA"), dtype=np.float32)
     h, w = arr.shape[:2]
+    bbox = person_bbox_from_tether()
     base = render_chains(arr)
     person = render_person(w, h, bbox)
     return Image.alpha_composite(base, person)
