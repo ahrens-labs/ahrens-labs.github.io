@@ -17,10 +17,13 @@ PERSON_TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = CRM / "link_logo.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "5"
+ASSET_VERSION = "6"
 
 CHECK_REF = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_REF = np.array([98, 192, 232], dtype=np.float32)
+
+# Whitespace inset around the Tether check within its bbox (L, T, R, B).
+CHECK_INSET_FRAC = (0.003, 0.007, 0.003, 0.036)
 
 PERSON_COLOR = "#14532d"
 CHAIN_HIGHLIGHT = np.array([146, 228, 168], dtype=np.float32)
@@ -112,15 +115,26 @@ def render_person(w: int, h: int, bbox: tuple[int, int, int, int]) -> Image.Imag
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    cx = (x0 + x1) / 2
-    head_cy = y0 + bh * 0.27
-    head_r = bw * 0.155
-    # Shoulders meet the head with a short neck (minimal gap).
-    shoulder_top = head_cy + head_r * 0.88
-    shoulder_y = shoulder_top + bh * 0.06
-    body_bottom = y1 - bh * 0.04
-    shoulder_half = bw * 0.34
-    neck_half = head_r * 0.38
+    pad_l = bw * CHECK_INSET_FRAC[0]
+    pad_t = bh * CHECK_INSET_FRAC[1]
+    pad_r = bw * CHECK_INSET_FRAC[2]
+    pad_b = bh * CHECK_INSET_FRAC[3]
+    ix0 = x0 + pad_l
+    iy0 = y0 + pad_t
+    ix1 = x1 - pad_r
+    iy1 = y1 - pad_b
+    ibw = ix1 - ix0
+    ibh = iy1 - iy0
+    cx = (ix0 + ix1) / 2
+
+    head_r = ibw * 0.145
+    head_cy = iy0 + ibh * 0.28
+    neck_gap = head_r * 0.24
+    shoulder_top = head_cy + head_r + neck_gap
+    shoulder_y = shoulder_top + ibh * 0.07
+    body_bottom = iy1
+    shoulder_half = ibw * 0.33
+    neck_half = head_r * 0.36
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
   <circle cx="{cx:.1f}" cy="{head_cy:.1f}" r="{head_r:.1f}" fill="{PERSON_COLOR}"/>
