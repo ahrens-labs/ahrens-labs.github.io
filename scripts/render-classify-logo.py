@@ -21,7 +21,7 @@ OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "5"
+ASSET_VERSION = "6"
 
 # Match Link compose bounds so final 512px logos share chain scale/placement.
 REFERENCE_COMPOSE_BBOX = (241, 92, 698, 400)
@@ -34,8 +34,7 @@ CHAIN_MID = np.array([228, 72, 62], dtype=np.float32)
 CHAIN_DARK = np.array([196, 48, 42], dtype=np.float32)
 CHAIN_DEEP = np.array([158, 32, 28], dtype=np.float32)
 
-PENCIL_COLOR = "#7f1d1d"
-PENCIL_HALO = "#ffffff"
+PENCIL_COLOR = "#dc2626"
 PENCIL_ANGLE = 42
 
 
@@ -160,6 +159,16 @@ def place_icon_centered(
     return out
 
 
+def knock_out_chain_under_icon(base: Image.Image, icon: Image.Image, pad: int = 3) -> Image.Image:
+    """Carve a thin gap in the chain so the pencil reads against open space, not red links."""
+    base_arr = np.array(base, dtype=np.uint8)
+    mask = (icon.split()[3].point(lambda a: 255 if a > 48 else 0)).filter(ImageFilter.MaxFilter(pad * 2 + 1))
+    knock = np.array(mask, dtype=bool)
+    chain = base_arr[..., 3] > 128
+    base_arr[chain & knock, 3] = 0
+    return Image.fromarray(base_arr, "RGBA")
+
+
 def expanded_icon_bbox(bbox: tuple[int, int, int, int], pad_frac: float = 0.14) -> tuple[int, int, int, int]:
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
@@ -205,24 +214,20 @@ def render_pencil(
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    length = max(bw, bh) * 1.18
-    body_w = length * 0.19
-    eraser_h = length * 0.15
-    ferrule_h = length * 0.055
-    tip_h = length * 0.17
+    length = max(bw, bh) * 1.52
+    body_w = length * 0.115
+    eraser_h = length * 0.13
+    ferrule_h = length * 0.045
+    tip_h = length * 0.14
     body_h = length - eraser_h - ferrule_h - tip_h
-    stroke = max(3.2, body_w * 0.34)
-    halo_stroke = stroke * 2.35
+    stroke = max(2.6, body_w * 0.30)
     shapes = pencil_shapes(length, body_w, eraser_h, ferrule_h, body_h, tip_h)
     clip = expanded_icon_bbox(bbox)
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
   <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate({PENCIL_ANGLE})"
-     fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <g stroke="{PENCIL_HALO}" stroke-width="{halo_stroke:.2f}">{shapes}
-    </g>
-    <g stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}">{shapes}
-    </g>
+     fill="none" stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}"
+     stroke-linecap="round" stroke-linejoin="round">{shapes}
   </g>
 </svg>'''
     icon = Image.open(BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h))).convert("RGBA")
@@ -263,6 +268,7 @@ def compose() -> Image.Image:
     target_cx, target_cy = icon_target(bbox, arr)
     base = render_chains(arr)
     pencil = render_pencil(w, h, bbox, target_cx, target_cy)
+    base = knock_out_chain_under_icon(base, pencil)
     return Image.alpha_composite(base, pencil)
 
 
