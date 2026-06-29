@@ -43,7 +43,7 @@
       href: 'coding-lab.html',
       children: [
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
-        { id: 'classify', label: 'Classify Planner', href: 'classify.html' },
+        { id: 'classify', label: 'Classify', href: 'classify.html' },
         { id: 'tether', label: 'Tether', href: 'tether.html' },
         { id: 'link', label: 'Link', href: '/link/dashboard' },
         { id: 'digest', label: 'Digest', href: 'digest.html' },
