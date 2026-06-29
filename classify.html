@@ -138,8 +138,44 @@
             --accent-bg-strong: rgba(226, 232, 240, 0.95);
             --accent-border: rgba(203, 213, 225, 0.9);
             --accent-glow: rgba(148, 163, 184, 0.2);
+            --cl-header-offset: calc(env(safe-area-inset-top, 0px) + 4.25rem);
+            --cl-footer-offset: calc(4.75rem + env(safe-area-inset-bottom, 0px));
             min-height: 100dvh;
             overflow-x: hidden;
+        }
+        @media (min-width: 768px) {
+            body.classify-app {
+                --cl-footer-offset: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+            }
+        }
+        body.classify-app .cl-modal-root {
+            position: fixed;
+            z-index: 110;
+            top: var(--cl-header-offset);
+            right: 0;
+            bottom: var(--cl-footer-offset);
+            left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 12px;
+            box-sizing: border-box;
+        }
+        body.classify-app .cl-modal-root.hidden {
+            display: none;
+        }
+        body.classify-app .cl-modal-root--elevated {
+            z-index: 115;
+        }
+        body.classify-app .cl-modal-root .modal-panel {
+            max-height: 100%;
+            min-height: 0;
+        }
+        body.classify-app .cl-modal-root .modal-panel.flex.flex-col {
+            overflow: hidden;
+        }
+        body.classify-app .cl-modal-root .modal-panel:not(.flex) {
+            overflow-y: auto;
         }
         body.classify-app .classify-app-shell,
         body.classify-app main,
@@ -399,9 +435,12 @@
                 padding-left: max(12px, env(safe-area-inset-left, 0px)) !important;
                 padding-right: max(12px, env(safe-area-inset-right, 0px)) !important;
             }
-            body.classify-app .modal-panel {
-                max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px)) !important;
+            body.classify-app .cl-modal-root {
+                padding: 8px 10px;
+            }
+            body.classify-app .cl-modal-root .modal-panel {
                 width: min(96%, calc(100vw - 20px)) !important;
+                max-height: 100% !important;
             }
             body.classify-app #calendarMonthYear {
                 width: auto !important;
@@ -1115,7 +1154,7 @@
     </footer>
 
     <!-- Modal: Confirmation Dialog -->
-    <div id="confirmModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center">
+    <div id="confirmModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeConfirmModal()"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-sm scale-95 opacity-0 transition-all" id="confirmPanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-3" id="confirmTitle">Confirm Action</h3>
@@ -1129,7 +1168,7 @@
     </div>
 
     <!-- Modal: Edit Break -->
-    <div id="breakEditModal" class="fixed inset-0 z-[120] hidden flex items-center justify-center">
+    <div id="breakEditModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeBreakEditModal()"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-sm scale-95 opacity-0 transition-all" id="breakEditPanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Edit Break</h3>
@@ -1153,7 +1192,7 @@
     </div>
 
     <!-- Modal: Break Reminder -->
-    <div id="breakReminderModal" class="fixed inset-0 z-[130] hidden flex items-center justify-center">
+    <div id="breakReminderModal" class="cl-modal-root cl-modal-root--elevated hidden">
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeBreakReminderModal()"></div>
         <div class="relative modal-panel rounded-3xl p-6 max-w-sm w-[92%] scale-95 opacity-0 transition-all" id="breakReminderPanel">
             <div class="flex items-center justify-between">
@@ -1203,7 +1242,7 @@
     </div>
 
     <!-- Modal: Complete / Partial -->
-    <div id="timeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div id="timeModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeTimeModal()"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[92%] scale-95 opacity-0 transition-all" id="timePanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Complete Assignment</h3>
@@ -1243,9 +1282,9 @@
     </div>
 
     <!-- Modal: Actual Times -->
-    <div id="actualTimesModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div id="actualTimesModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeActualTimesModal()"></div>
-        <div class="relative modal-panel rounded-2xl p-6 max-w-lg w-[94%] max-h-[80vh] overflow-y-auto scale-95 opacity-0 transition-all" id="actualTimesPanel">
+        <div class="relative modal-panel rounded-2xl p-6 max-w-lg w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="actualTimesPanel">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Actual Time Entries</h3>
                 <button onclick="closeActualTimesModal()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
@@ -1258,9 +1297,9 @@
     </div>
 
     <!-- Modal: Classify Settings -->
-    <div id="classifySettingsModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div id="classifySettingsModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeClassifySettings()"></div>
-        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-[84vh] overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
+        <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Classify settings</h3>
                 <button onclick="closeClassifySettings()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-lg transition-colors" type="button"><i class="fa-solid fa-xmark"></i></button>
@@ -1295,9 +1334,9 @@
     </div>
 
     <!-- Modal: Manage Subjects -->
-    <div id="subjectsModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div id="subjectsModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeSubjectManager()"></div>
-        <div class="relative modal-panel rounded-2xl p-6 max-w-xl w-[94%] max-h-[84vh] overflow-y-auto scale-95 opacity-0 transition-all" id="subjectsPanel">
+        <div class="relative modal-panel rounded-2xl p-6 max-w-xl w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="subjectsPanel">
             <div class="cl-modal-header mb-4">
                 <button type="button" class="cl-settings-back-btn" onclick="returnToClassifySettings(closeSubjectManager)" aria-label="Back to Classify settings" title="Back to settings"><i class="fa-solid fa-arrow-left"></i></button>
                 <h3 class="cl-modal-header-title font-display">Manage Subjects</h3>
@@ -1312,9 +1351,9 @@
     </div>
 
     <!-- Modal: Blocked Times -->
-    <div id="blockedTimesModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+    <div id="blockedTimesModal" class="cl-modal-root hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeBlockedTimesModal()"></div>
-        <div class="relative modal-panel rounded-2xl p-6 md:p-7 max-w-2xl w-[96%] max-h-[90vh] overflow-y-auto scale-95 opacity-0 transition-all" id="blockedTimesPanel">
+        <div class="relative modal-panel rounded-2xl p-6 md:p-7 max-w-2xl w-[96%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="blockedTimesPanel">
             <div class="cl-modal-header mb-4">
                 <button type="button" class="cl-settings-back-btn" onclick="returnToClassifySettings(closeBlockedTimesModal)" aria-label="Back to Classify settings" title="Back to settings"><i class="fa-solid fa-arrow-left"></i></button>
                 <h3 class="cl-modal-header-title font-display">Blocked Times</h3>
@@ -1464,12 +1503,12 @@
     </div>
 
     <!-- Modal: Add/Edit Task -->
-    <div id="taskModal" class="fixed inset-0 z-50 hidden flex items-center justify-center pointer-events-none">
+    <div id="taskModal" class="cl-modal-root hidden pointer-events-none">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity pointer-events-auto" onclick="event.target === this && closeModal()"></div>
         
         <!-- Modal Content -->
-        <div class="relative w-full max-w-2xl lg:max-w-4xl h-[92vh] modal-panel rounded-2xl scale-95 opacity-0 transition-all duration-300 flex flex-col pointer-events-auto" id="modalPanel">
+        <div class="relative w-full max-w-2xl lg:max-w-4xl max-h-full modal-panel rounded-2xl scale-95 opacity-0 transition-all duration-300 flex flex-col pointer-events-auto" id="modalPanel">
             <!-- Header (Fixed) -->
             <div class="flex-shrink-0 border-b border-slate-200 dark:border-slate-700 px-6 md:px-8 py-5 modal-header">
                 <div class="flex justify-between items-center">
@@ -1906,7 +1945,27 @@
         let dayNowLineTimer = null;
 
         // --- Initialization ---
+        function syncClassifyChromeOffsets() {
+            const header = document.querySelector('body.classify-app header.th-app-header');
+            const footer = document.querySelector('body.classify-app .cl-app-footer');
+            if (!header || !footer) return;
+            document.body.style.setProperty('--cl-header-offset', `${header.offsetHeight}px`);
+            document.body.style.setProperty('--cl-footer-offset', `${footer.offsetHeight}px`);
+        }
+
+        function observeClassifyChrome() {
+            const header = document.querySelector('body.classify-app header.th-app-header');
+            const footer = document.querySelector('body.classify-app .cl-app-footer');
+            if (!header || !footer) return;
+            const ro = new ResizeObserver(syncClassifyChromeOffsets);
+            ro.observe(header);
+            ro.observe(footer);
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
+            syncClassifyChromeOffsets();
+            observeClassifyChrome();
+            window.addEventListener('resize', syncClassifyChromeOffsets);
             // Dark Mode check
             if(plannerGet('darkMode') === 'true' || (!plannerGet('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
