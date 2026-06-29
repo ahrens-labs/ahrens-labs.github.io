@@ -16,12 +16,13 @@ OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.98
-ASSET_VERSION = "9"
+ASSET_VERSION = "11"
 
-# Wide chain artwork reads tiny when scaled by width; favicons fill height instead.
-CLASSIFY_FAVICON_FILL = 0.98
-CLASSIFY_PWA_ANY_FILL = 0.94
-CLASSIFY_PWA_MASKABLE_FILL = 0.86
+# Wide logo: scale to height with this fill (allows slight horizontal crop vs filling width).
+WIDE_HEIGHT_FILL = 0.84
+CLASSIFY_FAVICON_FILL = 0.92
+CLASSIFY_PWA_ANY_FILL = 0.88
+CLASSIFY_PWA_MASKABLE_FILL = 0.78
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -62,17 +63,18 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
 
 
 def fit_classify_square(im: Image.Image, size: int, fill: float) -> Image.Image:
-    """Scale wide Classify artwork by height so favicons fill the square."""
+    """Scale wide Classify artwork for square favicons."""
     rgba = im.convert("RGBA")
     bbox = rgba.getbbox()
     if not bbox:
         raise RuntimeError("Empty image")
     cropped = rgba.crop(bbox)
-    target = max(1, int(round(size * fill)))
     aspect = cropped.width / max(cropped.height, 1)
     if aspect > 1.2:
+        target = max(1, int(round(size * WIDE_HEIGHT_FILL)))
         scale = target / cropped.height
     else:
+        target = max(1, int(round(size * fill)))
         scale = target / max(cropped.size)
     nw = max(1, int(round(cropped.width * scale)))
     nh = max(1, int(round(cropped.height * scale)))
