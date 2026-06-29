@@ -21,19 +21,19 @@ PERSON_TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = CRM / "link_logo.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "12"
+ASSET_VERSION = "14"
 
 CHECK_REF = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_REF = np.array([98, 192, 232], dtype=np.float32)
 
 # Optical center correction within the chain opening (left, up) as bbox fractions.
-PERSON_NUDGE = (-0.035, -0.04)
+PERSON_NUDGE = (-0.035, -0.055)
 
 PERSON_COLOR = "#14532d"
-CHAIN_HIGHLIGHT = np.array([146, 228, 168], dtype=np.float32)
-CHAIN_MID = np.array([48, 168, 96], dtype=np.float32)
-CHAIN_DARK = np.array([24, 132, 72], dtype=np.float32)
-CHAIN_DEEP = np.array([16, 104, 58], dtype=np.float32)
+CHAIN_HIGHLIGHT = np.array([178, 238, 196], dtype=np.float32)
+CHAIN_MID = np.array([88, 198, 132], dtype=np.float32)
+CHAIN_DARK = np.array([56, 168, 104], dtype=np.float32)
+CHAIN_DEEP = np.array([40, 142, 88], dtype=np.float32)
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -121,13 +121,13 @@ def render_person(w: int, h: int, bbox: tuple[int, int, int, int]) -> Image.Imag
     bh = y1 - y0
     cx = (x0 + x1) / 2 + bw * PERSON_NUDGE[0]
 
-    head_r = bw * 0.158
+    head_r = bw * 0.172
     head_cy = y0 + bh * 0.265 + bh * PERSON_NUDGE[1]
     neck_gap = head_r * 0.20
     shoulder_top = head_cy + head_r + neck_gap
     shoulder_y = shoulder_top + bh * 0.035
-    body_bottom = y1 - bh * 0.02
-    shoulder_half = bw * 0.28
+    body_bottom = y1 - bh * 0.012
+    shoulder_half = bw * 0.304
     neck_half = head_r * 0.30
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
