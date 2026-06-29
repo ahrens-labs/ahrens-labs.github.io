@@ -21,7 +21,7 @@ OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "6"
+ASSET_VERSION = "7"
 
 # Match Link compose bounds so final 512px logos share chain scale/placement.
 REFERENCE_COMPOSE_BBOX = (241, 92, 698, 400)
@@ -181,27 +181,37 @@ def expanded_icon_bbox(bbox: tuple[int, int, int, int], pad_frac: float = 0.14) 
     )
 
 
-def pencil_shapes(
+def pencil_svg_shapes(
     length: float,
-    body_w: float,
+    body_half: float,
+    eraser_half: float,
     eraser_h: float,
     ferrule_h: float,
-    body_h: float,
     tip_h: float,
-) -> str:
-    half_w = body_w / 2
-    top = -length / 2
-    eraser_bottom = top + eraser_h
-    body_top = eraser_bottom + ferrule_h
-    body_bottom = body_top + body_h
-    tip_top = body_bottom
-    rx_eraser = body_w * 0.14
-    rx_body = body_w * 0.06
-    return f'''
-    <rect x="{-half_w:.1f}" y="{top:.1f}" width="{body_w:.1f}" height="{eraser_h:.1f}" rx="{rx_eraser:.1f}"/>
-    <line x1="{-half_w:.1f}" y1="{eraser_bottom:.1f}" x2="{half_w:.1f}" y2="{eraser_bottom:.1f}"/>
-    <rect x="{-half_w:.1f}" y="{body_top:.1f}" width="{body_w:.1f}" height="{body_h:.1f}" rx="{rx_body:.1f}"/>
-    <polygon points="{-half_w:.1f},{tip_top:.1f} {half_w:.1f},{tip_top:.1f} 0,{length / 2:.1f}"/>'''
+) -> tuple[str, str]:
+    """Side-view pencil: wide eraser block, ferrule gap, body tapering to a point."""
+    y_top = -length / 2
+    y_eraser = y_top + eraser_h
+    y_body = y_eraser + ferrule_h
+    y_tip = length / 2
+    eraser_r = min(eraser_half * 0.45, eraser_h * 0.35)
+
+    eraser = (
+        f"M {-eraser_half:.2f},{y_eraser - eraser_r:.2f} "
+        f"A {eraser_r:.2f} {eraser_r:.2f} 0 0 1 {-eraser_half:.2f},{y_top:.2f} "
+        f"L {eraser_half:.2f},{y_top:.2f} "
+        f"A {eraser_r:.2f} {eraser_r:.2f} 0 0 1 {eraser_half:.2f},{y_eraser - eraser_r:.2f} "
+        f"L {eraser_half:.2f},{y_eraser:.2f} "
+        f"L {-eraser_half:.2f},{y_eraser:.2f} Z"
+    )
+    body = (
+        f"M {-body_half:.2f},{y_body:.2f} "
+        f"L {body_half:.2f},{y_body:.2f} "
+        f"L {body_half:.2f},{y_tip - tip_h:.2f} "
+        f"L 0,{y_tip:.2f} "
+        f"L {-body_half:.2f},{y_tip - tip_h:.2f} Z"
+    )
+    return eraser, body
 
 
 def render_pencil(
@@ -214,20 +224,21 @@ def render_pencil(
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    length = max(bw, bh) * 1.52
-    body_w = length * 0.115
-    eraser_h = length * 0.13
-    ferrule_h = length * 0.045
-    tip_h = length * 0.14
-    body_h = length - eraser_h - ferrule_h - tip_h
-    stroke = max(2.6, body_w * 0.30)
-    shapes = pencil_shapes(length, body_w, eraser_h, ferrule_h, body_h, tip_h)
+    length = max(bw, bh) * 1.46
+    body_half = length * 0.068
+    eraser_half = body_half * 1.38
+    eraser_h = length * 0.17
+    ferrule_h = length * 0.075
+    tip_h = length * 0.21
+    eraser, body = pencil_svg_shapes(
+        length, body_half, eraser_half, eraser_h, ferrule_h, tip_h
+    )
     clip = expanded_icon_bbox(bbox)
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
-  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate({PENCIL_ANGLE})"
-     fill="none" stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}"
-     stroke-linecap="round" stroke-linejoin="round">{shapes}
+  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate({PENCIL_ANGLE})">
+    <path d="{eraser}" fill="{PENCIL_COLOR}"/>
+    <path d="{body}" fill="{PENCIL_COLOR}"/>
   </g>
 </svg>'''
     icon = Image.open(BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h))).convert("RGBA")
