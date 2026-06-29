@@ -301,6 +301,196 @@
             overflow: visible;
             display: block;
         }
+        /* Tab layout system */
+        body.classify-app .cl-tab {
+            max-width: 72rem;
+            margin-inline: auto;
+            padding-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        body.classify-app .cl-tab.cl-tab--wide {
+            max-width: 80rem;
+        }
+        body.classify-app .cl-tab.hidden {
+            display: none;
+        }
+        body.classify-app .cl-page-header {
+            border-radius: 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: linear-gradient(to right, rgb(248 250 252), rgb(255 255 255), rgb(248 250 252));
+            padding: 1rem 1.25rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .dark body.classify-app .cl-page-header {
+            border-color: rgba(51, 65, 85, 0.5);
+            background: linear-gradient(to right, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.48), rgba(15, 23, 42, 0.32));
+        }
+        body.classify-app .cl-page-header--dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        body.classify-app .cl-page-header__inner {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-page-header {
+                padding: 1.25rem 1.5rem;
+            }
+            body.classify-app .cl-page-header__inner {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+        body.classify-app .cl-page-title {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+            font-size: 1.5rem;
+            line-height: 1.25;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-page-title {
+                font-size: 1.875rem;
+            }
+        }
+        .dark body.classify-app .cl-page-title {
+            color: #fff;
+        }
+        body.classify-app .cl-page-subtitle {
+            margin: 0.25rem 0 0;
+            font-size: 0.875rem;
+            line-height: 1.45;
+            color: #475569;
+        }
+        .dark body.classify-app .cl-page-subtitle {
+            color: #94a3b8;
+        }
+        body.classify-app .cl-page-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        body.classify-app .cl-page-actions .cl-new-assignment-btn {
+            width: 100%;
+        }
+        @media (min-width: 640px) {
+            body.classify-app .cl-page-actions .cl-new-assignment-btn {
+                width: auto;
+            }
+        }
+        body.classify-app .cl-stat-highlight {
+            text-align: right;
+            border-radius: 1rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: linear-gradient(to bottom right, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.9));
+            padding: 1rem 1.25rem;
+            min-width: 7rem;
+        }
+        .dark body.classify-app .cl-stat-highlight {
+            border-color: rgba(51, 65, 85, 0.6);
+            background: linear-gradient(to bottom right, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.5));
+        }
+        body.classify-app .cl-panel {
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            padding: 1.25rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-panel {
+                padding: 1.5rem;
+            }
+        }
+        .dark body.classify-app .cl-panel {
+            border-color: rgba(51, 65, 85, 0.8);
+            background: rgba(15, 23, 42, 0.92);
+        }
+        body.classify-app .cl-panel--flush {
+            padding: 0;
+            overflow: hidden;
+        }
+        body.classify-app .cl-panel--accent {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.92) 100%);
+            border-color: rgba(226, 232, 240, 0.9);
+        }
+        .dark body.classify-app .cl-panel--accent {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.92) 0%, rgba(30, 41, 59, 0.78) 100%);
+        }
+        body.classify-app .cl-panel__header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .dark body.classify-app .cl-panel__header {
+            border-bottom-color: rgba(51, 65, 85, 0.7);
+        }
+        body.classify-app .cl-panel__title {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .dark body.classify-app .cl-panel__title {
+            color: #fff;
+        }
+        body.classify-app .cl-section-title {
+            margin: 0 0 0.75rem;
+            font-family: 'Plus Jakarta Sans', Inter, sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .dark body.classify-app .cl-section-title {
+            color: #f1f5f9;
+        }
+        body.classify-app .cl-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        body.classify-app .cl-grid-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-grid-stats {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+        body.classify-app .cl-grid-cards {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-grid-cards {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (min-width: 1024px) {
+            body.classify-app .cl-grid-cards {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
         .cl-settings-list {
             display: flex;
             flex-direction: column;
@@ -689,20 +879,20 @@
         <div class="p-4 md:p-8 scroll-smooth" id="mainContainer">
             
             <!-- VIEW: DASHBOARD -->
-            <div id="dashboardTab" class="fade-in space-y-6 max-w-6xl mx-auto pb-10">
-                <div class="flex flex-wrap justify-between items-start gap-4">
+            <div id="dashboardTab" class="cl-tab fade-in">
+                <header class="cl-page-header cl-page-header--dashboard">
                     <div class="min-w-0">
                         <h1 class="cl-greeting-title text-4xl md:text-5xl font-display font-bold text-transparent bg-gradient-to-r from-red-600 via-red-500 to-red-600 bg-clip-text" id="greeting">Hello, Student</h1>
-                        <p class="text-slate-500 dark:text-slate-400 mt-2 text-lg" id="currentDateDisplay">Today is...</p>
+                        <p class="cl-page-subtitle mt-2" id="currentDateDisplay">Today is...</p>
                     </div>
-                    <div class="text-right hidden sm:block bg-gradient-to-br from-slate-100/80 to-slate-100/80 rounded-2xl p-6 border border-slate-200/20 dark:border-slate-700/30">
-                        <div class="text-4xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="dashDueCount">0</div>
-                        <div class="text-sm text-slate-600 dark:text-slate-400 font-medium">Tasks Due Today</div>
+                    <div class="cl-stat-highlight">
+                        <div class="text-3xl sm:text-4xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="dashDueCount">0</div>
+                        <div class="text-sm text-slate-600 dark:text-slate-400 font-medium">Due Today</div>
                     </div>
-                </div>
+                </header>
 
                 <!-- Stats Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="cl-grid-stats">
                     <div class="card-gradient rounded-2xl p-5 card-hover group">
                         <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Total Tasks</div>
                         <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="statTotal">0</div>
@@ -722,11 +912,11 @@
                     </div>
                 </div>
 
-                <div class="card-gradient rounded-2xl p-5 md:p-6 border border-slate-200/40 dark:border-slate-700/30 shadow-sm">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <section class="cl-panel cl-panel--accent">
+                    <div class="cl-panel__header border-b-0 pb-0 mb-4">
                         <div>
-                            <h2 class="font-display font-bold text-xl text-slate-900 dark:text-white"><i class="fa-solid fa-calendar-week mr-2 text-red-500"></i>Weekly Planning Sprint</h2>
-                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Plan the week once, then execute daily with less stress.</p>
+                            <h2 class="cl-panel__title"><i class="fa-solid fa-calendar-week mr-2 text-red-500"></i>Weekly Planning Sprint</h2>
+                            <p class="cl-page-subtitle">Plan the week once, then execute daily with less stress.</p>
                         </div>
                         <div class="text-sm font-semibold text-red-700 dark:text-red-300 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-lg" id="weekRangeLabel">Week: --</div>
                     </div>
@@ -768,19 +958,19 @@
                             <div class="text-slate-400 dark:text-slate-500 italic">No plan generated yet.</div>
                         </div>
                     </div>
-                </div>
+                </section>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <!-- Today's Schedule -->
                     <div class="lg:col-span-2 space-y-6">
                         <!-- Smart Schedule -->
-                        <div class="card-gradient rounded-2xl border border-slate-200/30 dark:border-slate-700/30 shadow-lg overflow-hidden card-hover">
-                            <div class="p-5 border-b border-slate-200/20 dark:border-slate-700/20 flex flex-wrap justify-between items-center gap-3 bg-gradient-to-r from-slate-50/80 to-slate-50/80">
+                        <section class="cl-panel cl-panel--flush card-hover overflow-hidden">
+                            <div class="cl-panel__header mb-0 px-5 pt-5 bg-gradient-to-r from-slate-50/80 to-slate-50/80 dark:from-slate-800/40 dark:to-slate-800/40">
                                 <div>
-                                    <h2 class="font-display font-bold text-lg text-slate-900 dark:text-white"><i class="fa-regular fa-clock mr-2 text-red-500"></i>Today's Schedule</h2>
-                                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Optimized for focus</p>
+                                    <h2 class="cl-panel__title"><i class="fa-regular fa-clock mr-2 text-red-500"></i>Today's Schedule</h2>
+                                    <p class="cl-page-subtitle">Optimized for focus</p>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="cl-page-actions">
                                     <span class="text-xs font-bold bg-gradient-to-r from-red-500 to-red-400 text-white px-3 py-1 rounded-full">Smart</span>
                                     <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm">
                                         <i class="fa-solid fa-plus"></i> New Assignment
@@ -790,80 +980,90 @@
                             <div id="todayList" class="divide-y divide-slate-200/20 dark:divide-slate-700/20">
                                 <!-- Timeline Items Injected Here -->
                             </div>
-                        </div>
+                        </section>
                     </div>
 
                     <!-- Right Column -->
                     <div class="space-y-6">
                          <!-- Subject Workload -->
-                         <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm overflow-hidden h-fit">
-                            <div class="p-5 border-b border-slate-100 dark:border-dark-border">
-                                <h2 class="font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-chart-bar mr-2 text-slate-400"></i>Workload by Subject</h2>
+                         <section class="cl-panel cl-panel--flush overflow-hidden h-fit">
+                            <div class="cl-panel__header mb-0 px-5 pt-5">
+                                <h2 class="cl-panel__title"><i class="fa-solid fa-chart-bar mr-2 text-slate-400"></i>Workload by Subject</h2>
                             </div>
-                            <div id="subjectProgressList" class="p-4 space-y-3">
+                            <div id="subjectProgressList" class="px-5 pb-5 space-y-3">
                                 <!-- Subject Stats Injected Here -->
                             </div>
-                        </div>
+                        </section>
 
                         <!-- Upcoming / Overdue -->
-                        <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm overflow-hidden h-fit">
-                            <div class="p-5 border-b border-slate-100 dark:border-dark-border bg-rose-50/30 dark:bg-rose-900/10">
-                                <h2 class="font-bold text-rose-700 dark:text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Priority & Overdue</h2>
+                        <section class="cl-panel cl-panel--flush overflow-hidden h-fit">
+                            <div class="cl-panel__header mb-0 px-5 pt-5 bg-rose-50/30 dark:bg-rose-900/10">
+                                <h2 class="cl-panel__title text-rose-700 dark:text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Priority & Overdue</h2>
                             </div>
-                            <div id="priorityList" class="p-4 space-y-3">
+                            <div id="priorityList" class="px-5 pb-5 space-y-3">
                                 <!-- Priority Items Injected Here -->
                             </div>
-                        </div>
+                        </section>
                     </div>
                 </div>
             </div>
 
             <!-- VIEW: TASKS -->
-            <div id="tasksTab" class="hidden fade-in max-w-5xl mx-auto pb-6">
-                <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-4">Assignments</h2>
-                <div class="flex flex-wrap gap-2 items-center mb-6">
-                    <div class="relative flex-1 min-w-[200px] sm:flex-none sm:max-w-xs">
-                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                        <input type="text" id="taskSearch" autocomplete="off" placeholder="Search tasks... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
+            <div id="tasksTab" class="cl-tab hidden fade-in">
+                <header class="cl-page-header">
+                    <div class="cl-page-header__inner w-full">
+                        <div>
+                            <h2 class="cl-page-title">Tasks</h2>
+                            <p class="cl-page-subtitle">Search, filter, and manage all assignments.</p>
+                        </div>
+                        <div class="cl-page-actions">
+                            <button type="button" onclick="openModal()" class="cl-new-assignment-btn">
+                                <i class="fa-solid fa-plus"></i> New Assignment
+                            </button>
+                        </div>
                     </div>
-                    <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                        <option value="all">All Tasks</option>
-                        <option value="active">Active</option>
-                        <option value="weekplan">Weekly Planning Queue</option>
-                        <option value="thisweek">Due This Week</option>
-                        <option value="completed">Completed</option>
-                        <option value="overdue">Overdue</option>
-                    </select>
-                    <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                        <option value="date">Sort by Date</option>
-                        <option value="autoschedule">Sort by Auto-Schedule</option>
-                        <option value="priority">Sort by Priority</option>
-                        <option value="subject">Sort by Subject</option>
-                    </select>
-                    <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
-                        <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
-                    </button>
-                    <button type="button" onclick="openModal()" class="cl-new-assignment-btn w-full sm:w-auto sm:ml-auto">
-                        <i class="fa-solid fa-plus"></i> New Assignment
-                    </button>
-                </div>
+                </header>
 
-                <div class="bg-white dark:bg-dark-surface rounded-xl border border-slate-200 dark:border-dark-border shadow-sm">
+                <section class="cl-panel cl-panel--flush">
+                    <div class="cl-toolbar p-4 md:p-5 border-b border-slate-200 dark:border-dark-border">
+                        <div class="relative flex-1 min-w-[200px] sm:max-w-xs">
+                            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="taskSearch" autocomplete="off" placeholder="Search tasks... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
+                        </div>
+                        <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
+                            <option value="all">All Tasks</option>
+                            <option value="active">Active</option>
+                            <option value="weekplan">Weekly Planning Queue</option>
+                            <option value="thisweek">Due This Week</option>
+                            <option value="completed">Completed</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                        <select id="taskSort" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
+                            <option value="date">Sort by Date</option>
+                            <option value="autoschedule">Sort by Auto-Schedule</option>
+                            <option value="priority">Sort by Priority</option>
+                            <option value="subject">Sort by Subject</option>
+                        </select>
+                        <button onclick="openClearCompletedModal()" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-dark-border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium transition-colors" title="Clear Completed">
+                            <i class="fa-solid fa-trash-can mr-1"></i> Clear Done
+                        </button>
+                    </div>
                     <div class="p-2" id="fullTaskList">
                         <!-- Full Task List Rendered Here -->
                     </div>
-                </div>
+                </section>
             </div>
 
             <!-- VIEW: CALENDAR -->
-            <div id="calendarTab" class="hidden fade-in max-w-7xl mx-auto pb-10 space-y-5">
-                <div class="rounded-2xl border border-slate-200/40 dark:border-slate-700/40 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-950/30 p-4 md:p-6 shadow-sm">
-                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div id="calendarTab" class="cl-tab cl-tab--wide hidden fade-in">
+                <header class="cl-page-header">
+                    <div class="cl-page-header__inner w-full">
                         <div>
-                            <h2 class="text-3xl font-display font-bold text-slate-900 dark:text-white">Calendar</h2>
-                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Use month, week, day, and agenda layouts to plan at different levels.</p>
+                            <h2 class="cl-page-title">Calendar</h2>
+                            <p class="cl-page-subtitle">Use month, week, day, and agenda layouts to plan at different levels.</p>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700 p-1.5 shadow-sm w-fit">
+                        <div class="cl-page-actions">
+                            <div class="flex flex-wrap items-center gap-2 bg-white/90 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700 p-1.5 shadow-sm w-full sm:w-fit">
                             <div class="flex items-center bg-slate-50 dark:bg-slate-800 rounded-lg p-1">
                                 <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="px-3 h-8 rounded-md text-xs font-semibold bg-red-600 text-white">Month</button>
                                 <button id="weekViewBtn" onclick="setCalendarViewMode('week')" class="px-3 h-8 rounded-md text-xs font-semibold text-slate-700 dark:text-slate-300">Week</button>
@@ -881,15 +1081,16 @@
                             <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm h-9">
                                 <i class="fa-solid fa-plus"></i> New
                             </button>
+                            </div>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-2 mt-4 text-xs">
                         <span class="px-2.5 py-1 rounded-full bg-slate-100 text-red-700 dark:bg-slate-800/60 dark:text-red-300">Click a task to edit</span>
                         <span class="px-2.5 py-1 rounded-full bg-slate-100 text-red-700 dark:bg-slate-800/60 dark:text-red-300">Week view auto-places missing times</span>
                     </div>
-                </div>
+                </header>
 
-                <div id="monthCalendarView" class="bg-white/95 dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-lg overflow-hidden">
+                <div id="monthCalendarView" class="cl-panel cl-panel--flush overflow-hidden shadow-lg">
                     <!-- Weekday Headers -->
                     <div class="grid grid-cols-7 border-b border-slate-200 dark:border-dark-border bg-slate-100/60 dark:bg-slate-800">
                         <div class="py-3 text-center text-xs font-bold text-red-700 dark:text-red-300 uppercase tracking-wide">Sun</div>
@@ -906,19 +1107,19 @@
                     </div>
                 </div>
 
-                <div id="weekCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="weekCalendarView" class="hidden cl-panel shadow-lg">
                     <div id="weekCalendarGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <!-- Week cards injected via JS -->
                     </div>
                 </div>
 
-                <div id="dayCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="dayCalendarView" class="hidden cl-panel shadow-lg">
                     <div id="dayCalendarGrid" class="space-y-3">
                         <!-- Day timeline injected via JS -->
                     </div>
                 </div>
 
-                <div id="agendaCalendarView" class="hidden bg-white/95 dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-lg p-4 md:p-5">
+                <div id="agendaCalendarView" class="hidden cl-panel shadow-lg">
                     <div id="agendaWeekList" class="space-y-4">
                         <!-- Weekly agenda injected via JS -->
                     </div>
@@ -926,22 +1127,24 @@
             </div>
 
             <!-- VIEW: ANALYTICS -->
-            <div id="analyticsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
-                <div class="rounded-2xl border border-slate-200/40 dark:border-slate-700/40 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-950/30 p-5 md:p-6 shadow-sm">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div id="analyticsTab" class="cl-tab hidden fade-in">
+                <header class="cl-page-header">
+                    <div class="cl-page-header__inner w-full">
                         <div>
-                            <h2 class="text-2xl md:text-3xl font-display font-bold text-slate-900 dark:text-white">Task Analytics</h2>
-                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Scan workload patterns, then jump straight into filtered task lists.</p>
+                            <h2 class="cl-page-title">Task Analytics</h2>
+                            <p class="cl-page-subtitle">Scan workload patterns, then jump straight into filtered task lists.</p>
                         </div>
-                        <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
-                            View All Tasks
-                        </button>
+                        <div class="cl-page-actions">
+                            <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
+                                View All Tasks
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </header>
 
-                <div class="rounded-2xl border border-slate-200 dark:border-dark-border bg-white/90 dark:bg-dark-surface shadow-sm p-4 md:p-5">
+                <section class="cl-panel">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-sm font-bold uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">Quick Filters</h3>
+                        <h3 class="cl-section-title uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 text-sm mb-0">Quick Filters</h3>
                         <span class="text-xs text-slate-500 dark:text-slate-400">Tap a card to filter</span>
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -966,13 +1169,13 @@
                             <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Hard Tasks</div>
                         </button>
                     </div>
-                </div>
+                </section>
 
                 <!-- Analytics Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Avg Completion Time -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-hourglass-end text-slate-400"></i> Avg Actual Time
                         </h3>
                         <div class="text-3xl font-bold text-brand-600 mb-1" id="avgCompletionTime">--</div>
@@ -980,8 +1183,8 @@
                     </div>
 
                     <!-- Remaining Today -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-sun text-amber-400"></i> Remaining Today
                         </h3>
                         <div class="text-3xl font-bold text-slate-800 dark:text-white mb-1" id="remainingTodayMinutes">--</div>
@@ -989,8 +1192,8 @@
                     </div>
 
                     <!-- Remaining This Week -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-calendar-week text-red-500"></i> Remaining This Week
                         </h3>
                         <div class="text-3xl font-bold text-slate-800 dark:text-white mb-1" id="remainingWeekMinutes">--</div>
@@ -998,8 +1201,8 @@
                     </div>
 
                     <!-- On-time Rate -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-check-circle text-emerald-500"></i> On-time Rate
                         </h3>
                         <div class="text-3xl font-bold text-emerald-600 mb-1" id="onTimeRate">--</div>
@@ -1007,16 +1210,16 @@
                     </div>
 
                     <!-- Upcoming Deadlines -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6 md:col-span-2">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel md:col-span-2">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-bell text-rose-500"></i> Upcoming Deadlines (7 days)
                         </h3>
                         <div id="upcomingDeadlinesList" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
                     </div>
 
                     <!-- Unscheduled Soon -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Unscheduled Soon
                         </h3>
                         <div class="text-3xl font-bold text-amber-600 mb-1" id="unscheduledSoonCount">0</div>
@@ -1024,8 +1227,8 @@
                     </div>
 
                     <!-- Actual vs Estimated -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-stopwatch text-slate-400"></i> Avg Over/Under
                         </h3>
                         <div class="text-3xl font-bold text-emerald-600 mb-1" id="avgOverUnder">--</div>
@@ -1033,8 +1236,8 @@
                     </div>
 
                     <!-- Under Expected Rate -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-gauge-simple-low text-emerald-500"></i> Under Expected
                         </h3>
                         <div class="text-3xl font-bold text-emerald-600 mb-1" id="underExpectedRate">--</div>
@@ -1042,8 +1245,8 @@
                     </div>
 
                     <!-- Over Expected Rate -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-gauge-simple-high text-rose-500"></i> Over Expected
                         </h3>
                         <div class="text-3xl font-bold text-rose-600 mb-1" id="overExpectedRate">--</div>
@@ -1051,16 +1254,16 @@
                     </div>
 
                     <!-- On-Target Rate -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
                         </h3>
                         <div class="text-3xl font-bold text-red-600 mb-1" id="onTargetRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
                     </div>
                     
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-rotate-left text-slate-400"></i> Time Tracking
                         </h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Clear actual time entries to reset over/under analytics.</p>
@@ -1075,8 +1278,8 @@
                     </div>
 
                     <!-- Completion Streak -->
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-6">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <div class="cl-panel">
+                        <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-fire text-orange-400"></i> This Week Progress
                         </h3>
                         <div class="text-3xl font-bold text-amber-600 mb-1" id="weekProgress">0%</div>
@@ -1088,14 +1291,14 @@
             </div>
 
             <!-- VIEW: INSIGHTS -->
-            <div id="insightsTab" class="hidden fade-in max-w-6xl mx-auto pb-6 space-y-6">
-                <div class="rounded-2xl border border-slate-200/40 dark:border-slate-700/40 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-950/30 p-5 md:p-6 shadow-sm">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div id="insightsTab" class="cl-tab hidden fade-in">
+                <header class="cl-page-header">
+                    <div class="cl-page-header__inner w-full">
                         <div>
-                            <h2 class="text-2xl md:text-3xl font-display font-bold text-slate-900 dark:text-white">Planner Insights</h2>
-                            <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Actionable suggestions to keep workload balanced and deadlines safe.</p>
+                            <h2 class="cl-page-title">Planner Insights</h2>
+                            <p class="cl-page-subtitle">Actionable suggestions to keep workload balanced and deadlines safe.</p>
                         </div>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="cl-page-actions">
                             <button onclick="startWeeklyPlanning()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
                                 <i class="fa-solid fa-list-check mr-1"></i> Weekly Queue
                             </button>
@@ -1104,39 +1307,39 @@
                             </button>
                         </div>
                     </div>
-                </div>
+                </header>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5 lg:col-span-2">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-forward mr-2 text-red-500"></i>Next Best Assignment</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <section class="cl-panel lg:col-span-2">
+                        <h3 class="cl-section-title"><i class="fa-solid fa-forward mr-2 text-red-500"></i>Next Best Assignment</h3>
                         <div id="insightsNextTask" class="text-sm text-slate-600 dark:text-slate-300">No active assignments.</div>
-                    </div>
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-bolt mr-2 text-amber-500"></i>Momentum</h3>
+                    </section>
+                    <section class="cl-panel">
+                        <h3 class="cl-section-title"><i class="fa-solid fa-bolt mr-2 text-amber-500"></i>Momentum</h3>
                         <div id="insightsMomentum" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
-                    </div>
+                    </section>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-calendar-day mr-2 text-rose-500"></i>Deadline Radar</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <section class="cl-panel">
+                        <h3 class="cl-section-title"><i class="fa-solid fa-calendar-day mr-2 text-rose-500"></i>Deadline Radar</h3>
                         <div id="insightsDeadlineList" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
-                    </div>
-                    <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-scale-balanced mr-2 text-emerald-500"></i>Week Load Balance</h3>
+                    </section>
+                    <section class="cl-panel">
+                        <h3 class="cl-section-title"><i class="fa-solid fa-scale-balanced mr-2 text-emerald-500"></i>Week Load Balance</h3>
                         <div id="insightsWeekLoad" class="space-y-3 text-sm text-slate-600 dark:text-slate-300"></div>
-                    </div>
+                    </section>
                 </div>
 
-                <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-bullseye mr-2 text-red-500"></i>Today Focus Plan</h3>
+                <section class="cl-panel">
+                    <h3 class="cl-section-title"><i class="fa-solid fa-bullseye mr-2 text-red-500"></i>Today Focus Plan</h3>
                     <div id="insightsTodayFocus" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
-                </div>
+                </section>
 
-                <div class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-sm p-5">
-                    <h3 class="font-bold text-slate-800 dark:text-white mb-3"><i class="fa-solid fa-lightbulb mr-2 text-red-500"></i>Recommendations</h3>
+                <section class="cl-panel">
+                    <h3 class="cl-section-title"><i class="fa-solid fa-lightbulb mr-2 text-red-500"></i>Recommendations</h3>
                     <div id="insightsRecommendations" class="space-y-2 text-sm text-slate-600 dark:text-slate-300"></div>
-                </div>
+                </section>
             </div>
 
         </div>
