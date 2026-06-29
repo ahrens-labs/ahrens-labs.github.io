@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Classify logo: chain template + red gradient + pencil icon."""
+"""Build Classify logo: link chain template + red gradient + outline pencil."""
 from __future__ import annotations
 
 import sys
@@ -15,12 +15,16 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from pwa_icons import FAVICON_FILL, PWA_ANY_FILL, PWA_MASKABLE_FILL, fit_square  # noqa: E402
 
 IMG = ROOT / "img"
-TEMPLATE = IMG / "tether-logo-template.png"
+CHAIN_TEMPLATE = IMG / "link-chain-template.png"
+ICON_TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "3"
+ASSET_VERSION = "4"
+
+# Match Link compose bounds so final 512px logos share chain scale/placement.
+REFERENCE_COMPOSE_BBOX = (241, 92, 698, 400)
 
 CHECK_REF = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_REF = np.array([98, 192, 232], dtype=np.float32)
@@ -30,10 +34,7 @@ CHAIN_MID = np.array([228, 72, 62], dtype=np.float32)
 CHAIN_DARK = np.array([196, 48, 42], dtype=np.float32)
 CHAIN_DEEP = np.array([158, 32, 28], dtype=np.float32)
 
-PENCIL_BODY = "#dc2626"
-PENCIL_TIP = "#7f1d1d"
-PENCIL_ERASER = "#fecaca"
-PENCIL_FERRULE = "#cbd5e1"
+PENCIL_COLOR = "#dc2626"
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -42,19 +43,20 @@ def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
     return (bright > 246) | ((bright > 235) & (sat < 18))
 
 
-def layer_masks(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def chain_mask_from_template(arr: np.ndarray) -> np.ndarray:
+    r, g, b, a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
+    bg = is_background(r, g, b) | (a < 128)
+    return ~bg
+
+
+def icon_bbox_from_tether() -> tuple[int, int, int, int]:
+    arr = np.array(Image.open(ICON_TEMPLATE).convert("RGBA"), dtype=np.float32)
+    r, g, b, _a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
     bg = is_background(r, g, b)
-    fg = ~bg
     rgb = np.stack([r, g, b], axis=-1)
     d_check = np.sum((rgb - CHECK_REF) ** 2, axis=-1)
     d_chain = np.sum((rgb - CHAIN_REF) ** 2, axis=-1)
-    check = fg & (d_check <= d_chain)
-    chain = fg & ~check
-    return check, chain
-
-
-def icon_bbox(arr: np.ndarray) -> tuple[int, int, int, int]:
-    check, _chain = layer_masks(arr[..., 0], arr[..., 1], arr[..., 2])
+    check = (~bg) & (d_check <= d_chain)
     ys, xs = np.where(check)
     return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
 
@@ -92,9 +94,9 @@ def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray)
     base = CHAIN_DEEP * (1.0 - mix[..., None]) + CHAIN_DARK * mix[..., None] * 0.55 + CHAIN_MID * mix[..., None] * 0.45
     base = base * horizontal[..., None]
 
-    lum = (r + g + b) / 3.0
+    lum = g
     edge = np.clip((lum - 95) / 85.0, 0, 1)
-    highlight = CHAIN_HIGHLIGHT * (edge * vertical * 0.55)[..., None]
+    highlight = CHAIN_HIGHLIGHT * (edge * vertical * 0.38)[..., None]
 
     rgb = np.clip(base + highlight, 0, 255)
     for c in range(3):
@@ -104,7 +106,7 @@ def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray)
 
 def render_chains(arr: np.ndarray) -> Image.Image:
     r, g, b, _a = arr[..., 0], arr[..., 1], arr[..., 2], arr[..., 3]
-    _check, chain = layer_masks(r, g, b)
+    chain = chain_mask_from_template(arr)
     chain_rgb = shade_chains(r, g, b, chain)
 
     out = np.zeros_like(arr)
@@ -115,7 +117,7 @@ def render_chains(arr: np.ndarray) -> Image.Image:
 
 
 def opening_center_from_chains(arr: np.ndarray) -> tuple[float, float]:
-    _check, chain = layer_masks(arr[..., 0], arr[..., 1], arr[..., 2])
+    chain = chain_mask_from_template(arr)
     ys, xs = np.where(chain)
     return (xs.min() + xs.max()) / 2.0, (ys.min() + ys.max()) / 2.0
 
@@ -166,30 +168,51 @@ def render_pencil(
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    length = min(bw, bh) * 0.86
-    body_w = length * 0.16
-    eraser_h = length * 0.14
-    ferrule_h = length * 0.05
-    tip_h = length * 0.16
+    length = min(bw, bh) * 0.88
+    body_w = length * 0.17
+    eraser_h = length * 0.16
+    ferrule_h = length * 0.06
+    tip_h = length * 0.18
     body_h = length - eraser_h - ferrule_h - tip_h
     half_w = body_w / 2
+    stroke = max(2.4, body_w * 0.26)
+
+    top = -length / 2
+    eraser_bottom = top + eraser_h
+    body_top = eraser_bottom + ferrule_h
+    body_bottom = body_top + body_h
+    tip_top = body_bottom
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
-  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate(-42)">
-    <rect x="{-half_w:.1f}" y="{-length / 2 + eraser_h:.1f}" width="{body_w:.1f}" height="{body_h:.1f}" rx="{body_w * 0.08:.1f}" fill="{PENCIL_BODY}"/>
-    <rect x="{-half_w:.1f}" y="{-length / 2 + eraser_h + body_h:.1f}" width="{body_w:.1f}" height="{ferrule_h:.1f}" fill="{PENCIL_FERRULE}"/>
-    <rect x="{-half_w:.1f}" y="{-length / 2:.1f}" width="{body_w:.1f}" height="{eraser_h:.1f}" rx="{body_w * 0.12:.1f}" fill="{PENCIL_ERASER}"/>
-    <polygon points="{-half_w:.1f},{length / 2 - tip_h:.1f} {half_w:.1f},{length / 2 - tip_h:.1f} 0,{length / 2:.1f}" fill="{PENCIL_TIP}"/>
+  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate(-42)"
+     fill="none" stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}"
+     stroke-linecap="round" stroke-linejoin="round">
+    <rect x="{-half_w:.1f}" y="{top:.1f}" width="{body_w:.1f}" height="{eraser_h:.1f}" rx="{body_w * 0.14:.1f}"/>
+    <line x1="{-half_w:.1f}" y1="{eraser_bottom:.1f}" x2="{half_w:.1f}" y2="{eraser_bottom:.1f}"/>
+    <rect x="{-half_w:.1f}" y="{body_top:.1f}" width="{body_w:.1f}" height="{body_h:.1f}" rx="{body_w * 0.06:.1f}"/>
+    <polygon points="{-half_w:.1f},{tip_top:.1f} {half_w:.1f},{tip_top:.1f} 0,{length / 2:.1f}"/>
   </g>
 </svg>'''
     icon = Image.open(BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h))).convert("RGBA")
     return place_icon_centered(icon, target_cx, target_cy, bbox)
 
 
-def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
+def fit_canvas(
+    im: Image.Image,
+    canvas: int,
+    fill: float,
+    min_bbox: tuple[int, int, int, int] | None = None,
+) -> Image.Image:
     bbox = im.getbbox()
     if not bbox:
         raise RuntimeError("Logo produced empty image")
+    if min_bbox is not None:
+        bbox = (
+            min(bbox[0], min_bbox[0]),
+            min(bbox[1], min_bbox[1]),
+            max(bbox[2], min_bbox[2]),
+            max(bbox[3], min_bbox[3]),
+        )
     cropped = im.crop(bbox)
     target = int(canvas * fill)
     scale = target / max(cropped.size)
@@ -202,9 +225,9 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
 
 
 def compose() -> Image.Image:
-    arr = np.array(Image.open(TEMPLATE).convert("RGBA"), dtype=np.float32)
+    arr = np.array(Image.open(CHAIN_TEMPLATE).convert("RGBA"), dtype=np.float32)
     h, w = arr.shape[:2]
-    bbox = icon_bbox(arr)
+    bbox = icon_bbox_from_tether()
     target_cx, target_cy = icon_target(bbox, arr)
     base = render_chains(arr)
     pencil = render_pencil(w, h, bbox, target_cx, target_cy)
@@ -249,7 +272,7 @@ def write_favicons(logo: Image.Image) -> None:
 def main() -> None:
     im = compose()
     im = im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=115, threshold=3))
-    result = fit_canvas(im, CANVAS, FILL)
+    result = fit_canvas(im, CANVAS, FILL, min_bbox=REFERENCE_COMPOSE_BBOX)
     OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
     result.save(OUT_PNG, optimize=True)
     result.save(OUT_TOPBAR, optimize=True)
