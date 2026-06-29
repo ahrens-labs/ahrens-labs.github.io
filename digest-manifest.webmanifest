@@ -1,0 +1,45 @@
+{
+  "id": "ahrenslabs-digest",
+  "name": "Digest",
+  "short_name": "Digest",
+  "description": "Digest — personalized sports news by Ahrens Labs.",
+  "start_url": "/digest.html",
+  "scope": "/digest.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ea580c",
+  "orientation": "any",
+  "categories": ["news", "sports"],
+  "icons": [
+    {
+      "src": "/img/digest-favicon-512.png?v=20260628o",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/digest-favicon-192.png?v=20260628o",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/digest-favicon-192-maskable.png?v=20260628o",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/digest-favicon-512-maskable.png?v=20260628o",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/img/digest-favicon-180.png?v=20260628o",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 """Build Link logo: chain template + green gradient + person icon."""
 from __future__ import annotations
 
+import base64
+import sys
 from io import BytesIO
 from pathlib import Path
 
@@ -10,6 +12,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from pwa_icons import FAVICON_FILL, PWA_ANY_FILL, PWA_MASKABLE_FILL, fit_square  # noqa: E402
 IMG = ROOT / "img"
 CRM = ROOT / "workers" / "link-crm"
 CHAIN_TEMPLATE = IMG / "link-chain-template.png"
@@ -17,13 +21,13 @@ PERSON_TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = CRM / "link_logo.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "6"
+ASSET_VERSION = "12"
 
 CHECK_REF = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_REF = np.array([98, 192, 232], dtype=np.float32)
 
-# Whitespace inset around the Tether check within its bbox (L, T, R, B).
-CHECK_INSET_FRAC = (0.003, 0.007, 0.003, 0.036)
+# Optical center correction within the chain opening (left, up) as bbox fractions.
+PERSON_NUDGE = (-0.035, -0.04)
 
 PERSON_COLOR = "#14532d"
 CHAIN_HIGHLIGHT = np.array([146, 228, 168], dtype=np.float32)
@@ -115,26 +119,16 @@ def render_person(w: int, h: int, bbox: tuple[int, int, int, int]) -> Image.Imag
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    pad_l = bw * CHECK_INSET_FRAC[0]
-    pad_t = bh * CHECK_INSET_FRAC[1]
-    pad_r = bw * CHECK_INSET_FRAC[2]
-    pad_b = bh * CHECK_INSET_FRAC[3]
-    ix0 = x0 + pad_l
-    iy0 = y0 + pad_t
-    ix1 = x1 - pad_r
-    iy1 = y1 - pad_b
-    ibw = ix1 - ix0
-    ibh = iy1 - iy0
-    cx = (ix0 + ix1) / 2
+    cx = (x0 + x1) / 2 + bw * PERSON_NUDGE[0]
 
-    head_r = ibw * 0.145
-    head_cy = iy0 + ibh * 0.28
-    neck_gap = head_r * 0.24
+    head_r = bw * 0.158
+    head_cy = y0 + bh * 0.265 + bh * PERSON_NUDGE[1]
+    neck_gap = head_r * 0.20
     shoulder_top = head_cy + head_r + neck_gap
-    shoulder_y = shoulder_top + ibh * 0.07
-    body_bottom = iy1
-    shoulder_half = ibw * 0.33
-    neck_half = head_r * 0.36
+    shoulder_y = shoulder_top + bh * 0.035
+    body_bottom = y1 - bh * 0.02
+    shoulder_half = bw * 0.28
+    neck_half = head_r * 0.30
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
   <circle cx="{cx:.1f}" cy="{head_cy:.1f}" r="{head_r:.1f}" fill="{PERSON_COLOR}"/>
@@ -169,6 +163,43 @@ def compose() -> Image.Image:
     return Image.alpha_composite(base, person)
 
 
+PWA_ICON_SIZES: list[tuple[int, float, str]] = [
+    (48, FAVICON_FILL, "link_favicon-48.png"),
+    (180, PWA_ANY_FILL, "link_icon-180.png"),
+    (192, PWA_ANY_FILL, "link_icon-192.png"),
+    (512, PWA_ANY_FILL, "link_icon-512.png"),
+    (192, PWA_MASKABLE_FILL, "link_icon-192-maskable.png"),
+    (512, PWA_MASKABLE_FILL, "link_icon-512-maskable.png"),
+]
+
+
+def write_pwa_icons(logo: Image.Image) -> None:
+    exports: list[str] = []
+    for size, fill, name in PWA_ICON_SIZES:
+        out = fit_square(logo, size, fill)
+        path = CRM / name
+        out.save(path, optimize=True)
+        var = name.replace("-", "_").replace(".png", "").upper()
+        if name == "link_favicon-48.png":
+            var = "FAVICON_48"
+        elif name == "link_icon-180.png":
+            var = "ICON_180"
+        elif name == "link_icon-192.png":
+            var = "ICON_192"
+        elif name == "link_icon-512.png":
+            var = "ICON_512"
+        elif name == "link_icon-192-maskable.png":
+            var = "ICON_192_MASKABLE"
+        elif name == "link_icon-512-maskable.png":
+            var = "ICON_512_MASKABLE"
+        b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        exports.append(f"export const {var}_BASE64 = `{b64}`;")
+        print(f"Wrote {path}")
+
+    (CRM / "src" / "favicon.ts").write_text("\n\n".join(exports) + "\n", encoding="utf-8")
+    print("Updated workers/link-crm/src/favicon.ts")
+
+
 def main() -> None:
     im = compose()
     im = im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=115, threshold=3))
@@ -176,6 +207,7 @@ def main() -> None:
     OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
     result.save(OUT_PNG, optimize=True)
     print(f"Wrote {OUT_PNG} ({result.size[0]}x{result.size[1]})")
+    write_pwa_icons(result)
 
 
 if __name__ == "__main__":

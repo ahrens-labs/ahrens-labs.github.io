@@ -1146,7 +1146,7 @@ app.post('/api/reminders/:id', requireAuth, async (c) => {
 })
 
 // Serve favicon
-import { FAVICON_48_BASE64, ICON_192_BASE64, ICON_512_BASE64 } from './favicon'
+import { FAVICON_48_BASE64, ICON_180_BASE64, ICON_192_BASE64, ICON_192_MASKABLE_BASE64, ICON_512_BASE64, ICON_512_MASKABLE_BASE64 } from './favicon'
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64)
@@ -1165,6 +1165,14 @@ app.get('/favicon.png', (c) => {
   })
 })
 
+app.get('/icon-180.png', (c) => {
+  const buf = base64ToArrayBuffer(ICON_180_BASE64)
+  return c.body(buf, 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=604800',
+  })
+})
+
 app.get('/icon-192.png', (c) => {
   const buf = base64ToArrayBuffer(ICON_192_BASE64)
   return c.body(buf, 200, {
@@ -1173,8 +1181,24 @@ app.get('/icon-192.png', (c) => {
   })
 })
 
+app.get('/icon-192-maskable.png', (c) => {
+  const buf = base64ToArrayBuffer(ICON_192_MASKABLE_BASE64)
+  return c.body(buf, 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=604800',
+  })
+})
+
 app.get('/icon-512.png', (c) => {
   const buf = base64ToArrayBuffer(ICON_512_BASE64)
+  return c.body(buf, 200, {
+    'Content-Type': 'image/png',
+    'Cache-Control': 'public, max-age=604800',
+  })
+})
+
+app.get('/icon-512-maskable.png', (c) => {
+  const buf = base64ToArrayBuffer(ICON_512_MASKABLE_BASE64)
   return c.body(buf, 200, {
     'Content-Type': 'image/png',
     'Cache-Control': 'public, max-age=604800',
@@ -1233,10 +1257,22 @@ app.get('/manifest.json', (c) => {
         purpose: 'any',
       },
       {
-        src: `${pwa.base}/icon-512.png`,
+        src: `${pwa.base}/icon-192-maskable.png`,
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: `${pwa.base}/icon-512-maskable.png`,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
+      },
+      {
+        src: `${pwa.base}/icon-180.png`,
+        sizes: '180x180',
+        type: 'image/png',
+        purpose: 'any',
       },
     ],
   }, 200, {

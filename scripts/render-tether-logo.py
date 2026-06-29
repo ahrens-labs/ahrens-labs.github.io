@@ -2,19 +2,23 @@
 """Enhance the Tether logo template and render matching favicons."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from pwa_icons import FAVICON_FILL, PWA_ANY_FILL, PWA_MASKABLE_FILL, fit_square  # noqa: E402
+
 IMG = ROOT / "img"
 TEMPLATE = IMG / "tether-logo-template.png"
 OUT_PNG = IMG / "tether-logo.png"
 OUT_SVG = IMG / "tether-logo.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "33"
+ASSET_VERSION = "34"
 
 CHECK = np.array([20, 49, 93], dtype=np.float32)
 CHAIN_HIGHLIGHT = np.array([158, 214, 240], dtype=np.float32)
@@ -23,15 +27,15 @@ CHAIN_DARK = np.array([54, 138, 194], dtype=np.float32)
 CHAIN_DEEP = np.array([36, 118, 176], dtype=np.float32)
 
 FAVICON_SIZES: list[tuple[int, float, str]] = [
-    (32, 1.06, "tether-favicon-32.png"),
-    (48, 1.06, "tether-favicon-48.png"),
-    (96, 1.06, "tether-favicon-96.png"),
-    (128, 1.06, "tether-favicon-128.png"),
-    (180, 1.06, "tether-favicon-180.png"),
-    (192, 1.06, "tether-favicon-192.png"),
-    (512, 1.06, "tether-favicon-512.png"),
-    (192, 0.98, "tether-favicon-192-maskable.png"),
-    (512, 0.98, "tether-favicon-512-maskable.png"),
+    (32, FAVICON_FILL, "tether-favicon-32.png"),
+    (48, FAVICON_FILL, "tether-favicon-48.png"),
+    (96, FAVICON_FILL, "tether-favicon-96.png"),
+    (128, FAVICON_FILL, "tether-favicon-128.png"),
+    (180, PWA_ANY_FILL, "tether-favicon-180.png"),
+    (192, PWA_ANY_FILL, "tether-favicon-192.png"),
+    (512, PWA_ANY_FILL, "tether-favicon-512.png"),
+    (192, PWA_MASKABLE_FILL, "tether-favicon-192-maskable.png"),
+    (512, PWA_MASKABLE_FILL, "tether-favicon-512-maskable.png"),
 ]
 
 
@@ -137,19 +141,10 @@ def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
     return out
 
 
-def scale_logo(logo: Image.Image, size: int, fill: float = 1.0) -> Image.Image:
-    """Downscale the final logo; fill > 1.0 zooms in slightly on the mark."""
-    inner = max(1, int(round(size * fill)))
-    scaled = logo.resize((inner, inner), Image.Resampling.LANCZOS)
-    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    out.paste(scaled, ((size - inner) // 2, (size - inner) // 2), scaled)
-    return out
-
-
 def write_favicons(logo: Image.Image) -> None:
     icons_for_ico: list[Image.Image] = []
     for size, fill, name in FAVICON_SIZES:
-        out = scale_logo(logo, size, fill)
+        out = fit_square(logo, size, fill)
         out.save(IMG / name, optimize=True)
         if size in (32, 48, 96, 128):
             icons_for_ico.append(out)
