@@ -21,7 +21,7 @@ OUT_PNG = IMG / "classify-logo.png"
 OUT_TOPBAR = ROOT / "classify.png"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "4"
+ASSET_VERSION = "5"
 
 # Match Link compose bounds so final 512px logos share chain scale/placement.
 REFERENCE_COMPOSE_BBOX = (241, 92, 698, 400)
@@ -34,7 +34,9 @@ CHAIN_MID = np.array([228, 72, 62], dtype=np.float32)
 CHAIN_DARK = np.array([196, 48, 42], dtype=np.float32)
 CHAIN_DEEP = np.array([158, 32, 28], dtype=np.float32)
 
-PENCIL_COLOR = "#dc2626"
+PENCIL_COLOR = "#7f1d1d"
+PENCIL_HALO = "#ffffff"
+PENCIL_ANGLE = 42
 
 
 def is_background(r: np.ndarray, g: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -158,6 +160,41 @@ def place_icon_centered(
     return out
 
 
+def expanded_icon_bbox(bbox: tuple[int, int, int, int], pad_frac: float = 0.14) -> tuple[int, int, int, int]:
+    x0, y0, x1, y1 = bbox
+    bw = x1 - x0
+    bh = y1 - y0
+    return (
+        int(x0 - bw * pad_frac),
+        int(y0 - bh * pad_frac),
+        int(x1 + bw * pad_frac),
+        int(y1 + bh * pad_frac),
+    )
+
+
+def pencil_shapes(
+    length: float,
+    body_w: float,
+    eraser_h: float,
+    ferrule_h: float,
+    body_h: float,
+    tip_h: float,
+) -> str:
+    half_w = body_w / 2
+    top = -length / 2
+    eraser_bottom = top + eraser_h
+    body_top = eraser_bottom + ferrule_h
+    body_bottom = body_top + body_h
+    tip_top = body_bottom
+    rx_eraser = body_w * 0.14
+    rx_body = body_w * 0.06
+    return f'''
+    <rect x="{-half_w:.1f}" y="{top:.1f}" width="{body_w:.1f}" height="{eraser_h:.1f}" rx="{rx_eraser:.1f}"/>
+    <line x1="{-half_w:.1f}" y1="{eraser_bottom:.1f}" x2="{half_w:.1f}" y2="{eraser_bottom:.1f}"/>
+    <rect x="{-half_w:.1f}" y="{body_top:.1f}" width="{body_w:.1f}" height="{body_h:.1f}" rx="{rx_body:.1f}"/>
+    <polygon points="{-half_w:.1f},{tip_top:.1f} {half_w:.1f},{tip_top:.1f} 0,{length / 2:.1f}"/>'''
+
+
 def render_pencil(
     w: int,
     h: int,
@@ -168,33 +205,28 @@ def render_pencil(
     x0, y0, x1, y1 = bbox
     bw = x1 - x0
     bh = y1 - y0
-    length = min(bw, bh) * 0.88
-    body_w = length * 0.17
-    eraser_h = length * 0.16
-    ferrule_h = length * 0.06
-    tip_h = length * 0.18
+    length = max(bw, bh) * 1.18
+    body_w = length * 0.19
+    eraser_h = length * 0.15
+    ferrule_h = length * 0.055
+    tip_h = length * 0.17
     body_h = length - eraser_h - ferrule_h - tip_h
-    half_w = body_w / 2
-    stroke = max(2.4, body_w * 0.26)
-
-    top = -length / 2
-    eraser_bottom = top + eraser_h
-    body_top = eraser_bottom + ferrule_h
-    body_bottom = body_top + body_h
-    tip_top = body_bottom
+    stroke = max(3.2, body_w * 0.34)
+    halo_stroke = stroke * 2.35
+    shapes = pencil_shapes(length, body_w, eraser_h, ferrule_h, body_h, tip_h)
+    clip = expanded_icon_bbox(bbox)
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
-  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate(-42)"
-     fill="none" stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}"
-     stroke-linecap="round" stroke-linejoin="round">
-    <rect x="{-half_w:.1f}" y="{top:.1f}" width="{body_w:.1f}" height="{eraser_h:.1f}" rx="{body_w * 0.14:.1f}"/>
-    <line x1="{-half_w:.1f}" y1="{eraser_bottom:.1f}" x2="{half_w:.1f}" y2="{eraser_bottom:.1f}"/>
-    <rect x="{-half_w:.1f}" y="{body_top:.1f}" width="{body_w:.1f}" height="{body_h:.1f}" rx="{body_w * 0.06:.1f}"/>
-    <polygon points="{-half_w:.1f},{tip_top:.1f} {half_w:.1f},{tip_top:.1f} 0,{length / 2:.1f}"/>
+  <g transform="translate({target_cx:.1f} {target_cy:.1f}) rotate({PENCIL_ANGLE})"
+     fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="{PENCIL_HALO}" stroke-width="{halo_stroke:.2f}">{shapes}
+    </g>
+    <g stroke="{PENCIL_COLOR}" stroke-width="{stroke:.2f}">{shapes}
+    </g>
   </g>
 </svg>'''
     icon = Image.open(BytesIO(cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h))).convert("RGBA")
-    return place_icon_centered(icon, target_cx, target_cy, bbox)
+    return place_icon_centered(icon, target_cx, target_cy, clip)
 
 
 def fit_canvas(
