@@ -32,17 +32,17 @@ if [[ ! -f tether-logo.png ]]; then
 fi
 
 # Browser tab favicons.
-render_padded_png 32 0.92 "tether-favicon-32.png"
-render_padded_png 48 0.90 "tether-favicon-48.png"
-render_padded_png 96 0.88 "tether-favicon-96.png"
-render_padded_png 128 0.86 "tether-favicon-128.png"
+render_padded_png 32 0.96 "tether-favicon-32.png"
+render_padded_png 48 0.94 "tether-favicon-48.png"
+render_padded_png 96 0.92 "tether-favicon-96.png"
+render_padded_png 128 0.90 "tether-favicon-128.png"
 
 # Home-screen / PWA icons — larger fill while keeping a small safe inset.
-render_padded_png 180 0.86 "tether-favicon-180.png"
-render_padded_png 192 0.86 "tether-favicon-192.png"
-render_padded_png 512 0.86 "tether-favicon-512.png"
-render_padded_png 192 0.80 "tether-favicon-192-maskable.png"
-render_padded_png 512 0.80 "tether-favicon-512-maskable.png"
+render_padded_png 180 0.90 "tether-favicon-180.png"
+render_padded_png 192 0.90 "tether-favicon-192.png"
+render_padded_png 512 0.90 "tether-favicon-512.png"
+render_padded_png 192 0.84 "tether-favicon-192-maskable.png"
+render_padded_png 512 0.84 "tether-favicon-512-maskable.png"
 
 if [[ -f tether-logo.svg ]]; then
   cp tether-logo.svg tether-favicon.svg

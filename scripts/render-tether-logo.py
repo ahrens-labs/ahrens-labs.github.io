@@ -16,9 +16,11 @@ CANVAS = 512
 FILL = 0.92
 
 CHECK = np.array([20, 49, 93], dtype=np.float32)
-CHAIN_LIGHT = np.array([150, 218, 242], dtype=np.float32)
-CHAIN_MID = np.array([98, 192, 232], dtype=np.float32)
-CHAIN_DARK = np.array([52, 152, 202], dtype=np.float32)
+# Darker chain palette with room for highlight gradients
+CHAIN_HIGHLIGHT = np.array([118, 188, 224], dtype=np.float32)
+CHAIN_MID = np.array([52, 138, 188], dtype=np.float32)
+CHAIN_DARK = np.array([24, 96, 148], dtype=np.float32)
+CHAIN_DEEP = np.array([14, 72, 118], dtype=np.float32)
 
 
 def load_template() -> np.ndarray:
@@ -47,18 +49,44 @@ def shade_chains(r: np.ndarray, g: np.ndarray, b: np.ndarray, chain: np.ndarray)
     out = np.zeros((*r.shape, 3), dtype=np.float32)
     if not np.any(chain):
         return out
+
+    h, w = r.shape
     ys = np.where(chain)[0]
+    xs = np.where(chain)[1]
     y0, y1 = ys.min(), ys.max()
-    span = max(y1 - y0, 1)
-    yy = np.arange(r.shape[0], dtype=np.float32)[:, None]
-    shade = np.clip((yy - y0) / span, 0, 1)
-    shade = 0.38 + 0.62 * (1.0 - shade)
+    x0, x1 = xs.min(), xs.max()
+    y_span = max(y1 - y0, 1)
+    x_span = max(x1 - x0, 1)
+
+    yy = np.arange(h, dtype=np.float32)[:, None]
+    xx = np.arange(w, dtype=np.float32)[None, :]
+
+    # Vertical: lighter crest, darker underside
+    v = np.clip((yy - y0) / y_span, 0, 1)
+    vertical = 1.0 - v
+    vertical = vertical**1.35
+
+    # Horizontal: gentle shift between the two links
+    hpos = np.clip((xx - x0) / x_span, 0, 1)
+    horizontal = 0.88 + 0.12 * np.sin(hpos * np.pi)
+
+    # Radial depth under the checkmark
+    cy = (y0 + y1) / 2.0
+    cx = (x0 + x1) / 2.0 + x_span * 0.04
+    dist = np.sqrt(((yy - cy) / (y_span * 0.55)) ** 2 + ((xx - cx) / (x_span * 0.42)) ** 2)
+    radial = np.clip(1.0 - dist * 0.55, 0, 1) ** 1.2
+
+    # Top-left sheen
+    sheen = np.clip(1.0 - ((yy - y0) / y_span) * 0.65 - ((xx - x0) / x_span) * 0.25, 0, 1)
+
+    mix = np.clip(vertical * 0.45 + radial * 0.35 + sheen * 0.2, 0, 1)
+    base = CHAIN_DEEP * (1.0 - mix[..., None]) + CHAIN_DARK * mix[..., None] * 0.55 + CHAIN_MID * mix[..., None] * 0.45
+    base = base * horizontal[..., None]
 
     lum = (r + g + b) / 3.0
-    edge = np.clip((lum - 110) / 90.0, 0, 1)
+    edge = np.clip((lum - 95) / 85.0, 0, 1)
+    highlight = CHAIN_HIGHLIGHT * (edge * vertical * 0.55)[..., None]
 
-    base = CHAIN_MID * shade[..., None] + CHAIN_DARK * (1.0 - shade[..., None])
-    highlight = CHAIN_LIGHT * edge[..., None] * 0.42
     rgb = np.clip(base + highlight, 0, 255)
     for c in range(3):
         out[..., c] = np.where(chain, rgb[..., c], out[..., c])
