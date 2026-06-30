@@ -1430,6 +1430,10 @@
   let tetherSyncSocket = null;
   let tetherSyncRefreshTimer = null;
   let tetherSyncReconnectTimer = null;
+  let tetherSyncPollTimer = null;
+  let tetherSyncPingTimer = null;
+  let tetherSyncFingerprint = '';
+  let tetherSyncRefreshing = false;
 
   const GANTT_DAY_PX = 34;
   const GANTT_ROW_PX = 36;
@@ -2930,52 +2934,86 @@
     return base + '/api/tether/sync?session=' + encodeURIComponent(sessionId);
   }
 
+  async function refreshCurrentTetherView() {
+    if (tetherSyncRefreshing || !sessionId) return;
+    tetherSyncRefreshing = true;
+    const keepTaskId = document.getElementById('modal-task').classList.contains('open')
+      ? editingTaskId
+      : (viewingTaskId || null);
+    try {
+      await loadProjects();
+      if (appTab === 'my-tasks') {
+        await loadPersonalTasks();
+        await loadMyTasks();
+      } else if (activeProject) {
+        await loadProject(activeProject.id, keepTaskId || null);
+      } else {
+        renderProjectList();
+      }
+      await updateTetherSyncFingerprint();
+    } catch (e) {
+      console.warn('Tether refresh failed', e);
+    } finally {
+      tetherSyncRefreshing = false;
+    }
+  }
+
+  async function updateTetherSyncFingerprint() {
+    try {
+      const data = await api('/api/tether/sync-version', { method: 'GET' });
+      tetherSyncFingerprint = data.fingerprint || '';
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function pollTetherSyncVersion() {
+    if (document.hidden || !sessionId || tetherSyncRefreshing) return;
+    try {
+      const data = await api('/api/tether/sync-version', { method: 'GET' });
+      const next = data.fingerprint || '';
+      if (tetherSyncFingerprint && next && next !== tetherSyncFingerprint) {
+        await refreshCurrentTetherView();
+        return;
+      }
+      tetherSyncFingerprint = next;
+    } catch {
+      ensureTetherSyncConnected();
+    }
+  }
+
+  function startTetherSyncPoll() {
+    clearInterval(tetherSyncPollTimer);
+    tetherSyncPollTimer = setInterval(pollTetherSyncVersion, 10000);
+  }
+
+  function ensureTetherSyncConnected() {
+    if (!sessionId) return;
+    if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) return;
+    if (tetherSyncSocket) {
+      try { tetherSyncSocket.close(); } catch { /* ignore */ }
+      tetherSyncSocket = null;
+    }
+    connectTetherSync();
+  }
+
+  function handleTetherResume() {
+    ensureTetherSyncConnected();
+    pollTetherSyncVersion();
+  }
+
   function scheduleTetherSyncRefresh(evt) {
     clearTimeout(tetherSyncRefreshTimer);
-    tetherSyncRefreshTimer = setTimeout(() => { refreshFromTetherSync(evt); }, 120);
+    tetherSyncRefreshTimer = setTimeout(async () => {
+      await refreshFromTetherSync(evt);
+      await updateTetherSyncFingerprint();
+    }, 120);
   }
 
   async function refreshFromTetherSync(evt) {
     if (!evt || evt.sourceClientId === syncClientId) return;
-    const keepTaskId = document.getElementById('modal-task').classList.contains('open')
-      ? editingTaskId
-      : (viewingTaskId || null);
-
-    try {
-      if (evt.type === 'inbox') {
-        await loadPersonalTasks();
-        if (appTab === 'my-tasks') await loadMyTasks();
-      }
-      if (evt.type === 'project' && evt.projectId) {
-        await loadProjects();
-        if (activeProject && activeProject.id === evt.projectId) {
-          await loadProject(evt.projectId, keepTaskId || null);
-        } else if (appTab === 'projects') {
-          renderProjectList();
-        }
-        if (appTab === 'my-tasks') await loadMyTasks();
-      }
-      if (evt.type === 'projects') {
-        await loadProjects();
-        if (appTab === 'projects') {
-          if (activeProject) {
-            const still = projects.find(p => p.id === activeProject.id);
-            if (still) await loadProject(activeProject.id, keepTaskId || null);
-            else {
-              activeProject = null;
-              document.getElementById('project-view').style.display = 'none';
-              document.getElementById('empty-state').style.display = 'flex';
-              renderProjectList();
-            }
-          } else {
-            renderProjectList();
-          }
-        }
-        if (appTab === 'my-tasks') await loadMyTasks();
-      }
-    } catch (e) {
-      console.warn('Tether sync refresh failed', e);
-    }
+    if (evt.type === 'ping') return;
+    await refreshCurrentTetherView();
   }
 
   function connectTetherSync() {
@@ -2986,7 +3024,16 @@
       tetherSyncSocket = null;
       return;
     }
+    tetherSyncSocket.addEventListener('open', () => {
+      clearInterval(tetherSyncPingTimer);
+      tetherSyncPingTimer = setInterval(() => {
+        if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) {
+          try { tetherSyncSocket.send('ping'); } catch { /* ignore */ }
+        }
+      }, 25000);
+    });
     tetherSyncSocket.addEventListener('message', (e) => {
+      if (e.data === 'pong') return;
       try {
         scheduleTetherSyncRefresh(JSON.parse(e.data));
       } catch {
@@ -2995,6 +3042,7 @@
     });
     tetherSyncSocket.addEventListener('close', () => {
       tetherSyncSocket = null;
+      clearInterval(tetherSyncPingTimer);
       clearTimeout(tetherSyncReconnectTimer);
       tetherSyncReconnectTimer = setTimeout(connectTetherSync, 3000);
     });
@@ -4540,11 +4588,24 @@
           if (mt) await openTaskEditor(taskId, { fromMyTasks: true, projectId: mt.projectId || null });
         }
       }
-      connectTetherSync();
+      startTetherSyncPoll();
+      await updateTetherSyncFingerprint();
     } catch (e) {
       showBanner(e.message || 'Could not load Tether');
+    } finally {
+      connectTetherSync();
+      startTetherSyncPoll();
     }
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) handleTetherResume();
+  });
+  window.addEventListener('focus', handleTetherResume);
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) handleTetherResume();
+  });
+  window.addEventListener('online', handleTetherResume);
   function ganttRange(tasks) {
     const today = isoDate(new Date());
     const withDue = tasks.filter(t => t.dueDate);

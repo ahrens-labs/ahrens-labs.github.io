@@ -345,6 +345,20 @@ async function fetchProjectListMeta(env, projectId) {
   return res.json();
 }
 
+async function buildSyncFingerprint(env, userId) {
+  const projectIds = await getTetherProjectIds(env, userId);
+  const metas = await Promise.all(projectIds.map((pid) => fetchProjectListMeta(env, pid)));
+  const inbox = await getInboxTasks(env, userId);
+  const projectParts = metas
+    .filter(Boolean)
+    .map((m) => `${m.id}:${m.updatedAt || 0}:${m.taskCount || 0}:${m.tasksDoneCount || 0}`)
+    .sort();
+  const inboxParts = inbox
+    .map((t) => `${t.id}:${t.status || 'todo'}:${String(t.title || '').slice(0, 48)}:${t.dueDate || ''}`)
+    .sort();
+  return `${projectParts.join('|')}::inbox::${inboxParts.join(';')}`;
+}
+
 async function fetchAccessibleProjectSummaries(env, projectIds, userId) {
   const results = await Promise.all(
     projectIds.map(async (pid) => {
@@ -479,6 +493,11 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const projectIds = await getTetherProjectIds(env, userId);
     const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
     return jsonResponse({ projects }, corsHeaders);
+  }
+
+  if (path === '/api/tether/sync-version' && request.method === 'GET') {
+    const fingerprint = await buildSyncFingerprint(env, userId);
+    return jsonResponse({ fingerprint, ts: Date.now() }, corsHeaders);
   }
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
@@ -980,6 +999,17 @@ export class TetherSync {
       ws.close(code, reason);
     } catch {
       /* already closed */
+    }
+  }
+
+  async webSocketMessage(ws, message) {
+    const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
+    if (text === 'ping') {
+      try {
+        ws.send('pong');
+      } catch {
+        /* ignore */
+      }
     }
   }
 }
