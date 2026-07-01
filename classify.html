@@ -2578,9 +2578,13 @@
                 ? Math.max(1, Math.min(100, Math.round(Number(task.splitPercent))))
                 : null;
             let normalizedTimeSource = ['auto', 'user'].includes(task.timeSource) ? task.timeSource : null;
+            const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
+            let normalizedDateSource = ['auto', 'user'].includes(task.dateSource) ? task.dateSource : null;
+            if(!normalizedDateSource && normalizedEventDate) {
+                normalizedDateSource = (inferredScheduleType === 'date' && !weekDueOnly) ? 'user' : 'auto';
+            }
             if(!normalizedTimeSource && normalizedTime) {
                 // Legacy task inference: week/flexible scheduled times were typically auto-generated.
-                const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
                 normalizedTimeSource = inferredScheduleType === 'date' ? 'user' : 'auto';
             }
             let normalizedAssignmentMode = ['FIXED', 'ADJUSTABLE'].includes(task.assignmentMode)
@@ -2596,7 +2600,6 @@
             }
             if(normalizedAssignmentMode !== 'FIXED') {
                 normalizedAssignmentMode = 'ADJUSTABLE';
-                const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
                 const keepUserTimeSource = normalizedTimeSource === 'user' &&
                     Boolean(normalizedTime) &&
                     inferredScheduleType === 'date' &&
@@ -2641,6 +2644,7 @@
                 title: String(task.title || task.name || 'Untitled Assignment'),
                 subject: String(task.subject || 'General'),
                 date: normalizedEventDate,
+                dateSource: normalizedDateSource,
                 dueDate: normalizedDueDate,
                 week: normalizedWeek,
                 scheduleType: task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible')),
@@ -2717,7 +2721,8 @@
 
         function hasUserLockedCalendarDate(task) {
             if(!task?.date || task.scheduleType === 'week') return false;
-            return true;
+            if(task.dateSource === 'user') return true;
+            return isFixedTask(task) || isUserTimeLockedTask(task);
         }
 
         function isTaskScheduledBefore(first, second, minGap = 5) {
@@ -3607,10 +3612,60 @@
         document.getElementById('btn-classify-settings').addEventListener('click', openClassifySettings);
 
         // --- Data Management ---
-        function saveData() {
+        let saveDataAutoScheduleGuard = false;
+
+        function prepareAdjustableTasksForRepack(weekKeys = [], forceRebuildAutoSlots = true) {
+            const keySet = new Set((weekKeys || []).filter(Boolean));
+            if(keySet.size === 0) return;
+            (tasks || []).forEach(t => {
+                if(!t || t.completed || t.repeatNoAutoTime) return;
+                if(isFixedTask(t) || isUserTimeLockedTask(t)) return;
+                const taskWeek = t.date ? getWeekKeyFromDateStr(t.date) : t.week;
+                if(!taskWeek || !keySet.has(taskWeek)) return;
+                if(!forceRebuildAutoSlots && t.timeSource !== 'auto') return;
+                t.time = null;
+                t.timeSource = null;
+                t.assignmentMode = 'ADJUSTABLE';
+            });
+        }
+
+        function refreshAdjustableScheduling(options = {}) {
+            const {
+                weekKeys = null,
+                forceRebuildAutoSlots = true
+            } = options || {};
+            const keys = Array.from(new Set((weekKeys || getRelevantUpcomingWeekKeys()).filter(Boolean)));
+            if(keys.length === 0) return 0;
+            let changed = 0;
+            keys.forEach(weekKey => {
+                try {
+                    prepareAdjustableTasksForRepack([weekKey], forceRebuildAutoSlots);
+                    planWeek(weekKey, true, true);
+                    changed += autoBlockWeekTimes(false, weekKey, true, forceRebuildAutoSlots) || 0;
+                } catch (error) {
+                    console.error(`Adjustable auto-schedule failed for ${weekKey}:`, error);
+                }
+            });
+            return changed;
+        }
+
+        function saveData(options = {}) {
+            const { skipAutoSchedule = false } = options || {};
             pruneExpiredScheduleItems();
             enforceNoOverlappingTimes();
             enforceDependencyOrder();
+
+            if(!skipAutoSchedule && !saveDataAutoScheduleGuard) {
+                saveDataAutoScheduleGuard = true;
+                try {
+                    refreshAdjustableScheduling();
+                } catch (error) {
+                    console.error('Adjustable auto-schedule failed:', error);
+                } finally {
+                    saveDataAutoScheduleGuard = false;
+                }
+            }
+
             plannerSet('plannerTasksV2', JSON.stringify(tasks));
             plannerSet('plannerCompletionHistoryV1', JSON.stringify(completionHistory));
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
@@ -5199,15 +5254,11 @@
 
         function reAutoScheduleWeeks(weekKeys = [], forceRebuildAutoSlots = true) {
             const uniqueKeys = Array.from(new Set((weekKeys || []).filter(Boolean)));
-            let changed = 0;
-            uniqueKeys.forEach(weekKey => {
-                try {
-                    changed += autoBlockWeekTimes(false, weekKey, true, forceRebuildAutoSlots) || 0;
-                } catch (error) {
-                    console.error(`Auto-schedule failed for ${weekKey}:`, error);
-                }
+            const changed = refreshAdjustableScheduling({
+                weekKeys: uniqueKeys,
+                forceRebuildAutoSlots
             });
-            saveData();
+            saveData({ skipAutoSchedule: true });
             return changed;
         }
 
@@ -5711,7 +5762,7 @@
             const spawned = advanceRepeatSeriesIfReady();
             pruneRepeatFutureWeeks();
             reAutoScheduleAfterCompletion(task, spawned > 0);
-            saveData();
+            saveData({ skipAutoSchedule: true });
             syncClassifyDataToCloud();
             closeTimeModal();
             enforceBreakAfterCompletion(task);
@@ -5839,6 +5890,7 @@
             task.date = dateStr;
             task.week = getWeekKeyFromDateStr(dateStr);
             task.scheduleType = 'date';
+            task.dateSource = 'user';
             if(timeStr) {
                 task.time = timeStr;
                 task.assignmentMode = 'FIXED';
@@ -5848,7 +5900,8 @@
                 task.assignmentMode = 'ADJUSTABLE';
                 task.timeSource = null;
             }
-            saveData();
+            autoBlockWeekTimes(false, getWeekKeyFromDateStr(dateStr), false, true);
+            saveData({ skipAutoSchedule: true });
             renderCalendar();
         }
 
@@ -6640,6 +6693,7 @@
                 title: title,
                 subject: subject,
                 date: scheduleType === 'date' ? (date || null) : null,
+                dateSource: scheduleType === 'date' && date ? 'user' : null,
                 dueDate: dueDate,
                 week: scheduleType === 'week'
                     ? week
@@ -6730,7 +6784,7 @@
                         autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
                     });
 
-                    saveData();
+                    saveData({ skipAutoSchedule: true });
                     if(isCreatingNewTask) syncClassifyDataToCloud();
                     clearForm();
                     closeModal();
@@ -6813,7 +6867,7 @@
                     if(!weekKey) return;
                     autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
                 });
-                saveData();
+                saveData({ skipAutoSchedule: true });
                 clearForm();
                 closeModal();
             };
@@ -6927,10 +6981,10 @@
                 autoBlockWeekTimes(false, finalWeek, true);
 
                 if(task.date && task.time) {
-                    saveData();
+                    saveData({ skipAutoSchedule: true });
                     showNotification(`Rescheduled "${task.title}"`, 'success');
                 } else {
-                    saveData();
+                    saveData({ skipAutoSchedule: true });
                     showNotification('Could not find an available slot before the due deadline. Please set it manually.', 'error');
                 }
             };
@@ -7041,7 +7095,7 @@
                 autoPlanWeekInternal(targetWeekKey, { showToast: false, persist: false, switchToCalendar: false });
             }
 
-            saveData();
+            saveData({ skipAutoSchedule: true });
             syncClassifyDataToCloud();
             showNotification('Assignment duplicated', 'success');
         }
@@ -7510,6 +7564,7 @@
             candidates.forEach(task => {
                 task.date = eligibleDates[0];
                 task.week = weekKey;
+                if(task.dateSource !== 'user') task.dateSource = 'auto';
                 assigned++;
             });
 
@@ -7552,8 +7607,8 @@
                     return;
                 }
 
-                // Adjustable tasks with an assigned date stay on that date; only their time is rebuilt.
-                if(hasAssignedDate) {
+                // Adjustable tasks: clear auto placement so the scheduler can repack to the earliest valid slot/day.
+                if(hasAssignedDate && !isFixedTask(task) && !isUserTimeLockedTask(task)) {
                     task.week = getWeekKeyFromDateStr(task.date);
                     task.time = null;
                     task.timeSource = null;
@@ -7567,6 +7622,7 @@
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
                 task.date = eligibleDates[0];
+                if(task.dateSource !== 'user') task.dateSource = 'auto';
                 task.week = weekKey;
                 assigned++;
             });
@@ -7583,7 +7639,7 @@
             } = options || {};
             const targetWeekKey = weekKey || getCurrentWeekKey();
             const { assigned, preserved, rebuilt } = replanWeekFromScratch(targetWeekKey, true);
-            if(persist) saveData();
+            if(persist) saveData({ skipAutoSchedule: true });
             if(switchToCalendar) {
                 setCalendarViewMode('week');
                 switchTab('calendar');
@@ -7633,7 +7689,7 @@
                 if(!weekKey) return;
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
-            saveData();
+            saveData({ skipAutoSchedule: true });
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
@@ -7647,16 +7703,19 @@
                 ...weekTasks.map(t => t.date).filter(d => d && d >= todayStr)
             ])).sort((a, b) => a.localeCompare(b));
 
-            // Reset only movable auto-slots so the week can be rebuilt without stale collisions.
+            // Reset movable adjustable slots so the week can be rebuilt toward the earliest valid placement.
             weekTasks.forEach(t => {
+                if(!t.date || !processDates.includes(t.date) || t.completed) return;
+                if(isFixedTask(t) || isUserTimeLockedTask(t) || t.repeatNoAutoTime) return;
+                if(!t.time) return;
                 if(
-                    processDates.includes(t.date) &&
-                    t.time &&
-                    t.timeSource === 'auto' &&
-                    (forceRebuildAutoSlots || strictPriority || hasScheduledWindowPassed(t)) &&
-                    !t.completed
+                    forceRebuildAutoSlots ||
+                    t.timeSource === 'auto' ||
+                    hasScheduledWindowPassed(t)
                 ) {
                     t.time = null;
+                    t.timeSource = null;
+                    t.assignmentMode = 'ADJUSTABLE';
                 }
             });
 
@@ -7733,18 +7792,13 @@
                 return best;
             };
             const getTaskCandidateDates = (task) => {
-                const isTargetWeekTask = task?.scheduleType === 'week';
                 const hasUserLockedDate = hasUserLockedCalendarDate(task);
-                const preferredDate = (!isTargetWeekTask && task.date && processDates.includes(task.date))
-                    ? task.date
-                    : processDates[0];
                 const out = new Set();
                 if(hasUserLockedDate) {
                     if(task.date && task.date >= todayStr) out.add(task.date);
                 } else {
-                    if(preferredDate) out.add(preferredDate);
                     processDates
-                        .filter(d => d !== preferredDate)
+                        .filter(d => d >= todayStr)
                         .sort((a, b) => a.localeCompare(b))
                         .forEach(d => out.add(d));
                 }
@@ -7917,6 +7971,7 @@
                     task.assignmentMode = 'ADJUSTABLE';
                     task.timeSource = 'auto';
                     task.date = finalDate;
+                    if(!hasUserLockedDate) task.dateSource = 'auto';
                     placed.busy.push(buildBusySlotForTask(task, placed.slot.start, placed.slot.end, finalDate));
                     placed.busy.sort((a, b) => a.start - b.start);
                     busyByDate[finalDate] = placed.busy;
@@ -8029,6 +8084,7 @@
                         task.assignmentMode = 'ADJUSTABLE';
                         task.timeSource = 'auto';
                         task.date = day;
+                        if(task.dateSource !== 'user') task.dateSource = 'auto';
                         busyByDate[day] = (busyByDate[day] || []).concat(
                             buildBusySlotForTask(task, gap.start, gap.start + firstDuration, day)
                         ).sort((a, b) => a.start - b.start);
@@ -8335,7 +8391,7 @@
             }
 
             if(updated > 0) {
-                saveData();
+                saveData({ skipAutoSchedule: true });
                 if(showToast) {
                     setCalendarViewMode('week');
                     switchTab('calendar');
