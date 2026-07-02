@@ -2302,6 +2302,22 @@
             return out;
         }
 
+        function mergeRepeatSkips(local = {}, remote = {}) {
+            const out = {};
+            const keys = new Set([
+                ...Object.keys(local || {}),
+                ...Object.keys(remote || {})
+            ]);
+            keys.forEach(groupId => {
+                const merged = Array.from(new Set([
+                    ...(Array.isArray(local?.[groupId]) ? local[groupId] : []),
+                    ...(Array.isArray(remote?.[groupId]) ? remote[groupId] : [])
+                ])).sort((a, b) => a.localeCompare(b));
+                if(merged.length > 0) out[groupId] = merged;
+            });
+            return normalizeRepeatSkips(out);
+        }
+
         function isRepeatWeekSkipped(groupId, weekKey) {
             if(!groupId || !weekKey) return false;
             const markers = repeatSkips[groupId];
@@ -2318,6 +2334,8 @@
             if(!groupId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return;
             const existing = Array.isArray(repeatSkips[groupId]) ? repeatSkips[groupId] : [];
             repeatSkips[groupId] = Array.from(new Set([...existing, dateStr])).sort((a, b) => a.localeCompare(b));
+            repeatSkips = normalizeRepeatSkips(repeatSkips);
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
         }
 
         function recordRepeatWeekSkip(groupId, weekKey) {
@@ -2325,6 +2343,8 @@
             const marker = `W:${weekKey}`;
             const existing = Array.isArray(repeatSkips[groupId]) ? repeatSkips[groupId] : [];
             repeatSkips[groupId] = Array.from(new Set([...existing, marker])).sort((a, b) => a.localeCompare(b));
+            repeatSkips = normalizeRepeatSkips(repeatSkips);
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
         }
 
         function clearRepeatOccurrenceException(groupId, task) {
@@ -2340,6 +2360,8 @@
             const next = markers.filter(entry => !toRemove.has(entry));
             if(next.length > 0) repeatSkips[groupId] = next;
             else delete repeatSkips[groupId];
+            repeatSkips = normalizeRepeatSkips(repeatSkips);
+            plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
         }
 
         function recordRepeatOccurrenceException(groupId, task) {
@@ -2348,8 +2370,42 @@
                 recordRepeatWeekSkip(groupId, task.repeatWeekKey || task.week);
                 return;
             }
-            const dateStr = task.date || getTaskDueDate(task) || null;
-            if(dateStr) recordRepeatDateSkip(groupId, dateStr);
+            getRepeatOccurrenceDatesForTask(task).forEach(dateStr => recordRepeatDateSkip(groupId, dateStr));
+        }
+
+        function inferDeletedRepeatDates(groupId, task) {
+            if(!groupId || !task) return [];
+            const weekKey = task.repeatWeekKey || task.week;
+            if(!weekKey) return [];
+            const rule = normalizeRepeatRule(task.repeatRule || {});
+            const weekDates = getRepeatDatesForWeek(weekKey, rule);
+            if(weekDates.length === 0) return [];
+            const siblings = tasks.filter(t => t.repeatGroupId === groupId && t.id !== task.id);
+            const covered = new Set(siblings.flatMap(t => getRepeatOccurrenceDatesForTask(t)));
+            const uncovered = weekDates.filter(dateStr => !covered.has(dateStr));
+            return uncovered.length === 1 ? uncovered : [];
+        }
+
+        function recordDeletedRepeatOccurrence(groupId, task) {
+            if(!groupId || !task) return;
+            if(task.weekDueOnly) {
+                recordRepeatWeekSkip(groupId, task.repeatWeekKey || task.week);
+                return;
+            }
+            const dates = getRepeatOccurrenceDatesForTask(task);
+            if(dates.length > 0) {
+                dates.forEach(dateStr => recordRepeatDateSkip(groupId, dateStr));
+                return;
+            }
+            inferDeletedRepeatDates(groupId, task).forEach(dateStr => recordRepeatDateSkip(groupId, dateStr));
+        }
+
+        function isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey = null) {
+            if(!groupId || !dateStr) return false;
+            if(isRepeatDateSkipped(groupId, dateStr)) return true;
+            if(weekKey && isRepeatWeekSkipped(groupId, weekKey)) return true;
+            if(hasRepeatGroupOccurrenceOnDate(groupId, dateStr)) return true;
+            return false;
         }
 
         function getRepeatOccurrenceDatesForTask(task) {
@@ -2691,7 +2747,7 @@
             blockedTimes = Array.isArray(payload.blockedTimes) ? normalizeBlockedTimes(payload.blockedTimes) : [];
             scheduleRules = normalizeScheduleRules(payload.scheduleRules);
             vacationRanges = normalizeVacationRanges(payload.vacations);
-            repeatSkips = normalizeRepeatSkips(payload.repeatSkips);
+            repeatSkips = mergeRepeatSkips(repeatSkips, normalizeRepeatSkips(payload.repeatSkips));
             subjectColors = payload.subjectColors || {};
             calendarViewMode = payload.calendarViewMode || 'month';
             if (payload.darkMode === 'true' || payload.darkMode === 'false') {
@@ -7010,8 +7066,7 @@
             const dates = getRepeatDatesForWeek(weekKey, rule);
             let added = 0;
             dates.forEach(dateStr => {
-                if(isRepeatDateSkipped(groupId, dateStr)) return;
-                if(hasRepeatGroupOccurrenceOnDate(groupId, dateStr)) return;
+                if(isRepeatOccurrenceSuppressed(groupId, dateStr, weekKey)) return;
                 const templateIsFixed = isFixedTask(templateTask);
                 const occurrence = normalizeTask({
                     ...templateTask,
@@ -7485,12 +7540,12 @@
                 showNotification('Recurring series deleted', 'success');
             };
             const deleteSingle = () => {
-                const occurrenceDate = task.date || getTaskDueDate(task) || null;
+                if(repeatGroupId) recordDeletedRepeatOccurrence(repeatGroupId, task);
                 tasks = tasks.filter(t => t.id !== id);
                 removeDependencyReferences([id]);
-                if(repeatGroupId) recordRepeatOccurrenceException(repeatGroupId, task);
                 syncAllTaskDependencies();
                 saveData();
+                syncClassifyDataToCloud();
                 showNotification('Occurrence deleted', 'success');
             };
             if(isRecurring) {
