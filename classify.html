@@ -2352,10 +2352,40 @@
             if(dateStr) recordRepeatDateSkip(groupId, dateStr);
         }
 
+        function getRepeatOccurrenceDatesForTask(task) {
+            if(!task) return [];
+            const dates = [];
+            if(task.date) dates.push(task.date);
+            const due = getTaskDueDate(task);
+            if(due) dates.push(due);
+            if(task.completed && task.completedDate) dates.push(task.completedDate);
+            return Array.from(new Set(dates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))));
+        }
+
+        function taskOccurrenceDateInWeek(task, weekKey) {
+            if(!task || !weekKey) return false;
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            return getRepeatOccurrenceDatesForTask(task).some(d => d >= startStr && d <= endStr);
+        }
+
+        function getRepeatGroupTasksForWeek(groupId, weekKey) {
+            if(!groupId || !weekKey) return [];
+            return tasks.filter(t => {
+                if(t.repeatGroupId !== groupId) return false;
+                if(t.repeatWeekKey === weekKey) return true;
+                return taskOccurrenceDateInWeek(t, weekKey);
+            });
+        }
+
+        function hasRepeatGroupOccurrenceOnDate(groupId, dateStr) {
+            if(!groupId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return false;
+            return tasks.some(t => t.repeatGroupId === groupId && getRepeatOccurrenceDatesForTask(t).includes(dateStr));
+        }
+
         function syncRepeatExceptionsForWeek(groupId, weekKey) {
             if(!groupId || !weekKey) return;
-            tasks
-                .filter(t => t.repeatGroupId === groupId && t.repeatWeekKey === weekKey && t.completed)
+            getRepeatGroupTasksForWeek(groupId, weekKey)
+                .filter(t => t.completed)
                 .forEach(t => recordRepeatOccurrenceException(groupId, t));
         }
 
@@ -3595,12 +3625,11 @@
             });
             vacationRanges = normalizeVacationRanges(vacationRanges).filter(v => v.end >= todayStr);
             repeatSkips = normalizeRepeatSkips(Object.fromEntries(
-                Object.entries(repeatSkips || {}).map(([groupId, dates]) => [
-                    groupId,
-                    (Array.isArray(dates) ? dates : []).filter(d =>
-                        /^W:\d{4}-W\d{2}$/.test(d) || d >= todayStr
-                    )
-                ])
+                Object.entries(repeatSkips || {}).map(([groupId, dates]) => {
+                    const groupExists = tasks.some(t => t.repeatGroupId === groupId);
+                    if(!groupExists) return null;
+                    return [groupId, Array.isArray(dates) ? dates : []];
+                }).filter(Boolean)
             ));
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
@@ -6942,14 +6971,13 @@
             const rule = normalizeRepeatRule(repeatRule || templateTask.repeatRule || {});
             if(rule.type === 'none' || rule.days.length === 0) return 0;
             if(templateTask.weekDueOnly && isRepeatWeekSkipped(groupId, weekKey)) return 0;
-            const existing = tasks.filter(t => t.repeatGroupId === groupId && t.repeatWeekKey === weekKey);
+            const existing = getRepeatGroupTasksForWeek(groupId, weekKey);
             if(templateTask.weekDueOnly && existing.length > 0) return 0;
-            const existingDates = new Set(existing.map(t => t.date).filter(Boolean));
             const dates = getRepeatDatesForWeek(weekKey, rule);
             let added = 0;
             dates.forEach(dateStr => {
                 if(isRepeatDateSkipped(groupId, dateStr)) return;
-                if(!templateTask.weekDueOnly && existingDates.has(dateStr)) return;
+                if(hasRepeatGroupOccurrenceOnDate(groupId, dateStr)) return;
                 const templateIsFixed = isFixedTask(templateTask);
                 const occurrence = normalizeTask({
                     ...templateTask,
@@ -7240,7 +7268,10 @@
                     if(!activeWeek) activeWeek = startWeekKey || weekKeys[weekKeys.length - 1];
                     if(activeWeek) {
                         syncRepeatExceptionsForWeek(groupId, activeWeek);
-                        tasks = tasks.filter(t => !(t.repeatGroupId === groupId && t.repeatWeekKey === activeWeek && !t.completed));
+                        tasks = tasks.filter(t => {
+                            if(t.repeatGroupId !== groupId || t.completed) return true;
+                            return !taskOccurrenceDateInWeek(t, activeWeek);
+                        });
                         addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
                     }
                     showNotification("Recurring assignment updated!", 'success');
