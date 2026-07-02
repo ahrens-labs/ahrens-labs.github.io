@@ -310,12 +310,70 @@
             position: relative;
             z-index: 1;
         }
-        body.classify-app .cl-calendar-header__top {
+        /* Calendar tab has no page header */
+        body.classify-app #calendarTab > * {
+            position: relative;
+            z-index: 1;
+        }
+        body.classify-app .cl-calendar-controls {
             display: flex;
             flex-wrap: wrap;
-            align-items: flex-start;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.875rem;
+        }
+        body.classify-app .cl-calendar-toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        body.classify-app .cl-calendar-view-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
             justify-content: space-between;
             gap: 0.75rem 1rem;
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(248, 250, 252, 0.75);
+        }
+        .dark body.classify-app .cl-calendar-view-head {
+            border-bottom-color: rgba(51, 65, 85, 0.75);
+            background: rgba(30, 41, 59, 0.45);
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-calendar-view-head {
+                padding: 1rem 1.25rem;
+            }
+        }
+        body.classify-app .cl-calendar-view-head__period {
+            margin: 0;
+            min-width: 0;
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: center;
+        }
+        .dark body.classify-app .cl-calendar-view-head__period {
+            color: #f8fafc;
+        }
+        body.classify-app .cl-calendar-view-panel {
+            padding: 1rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-calendar-view-panel {
+                padding: 1.25rem;
+            }
+        }
+        body.classify-app .cl-calendar-summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
         }
         body.classify-app .cl-calendar-view-switch {
             display: inline-flex;
@@ -370,9 +428,9 @@
             background: rgba(51, 65, 85, 0.55);
             color: #f1f5f9;
         }
-        body.classify-app #calendarMonthYear {
+        body.classify-app #calendarNavLabel {
             min-width: 9rem;
-            max-width: 14rem;
+            max-width: 16rem;
             padding: 0 0.5rem;
             font-size: 0.9375rem;
             font-weight: 700;
@@ -380,62 +438,8 @@
             color: #0f172a;
             white-space: nowrap;
         }
-        .dark body.classify-app #calendarMonthYear {
+        .dark body.classify-app #calendarNavLabel {
             color: #f1f5f9;
-        }
-        body.classify-app .cl-calendar-hints {
-            display: none;
-        }
-        body.classify-app .cl-calendar-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            padding: 0.875rem 1rem;
-            border-radius: 0.875rem;
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-        }
-        .dark body.classify-app .cl-calendar-controls {
-            border-color: rgba(51, 65, 85, 0.75);
-            background: rgba(15, 23, 42, 0.88);
-        }
-        @media (min-width: 768px) {
-            body.classify-app .cl-calendar-controls {
-                flex-direction: row;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0.875rem 1.25rem;
-            }
-        }
-        body.classify-app .cl-calendar-summary {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem 1rem;
-            padding: 0.75rem 1rem;
-            border-radius: 0.875rem;
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            background: rgba(248, 250, 252, 0.95);
-        }
-        .dark body.classify-app .cl-calendar-summary {
-            border-color: rgba(51, 65, 85, 0.75);
-            background: rgba(30, 41, 59, 0.55);
-        }
-        body.classify-app .cl-calendar-summary__period {
-            margin: 0;
-            font-size: 0.9375rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
-        .dark body.classify-app .cl-calendar-summary__period {
-            color: #f8fafc;
-        }
-        body.classify-app .cl-calendar-summary__stats {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
         }
         body.classify-app .cl-calendar-stat {
             display: inline-flex;
@@ -480,14 +484,6 @@
         .dark body.classify-app .cl-calendar-view {
             border-color: rgba(51, 65, 85, 0.8);
             background: rgba(15, 23, 42, 0.92);
-        }
-        body.classify-app .cl-calendar-view--padded {
-            padding: 1rem;
-        }
-        @media (min-width: 768px) {
-            body.classify-app .cl-calendar-view--padded {
-                padding: 1.25rem;
-            }
         }
         body.classify-app .cl-week-grid {
             display: grid;
@@ -1456,21 +1452,6 @@
 
             <!-- VIEW: CALENDAR -->
             <div id="calendarTab" class="cl-tab cl-tab--wide hidden fade-in">
-                <header class="cl-page-header cl-calendar-header">
-                    <div class="cl-calendar-header__top">
-                        <div class="min-w-0">
-                            <h2 class="cl-page-title">Calendar</h2>
-                            <p class="cl-page-subtitle">See what is scheduled, then tap any assignment to edit it.</p>
-                        </div>
-                        <div class="cl-page-actions">
-                            <button onclick="goToCurrentMonth()" class="px-3 h-9 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Today</button>
-                            <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm h-9">
-                                <i class="fa-solid fa-plus"></i> New
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
                 <div class="cl-calendar-controls">
                     <div class="cl-calendar-view-switch" role="tablist" aria-label="Calendar view">
                         <button id="monthViewBtn" onclick="setCalendarViewMode('month')" class="bg-red-600 text-white">Month</button>
@@ -1478,43 +1459,53 @@
                         <button id="dayViewBtn" onclick="setCalendarViewMode('day')" class="text-slate-700 dark:text-slate-300">Day</button>
                         <button id="agendaViewBtn" onclick="setCalendarViewMode('agenda')" class="text-slate-700 dark:text-slate-300">Agenda</button>
                     </div>
-                    <div class="cl-calendar-nav">
-                        <button onclick="changeCalendarPeriod(-1)" class="cl-calendar-nav-btn" aria-label="Previous period">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-                        <span id="calendarNavLabel" class="min-w-[8rem] max-w-[12rem] px-2 text-sm font-semibold text-center text-slate-700 dark:text-slate-200 truncate"></span>
-                        <span id="calendarMonthYear" class="sr-only">Month Year</span>
-                        <button onclick="changeCalendarPeriod(1)" class="cl-calendar-nav-btn" aria-label="Next period">
-                            <i class="fa-solid fa-chevron-right"></i>
+                    <div class="cl-calendar-toolbar-actions">
+                        <button onclick="goToCurrentMonth()" class="px-3 h-9 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Today</button>
+                        <button type="button" onclick="openModal()" class="cl-new-assignment-btn cl-new-assignment-btn--sm h-9">
+                            <i class="fa-solid fa-plus"></i> New
                         </button>
                     </div>
                 </div>
 
-                <div class="cl-calendar-summary" id="calendarSummary" aria-live="polite"></div>
-
-                <div id="monthCalendarView" class="cl-calendar-view overflow-hidden">
-                    <div class="grid grid-cols-7 border-b border-slate-200 dark:border-dark-border bg-slate-100/60 dark:bg-slate-800">
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Sun</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Mon</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Tue</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Wed</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Thu</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Fri</div>
-                        <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Sat</div>
+                <div class="cl-calendar-view overflow-hidden">
+                    <div class="cl-calendar-view-head">
+                        <div class="cl-calendar-nav">
+                            <button onclick="changeCalendarPeriod(-1)" class="cl-calendar-nav-btn" aria-label="Previous period">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <span id="calendarNavLabel" class="cl-calendar-view-head__period truncate"></span>
+                            <span id="calendarMonthYear" class="sr-only">Month Year</span>
+                            <button onclick="changeCalendarPeriod(1)" class="cl-calendar-nav-btn" aria-label="Next period">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="cl-calendar-summary" id="calendarSummary" aria-live="polite"></div>
                     </div>
-                    <div id="calendarGrid" class="grid grid-cols-7 bg-slate-100/80 dark:bg-slate-700 gap-px"></div>
-                </div>
 
-                <div id="weekCalendarView" class="hidden cl-calendar-view cl-calendar-view--padded">
-                    <div id="weekCalendarGrid" class="cl-week-grid"></div>
-                </div>
+                    <div id="monthCalendarView">
+                        <div class="grid grid-cols-7 border-b border-slate-200 dark:border-dark-border bg-slate-100/60 dark:bg-slate-800">
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Sun</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Mon</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Tue</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Wed</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Thu</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Fri</div>
+                            <div class="py-2.5 text-center text-[0.6875rem] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Sat</div>
+                        </div>
+                        <div id="calendarGrid" class="grid grid-cols-7 bg-slate-100/80 dark:bg-slate-700 gap-px"></div>
+                    </div>
 
-                <div id="dayCalendarView" class="hidden cl-calendar-view cl-calendar-view--padded">
-                    <div id="dayCalendarGrid" class="space-y-3"></div>
-                </div>
+                    <div id="weekCalendarView" class="hidden cl-calendar-view-panel">
+                        <div id="weekCalendarGrid" class="cl-week-grid"></div>
+                    </div>
 
-                <div id="agendaCalendarView" class="hidden cl-calendar-view cl-calendar-view--padded">
-                    <div id="agendaWeekList" class="space-y-3"></div>
+                    <div id="dayCalendarView" class="hidden cl-calendar-view-panel">
+                        <div id="dayCalendarGrid" class="space-y-3"></div>
+                    </div>
+
+                    <div id="agendaCalendarView" class="hidden cl-calendar-view-panel">
+                        <div id="agendaWeekList" class="space-y-3"></div>
+                    </div>
                 </div>
             </div>
 
@@ -6330,19 +6321,12 @@
             const srLabel = document.getElementById('calendarMonthYear');
             if(!summaryEl) return;
             const ctx = getCalendarPeriodContext();
-            const shortNavLabel = ctx.periodLabel.replace(/, \d{4}$/, '');
-            if(navLabel) navLabel.textContent = shortNavLabel;
+            if(navLabel) navLabel.textContent = ctx.periodLabel;
             if(srLabel) srLabel.textContent = ctx.periodLabel;
             summaryEl.innerHTML = `
-                <div class="min-w-0">
-                    <p class="cl-calendar-summary__period">${ctx.periodLabel}</p>
-                    <p class="cl-calendar-legend">${ctx.viewLabel}. ${ctx.legend}</p>
-                </div>
-                <div class="cl-calendar-summary__stats">
-                    <span class="cl-calendar-stat"><i class="fa-solid fa-list-check"></i> ${ctx.taskCount} scheduled</span>
-                    <span class="cl-calendar-stat"><i class="fa-regular fa-clock"></i> ${formatMinutesShort(ctx.minutes)} planned</span>
-                    ${ctx.unscheduled > 0 ? `<span class="cl-calendar-stat cl-calendar-stat--accent"><i class="fa-solid fa-circle-exclamation"></i> ${ctx.unscheduled} need time</span>` : ''}
-                </div>
+                <span class="cl-calendar-stat"><i class="fa-solid fa-list-check"></i> ${ctx.taskCount} scheduled</span>
+                <span class="cl-calendar-stat"><i class="fa-regular fa-clock"></i> ${formatMinutesShort(ctx.minutes)} planned</span>
+                ${ctx.unscheduled > 0 ? `<span class="cl-calendar-stat cl-calendar-stat--accent"><i class="fa-solid fa-circle-exclamation"></i> ${ctx.unscheduled} need time</span>` : ''}
             `;
         }
 
