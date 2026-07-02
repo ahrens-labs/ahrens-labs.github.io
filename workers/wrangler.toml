@@ -50,7 +50,8 @@ bindings = [
   { name = "SESSION", class_name = "Session", script_name = "chess-accounts" },
   { name = "USERNAME_REGISTRY", class_name = "UsernameRegistry", script_name = "chess-accounts" },
   { name = "TETHER_PROJECT", class_name = "TetherProject", script_name = "chess-accounts" },
-  { name = "TETHER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" }
+  { name = "TETHER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
+  { name = "CLASSIFY_SYNC", class_name = "TetherSync", script_name = "chess-accounts" }
 ]
 
 [[migrations]]

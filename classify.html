@@ -402,10 +402,110 @@
             color: #f1f5f9;
         }
         body.classify-app .cl-calendar-hints {
+            display: none;
+        }
+        body.classify-app .cl-calendar-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border-radius: 0.875rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        }
+        .dark body.classify-app .cl-calendar-controls {
+            border-color: rgba(51, 65, 85, 0.75);
+            background: rgba(15, 23, 42, 0.88);
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-calendar-controls {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0.875rem 1.25rem;
+            }
+        }
+        body.classify-app .cl-calendar-summary {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.875rem;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(248, 250, 252, 0.95);
+        }
+        .dark body.classify-app .cl-calendar-summary {
+            border-color: rgba(51, 65, 85, 0.75);
+            background: rgba(30, 41, 59, 0.55);
+        }
+        body.classify-app .cl-calendar-summary__period {
+            margin: 0;
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .dark body.classify-app .cl-calendar-summary__period {
+            color: #f8fafc;
+        }
+        body.classify-app .cl-calendar-summary__stats {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-top: 0.75rem;
+        }
+        body.classify-app .cl-calendar-stat {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            border-radius: 9999px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #475569;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .dark body.classify-app .cl-calendar-stat {
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.72);
+            border-color: rgba(51, 65, 85, 0.75);
+        }
+        body.classify-app .cl-calendar-stat--accent {
+            color: #b91c1c;
+            border-color: rgba(248, 113, 113, 0.35);
+        }
+        .dark body.classify-app .cl-calendar-stat--accent {
+            color: #fca5a5;
+        }
+        body.classify-app .cl-calendar-legend {
+            margin: 0;
+            font-size: 0.6875rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .dark body.classify-app .cl-calendar-legend {
+            color: #94a3b8;
+        }
+        body.classify-app .cl-calendar-view {
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            overflow: hidden;
+        }
+        .dark body.classify-app .cl-calendar-view {
+            border-color: rgba(51, 65, 85, 0.8);
+            background: rgba(15, 23, 42, 0.92);
+        }
+        body.classify-app .cl-calendar-view--padded {
+            padding: 1rem;
+        }
+        @media (min-width: 768px) {
+            body.classify-app .cl-calendar-view--padded {
+                padding: 1.25rem;
+            }
         }
         body.classify-app .cl-week-grid {
             display: grid;
@@ -420,11 +520,17 @@
         body.classify-app .cl-week-day {
             display: flex;
             flex-direction: column;
-            min-height: 12rem;
+            min-height: 10rem;
             border-radius: 0.875rem;
             border: 1px solid #e2e8f0;
             background: rgba(248, 250, 252, 0.75);
             padding: 0.875rem;
+        }
+        body.classify-app .cl-week-day--weekend {
+            background: rgba(241, 245, 249, 0.55);
+        }
+        .dark body.classify-app .cl-week-day--weekend {
+            background: rgba(15, 23, 42, 0.42);
         }
         .dark body.classify-app .cl-week-day {
             border-color: rgba(51, 65, 85, 0.75);
@@ -443,9 +549,67 @@
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.5rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.625rem;
             padding-bottom: 0.625rem;
             border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        body.classify-app .cl-week-day__label {
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .dark body.classify-app .cl-week-day__label {
+            color: #94a3b8;
+        }
+        body.classify-app .cl-week-day__date {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: #0f172a;
+        }
+        .dark body.classify-app .cl-week-day__date {
+            color: #f8fafc;
+        }
+        body.classify-app .cl-week-day__meta {
+            margin-top: 0.125rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .dark body.classify-app .cl-week-day__meta {
+            color: #94a3b8;
+        }
+        body.classify-app .cl-week-day__badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.375rem;
+            height: 1.375rem;
+            padding: 0 0.375rem;
+            border-radius: 9999px;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: #475569;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(226, 232, 240, 0.95);
+        }
+        body.classify-app .cl-week-day--today .cl-week-day__badge {
+            color: #fff;
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+        body.classify-app .cl-week-day__empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 0.5rem;
+            font-size: 0.75rem;
+            font-style: italic;
+            text-align: center;
+            color: #94a3b8;
         }
         .dark body.classify-app .cl-week-day__head {
             border-bottom-color: rgba(51, 65, 85, 0.65);
@@ -459,6 +623,7 @@
         body.classify-app .cl-week-task {
             border-radius: 0.625rem;
             border: 1px solid rgba(226, 232, 240, 0.95);
+            border-left-width: 3px;
             background: rgba(255, 255, 255, 0.95);
             padding: 0.625rem 0.75rem;
         }
@@ -468,16 +633,13 @@
         }
         body.classify-app .cl-week-task__row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 0.5rem;
-            margin-bottom: 0.375rem;
         }
         body.classify-app .cl-week-task__time {
-            font-size: 0.6875rem;
+            font-size: 0.75rem;
             font-weight: 700;
-            letter-spacing: 0.02em;
-            text-transform: uppercase;
             color: #dc2626;
         }
         .dark body.classify-app .cl-week-task__time {
@@ -490,15 +652,68 @@
             font-weight: 600;
             line-height: 1.35;
             color: #0f172a;
+            margin-top: 0.25rem;
         }
         .dark body.classify-app .cl-week-task__title {
             color: #f8fafc;
         }
         body.classify-app .cl-week-task__meta {
-            margin-top: 0.375rem;
+            margin-top: 0.25rem;
             font-size: 0.6875rem;
             line-height: 1.4;
             color: #64748b;
+        }
+        body.classify-app .cl-week-break {
+            border-radius: 0.625rem;
+            border: 1px dashed rgba(16, 185, 129, 0.45);
+            background: rgba(236, 253, 245, 0.65);
+            padding: 0.5rem 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #047857;
+        }
+        .dark body.classify-app .cl-week-break {
+            border-color: rgba(52, 211, 153, 0.35);
+            background: rgba(6, 78, 59, 0.28);
+            color: #6ee7b7;
+        }
+        body.classify-app .cl-month-cell {
+            min-height: 8.5rem;
+            padding: 0.625rem;
+            transition: background 0.15s, border-color 0.15s;
+            position: relative;
+        }
+        body.classify-app .cl-month-task {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.6875rem;
+            line-height: 1.3;
+            padding: 0.25rem 0.375rem;
+            margin-bottom: 0.25rem;
+            border-radius: 0.375rem;
+            color: #fff;
+            cursor: grab;
+        }
+        body.classify-app .cl-month-task__time {
+            flex-shrink: 0;
+            font-weight: 700;
+            opacity: 0.92;
+        }
+        body.classify-app .cl-month-task__title {
+            flex: 1;
+            min-width: 0;
+            text-align: left;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        body.classify-app .cl-month-more {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #64748b;
+            padding: 0.125rem 0.25rem;
         }
         .dark body.classify-app .cl-week-task__meta {
             color: #94a3b8;
@@ -2204,6 +2419,181 @@
         let cloudSyncEnabled = false;
         let suppressCloudSync = false;
         let cloudSyncTimer = null;
+        const classifySyncClientId = crypto.randomUUID();
+        let classifySyncSocket = null;
+        let classifySyncRefreshTimer = null;
+        let classifySyncReconnectTimer = null;
+        let classifySyncPollTimer = null;
+        let classifySyncPingTimer = null;
+        let classifySyncFingerprint = '';
+        let classifySyncRefreshing = false;
+        let assignmentTimeRefreshTimer = null;
+        function persistClassifyLocally() {
+            suppressCloudSync = true;
+            localStorage.setItem(plannerStorageKey('plannerTasksV2'), JSON.stringify(tasks));
+            localStorage.setItem(plannerStorageKey('plannerCompletionHistoryV1'), JSON.stringify(completionHistory));
+            localStorage.setItem(plannerStorageKey('plannerSubjectColors'), JSON.stringify(subjectColors));
+            localStorage.setItem(plannerStorageKey('plannerBlockedTimesV1'), JSON.stringify(normalizeBlockedTimes(blockedTimes)));
+            localStorage.setItem(plannerStorageKey('plannerScheduleRulesV1'), JSON.stringify(normalizeScheduleRules(scheduleRules)));
+            localStorage.setItem(plannerStorageKey('plannerVacationsV1'), JSON.stringify(vacationRanges));
+            localStorage.setItem(plannerStorageKey('plannerRepeatSkipsV1'), JSON.stringify(repeatSkips));
+            if (calendarViewMode) localStorage.setItem(plannerStorageKey('calendarViewMode'), calendarViewMode);
+            suppressCloudSync = false;
+        }
+
+        async function updateClassifySyncFingerprint() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return;
+            try {
+                const response = await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync-version`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${sessionId}`,
+                        'X-Classify-Sync-Client': classifySyncClientId,
+                    }
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                classifySyncFingerprint = data.fingerprint || '';
+            } catch {
+                /* ignore */
+            }
+        }
+
+        async function refreshClassifyFromCloud() {
+            if (classifySyncRefreshing) return;
+            classifySyncRefreshing = true;
+            try {
+                const loaded = await loadClassifyDataFromCloud();
+                if (loaded) {
+                    persistClassifyLocally();
+                    renderAll();
+                }
+                await updateClassifySyncFingerprint();
+            } finally {
+                classifySyncRefreshing = false;
+            }
+        }
+
+        function classifySyncWsUrl() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            const base = (window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL || '')
+                .replace(/^http:\/\//i, 'ws://')
+                .replace(/^https:\/\//i, 'wss://');
+            return `${base}/api/classify/live?session=${encodeURIComponent(sessionId || '')}`;
+        }
+
+        function scheduleClassifySyncRefresh(evt) {
+            clearTimeout(classifySyncRefreshTimer);
+            classifySyncRefreshTimer = setTimeout(async () => {
+                if (!evt || evt.sourceClientId === classifySyncClientId) return;
+                await refreshClassifyFromCloud();
+            }, 120);
+        }
+
+        async function pollClassifySyncVersion() {
+            if (document.hidden || !cloudSyncEnabled || classifySyncRefreshing) return;
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId) return;
+            try {
+                const response = await fetch(`${window.AHRENS_LABS_API_BASE || window.AHRENS_API_URL}/api/classify/sync-version`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${sessionId}`,
+                        'X-Classify-Sync-Client': classifySyncClientId,
+                    }
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                const next = data.fingerprint || '';
+                if (classifySyncFingerprint && next && next !== classifySyncFingerprint) {
+                    await refreshClassifyFromCloud();
+                    return;
+                }
+                classifySyncFingerprint = next;
+            } catch {
+                ensureClassifySyncConnected();
+            }
+        }
+
+        function startClassifySyncPoll() {
+            clearInterval(classifySyncPollTimer);
+            classifySyncPollTimer = setInterval(pollClassifySyncVersion, 10000);
+        }
+
+        function ensureClassifySyncConnected() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId || !cloudSyncEnabled) return;
+            if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) return;
+            if (classifySyncSocket) {
+                try { classifySyncSocket.close(); } catch { /* ignore */ }
+                classifySyncSocket = null;
+            }
+            connectClassifySync();
+        }
+
+        function handleClassifyResume() {
+            ensureClassifySyncConnected();
+            pollClassifySyncVersion();
+            refreshAssignmentTimesDisplay();
+        }
+
+        function connectClassifySync() {
+            const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+            if (!sessionId || !cloudSyncEnabled || classifySyncSocket) return;
+            try {
+                classifySyncSocket = new WebSocket(classifySyncWsUrl());
+            } catch {
+                classifySyncSocket = null;
+                return;
+            }
+            classifySyncSocket.addEventListener('open', () => {
+                clearInterval(classifySyncPingTimer);
+                classifySyncPingTimer = setInterval(() => {
+                    if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) {
+                        try { classifySyncSocket.send('ping'); } catch { /* ignore */ }
+                    }
+                }, 25000);
+            });
+            classifySyncSocket.addEventListener('message', (e) => {
+                if (e.data === 'pong') return;
+                try {
+                    scheduleClassifySyncRefresh(JSON.parse(e.data));
+                } catch {
+                    /* ignore malformed payloads */
+                }
+            });
+            classifySyncSocket.addEventListener('close', () => {
+                classifySyncSocket = null;
+                clearInterval(classifySyncPingTimer);
+                clearTimeout(classifySyncReconnectTimer);
+                classifySyncReconnectTimer = setTimeout(connectClassifySync, 3000);
+            });
+            classifySyncSocket.addEventListener('error', () => {
+                try { classifySyncSocket.close(); } catch { /* ignore */ }
+            });
+        }
+
+        function refreshAssignmentTimesDisplay() {
+            if (document.hidden) return;
+            let changed = 0;
+            try {
+                changed = refreshAdjustableScheduling() || 0;
+            } catch (error) {
+                console.warn('Assignment time refresh failed:', error);
+            }
+            renderAll();
+            if (changed > 0) {
+                plannerSet('plannerTasksV2', JSON.stringify(tasks));
+            }
+        }
+
+        function startAssignmentTimeRefresh() {
+            clearInterval(assignmentTimeRefreshTimer);
+            refreshAssignmentTimesDisplay();
+            assignmentTimeRefreshTimer = setInterval(refreshAssignmentTimesDisplay, 60000);
+        }
+
         const plannerSet = (key, value) => {
             localStorage.setItem(plannerStorageKey(key), value);
             queueClassifyCloudSync();
@@ -2280,10 +2670,12 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionId}`
+                        'Authorization': `Bearer ${sessionId}`,
+                        'X-Classify-Sync-Client': classifySyncClientId,
                     },
                     body: JSON.stringify(buildClassifyCloudPayload())
                 });
+                await updateClassifySyncFingerprint();
             } catch (error) {
                 console.error('Failed to sync classify data to cloud:', error);
             }
@@ -2399,7 +2791,20 @@
             cloudSyncEnabled = true;
             renderAll();
             applyClassifyRouteFromUrl();
+            connectClassifySync();
+            startClassifySyncPoll();
+            startAssignmentTimeRefresh();
+            await updateClassifySyncFingerprint();
         });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) handleClassifyResume();
+        });
+        window.addEventListener('focus', handleClassifyResume);
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted) handleClassifyResume();
+        });
+        window.addEventListener('online', handleClassifyResume);
 
         window.addEventListener('hashchange', () => {
             if(suppressClassifyRouteSync) return;

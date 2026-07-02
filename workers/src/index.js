@@ -92,7 +92,7 @@ export default {
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Test-Secret, X-Tether-Sync-Client',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Test-Secret, X-Tether-Sync-Client, X-Classify-Sync-Client',
     };
 
     // Handle preflight requests
@@ -194,6 +194,10 @@ export default {
         return handleDungeonLoad(request, env, corsHeaders);
       } else if (path === '/api/dungeon/delete' && request.method === 'POST') {
         return handleDungeonDelete(request, env, corsHeaders);
+      } else if (path === '/api/classify/live') {
+        return handleClassifyLiveSync(request, env, corsHeaders);
+      } else if (path === '/api/classify/sync-version' && request.method === 'GET') {
+        return handleClassifySyncVersion(request, env, corsHeaders);
       } else if (path === '/api/classify/sync' && request.method === 'POST') {
         return handleClassifySync(request, env, corsHeaders);
       } else if (path === '/api/classify/load' && request.method === 'GET') {
@@ -1993,6 +1997,96 @@ async function handleDungeonDelete(request, env, corsHeaders) {
   });
 }
 
+async function resolveClassifyUserId(request, env) {
+  const url = new URL(request.url);
+  let sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    sessionId = String(url.searchParams.get('session') || '').trim() || null;
+  }
+  if (!sessionId) return null;
+  const sessionObjId = env.SESSION.idFromName(sessionId);
+  const session = env.SESSION.get(sessionObjId);
+  const userRes = await session.fetch(new Request('http://do/getUserId', { method: 'GET' }));
+  const userResult = await userRes.json();
+  return userResult.userId || null;
+}
+
+function classifySyncStub(env, userId) {
+  if (!env.CLASSIFY_SYNC || !userId) return null;
+  return env.CLASSIFY_SYNC.get(env.CLASSIFY_SYNC.idFromName(String(userId)));
+}
+
+function readClassifySyncClientId(request) {
+  const fromHeader = String(request.headers.get('X-Classify-Sync-Client') || '').trim();
+  return fromHeader ? fromHeader.slice(0, 64) : null;
+}
+
+async function notifyClassifySync(env, userId, payload) {
+  const stub = classifySyncStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(
+      new Request('http://do/notify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    );
+  } catch {
+    /* sync is best-effort */
+  }
+}
+
+async function getClassifySyncFingerprint(env, userId) {
+  const userAccountId = env.USER_ACCOUNT.idFromName(userId);
+  const userAccount = env.USER_ACCOUNT.get(userAccountId);
+  const dataRes = await userAccount.fetch(new Request('http://do/getClassifyData', { method: 'GET' }));
+  const data = await dataRes.json();
+  const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+  const taskSig = tasks
+    .map((t) => `${t?.id}:${t?.completed ? '1' : '0'}:${t?.date || ''}:${t?.dueDate || ''}:${t?.time || ''}:${t?.dueTime || ''}`)
+    .sort()
+    .join(';');
+  return `${data?.lastUpdated || 0}::${tasks.length}::${taskSig}`;
+}
+
+async function handleClassifyLiveSync(request, env, corsHeaders) {
+  const userId = await resolveClassifyUserId(request, env);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const stub = classifySyncStub(env, userId);
+  if (!stub) {
+    return new Response(JSON.stringify({ error: 'Sync unavailable' }), {
+      status: 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  if (request.headers.get('Upgrade') !== 'websocket') {
+    return new Response(JSON.stringify({ error: 'Expected WebSocket upgrade' }), {
+      status: 426,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  return stub.fetch(request);
+}
+
+async function handleClassifySyncVersion(request, env, corsHeaders) {
+  const userId = await resolveClassifyUserId(request, env);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const fingerprint = await getClassifySyncFingerprint(env, userId);
+  return new Response(JSON.stringify({ fingerprint, ts: Date.now() }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 async function handleClassifySync(request, env, corsHeaders) {
   const sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId) {
@@ -2022,6 +2116,12 @@ async function handleClassifySync(request, env, corsHeaders) {
     body: JSON.stringify(classifyData)
   });
   await userAccount.fetch(updateReq);
+
+  await notifyClassifySync(env, userResult.userId, {
+    type: 'classify',
+    ts: Date.now(),
+    sourceClientId: readClassifySyncClientId(request),
+  });
 
   return new Response(JSON.stringify({ success: true }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
