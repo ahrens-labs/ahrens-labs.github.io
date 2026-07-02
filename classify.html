@@ -2382,6 +2382,40 @@
             return tasks.some(t => t.repeatGroupId === groupId && getRepeatOccurrenceDatesForTask(t).includes(dateStr));
         }
 
+        function isRepeatOccurrenceRemoved(task) {
+            if(!task?.repeatGroupId) return false;
+            const groupId = task.repeatGroupId;
+            if(task.weekDueOnly) {
+                const weekKey = task.repeatWeekKey || task.week;
+                return Boolean(weekKey && isRepeatWeekSkipped(groupId, weekKey));
+            }
+            return getRepeatOccurrenceDatesForTask(task).some(dateStr => isRepeatDateSkipped(groupId, dateStr));
+        }
+
+        function isActiveCalendarTaskInRange(task, startStr, endStr) {
+            if(!task || task.completed) return false;
+            if(isRepeatOccurrenceRemoved(task)) return false;
+            if(task.date && task.date >= startStr && task.date <= endStr) return true;
+            if(!task.date && task.week) {
+                const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(task.week);
+                return weekStart <= endStr && weekEnd >= startStr;
+            }
+            const dueDate = getTaskDueDate(task);
+            return Boolean(dueDate && dueDate >= startStr && dueDate <= endStr);
+        }
+
+        function taskCountsAsNeedingTime(task) {
+            if(!task || task.completed) return false;
+            if(isRepeatOccurrenceRemoved(task)) return false;
+            if(task.repeatNoAutoTime) return false;
+            if(task.weekDueOnly) return false;
+            return !task.time;
+        }
+
+        function countTasksNeedingTimeInRange(startStr, endStr) {
+            return tasks.filter(t => isActiveCalendarTaskInRange(t, startStr, endStr) && taskCountsAsNeedingTime(t)).length;
+        }
+
         function syncRepeatExceptionsForWeek(groupId, weekKey) {
             if(!groupId || !weekKey) return;
             getRepeatGroupTasksForWeek(groupId, weekKey)
@@ -6290,9 +6324,9 @@
                 const { start, end, startStr, endStr } = getWeekBounds(currentCalendarDate);
                 const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                const periodTasks = tasks.filter(t => !t.completed && t.date && t.date >= startStr && t.date <= endStr);
+                const periodTasks = tasks.filter(t => isActiveCalendarTaskInRange(t, startStr, endStr));
                 const minutes = periodTasks.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
-                const unscheduled = periodTasks.filter(t => !t.time).length;
+                const unscheduled = countTasksNeedingTimeInRange(startStr, endStr);
                 return {
                     periodLabel: calendarViewMode === 'agenda' ? `Week of ${startLabel} – ${endLabel}` : `${startLabel} – ${endLabel}`,
                     viewLabel: calendarViewMode === 'agenda' ? 'Agenda list' : 'Week schedule',
@@ -6306,14 +6340,14 @@
             }
             if(calendarViewMode === 'day') {
                 const dateStr = getDateStrLocal(currentCalendarDate);
-                const dayTasks = tasks.filter(t => !t.completed && t.date === dateStr);
+                const dayTasks = tasks.filter(t => isActiveCalendarTaskInRange(t, dateStr, dateStr));
                 const minutes = dayTasks.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
                 return {
                     periodLabel: currentCalendarDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
                     viewLabel: 'Day timeline',
                     taskCount: dayTasks.length,
                     minutes,
-                    unscheduled: dayTasks.filter(t => !t.time).length,
+                    unscheduled: countTasksNeedingTimeInRange(dateStr, dateStr),
                     legend: 'Timeline shows your school-day window. Red line marks the current time.'
                 };
             }
@@ -6321,14 +6355,14 @@
             const month = currentCalendarDate.getMonth();
             const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`;
             const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, '0')}`;
-            const periodTasks = tasks.filter(t => !t.completed && t.date && t.date >= monthStart && t.date <= monthEnd);
+            const periodTasks = tasks.filter(t => isActiveCalendarTaskInRange(t, monthStart, monthEnd));
             const minutes = periodTasks.reduce((sum, t) => sum + (parseInt(t.duration, 10) || 30), 0);
             return {
                 periodLabel: new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' }),
                 viewLabel: 'Month overview',
                 taskCount: periodTasks.length,
                 minutes,
-                unscheduled: periodTasks.filter(t => !t.time).length,
+                unscheduled: countTasksNeedingTimeInRange(monthStart, monthEnd),
                 legend: 'Colored blocks are scheduled assignments. Tap a day to add work.'
             };
         }
@@ -6473,7 +6507,7 @@
 
             const schedule = injectBreakItems(getSmartSchedule(dateStr), dateStr);
             const unscheduled = tasks
-                .filter(t => !t.completed && !t.time && t.date === dateStr)
+                .filter(t => isActiveCalendarTaskInRange(t, dateStr, dateStr) && taskCountsAsNeedingTime(t))
                 .sort(compareTasksForScheduling);
 
             const daySchedule = getScheduleForDate(dateStr);
