@@ -2313,17 +2313,70 @@
             Object.keys(input).forEach(groupId => {
                 const dates = Array.isArray(input[groupId]) ? input[groupId] : [];
                 const cleaned = Array.from(new Set(
-                    dates.map(d => String(d)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                    dates.map(d => String(d)).filter(d =>
+                        /^\d{4}-\d{2}-\d{2}$/.test(d) || /^W:\d{4}-W\d{2}$/.test(d)
+                    )
                 )).sort((a, b) => a.localeCompare(b));
                 if(cleaned.length > 0) out[groupId] = cleaned;
             });
             return out;
         }
 
+        function isRepeatWeekSkipped(groupId, weekKey) {
+            if(!groupId || !weekKey) return false;
+            const markers = repeatSkips[groupId];
+            return Array.isArray(markers) && markers.includes(`W:${weekKey}`);
+        }
+
         function isRepeatDateSkipped(groupId, dateStr) {
             if(!groupId || !dateStr) return false;
             const dates = repeatSkips[groupId];
             return Array.isArray(dates) && dates.includes(dateStr);
+        }
+
+        function recordRepeatDateSkip(groupId, dateStr) {
+            if(!groupId || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return;
+            const existing = Array.isArray(repeatSkips[groupId]) ? repeatSkips[groupId] : [];
+            repeatSkips[groupId] = Array.from(new Set([...existing, dateStr])).sort((a, b) => a.localeCompare(b));
+        }
+
+        function recordRepeatWeekSkip(groupId, weekKey) {
+            if(!groupId || !/^\d{4}-W\d{2}$/.test(weekKey || '')) return;
+            const marker = `W:${weekKey}`;
+            const existing = Array.isArray(repeatSkips[groupId]) ? repeatSkips[groupId] : [];
+            repeatSkips[groupId] = Array.from(new Set([...existing, marker])).sort((a, b) => a.localeCompare(b));
+        }
+
+        function clearRepeatOccurrenceException(groupId, task) {
+            if(!groupId || !task) return;
+            const markers = Array.isArray(repeatSkips[groupId]) ? repeatSkips[groupId] : [];
+            if(markers.length === 0) return;
+            const weekKey = task.repeatWeekKey || task.week || null;
+            const dateStr = task.date || getTaskDueDate(task) || null;
+            const toRemove = new Set();
+            if(task.weekDueOnly && weekKey) toRemove.add(`W:${weekKey}`);
+            if(dateStr) toRemove.add(dateStr);
+            if(toRemove.size === 0) return;
+            const next = markers.filter(entry => !toRemove.has(entry));
+            if(next.length > 0) repeatSkips[groupId] = next;
+            else delete repeatSkips[groupId];
+        }
+
+        function recordRepeatOccurrenceException(groupId, task) {
+            if(!groupId || !task) return;
+            if(task.weekDueOnly) {
+                recordRepeatWeekSkip(groupId, task.repeatWeekKey || task.week);
+                return;
+            }
+            const dateStr = task.date || getTaskDueDate(task) || null;
+            if(dateStr) recordRepeatDateSkip(groupId, dateStr);
+        }
+
+        function syncRepeatExceptionsForWeek(groupId, weekKey) {
+            if(!groupId || !weekKey) return;
+            tasks
+                .filter(t => t.repeatGroupId === groupId && t.repeatWeekKey === weekKey && t.completed)
+                .forEach(t => recordRepeatOccurrenceException(groupId, t));
         }
 
         function extractRemainingPercentFromTitle(rawTitle) {
@@ -3564,7 +3617,9 @@
             repeatSkips = normalizeRepeatSkips(Object.fromEntries(
                 Object.entries(repeatSkips || {}).map(([groupId, dates]) => [
                     groupId,
-                    (Array.isArray(dates) ? dates : []).filter(d => d >= todayStr)
+                    (Array.isArray(dates) ? dates : []).filter(d =>
+                        /^W:\d{4}-W\d{2}$/.test(d) || d >= todayStr
+                    )
                 ])
             ));
             scheduleRules = normalizeScheduleRules({
@@ -6025,6 +6080,8 @@
                 task.completedDate = getDateStrLocal();
                 task.actualMinutes = null;
 
+                if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
+
                 const carryOver = normalizeTask({
                     ...task,
                     id: generateId(),
@@ -6045,6 +6102,7 @@
                 task.actualMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : null;
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
+                if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
                 triggerConfetti();
             }
 
@@ -6912,9 +6970,10 @@
             if(!groupId || !weekKey || !templateTask) return 0;
             const rule = normalizeRepeatRule(repeatRule || templateTask.repeatRule || {});
             if(rule.type === 'none' || rule.days.length === 0) return 0;
+            if(templateTask.weekDueOnly && isRepeatWeekSkipped(groupId, weekKey)) return 0;
             const existing = tasks.filter(t => t.repeatGroupId === groupId && t.repeatWeekKey === weekKey);
             if(templateTask.weekDueOnly && existing.length > 0) return 0;
-            const existingDates = new Set(existing.map(t => t.date));
+            const existingDates = new Set(existing.map(t => t.date).filter(Boolean));
             const dates = getRepeatDatesForWeek(weekKey, rule);
             let added = 0;
             dates.forEach(dateStr => {
@@ -7173,6 +7232,9 @@
                             ...t,
                             title,
                             subject,
+                            completed: t.completed,
+                            completedDate: t.completedDate,
+                            actualMinutes: t.actualMinutes,
                             scheduleType: weekDueOnly ? 'week' : t.scheduleType,
                             assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
                             date: weekDueOnly ? null : t.date,
@@ -7206,6 +7268,7 @@
                     let activeWeek = weekKeys.find(wk => groupTasks.filter(t => t.repeatWeekKey === wk).some(t => !t.completed));
                     if(!activeWeek) activeWeek = startWeekKey || weekKeys[weekKeys.length - 1];
                     if(activeWeek) {
+                        syncRepeatExceptionsForWeek(groupId, activeWeek);
                         tasks = tasks.filter(t => !(t.repeatGroupId === groupId && t.repeatWeekKey === activeWeek && !t.completed));
                         addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
                     }
@@ -7303,6 +7366,7 @@
                     task.completed = false;
                     task.completedDate = null;
                     task.actualMinutes = null;
+                    if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
                     saveData();
                     return;
                 }
@@ -7388,10 +7452,7 @@
                 const occurrenceDate = task.date || getTaskDueDate(task) || null;
                 tasks = tasks.filter(t => t.id !== id);
                 removeDependencyReferences([id]);
-                if(repeatGroupId && occurrenceDate) {
-                    const existing = Array.isArray(repeatSkips[repeatGroupId]) ? repeatSkips[repeatGroupId] : [];
-                    repeatSkips[repeatGroupId] = Array.from(new Set([...existing, occurrenceDate])).sort((a, b) => a.localeCompare(b));
-                }
+                if(repeatGroupId) recordRepeatOccurrenceException(repeatGroupId, task);
                 syncAllTaskDependencies();
                 saveData();
                 showNotification('Occurrence deleted', 'success');
