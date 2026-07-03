@@ -498,6 +498,62 @@ export function layout(title: string, content: string): string {
     };
   })();
   </script>
+  <script>
+  (function () {
+    function isEditableTarget(target) {
+      if (!target) return false;
+      var tagName = target.tagName;
+      if (!tagName) return false;
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return true;
+      return !!target.isContentEditable;
+    }
+
+    function focusSearchInput() {
+      var candidates = [
+        document.querySelector('input[type="search"]'),
+        document.querySelector('input[name="search"]'),
+        document.querySelector('input[id="contactSearch"]'),
+        document.querySelector('input[id="search-input"]'),
+        document.querySelector('input[placeholder*="Search" i]'),
+        document.querySelector('input[aria-label*="Search" i]')
+      ];
+
+      for (var i = 0; i < candidates.length; i++) {
+        var candidate = candidates[i];
+        if (!candidate || candidate.disabled) continue;
+        var style = window.getComputedStyle(candidate);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        candidate.focus();
+        if (typeof candidate.select === 'function') {
+          candidate.select();
+        }
+        return true;
+      }
+      return false;
+    }
+
+    document.addEventListener('keydown', function (event) {
+      var target = event.target;
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+      if (isEditableTarget(target)) return;
+
+      if (event.key === '/') {
+        event.preventDefault();
+        focusSearchInput();
+        return;
+      }
+
+      if (event.key.toLowerCase() === 'q') {
+        event.preventDefault();
+        if (typeof window.showQuickAddForm === 'function') {
+          window.showQuickAddForm();
+        } else {
+          window.location.href = window.linkApi ? window.linkApi('/interactions/new') : '/interactions/new';
+        }
+      }
+    });
+  })();
+  </script>
   ${content}
 
   <script src="https://ahrenslabs.com/js/script.js"></script>
