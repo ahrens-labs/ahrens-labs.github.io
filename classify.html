@@ -2618,6 +2618,7 @@
 
         async function pollClassifySyncVersion() {
             if (document.hidden || !cloudSyncEnabled || classifySyncRefreshing) return;
+            if (classifySyncSocket && classifySyncSocket.readyState === WebSocket.OPEN) return;
             const sessionId = localStorage.getItem('ahrenslabs_sessionId');
             if (!sessionId) return;
             try {
@@ -2643,7 +2644,7 @@
 
         function startClassifySyncPoll() {
             clearInterval(classifySyncPollTimer);
-            classifySyncPollTimer = setInterval(pollClassifySyncVersion, 10000);
+            classifySyncPollTimer = setInterval(pollClassifySyncVersion, 60000);
         }
 
         function ensureClassifySyncConnected() {

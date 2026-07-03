@@ -2969,6 +2969,7 @@
 
   async function pollTetherSyncVersion() {
     if (document.hidden || !sessionId || tetherSyncRefreshing) return;
+    if (tetherSyncSocket && tetherSyncSocket.readyState === WebSocket.OPEN) return;
     try {
       const data = await api('/api/tether/sync-version', { method: 'GET' });
       const next = data.fingerprint || '';
@@ -2984,7 +2985,7 @@
 
   function startTetherSyncPoll() {
     clearInterval(tetherSyncPollTimer);
-    tetherSyncPollTimer = setInterval(pollTetherSyncVersion, 10000);
+    tetherSyncPollTimer = setInterval(pollTetherSyncVersion, 60000);
   }
 
   function ensureTetherSyncConnected() {

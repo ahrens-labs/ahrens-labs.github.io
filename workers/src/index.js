@@ -2039,14 +2039,10 @@ async function notifyClassifySync(env, userId, payload) {
 async function getClassifySyncFingerprint(env, userId) {
   const userAccountId = env.USER_ACCOUNT.idFromName(userId);
   const userAccount = env.USER_ACCOUNT.get(userAccountId);
-  const dataRes = await userAccount.fetch(new Request('http://do/getClassifyData', { method: 'GET' }));
+  const dataRes = await userAccount.fetch(new Request('http://do/getClassifySyncMeta', { method: 'GET' }));
+  if (!dataRes.ok) return '0';
   const data = await dataRes.json();
-  const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
-  const taskSig = tasks
-    .map((t) => `${t?.id}:${t?.completed ? '1' : '0'}:${t?.date || ''}:${t?.dueDate || ''}:${t?.time || ''}:${t?.dueTime || ''}`)
-    .sort()
-    .join(';');
-  return `${data?.lastUpdated || 0}::${tasks.length}::${taskSig}`;
+  return `${data?.lastUpdated || 0}::${data?.taskCount || 0}`;
 }
 
 async function handleClassifyLiveSync(request, env, corsHeaders) {
@@ -9942,6 +9938,11 @@ export class UserAccount {
         return new Response(JSON.stringify(classifyData), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getClassifySyncMeta' && request.method === 'GET') {
+        const meta = await this.getClassifySyncMeta();
+        return new Response(JSON.stringify(meta), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/updateKyrachyngProgress' && request.method === 'POST') {
         const { completed } = await request.json();
         await this.updateKyrachyngProgress(completed);
@@ -11327,6 +11328,16 @@ export class UserAccount {
       };
     }
     return userData.games.classify;
+  }
+
+  async getClassifySyncMeta() {
+    const userData = await this.storage.get('userData');
+    const classify = userData?.games?.classify;
+    const tasks = Array.isArray(classify?.tasks) ? classify.tasks : [];
+    return {
+      lastUpdated: classify?.lastUpdated || 0,
+      taskCount: tasks.length,
+    };
   }
 
   async updateKyrachyngProgress(completed) {
