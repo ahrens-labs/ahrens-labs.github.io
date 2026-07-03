@@ -509,21 +509,23 @@ export function layout(title: string, content: string): string {
     }
 
     function focusSearchInput() {
-      var candidates = [
-        document.querySelector('input[type="search"]'),
-        document.querySelector('input[name="search"]'),
-        document.querySelector('input[id="contactSearch"]'),
-        document.querySelector('input[id="search-input"]'),
-        document.querySelector('input[placeholder*="Search" i]'),
-        document.querySelector('input[aria-label*="Search" i]')
+      var selectors = [
+        'input[type="search"]',
+        'input[name="search"]',
+        'input[id="contactSearch"]',
+        'input[id="search-input"]',
+        'input[placeholder*="Search" i]',
+        'input[aria-label*="Search" i]',
+        'input'
       ];
 
-      for (var i = 0; i < candidates.length; i++) {
-        var candidate = candidates[i];
-        if (!candidate || candidate.disabled) continue;
+      for (var i = 0; i < selectors.length; i++) {
+        var candidate = document.querySelector(selectors[i]);
+        if (!candidate || candidate.disabled || candidate.readOnly) continue;
         var style = window.getComputedStyle(candidate);
+        if (!candidate.offsetParent && style.position !== 'fixed') continue;
         if (style.display === 'none' || style.visibility === 'hidden') continue;
-        candidate.focus();
+        candidate.focus({ preventScroll: true });
         if (typeof candidate.select === 'function') {
           candidate.select();
         }
@@ -534,12 +536,16 @@ export function layout(title: string, content: string): string {
 
     document.addEventListener('keydown', function (event) {
       var target = event.target;
+      var key = event.key;
+      var code = event.code;
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
       if (isEditableTarget(target)) return;
 
-      if (event.key === '/') {
+      if ((key === '/' || code === 'Slash') && !event.shiftKey) {
         event.preventDefault();
-        focusSearchInput();
+        window.setTimeout(function () {
+          focusSearchInput();
+        }, 0);
         return;
       }
 
