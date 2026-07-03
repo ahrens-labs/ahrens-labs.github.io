@@ -358,7 +358,7 @@ app.get('/api/search', requireAuth, async (c) => {
         id: contactRow.id,
         title: decrypted.name || 'Unnamed contact',
         meta: [decrypted.email, decrypted.phone, decrypted.company].filter(Boolean).join(' • '),
-        href: `/contacts/${contactRow.id}`,
+        href: publicPath(c.req.raw, `/contacts/${contactRow.id}`),
       })
     }
   }
@@ -390,7 +390,7 @@ app.get('/api/search', requireAuth, async (c) => {
         id: interaction.id,
         title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
         meta: `${dateLabel}${interaction.location ? ` • ${interaction.location}` : ''}`,
-        href: `/contacts/${interaction.contact_id}`,
+        href: publicPath(c.req.raw, `/contacts/${interaction.contact_id}`),
       })
     }
   }
