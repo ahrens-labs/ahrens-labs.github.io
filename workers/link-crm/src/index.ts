@@ -327,6 +327,80 @@ app.post('/api/auth/sync-display-name', requireAuth, async (c) => {
   return c.json({ username })
 })
 
+// Search across people and interactions
+app.get('/api/search', requireAuth, async (c) => {
+  const user = c.get('user')
+  const query = String(c.req.query('q') || c.req.query('query') || '').trim().toLowerCase()
+
+  if (!query) {
+    return c.json({ contacts: [], interactions: [] })
+  }
+
+  const contactsResult = await c.env.DB.prepare(
+    'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
+  ).bind(user.id).all()
+
+  const contacts: Array<any> = []
+  for (const contactRow of contactsResult.results || []) {
+    const decrypted = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
+    const tags = Array.isArray(contactRow.tags) ? contactRow.tags : []
+    const searchableText = [
+      decrypted.name,
+      decrypted.email,
+      decrypted.phone,
+      decrypted.company,
+      decrypted.notes,
+      ...tags,
+    ].filter(Boolean).join(' ').toLowerCase()
+
+    if (searchableText.includes(query)) {
+      contacts.push({
+        id: contactRow.id,
+        title: decrypted.name || 'Unnamed contact',
+        meta: [decrypted.email, decrypted.phone, decrypted.company].filter(Boolean).join(' • '),
+        href: `/contacts/${contactRow.id}`,
+      })
+    }
+  }
+
+  const interactionsResult = await c.env.DB.prepare(`
+    SELECT i.*, c.id as contact_id
+    FROM interactions i
+    INNER JOIN contacts c ON i.contact_id = c.id
+    WHERE c.user_id = ?
+    ORDER BY i.date DESC
+  `).bind(user.id).all()
+
+  const interactions: Array<any> = []
+  for (const interaction of interactionsResult.results || []) {
+    const contactRow = contactsResult.results?.find((row: any) => row.id === interaction.contact_id)
+    if (!contactRow) continue
+    const decryptedContact = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
+    const searchableText = [
+      decryptedContact.name,
+      interaction.type,
+      interaction.notes,
+      interaction.location,
+    ].filter(Boolean).join(' ').toLowerCase()
+
+    if (searchableText.includes(query)) {
+      const date = new Date(interaction.date)
+      const dateLabel = date.toLocaleDateString()
+      interactions.push({
+        id: interaction.id,
+        title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
+        meta: `${dateLabel}${interaction.location ? ` • ${interaction.location}` : ''}`,
+        href: `/contacts/${interaction.contact_id}`,
+      })
+    }
+  }
+
+  return c.json({
+    contacts: contacts.slice(0, 8),
+    interactions: interactions.slice(0, 8),
+  })
+})
+
 // Dashboard
 app.get('/dashboard', requireAuth, async (c) => {
   const user = c.get('user')
