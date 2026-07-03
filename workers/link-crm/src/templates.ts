@@ -500,6 +500,8 @@ export function layout(title: string, content: string): string {
   </script>
   <script>
   (function () {
+    var SEARCH_FOCUS_FLAG = 'link:focusSearch';
+
     function isEditableTarget(target) {
       if (!target) return false;
       var tagName = target.tagName;
@@ -534,6 +536,17 @@ export function layout(title: string, content: string): string {
       return false;
     }
 
+    function restoreSearchFocus() {
+      if (sessionStorage.getItem(SEARCH_FOCUS_FLAG) === '1') {
+        sessionStorage.removeItem(SEARCH_FOCUS_FLAG);
+        window.setTimeout(function () {
+          if (focusSearchInput()) {
+            return;
+          }
+        }, 0);
+      }
+    }
+
     document.addEventListener('keydown', function (event) {
       var target = event.target;
       var key = event.key;
@@ -543,9 +556,15 @@ export function layout(title: string, content: string): string {
 
       if ((key === '/' || code === 'Slash') && !event.shiftKey) {
         event.preventDefault();
-        window.setTimeout(function () {
-          focusSearchInput();
-        }, 0);
+        if (focusSearchInput()) {
+          return;
+        }
+        sessionStorage.setItem(SEARCH_FOCUS_FLAG, '1');
+        var targetPath = '/people';
+        if (window.location.pathname.indexOf('/interactions') === 0) {
+          targetPath = '/interactions?view=list';
+        }
+        window.location.href = window.linkApi ? window.linkApi(targetPath) : targetPath;
         return;
       }
 
@@ -558,6 +577,10 @@ export function layout(title: string, content: string): string {
         }
       }
     });
+
+    document.addEventListener('DOMContentLoaded', restoreSearchFocus);
+    window.addEventListener('pageshow', restoreSearchFocus);
+    window.setTimeout(restoreSearchFocus, 0);
   })();
   </script>
   ${content}
