@@ -290,6 +290,27 @@ function userIsOwner(project, userId) {
   return project && project.ownerUserId === userId;
 }
 
+function userWasRemovedFromProject(project, userId) {
+  return (
+    !!userId &&
+    Array.isArray(project?.removedMemberUserIds) &&
+    project.removedMemberUserIds.includes(userId)
+  );
+}
+
+function rememberRemovedMember(project, userId) {
+  const removed = Array.isArray(project.removedMemberUserIds)
+    ? [...project.removedMemberUserIds]
+    : [];
+  if (userId && !removed.includes(userId)) removed.push(userId);
+  return removed;
+}
+
+function clearRemovedMember(project, userId) {
+  if (!userId || !Array.isArray(project?.removedMemberUserIds)) return project.removedMemberUserIds;
+  return project.removedMemberUserIds.filter((id) => id !== userId);
+}
+
 function projectDescription(project) {
   if (!project) return '';
   if (project.description != null && String(project.description).trim()) {
@@ -351,6 +372,7 @@ async function buildSyncFingerprint(env, userId) {
   const inbox = await getInboxTasks(env, userId);
   const projectParts = metas
     .filter(Boolean)
+    .filter((m) => userCanAccessProject(m, userId))
     .map((m) => `${m.id}:${m.updatedAt || 0}:${m.taskCount || 0}:${m.tasksDoneCount || 0}`)
     .sort();
   const inboxParts = inbox
@@ -823,6 +845,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     let project = await fetchProject(env, projectId);
     if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
     if (!userCanAccessProject(project, userId)) {
+      if (userWasRemovedFromProject(project, userId)) {
+        return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
+      }
       const profile = await fetchUserProfile(env, userId);
       if (!profile) return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
       project = await addMemberToProject(env, project, profile);
@@ -915,7 +940,21 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       return jsonResponse({ error: 'User already has access' }, corsHeaders, 409);
     }
 
-    const updated = await addMemberToProject(env, project, target);
+    const clearedRemoved = clearRemovedMember(project, target.userId);
+    const projectForShare =
+      clearedRemoved === project.removedMemberUserIds
+        ? project
+        : { ...project, removedMemberUserIds: clearedRemoved, updatedAt: Date.now() };
+    if (projectForShare !== project) {
+      const shareStub = tetherProjectStub(env, projectId);
+      await shareStub.fetch(
+        new Request('http://do/save', {
+          method: 'POST',
+          body: JSON.stringify(projectForShare),
+        })
+      );
+    }
+    const updated = await addMemberToProject(env, projectForShare, target);
     await publishProjectSync(env, updated, readSyncClientId(request, body));
     await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body));
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
@@ -939,7 +978,12 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     }
 
     const members = (project.members || []).filter((m) => m.userId !== removeUserId);
-    const updated = { ...project, members, updatedAt: Date.now() };
+    const updated = {
+      ...project,
+      members,
+      removedMemberUserIds: rememberRemovedMember(project, removeUserId),
+      updatedAt: Date.now(),
+    };
     const stub = tetherProjectStub(env, projectId);
     await stub.fetch(
       new Request('http://do/save', {
