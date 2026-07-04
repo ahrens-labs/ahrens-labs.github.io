@@ -752,7 +752,77 @@
           <p class="status" id="uname-status"></p>
         </div>
 
-        <div class="dash-card full-span" id="dash-lb-settings-card">
+        <div class="dash-card dash-header-nav-card" id="dash-header-nav-card" style="grid-column: auto;">
+          <div class="dash-card-head">
+            <h2 style="margin:0; font-size:0.98rem;">Site header links</h2>
+            <span class="dash-card-pill">Nav</span>
+          </div>
+          <p class="hint header-nav-hint">Choose which links appear in the top nav.</p>
+          <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
+          <div class="header-nav-actions">
+            <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
+            <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset</button>
+          </div>
+          <p class="status" id="header-nav-status"></p>
+        </div>
+
+        <div class="dash-card">
+          <div class="dash-card-head">
+            <h2>Chess store &amp; TrifangX</h2>
+            <span class="dash-card-pill">Points</span>
+          </div>
+          <p class="hint">Open the shop, adjust TrifangX settings, or review achievements.</p>
+          <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
+            <p class="dash-trifangx-points-label">Total points (achievements)</p>
+            <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
+            <p class="dash-trifangx-points-sub" id="dash-trifangx-points-sub">Loading from your cloud save…</p>
+          </div>
+          <div class="dash-trifangx-actions" role="group" aria-label="TrifangX shortcuts">
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-shop">
+              <span class="dash-action-title">Chess store</span>
+              <span class="dash-action-sub">Boards, pieces, themes, and time controls</span>
+            </button>
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-settings">
+              <span class="dash-action-title">TrifangX settings</span>
+              <span class="dash-action-sub">Apply what you own and reset progress</span>
+            </button>
+            <button type="button" class="dash-action-tile" id="dash-open-trifangx-achievements">
+              <span class="dash-action-title">Achievements</span>
+              <span class="dash-action-sub">Full list and daily challenges</span>
+            </button>
+          </div>
+          <p class="hint" style="margin-top:14px;">
+            <a href="chess-leaderboard.html">Career points leaderboard</a> — ranked by total achievement points for signed-in players.
+          </p>
+        </div>
+
+        <div class="dash-card full-span">
+          <div class="dash-card-head">
+            <h2>Email</h2>
+            <span class="dash-card-pill">Updates</span>
+          </div>
+          <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
+            <strong>Confirm your email</strong> to enable challenge and milestone emails.
+          </p>
+          <p class="hint">Turn on daily challenge emails, or send them manually at any time.</p>
+          <p class="hint" style="margin-bottom:14px;">Digest updates are managed from <a href="digest.html">Digest</a> and <a href="coding-lab.html">Coding Lab</a>.</p>
+          <div class="check-row">
+            <input type="checkbox" id="email-digest-on">
+            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
+          <p class="status" id="email-pref-status"></p>
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
+          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (dated the same way as the daily roundup). Works even if the daily roundup is off.</p>
+          <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
+          <p class="status" id="digest-now-status"></p>
+          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
+          <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
+          <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
+          <p class="status" id="welcome-status"></p>
+        </div>
+
+        <div class="dash-card" id="dash-lb-settings-card">
           <div class="dash-card-head">
             <h2>Leaderboard settings</h2>
             <span class="dash-card-pill">TrifangX</span>
@@ -834,76 +904,6 @@
             <p class="hint" style="margin:14px 0 0;font-size:0.82rem;color:#64748b;">Flair saves automatically when you change a field.</p>
           </div>
           <p class="status" id="dash-lb-flair-status"></p>
-        </div>
-
-        <div class="dash-card full-span">
-          <div class="dash-card-head">
-            <h2>Email</h2>
-            <span class="dash-card-pill">Updates</span>
-          </div>
-          <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
-            <strong>Confirm your email</strong> to enable challenge and milestone emails.
-          </p>
-          <p class="hint">Turn on daily challenge emails, or send them manually at any time.</p>
-          <p class="hint" style="margin-bottom:14px;">Digest updates are managed from <a href="digest.html">Digest</a> and <a href="coding-lab.html">Coding Lab</a>.</p>
-          <div class="check-row">
-            <input type="checkbox" id="email-digest-on">
-            <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
-          </div>
-          <button type="button" class="btn btn-primary" id="btn-save-email-prefs">Save email preferences</button>
-          <p class="status" id="email-pref-status"></p>
-          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Send an email <strong>right now</strong> with today’s three TrifangX daily challenges (dated the same way as the daily roundup). Works even if the daily roundup is off.</p>
-          <button type="button" class="btn btn-ghost" id="btn-email-challenges-now">Email daily challenges now</button>
-          <p class="status" id="digest-now-status"></p>
-          <hr style="border:0;border-top:1px solid #e2e8f0;margin:18px 0;">
-          <p class="hint">Resend the welcome email that explains Ahrens Labs and your account (same as after signup).</p>
-          <button type="button" class="btn btn-ghost" id="btn-resend-welcome">Send info email again</button>
-          <p class="status" id="welcome-status"></p>
-        </div>
-
-        <div class="dash-card">
-          <div class="dash-card-head">
-            <h2>Chess store &amp; TrifangX</h2>
-            <span class="dash-card-pill">Points</span>
-          </div>
-          <p class="hint">Open the shop, adjust TrifangX settings, or review achievements.</p>
-          <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
-            <p class="dash-trifangx-points-label">Total points (achievements)</p>
-            <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
-            <p class="dash-trifangx-points-sub" id="dash-trifangx-points-sub">Loading from your cloud save…</p>
-          </div>
-          <div class="dash-trifangx-actions" role="group" aria-label="TrifangX shortcuts">
-            <button type="button" class="dash-action-tile" id="dash-open-trifangx-shop">
-              <span class="dash-action-title">Chess store</span>
-              <span class="dash-action-sub">Boards, pieces, themes, and time controls</span>
-            </button>
-            <button type="button" class="dash-action-tile" id="dash-open-trifangx-settings">
-              <span class="dash-action-title">TrifangX settings</span>
-              <span class="dash-action-sub">Apply what you own and reset progress</span>
-            </button>
-            <button type="button" class="dash-action-tile" id="dash-open-trifangx-achievements">
-              <span class="dash-action-title">Achievements</span>
-              <span class="dash-action-sub">Full list and daily challenges</span>
-            </button>
-          </div>
-          <p class="hint" style="margin-top:14px;">
-            <a href="chess-leaderboard.html">Career points leaderboard</a> — ranked by total achievement points for signed-in players.
-          </p>
-        </div>
-
-        <div class="dash-card dash-header-nav-card" id="dash-header-nav-card" style="grid-column: auto;">
-          <div class="dash-card-head">
-            <h2 style="margin:0; font-size:0.98rem;">Site header links</h2>
-            <span class="dash-card-pill">Nav</span>
-          </div>
-          <p class="hint header-nav-hint">Choose which links appear in the top nav.</p>
-          <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
-          <div class="header-nav-actions">
-            <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
-            <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset</button>
-          </div>
-          <p class="status" id="header-nav-status"></p>
         </div>
 
         <div class="dash-card admin-broadcast-card full-span" id="admin-accounts-card">
