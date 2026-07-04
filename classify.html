@@ -2450,6 +2450,7 @@
 
         function isActiveCalendarTaskInRange(task, startStr, endStr) {
             if(!task || task.completed) return false;
+            if(!isTaskVisibleInClassify(task)) return false;
             if(isRepeatOccurrenceRemoved(task)) return false;
             if(task.date && task.date >= startStr && task.date <= endStr) return true;
             if(!task.date && task.week) {
@@ -3425,6 +3426,26 @@
         }
         function minToTime(m) { const h = Math.floor(m/60); const min = m%60; return `${h%12||12}:${String(min).padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
         function getTaskDueDate(t) { return t?.dueDate || t?.date || null; }
+        function getTaskScheduledDateTime(task) {
+            const dateStr = task?.date || getTaskDueDate(task);
+            if(!dateStr) return null;
+            const [year, month, day] = dateStr.split('-').map(Number);
+            const base = new Date(year, (month || 1) - 1, day || 1);
+            const time = task?.time || task?.dueTime || null;
+            if(!time) {
+                base.setHours(23, 59, 59, 999);
+            } else {
+                const [hours, minutes] = time.split(':').map(Number);
+                base.setHours(hours || 0, minutes || 0, 0, 0);
+            }
+            return base;
+        }
+        function isTaskVisibleInClassify(task) {
+            if(!task || task.completed) return true;
+            const scheduledAt = getTaskScheduledDateTime(task);
+            if(!scheduledAt) return true;
+            return scheduledAt >= new Date();
+        }
         function getTaskDifferentDayConstraintDate(task) {
             if(!task) return null;
             if(task.completed && task.completedDate) return task.completedDate;
@@ -4439,7 +4460,7 @@
         // --- Smart Scheduling Algorithm ---
         function getSmartSchedule(dateStr) {
             if(isDateInVacation(dateStr)) return [];
-            let dayTasks = tasks.filter(t => !t.completed && t.date === dateStr);
+            let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
             let fixed = dayTasks.filter(t => t.time).sort((a,b) => a.time.localeCompare(b.time));
             let floating = dayTasks.filter(t => !t.time).sort(compareTasksForScheduling);
             let schedule = [];
@@ -4603,9 +4624,9 @@
             const completed = tasks.filter(t => t.completed).length;
             const pending = total - completed;
             const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-            const high = tasks.filter(t => !t.completed && t.priority === 'High').length;
+            const high = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.priority === 'High').length;
             const todayStr = getDateStrLocal();
-            const dueToday = tasks.filter(t => !t.completed && getTaskDueDate(t) === todayStr).length;
+            const dueToday = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && getTaskDueDate(t) === todayStr).length;
 
             animateValue('statTotal', parseInt(statTotalEl.innerText, 10) || 0, total, 500);
             animateValue('statCompleted', parseInt(statCompletedEl.innerText, 10) || 0, completed, 500);
@@ -4828,6 +4849,7 @@
             const { startStr: weekStart, endStr: weekEnd } = getWeekBoundsFromWeekKey(currentWeekKey);
 
             let filtered = tasks.filter(t => {
+                if(!isTaskVisibleInClassify(t)) return false;
                 if(filter === 'active' && t.completed) return false;
                 if(filter === 'completed' && !t.completed) return false;
                 const dueDate = getTaskDueDate(t);
