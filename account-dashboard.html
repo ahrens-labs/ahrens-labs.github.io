@@ -18,14 +18,19 @@
     .dash-wrap { max-width: 920px; margin: 0 auto; padding: 28px 20px 48px; font-family: Inter, system-ui, sans-serif; }
     .dash-wrap h1 { margin: 0 0 8px 0; color: #1e293b; font-size: 1.85rem; }
     .dash-sub { color: #64748b; margin: 0 0 28px 0; font-size: 0.98rem; }
-    .dash-grid { display: grid; gap: 20px; }
-    @media (min-width: 840px) { .dash-grid { grid-template-columns: 1fr 1fr; } }
+    .dash-grid { display: grid; gap: 18px; }
+    @media (min-width: 840px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .dash-card {
       background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
-      padding: 22px 22px 20px; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+      padding: 20px 20px 18px; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
     }
-    .dash-card h2 { margin: 0 0 14px 0; font-size: 1.08rem; color: #0f172a; }
-    .dash-card p.hint { margin: 0 0 14px 0; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
+    .dash-card h2 { margin: 0 0 8px 0; font-size: 1.05rem; color: #0f172a; }
+    .dash-card h3 { margin: 16px 0 8px 0; font-size: 0.95rem; color: #334155; }
+    .dash-card p.hint { margin: 0 0 12px 0; font-size: 0.88rem; color: #64748b; line-height: 1.45; }
+    .dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .dash-card-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .dash-page-intro { margin: -2px 0 20px 0; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); }
+    .dash-page-intro p { margin: 0; color: #475569; font-size: 0.94rem; }
     .form-row { margin-bottom: 14px; }
     .form-row-forgot-link { margin: 6px 0 0 0; font-size: 0.85rem; line-height: 1.35; }
     .form-row-forgot-link a { color: #2563eb; font-weight: 600; text-decoration: none; }
@@ -690,10 +695,17 @@
         </div>
       </div>
 
+      <div class="dash-page-intro">
+        <p>Manage your account basics, email preferences, and TrifangX settings in one place.</p>
+      </div>
+
       <div class="dash-grid">
         <div class="dash-card">
-          <h2>Change password</h2>
-          <p class="hint">Use a strong password you do not reuse on other sites.</p>
+          <div class="dash-card-head">
+            <h2>Change password</h2>
+            <span class="dash-card-pill">Security</span>
+          </div>
+          <p class="hint">Use a password you do not reuse elsewhere.</p>
           <form id="form-password">
             <div class="form-row">
               <label for="pw-current">Current password</label>
@@ -714,8 +726,11 @@
         </div>
 
         <div class="dash-card">
-          <h2>Change username</h2>
-          <p class="hint">Usernames are unique (case-insensitive). Your password confirms this change.</p>
+          <div class="dash-card-head">
+            <h2>Change username</h2>
+            <span class="dash-card-pill">Identity</span>
+          </div>
+          <p class="hint">Usernames are unique. Your password confirms the change.</p>
           <form id="form-username">
             <div class="form-row">
               <label for="uname-new">New username</label>
@@ -732,19 +747,14 @@
         </div>
 
         <div class="dash-card full-span" id="dash-lb-settings-card">
-          <h2>Leaderboard settings</h2>
-          <p class="hint">
-            Control how you look on the public <a href="chess-leaderboard.html">TrifangX career leaderboard</a>.
-            Row color is stored on your account. Prefix, suffix, title, and frame come from your cloud chess save and must be
-            <a href="chess-season-track.html">unlocked on the monthly season track</a> before you can equip them here.
-          </p>
+          <div class="dash-card-head">
+            <h2>Leaderboard settings</h2>
+            <span class="dash-card-pill">TrifangX</span>
+          </div>
+          <p class="hint">Pick the look you want on the public leaderboard.</p>
 
-          <h3 style="margin:18px 0 10px;font-size:0.95rem;color:#334155;">Row background</h3>
-          <p class="hint" style="font-size:0.85rem">
-            Everyone gets a small set of standard tints. Buy extra solid row colors (or a custom color pass) in the
-            <a href="chess-shop.html">TrifangX shop</a>. Claim steps on this month’s
-            <a href="chess-season-track.html">season track</a> in TrifangX to unlock gradient row finishes.
-          </p>
+          <h3>Row background</h3>
+          <p class="hint" style="font-size:0.85rem">Choose a row tint, then unlock more colors and finishes from the shop or season track.</p>
           <div id="dash-lb-row-picks-wrap">
             <p style="margin:10px 0 6px;font-size:0.82rem;font-weight:600;color:#475569;">Standard tints</p>
             <div id="dash-lb-row-picks-basic" class="dash-lb-row-swatch-grid" aria-label="Standard row colors"></div>
@@ -780,9 +790,7 @@
           <p class="status" id="lb-row-color-status"></p>
 
           <p style="margin:18px 0 6px;font-size:0.82rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;">Live preview</p>
-          <p class="hint" style="font-size:0.85rem;margin:0 0 10px;">
-            Same table row styling as the public leaderboard (tinted row, flair layout, points tier colors).
-          </p>
+          <p class="hint" style="font-size:0.85rem;margin:0 0 10px;">See the row style as it will appear on the public leaderboard.</p>
           <div class="dash-lb-live-preview-wrap lb-table-wrap">
             <table class="lb-table" aria-label="Leaderboard row preview">
               <thead>
@@ -798,10 +806,8 @@
 
           <hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0;">
 
-          <h3 style="margin:0 0 10px;font-size:0.95rem;color:#334155;">Displayed flair</h3>
-          <p class="hint" id="dash-lb-flair-hint" style="margin-bottom:12px">
-            Loading flair options from your cloud save…
-          </p>
+          <h3>Displayed flair</h3>
+          <p class="hint" id="dash-lb-flair-hint" style="margin-bottom:12px">Loading flair options from your cloud save…</p>
           <div id="dash-lb-flair-form" style="display:none">
             <div class="form-row">
               <label for="dash-lb-flair-frame">Frame</label>
@@ -819,26 +825,21 @@
               <label for="dash-lb-flair-suffix">Suffix</label>
               <select id="dash-lb-flair-suffix" aria-label="Leaderboard suffix"></select>
             </div>
-            <p class="hint" style="margin:14px 0 0;font-size:0.82rem;color:#64748b;">
-              Flair saves automatically when you change a field.
-            </p>
+            <p class="hint" style="margin:14px 0 0;font-size:0.82rem;color:#64748b;">Flair saves automatically when you change a field.</p>
           </div>
           <p class="status" id="dash-lb-flair-status"></p>
         </div>
 
         <div class="dash-card full-span">
-          <h2>Email</h2>
+          <div class="dash-card-head">
+            <h2>Email</h2>
+            <span class="dash-card-pill">Updates</span>
+          </div>
           <p class="hint" id="email-verify-banner" style="display:none;padding:12px 14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;color:#92400e;margin:0 0 14px 0;">
-            <strong>Confirm your email</strong> — open the link in the message we sent when you signed up. Until then, the daily challenge email, “email challenges now,” admin broadcasts, milestone mail, and the season-track finale congratulations email are turned off for this address.
+            <strong>Confirm your email</strong> to enable challenge and milestone emails.
           </p>
-          <p class="hint">
-            If you turn on the <strong>daily TrifangX challenge roundup</strong>, we email you <strong>once per calendar day</strong> with that day’s three challenges (same calendar the server uses for the list). The <strong>first time you save with it on</strong>, we also send today’s three challenges right away so you can confirm it’s working. In TrifangX, daily challenges refresh on <strong>your device’s date</strong>.
-          </p>
-          <p class="hint" style="margin-bottom:14px;">
-            For NFL, NBA, and MLB updates, open
-            <a href="digest.html">Digest</a> from the
-            <a href="coding-lab.html">Coding Lab</a> to pick teams and your send schedule.
-          </p>
+          <p class="hint">Turn on daily challenge emails, or send them manually at any time.</p>
+          <p class="hint" style="margin-bottom:14px;">Digest updates are managed from <a href="digest.html">Digest</a> and <a href="coding-lab.html">Coding Lab</a>.</p>
           <div class="check-row">
             <input type="checkbox" id="email-digest-on">
             <label for="email-digest-on" style="margin:0;font-weight:500;">Email me the daily TrifangX challenge roundup</label>
@@ -856,8 +857,11 @@
         </div>
 
         <div class="dash-card">
-          <h2>Chess store &amp; TrifangX</h2>
-          <p class="hint">Spend points on boards, pieces, and more. <strong>Chess store</strong> opens the full shop page; <strong>TrifangX settings</strong> opens right here on the dashboard.</p>
+          <div class="dash-card-head">
+            <h2>Chess store &amp; TrifangX</h2>
+            <span class="dash-card-pill">Points</span>
+          </div>
+          <p class="hint">Open the shop, adjust TrifangX settings, or review achievements.</p>
           <div class="dash-trifangx-points-wrap" id="dash-trifangx-points-wrap">
             <p class="dash-trifangx-points-label">Total points (achievements)</p>
             <p class="dash-trifangx-points-value" id="dash-trifangx-points-value">…</p>
@@ -1009,8 +1013,11 @@
         </div>
 
         <div class="dash-card">
-          <h2>Delete account</h2>
-          <p class="hint">Permanently removes your cloud data. You will receive a confirmation email after deletion.</p>
+          <div class="dash-card-head">
+            <h2>Delete account</h2>
+            <span class="dash-card-pill">Danger</span>
+          </div>
+          <p class="hint">Permanently remove your account and saved cloud data.</p>
           <a class="btn btn-danger-outline" href="delete-account.html" style="text-decoration:none;display:inline-block;">Delete account…</a>
         </div>
       </div>
