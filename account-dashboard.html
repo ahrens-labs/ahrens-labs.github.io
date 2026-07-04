@@ -60,18 +60,18 @@
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
     .full-span { grid-column: 1 / -1; }
-    .header-nav-hint { margin: 0 0 10px 0; font-size: 0.82rem; line-height: 1.4; }
+    .header-nav-hint { margin: 0 0 8px 0; font-size: 0.78rem; line-height: 1.4; color: #64748b; }
     .header-nav-options-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 2px 12px;
+      gap: 4px 10px;
       align-items: center;
       padding: 2px 0;
     }
     .header-nav-group-title {
       width: 100%;
       margin: 6px 0 0 0;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -83,7 +83,7 @@
       align-items: center;
       gap: 5px;
       padding: 1px 0;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: #475569;
       cursor: pointer;
       white-space: nowrap;
@@ -94,10 +94,16 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      margin-top: 10px;
+      margin-top: 8px;
     }
-    .header-nav-actions .btn { padding: 7px 12px; font-size: 0.84rem; }
-    .dash-header-nav-card { padding: 16px 18px; }
+    .header-nav-actions .btn { padding: 6px 10px; font-size: 0.8rem; }
+    .dash-header-nav-card {
+      padding: 14px 16px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+      min-width: 0;
+    }
     .dash-lb-row-swatch-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
     .dash-lb-row-swatch {
       display: flex; flex-direction: column; align-items: stretch; gap: 4px;
@@ -885,13 +891,16 @@
           </p>
         </div>
 
-        <div class="dash-card admin-broadcast-card full-span dash-header-nav-card" id="dash-header-nav-card">
-          <h2>Site header links</h2>
-          <p class="hint header-nav-hint">Links shown in the top nav on every page. Default: Home, Labs, Chess Engine, Account. Optional groups (including Chess Engine) can be turned on or off below.</p>
+        <div class="dash-card admin-broadcast-card dash-header-nav-card" id="dash-header-nav-card" style="grid-column: auto;">
+          <div class="dash-card-head">
+            <h2 style="margin:0; font-size:0.98rem;">Site header links</h2>
+            <span class="dash-card-pill">Nav</span>
+          </div>
+          <p class="hint header-nav-hint">Choose which links appear in the top nav.</p>
           <div id="header-nav-options" class="header-nav-options-grid" aria-label="Header link options"></div>
           <div class="header-nav-actions">
             <button type="button" class="btn btn-primary" id="btn-save-header-nav">Save</button>
-            <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset to default</button>
+            <button type="button" class="btn btn-ghost" id="btn-reset-header-nav">Reset</button>
           </div>
           <p class="status" id="header-nav-status"></p>
         </div>
