@@ -1312,6 +1312,9 @@
         var cloudSid = String(
           (data.seasonTrack && data.seasonTrack.seasonId) || ''
         ).trim();
+        var liveTrackSid = String(
+          (data && (data.liveTrackSid || data.liveTrackSeasonId || data.liveTrackSeason)) || currentSid || ''
+        ).trim();
         var meta = CS.getChessSeasonTrack(displaySid);
         applySeasonPageChrome(meta);
         var nodes = meta.nodes;
