@@ -51,8 +51,13 @@
     .status { font-size: 0.86rem; margin-top: 10px; min-height: 1.2em; color: #64748b; }
     .status.ok { color: #047857; }
     .status.err { color: #b91c1c; }
-    .dash-topbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .dash-links a { color: #2563eb; font-weight: 600; text-decoration: none; margin-right: 14px; font-size: 0.92rem; }
+    .dash-topbar {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; padding: 16px 18px; border: 1px solid #e2e8f0; border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+    }
+    .dash-links { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .dash-links a { color: #2563eb; font-weight: 600; text-decoration: none; font-size: 0.92rem; }
     .dash-links a:hover { text-decoration: underline; }
     .check-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
     .check-row input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; }
