@@ -4729,6 +4729,11 @@ def _canonical_opening_moves(moves):
     return out
 
 
+def _raw_opening_moves(moves):
+    """Keep executable SAN tokens while normalizing castle spelling."""
+    return [m.replace('O-O-O', '0-0-0').replace('O-O', '0-0') for m in moves]
+
+
 def _strip_variation_prefix(var_text):
     """Remove a leading move-number prefix from variation text."""
     text = var_text.strip()
@@ -4748,7 +4753,8 @@ def _opening_book_walk(pgn_str, prefix_moves, played):
     """
     segments = _split_opening_main_and_variations(pgn_str)
     main_text = ''.join(text for kind, text in segments if kind == 'main')
-    main_moves = prefix_moves + _canonical_opening_moves(extract_moves(main_text))
+    main_moves = prefix_moves + _raw_opening_moves(extract_moves(main_text))
+    main_canonical = _canonical_opening_moves(main_moves)
 
     main_so_far = ''
     fork_var_first_moves = []
@@ -4757,21 +4763,23 @@ def _opening_book_walk(pgn_str, prefix_moves, played):
             main_so_far += text
             continue
 
-        branch_base = prefix_moves + _canonical_opening_moves(extract_moves(main_so_far))
+        branch_base = prefix_moves + _raw_opening_moves(extract_moves(main_so_far))
         branch_len = _opening_variation_branch_len(text)
         if branch_len is None:
             branch_len = len(branch_base)
         branch_prefix = branch_base[:branch_len]
+        branch_prefix_canonical = _canonical_opening_moves(branch_prefix)
 
-        if len(played) < branch_len or played[:branch_len] != branch_prefix:
+        if len(played) < branch_len or played[:branch_len] != branch_prefix_canonical:
             continue
 
         var_body = _strip_variation_prefix(text)
-        var_first = _canonical_opening_moves(extract_moves(var_body))
+        var_first = _raw_opening_moves(extract_moves(var_body))
         if not var_first:
             continue
 
-        if len(played) > branch_len and played[branch_len] != var_first[0]:
+        var_first_canonical = _canonical_opening_moves(var_first)
+        if len(played) > branch_len and played[branch_len] != var_first_canonical[0]:
             continue
 
         if len(played) == branch_len:
@@ -4782,7 +4790,8 @@ def _opening_book_walk(pgn_str, prefix_moves, played):
             var_next = _opening_book_walk(var_body, branch_prefix, played)
         else:
             var_line = branch_prefix + var_first
-            if len(played) < len(var_line) and played == var_line[:len(played)]:
+            var_line_canonical = _canonical_opening_moves(var_line)
+            if len(played) < len(var_line) and played == var_line_canonical[:len(played)]:
                 var_next = var_line[len(played)]
             else:
                 var_next = None
@@ -4790,7 +4799,7 @@ def _opening_book_walk(pgn_str, prefix_moves, played):
         if var_next is not None:
             return var_next
 
-    if len(played) < len(main_moves) and played == main_moves[:len(played)]:
+    if len(played) < len(main_moves) and played == main_canonical[:len(played)]:
         return main_moves[len(played)]
 
     if len(played) == len(main_moves) and fork_var_first_moves:
@@ -4808,7 +4817,7 @@ def _all_opening_book_lines(pgn_str, prefix_moves=None):
     lines = []
 
     main_text = ''.join(text for kind, text in segments if kind == 'main')
-    main_moves = prefix_moves + _canonical_opening_moves(extract_moves(main_text))
+    main_moves = prefix_moves + _raw_opening_moves(extract_moves(main_text))
 
     main_so_far = ''
     for kind, text in segments:
@@ -4816,7 +4825,7 @@ def _all_opening_book_lines(pgn_str, prefix_moves=None):
             main_so_far += text
             continue
 
-        branch_base = prefix_moves + _canonical_opening_moves(extract_moves(main_so_far))
+        branch_base = prefix_moves + _raw_opening_moves(extract_moves(main_so_far))
         branch_len = _opening_variation_branch_len(text)
         if branch_len is None:
             branch_len = len(branch_base)
@@ -4826,7 +4835,7 @@ def _all_opening_book_lines(pgn_str, prefix_moves=None):
         if '(' in var_body:
             lines.extend(_all_opening_book_lines(var_body, branch_prefix))
         else:
-            var_moves = _canonical_opening_moves(extract_moves(var_body))
+            var_moves = _raw_opening_moves(extract_moves(var_body))
             if var_moves:
                 lines.append(branch_prefix + var_moves)
 
