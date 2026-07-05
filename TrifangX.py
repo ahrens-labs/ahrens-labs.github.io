@@ -114,6 +114,19 @@ def _format_promotion_move(piece, from_row, from_col, to_row, to_col, captured_p
         return prefix + indices_to_pos(to_row, to_col) + '=' + prom.upper()
     return None
 
+
+def _format_promotion_move_from_source(source_piece, placed_piece, from_row, from_col, to_row, to_col, captured_piece):
+    if _is_white_pawn_promotion_move(from_row, source_piece, to_row):
+        prom = placed_piece if placed_piece in WHITE_PROMOTION_PIECES else 'Q'
+        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in BLACK_PIECES else ''
+        return prefix + indices_to_pos(to_row, to_col) + '=' + prom
+    if _is_black_pawn_promotion_move(from_row, source_piece, to_row):
+        prom = placed_piece if placed_piece in BLACK_PROMOTION_PIECES else 'q'
+        prefix = indices_to_pos_col(from_col) + 'x' if captured_piece in WHITE_PIECES else ''
+        return prefix + indices_to_pos(to_row, to_col) + '=' + prom.upper()
+    return None
+
+
 def pos_to_indices(pos):
     col = ord(pos[0].lower()) - ord('a')
     row = 8 - int(pos[1])
@@ -265,7 +278,12 @@ def format_debug_move(board_before, piece, from_row, from_col, to_row, to_col, c
     elif piece == '0-0-0':
         move_played = 'O-O-O'
     else:
-        move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
+        source_piece_before = board_before[from_row][from_col]
+        move_played = _format_promotion_move_from_source(
+            source_piece_before, piece, from_row, from_col, to_row, to_col, debug_captured_piece
+        )
+        if move_played is None:
+            move_played = print_piece_move(debug_board, piece, from_row, from_col, to_row, to_col, debug_captured_piece, color)
 
     opponent_color = 'w' if color == 'b' else 'b'
     opp_king_row, opp_king_col = find_king(debug_board, opponent_color)
@@ -5726,6 +5744,7 @@ def best_move_function(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
                 board[target_row][target_col] = best_piece
@@ -5735,7 +5754,7 @@ def best_move_function(board, bots, en_passant):
                 if best_piece == 'k':
                     king_move = 1
                 white_king_row, white_king_col = find_king(board, 'w')
-                if _is_black_pawn_promotion_move(best_row, best_piece, target_row):
+                if _is_black_pawn_promotion_move(best_row, source_piece, target_row):
                     promotion_piece = best_piece if best_piece in BLACK_PROMOTION_PIECES else 'q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
@@ -8350,6 +8369,7 @@ def best_move_black(board, bots, en_passant):
             else:
                 captured_piece = board[target_row][target_col]
                 piece = board[target_row][target_col]
+                source_piece = board[best_row][best_col]
                 board_before = fast_copy_board(board)
                 board[best_row][best_col] = '0'
                 board[target_row][target_col] = best_piece
@@ -8360,7 +8380,7 @@ def best_move_black(board, bots, en_passant):
                 if best_piece == 'K':
                     king_move_white = 1
                 black_king_row, black_king_col = find_king(board, 'b')
-                if _is_white_pawn_promotion_move(best_row, best_piece, target_row):
+                if _is_white_pawn_promotion_move(best_row, source_piece, target_row):
                     promotion_piece = best_piece if best_piece in WHITE_PROMOTION_PIECES else 'Q'
                     board[target_row][target_col] = promotion_piece
                     if blind != 'y':
