@@ -14646,8 +14646,13 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
       }
 
       const viewParams = getAdminChessViewParamsFromLocation();
-      const adminEmail = localStorage.getItem('ahrenslabs_email') || '';
-      if (viewParams && isAdminBroadcastAccount(adminEmail)) {
+      const adminEmail = (
+        localStorage.getItem('ahrenslabs_email') ||
+        localStorage.getItem('email') ||
+        localStorage.getItem('ahrenslabs_userEmail') ||
+        ''
+      ).trim().toLowerCase();
+      if (viewParams && currentSessionId) {
         try {
           const response = await fetch(`${API_BASE_URL}/api/admin/chess/load-for-user`, {
             method: 'POST',
@@ -14690,7 +14695,9 @@ const trifangxChessCloudBridge = { chessData: null, dataLoaded: false };
               return true;
             }
           }
-          console.warn('Admin chess view load failed; falling back to own profile.');
+          if (isAdminBroadcastAccount(adminEmail)) {
+            console.warn('Admin chess view load failed; falling back to own profile.');
+          }
         } catch (adminLoadErr) {
           console.warn('Admin chess view load error', adminLoadErr);
         }
