@@ -3211,7 +3211,7 @@
         function startAssignmentButtonHtml(task, { compact = false } = {}) {
             const sizeClass = compact ? 'cl-start-btn cl-start-btn--compact' : 'cl-start-btn';
             if(canUnstartAssignment(task)) {
-                return `<button type="button" onclick="event.stopPropagation(); unstartAssignment('${task.id}')" class="${sizeClass} cl-start-btn--unstart" title="Unlock so auto-schedule can move this again">Unstart</button>`;
+                return `<button type="button" onclick="event.stopPropagation(); unstartAssignment('${task.id}')" class="${sizeClass} cl-start-btn--unstart" title="Unlock start time only; keeps event date and due date">Unstart</button>`;
             }
             if(!canStartAssignment(task)) return '';
             return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="${sizeClass}" title="Lock this time so auto-schedule won't move it">Start</button>`;
@@ -3264,18 +3264,32 @@
             }
 
             const doUnstart = () => {
+                const preservedDate = task.date || null;
+                const preservedDueDate = task.dueDate || null;
+                const preservedDueTime = task.dueTime || null;
+                const preservedScheduleType = task.scheduleType || null;
+
                 task.startedAt = null;
                 task.assignmentMode = 'ADJUSTABLE';
                 if(task.time) task.timeSource = 'auto';
-                if(task.date && task.dateSource === 'user') task.dateSource = 'auto';
+
+                // Keep the event date and due date exactly as they were before Start.
+                task.date = preservedDate;
+                task.dueDate = preservedDueDate;
+                task.dueTime = preservedDueTime;
+                if(preservedScheduleType) task.scheduleType = preservedScheduleType;
+                if(preservedDate) {
+                    task.dateSource = 'user';
+                    task.week = getWeekKeyFromDateStr(preservedDate);
+                }
 
                 saveData();
-                showNotification(`Unstarted "${task.title}" — auto-schedule can move it again`, 'success');
+                showNotification(`Unstarted "${task.title}" — date kept; time can auto-move`, 'success');
             };
 
             confirmAction(
                 'Unstart Assignment?',
-                `"${task.title}" will unlock so auto-schedule can change its time again.`,
+                `"${task.title}" will unlock its start time so auto-schedule can move the time again. Event date and due date stay the same.`,
                 'Unstart',
                 doUnstart
             );
