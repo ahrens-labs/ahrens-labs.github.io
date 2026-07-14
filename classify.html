@@ -753,6 +753,27 @@
             padding: 0.15rem 0.5rem;
             font-size: 0.65rem;
         }
+        body.classify-app .cl-start-btn--unstart {
+            border-color: #94a3b8;
+            background: transparent;
+            color: #475569 !important;
+        }
+        body.classify-app .cl-start-btn--unstart:hover {
+            background: #f1f5f9 !important;
+            border-color: #64748b;
+            color: #334155 !important;
+            box-shadow: none;
+        }
+        .dark body.classify-app .cl-start-btn--unstart {
+            border-color: #64748b;
+            background: transparent;
+            color: #cbd5e1 !important;
+        }
+        .dark body.classify-app .cl-start-btn--unstart:hover {
+            background: rgba(51, 65, 85, 0.65) !important;
+            border-color: #94a3b8;
+            color: #f1f5f9 !important;
+        }
         .dark body.classify-app .cl-page-header {
             border-color: rgba(51, 65, 85, 0.5);
             background: linear-gradient(to right, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.48), rgba(15, 23, 42, 0.32));
@@ -3183,9 +3204,16 @@
             return Boolean(task && !task.completed && !isFixedTask(task));
         }
 
+        function canUnstartAssignment(task) {
+            return Boolean(task && !task.completed && isAssignmentStarted(task));
+        }
+
         function startAssignmentButtonHtml(task, { compact = false } = {}) {
-            if(!canStartAssignment(task)) return '';
             const sizeClass = compact ? 'cl-start-btn cl-start-btn--compact' : 'cl-start-btn';
+            if(canUnstartAssignment(task)) {
+                return `<button type="button" onclick="event.stopPropagation(); unstartAssignment('${task.id}')" class="${sizeClass} cl-start-btn--unstart" title="Unlock so auto-schedule can move this again">Unstart</button>`;
+            }
+            if(!canStartAssignment(task)) return '';
             return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="${sizeClass}" title="Lock this time so auto-schedule won't move it">Start</button>`;
         }
 
@@ -3225,6 +3253,32 @@
 
             saveData({ skipAutoSchedule: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
+        }
+
+        function unstartAssignment(id) {
+            const task = tasks.find(t => t.id === id);
+            if(!task || task.completed) return;
+            if(!isAssignmentStarted(task)) {
+                showNotification('This assignment is not started', 'info');
+                return;
+            }
+
+            const doUnstart = () => {
+                task.startedAt = null;
+                task.assignmentMode = 'ADJUSTABLE';
+                if(task.time) task.timeSource = 'auto';
+                if(task.date && task.dateSource === 'user') task.dateSource = 'auto';
+
+                saveData();
+                showNotification(`Unstarted "${task.title}" — auto-schedule can move it again`, 'success');
+            };
+
+            confirmAction(
+                'Unstart Assignment?',
+                `"${task.title}" will unlock so auto-schedule can change its time again.`,
+                'Unstart',
+                doUnstart
+            );
         }
 
         function isPlannerEventTask(task) {
