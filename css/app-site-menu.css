@@ -577,7 +577,8 @@ body.th-page main.th-main-wrap {
   }
 
   .th-topbar-brand img,
-  .th-topbar-brand .digest-logo {
+  .th-topbar-brand .digest-logo,
+  .th-topbar-brand .platter-logo {
     width: 34px;
     height: 34px;
   }
