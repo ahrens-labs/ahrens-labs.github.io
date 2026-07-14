@@ -33,6 +33,109 @@ function jsonResponse(body, corsHeaders, status = 200) {
   });
 }
 
+/** Short TTLs for authenticated GETs; keys are partitioned by userId. */
+const TETHER_CACHE_TTL = {
+  syncVersion: 5,
+  list: 15,
+  project: 15,
+  prefs: 60,
+};
+
+const TETHER_USER_CACHE_PATHS = [
+  '/api/tether/projects',
+  '/api/tether/sync-version',
+  '/api/tether/my-tasks',
+  '/api/tether/inbox',
+  '/api/tether/label-colors',
+  '/api/tether/settings',
+];
+
+function tetherCacheRequest(userId, path, query = '') {
+  const q = String(query || '').replace(/^\?/, '');
+  const suffix = q ? `?${q}` : '';
+  return new Request(`https://tether-cache.internal/v1/${encodeURIComponent(String(userId))}${path}${suffix}`, {
+    method: 'GET',
+  });
+}
+
+function scheduleTetherCacheWork(ctx, promise) {
+  if (!promise) return;
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(promise.catch(() => {}));
+    return;
+  }
+  promise.catch(() => {});
+}
+
+async function invalidateTetherUserCache(userId, { projectIds = [] } = {}) {
+  if (!userId || typeof caches === 'undefined') return;
+  try {
+    const cache = caches.default;
+    const deletes = TETHER_USER_CACHE_PATHS.map((path) => cache.delete(tetherCacheRequest(userId, path)));
+    for (const projectId of projectIds) {
+      if (!projectId) continue;
+      deletes.push(
+        cache.delete(tetherCacheRequest(userId, '/api/tether/project', `projectId=${encodeURIComponent(projectId)}`))
+      );
+    }
+    await Promise.all(deletes);
+  } catch {
+    /* cache is best-effort */
+  }
+}
+
+async function invalidateTetherUsersCache(userIds, opts) {
+  const ids = userIds instanceof Set ? [...userIds] : Array.isArray(userIds) ? userIds : [];
+  await Promise.all(ids.filter(Boolean).map((uid) => invalidateTetherUserCache(uid, opts)));
+}
+
+/**
+ * Serve an authenticated Tether GET from the Workers Cache API when fresh.
+ * Cache keys include userId so responses are never shared across accounts.
+ */
+async function cachedTetherGet(ctx, userId, path, query, corsHeaders, load, maxAgeSec) {
+  const key = tetherCacheRequest(userId, path, query);
+  try {
+    if (typeof caches !== 'undefined') {
+      const hit = await caches.default.match(key);
+      if (hit) {
+        const headers = new Headers(hit.headers);
+        Object.entries(corsHeaders || {}).forEach(([k, v]) => headers.set(k, v));
+        headers.set('Content-Type', 'application/json');
+        headers.set('Cache-Control', 'private, no-store');
+        headers.set('X-Tether-Cache', 'HIT');
+        return new Response(hit.body, { status: hit.status, headers });
+      }
+    }
+  } catch {
+    /* miss and continue */
+  }
+
+  const body = await load();
+  const response = jsonResponse(body, {
+    ...corsHeaders,
+    'Cache-Control': 'private, no-store',
+    'X-Tether-Cache': 'MISS',
+  });
+
+  try {
+    if (typeof caches !== 'undefined') {
+      const cacheHeaders = new Headers(response.headers);
+      cacheHeaders.set('Cache-Control', `public, max-age=${Math.max(1, Number(maxAgeSec) || 15)}`);
+      cacheHeaders.delete('Set-Cookie');
+      const stored = new Response(response.clone().body, {
+        status: response.status,
+        headers: cacheHeaders,
+      });
+      scheduleTetherCacheWork(ctx, caches.default.put(key, stored));
+    }
+  } catch {
+    /* ignore cache put failures */
+  }
+
+  return response;
+}
+
 function tetherProjectStub(env, projectId) {
   if (!env.TETHER_PROJECT || !projectId) return null;
   return env.TETHER_PROJECT.get(env.TETHER_PROJECT.idFromName(String(projectId)));
@@ -77,7 +180,8 @@ async function notifyTetherSync(env, userId, payload) {
   }
 }
 
-async function publishInboxSync(env, userId, sourceClientId) {
+async function publishInboxSync(env, userId, sourceClientId, ctx) {
+  scheduleTetherCacheWork(ctx, invalidateTetherUserCache(userId));
   await notifyTetherSync(env, userId, {
     type: 'inbox',
     ts: Date.now(),
@@ -85,23 +189,30 @@ async function publishInboxSync(env, userId, sourceClientId) {
   });
 }
 
-async function publishProjectSync(env, project, sourceClientId) {
+async function publishProjectSync(env, project, sourceClientId, ctx) {
+  const memberIds = [...projectMemberIds(project)];
+  const projectId = project?.id || null;
+  scheduleTetherCacheWork(
+    ctx,
+    invalidateTetherUsersCache(memberIds, { projectIds: projectId ? [projectId] : [] })
+  );
   const payload = {
     type: 'project',
-    projectId: project?.id || null,
+    projectId,
     ts: Date.now(),
     sourceClientId,
   };
-  await Promise.all([...projectMemberIds(project)].map((uid) => notifyTetherSync(env, uid, payload)));
+  await Promise.all(memberIds.map((uid) => notifyTetherSync(env, uid, payload)));
 }
 
-async function publishProjectsListSync(env, userIds, sourceClientId) {
+async function publishProjectsListSync(env, userIds, sourceClientId, ctx) {
+  const ids = userIds instanceof Set ? userIds : new Set(userIds || []);
+  scheduleTetherCacheWork(ctx, invalidateTetherUsersCache(ids));
   const payload = {
     type: 'projects',
     ts: Date.now(),
     sourceClientId,
   };
-  const ids = userIds instanceof Set ? userIds : new Set(userIds || []);
   await Promise.all([...ids].filter(Boolean).map((uid) => notifyTetherSync(env, uid, payload)));
 }
 
@@ -489,7 +600,7 @@ function newProjectId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-export async function handleTetherRequest(request, env, corsHeaders, path) {
+export async function handleTetherRequest(request, env, corsHeaders, path, ctx) {
   const url = new URL(request.url);
   let sessionId = parseBearerToken(request.headers.get('Authorization'));
   if (!sessionId) {
@@ -512,67 +623,75 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
   }
 
   if (path === '/api/tether/projects' && request.method === 'GET') {
-    const projectIds = await getTetherProjectIds(env, userId);
-    const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
-    return jsonResponse({ projects }, corsHeaders);
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const projectIds = await getTetherProjectIds(env, userId);
+      const projects = await fetchAccessibleProjectSummaries(env, projectIds, userId);
+      return { projects };
+    }, TETHER_CACHE_TTL.list);
   }
 
   if (path === '/api/tether/sync-version' && request.method === 'GET') {
-    const fingerprint = await buildSyncFingerprint(env, userId);
-    return jsonResponse({ fingerprint, ts: Date.now() }, corsHeaders);
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const fingerprint = await buildSyncFingerprint(env, userId);
+      return { fingerprint, ts: Date.now() };
+    }, TETHER_CACHE_TTL.syncVersion);
   }
 
   if (path === '/api/tether/my-tasks' && request.method === 'GET') {
-    const projectIds = await getTetherProjectIds(env, userId);
-    const accessible = await fetchAccessibleProjects(env, projectIds, userId);
-    const inboxTasks = await getInboxTasks(env, userId);
-    const tasks = [];
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const projectIds = await getTetherProjectIds(env, userId);
+      const accessible = await fetchAccessibleProjects(env, projectIds, userId);
+      const inboxTasks = await getInboxTasks(env, userId);
+      const tasks = [];
 
-    for (const task of inboxTasks) {
-      const { dependsOnTitles, blockedByIncomplete } = enrichTaskWithDeps(task, inboxTasks);
-      tasks.push({
-        ...task,
-        projectId: null,
-        projectTitle: 'None',
-        dependsOnTitles,
-        blockedByIncomplete,
-      });
-    }
-
-    for (const project of accessible) {
-      const projectTasks = project.tasks || [];
-      const byId = new Map(projectTasks.map((t) => [t.id, t]));
-      for (const task of projectTasks) {
-        if (!(task.assigneeUserIds || []).includes(userId)) continue;
-        const depIds = task.dependsOnTaskIds || [];
-        const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
-        const blockedByIncomplete = depIds
-          .map((id) => byId.get(id))
-          .filter((dep) => dep && (dep.status || 'todo') !== 'done')
-          .map((dep) => dep.title);
+      for (const task of inboxTasks) {
+        const { dependsOnTitles, blockedByIncomplete } = enrichTaskWithDeps(task, inboxTasks);
         tasks.push({
           ...task,
-          projectId: project.id,
-          projectTitle: project.title,
+          projectId: null,
+          projectTitle: 'None',
           dependsOnTitles,
           blockedByIncomplete,
         });
       }
-    }
-    tasks.sort((a, b) => {
-      const da = a.dueDate || '';
-      const db = b.dueDate || '';
-      if (da && db && da !== db) return da.localeCompare(db);
-      if (da && !db) return -1;
-      if (!da && db) return 1;
-      return String(a.title || '').localeCompare(String(b.title || ''));
-    });
-    return jsonResponse({ tasks }, corsHeaders);
+
+      for (const project of accessible) {
+        const projectTasks = project.tasks || [];
+        const byId = new Map(projectTasks.map((t) => [t.id, t]));
+        for (const task of projectTasks) {
+          if (!(task.assigneeUserIds || []).includes(userId)) continue;
+          const depIds = task.dependsOnTaskIds || [];
+          const dependsOnTitles = depIds.map((id) => byId.get(id)?.title).filter(Boolean);
+          const blockedByIncomplete = depIds
+            .map((id) => byId.get(id))
+            .filter((dep) => dep && (dep.status || 'todo') !== 'done')
+            .map((dep) => dep.title);
+          tasks.push({
+            ...task,
+            projectId: project.id,
+            projectTitle: project.title,
+            dependsOnTitles,
+            blockedByIncomplete,
+          });
+        }
+      }
+      tasks.sort((a, b) => {
+        const da = a.dueDate || '';
+        const db = b.dueDate || '';
+        if (da && db && da !== db) return da.localeCompare(db);
+        if (da && !db) return -1;
+        if (!da && db) return 1;
+        return String(a.title || '').localeCompare(String(b.title || ''));
+      });
+      return { tasks };
+    }, TETHER_CACHE_TTL.list);
   }
 
   if (path === '/api/tether/inbox' && request.method === 'GET') {
-    const tasks = await getInboxTasks(env, userId);
-    return jsonResponse({ tasks }, corsHeaders);
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const tasks = await getInboxTasks(env, userId);
+      return { tasks };
+    }, TETHER_CACHE_TTL.list);
   }
 
   if (path === '/api/tether/inbox' && request.method === 'PUT') {
@@ -581,13 +700,15 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     const depError = validateTaskDependencyCompletion(tasks);
     if (depError) return jsonResponse({ error: depError.error }, corsHeaders, depError.status);
     const saved = await saveInboxTasks(env, userId, tasks);
-    await publishInboxSync(env, userId, readSyncClientId(request, body));
+    await publishInboxSync(env, userId, readSyncClientId(request, body), ctx);
     return jsonResponse({ tasks: saved }, corsHeaders);
   }
 
   if (path === '/api/tether/label-colors' && request.method === 'GET') {
-    const labelColors = await getLabelColors(env, userId);
-    return jsonResponse({ labelColors }, corsHeaders);
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const labelColors = await getLabelColors(env, userId);
+      return { labelColors };
+    }, TETHER_CACHE_TTL.prefs);
   }
 
   if (path === '/api/tether/label-colors' && request.method === 'PUT') {
@@ -601,17 +722,21 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       labelColors[label] = idx;
     }
     const saved = await saveLabelColors(env, userId, labelColors);
+    scheduleTetherCacheWork(ctx, invalidateTetherUserCache(userId));
     return jsonResponse({ labelColors: saved }, corsHeaders);
   }
 
   if (path === '/api/tether/settings' && request.method === 'GET') {
-    const settings = await getTetherSettings(env, userId);
-    return jsonResponse({ settings }, corsHeaders);
+    return cachedTetherGet(ctx, userId, path, '', corsHeaders, async () => {
+      const settings = await getTetherSettings(env, userId);
+      return { settings };
+    }, TETHER_CACHE_TTL.prefs);
   }
 
   if (path === '/api/tether/settings' && request.method === 'PUT') {
     const body = await request.json();
     const saved = await saveTetherSettings(env, userId, body.settings);
+    scheduleTetherCacheWork(ctx, invalidateTetherUserCache(userId));
     return jsonResponse({ settings: saved }, corsHeaders);
   }
 
@@ -655,8 +780,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId);
-    await publishProjectSync(env, project, syncClientId);
+    await publishInboxSync(env, userId, syncClientId, ctx);
+    await publishProjectSync(env, project, syncClientId, ctx);
     return jsonResponse({ task: moved, projectId, tasks: inboxTasks }, corsHeaders);
   }
 
@@ -720,8 +845,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         );
       }
       const syncClientId = readSyncClientId(request, body);
-      await publishInboxSync(env, userId, syncClientId);
-      if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId);
+      await publishInboxSync(env, userId, syncClientId, ctx);
+      if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx);
       return jsonResponse({ task: moved, fromProjectId, toProjectId: null }, corsHeaders);
     }
 
@@ -749,9 +874,9 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       new Request('http://do/save', { method: 'POST', body: JSON.stringify(targetProject) })
     );
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId);
-    if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId);
-    await publishProjectSync(env, targetProject, syncClientId);
+    await publishInboxSync(env, userId, syncClientId, ctx);
+    if (sourceProject) await publishProjectSync(env, sourceProject, syncClientId, ctx);
+    await publishProjectSync(env, targetProject, syncClientId, ctx);
     return jsonResponse({ task: moved, fromProjectId, toProjectId }, corsHeaders);
   }
 
@@ -790,8 +915,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
 
     const syncClientId = readSyncClientId(request, body);
-    await publishInboxSync(env, userId, syncClientId);
-    await publishProjectsListSync(env, projectMemberIds(project), syncClientId);
+    await publishInboxSync(env, userId, syncClientId, ctx);
+    await publishProjectsListSync(env, projectMemberIds(project), syncClientId, ctx);
     return jsonResponse({ moved, inboxTaskCount: inboxTasks.length }, corsHeaders);
   }
 
@@ -833,26 +958,60 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       })
     );
     await addTetherProjectId(env, userId, projectId);
-    await publishProjectsListSync(env, [userId], readSyncClientId(request, body));
+    await publishProjectsListSync(env, [userId], readSyncClientId(request, body), ctx);
     return jsonResponse({ project: { ...project, isOwner: true } }, corsHeaders, 201);
   }
 
   if (path === '/api/tether/project' && request.method === 'GET') {
-    const url = new URL(request.url);
     const projectId = String(url.searchParams.get('projectId') || '').trim();
     if (!projectId) return jsonResponse({ error: 'projectId required' }, corsHeaders, 400);
+    const cacheQuery = `projectId=${encodeURIComponent(projectId)}`;
+
+    // Cache lookup before Durable Object reads when the user already has access.
+    try {
+      if (typeof caches !== 'undefined') {
+        const hit = await caches.default.match(tetherCacheRequest(userId, path, cacheQuery));
+        if (hit) {
+          const headers = new Headers(hit.headers);
+          Object.entries(corsHeaders || {}).forEach(([k, v]) => headers.set(k, v));
+          headers.set('Content-Type', 'application/json');
+          headers.set('Cache-Control', 'private, no-store');
+          headers.set('X-Tether-Cache', 'HIT');
+          return new Response(hit.body, { status: hit.status, headers });
+        }
+      }
+    } catch {
+      /* miss */
+    }
 
     let project = await fetchProject(env, projectId);
     if (!project) return jsonResponse({ error: 'Project not found' }, corsHeaders, 404);
     if (!userCanAccessProject(project, userId)) {
+      // Share-link join has a side effect — never cache this branch.
       if (userWasRemovedFromProject(project, userId)) {
         return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
       }
       const profile = await fetchUserProfile(env, userId);
       if (!profile) return jsonResponse({ error: 'Access denied' }, corsHeaders, 403);
       project = await addMemberToProject(env, project, profile);
+      scheduleTetherCacheWork(
+        ctx,
+        invalidateTetherUsersCache([userId, ...projectMemberIds(project)], {
+          projectIds: [projectId],
+        })
+      );
+      return jsonResponse({ project: { ...project, isOwner: userIsOwner(project, userId) } }, corsHeaders);
     }
-    return jsonResponse({ project: { ...project, isOwner: userIsOwner(project, userId) } }, corsHeaders);
+
+    return cachedTetherGet(
+      ctx,
+      userId,
+      path,
+      cacheQuery,
+      corsHeaders,
+      async () => ({ project: { ...project, isOwner: userIsOwner(project, userId) } }),
+      TETHER_CACHE_TTL.project
+    );
   }
 
   if (path === '/api/tether/project' && request.method === 'PUT') {
@@ -892,7 +1051,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
         body: JSON.stringify(updated),
       })
     );
-    await publishProjectSync(env, updated, readSyncClientId(request, body));
+    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -912,7 +1071,7 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     }
     const stub = tetherProjectStub(env, projectId);
     await stub.fetch(new Request('http://do/delete', { method: 'POST' }));
-    await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null));
+    await publishProjectsListSync(env, projectMemberIds(project), readSyncClientId(request, null), ctx);
     return jsonResponse({ success: true }, corsHeaders);
   }
 
@@ -955,8 +1114,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
       );
     }
     const updated = await addMemberToProject(env, projectForShare, target);
-    await publishProjectSync(env, updated, readSyncClientId(request, body));
-    await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body));
+    await publishProjectSync(env, updated, readSyncClientId(request, body), ctx);
+    await publishProjectsListSync(env, [target.userId], readSyncClientId(request, body), ctx);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 
@@ -993,8 +1152,8 @@ export async function handleTetherRequest(request, env, corsHeaders, path) {
     );
     await removeTetherProjectId(env, removeUserId, projectId);
     const syncClientId = readSyncClientId(request, body);
-    await publishProjectSync(env, updated, syncClientId);
-    await publishProjectsListSync(env, [removeUserId], syncClientId);
+    await publishProjectSync(env, updated, syncClientId, ctx);
+    await publishProjectsListSync(env, [removeUserId], syncClientId, ctx);
     return jsonResponse({ project: { ...updated, isOwner: userIsOwner(updated, userId) } }, corsHeaders);
   }
 

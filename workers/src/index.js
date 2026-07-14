@@ -207,7 +207,7 @@ export default {
       } else if (path === '/api/kyrachyng/progress/load' && request.method === 'GET') {
         return handleKyrachyngProgressLoad(request, env, corsHeaders);
       } else if (path.startsWith('/api/tether/')) {
-        const tetherRes = await handleTetherRequest(request, env, corsHeaders, path);
+        const tetherRes = await handleTetherRequest(request, env, corsHeaders, path, executionCtx);
         if (tetherRes) return tetherRes;
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
