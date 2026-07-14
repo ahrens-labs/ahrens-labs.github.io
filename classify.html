@@ -3053,6 +3053,10 @@
             } else {
                 normalizedTimeSource = normalizedTime ? 'user' : null;
             }
+            const startedAtRaw = Number(task.startedAt);
+            const normalizedStartedAt = (normalizedAssignmentMode === 'FIXED' && Number.isFinite(startedAtRaw) && startedAtRaw > 0)
+                ? Math.round(startedAtRaw)
+                : null;
             const mustBeBefore = Array.from(new Set(
                 (Array.isArray(task.mustBeBefore) ? task.mustBeBefore : (Array.isArray(task.mustBeBeforeIds) ? task.mustBeBeforeIds : []))
                     .map(x => String(x || '').trim())
@@ -3094,6 +3098,7 @@
                 assignmentMode: normalizedAssignmentMode,
                 time: normalizedTime,
                 timeSource: normalizedTimeSource,
+                startedAt: normalizedStartedAt,
                 dueTime: task.dueTime || null,
                 duration: normalizedDuration,
                 priority: normalizedPriority,
@@ -3120,12 +3125,67 @@
             return task?.assignmentMode === 'FIXED' ? 'FIXED' : 'ADJUSTABLE';
         }
 
+        function isAssignmentStarted(task) {
+            return Boolean(task && task.startedAt && isFixedTask(task));
+        }
+
         function getTaskAssignmentModeLabel(task) {
+            if(isAssignmentStarted(task)) return 'Started';
             return getTaskAssignmentMode(task) === 'FIXED' ? 'Fixed' : 'Adjustable';
         }
 
         function isFixedTask(task) {
             return getTaskAssignmentMode(task) === 'FIXED';
+        }
+
+        function canStartAssignment(task) {
+            return Boolean(task && !task.completed && !isFixedTask(task));
+        }
+
+        function startAssignmentButtonHtml(task, { compact = false } = {}) {
+            if(!canStartAssignment(task)) return '';
+            if(compact) {
+                return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors" title="Start assignment and lock this time">Start</button>`;
+            }
+            return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-400 hover:text-emerald-600 transition-colors" title="Start assignment and lock this time"><i class="fa-solid fa-play text-xs"></i></button>`;
+        }
+
+        function startAssignment(id) {
+            const task = tasks.find(t => t.id === id);
+            if(!task || task.completed) return;
+            if(isFixedTask(task)) {
+                showNotification('This assignment is already locked', 'info');
+                return;
+            }
+
+            let date = task.date || null;
+            let time = task.time || null;
+            if(!date || !time) {
+                const todayStr = getDateStrLocal();
+                const schedule = getSmartSchedule(todayStr);
+                const item = schedule.find(i => i?.task?.id === id && i.type !== 'break' && i.type !== 'overflow');
+                if(item) {
+                    date = todayStr;
+                    time = minToInputTime(item.start);
+                }
+            }
+            if(!date || !time) {
+                showNotification('Give this assignment a start date and time first, then press Start', 'info');
+                return;
+            }
+
+            task.date = date;
+            task.time = time;
+            task.dateSource = 'user';
+            task.timeSource = 'user';
+            task.assignmentMode = 'FIXED';
+            task.scheduleType = 'date';
+            task.week = getWeekKeyFromDateStr(date);
+            task.weekDueOnly = false;
+            task.startedAt = Date.now();
+
+            saveData({ skipAutoSchedule: true });
+            showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
 
         function isPlannerEventTask(task) {
@@ -3182,6 +3242,7 @@
             task.time = null;
             task.timeSource = null;
             task.assignmentMode = 'ADJUSTABLE';
+            task.startedAt = null;
             return true;
         }
 
@@ -4669,6 +4730,7 @@
                                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide mt-0.5" style="color:${color}">${t.subject}</p>
                                 </div>
                                 <div class="flex items-center gap-2">
+                                    ${startAssignmentButtonHtml(t)}
                                     ${t.time ? `<button onclick="markTaskMissed('${t.id}')" class="text-slate-300 hover:text-amber-500 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right text-sm"></i></button>` : ''}
                                     <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors" title="Duplicate">
                                         <i class="fa-regular fa-copy text-sm"></i>
@@ -4915,9 +4977,11 @@
                 const notesHtml = t.notes ? `<div class="mt-2 text-xs text-slate-500 dark:text-slate-400 pl-3 border-l-2 border-slate-200 dark:border-slate-700 break-words">${linkify(t.notes)}</div>` : '';
                 const mode = getTaskAssignmentMode(t);
                 const modeLabel = getTaskAssignmentModeLabel(t);
-                const modeBadgeClass = mode === 'FIXED'
-                    ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'bg-slate-100 text-red-700 dark:bg-slate-800/60 dark:text-red-300';
+                const modeBadgeClass = isAssignmentStarted(t)
+                    ? 'bg-emerald-600 text-white'
+                    : (mode === 'FIXED'
+                        ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
+                        : 'bg-slate-100 text-red-700 dark:bg-slate-800/60 dark:text-red-300');
 
                 return `
                 <div class="group flex items-start gap-4 p-4 border-b border-slate-100 dark:border-dark-border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${t.completed ? 'opacity-60' : 'bg-white dark:bg-dark-surface'}" style="border-left: 8px solid ${color};">
@@ -4945,6 +5009,7 @@
                         ${notesHtml}
                     </div>
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
+                        ${startAssignmentButtonHtml(t)}
                         ${(!t.completed && t.time && t.date) ? `<button onclick="markTaskMissed('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-600 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right"></i></button>` : ''}
                         <button onclick="duplicateTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-red-600 transition-colors" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
                         <button onclick="editTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-pen"></i></button>
@@ -6530,11 +6595,12 @@
                             <div class="cl-week-task__row">
                                 <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
                                 <div class="cl-week-task__actions">
+                                    ${startAssignmentButtonHtml(t, { compact: true })}
                                     <button onclick="toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
                                     <button onclick="editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
                                 </div>
                             </div>
-                            <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m</div>
+                            <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
                         </div>`;
                 }).join('');
 
@@ -7134,6 +7200,9 @@
                 timeSource: inputTimeValue
                     ? (((preserveAutoSource || preserveAdjustableAuto) && assignmentMode === 'ADJUSTABLE') ? 'auto' : 'user')
                     : null,
+                startedAt: (assignmentMode === 'FIXED' && existingTask?.startedAt && existingTask.time === inputTimeValue)
+                    ? existingTask.startedAt
+                    : null,
                 dueTime: dueTime,
                 duration: document.getElementById('inputDuration').value || null,
                 priority: document.getElementById('inputPriority').value,
@@ -7404,6 +7473,7 @@
                 task.date = null;
                 task.dateSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
+                task.startedAt = null;
 
                 const currentWeek = getCurrentWeekKey();
                 const dueWeek = dueDate ? getWeekKeyFromDateStr(dueDate) : null;
