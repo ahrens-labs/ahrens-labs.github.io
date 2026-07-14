@@ -90,6 +90,29 @@
       font-weight: 600;
     }
 
+    .pl-toolbar-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      min-width: 0;
+    }
+
+    .pl-week-menu-select {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 40px;
+      border: 1px solid var(--pl-line);
+      border-radius: 10px;
+      padding: 0 12px;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--pl-ink);
+      background: #fff;
+      box-sizing: border-box;
+    }
+
     .pl-week-bar {
       display: flex;
       align-items: center;
@@ -534,32 +557,6 @@
       font-weight: 600;
     }
 
-    .pl-menu-chip {
-      display: none;
-      align-items: center;
-      gap: 6px;
-      margin: 0;
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: var(--pl-accent-soft);
-      color: var(--pl-accent);
-      font-size: 0.7rem;
-      font-weight: 800;
-      max-width: min(28vw, 160px);
-      flex: 0 1 auto;
-      min-width: 0;
-    }
-
-    .pl-menu-chip:not([hidden]) {
-      display: inline-flex;
-    }
-
-    .pl-menu-chip span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
     @media (max-width: 520px) {
       .pl-mode-toggle span {
         max-width: 4.6em;
@@ -981,8 +978,14 @@
 
       <div id="pl-app" hidden>
         <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
+          <div class="pl-toolbar-top">
+            <select id="pl-week-menu-select" class="pl-week-menu-select" aria-label="Choose menu"></select>
+            <label class="pl-mode-toggle" id="pl-dinner-only-label" title="Show only dinner for each day">
+              <input type="checkbox" id="pl-dinner-only">
+              <span>Dinner only</span>
+            </label>
+          </div>
           <div class="pl-week-bar" id="pl-week-bar">
-            <div class="pl-menu-chip" id="pl-active-chip" hidden><span id="pl-active-chip-text"></span></div>
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
             <div class="pl-week-label" id="pl-week-hint" title="Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.">
               <strong id="pl-week-title">This week</strong>
@@ -990,10 +993,6 @@
             </div>
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
-            <label class="pl-mode-toggle" id="pl-dinner-only-label" title="Show only dinner for each day">
-              <input type="checkbox" id="pl-dinner-only">
-              <span>Dinner only</span>
-            </label>
           </div>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
@@ -1157,6 +1156,7 @@
   const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
   const weekHint = document.getElementById('pl-week-hint');
   const menuSelect = document.getElementById('pl-menu-select');
+  const weekMenuSelect = document.getElementById('pl-week-menu-select');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
   const shareInput = document.getElementById('pl-share-input');
@@ -1166,8 +1166,6 @@
   const membersList = document.getElementById('pl-members-list');
   const leaveMenuBtn = document.getElementById('pl-leave-menu');
   const syncLine = document.getElementById('pl-sync-line');
-  const activeChip = document.getElementById('pl-active-chip');
-  const activeChipText = document.getElementById('pl-active-chip-text');
 
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
@@ -1625,22 +1623,15 @@
     renderWeek();
     renderSaved();
     renderSharePanel();
-    renderActiveChip();
   }
 
-  function renderActiveChip() {
-    if (!activeChip || !activeChipText) return;
-    const label = menuMeta.name || 'Menu';
-    const owned = menuMeta.isOwner;
-    activeChip.hidden = false;
-    activeChipText.textContent = owned ? label : label + ' · shared by ' + (menuMeta.ownerUsername || 'someone');
-  }
-
-  function renderSharePanel() {
-    if (!menuSelect) return;
-    menuSelect.innerHTML = menus
+  function fillMenuSelectOptions(selectEl) {
+    if (!selectEl) return;
+    selectEl.innerHTML = menus
       .map((m) => {
-        const label = m.isOwner ? m.name : m.name + ' (shared)';
+        const label = m.isOwner
+          ? m.name
+          : m.name + ' · shared' + (m.ownerUsername ? ' by ' + m.ownerUsername : '');
         return (
           '<option value="' +
           m.id +
@@ -1652,6 +1643,11 @@
         );
       })
       .join('');
+  }
+
+  function renderSharePanel() {
+    fillMenuSelectOptions(menuSelect);
+    fillMenuSelectOptions(weekMenuSelect);
 
     if (menuNameInput) menuNameInput.value = menuMeta.name || '';
     if (menuNameField) menuNameField.hidden = !menuMeta.isOwner;
@@ -2532,7 +2528,12 @@
   });
   leaveMenuBtn.addEventListener('click', leaveMenu);
   document.getElementById('pl-menu-rename').addEventListener('click', renameMenu);
-  menuSelect.addEventListener('change', () => switchMenu(menuSelect.value));
+  if (menuSelect) {
+    menuSelect.addEventListener('change', () => switchMenu(menuSelect.value));
+  }
+  if (weekMenuSelect) {
+    weekMenuSelect.addEventListener('change', () => switchMenu(weekMenuSelect.value));
+  }
 
   bottomNav.querySelectorAll('[data-pl-tab]').forEach((btn) => {
     btn.addEventListener('click', () => setTab(btn.getAttribute('data-pl-tab')));
