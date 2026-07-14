@@ -239,7 +239,7 @@
     }
 
     if (item.id === 'platter') {
-      return current === 'platter.html';
+      return current === 'platter.html' || current.startsWith('platter.html');
     }
 
     if (item.id === 'link') {

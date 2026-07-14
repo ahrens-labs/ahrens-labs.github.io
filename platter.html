@@ -1363,19 +1363,50 @@
     queueCloudSync();
   }
 
-  function setTab(tab) {
+  const VALID_TABS = ['week', 'saved', 'share'];
+
+  function normalizeTab(tab) {
+    const t = String(tab || '').toLowerCase();
+    return VALID_TABS.includes(t) ? t : 'week';
+  }
+
+  function tabFromUrl() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return normalizeTab(params.get('tab'));
+    } catch {
+      return 'week';
+    }
+  }
+
+  function syncTabUrl(tab, { replace } = {}) {
+    const next = normalizeTab(tab);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('tab') === next) return;
+    url.searchParams.set('tab', next);
+    const href = url.pathname + url.search + url.hash;
+    if (replace) history.replaceState({ plTab: next }, '', href);
+    else history.pushState({ plTab: next }, '', href);
+  }
+
+  function setTab(tab, opts) {
+    const next = normalizeTab(tab);
+    const options = opts || {};
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
-        el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
       } else if (
         el.classList.contains('pl-week-panel') ||
         el.classList.contains('pl-saved-panel') ||
         el.classList.contains('pl-share-panel')
       ) {
-        el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
       }
     });
-    if (tab === 'share') renderSharePanel();
+    if (next === 'share') renderSharePanel();
+    if (!options.skipUrlSync) {
+      syncTabUrl(next, { replace: !!options.replaceUrl });
+    }
   }
 
   function renderAll() {
@@ -2057,6 +2088,10 @@
     btn.addEventListener('click', () => setTab(btn.getAttribute('data-pl-tab')));
   });
 
+  window.addEventListener('popstate', () => {
+    setTab(tabFromUrl(), { skipUrlSync: true });
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && sheet.classList.contains('open')) closeSheet();
   });
@@ -2070,6 +2105,9 @@
     const username = localStorage.getItem('ahrenslabs_username') || 'guest';
     const userId = localStorage.getItem('ahrenslabs_userId') || username;
     storageKey = 'platter_data_' + userId;
+    const initialTab = tabFromUrl();
+    setTab(initialTab, { skipUrlSync: true });
+    syncTabUrl(initialTab, { replace: true });
 
     if (!sessionId) {
       loadingEl.textContent = 'Sign in to use Platter…';
