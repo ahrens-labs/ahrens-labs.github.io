@@ -1842,7 +1842,9 @@
     });
   }
 
-  function renderWeek() {
+  function renderWeek(opts) {
+    const options = opts || {};
+    const keepScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     const today = new Date();
     const thisWeek = startOfWeek(today);
     weekTitle.textContent = isSameDay(weekAnchor, thisWeek) ? 'This week' : 'Week of';
@@ -1941,12 +1943,19 @@
       frag.appendChild(col);
     }
     weekGrid.replaceChildren(frag);
-    const todayCol = weekGrid.querySelector('.pl-day.is-today');
-    if (todayCol && window.matchMedia('(max-width: 1099px)').matches) {
-      requestAnimationFrame(() => {
-        todayCol.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      });
+    if (options.scrollToToday) {
+      const todayCol = weekGrid.querySelector('.pl-day.is-today');
+      if (todayCol && window.matchMedia('(max-width: 1099px)').matches) {
+        requestAnimationFrame(() => {
+          todayCol.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
+        return;
+      }
     }
+    // Keep the viewport where the user left it after edits / drag-drop / sync.
+    requestAnimationFrame(() => {
+      window.scrollTo(0, keepScrollY);
+    });
   }
 
   function renderSaved() {
@@ -2372,7 +2381,7 @@
   });
   document.getElementById('pl-week-today').addEventListener('click', () => {
     weekAnchor = startOfWeek(new Date());
-    renderWeek();
+    renderWeek({ scrollToToday: true });
   });
   document.getElementById('pl-saved-new').addEventListener('click', openNewSaved);
   document.getElementById('pl-sheet-save').addEventListener('click', saveSheet);
