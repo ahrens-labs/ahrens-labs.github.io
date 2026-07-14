@@ -681,21 +681,29 @@ export function parseSchedulePhrase(phrase, today = new Date()) {
   const mapped = mapTodoistDate(s, today);
   if (mapped.dueDate || mapped.recurrence) return mapped;
 
-  if (lower === 'today') {
+  // Allow "on July 17th" / "by Saturday" so the connector is part of the matched phrase
+  // and gets stripped from the task title along with the date.
+  const bare = lower.replace(/^(?:on|by)\s+/, '');
+  if (bare !== lower) {
+    const mappedBare = mapTodoistDate(bare, today);
+    if (mappedBare.dueDate || mappedBare.recurrence) return mappedBare;
+  }
+
+  if (bare === 'today') {
     const out = scheduleBase('');
     out.dueDate = isoDate(now);
     return out;
   }
-  if (lower === 'tomorrow') {
+  if (bare === 'tomorrow') {
     const out = scheduleBase('');
     out.dueDate = isoDate(addDays(now, 1));
     return out;
   }
 
-  const monthDay = parseMonthDayPhrase(lower, today);
+  const monthDay = parseMonthDayPhrase(bare, today);
   if (monthDay) return monthDay;
 
-  const nextWd = lower.match(new RegExp(`^next\\s+${WEEKDAY_WORD}$`));
+  const nextWd = bare.match(new RegExp(`^next\\s+${WEEKDAY_WORD}$`));
   if (nextWd) {
     const weekday = parseWeekday(nextWd[1]);
     if (weekday != null) {
@@ -705,7 +713,7 @@ export function parseSchedulePhrase(phrase, today = new Date()) {
     }
   }
 
-  const thisWd = lower.match(new RegExp(`^this\\s+${WEEKDAY_WORD}$`));
+  const thisWd = bare.match(new RegExp(`^this\\s+${WEEKDAY_WORD}$`));
   if (thisWd) {
     const weekday = parseWeekday(thisWd[1]);
     if (weekday != null) {
@@ -715,7 +723,7 @@ export function parseSchedulePhrase(phrase, today = new Date()) {
     }
   }
 
-  const standaloneWd = lower.match(new RegExp(`^${WEEKDAY_WORD}$`));
+  const standaloneWd = bare.match(new RegExp(`^${WEEKDAY_WORD}$`));
   if (standaloneWd) {
     const weekday = parseWeekday(standaloneWd[1]);
     if (weekday != null) {
