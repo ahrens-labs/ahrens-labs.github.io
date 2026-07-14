@@ -251,12 +251,16 @@
       border-radius: 12px;
       border: 1.5px solid transparent;
       background: #fff;
-      cursor: pointer;
-      touch-action: manipulation;
+      cursor: grab;
+      touch-action: none;
       user-select: none;
       -webkit-user-select: none;
       position: relative;
       text-align: left;
+    }
+
+    .pl-meal-card:active {
+      cursor: grabbing;
     }
 
     .pl-slot[data-meal="breakfast"] .pl-meal-card {
@@ -278,20 +282,6 @@
       opacity: 0.35;
     }
 
-    .pl-meal-grip {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      flex-shrink: 0;
-      color: #94a3b8;
-      font-size: 0.95rem;
-      letter-spacing: -1px;
-      border-right: 1px solid rgba(148, 163, 184, 0.35);
-      cursor: grab;
-      touch-action: none;
-    }
-
     .pl-meal-main {
       flex: 1;
       min-width: 0;
@@ -301,8 +291,6 @@
       border: 0;
       font: inherit;
       color: inherit;
-      cursor: pointer;
-      touch-action: manipulation;
       pointer-events: none;
     }
 
@@ -879,7 +867,7 @@
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
           </div>
-          <p class="pl-hint">Tap a meal to edit it. Drag the ⠿ handle to move or swap.</p>
+          <p class="pl-hint">Tap a meal to edit. Drag it to move or swap with another slot.</p>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
 
@@ -1521,9 +1509,8 @@
           card.dataset.slotKey = key;
           card.setAttribute('role', 'button');
           card.setAttribute('tabindex', '0');
-          card.setAttribute('aria-label', meal.label + ': ' + mealData.name + '. Tap to edit.');
+          card.setAttribute('aria-label', meal.label + ': ' + mealData.name + '. Tap to edit, drag to move.');
           card.innerHTML =
-            '<div class="pl-meal-grip" aria-label="Drag to move" title="Drag to move">⠿</div>' +
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
             (mealData.details ? '<span class="pl-meal-details"></span>' : '') +
@@ -1531,17 +1518,13 @@
           card.querySelector('.pl-meal-name').textContent = mealData.name;
           const det = card.querySelector('.pl-meal-details');
           if (det) det.textContent = mealData.details;
-          card.addEventListener('click', (e) => {
-            if (didDrag || e.target.closest('.pl-meal-grip')) return;
-            openSlotEditor(key);
-          });
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               openSlotEditor(key);
             }
           });
-          card.querySelector('.pl-meal-grip').addEventListener('pointerdown', onCardPointerDown);
+          card.addEventListener('pointerdown', onCardPointerDown);
           body.appendChild(card);
         } else {
           const empty = document.createElement('button');
@@ -1810,12 +1793,9 @@
 
   function onCardPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const grip = e.currentTarget;
-    const card = grip.closest('.pl-meal-card');
-    const key = card && card.dataset.slotKey;
-    if (!card || !key) return;
+    const card = e.currentTarget;
+    const key = card.dataset.slotKey;
+    if (!key) return;
     drag.active = true;
     drag.fromKey = key;
     drag.card = card;
@@ -1825,18 +1805,18 @@
     drag.moved = false;
     didDrag = false;
     try {
-      grip.setPointerCapture(e.pointerId);
+      card.setPointerCapture(e.pointerId);
     } catch (_) {}
-    grip.addEventListener('pointermove', onCardPointerMove);
-    grip.addEventListener('pointerup', onCardPointerUp);
-    grip.addEventListener('pointercancel', onCardPointerUp);
+    card.addEventListener('pointermove', onCardPointerMove);
+    card.addEventListener('pointerup', onCardPointerUp);
+    card.addEventListener('pointercancel', onCardPointerUp);
   }
 
   function onCardPointerMove(e) {
     if (!drag.active || e.pointerId !== drag.pointerId) return;
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
-    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    if (!drag.moved && Math.hypot(dx, dy) < 8) return;
     if (!drag.moved) {
       drag.moved = true;
       didDrag = true;
@@ -1863,13 +1843,12 @@
     if (!drag.active || e.pointerId !== drag.pointerId) return;
     const fromKey = drag.fromKey;
     const card = drag.card;
-    const grip = e.currentTarget;
     const moved = drag.moved;
-    grip.removeEventListener('pointermove', onCardPointerMove);
-    grip.removeEventListener('pointerup', onCardPointerUp);
-    grip.removeEventListener('pointercancel', onCardPointerUp);
+    card.removeEventListener('pointermove', onCardPointerMove);
+    card.removeEventListener('pointerup', onCardPointerUp);
+    card.removeEventListener('pointercancel', onCardPointerUp);
     try {
-      grip.releasePointerCapture(e.pointerId);
+      card.releasePointerCapture(e.pointerId);
     } catch (_) {}
 
     let toKey = null;
@@ -1901,6 +1880,8 @@
       else delete data.slots[toKey];
       persist();
       renderWeek();
+    } else if (!moved && fromKey) {
+      openSlotEditor(fromKey);
     }
 
     setTimeout(() => {
