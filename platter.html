@@ -783,10 +783,12 @@
       position: fixed;
       inset: 0;
       background: rgba(15, 23, 42, 0.45);
-      z-index: 20000;
+      /* Above site chrome / drawer (25k) and drag ghost (30k) */
+      z-index: 50000;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s ease;
+      touch-action: none;
     }
 
     .pl-sheet-backdrop.open {
@@ -799,7 +801,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      z-index: 20001;
+      z-index: 50001;
       background: #fff;
       border-radius: 20px 20px 0 0;
       padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
@@ -809,10 +811,26 @@
       max-height: min(92dvh, 640px);
       overflow: auto;
       touch-action: pan-y;
+      pointer-events: none;
+      isolation: isolate;
+      -webkit-overflow-scrolling: touch;
     }
 
     .pl-sheet.open {
       transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    body.pl-sheet-open {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    body.pl-sheet-open .wrapper,
+    body.pl-sheet-open .pl-bottom-nav {
+      pointer-events: none;
+      touch-action: none;
+      user-select: none;
     }
 
     .pl-sheet.pl-sheet-dragging {
@@ -2442,11 +2460,26 @@
       .replace(/"/g, '&quot;');
   }
 
+  function setSheetLayerActive(active) {
+    document.body.classList.toggle('pl-sheet-open', !!active);
+    const wrap = document.querySelector('.wrapper');
+    if (wrap) {
+      if (active) wrap.setAttribute('inert', '');
+      else wrap.removeAttribute('inert');
+    }
+    // Keep dialog last in the DOM so it paints and receives hits above everything else.
+    if (active && sheetBackdrop && sheet) {
+      document.body.appendChild(sheetBackdrop);
+      document.body.appendChild(sheet);
+    }
+  }
+
   function openSheet() {
     sheet.hidden = false;
     sheetBackdrop.hidden = false;
     sheet.classList.remove('pl-sheet-dragging');
     sheet.style.transform = '';
+    setSheetLayerActive(true);
     requestAnimationFrame(() => {
       sheet.classList.add('open');
       sheetBackdrop.classList.add('open');
@@ -2460,6 +2493,7 @@
     sheet.classList.remove('pl-sheet-dragging');
     sheet.style.transform = '';
     sheetState = null;
+    setSheetLayerActive(false);
     setTimeout(() => {
       if (!sheet.classList.contains('open')) {
         sheet.hidden = true;
