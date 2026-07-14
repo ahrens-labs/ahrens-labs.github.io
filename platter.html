@@ -329,24 +329,20 @@
       line-height: 1.35;
       overflow-wrap: anywhere;
       word-break: break-word;
-      white-space: normal;
+      white-space: pre-wrap;
     }
 
-    .pl-field-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+    .pl-meal-details a {
+      color: var(--pl-accent);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      word-break: break-all;
+      pointer-events: auto;
     }
 
-    .pl-field-row .pl-field {
-      margin-bottom: 12px;
-    }
-
-    @media (max-width: 420px) {
-      .pl-field-row {
-        grid-template-columns: 1fr;
-        gap: 0;
-      }
+    .pl-meal-details a:active {
+      opacity: 0.85;
     }
 
     .pl-drag-ghost {
@@ -987,23 +983,14 @@
       <label for="pl-meal-name">Name</label>
       <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Chicken tacos">
     </div>
-    <div class="pl-field-row">
-      <div class="pl-field">
-        <label for="pl-meal-cook">Cook time (min)</label>
-        <input id="pl-meal-cook" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 25">
-      </div>
-      <div class="pl-field">
-        <label for="pl-meal-prep">Prep time (min)</label>
-        <input id="pl-meal-prep" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 10">
-      </div>
+    <div class="pl-field">
+      <label for="pl-meal-cook">Total cook time (min)</label>
+      <input id="pl-meal-cook" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 25">
     </div>
     <div class="pl-field">
-      <label for="pl-meal-servings">Servings</label>
-      <input id="pl-meal-servings" type="text" maxlength="40" autocomplete="off" placeholder="e.g. 4">
-    </div>
-    <div class="pl-field">
-      <label for="pl-meal-details">Notes / details</label>
-      <textarea id="pl-meal-details" maxlength="2000" placeholder="Sides, leftovers, ingredients, oven temp…"></textarea>
+      <label for="pl-meal-details">Notes</label>
+      <textarea id="pl-meal-details" maxlength="2000" placeholder="Sides, leftovers, oven temp, recipe links…"></textarea>
+      <p class="pl-hint" style="margin:6px 0 0;">Paste recipe links here — they’ll become tappable in the week view.</p>
     </div>
 
     <label class="pl-check" id="pl-save-library-wrap">
@@ -1056,8 +1043,6 @@
   const sheetSub = document.getElementById('pl-sheet-sub');
   const nameInput = document.getElementById('pl-meal-name');
   const cookInput = document.getElementById('pl-meal-cook');
-  const prepInput = document.getElementById('pl-meal-prep');
-  const servingsInput = document.getElementById('pl-meal-servings');
   const detailsInput = document.getElementById('pl-meal-details');
   const saveLibrary = document.getElementById('pl-save-library');
   const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
@@ -1131,12 +1116,8 @@
   }
 
   function mealMetaParts(meal) {
-    if (!meal) return [];
-    const parts = [];
-    if (meal.cookMinutes != null) parts.push('Cook ' + formatMinutes(meal.cookMinutes));
-    if (meal.prepMinutes != null) parts.push('Prep ' + formatMinutes(meal.prepMinutes));
-    if (meal.servings) parts.push('Serves ' + meal.servings);
-    return parts;
+    if (!meal || meal.cookMinutes == null) return [];
+    return [formatMinutes(meal.cookMinutes)];
   }
 
   function mealMetaText(meal) {
@@ -1148,8 +1129,6 @@
       name: '',
       details: '',
       cookMinutes: null,
-      prepMinutes: null,
-      servings: '',
       savedId: null,
     };
   }
@@ -1159,8 +1138,6 @@
       name: nameInput.value.trim(),
       details: detailsInput.value.trim(),
       cookMinutes: parseMinutes(cookInput.value),
-      prepMinutes: parseMinutes(prepInput.value),
-      servings: servingsInput.value.trim().slice(0, 40),
     };
   }
 
@@ -1169,18 +1146,32 @@
     nameInput.value = m.name || '';
     detailsInput.value = m.details || '';
     cookInput.value = m.cookMinutes != null ? String(m.cookMinutes) : '';
-    prepInput.value = m.prepMinutes != null ? String(m.prepMinutes) : '';
-    servingsInput.value = m.servings || '';
   }
 
   function mealsEqualForLibrary(a, b) {
     return (
       (a.name || '').toLowerCase() === (b.name || '').toLowerCase() &&
       (a.details || '') === (b.details || '') &&
-      (a.cookMinutes == null ? null : a.cookMinutes) === (b.cookMinutes == null ? null : b.cookMinutes) &&
-      (a.prepMinutes == null ? null : a.prepMinutes) === (b.prepMinutes == null ? null : b.prepMinutes) &&
-      (a.servings || '') === (b.servings || '')
+      (a.cookMinutes == null ? null : a.cookMinutes) === (b.cookMinutes == null ? null : b.cookMinutes)
     );
+  }
+
+  function linkifyNotes(text) {
+    const escaped = escapeHtml(text || '');
+    return escaped.replace(/(https?:\/\/[^\s<]+)/gi, (match) => {
+      const trailing = match.match(/[),.;:!?]+$/);
+      const url = trailing ? match.slice(0, -trailing[0].length) : match;
+      const end = trailing ? trailing[0] : '';
+      if (!url) return match;
+      return (
+        '<a href="' +
+        url +
+        '" target="_blank" rel="noopener noreferrer">' +
+        url +
+        '</a>' +
+        end
+      );
+    });
   }
 
   function startOfWeek(date) {
@@ -1636,7 +1627,7 @@
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
             (metaParts.length ? '<div class="pl-meal-meta"></div>' : '') +
-            (mealData.details ? '<span class="pl-meal-details"></span>' : '') +
+            (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
             '</div>';
           card.querySelector('.pl-meal-name').textContent = mealData.name;
           const metaEl = card.querySelector('.pl-meal-meta');
@@ -1648,11 +1639,18 @@
             });
           }
           const det = card.querySelector('.pl-meal-details');
-          if (det) det.textContent = mealData.details;
+          if (det) det.innerHTML = linkifyNotes(mealData.details);
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               openSlotEditor(key);
+            }
+          });
+          card.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (link) {
+              e.stopPropagation();
+              return;
             }
           });
           card.addEventListener('pointerdown', onCardPointerDown);
@@ -1844,12 +1842,10 @@
   }
 
   function upsertSaved(mealFields, existingId) {
-    const payload = {
+      const payload = {
       name: mealFields.name.trim(),
       details: (mealFields.details || '').trim(),
       cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
-      prepMinutes: mealFields.prepMinutes == null ? null : mealFields.prepMinutes,
-      servings: (mealFields.servings || '').trim(),
     };
     if (existingId) {
       const found = data.saved.find((s) => s.id === existingId);
@@ -1922,6 +1918,7 @@
 
   function onCardPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest('a')) return;
     const card = e.currentTarget;
     const key = card.dataset.slotKey;
     if (!key) return;

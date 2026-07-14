@@ -167,18 +167,11 @@ function normalizeMinutes(raw) {
   return Math.min(24 * 60, Math.round(n));
 }
 
-function normalizeServings(raw) {
-  if (raw == null || raw === '') return '';
-  return String(raw).trim().slice(0, 40);
-}
-
 function normalizeMealFields(raw) {
   return {
     name: String(raw.name || '').trim().slice(0, 120),
     details: String(raw.details || '').trim().slice(0, 2000),
     cookMinutes: normalizeMinutes(raw.cookMinutes),
-    prepMinutes: normalizeMinutes(raw.prepMinutes),
-    servings: normalizeServings(raw.servings),
   };
 }
 
