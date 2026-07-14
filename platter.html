@@ -19,7 +19,7 @@
   <link rel="icon" href="/img/platter-favicon.ico?v=2" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/platter-favicon-180.png?v=2">
   <link rel="manifest" href="/platter-manifest.webmanifest?v=2">
-  <meta name="theme-color" content="#eab308">
+  <meta name="theme-color" content="#facc15">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Platter">
@@ -34,9 +34,9 @@
       --pl-line: #e7e5e4;
       --pl-card: #ffffff;
       --pl-bg: #faf6eb;
-      --pl-accent: #a16207;
-      --pl-accent-soft: #fef9c3;
-      --pl-accent-mid: #eab308;
+      --pl-accent: #ca8a04;
+      --pl-accent-soft: #fef08a;
+      --pl-accent-mid: #facc15;
       --pl-breakfast: #f59e0b;
       --pl-breakfast-soft: #fffbeb;
       --pl-lunch: #0284c7;
@@ -536,13 +536,15 @@
     }
 
     .pl-btn-primary {
-      background: var(--pl-accent-mid);
+      background: linear-gradient(180deg, #fde047 0%, #facc15 100%);
       color: #422006;
-      border: 1px solid #ca8a04;
+      border: 1px solid #eab308;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) inset, 0 2px 8px rgba(250, 204, 21, 0.35);
     }
 
     .pl-btn-primary:active {
-      filter: brightness(0.96);
+      filter: brightness(0.98);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset;
     }
 
     .pl-btn-ghost {
