@@ -294,6 +294,10 @@
       pointer-events: none;
     }
 
+    .pl-meal-card.has-cook-time .pl-meal-main {
+      padding-right: 52px;
+    }
+
     .pl-meal-name {
       display: block;
       font-weight: 700;
@@ -304,21 +308,22 @@
       white-space: normal;
     }
 
-    .pl-meal-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 8px;
-      margin-top: 5px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: #475569;
-      line-height: 1.3;
-    }
-
-    .pl-meal-meta span {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
+    .pl-meal-time {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      z-index: 1;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      color: #334155;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.45);
+      border-radius: 999px;
+      padding: 2px 7px;
+      line-height: 1.2;
+      pointer-events: none;
+      white-space: nowrap;
     }
 
     .pl-meal-details {
@@ -1652,23 +1657,24 @@
           card.dataset.slotKey = key;
           card.setAttribute('role', 'button');
           card.setAttribute('tabindex', '0');
-          card.setAttribute('aria-label', meal.label + ': ' + mealData.name + '. Tap to edit, drag to move.');
-          const metaParts = mealMetaParts(mealData);
+          const cookLabel = mealData.cookMinutes != null ? formatMinutes(mealData.cookMinutes) : '';
+          card.setAttribute(
+            'aria-label',
+            meal.label +
+              ': ' +
+              mealData.name +
+              (cookLabel ? ', ' + cookLabel : '') +
+              '. Tap to edit, drag to move.'
+          );
+          if (cookLabel) card.classList.add('has-cook-time');
           card.innerHTML =
+            (cookLabel ? '<span class="pl-meal-time"></span>' : '') +
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
-            (metaParts.length ? '<div class="pl-meal-meta"></div>' : '') +
             (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
             '</div>';
+          if (cookLabel) card.querySelector('.pl-meal-time').textContent = cookLabel;
           card.querySelector('.pl-meal-name').textContent = mealData.name;
-          const metaEl = card.querySelector('.pl-meal-meta');
-          if (metaEl) {
-            metaParts.forEach((part) => {
-              const span = document.createElement('span');
-              span.textContent = part;
-              metaEl.appendChild(span);
-            });
-          }
           const det = card.querySelector('.pl-meal-details');
           if (det) det.innerHTML = linkifyNotes(mealData.details);
           card.addEventListener('keydown', (e) => {
