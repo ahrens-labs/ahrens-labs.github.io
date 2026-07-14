@@ -2051,18 +2051,31 @@
     }
     weekGrid.replaceChildren(frag);
     if (options.scrollToToday) {
-      const todayCol = weekGrid.querySelector('.pl-day.is-today');
-      if (todayCol && window.matchMedia('(max-width: 1099px)').matches) {
-        requestAnimationFrame(() => {
-          todayCol.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        });
-        return;
-      }
+      requestAnimationFrame(() => {
+        scrollTodayIntoCenter();
+      });
+      return;
     }
     // Keep the viewport where the user left it after edits / drag-drop / sync.
     requestAnimationFrame(() => {
       window.scrollTo(0, keepScrollY);
     });
+  }
+
+  function scrollTodayIntoCenter() {
+    const todayCol = weekGrid && weekGrid.querySelector('.pl-day.is-today');
+    if (!todayCol) return;
+    const rect = todayCol.getBoundingClientRect();
+    const header = document.querySelector('.th-app-header');
+    const nav = document.getElementById('pl-bottom-nav');
+    const topInset = (header ? header.getBoundingClientRect().height : 0) + 10;
+    const bottomInset =
+      (nav && !nav.hidden ? nav.getBoundingClientRect().height : 0) +
+      10 +
+      (parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)'), 10) || 0);
+    const visibleH = Math.max(120, window.innerHeight - topInset - bottomInset);
+    const targetTop = window.scrollY + rect.top - topInset - (visibleH - rect.height) / 2;
+    window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
   }
 
   function renderSaved() {
