@@ -304,6 +304,23 @@
       white-space: normal;
     }
 
+    .pl-meal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      margin-top: 5px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #475569;
+      line-height: 1.3;
+    }
+
+    .pl-meal-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
     .pl-meal-details {
       display: block;
       margin-top: 4px;
@@ -313,6 +330,23 @@
       overflow-wrap: anywhere;
       word-break: break-word;
       white-space: normal;
+    }
+
+    .pl-field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .pl-field-row .pl-field {
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 420px) {
+      .pl-field-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
     }
 
     .pl-drag-ghost {
@@ -953,9 +987,23 @@
       <label for="pl-meal-name">Name</label>
       <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Chicken tacos">
     </div>
+    <div class="pl-field-row">
+      <div class="pl-field">
+        <label for="pl-meal-cook">Cook time (min)</label>
+        <input id="pl-meal-cook" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 25">
+      </div>
+      <div class="pl-field">
+        <label for="pl-meal-prep">Prep time (min)</label>
+        <input id="pl-meal-prep" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 10">
+      </div>
+    </div>
     <div class="pl-field">
-      <label for="pl-meal-details">Details</label>
-      <textarea id="pl-meal-details" maxlength="2000" placeholder="Notes, sides, leftovers…"></textarea>
+      <label for="pl-meal-servings">Servings</label>
+      <input id="pl-meal-servings" type="text" maxlength="40" autocomplete="off" placeholder="e.g. 4">
+    </div>
+    <div class="pl-field">
+      <label for="pl-meal-details">Notes / details</label>
+      <textarea id="pl-meal-details" maxlength="2000" placeholder="Sides, leftovers, ingredients, oven temp…"></textarea>
     </div>
 
     <label class="pl-check" id="pl-save-library-wrap">
@@ -1007,6 +1055,9 @@
   const sheetTitle = document.getElementById('pl-sheet-title');
   const sheetSub = document.getElementById('pl-sheet-sub');
   const nameInput = document.getElementById('pl-meal-name');
+  const cookInput = document.getElementById('pl-meal-cook');
+  const prepInput = document.getElementById('pl-meal-prep');
+  const servingsInput = document.getElementById('pl-meal-servings');
   const detailsInput = document.getElementById('pl-meal-details');
   const saveLibrary = document.getElementById('pl-save-library');
   const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
@@ -1032,7 +1083,7 @@
 
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
-  /** @type {{ slots: Record<string, { name: string, details: string, savedId?: string|null }>, saved: Array<{ id: string, name: string, details: string }> }} */
+  /** @type {{ slots: Record<string, any>, saved: Array<any> }} */
   let data = { slots: {}, saved: [] };
   /** @type {Array<{ id: string, name: string, isOwner: boolean, ownerUsername?: string, members?: any[], updatedAt?: number }>} */
   let menus = [];
@@ -1060,6 +1111,76 @@
 
   function uid() {
     return 'm_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  }
+
+  function parseMinutes(value) {
+    if (value == null || value === '') return null;
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return Math.min(1440, Math.round(n));
+  }
+
+  function formatMinutes(mins) {
+    if (mins == null || mins === '') return '';
+    const n = Number(mins);
+    if (!Number.isFinite(n) || n < 0) return '';
+    if (n < 60) return n + ' min';
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    return m ? h + 'h ' + m + 'm' : h + 'h';
+  }
+
+  function mealMetaParts(meal) {
+    if (!meal) return [];
+    const parts = [];
+    if (meal.cookMinutes != null) parts.push('Cook ' + formatMinutes(meal.cookMinutes));
+    if (meal.prepMinutes != null) parts.push('Prep ' + formatMinutes(meal.prepMinutes));
+    if (meal.servings) parts.push('Serves ' + meal.servings);
+    return parts;
+  }
+
+  function mealMetaText(meal) {
+    return mealMetaParts(meal).join(' · ');
+  }
+
+  function emptyMeal() {
+    return {
+      name: '',
+      details: '',
+      cookMinutes: null,
+      prepMinutes: null,
+      servings: '',
+      savedId: null,
+    };
+  }
+
+  function readMealForm() {
+    return {
+      name: nameInput.value.trim(),
+      details: detailsInput.value.trim(),
+      cookMinutes: parseMinutes(cookInput.value),
+      prepMinutes: parseMinutes(prepInput.value),
+      servings: servingsInput.value.trim().slice(0, 40),
+    };
+  }
+
+  function fillMealForm(meal) {
+    const m = meal || emptyMeal();
+    nameInput.value = m.name || '';
+    detailsInput.value = m.details || '';
+    cookInput.value = m.cookMinutes != null ? String(m.cookMinutes) : '';
+    prepInput.value = m.prepMinutes != null ? String(m.prepMinutes) : '';
+    servingsInput.value = m.servings || '';
+  }
+
+  function mealsEqualForLibrary(a, b) {
+    return (
+      (a.name || '').toLowerCase() === (b.name || '').toLowerCase() &&
+      (a.details || '') === (b.details || '') &&
+      (a.cookMinutes == null ? null : a.cookMinutes) === (b.cookMinutes == null ? null : b.cookMinutes) &&
+      (a.prepMinutes == null ? null : a.prepMinutes) === (b.prepMinutes == null ? null : b.prepMinutes) &&
+      (a.servings || '') === (b.servings || '')
+    );
   }
 
   function startOfWeek(date) {
@@ -1510,12 +1631,22 @@
           card.setAttribute('role', 'button');
           card.setAttribute('tabindex', '0');
           card.setAttribute('aria-label', meal.label + ': ' + mealData.name + '. Tap to edit, drag to move.');
+          const metaParts = mealMetaParts(mealData);
           card.innerHTML =
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
+            (metaParts.length ? '<div class="pl-meal-meta"></div>' : '') +
             (mealData.details ? '<span class="pl-meal-details"></span>' : '') +
             '</div>';
           card.querySelector('.pl-meal-name').textContent = mealData.name;
+          const metaEl = card.querySelector('.pl-meal-meta');
+          if (metaEl) {
+            metaParts.forEach((part) => {
+              const span = document.createElement('span');
+              span.textContent = part;
+              metaEl.appendChild(span);
+            });
+          }
           const det = card.querySelector('.pl-meal-details');
           if (det) det.textContent = mealData.details;
           card.addEventListener('keydown', (e) => {
@@ -1571,7 +1702,8 @@
           '<button type="button" data-act="delete">Delete</button>' +
           '</div>';
         row.querySelector('strong').textContent = meal.name;
-        row.querySelector('span').textContent = meal.details || 'No details';
+        row.querySelector('span').textContent =
+          mealMetaText(meal) || meal.details || 'No details yet';
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
         row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
         row.querySelector('[data-act="delete"]').addEventListener('click', () => {
@@ -1654,8 +1786,7 @@
     sheetState = { mode: 'slot', slotKey: key };
     sheetTitle.textContent = existing && existing.name ? 'Edit meal' : 'Add meal';
     sheetSub.textContent = head.name + ' ' + head.date + ' · ' + mealLabel(meal);
-    nameInput.value = (existing && existing.name) || '';
-    detailsInput.value = (existing && existing.details) || '';
+    fillMealForm(existing);
     saveLibrary.checked = false;
     saveLibraryWrap.hidden = false;
     savedPickField.hidden = false;
@@ -1673,8 +1804,7 @@
     sheetState = { mode: 'saved-edit', savedId: id };
     sheetTitle.textContent = 'Edit saved meal';
     sheetSub.textContent = 'Updates the library copy only';
-    nameInput.value = meal.name;
-    detailsInput.value = meal.details || '';
+    fillMealForm(meal);
     saveLibraryWrap.hidden = true;
     savedPickField.hidden = true;
     placeFields.hidden = true;
@@ -1687,8 +1817,7 @@
     sheetState = { mode: 'saved-new' };
     sheetTitle.textContent = 'New saved meal';
     sheetSub.textContent = 'Reusable in any week';
-    nameInput.value = '';
-    detailsInput.value = '';
+    fillMealForm(emptyMeal());
     saveLibraryWrap.hidden = true;
     savedPickField.hidden = true;
     placeFields.hidden = true;
@@ -1704,8 +1833,7 @@
     sheetState = { mode: 'place', savedId: id };
     sheetTitle.textContent = 'Place meal';
     sheetSub.textContent = meal.name;
-    nameInput.value = meal.name;
-    detailsInput.value = meal.details || '';
+    fillMealForm(meal);
     saveLibraryWrap.hidden = true;
     savedPickField.hidden = true;
     placeFields.hidden = false;
@@ -1715,31 +1843,32 @@
     openSheet();
   }
 
-  function upsertSaved(name, details, existingId) {
-    const trimmedName = name.trim();
-    const trimmedDetails = details.trim();
+  function upsertSaved(mealFields, existingId) {
+    const payload = {
+      name: mealFields.name.trim(),
+      details: (mealFields.details || '').trim(),
+      cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
+      prepMinutes: mealFields.prepMinutes == null ? null : mealFields.prepMinutes,
+      servings: (mealFields.servings || '').trim(),
+    };
     if (existingId) {
       const found = data.saved.find((s) => s.id === existingId);
       if (found) {
-        found.name = trimmedName;
-        found.details = trimmedDetails;
+        Object.assign(found, payload);
         return found.id;
       }
     }
-    const match = data.saved.find(
-      (s) => s.name.toLowerCase() === trimmedName.toLowerCase() && (s.details || '') === trimmedDetails
-    );
+    const match = data.saved.find((s) => mealsEqualForLibrary(s, payload));
     if (match) return match.id;
     const id = uid();
-    data.saved.push({ id, name: trimmedName, details: trimmedDetails });
+    data.saved.push({ id, ...payload });
     return id;
   }
 
   function saveSheet() {
     if (!sheetState) return;
-    const name = nameInput.value.trim();
-    const details = detailsInput.value.trim();
-    if (!name) {
+    const form = readMealForm();
+    if (!form.name) {
       nameInput.focus();
       return;
     }
@@ -1747,11 +1876,11 @@
     if (sheetState.mode === 'slot') {
       let savedId = null;
       if (saveLibrary.checked) {
-        savedId = upsertSaved(name, details, null);
+        savedId = upsertSaved(form, null);
       } else if (savedPick.value) {
         savedId = savedPick.value;
       }
-      data.slots[sheetState.slotKey] = { name, details, savedId };
+      data.slots[sheetState.slotKey] = { ...form, savedId };
       persist();
       renderWeek();
       renderSaved();
@@ -1760,7 +1889,7 @@
     }
 
     if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
-      upsertSaved(name, details, sheetState.mode === 'saved-edit' ? sheetState.savedId : null);
+      upsertSaved(form, sheetState.mode === 'saved-edit' ? sheetState.savedId : null);
       persist();
       renderSaved();
       closeSheet();
@@ -1769,7 +1898,7 @@
 
     if (sheetState.mode === 'place') {
       const key = slotKey(placeDay.value, placeMeal.value);
-      data.slots[key] = { name, details, savedId: sheetState.savedId };
+      data.slots[key] = { ...form, savedId: sheetState.savedId };
       persist();
       renderWeek();
       setTab('week');
@@ -1894,8 +2023,7 @@
     if (!id) return;
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
-    nameInput.value = meal.name;
-    detailsInput.value = meal.details || '';
+    fillMealForm(meal);
   });
 
   document.getElementById('pl-week-prev').addEventListener('click', () => {

@@ -160,13 +160,34 @@ function userIsOwner(menu, userId) {
   return !!(menu && userId && menu.ownerUserId === userId);
 }
 
+function normalizeMinutes(raw) {
+  if (raw == null || raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.min(24 * 60, Math.round(n));
+}
+
+function normalizeServings(raw) {
+  if (raw == null || raw === '') return '';
+  return String(raw).trim().slice(0, 40);
+}
+
+function normalizeMealFields(raw) {
+  return {
+    name: String(raw.name || '').trim().slice(0, 120),
+    details: String(raw.details || '').trim().slice(0, 2000),
+    cookMinutes: normalizeMinutes(raw.cookMinutes),
+    prepMinutes: normalizeMinutes(raw.prepMinutes),
+    servings: normalizeServings(raw.servings),
+  };
+}
+
 function normalizeSlot(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const name = String(raw.name || '').trim().slice(0, 120);
-  if (!name) return null;
-  const details = String(raw.details || '').trim().slice(0, 2000);
+  const fields = normalizeMealFields(raw);
+  if (!fields.name) return null;
   const savedId = raw.savedId != null ? String(raw.savedId).slice(0, 64) : null;
-  return { name, details, savedId };
+  return { ...fields, savedId };
 }
 
 function normalizeSlots(raw) {
@@ -186,14 +207,10 @@ function normalizeSaved(raw) {
   const out = [];
   for (const item of raw.slice(0, 500)) {
     if (!item || typeof item !== 'object') continue;
-    const name = String(item.name || '').trim().slice(0, 120);
-    if (!name) continue;
+    const fields = normalizeMealFields(item);
+    if (!fields.name) continue;
     const id = String(item.id || '').trim().slice(0, 64) || newMenuId();
-    out.push({
-      id,
-      name,
-      details: String(item.details || '').trim().slice(0, 2000),
-    });
+    out.push({ id, ...fields });
   }
   return out;
 }
