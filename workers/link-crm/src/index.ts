@@ -7,6 +7,12 @@ import { landingPage, signinPage, signupPage, dashboardPage, peoplePage, interac
 import { decryptContact, generateId, encryptContact } from './crypto'
 import { AHRENS_LINK_HOME, ahrensLoginRedirect, isAhrensHost, linkPwaPaths, linkprmRedirectTarget, publicPath, sessionCookiePath } from './host'
 import { serveLinkHtml } from './html'
+import {
+  LINK_CACHE_TTL,
+  cachedPublicAsset,
+  cachedUserGet,
+  invalidateLinkUserCache,
+} from './cache'
 
 function parseContactTags(raw: unknown): string[] {
   if (!raw || typeof raw !== 'string') return []
@@ -294,21 +300,23 @@ app.get('/auth/ahrens-bridge', async (c) => {
 // Who is logged into Link (for Ahrens session sync on ahrenslabs.com)
 app.get('/api/auth/identity', requireAuth, async (c) => {
   const user = c.get('user')
-  const row = await c.env.DB.prepare(
-    'SELECT email, name, ahrens_user_id, ahrens_username FROM users WHERE id = ?'
-  ).bind(user.id).first() as {
-    email: string
-    name: string | null
-    ahrens_user_id: string | null
-    ahrens_username: string | null
-  } | null
+  return cachedUserGet(c, user.id, '/api/auth/identity', LINK_CACHE_TTL.identity, async () => {
+    const row = await c.env.DB.prepare(
+      'SELECT email, name, ahrens_user_id, ahrens_username FROM users WHERE id = ?'
+    ).bind(user.id).first() as {
+      email: string
+      name: string | null
+      ahrens_user_id: string | null
+      ahrens_username: string | null
+    } | null
 
-  const username = String(row?.ahrens_username || user.ahrens_username || '').trim()
+    const username = String(row?.ahrens_username || user.ahrens_username || '').trim()
 
-  return c.json({
-    email: row?.email || user.email,
-    username,
-    ahrensUserId: row?.ahrens_user_id || user.ahrens_user_id || null,
+    return c.json({
+      email: row?.email || user.email,
+      username,
+      ahrensUserId: row?.ahrens_user_id || user.ahrens_user_id || null,
+    })
   })
 })
 
@@ -323,6 +331,7 @@ app.post('/api/auth/sync-display-name', requireAuth, async (c) => {
   }
 
   await setAhrensUsername(c.env, user.id, username)
+  invalidateLinkUserCache(c, user.id)
 
   return c.json({ username })
 })
@@ -336,173 +345,175 @@ app.get('/api/search', requireAuth, async (c) => {
     return c.json({ contacts: [], interactions: [] })
   }
 
-  const contactsResult = await c.env.DB.prepare(
-    'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
-  ).bind(user.id).all()
+  return cachedUserGet(c, user.id, '/api/search', LINK_CACHE_TTL.api, async () => {
+    const contactsResult = await c.env.DB.prepare(
+      'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
+    ).bind(user.id).all()
 
-  const contacts: Array<any> = []
-  for (const contactRow of contactsResult.results || []) {
-    const decrypted = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
-    const tags = Array.isArray(contactRow.tags) ? contactRow.tags : []
-    const searchableText = [
-      decrypted.name,
-      decrypted.email,
-      decrypted.phone,
-      decrypted.company,
-      decrypted.notes,
-      ...tags,
-    ].filter(Boolean).join(' ').toLowerCase()
+    const contacts: Array<any> = []
+    for (const contactRow of contactsResult.results || []) {
+      const decrypted = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
+      const tags = Array.isArray(contactRow.tags) ? contactRow.tags : []
+      const searchableText = [
+        decrypted.name,
+        decrypted.email,
+        decrypted.phone,
+        decrypted.company,
+        decrypted.notes,
+        ...tags,
+      ].filter(Boolean).join(' ').toLowerCase()
 
-    if (searchableText.includes(query)) {
-      contacts.push({
-        id: contactRow.id,
-        title: decrypted.name || 'Unnamed contact',
-        meta: [decrypted.email, decrypted.phone, decrypted.company].filter(Boolean).join(' • '),
-        href: publicPath(c.req.raw, `/contacts/${contactRow.id}`),
-      })
+      if (searchableText.includes(query)) {
+        contacts.push({
+          id: contactRow.id,
+          title: decrypted.name || 'Unnamed contact',
+          meta: [decrypted.email, decrypted.phone, decrypted.company].filter(Boolean).join(' • '),
+          href: publicPath(c.req.raw, `/contacts/${contactRow.id}`),
+        })
+      }
     }
-  }
 
-  const interactionsResult = await c.env.DB.prepare(`
-    SELECT i.*, c.id as contact_id
-    FROM interactions i
-    INNER JOIN contacts c ON i.contact_id = c.id
-    WHERE c.user_id = ?
-    ORDER BY i.date DESC
-  `).bind(user.id).all()
+    const interactionsResult = await c.env.DB.prepare(`
+      SELECT i.*, c.id as contact_id
+      FROM interactions i
+      INNER JOIN contacts c ON i.contact_id = c.id
+      WHERE c.user_id = ?
+      ORDER BY i.date DESC
+    `).bind(user.id).all()
 
-  const interactions: Array<any> = []
-  for (const interaction of interactionsResult.results || []) {
-    const contactRow = contactsResult.results?.find((row: any) => row.id === interaction.contact_id)
-    if (!contactRow) continue
-    const decryptedContact = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
-    const searchableText = [
-      decryptedContact.name,
-      interaction.type,
-      interaction.notes,
-      interaction.location,
-    ].filter(Boolean).join(' ').toLowerCase()
+    const interactions: Array<any> = []
+    for (const interaction of interactionsResult.results || []) {
+      const contactRow = contactsResult.results?.find((row: any) => row.id === interaction.contact_id)
+      if (!contactRow) continue
+      const decryptedContact = await decryptContact(contactRow, c.env.ENCRYPTION_KEY)
+      const searchableText = [
+        decryptedContact.name,
+        interaction.type,
+        interaction.notes,
+        interaction.location,
+      ].filter(Boolean).join(' ').toLowerCase()
 
-    if (searchableText.includes(query)) {
-      const date = new Date(interaction.date)
-      const dateLabel = date.toLocaleDateString()
-      interactions.push({
-        id: interaction.id,
-        title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
-        meta: `${dateLabel}${interaction.location ? ` • ${interaction.location}` : ''}`,
-        href: publicPath(c.req.raw, `/contacts/${interaction.contact_id}`),
-      })
+      if (searchableText.includes(query)) {
+        const date = new Date(interaction.date)
+        const dateLabel = date.toLocaleDateString()
+        interactions.push({
+          id: interaction.id,
+          title: `${decryptedContact.name || 'Contact'} · ${interaction.type || 'interaction'}`,
+          meta: `${dateLabel}${interaction.location ? ` • ${interaction.location}` : ''}`,
+          href: publicPath(c.req.raw, `/contacts/${interaction.contact_id}`),
+        })
+      }
     }
-  }
 
-  return c.json({
-    contacts: contacts.slice(0, 8),
-    interactions: interactions.slice(0, 8),
+    return c.json({
+      contacts: contacts.slice(0, 8),
+      interactions: interactions.slice(0, 8),
+    })
   })
 })
 
 // Dashboard
 app.get('/dashboard', requireAuth, async (c) => {
   const user = c.get('user')
-  
-  // Check if user has Google account connected
-  const googleAccount = await c.env.DB.prepare(
-    'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
-  ).bind(user.id, 'google').first()
-  
-  return serveLinkHtml(c, dashboardPage(user, !!googleAccount))
+  return cachedUserGet(c, user.id, '/dashboard', LINK_CACHE_TTL.page, async () => {
+    const googleAccount = await c.env.DB.prepare(
+      'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
+    ).bind(user.id, 'google').first()
+    return serveLinkHtml(c, dashboardPage(user, !!googleAccount))
+  })
 })
 
 // Privacy Policy page
 app.get('/privacy', requireAuth, async (c) => {
   const user = c.get('user')
-  return serveLinkHtml(c, privacyPolicyPage(user))
+  return cachedUserGet(c, user.id, '/privacy', LINK_CACHE_TTL.legal, async () =>
+    serveLinkHtml(c, privacyPolicyPage(user))
+  )
 })
 
 // Terms of Service page
 app.get('/terms', requireAuth, async (c) => {
   const user = c.get('user')
-  return serveLinkHtml(c, termsOfServicePage(user))
+  return cachedUserGet(c, user.id, '/terms', LINK_CACHE_TTL.legal, async () =>
+    serveLinkHtml(c, termsOfServicePage(user))
+  )
 })
 
 // People page
 app.get('/people', requireAuth, async (c) => {
   const user = c.get('user')
-  const search = c.req.query('search')
-  const tagFilter = c.req.query('tag')
-  const sortBy = c.req.query('sort') || 'name' // 'name' or 'date'
-  
-  // Get contacts
-  const contactsResult = await c.env.DB.prepare(
-    'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
-  ).bind(user.id).all()
-  
-  // Decrypt contact data
-  let contacts = await Promise.all(
-    (contactsResult.results || []).map(async (contact: any) => {
-      const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
-      return {
-        ...decrypted,
-        tags: contact.tags ? JSON.parse(contact.tags) : [],
-        created_at: contact.created_at
+  return cachedUserGet(c, user.id, '/people', LINK_CACHE_TTL.page, async () => {
+    const search = c.req.query('search')
+    const tagFilter = c.req.query('tag')
+    const sortBy = c.req.query('sort') || 'name' // 'name' or 'date'
+
+    const contactsResult = await c.env.DB.prepare(
+      'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
+    ).bind(user.id).all()
+
+    let contacts = await Promise.all(
+      (contactsResult.results || []).map(async (contact: any) => {
+        const decrypted = await decryptContact(contact, c.env.ENCRYPTION_KEY)
+        return {
+          ...decrypted,
+          tags: contact.tags ? JSON.parse(contact.tags) : [],
+          created_at: contact.created_at
+        }
+      })
+    )
+
+    if (search) {
+      const searchLower = search.toLowerCase()
+      contacts = contacts.filter((contact: any) =>
+        contact.name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.company?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    if (tagFilter) {
+      contacts = contacts.filter((contact: any) =>
+        contact.tags && contact.tags.includes(tagFilter)
+      )
+    }
+
+    if (sortBy === 'date') {
+      contacts.sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        return dateB - dateA
+      })
+    } else {
+      contacts.sort((a: any, b: any) => {
+        const nameA = (a.name || '').toLowerCase()
+        const nameB = (b.name || '').toLowerCase()
+        return nameA.localeCompare(nameB)
+      })
+    }
+
+    const allTags = new Set<string>()
+    contactsResult.results?.forEach((contact: any) => {
+      if (contact.tags) {
+        const tags = JSON.parse(contact.tags)
+        tags.forEach((tag: string) => allTags.add(tag))
       }
     })
-  )
-  
-  // Apply search filter
-  if (search) {
-    const searchLower = search.toLowerCase()
-    contacts = contacts.filter((contact: any) => 
-      contact.name?.toLowerCase().includes(searchLower) ||
-      contact.email?.toLowerCase().includes(searchLower) ||
-      contact.company?.toLowerCase().includes(searchLower)
+
+    const googleAccount = await c.env.DB.prepare(
+      'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
+    ).bind(user.id, 'google').first()
+
+    return serveLinkHtml(
+      c,
+      peoplePage(user, contacts, Array.from(allTags).sort(), search || '', tagFilter || '', sortBy, !!googleAccount)
     )
-  }
-  
-  // Apply tag filter
-  if (tagFilter) {
-    contacts = contacts.filter((contact: any) => 
-      contact.tags && contact.tags.includes(tagFilter)
-    )
-  }
-  
-  // Sort based on user preference
-  if (sortBy === 'date') {
-    // Sort by date added (most recent first)
-    contacts.sort((a: any, b: any) => {
-      const dateA = new Date(a.created_at || 0).getTime()
-      const dateB = new Date(b.created_at || 0).getTime()
-      return dateB - dateA
-    })
-  } else {
-    // Sort alphabetically by name
-    contacts.sort((a: any, b: any) => {
-      const nameA = (a.name || '').toLowerCase()
-      const nameB = (b.name || '').toLowerCase()
-      return nameA.localeCompare(nameB)
-    })
-  }
-  
-  // Get all unique tags for filter dropdown
-  const allTags = new Set<string>()
-  contactsResult.results?.forEach((contact: any) => {
-    if (contact.tags) {
-      const tags = JSON.parse(contact.tags)
-      tags.forEach((tag: string) => allTags.add(tag))
-    }
   })
-  
-  // Check if user has Google account connected
-  const googleAccount = await c.env.DB.prepare(
-    'SELECT id FROM accounts WHERE user_id = ? AND provider = ?'
-  ).bind(user.id, 'google').first()
-  
-  return serveLinkHtml(c, peoplePage(user, contacts, Array.from(allTags).sort(), search || '', tagFilter || '', sortBy, !!googleAccount))
 })
 
 // Interactions page
 app.get('/interactions', requireAuth, async (c) => {
   const user = c.get('user')
+  return cachedUserGet(c, user.id, '/interactions', LINK_CACHE_TTL.page, async () => {
   const search = c.req.query('search')
   const typeFilter = c.req.query('type')
   const view = c.req.query('view') || 'calendar'
@@ -582,11 +593,13 @@ app.get('/interactions', requireAuth, async (c) => {
   ).bind(user.id, 'google').first()
   
   return serveLinkHtml(c, interactionsPage(user, recentInteractions, search || '', typeFilter || '', !!googleAccount, view, year, month))
+  })
 })
 
 // Reminders page
 app.get('/reminders', requireAuth, async (c) => {
   const user = c.get('user')
+  return cachedUserGet(c, user.id, '/reminders', LINK_CACHE_TTL.page, async () => {
   const view = c.req.query('view') || 'calendar'
   const year = c.req.query('year') ? parseInt(c.req.query('year')!) : undefined
   const month = c.req.query('month') ? parseInt(c.req.query('month')!) : undefined
@@ -632,12 +645,13 @@ app.get('/reminders', requireAuth, async (c) => {
   )
   
   return serveLinkHtml(c, remindersPage(user, reminders, view, year, month, showDismissed))
+  })
 })
 
 // New reminder page
 app.get('/reminders/new', requireAuth, async (c) => {
   const user = c.get('user')
-  
+  return cachedUserGet(c, user.id, '/reminders/new', LINK_CACHE_TTL.page, async () => {
   // Get all contacts for dropdown
   const contactsResult = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE user_id = ? ORDER BY created_at DESC'
@@ -654,6 +668,7 @@ app.get('/reminders/new', requireAuth, async (c) => {
   )
   
   return serveLinkHtml(c, newReminderPage(user, contacts))
+  })
 })
 
 // Edit reminder page
@@ -699,6 +714,7 @@ app.get('/contacts/new', requireAuth, async (c) => {
 // API: Get contacts
 app.get('/api/contacts', requireAuth, async (c) => {
   const user = c.get('user')
+  return cachedUserGet(c, user.id, '/api/contacts', LINK_CACHE_TTL.api, async () => {
   const search = c.req.query('search')
   
   let query = 'SELECT * FROM contacts WHERE user_id = ?'
@@ -725,6 +741,7 @@ app.get('/api/contacts', requireAuth, async (c) => {
   )
   
   return c.json(contacts)
+  })
 })
 
 // API: Create contact
@@ -759,6 +776,8 @@ app.post('/api/contacts', requireAuth, async (c) => {
     Date.now(),
     Date.now()
   ).run()
+
+  invalidateLinkUserCache(c, user.id)
   
   return c.json({ id: contactId }, 201)
 })
@@ -959,6 +978,7 @@ app.post('/api/contacts/import-csv', requireAuth, async (c) => {
     }
   }
   
+  invalidateLinkUserCache(c, user.id)
   return c.json({ imported, skipped })
 })
 
@@ -1171,6 +1191,7 @@ app.post('/api/reminders', requireAuth, async (c) => {
   
   // Return JSON for API calls, redirect for form submissions
   if (contentType.includes('application/json')) {
+    invalidateLinkUserCache(c, user.id)
     return c.json({ success: true, id: reminderId, reminder: verifyResult })
   }
   
@@ -1197,6 +1218,7 @@ app.post('/api/reminders/:id/delete', requireAuth, async (c) => {
     'DELETE FROM reminders WHERE id = ?'
   ).bind(reminderId).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.redirect('/reminders')
 })
 
@@ -1224,6 +1246,7 @@ app.post('/api/reminders/:id/dismiss', requireAuth, async (c) => {
   const referer = c.req.header('Referer') || '/reminders'
   const url = new URL(referer)
   const view = url.searchParams.get('view')
+  invalidateLinkUserCache(c, user.id)
   return c.redirect(view ? `/reminders?view=${view}` : '/reminders')
 })
 
@@ -1260,6 +1283,7 @@ app.post('/api/reminders/:id', requireAuth, async (c) => {
      WHERE id = ?`
   ).bind(contact_id, type, date, title || '', description || '', reminderId).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.redirect('/reminders')
 })
 
@@ -1275,53 +1299,65 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer
 }
 
-app.get('/favicon.png', (c) => {
-  const buf = base64ToArrayBuffer(FAVICON_48_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/favicon.png', (c) =>
+  cachedPublicAsset(c, '/favicon.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(FAVICON_48_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
-app.get('/icon-180.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_180_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/icon-180.png', (c) =>
+  cachedPublicAsset(c, '/icon-180.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(ICON_180_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
-app.get('/icon-192.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_192_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/icon-192.png', (c) =>
+  cachedPublicAsset(c, '/icon-192.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(ICON_192_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
-app.get('/icon-192-maskable.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_192_MASKABLE_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/icon-192-maskable.png', (c) =>
+  cachedPublicAsset(c, '/icon-192-maskable.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(ICON_192_MASKABLE_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
-app.get('/icon-512.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_512_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/icon-512.png', (c) =>
+  cachedPublicAsset(c, '/icon-512.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(ICON_512_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
-app.get('/icon-512-maskable.png', (c) => {
-  const buf = base64ToArrayBuffer(ICON_512_MASKABLE_BASE64)
-  return c.body(buf, 200, {
-    'Content-Type': 'image/png',
-    'Cache-Control': 'public, max-age=604800',
+app.get('/icon-512-maskable.png', (c) =>
+  cachedPublicAsset(c, '/icon-512-maskable.png', LINK_CACHE_TTL.asset, () => {
+    const buf = base64ToArrayBuffer(ICON_512_MASKABLE_BASE64)
+    return c.body(buf, 200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': `public, max-age=${LINK_CACHE_TTL.asset}`,
+    })
   })
-})
+)
 
 const LINK_SERVICE_WORKER = `
 self.addEventListener('install', (event) => {
@@ -1403,7 +1439,7 @@ app.get('/manifest.json', (c) => {
 app.get('/contacts/:id', requireAuth, async (c) => {
   const user = c.get('user')
   const contactId = c.req.param('id')
-  
+  return cachedUserGet(c, user.id, `/contacts/${contactId}`, LINK_CACHE_TTL.page, async () => {
   // Get contact
   const contactResult = await c.env.DB.prepare(
     'SELECT * FROM contacts WHERE id = ? AND user_id = ?'
@@ -1427,6 +1463,7 @@ app.get('/contacts/:id', requireAuth, async (c) => {
   ).bind(contactId).all()
   
   return serveLinkHtml(c, contactDetailPage(contact, interactionsResult.results || [], datesResult.results || []))
+  })
 })
 
 // API: Add interaction
@@ -1460,6 +1497,8 @@ app.post('/api/contacts/:id/interactions', requireAuth, async (c) => {
     interactionDate,
     Date.now()
   ).run()
+
+  invalidateLinkUserCache(c, user.id)
   
   return c.json({ id: interactionId }, 201)
 })
@@ -1520,6 +1559,8 @@ app.put('/api/contacts/:id', requireAuth, async (c) => {
     Date.now(),
     contactId
   ).run()
+
+  invalidateLinkUserCache(c, user.id)
   
   return c.json({ success: true })
 })
@@ -1540,6 +1581,8 @@ app.delete('/api/contacts/:id', requireAuth, async (c) => {
   
   // Delete contact (cascading will handle interactions)
   await c.env.DB.prepare('DELETE FROM contacts WHERE id = ?').bind(contactId).run()
+
+  invalidateLinkUserCache(c, user.id)
   
   return c.json({ success: true })
 })
@@ -1583,6 +1626,7 @@ app.post('/api/contacts/bulk-delete', requireAuth, async (c) => {
     ).bind(user.id, ...ownedIds),
   ])
 
+  invalidateLinkUserCache(c, user.id)
   return c.json({ success: true, deleted: ownedIds.length })
 })
 
@@ -1639,6 +1683,7 @@ app.post('/contacts/:id/dates', requireAuth, async (c) => {
     Date.now()
   ).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.redirect(`/contacts/${contactId}`)
 })
 
@@ -1704,6 +1749,7 @@ app.post('/contacts/:contactId/dates/:dateId', requireAuth, async (c) => {
     contactId
   ).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.redirect(`/contacts/${contactId}`)
 })
 
@@ -1724,6 +1770,7 @@ app.delete('/api/dates/:id', requireAuth, async (c) => {
   
   await c.env.DB.prepare('DELETE FROM contact_dates WHERE id = ?').bind(dateId).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.json({ success: true })
 })
 
@@ -1852,6 +1899,7 @@ app.put('/api/interactions/:id', requireAuth, async (c) => {
     ).run()
   }
   
+  invalidateLinkUserCache(c, user.id)
   return c.json({ success: true })
 })
 
@@ -1859,6 +1907,7 @@ app.put('/api/interactions/:id', requireAuth, async (c) => {
 app.get('/api/interactions/:id', requireAuth, async (c) => {
   const user = c.get('user') as import('./types').User
   const interactionId = c.req.param('id')
+  return cachedUserGet(c, user.id, `/api/interactions/${interactionId}`, LINK_CACHE_TTL.api, async () => {
   const result = await c.env.DB.prepare(
     `SELECT i.*, c.user_id FROM interactions i
      INNER JOIN contacts c ON i.contact_id = c.id
@@ -1876,6 +1925,7 @@ app.get('/api/interactions/:id', requireAuth, async (c) => {
     notes: result.notes,
     location: result.location,
     date: result.date
+  })
   })
 })
 
@@ -1897,6 +1947,7 @@ app.delete('/api/interactions/:id', requireAuth, async (c) => {
   
   await c.env.DB.prepare('DELETE FROM interactions WHERE id = ?').bind(interactionId).run()
   
+  invalidateLinkUserCache(c, user.id)
   return c.json({ success: true })
 })
 
@@ -2859,6 +2910,8 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
       }
       
       console.log(`Created ${interactionIds.length} interactions for contacts: ${contactNames.join(', ')}`)
+
+      invalidateLinkUserCache(c, user.id)
       
       return c.json({ 
         success: true,
@@ -2892,6 +2945,8 @@ IMPORTANT: Always try to find a match by extracting names from the text. Only us
         'INSERT INTO interactions (id, contact_id, type, date, notes, location, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).bind(interactionId, contact.id, interactionType, now, interactionNotes, interactionLocation, now).run()
     }
+
+    invalidateLinkUserCache(c, user.id)
     
     return c.json({ 
       success: true,
