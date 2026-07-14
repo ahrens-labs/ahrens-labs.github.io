@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="css/app-site-menu.css?v=20260714a">
   <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
   <link rel="apple-touch-icon" href="/img/favicon.png">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#eab308">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Platter">
@@ -22,20 +22,20 @@
   <script src="js/header_nav.js?v=20260714a"></script>
   <style>
     :root {
-      --pl-ink: #0f172a;
-      --pl-muted: #64748b;
-      --pl-line: #e2e8f0;
+      --pl-ink: #1c1917;
+      --pl-muted: #78716c;
+      --pl-line: #e7e5e4;
       --pl-card: #ffffff;
-      --pl-bg: #eef2f7;
-      --pl-accent: #0f766e;
-      --pl-accent-soft: #f0fdfa;
-      --pl-accent-mid: #14b8a6;
+      --pl-bg: #faf6eb;
+      --pl-accent: #a16207;
+      --pl-accent-soft: #fef9c3;
+      --pl-accent-mid: #eab308;
       --pl-breakfast: #f59e0b;
       --pl-breakfast-soft: #fffbeb;
-      --pl-lunch: #0ea5e9;
-      --pl-lunch-soft: #f0f9ff;
-      --pl-dinner: #8b5cf6;
-      --pl-dinner-soft: #f5f3ff;
+      --pl-lunch: #ca8a04;
+      --pl-lunch-soft: #fefce8;
+      --pl-dinner: #b45309;
+      --pl-dinner-soft: #fff7ed;
       --pl-danger: #dc2626;
       --pl-layout-pad: 12px;
     }
@@ -155,7 +155,7 @@
 
     .pl-day.is-today {
       border-color: var(--pl-accent-mid);
-      box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18);
+      box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.28);
     }
 
     .pl-day-head {
@@ -221,7 +221,7 @@
       border-style: solid;
       border-color: var(--pl-accent);
       background: var(--pl-accent-soft);
-      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
+      box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.22);
     }
 
     .pl-slot-empty {
@@ -270,12 +270,12 @@
 
     .pl-slot[data-meal="lunch"] .pl-meal-card {
       background: var(--pl-lunch-soft);
-      border-color: #bae6fd;
+      border-color: #fde047;
     }
 
     .pl-slot[data-meal="dinner"] .pl-meal-card {
       background: var(--pl-dinner-soft);
-      border-color: #ddd6fe;
+      border-color: #fdba74;
     }
 
     .pl-meal-card.is-dragging {
@@ -521,12 +521,13 @@
     }
 
     .pl-btn-primary {
-      background: var(--pl-accent);
-      color: #fff;
+      background: var(--pl-accent-mid);
+      color: #422006;
+      border: 1px solid #ca8a04;
     }
 
     .pl-btn-primary:active {
-      filter: brightness(0.95);
+      filter: brightness(0.96);
     }
 
     .pl-btn-ghost {
