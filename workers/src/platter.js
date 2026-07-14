@@ -264,7 +264,7 @@ function normalizeSaved(raw) {
     const fields = normalizeMealFields(item);
     if (!fields.name) continue;
     const id = String(item.id || '').trim().slice(0, 64) || newMenuId();
-    out.push({ id, ...fields });
+    out.push({ id, ...fields, ready: !!item.ready });
   }
   return out;
 }

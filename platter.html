@@ -652,6 +652,38 @@
       overflow: hidden;
     }
 
+    .pl-saved-item.is-ready {
+      border-color: #fde68a;
+      background: #fffbeb;
+    }
+
+    .pl-saved-item-main .pl-ready-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #92400e;
+      background: #fef3c7;
+    }
+
+    .pl-saved-item-actions button[data-act='ready'] {
+      color: #92400e;
+      background: #fffbeb;
+    }
+
+    .pl-saved-item-actions button[data-act='ready'].is-on {
+      color: #fff;
+      background: var(--pl-accent);
+    }
+
+    .pl-saved-item-actions button[data-act='place'] {
+      border-top: 1px solid var(--pl-line);
+    }
+
     .pl-saved-item-main {
       flex: 1;
       min-width: 0;
@@ -710,6 +742,10 @@
       border-top: 1px solid var(--pl-line);
       color: var(--pl-danger);
       background: #fff;
+    }
+
+    .pl-saved-item-actions button[data-act='delete'] {
+      border-top: 1px solid var(--pl-line);
     }
 
     .pl-bottom-nav {
@@ -1080,7 +1116,7 @@
           </div>
           <div class="pl-week-bar" id="pl-week-bar">
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
-            <div class="pl-week-label" id="pl-week-hint" title="Drag Ready meals from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.">
+            <div class="pl-week-label" id="pl-week-hint" title="Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.">
               <strong id="pl-week-title">This week</strong>
               <span id="pl-week-range"></span>
             </div>
@@ -1099,10 +1135,10 @@
 
         <section id="pl-tab-saved" class="pl-saved-panel" data-pl-tab="saved">
           <div class="pl-saved-head">
-            <h2>Ready meals</h2>
+            <h2>Saved meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint">Add meals you already have ingredients for, then drag them onto the week from the tray above the calendar.</p>
+          <p class="pl-hint">Your meal library. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray for quick drag-and-drop.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1153,7 +1189,7 @@
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
         <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
-        <span>Ready</span>
+        <span>Saved</span>
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="share">
         <span class="pl-bottom-nav-icon" aria-hidden="true">↗</span>
@@ -1171,7 +1207,7 @@
     <p class="pl-sheet-sub" id="pl-sheet-sub"></p>
 
     <div class="pl-field" id="pl-field-saved-pick">
-      <label for="pl-saved-pick">Use a ready meal</label>
+      <label for="pl-saved-pick">Use a saved meal</label>
       <select id="pl-saved-pick">
         <option value="">— Type your own —</option>
       </select>
@@ -1193,7 +1229,12 @@
 
     <label class="pl-check" id="pl-save-library-wrap">
       <input type="checkbox" id="pl-save-library">
-      <span>Also keep in Ready meals</span>
+      <span>Also save to my meal library</span>
+    </label>
+
+    <label class="pl-check" id="pl-ready-wrap" hidden>
+      <input type="checkbox" id="pl-meal-ready">
+      <span>Have ingredients — show in week tray</span>
     </label>
 
     <div class="pl-field" id="pl-place-fields" hidden>
@@ -1247,6 +1288,8 @@
   const detailsInput = document.getElementById('pl-meal-details');
   const saveLibrary = document.getElementById('pl-save-library');
   const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
+  const readyInput = document.getElementById('pl-meal-ready');
+  const readyWrap = document.getElementById('pl-ready-wrap');
   const savedPick = document.getElementById('pl-saved-pick');
   const savedPickField = document.getElementById('pl-field-saved-pick');
   const placeFields = document.getElementById('pl-place-fields');
@@ -1749,15 +1792,36 @@
     };
   }
 
+  function readyMeals() {
+    return data.saved.filter((m) => !!m.ready);
+  }
+
+  function setMealReady(id, ready) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    meal.ready = !!ready;
+    persist();
+    renderSaved();
+    renderReadyTray();
+    if (sheetState) fillSavedPick();
+  }
+
+  function toggleMealReady(id) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    setMealReady(id, !meal.ready);
+  }
+
   function renderReadyTray() {
     if (!readyTrayList) return;
-    if (!data.saved.length) {
+    const ready = readyMeals();
+    if (!ready.length) {
       readyTrayList.innerHTML =
-        '<div class="pl-ready-empty">Add meals you have ingredients for on the Ready tab, then drag them here onto a day.</div>';
+        '<div class="pl-ready-empty">On Saved, tap Ready for meals you have ingredients for — then drag them here onto a day.</div>';
       return;
     }
     const frag = document.createDocumentFragment();
-    data.saved
+    ready
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
       .forEach((meal) => {
@@ -2240,31 +2304,50 @@
   function renderSaved() {
     if (!data.saved.length) {
       savedList.innerHTML =
-        '<div class="pl-saved-empty">No ready meals yet.<br>Tap New to add something you have ingredients for.</div>';
+        '<div class="pl-saved-empty">No saved meals yet.<br>Tap New, or save one from a day slot.</div>';
       return;
     }
     const frag = document.createDocumentFragment();
     data.saved
       .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .sort((a, b) => {
+        if (!!a.ready !== !!b.ready) return a.ready ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      })
       .forEach((meal) => {
         const row = document.createElement('div');
-        row.className = 'pl-saved-item';
+        row.className = 'pl-saved-item' + (meal.ready ? ' is-ready' : '');
         row.innerHTML =
           '<button type="button" class="pl-saved-item-main">' +
-          '<strong></strong><span></span></button>' +
+          '<strong></strong><span></span>' +
+          (meal.ready ? '<em class="pl-ready-badge">Ready</em>' : '') +
+          '</button>' +
           '<div class="pl-saved-item-actions">' +
-          '<button type="button" data-act="place">Use</button>' +
+          '<button type="button" data-act="ready"></button>' +
+          '<button type="button" data-act="place">Place</button>' +
           '<button type="button" data-act="delete">Delete</button>' +
           '</div>';
         row.querySelector('strong').textContent = meal.name;
         row.querySelector('span').textContent =
           mealMetaText(meal) || meal.details || 'No details yet';
+        const readyBtn = row.querySelector('[data-act="ready"]');
+        readyBtn.textContent = meal.ready ? 'Ready ✓' : 'Ready';
+        readyBtn.classList.toggle('is-on', !!meal.ready);
+        readyBtn.setAttribute(
+          'aria-pressed',
+          meal.ready ? 'true' : 'false'
+        );
+        readyBtn.setAttribute(
+          'aria-label',
+          meal.ready
+            ? 'Remove ' + meal.name + ' from ready tray'
+            : 'Mark ' + meal.name + ' as ready to cook'
+        );
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
-        row.querySelector('[data-act="place"]').textContent = 'Place';
+        readyBtn.addEventListener('click', () => toggleMealReady(meal.id));
         row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
         row.querySelector('[data-act="delete"]').addEventListener('click', () => {
-          if (!confirm('Delete "' + meal.name + '" from Ready meals?')) return;
+          if (!confirm('Delete "' + meal.name + '" from saved meals?')) return;
           data.saved = data.saved.filter((s) => s.id !== meal.id);
           persist();
           renderSaved();
@@ -2402,6 +2485,8 @@
     fillMealForm(existing);
     saveLibrary.checked = false;
     saveLibraryWrap.hidden = false;
+    if (readyInput) readyInput.checked = false;
+    if (readyWrap) readyWrap.hidden = true;
     savedPickField.hidden = false;
     placeFields.hidden = true;
     placeMealWrap.hidden = true;
@@ -2415,10 +2500,12 @@
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
     sheetState = { mode: 'saved-edit', savedId: id };
-    sheetTitle.textContent = 'Edit ready meal';
-    sheetSub.textContent = 'Meals you have ingredients for';
+    sheetTitle.textContent = 'Edit saved meal';
+    sheetSub.textContent = 'Library meal — mark Ready when you have ingredients';
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
+    if (readyInput) readyInput.checked = !!meal.ready;
+    if (readyWrap) readyWrap.hidden = false;
     savedPickField.hidden = true;
     placeFields.hidden = true;
     placeMealWrap.hidden = true;
@@ -2428,10 +2515,12 @@
 
   function openNewSaved() {
     sheetState = { mode: 'saved-new' };
-    sheetTitle.textContent = 'New ready meal';
-    sheetSub.textContent = 'Something you have ingredients for';
+    sheetTitle.textContent = 'New saved meal';
+    sheetSub.textContent = 'Add to your library; mark Ready when you have ingredients';
     fillMealForm(emptyMeal());
     saveLibraryWrap.hidden = true;
+    if (readyInput) readyInput.checked = false;
+    if (readyWrap) readyWrap.hidden = false;
     savedPickField.hidden = true;
     placeFields.hidden = true;
     placeMealWrap.hidden = true;
@@ -2448,6 +2537,7 @@
     sheetSub.textContent = meal.name;
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
+    if (readyWrap) readyWrap.hidden = true;
     savedPickField.hidden = true;
     placeFields.hidden = false;
     placeMealWrap.hidden = false;
@@ -2456,8 +2546,9 @@
     openSheet();
   }
 
-  function upsertSaved(mealFields, existingId) {
-      const payload = {
+  function upsertSaved(mealFields, existingId, opts) {
+    const options = opts || {};
+    const payload = {
       name: mealFields.name.trim(),
       details: (mealFields.details || '').trim(),
       cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
@@ -2466,13 +2557,21 @@
       const found = data.saved.find((s) => s.id === existingId);
       if (found) {
         Object.assign(found, payload);
+        if (options.ready !== undefined) found.ready = !!options.ready;
         return found.id;
       }
     }
     const match = data.saved.find((s) => mealsEqualForLibrary(s, payload));
-    if (match) return match.id;
+    if (match) {
+      if (options.ready !== undefined) match.ready = !!options.ready;
+      return match.id;
+    }
     const id = uid();
-    data.saved.push({ id, ...payload });
+    data.saved.push({
+      id,
+      ...payload,
+      ready: options.ready !== undefined ? !!options.ready : false,
+    });
     return id;
   }
 
@@ -2501,7 +2600,9 @@
     }
 
     if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
-      upsertSaved(form, sheetState.mode === 'saved-edit' ? sheetState.savedId : null);
+      upsertSaved(form, sheetState.mode === 'saved-edit' ? sheetState.savedId : null, {
+        ready: !!(readyInput && readyInput.checked),
+      });
       persist();
       renderSaved();
       renderReadyTray();
