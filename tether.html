@@ -1128,10 +1128,10 @@
       <div class="th-task-modal-body">
         <div id="task-quick-add" class="th-task-quick-add" style="display:none;">
           <input type="text" id="task-quick-add-input" class="th-task-quick-add-input" maxlength="240"
-            placeholder="What needs doing? Try @label tomorrow or every week"
+            placeholder="What needs doing? Try task @label tomorrow or every week"
             aria-label="Quick add task">
           <div id="task-quick-add-preview" class="th-task-quick-add-preview"></div>
-          <p class="th-task-quick-add-hint">Use @ for labels. Add dates and repeats in plain language (today, tomorrow, every Monday, every 2 weeks).</p>
+          <p class="th-task-quick-add-hint">Use a space before @ for labels (e.g. task @home). Add dates and repeats in plain language (today, tomorrow, every Monday, every 2 weeks).</p>
           <button type="button" class="th-quick-add-expand" id="task-quick-add-expand">More details</button>
         </div>
         <div id="task-modal-details">
@@ -1702,9 +1702,12 @@
     renderTaskLabelsEditor(editingTaskLabels);
   }
 
+  // Labels require whitespace before @ so emails like "person@domain.com" are not parsed as labels.
+  const LABEL_IN_TEXT_RE = /\s@([a-zA-Z0-9_-]+)/g;
+
   function extractLabels(text) {
     const labels = [];
-    const re = /@([a-zA-Z0-9_-]+)/g;
+    const re = new RegExp(LABEL_IN_TEXT_RE.source, 'g');
     let m;
     while ((m = re.exec(String(text || '')))) labels.push(m[1].toLowerCase());
     return [...new Set(labels)];
@@ -1712,7 +1715,7 @@
 
   function stripLabelsFromTitle(text) {
     return String(text || '')
-      .replace(/@([a-zA-Z0-9_-]+)/g, '')
+      .replace(LABEL_IN_TEXT_RE, '')
       .replace(/\s+/g, ' ')
       .trim();
   }

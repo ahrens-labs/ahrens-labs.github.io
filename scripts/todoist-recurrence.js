@@ -548,16 +548,22 @@ export function recurrenceLabelForTask(task) {
   return task.recurrence;
 }
 
+// Labels require whitespace before @ (e.g. "task @home") so emails like "a@b.com" are not labels.
+const LABEL_IN_TEXT_RE = /\s@([a-zA-Z0-9_-]+)/g;
+
 function extractLabels(title) {
   const labels = [];
-  const re = /@([a-zA-Z0-9_-]+)/g;
+  const re = new RegExp(LABEL_IN_TEXT_RE.source, 'g');
   let m;
   while ((m = re.exec(String(title || '')))) labels.push(m[1].toLowerCase());
   return [...new Set(labels)];
 }
 
 export function stripLabelsFromTitle(title) {
-  return String(title || '').replace(/@([a-zA-Z0-9_-]+)/g, '').replace(/\s+/g, ' ').trim();
+  return String(title || '')
+    .replace(LABEL_IN_TEXT_RE, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function buildTetherTask(row, userId, sortOrder, today = new Date()) {
