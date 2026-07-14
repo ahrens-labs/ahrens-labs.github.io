@@ -819,9 +819,14 @@
     }
 
     body.pl-dragging {
-      overflow: hidden;
       touch-action: none;
       user-select: none;
+      -webkit-user-select: none;
+      overscroll-behavior: none;
+    }
+
+    body.pl-dragging .pl-bottom-nav {
+      pointer-events: none;
     }
 
     @media (min-width: 700px) {
@@ -921,7 +926,7 @@
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
           </div>
-          <p class="pl-hint">Tap a meal to edit. Drag it to move or swap with another slot.</p>
+          <p class="pl-hint">Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.</p>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
 
@@ -1125,7 +1130,10 @@
     pointerId: null,
     startX: 0,
     startY: 0,
+    lastX: 0,
+    lastY: 0,
     moved: false,
+    scrollRaf: 0,
   };
 
   function uid() {
@@ -2173,9 +2181,68 @@
   }
 
   function slotBodyFromPoint(x, y) {
-    const el = document.elementFromPoint(x, y);
-    if (!el) return null;
-    return el.closest('.pl-slot-body');
+    const stack = document.elementsFromPoint(x, y) || [];
+    for (let i = 0; i < stack.length; i++) {
+      const el = stack[i];
+      if (!el || !el.closest) continue;
+      if (el.classList && el.classList.contains('pl-drag-ghost')) continue;
+      if (el.closest('.pl-bottom-nav') || el.closest('.th-app-header') || el.closest('.pl-sheet')) continue;
+      const body = el.closest('.pl-slot-body');
+      if (body) return body;
+    }
+    return null;
+  }
+
+  function updateDragHover(x, y) {
+    document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+    const target = slotBodyFromPoint(x, y);
+    if (target && target.dataset.slotKey !== drag.fromKey) {
+      target.classList.add('is-drop-target');
+    }
+  }
+
+  function stopDragAutoScroll() {
+    if (drag.scrollRaf) {
+      cancelAnimationFrame(drag.scrollRaf);
+      drag.scrollRaf = 0;
+    }
+  }
+
+  function dragAutoScrollStep() {
+    drag.scrollRaf = 0;
+    if (!drag.active || !drag.moved) return;
+
+    const y = drag.lastY;
+    const vh = window.innerHeight || 0;
+    const topZone = Math.max(72, Math.round(vh * 0.16));
+    const bottomZone = Math.max(96, Math.round(vh * 0.2));
+    let dy = 0;
+
+    if (y < topZone) {
+      const t = 1 - y / topZone;
+      dy = -Math.ceil(8 + t * 28);
+    } else if (y > vh - bottomZone) {
+      const t = 1 - (vh - y) / bottomZone;
+      dy = Math.ceil(8 + t * 28);
+    }
+
+    if (dy) {
+      const before = window.scrollY || document.documentElement.scrollTop || 0;
+      window.scrollBy(0, dy);
+      const after = window.scrollY || document.documentElement.scrollTop || 0;
+      if (after !== before) {
+        updateDragHover(drag.lastX, drag.lastY);
+      }
+    }
+
+    if (drag.active && drag.moved) {
+      drag.scrollRaf = requestAnimationFrame(dragAutoScrollStep);
+    }
+  }
+
+  function startDragAutoScroll() {
+    if (drag.scrollRaf) return;
+    drag.scrollRaf = requestAnimationFrame(dragAutoScrollStep);
   }
 
   function onCardPointerDown(e) {
@@ -2184,12 +2251,15 @@
     const card = e.currentTarget;
     const key = card.dataset.slotKey;
     if (!key) return;
+    stopDragAutoScroll();
     drag.active = true;
     drag.fromKey = key;
     drag.card = card;
     drag.pointerId = e.pointerId;
     drag.startX = e.clientX;
     drag.startY = e.clientY;
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
     drag.moved = false;
     didDrag = false;
     try {
@@ -2202,6 +2272,8 @@
 
   function onCardPointerMove(e) {
     if (!drag.active || e.pointerId !== drag.pointerId) return;
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 8) return;
@@ -2215,16 +2287,13 @@
       ghost.textContent = (data.slots[drag.fromKey] && data.slots[drag.fromKey].name) || 'Meal';
       document.body.appendChild(ghost);
       drag.ghost = ghost;
+      startDragAutoScroll();
     }
     if (drag.ghost) {
       drag.ghost.style.left = e.clientX + 'px';
       drag.ghost.style.top = e.clientY + 'px';
     }
-    document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
-    const target = slotBodyFromPoint(e.clientX, e.clientY);
-    if (target && target.dataset.slotKey !== drag.fromKey) {
-      target.classList.add('is-drop-target');
-    }
+    updateDragHover(e.clientX, e.clientY);
   }
 
   function onCardPointerUp(e) {
@@ -2232,16 +2301,19 @@
     const fromKey = drag.fromKey;
     const card = drag.card;
     const moved = drag.moved;
+    const dropX = e.clientX != null ? e.clientX : drag.lastX;
+    const dropY = e.clientY != null ? e.clientY : drag.lastY;
     card.removeEventListener('pointermove', onCardPointerMove);
     card.removeEventListener('pointerup', onCardPointerUp);
     card.removeEventListener('pointercancel', onCardPointerUp);
     try {
       card.releasePointerCapture(e.pointerId);
     } catch (_) {}
+    stopDragAutoScroll();
 
     let toKey = null;
     if (moved) {
-      const target = slotBodyFromPoint(e.clientX, e.clientY);
+      const target = slotBodyFromPoint(dropX, dropY);
       if (target && target.dataset.slotKey && target.dataset.slotKey !== fromKey) {
         toKey = target.dataset.slotKey;
       }
@@ -2258,6 +2330,8 @@
     drag.ghost = null;
     drag.pointerId = null;
     drag.moved = false;
+    drag.lastX = 0;
+    drag.lastY = 0;
 
     if (toKey) {
       const fromMeal = data.slots[fromKey] || null;
