@@ -348,17 +348,131 @@
       transform: translate(-50%, -110%);
     }
 
-    .pl-saved-panel {
+    .pl-saved-panel,
+    .pl-share-panel,
+    .pl-week-panel {
       display: none;
     }
 
     .pl-saved-panel.active,
+    .pl-share-panel.active,
     .pl-week-panel.active {
       display: block;
     }
 
-    .pl-week-panel {
-      display: none;
+    .pl-share-card {
+      background: var(--pl-card);
+      border: 1px solid var(--pl-line);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .pl-share-card h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .pl-inline-actions {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    .pl-inline-actions input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--pl-line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      font-size: 1rem;
+      min-height: 48px;
+      box-sizing: border-box;
+    }
+
+    .pl-members-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .pl-member-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--pl-line);
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+
+    .pl-member-row strong {
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .pl-member-row span {
+      font-size: 0.75rem;
+      color: var(--pl-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .pl-member-row button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--pl-danger);
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      min-height: 40px;
+      padding: 0 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-status {
+      min-height: 1.2em;
+      margin: 8px 0 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--pl-muted);
+    }
+
+    .pl-status.is-error { color: var(--pl-danger); }
+    .pl-status.is-ok { color: var(--pl-accent); }
+
+    .pl-sync-line {
+      margin: 4px 2px 0;
+      font-size: 0.78rem;
+      color: var(--pl-muted);
+      font-weight: 600;
+    }
+
+    .pl-menu-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--pl-accent-soft);
+      color: var(--pl-accent);
+      font-size: 0.78rem;
+      font-weight: 800;
+      max-width: 100%;
+    }
+
+    .pl-menu-chip span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .pl-saved-head {
@@ -726,6 +840,7 @@
 
       <div id="pl-app" hidden>
         <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
+          <div class="pl-menu-chip" id="pl-active-chip" hidden><span id="pl-active-chip-text"></span></div>
           <div class="pl-week-bar">
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
             <div class="pl-week-label">
@@ -747,6 +862,44 @@
           <p class="pl-hint">Save meals you cook often, then drop them onto any day without retyping.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
+
+        <section id="pl-tab-share" class="pl-share-panel" data-pl-tab="share">
+          <div class="pl-saved-head">
+            <h2>Share</h2>
+          </div>
+          <p class="pl-hint">Menus sync to your Ahrens Labs account. Share with another username or email so they can edit the same week plan.</p>
+
+          <div class="pl-field">
+            <label for="pl-menu-select">Active menu</label>
+            <select id="pl-menu-select" aria-label="Choose menu"></select>
+          </div>
+
+          <div class="pl-field" id="pl-menu-name-field">
+            <label for="pl-menu-name">Menu name</label>
+            <div class="pl-inline-actions">
+              <input id="pl-menu-name" type="text" maxlength="80" autocomplete="off" placeholder="My menu">
+              <button type="button" class="pl-btn pl-btn-ghost" id="pl-menu-rename">Rename</button>
+            </div>
+          </div>
+
+          <div class="pl-share-card" id="pl-share-owner-card">
+            <h3>Share this menu</h3>
+            <p class="pl-hint">They’ll see it in Platter after you add them. Both of you can edit meals.</p>
+            <div class="pl-inline-actions">
+              <input id="pl-share-input" type="text" maxlength="120" autocomplete="username" placeholder="Username or email">
+              <button type="button" class="pl-btn pl-btn-primary" id="pl-share-btn">Share</button>
+            </div>
+            <p class="pl-status" id="pl-share-status" aria-live="polite"></p>
+          </div>
+
+          <div class="pl-share-card">
+            <h3>People with access</h3>
+            <div id="pl-members-list" class="pl-members-list"></div>
+            <button type="button" class="pl-btn pl-btn-danger pl-btn-block" id="pl-leave-menu" hidden>Leave this menu</button>
+          </div>
+
+          <p class="pl-sync-line" id="pl-sync-line">Account sync ready</p>
+        </section>
       </div>
     </main>
 
@@ -758,6 +911,10 @@
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
         <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
         <span>Saved</span>
+      </button>
+      <button type="button" class="pl-bottom-nav-item" data-pl-tab="share">
+        <span class="pl-bottom-nav-icon" aria-hidden="true">↗</span>
+        <span>Share</span>
       </button>
     </nav>
   </div>
@@ -843,10 +1000,31 @@
   const placeDay = document.getElementById('pl-place-day');
   const placeMeal = document.getElementById('pl-place-meal');
   const clearBtn = document.getElementById('pl-sheet-clear');
+  const menuSelect = document.getElementById('pl-menu-select');
+  const menuNameInput = document.getElementById('pl-menu-name');
+  const menuNameField = document.getElementById('pl-menu-name-field');
+  const shareInput = document.getElementById('pl-share-input');
+  const shareBtn = document.getElementById('pl-share-btn');
+  const shareStatus = document.getElementById('pl-share-status');
+  const shareOwnerCard = document.getElementById('pl-share-owner-card');
+  const membersList = document.getElementById('pl-members-list');
+  const leaveMenuBtn = document.getElementById('pl-leave-menu');
+  const syncLine = document.getElementById('pl-sync-line');
+  const activeChip = document.getElementById('pl-active-chip');
+  const activeChipText = document.getElementById('pl-active-chip-text');
+
+  const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
   /** @type {{ slots: Record<string, { name: string, details: string, savedId?: string|null }>, saved: Array<{ id: string, name: string, details: string }> }} */
   let data = { slots: {}, saved: [] };
+  /** @type {Array<{ id: string, name: string, isOwner: boolean, ownerUsername?: string, members?: any[], updatedAt?: number }>} */
+  let menus = [];
+  let activeMenuId = null;
+  let menuMeta = { isOwner: true, name: 'My menu', members: [], ownerUsername: '' };
   let storageKey = 'platter_data_guest';
+  let sessionId = '';
+  let syncTimer = null;
+  let syncing = false;
   let weekAnchor = startOfWeek(new Date());
   /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
   let sheetState = null;
@@ -915,35 +1093,356 @@
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
 
-  function loadData() {
+  function authHeaders() {
+    return {
+      Authorization: 'Bearer ' + sessionId,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  function readLocalCache() {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (!raw) {
-        data = { slots: {}, saved: [] };
-        return;
-      }
+      if (!raw) return { slots: {}, saved: [] };
       const parsed = JSON.parse(raw);
-      data = {
+      return {
         slots: parsed && typeof parsed.slots === 'object' && parsed.slots ? parsed.slots : {},
         saved: Array.isArray(parsed && parsed.saved) ? parsed.saved : [],
+        menuId: parsed && typeof parsed.menuId === 'string' ? parsed.menuId : null,
       };
     } catch {
-      data = { slots: {}, saved: [] };
+      return { slots: {}, saved: [] };
+    }
+  }
+
+  function writeLocalCache() {
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        slots: data.slots,
+        saved: data.saved,
+        menuId: activeMenuId,
+        updatedAt: Date.now(),
+      })
+    );
+  }
+
+  function setSyncStatus(text, kind) {
+    if (!syncLine) return;
+    syncLine.textContent = text;
+    syncLine.classList.toggle('is-error', kind === 'error');
+    syncLine.classList.toggle('is-ok', kind === 'ok');
+  }
+
+  function hasMealContent(payload) {
+    const slots = payload && payload.slots ? Object.keys(payload.slots).length : 0;
+    const saved = payload && Array.isArray(payload.saved) ? payload.saved.length : 0;
+    return slots > 0 || saved > 0;
+  }
+
+  function applyMenuPayload(menu, menusList) {
+    if (Array.isArray(menusList)) menus = menusList;
+    activeMenuId = menu && menu.id ? menu.id : activeMenuId;
+    menuMeta = {
+      isOwner: !!(menu && menu.isOwner),
+      name: (menu && menu.name) || 'Menu',
+      members: (menu && Array.isArray(menu.members) ? menu.members : []) || [],
+      ownerUsername: (menu && menu.ownerUsername) || '',
+    };
+    data = {
+      slots: menu && menu.slots && typeof menu.slots === 'object' ? menu.slots : {},
+      saved: menu && Array.isArray(menu.saved) ? menu.saved : [],
+    };
+    writeLocalCache();
+    renderAll();
+  }
+
+  async function api(path, options) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: { ...authHeaders(), ...(options && options.headers) },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(body.error || 'Request failed');
+      err.status = res.status;
+      throw err;
+    }
+    return body;
+  }
+
+  function queueCloudSync() {
+    writeLocalCache();
+    setSyncStatus('Saving to account…');
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => {
+      syncTimer = null;
+      syncToCloud();
+    }, 700);
+  }
+
+  async function syncToCloud() {
+    if (!sessionId || !activeMenuId) return;
+    if (syncing) {
+      queueCloudSync();
+      return;
+    }
+    syncing = true;
+    try {
+      const payload = {
+        menuId: activeMenuId,
+        slots: data.slots,
+        saved: data.saved,
+      };
+      if (menuMeta.isOwner && menuNameInput && menuNameInput.value.trim()) {
+        payload.name = menuNameInput.value.trim();
+      }
+      const result = await api('/api/platter/menu', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      if (result.menu) {
+        menus = menus.map((m) => (m.id === result.menu.id ? { ...m, ...result.menu, slots: undefined, saved: undefined } : m));
+        const idx = menus.findIndex((m) => m.id === result.menu.id);
+        if (idx >= 0) {
+          menus[idx] = {
+            ...menus[idx],
+            name: result.menu.name,
+            members: result.menu.members,
+            updatedAt: result.menu.updatedAt,
+            isOwner: result.menu.isOwner,
+          };
+        }
+        menuMeta = {
+          isOwner: !!result.menu.isOwner,
+          name: result.menu.name || menuMeta.name,
+          members: result.menu.members || [],
+          ownerUsername: result.menu.ownerUsername || menuMeta.ownerUsername,
+        };
+      }
+      writeLocalCache();
+      setSyncStatus('Saved to account', 'ok');
+      renderSharePanel();
+    } catch (err) {
+      setSyncStatus(err.message || 'Could not sync — kept on this device', 'error');
+    } finally {
+      syncing = false;
     }
   }
 
   function persist() {
-    localStorage.setItem(storageKey, JSON.stringify(data));
+    queueCloudSync();
   }
 
   function setTab(tab) {
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
-      } else if (el.classList.contains('pl-week-panel') || el.classList.contains('pl-saved-panel')) {
+      } else if (
+        el.classList.contains('pl-week-panel') ||
+        el.classList.contains('pl-saved-panel') ||
+        el.classList.contains('pl-share-panel')
+      ) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
       }
     });
+    if (tab === 'share') renderSharePanel();
+  }
+
+  function renderAll() {
+    renderWeek();
+    renderSaved();
+    renderSharePanel();
+    renderActiveChip();
+  }
+
+  function renderActiveChip() {
+    if (!activeChip || !activeChipText) return;
+    const label = menuMeta.name || 'Menu';
+    const owned = menuMeta.isOwner;
+    activeChip.hidden = false;
+    activeChipText.textContent = owned ? label : label + ' · shared by ' + (menuMeta.ownerUsername || 'someone');
+  }
+
+  function renderSharePanel() {
+    if (!menuSelect) return;
+    menuSelect.innerHTML = menus
+      .map((m) => {
+        const label = m.isOwner ? m.name : m.name + ' (shared)';
+        return (
+          '<option value="' +
+          m.id +
+          '"' +
+          (m.id === activeMenuId ? ' selected' : '') +
+          '>' +
+          escapeHtml(label) +
+          '</option>'
+        );
+      })
+      .join('');
+
+    if (menuNameInput) menuNameInput.value = menuMeta.name || '';
+    if (menuNameField) menuNameField.hidden = !menuMeta.isOwner;
+    if (shareOwnerCard) shareOwnerCard.hidden = !menuMeta.isOwner;
+    if (leaveMenuBtn) leaveMenuBtn.hidden = !!menuMeta.isOwner;
+
+    const members = Array.isArray(menuMeta.members) ? menuMeta.members : [];
+    if (!members.length) {
+      membersList.innerHTML = '<p class="pl-hint" style="margin:0;">Only you so far.</p>';
+    } else {
+      membersList.replaceChildren();
+      const active = menus.find((x) => x.id === activeMenuId);
+      members.forEach((m) => {
+        const row = document.createElement('div');
+        row.className = 'pl-member-row';
+        const info = document.createElement('div');
+        info.innerHTML = '<strong></strong><span></span>';
+        info.querySelector('strong').textContent = m.username || m.userId;
+        const isOwnerMember = m.role === 'owner' || (active && active.ownerUserId === m.userId);
+        info.querySelector('span').textContent = isOwnerMember ? 'Owner' : 'Can edit';
+        row.appendChild(info);
+        if (menuMeta.isOwner && !isOwnerMember) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = 'Remove';
+          btn.addEventListener('click', () => unshareMember(m.userId));
+          row.appendChild(btn);
+        }
+        membersList.appendChild(row);
+      });
+    }
+  }
+
+  async function switchMenu(menuId) {
+    if (!menuId || menuId === activeMenuId) return;
+    setSyncStatus('Loading menu…');
+    try {
+      const result = await api('/api/platter/active', {
+        method: 'POST',
+        body: JSON.stringify({ menuId }),
+      });
+      applyMenuPayload(result.menu, menus);
+      const list = await api('/api/platter/menus');
+      if (Array.isArray(list.menus)) menus = list.menus;
+      activeMenuId = result.activeMenuId || menuId;
+      renderAll();
+      setSyncStatus('Menu loaded', 'ok');
+    } catch (err) {
+      setSyncStatus(err.message || 'Could not switch menu', 'error');
+      renderSharePanel();
+    }
+  }
+
+  async function shareMenu() {
+    const usernameOrEmail = (shareInput.value || '').trim();
+    if (!usernameOrEmail || !activeMenuId) return;
+    shareStatus.textContent = 'Sharing…';
+    shareStatus.className = 'pl-status';
+    shareBtn.disabled = true;
+    try {
+      const result = await api('/api/platter/share', {
+        method: 'POST',
+        body: JSON.stringify({ menuId: activeMenuId, usernameOrEmail }),
+      });
+      if (result.menu) applyMenuPayload(result.menu, menus);
+      const list = await api('/api/platter/menus');
+      if (Array.isArray(list.menus)) menus = list.menus;
+      shareInput.value = '';
+      shareStatus.textContent = 'Shared — they can open Platter to edit with you.';
+      shareStatus.className = 'pl-status is-ok';
+      renderSharePanel();
+    } catch (err) {
+      shareStatus.textContent = err.message || 'Share failed';
+      shareStatus.className = 'pl-status is-error';
+    } finally {
+      shareBtn.disabled = false;
+    }
+  }
+
+  async function unshareMember(userId) {
+    if (!activeMenuId || !userId) return;
+    if (!confirm('Remove this person’s access to the menu?')) return;
+    try {
+      const result = await api('/api/platter/unshare', {
+        method: 'POST',
+        body: JSON.stringify({ menuId: activeMenuId, userId }),
+      });
+      if (result.menu) applyMenuPayload(result.menu, menus);
+      setSyncStatus('Access updated', 'ok');
+    } catch (err) {
+      setSyncStatus(err.message || 'Could not remove access', 'error');
+    }
+  }
+
+  async function leaveMenu() {
+    if (!activeMenuId || menuMeta.isOwner) return;
+    if (!confirm('Leave this shared menu?')) return;
+    try {
+      const result = await api('/api/platter/leave', {
+        method: 'POST',
+        body: JSON.stringify({ menuId: activeMenuId }),
+      });
+      if (result.menu) applyMenuPayload(result.menu, result.menus || menus);
+      else if (result.menus) {
+        menus = result.menus;
+        activeMenuId = result.activeMenuId;
+        const full = await api('/api/platter/menu?menuId=' + encodeURIComponent(activeMenuId));
+        applyMenuPayload(full.menu, result.menus);
+      }
+      setSyncStatus('Left shared menu', 'ok');
+      setTab('week');
+    } catch (err) {
+      setSyncStatus(err.message || 'Could not leave menu', 'error');
+    }
+  }
+
+  async function renameMenu() {
+    if (!menuMeta.isOwner || !activeMenuId) return;
+    const name = (menuNameInput.value || '').trim();
+    if (!name) return;
+    try {
+      const result = await api('/api/platter/menu', {
+        method: 'PUT',
+        body: JSON.stringify({
+          menuId: activeMenuId,
+          name,
+          slots: data.slots,
+          saved: data.saved,
+        }),
+      });
+      if (result.menu) applyMenuPayload(result.menu, menus);
+      setSyncStatus('Menu renamed', 'ok');
+    } catch (err) {
+      setSyncStatus(err.message || 'Rename failed', 'error');
+    }
+  }
+
+  async function refreshFromCloud() {
+    if (!sessionId || !activeMenuId || syncing) return;
+    try {
+      const result = await api('/api/platter/menu?menuId=' + encodeURIComponent(activeMenuId));
+      if (result.menu) {
+        data = {
+          slots: result.menu.slots || {},
+          saved: Array.isArray(result.menu.saved) ? result.menu.saved : [],
+        };
+        menuMeta = {
+          isOwner: !!result.menu.isOwner,
+          name: result.menu.name || menuMeta.name,
+          members: result.menu.members || [],
+          ownerUsername: result.menu.ownerUsername || '',
+        };
+        writeLocalCache();
+        renderAll();
+      }
+      const list = await api('/api/platter/menus');
+      if (Array.isArray(list.menus)) {
+        menus = list.menus;
+        renderSharePanel();
+      }
+    } catch {
+      /* keep local */
+    }
   }
 
   function renderWeek() {
@@ -1396,6 +1895,16 @@
   document.getElementById('pl-sheet-cancel').addEventListener('click', closeSheet);
   document.getElementById('pl-sheet-clear').addEventListener('click', clearSlot);
   sheetBackdrop.addEventListener('click', closeSheet);
+  shareBtn.addEventListener('click', shareMenu);
+  shareInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      shareMenu();
+    }
+  });
+  leaveMenuBtn.addEventListener('click', leaveMenu);
+  document.getElementById('pl-menu-rename').addEventListener('click', renameMenu);
+  menuSelect.addEventListener('change', () => switchMenu(menuSelect.value));
 
   bottomNav.querySelectorAll('[data-pl-tab]').forEach((btn) => {
     btn.addEventListener('click', () => setTab(btn.getAttribute('data-pl-tab')));
@@ -1405,23 +1914,64 @@
     if (e.key === 'Escape' && sheet.classList.contains('open')) closeSheet();
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshFromCloud();
+  });
+
   async function boot() {
-    const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+    sessionId = localStorage.getItem('ahrenslabs_sessionId') || '';
     const username = localStorage.getItem('ahrenslabs_username') || 'guest';
-    storageKey = 'platter_data_' + username;
+    const userId = localStorage.getItem('ahrenslabs_userId') || username;
+    storageKey = 'platter_data_' + userId;
 
     if (!sessionId) {
-      // Protected page redirect is handled by script.js; keep a soft message.
       loadingEl.textContent = 'Sign in to use Platter…';
       return;
     }
 
-    loadData();
+    // Migrate older username-keyed cache if present.
+    const legacyKey = 'platter_data_' + username;
+    if (legacyKey !== storageKey && !localStorage.getItem(storageKey) && localStorage.getItem(legacyKey)) {
+      try {
+        localStorage.setItem(storageKey, localStorage.getItem(legacyKey));
+      } catch (_) {}
+    }
+
+    const local = readLocalCache();
+    try {
+      const bootData = await api('/api/platter/bootstrap');
+      menus = Array.isArray(bootData.menus) ? bootData.menus : [];
+      activeMenuId = bootData.activeMenuId || (bootData.menu && bootData.menu.id) || null;
+
+      const cloudEmpty = bootData.menu && !hasMealContent(bootData.menu);
+      const localHasContent = hasMealContent(local);
+      if (cloudEmpty && localHasContent && activeMenuId) {
+        data = { slots: local.slots || {}, saved: local.saved || [] };
+        await api('/api/platter/menu', {
+          method: 'PUT',
+          body: JSON.stringify({
+            menuId: activeMenuId,
+            slots: data.slots,
+            saved: data.saved,
+          }),
+        });
+        const refreshed = await api('/api/platter/menu?menuId=' + encodeURIComponent(activeMenuId));
+        applyMenuPayload(refreshed.menu || bootData.menu, menus);
+        setSyncStatus('Imported this device’s meals into your account', 'ok');
+      } else {
+        applyMenuPayload(bootData.menu, menus);
+        setSyncStatus('Synced with your account', 'ok');
+      }
+    } catch (err) {
+      data = { slots: local.slots || {}, saved: local.saved || [] };
+      writeLocalCache();
+      renderAll();
+      setSyncStatus((err && err.message) || 'Offline — using saved copy on this device', 'error');
+    }
+
     loadingEl.hidden = true;
     appEl.hidden = false;
     bottomNav.hidden = false;
-    renderWeek();
-    renderSaved();
   }
 
   if (document.readyState === 'loading') {

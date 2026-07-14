@@ -31,6 +31,8 @@ import {
 } from './sports-digest-send.js';
 import { handleTetherRequest } from './tether.js';
 export { TetherProject, TetherSync } from './tether.js';
+import { handlePlatterRequest } from './platter.js';
+export { PlatterMenu } from './platter.js';
 import { handleLinkRequest, handleLinkConsumeBridge, handleInternalUserProfile } from './link.js';
 
 /** Stored on `emailPreferences.digestTimeZone` for compatibility; digest send time uses UTC (see `getDigestSendUtcHM`). */
@@ -210,6 +212,13 @@ export default {
       } else if (path.startsWith('/api/tether/')) {
         const tetherRes = await handleTetherRequest(request, env, corsHeaders, path, executionCtx);
         if (tetherRes) return tetherRes;
+        return new Response(JSON.stringify({ error: 'Not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else if (path.startsWith('/api/platter/')) {
+        const platterRes = await handlePlatterRequest(request, env, corsHeaders, path);
+        if (platterRes) return platterRes;
         return new Response(JSON.stringify({ error: 'Not found' }), {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -9955,6 +9964,29 @@ export class UserAccount {
         return new Response(JSON.stringify(progress), {
           headers: { 'Content-Type': 'application/json' }
         });
+      } else if (path === '/getPlatterState' && request.method === 'GET') {
+        const state = await this.getPlatterState();
+        return new Response(JSON.stringify(state), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/setPlatterState' && request.method === 'POST') {
+        const body = await request.json();
+        const state = await this.setPlatterState(body);
+        return new Response(JSON.stringify(state), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/addPlatterMenuId' && request.method === 'POST') {
+        const { menuId } = await request.json();
+        await this.addPlatterMenuId(menuId);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else if (path === '/removePlatterMenuId' && request.method === 'POST') {
+        const { menuId } = await request.json();
+        await this.removePlatterMenuId(menuId);
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       } else if (path === '/getTetherProjectIds' && request.method === 'GET') {
         const projectIds = await this.getTetherProjectIds();
         return new Response(JSON.stringify({ projectIds }), {
@@ -10115,6 +10147,10 @@ export class UserAccount {
         inboxTasks: [],
         labelColors: {},
         settings: {},
+      },
+      platter: {
+        menuIds: [],
+        activeMenuId: null,
       }
     };
 
@@ -11367,6 +11403,75 @@ export class UserAccount {
         ? userData.games.kyrachyng.lessonsCompleted
         : []
     };
+  }
+
+  ensurePlatterBucket(userData) {
+    if (!userData.platter || typeof userData.platter !== 'object') {
+      userData.platter = { menuIds: [], activeMenuId: null };
+    }
+    if (!Array.isArray(userData.platter.menuIds)) {
+      userData.platter.menuIds = [];
+    }
+    if (userData.platter.activeMenuId != null && typeof userData.platter.activeMenuId !== 'string') {
+      userData.platter.activeMenuId = null;
+    }
+    return userData.platter;
+  }
+
+  async getPlatterState() {
+    const userData = await this.storage.get('userData');
+    if (!userData) return { menuIds: [], activeMenuId: null };
+    const platter = this.ensurePlatterBucket(userData);
+    return {
+      menuIds: platter.menuIds.filter((id) => typeof id === 'string' && id.trim()),
+      activeMenuId: typeof platter.activeMenuId === 'string' && platter.activeMenuId.trim()
+        ? platter.activeMenuId.trim()
+        : null,
+    };
+  }
+
+  async setPlatterState(body) {
+    const userData = await this.storage.get('userData');
+    if (!userData) return { menuIds: [], activeMenuId: null };
+    const platter = this.ensurePlatterBucket(userData);
+    if (Array.isArray(body?.menuIds)) {
+      platter.menuIds = body.menuIds.filter((id) => typeof id === 'string' && id.trim());
+    }
+    if (body && Object.prototype.hasOwnProperty.call(body, 'activeMenuId')) {
+      const active = body.activeMenuId != null ? String(body.activeMenuId).trim() : '';
+      platter.activeMenuId = active || null;
+    }
+    await this.storage.put('userData', userData);
+    return {
+      menuIds: platter.menuIds,
+      activeMenuId: platter.activeMenuId,
+    };
+  }
+
+  async addPlatterMenuId(menuId) {
+    const mid = menuId != null ? String(menuId).trim() : '';
+    if (!mid) return;
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    const platter = this.ensurePlatterBucket(userData);
+    if (!platter.menuIds.includes(mid)) {
+      platter.menuIds.push(mid);
+      if (!platter.activeMenuId) platter.activeMenuId = mid;
+      await this.storage.put('userData', userData);
+    }
+  }
+
+  async removePlatterMenuId(menuId) {
+    const mid = menuId != null ? String(menuId).trim() : '';
+    if (!mid) return;
+    const userData = await this.storage.get('userData');
+    if (!userData) return;
+    const platter = this.ensurePlatterBucket(userData);
+    platter.menuIds = platter.menuIds.filter((id) => id !== mid);
+    if (platter.activeMenuId === mid) {
+      platter.activeMenuId = platter.menuIds[0] || null;
+    }
+    await this.storage.put('userData', userData);
   }
 
 }
