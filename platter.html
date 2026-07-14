@@ -93,8 +93,9 @@
     .pl-week-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 6px;
+      margin-bottom: 10px;
+      min-width: 0;
     }
 
     .pl-week-bar button {
@@ -102,14 +103,15 @@
       border: 1px solid var(--pl-line);
       background: var(--pl-card);
       color: var(--pl-ink);
-      border-radius: 12px;
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0 12px;
+      border-radius: 10px;
+      min-width: 40px;
+      min-height: 40px;
+      padding: 0 10px;
       font: inherit;
       font-weight: 700;
       cursor: pointer;
       touch-action: manipulation;
+      flex: 0 0 auto;
     }
 
     .pl-week-bar button:active {
@@ -117,24 +119,30 @@
     }
 
     .pl-week-label {
-      flex: 1;
+      flex: 1 1 auto;
       text-align: center;
       min-width: 0;
     }
 
     .pl-week-label strong {
       display: block;
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 800;
       letter-spacing: -0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .pl-week-label span {
       display: block;
-      margin-top: 2px;
-      font-size: 0.8rem;
+      margin-top: 1px;
+      font-size: 0.72rem;
       color: var(--pl-muted);
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .pl-hint {
@@ -144,44 +152,32 @@
       line-height: 1.45;
     }
 
-    .pl-mode-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin: 0 0 12px;
-      flex-wrap: wrap;
-    }
-
-    .pl-mode-row .pl-hint {
-      margin: 0;
-      flex: 1 1 180px;
-    }
-
     .pl-mode-toggle {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      min-height: 44px;
-      padding: 0 12px;
+      gap: 6px;
+      min-height: 40px;
+      padding: 0 10px;
       border-radius: 999px;
       border: 1px solid var(--pl-line);
       background: #fff;
       color: var(--pl-ink);
       font: inherit;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       font-weight: 800;
       cursor: pointer;
       touch-action: manipulation;
       user-select: none;
       flex: 0 0 auto;
+      white-space: nowrap;
     }
 
     .pl-mode-toggle input {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       accent-color: var(--pl-accent-mid);
       margin: 0;
+      flex-shrink: 0;
     }
 
     .pl-mode-toggle.is-on {
@@ -539,23 +535,42 @@
     }
 
     .pl-menu-chip {
-      display: inline-flex;
+      display: none;
       align-items: center;
       gap: 6px;
-      margin: 0 0 10px;
-      padding: 6px 10px;
+      margin: 0;
+      padding: 4px 8px;
       border-radius: 999px;
       background: var(--pl-accent-soft);
       color: var(--pl-accent);
-      font-size: 0.78rem;
+      font-size: 0.7rem;
       font-weight: 800;
-      max-width: 100%;
+      max-width: min(28vw, 160px);
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+
+    .pl-menu-chip:not([hidden]) {
+      display: inline-flex;
     }
 
     .pl-menu-chip span {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    @media (max-width: 520px) {
+      .pl-mode-toggle span {
+        max-width: 4.6em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #pl-week-today {
+        padding: 0 8px;
+        font-size: 0.8rem;
+      }
     }
 
     .pl-saved-head {
@@ -966,19 +981,16 @@
 
       <div id="pl-app" hidden>
         <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
-          <div class="pl-menu-chip" id="pl-active-chip" hidden><span id="pl-active-chip-text"></span></div>
-          <div class="pl-week-bar">
+          <div class="pl-week-bar" id="pl-week-bar">
+            <div class="pl-menu-chip" id="pl-active-chip" hidden><span id="pl-active-chip-text"></span></div>
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
-            <div class="pl-week-label">
+            <div class="pl-week-label" id="pl-week-hint" title="Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.">
               <strong id="pl-week-title">This week</strong>
               <span id="pl-week-range"></span>
             </div>
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
-          </div>
-          <div class="pl-mode-row">
-            <p class="pl-hint" id="pl-week-hint">Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.</p>
-            <label class="pl-mode-toggle" id="pl-dinner-only-label">
+            <label class="pl-mode-toggle" id="pl-dinner-only-label" title="Show only dinner for each day">
               <input type="checkbox" id="pl-dinner-only">
               <span>Dinner only</span>
             </label>
@@ -1331,7 +1343,7 @@
     if (dinnerOnlyInput) dinnerOnlyInput.checked = dinnerOnly;
     if (dinnerOnlyLabel) dinnerOnlyLabel.classList.toggle('is-on', dinnerOnly);
     if (weekHint) {
-      weekHint.textContent = dinnerOnly
+      weekHint.title = dinnerOnly
         ? 'Dinner-only mode — tap to edit, drag between days.'
         : 'Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.';
     }
