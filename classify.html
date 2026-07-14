@@ -712,6 +712,47 @@
             background: rgba(51, 65, 85, 0.55);
             color: #fca5a5;
         }
+        body.classify-app .cl-start-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            width: auto !important;
+            height: auto !important;
+            min-height: 1.75rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            border: 1px solid #dc2626;
+            background: #dc2626;
+            color: #fff !important;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            line-height: 1.2;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        body.classify-app .cl-start-btn:hover {
+            background: #b91c1c !important;
+            border-color: #b91c1c;
+            color: #fff !important;
+            box-shadow: 0 1px 2px rgba(185, 28, 28, 0.35);
+        }
+        .dark body.classify-app .cl-start-btn {
+            background: #ef4444;
+            border-color: #ef4444;
+        }
+        .dark body.classify-app .cl-start-btn:hover {
+            background: #dc2626 !important;
+            border-color: #dc2626;
+            color: #fff !important;
+        }
+        body.classify-app .cl-start-btn--compact {
+            min-height: 1.4rem;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.65rem;
+        }
         .dark body.classify-app .cl-page-header {
             border-color: rgba(51, 65, 85, 0.5);
             background: linear-gradient(to right, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.48), rgba(15, 23, 42, 0.32));
@@ -3144,10 +3185,8 @@
 
         function startAssignmentButtonHtml(task, { compact = false } = {}) {
             if(!canStartAssignment(task)) return '';
-            if(compact) {
-                return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white transition-colors" title="Start assignment and lock this time">Start</button>`;
-            }
-            return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-400 hover:text-emerald-600 transition-colors" title="Start assignment and lock this time"><i class="fa-solid fa-play text-xs"></i></button>`;
+            const sizeClass = compact ? 'cl-start-btn cl-start-btn--compact' : 'cl-start-btn';
+            return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="${sizeClass}" title="Lock this time so auto-schedule won't move it">Start</button>`;
         }
 
         function startAssignment(id) {
@@ -4729,7 +4768,7 @@
                                     <button onclick="editTask('${t.id}')" class="text-left font-semibold text-slate-800 dark:text-white hover:text-red-600 dark:hover:text-red-300 transition-colors">${t.title}</button>
                                     <p class="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide mt-0.5" style="color:${color}">${t.subject}</p>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 flex-wrap justify-end">
                                     ${startAssignmentButtonHtml(t)}
                                     ${t.time ? `<button onclick="markTaskMissed('${t.id}')" class="text-slate-300 hover:text-amber-500 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right text-sm"></i></button>` : ''}
                                     <button onclick="duplicateTask('${t.id}')" class="text-slate-300 hover:text-red-500 transition-colors" title="Duplicate">
@@ -4978,7 +5017,7 @@
                 const mode = getTaskAssignmentMode(t);
                 const modeLabel = getTaskAssignmentModeLabel(t);
                 const modeBadgeClass = isAssignmentStarted(t)
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-red-600 text-white'
                     : (mode === 'FIXED'
                         ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900'
                         : 'bg-slate-100 text-red-700 dark:bg-slate-800/60 dark:text-red-300');
@@ -4997,6 +5036,7 @@
                             ${t.priority === 'High' ? '<span class="text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">HIGH</span>' : ''}
                             ${isLate ? '<span class="text-[10px] font-bold bg-slate-100 text-red-600 dark:bg-slate-800/60 dark:text-red-400 px-1.5 py-0.5 rounded">LATE</span>' : ''}
                             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${modeLabel}</span>
+                            ${startAssignmentButtonHtml(t)}
                         </div>
                         <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1 flex-wrap">
                             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-white" style="background:${color}22; box-shadow: inset 0 0 0 1px ${color}55;">
@@ -5009,7 +5049,6 @@
                         ${notesHtml}
                     </div>
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pt-1">
-                        ${startAssignmentButtonHtml(t)}
                         ${(!t.completed && t.time && t.date) ? `<button onclick="markTaskMissed('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-600 transition-colors" title="Mark missed and reschedule"><i class="fa-solid fa-rotate-right"></i></button>` : ''}
                         <button onclick="duplicateTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-red-600 transition-colors" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
                         <button onclick="editTask('${t.id}')" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-red-600 transition-colors"><i class="fa-solid fa-pen"></i></button>
