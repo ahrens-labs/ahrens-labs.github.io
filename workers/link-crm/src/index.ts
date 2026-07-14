@@ -1544,6 +1544,48 @@ app.delete('/api/contacts/:id', requireAuth, async (c) => {
   return c.json({ success: true })
 })
 
+// API: Bulk delete contacts (People cleanup)
+app.post('/api/contacts/bulk-delete', requireAuth, async (c) => {
+  const user = c.get('user')
+  const body = await c.req.json().catch(() => null)
+  const ids = Array.isArray(body?.ids)
+    ? [...new Set(body.ids.map((id: unknown) => String(id || '').trim()).filter(Boolean))]
+    : []
+
+  if (!ids.length) {
+    return c.json({ error: 'Select at least one contact to delete' }, 400)
+  }
+  if (ids.length > 200) {
+    return c.json({ error: 'You can delete at most 200 contacts at a time' }, 400)
+  }
+
+  const placeholders = ids.map(() => '?').join(', ')
+  const owned = await c.env.DB.prepare(
+    `SELECT id FROM contacts WHERE user_id = ? AND id IN (${placeholders})`
+  )
+    .bind(user.id, ...ids)
+    .all()
+
+  const ownedIds = (owned.results || []).map((row: any) => String(row.id))
+  if (!ownedIds.length) {
+    return c.json({ error: 'No matching contacts found' }, 404)
+  }
+
+  const ownedPlaceholders = ownedIds.map(() => '?').join(', ')
+  // Explicit related deletes so cleanup works even if D1 FOREIGN KEYS are off.
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM interactions WHERE contact_id IN (${ownedPlaceholders})`).bind(...ownedIds),
+    c.env.DB.prepare(`DELETE FROM reminders WHERE contact_id IN (${ownedPlaceholders})`).bind(...ownedIds),
+    c.env.DB.prepare(`DELETE FROM voice_notes WHERE contact_id IN (${ownedPlaceholders})`).bind(...ownedIds),
+    c.env.DB.prepare(`DELETE FROM contact_dates WHERE contact_id IN (${ownedPlaceholders})`).bind(...ownedIds),
+    c.env.DB.prepare(
+      `DELETE FROM contacts WHERE user_id = ? AND id IN (${ownedPlaceholders})`
+    ).bind(user.id, ...ownedIds),
+  ])
+
+  return c.json({ success: true, deleted: ownedIds.length })
+})
+
 // Date routes
 app.get('/contacts/:id/dates/new', requireAuth, async (c) => {
   const user = c.get('user')

@@ -2080,6 +2080,9 @@ export function dashboardPage(user: any, hasGoogleAccount: boolean = false): str
 export function peoplePage(user: any, contacts: any[], allTags: string[], searchQuery: string, tagFilter: string, sortBy: string, hasGoogleAccount: boolean = false): string {
   const contactsList = contacts.map(c => `
     <tr>
+      <td style="width: 2.5rem;">
+        <input type="checkbox" class="contact-select" value="${c.id}" aria-label="Select ${String(c.name || '').replace(/"/g, '&quot;')}" style="cursor: pointer; width: 1rem; height: 1rem;">
+      </td>
       <td><a href="/contacts/${c.id}">${c.name}</a></td>
       <td class="text-sm">${c.phone || '-'}</td>
       <td class="text-sm">${c.email || '-'}</td>
@@ -2135,11 +2138,23 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
             <p class="text-gray">No people yet. Add your first person!</p>
           </div>
         ` : `
+          <div id="bulkDeleteBar" class="card" style="display: none; margin-bottom: 1rem; padding: 0.75rem 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+              <span id="bulkDeleteCount" class="text-sm" style="font-weight: 600;"></span>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary text-sm" onclick="clearContactSelection()">Clear selection</button>
+                <button type="button" class="btn btn-danger text-sm" id="bulkDeleteBtn" onclick="bulkDeleteContacts()">Delete selected</button>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
               <table>
                 <thead>
                   <tr>
+                    <th style="width: 2.5rem;">
+                      <input type="checkbox" id="selectAllContacts" aria-label="Select all contacts" style="cursor: pointer; width: 1rem; height: 1rem;">
+                    </th>
                     <th>Name</th>
                     <th>Phone</th>
                     <th>Email</th>
@@ -2162,6 +2177,89 @@ export function peoplePage(user: any, contacts: any[], allTags: string[], search
     ${getCsvImportModal()}
     ${getCsvImportScript()}
     ${getVoiceAssistantScript()}
+    ${contacts.length ? `
+    <script>
+      function getSelectedContactIds() {
+        return Array.from(document.querySelectorAll('.contact-select:checked')).map(function (el) { return el.value; });
+      }
+
+      function updateBulkDeleteBar() {
+        var ids = getSelectedContactIds();
+        var bar = document.getElementById('bulkDeleteBar');
+        var count = document.getElementById('bulkDeleteCount');
+        var selectAll = document.getElementById('selectAllContacts');
+        var boxes = document.querySelectorAll('.contact-select');
+        if (!bar || !count) return;
+        if (ids.length === 0) {
+          bar.style.display = 'none';
+        } else {
+          bar.style.display = 'block';
+          count.textContent = ids.length + ' contact' + (ids.length === 1 ? '' : 's') + ' selected';
+        }
+        if (selectAll && boxes.length) {
+          selectAll.checked = ids.length === boxes.length;
+          selectAll.indeterminate = ids.length > 0 && ids.length < boxes.length;
+        }
+      }
+
+      function clearContactSelection() {
+        document.querySelectorAll('.contact-select').forEach(function (el) { el.checked = false; });
+        var selectAll = document.getElementById('selectAllContacts');
+        if (selectAll) {
+          selectAll.checked = false;
+          selectAll.indeterminate = false;
+        }
+        updateBulkDeleteBar();
+      }
+
+      async function bulkDeleteContacts() {
+        var ids = getSelectedContactIds();
+        if (!ids.length) return;
+        var label = ids.length === 1 ? 'this contact' : ids.length + ' contacts';
+        if (!confirm('Delete ' + label + '? This cannot be undone.')) return;
+        var btn = document.getElementById('bulkDeleteBtn');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Deleting…';
+        }
+        try {
+          var response = await fetch('/api/contacts/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids })
+          });
+          var data = await response.json().catch(function () { return {}; });
+          if (!response.ok) {
+            alert(data.error || 'Error deleting contacts');
+            return;
+          }
+          window.location.reload();
+        } catch (err) {
+          alert('Error deleting contacts');
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Delete selected';
+          }
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        var selectAll = document.getElementById('selectAllContacts');
+        if (selectAll) {
+          selectAll.addEventListener('change', function () {
+            document.querySelectorAll('.contact-select').forEach(function (el) {
+              el.checked = selectAll.checked;
+            });
+            updateBulkDeleteBar();
+          });
+        }
+        document.querySelectorAll('.contact-select').forEach(function (el) {
+          el.addEventListener('change', updateBulkDeleteBar);
+        });
+      });
+    </script>
+    ` : ''}
   `)
 }
 
