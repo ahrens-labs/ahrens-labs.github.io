@@ -784,18 +784,111 @@
       transition: transform 0.22s ease;
       max-height: min(92dvh, 640px);
       overflow: auto;
+      touch-action: pan-y;
     }
 
     .pl-sheet.open {
       transform: translateY(0);
     }
 
+    .pl-sheet.pl-sheet-dragging {
+      transition: none;
+    }
+
     .pl-sheet-handle {
-      width: 40px;
-      height: 4px;
+      width: 44px;
+      height: 5px;
       border-radius: 999px;
       background: #cbd5e1;
-      margin: 0 auto 12px;
+      margin: 0 auto 4px;
+    }
+
+    .pl-sheet-grab {
+      margin: -12px -16px 8px;
+      padding: 14px 16px 8px;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .pl-ready-tray {
+      margin: 0 0 12px;
+      padding: 10px;
+      border: 1px solid var(--pl-line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .pl-ready-tray-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .pl-ready-tray-head strong {
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+
+    .pl-ready-tray-head .pl-btn {
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: 0.78rem;
+    }
+
+    .pl-ready-scroller {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+      min-height: 44px;
+    }
+
+    .pl-ready-empty {
+      color: var(--pl-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 8px 2px;
+    }
+
+    .pl-ready-chip {
+      flex: 0 0 auto;
+      max-width: 200px;
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1.5px solid #fde68a;
+      background: var(--pl-breakfast-soft);
+      color: var(--pl-ink);
+      font: inherit;
+      text-align: left;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .pl-ready-chip.is-dragging {
+      opacity: 0.35;
+    }
+
+    .pl-ready-chip strong {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pl-ready-chip span {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #78716c;
     }
 
     .pl-sheet h2 {
@@ -987,22 +1080,29 @@
           </div>
           <div class="pl-week-bar" id="pl-week-bar">
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
-            <div class="pl-week-label" id="pl-week-hint" title="Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.">
+            <div class="pl-week-label" id="pl-week-hint" title="Drag Ready meals from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.">
               <strong id="pl-week-title">This week</strong>
               <span id="pl-week-range"></span>
             </div>
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
           </div>
+          <div class="pl-ready-tray" id="pl-ready-tray">
+            <div class="pl-ready-tray-head">
+              <strong>Have ingredients</strong>
+              <button type="button" class="pl-btn pl-btn-ghost" id="pl-ready-manage">Manage</button>
+            </div>
+            <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="Meals you have ingredients for"></div>
+          </div>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
 
         <section id="pl-tab-saved" class="pl-saved-panel" data-pl-tab="saved">
           <div class="pl-saved-head">
-            <h2>Saved meals</h2>
+            <h2>Ready meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint">Save meals you cook often, then drop them onto any day without retyping.</p>
+          <p class="pl-hint">Add meals you already have ingredients for, then drag them onto the week from the tray above the calendar.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1053,7 +1153,7 @@
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
         <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
-        <span>Saved</span>
+        <span>Ready</span>
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="share">
         <span class="pl-bottom-nav-icon" aria-hidden="true">↗</span>
@@ -1064,12 +1164,14 @@
 
   <div class="pl-sheet-backdrop" id="pl-sheet-backdrop" hidden></div>
   <div class="pl-sheet" id="pl-sheet" role="dialog" aria-modal="true" aria-labelledby="pl-sheet-title" hidden>
-    <div class="pl-sheet-handle" aria-hidden="true"></div>
+    <div class="pl-sheet-grab" id="pl-sheet-grab">
+      <div class="pl-sheet-handle" aria-hidden="true"></div>
+    </div>
     <h2 id="pl-sheet-title">Meal</h2>
     <p class="pl-sheet-sub" id="pl-sheet-sub"></p>
 
     <div class="pl-field" id="pl-field-saved-pick">
-      <label for="pl-saved-pick">Use a saved meal</label>
+      <label for="pl-saved-pick">Use a ready meal</label>
       <select id="pl-saved-pick">
         <option value="">— Type your own —</option>
       </select>
@@ -1091,7 +1193,7 @@
 
     <label class="pl-check" id="pl-save-library-wrap">
       <input type="checkbox" id="pl-save-library">
-      <span>Also save to my meal library</span>
+      <span>Also keep in Ready meals</span>
     </label>
 
     <div class="pl-field" id="pl-place-fields" hidden>
@@ -1155,6 +1257,8 @@
   const dinnerOnlyInput = document.getElementById('pl-dinner-only');
   const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
   const weekHint = document.getElementById('pl-week-hint');
+  const readyTrayList = document.getElementById('pl-ready-tray-list');
+  const sheetGrab = document.getElementById('pl-sheet-grab');
   const menuSelect = document.getElementById('pl-menu-select');
   const weekMenuSelect = document.getElementById('pl-week-menu-select');
   const menuNameInput = document.getElementById('pl-menu-name');
@@ -1196,7 +1300,9 @@
 
   const drag = {
     active: false,
+    source: 'slot', // 'slot' | 'ready'
     fromKey: null,
+    readyId: null,
     card: null,
     ghost: null,
     pointerId: null,
@@ -1206,6 +1312,13 @@
     lastY: 0,
     moved: false,
     scrollRaf: 0,
+  };
+
+  const sheetSwipe = {
+    active: false,
+    pointerId: null,
+    startY: 0,
+    dy: 0,
   };
 
   function uid() {
@@ -1621,8 +1734,46 @@
 
   function renderAll() {
     renderWeek();
+    renderReadyTray();
     renderSaved();
     renderSharePanel();
+  }
+
+  function mealPayloadFromReady(meal) {
+    if (!meal) return null;
+    return {
+      name: meal.name,
+      details: meal.details || '',
+      cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
+      savedId: meal.id || null,
+    };
+  }
+
+  function renderReadyTray() {
+    if (!readyTrayList) return;
+    if (!data.saved.length) {
+      readyTrayList.innerHTML =
+        '<div class="pl-ready-empty">Add meals you have ingredients for on the Ready tab, then drag them here onto a day.</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    data.saved
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .forEach((meal) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'pl-ready-chip';
+        chip.dataset.readyId = meal.id;
+        chip.setAttribute('aria-label', meal.name + '. Drag onto a day slot.');
+        chip.innerHTML = '<strong></strong>' + (meal.cookMinutes != null ? '<span></span>' : '');
+        chip.querySelector('strong').textContent = meal.name;
+        const meta = chip.querySelector('span');
+        if (meta) meta.textContent = formatMinutes(meal.cookMinutes);
+        chip.addEventListener('pointerdown', onReadyPointerDown);
+        frag.appendChild(chip);
+      });
+    readyTrayList.replaceChildren(frag);
   }
 
   function fillMenuSelectOptions(selectEl) {
@@ -2088,7 +2239,8 @@
 
   function renderSaved() {
     if (!data.saved.length) {
-      savedList.innerHTML = '<div class="pl-saved-empty">No saved meals yet.<br>Save one from a day slot, or tap New.</div>';
+      savedList.innerHTML =
+        '<div class="pl-saved-empty">No ready meals yet.<br>Tap New to add something you have ingredients for.</div>';
       return;
     }
     const frag = document.createDocumentFragment();
@@ -2109,12 +2261,14 @@
         row.querySelector('span').textContent =
           mealMetaText(meal) || meal.details || 'No details yet';
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
+        row.querySelector('[data-act="place"]').textContent = 'Place';
         row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
         row.querySelector('[data-act="delete"]').addEventListener('click', () => {
-          if (!confirm('Delete "' + meal.name + '" from saved meals?')) return;
+          if (!confirm('Delete "' + meal.name + '" from Ready meals?')) return;
           data.saved = data.saved.filter((s) => s.id !== meal.id);
           persist();
           renderSaved();
+          renderReadyTray();
           if (sheetState) fillSavedPick();
         });
         frag.appendChild(row);
@@ -2164,6 +2318,8 @@
   function openSheet() {
     sheet.hidden = false;
     sheetBackdrop.hidden = false;
+    sheet.classList.remove('pl-sheet-dragging');
+    sheet.style.transform = '';
     requestAnimationFrame(() => {
       sheet.classList.add('open');
       sheetBackdrop.classList.add('open');
@@ -2171,8 +2327,11 @@
   }
 
   function closeSheet() {
+    endSheetSwipe(true);
     sheet.classList.remove('open');
     sheetBackdrop.classList.remove('open');
+    sheet.classList.remove('pl-sheet-dragging');
+    sheet.style.transform = '';
     sheetState = null;
     setTimeout(() => {
       if (!sheet.classList.contains('open')) {
@@ -2181,6 +2340,55 @@
       }
       if (pendingRemoteRefresh) refreshFromCloud({ quiet: true });
     }, 220);
+  }
+
+  function endSheetSwipe(forceReset) {
+    sheetSwipe.active = false;
+    sheetSwipe.pointerId = null;
+    sheetSwipe.startY = 0;
+    sheetSwipe.dy = 0;
+    if (forceReset) {
+      sheet.classList.remove('pl-sheet-dragging');
+      if (sheet.classList.contains('open')) sheet.style.transform = '';
+    }
+  }
+
+  function onSheetGrabPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    if (!sheet.classList.contains('open')) return;
+    sheetSwipe.active = true;
+    sheetSwipe.pointerId = e.pointerId;
+    sheetSwipe.startY = e.clientY;
+    sheetSwipe.dy = 0;
+    sheet.classList.add('pl-sheet-dragging');
+    try {
+      sheetGrab.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+
+  function onSheetGrabPointerMove(e) {
+    if (!sheetSwipe.active || e.pointerId !== sheetSwipe.pointerId) return;
+    const dy = Math.max(0, e.clientY - sheetSwipe.startY);
+    sheetSwipe.dy = dy;
+    sheet.style.transform = 'translateY(' + dy + 'px)';
+  }
+
+  function onSheetGrabPointerUp(e) {
+    if (!sheetSwipe.active || e.pointerId !== sheetSwipe.pointerId) return;
+    const dy = sheetSwipe.dy;
+    try {
+      sheetGrab.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    sheet.classList.remove('pl-sheet-dragging');
+    sheetSwipe.active = false;
+    sheetSwipe.pointerId = null;
+    if (dy > 90) {
+      sheet.style.transform = '';
+      closeSheet();
+      return;
+    }
+    sheet.style.transform = '';
+    sheetSwipe.dy = 0;
   }
 
   function openSlotEditor(key) {
@@ -2207,8 +2415,8 @@
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
     sheetState = { mode: 'saved-edit', savedId: id };
-    sheetTitle.textContent = 'Edit saved meal';
-    sheetSub.textContent = 'Updates the library copy only';
+    sheetTitle.textContent = 'Edit ready meal';
+    sheetSub.textContent = 'Meals you have ingredients for';
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
     savedPickField.hidden = true;
@@ -2220,8 +2428,8 @@
 
   function openNewSaved() {
     sheetState = { mode: 'saved-new' };
-    sheetTitle.textContent = 'New saved meal';
-    sheetSub.textContent = 'Reusable in any week';
+    sheetTitle.textContent = 'New ready meal';
+    sheetSub.textContent = 'Something you have ingredients for';
     fillMealForm(emptyMeal());
     saveLibraryWrap.hidden = true;
     savedPickField.hidden = true;
@@ -2286,6 +2494,7 @@
       data.slots[sheetState.slotKey] = { ...form, savedId };
       persist();
       renderWeek();
+      renderReadyTray();
       renderSaved();
       closeSheet();
       return;
@@ -2295,6 +2504,7 @@
       upsertSaved(form, sheetState.mode === 'saved-edit' ? sheetState.savedId : null);
       persist();
       renderSaved();
+      renderReadyTray();
       closeSheet();
       return;
     }
@@ -2304,6 +2514,7 @@
       data.slots[key] = { ...form, savedId: sheetState.savedId };
       persist();
       renderWeek();
+      renderReadyTray();
       setTab('week');
       closeSheet();
     }
@@ -2333,9 +2544,17 @@
   function updateDragHover(x, y) {
     document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
     const target = slotBodyFromPoint(x, y);
-    if (target && target.dataset.slotKey !== drag.fromKey) {
-      target.classList.add('is-drop-target');
+    if (!target || !target.dataset.slotKey) return;
+    if (drag.source === 'slot' && target.dataset.slotKey === drag.fromKey) return;
+    target.classList.add('is-drop-target');
+  }
+
+  function dragGhostLabel() {
+    if (drag.source === 'ready') {
+      const meal = data.saved.find((s) => s.id === drag.readyId);
+      return (meal && meal.name) || 'Meal';
     }
+    return (data.slots[drag.fromKey] && data.slots[drag.fromKey].name) || 'Meal';
   }
 
   function stopDragAutoScroll() {
@@ -2382,15 +2601,12 @@
     drag.scrollRaf = requestAnimationFrame(dragAutoScrollStep);
   }
 
-  function onCardPointerDown(e) {
-    if (e.button != null && e.button !== 0) return;
-    if (e.target && e.target.closest && e.target.closest('a')) return;
-    const card = e.currentTarget;
-    const key = card.dataset.slotKey;
-    if (!key) return;
+  function beginMealDrag(e, card, opts) {
     stopDragAutoScroll();
     drag.active = true;
-    drag.fromKey = key;
+    drag.source = opts.source || 'slot';
+    drag.fromKey = opts.fromKey || null;
+    drag.readyId = opts.readyId || null;
     drag.card = card;
     drag.pointerId = e.pointerId;
     drag.startX = e.clientX;
@@ -2407,6 +2623,23 @@
     card.addEventListener('pointercancel', onCardPointerUp);
   }
 
+  function onCardPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest('a')) return;
+    const card = e.currentTarget;
+    const key = card.dataset.slotKey;
+    if (!key) return;
+    beginMealDrag(e, card, { source: 'slot', fromKey: key });
+  }
+
+  function onReadyPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    const chip = e.currentTarget;
+    const readyId = chip.dataset.readyId;
+    if (!readyId) return;
+    beginMealDrag(e, chip, { source: 'ready', readyId: readyId });
+  }
+
   function onCardPointerMove(e) {
     if (!drag.active || e.pointerId !== drag.pointerId) return;
     drag.lastX = e.clientX;
@@ -2421,7 +2654,7 @@
       drag.card.classList.add('is-dragging');
       const ghost = document.createElement('div');
       ghost.className = 'pl-drag-ghost';
-      ghost.textContent = (data.slots[drag.fromKey] && data.slots[drag.fromKey].name) || 'Meal';
+      ghost.textContent = dragGhostLabel();
       document.body.appendChild(ghost);
       drag.ghost = ghost;
       startDragAutoScroll();
@@ -2435,7 +2668,9 @@
 
   function onCardPointerUp(e) {
     if (!drag.active || e.pointerId !== drag.pointerId) return;
+    const source = drag.source;
     const fromKey = drag.fromKey;
+    const readyId = drag.readyId;
     const card = drag.card;
     const moved = drag.moved;
     const dropX = e.clientX != null ? e.clientX : drag.lastX;
@@ -2451,8 +2686,10 @@
     let toKey = null;
     if (moved) {
       const target = slotBodyFromPoint(dropX, dropY);
-      if (target && target.dataset.slotKey && target.dataset.slotKey !== fromKey) {
-        toKey = target.dataset.slotKey;
+      if (target && target.dataset.slotKey) {
+        if (source !== 'slot' || target.dataset.slotKey !== fromKey) {
+          toKey = target.dataset.slotKey;
+        }
       }
     }
 
@@ -2462,7 +2699,9 @@
     if (card) card.classList.remove('is-dragging');
 
     drag.active = false;
+    drag.source = 'slot';
     drag.fromKey = null;
+    drag.readyId = null;
     drag.card = null;
     drag.ghost = null;
     drag.pointerId = null;
@@ -2471,16 +2710,27 @@
     drag.lastY = 0;
 
     if (toKey) {
-      const fromMeal = data.slots[fromKey] || null;
-      const toMeal = data.slots[toKey] || null;
-      if (toMeal) data.slots[fromKey] = toMeal;
-      else delete data.slots[fromKey];
-      if (fromMeal) data.slots[toKey] = fromMeal;
-      else delete data.slots[toKey];
-      persist();
-      renderWeek();
-    } else if (!moved && fromKey) {
-      openSlotEditor(fromKey);
+      if (source === 'ready' && readyId) {
+        const meal = data.saved.find((s) => s.id === readyId);
+        const payload = mealPayloadFromReady(meal);
+        if (payload) {
+          data.slots[toKey] = payload;
+          persist();
+          renderWeek();
+        }
+      } else if (fromKey) {
+        const fromMeal = data.slots[fromKey] || null;
+        const toMeal = data.slots[toKey] || null;
+        if (toMeal) data.slots[fromKey] = toMeal;
+        else delete data.slots[fromKey];
+        if (fromMeal) data.slots[toKey] = fromMeal;
+        else delete data.slots[toKey];
+        persist();
+        renderWeek();
+      }
+    } else if (!moved) {
+      if (source === 'ready' && readyId) openSavedEditor(readyId);
+      else if (fromKey) openSlotEditor(fromKey);
     }
 
     setTimeout(() => {
@@ -2515,10 +2765,20 @@
     dinnerOnlyInput.addEventListener('change', () => setDinnerOnly(dinnerOnlyInput.checked));
   }
   document.getElementById('pl-saved-new').addEventListener('click', openNewSaved);
+  const readyManageBtn = document.getElementById('pl-ready-manage');
+  if (readyManageBtn) {
+    readyManageBtn.addEventListener('click', () => setTab('saved'));
+  }
   document.getElementById('pl-sheet-save').addEventListener('click', saveSheet);
   document.getElementById('pl-sheet-cancel').addEventListener('click', closeSheet);
   document.getElementById('pl-sheet-clear').addEventListener('click', clearSlot);
   sheetBackdrop.addEventListener('click', closeSheet);
+  if (sheetGrab) {
+    sheetGrab.addEventListener('pointerdown', onSheetGrabPointerDown);
+    sheetGrab.addEventListener('pointermove', onSheetGrabPointerMove);
+    sheetGrab.addEventListener('pointerup', onSheetGrabPointerUp);
+    sheetGrab.addEventListener('pointercancel', onSheetGrabPointerUp);
+  }
   shareBtn.addEventListener('click', shareMenu);
   shareInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
