@@ -144,6 +144,56 @@
       line-height: 1.45;
     }
 
+    .pl-mode-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0 0 12px;
+      flex-wrap: wrap;
+    }
+
+    .pl-mode-row .pl-hint {
+      margin: 0;
+      flex: 1 1 180px;
+    }
+
+    .pl-mode-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--pl-line);
+      background: #fff;
+      color: var(--pl-ink);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 800;
+      cursor: pointer;
+      touch-action: manipulation;
+      user-select: none;
+      flex: 0 0 auto;
+    }
+
+    .pl-mode-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--pl-accent-mid);
+      margin: 0;
+    }
+
+    .pl-mode-toggle.is-on {
+      border-color: #eab308;
+      background: var(--pl-accent-soft);
+      color: #713f12;
+    }
+
+    body.pl-dinner-only .pl-day-meals {
+      grid-template-columns: 1fr !important;
+    }
+
     .pl-week-scroll {
       display: flex;
       flex-direction: column;
@@ -926,7 +976,13 @@
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
           </div>
-          <p class="pl-hint">Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.</p>
+          <div class="pl-mode-row">
+            <p class="pl-hint" id="pl-week-hint">Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.</p>
+            <label class="pl-mode-toggle" id="pl-dinner-only-label">
+              <input type="checkbox" id="pl-dinner-only">
+              <span>Dinner only</span>
+            </label>
+          </div>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
 
@@ -1056,6 +1112,9 @@
     { id: 'lunch', label: 'Lunch' },
     { id: 'dinner', label: 'Dinner' },
   ];
+  const DINNER_ONLY_STORAGE_PREFIX = 'platter_dinner_only_';
+  let dinnerOnly = false;
+  let prefsKey = DINNER_ONLY_STORAGE_PREFIX + 'guest';
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -1082,6 +1141,9 @@
   const placeDay = document.getElementById('pl-place-day');
   const placeMeal = document.getElementById('pl-place-meal');
   const clearBtn = document.getElementById('pl-sheet-clear');
+  const dinnerOnlyInput = document.getElementById('pl-dinner-only');
+  const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
+  const weekHint = document.getElementById('pl-week-hint');
   const menuSelect = document.getElementById('pl-menu-select');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
@@ -1242,6 +1304,51 @@
   function mealLabel(meal) {
     const found = MEALS.find((m) => m.id === meal);
     return found ? found.label : meal;
+  }
+
+  function visibleMeals() {
+    return dinnerOnly ? MEALS.filter((m) => m.id === 'dinner') : MEALS;
+  }
+
+  function loadDinnerOnlyPref() {
+    try {
+      dinnerOnly = localStorage.getItem(prefsKey) === '1';
+    } catch {
+      dinnerOnly = false;
+    }
+  }
+
+  function saveDinnerOnlyPref() {
+    try {
+      localStorage.setItem(prefsKey, dinnerOnly ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function applyDinnerOnlyUi() {
+    document.body.classList.toggle('pl-dinner-only', dinnerOnly);
+    if (dinnerOnlyInput) dinnerOnlyInput.checked = dinnerOnly;
+    if (dinnerOnlyLabel) dinnerOnlyLabel.classList.toggle('is-on', dinnerOnly);
+    if (weekHint) {
+      weekHint.textContent = dinnerOnly
+        ? 'Dinner-only mode — tap to edit, drag between days.'
+        : 'Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.';
+    }
+    if (placeMeal) {
+      const current = placeMeal.value || 'dinner';
+      placeMeal.innerHTML = visibleMeals()
+        .map((m) => '<option value="' + m.id + '">' + m.label + '</option>')
+        .join('');
+      placeMeal.value = visibleMeals().some((m) => m.id === current) ? current : 'dinner';
+    }
+  }
+
+  function setDinnerOnly(on) {
+    dinnerOnly = !!on;
+    saveDinnerOnlyPref();
+    applyDinnerOnlyUi();
+    renderWeek();
   }
 
   function formatDayHead(date) {
@@ -1868,7 +1975,7 @@
       const mealsWrap = document.createElement('div');
       mealsWrap.className = 'pl-day-meals';
 
-      MEALS.forEach((meal) => {
+      visibleMeals().forEach((meal) => {
         const key = slotKey(dateStr, meal.id);
         const slot = document.createElement('div');
         slot.className = 'pl-slot';
@@ -2383,6 +2490,9 @@
     weekAnchor = startOfWeek(new Date());
     renderWeek({ scrollToToday: true });
   });
+  if (dinnerOnlyInput) {
+    dinnerOnlyInput.addEventListener('change', () => setDinnerOnly(dinnerOnlyInput.checked));
+  }
   document.getElementById('pl-saved-new').addEventListener('click', openNewSaved);
   document.getElementById('pl-sheet-save').addEventListener('click', saveSheet);
   document.getElementById('pl-sheet-cancel').addEventListener('click', closeSheet);
@@ -2424,6 +2534,9 @@
     const username = localStorage.getItem('ahrenslabs_username') || 'guest';
     const userId = localStorage.getItem('ahrenslabs_userId') || username;
     storageKey = 'platter_data_' + userId;
+    prefsKey = DINNER_ONLY_STORAGE_PREFIX + userId;
+    loadDinnerOnlyPref();
+    applyDinnerOnlyUi();
     const initialTab = tabFromUrl();
     setTab(initialTab, { skipUrlSync: true });
     syncTabUrl(initialTab, { replace: true });
