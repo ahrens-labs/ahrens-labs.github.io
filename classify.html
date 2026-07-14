@@ -3604,10 +3604,8 @@
             return base;
         }
         function isTaskVisibleInClassify(task) {
-            if(!task || task.completed) return true;
-            const scheduledAt = getTaskScheduledDateTime(task);
-            if(!scheduledAt) return true;
-            return scheduledAt >= new Date();
+            // Incomplete past assignments stay visible as overdue (not hidden/dropped).
+            return Boolean(task);
         }
         function getTaskDifferentDayConstraintDate(task) {
             if(!task) return null;
