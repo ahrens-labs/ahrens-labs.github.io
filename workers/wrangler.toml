@@ -52,6 +52,7 @@ bindings = [
   { name = "TETHER_PROJECT", class_name = "TetherProject", script_name = "chess-accounts" },
   { name = "TETHER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
   { name = "CLASSIFY_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
+  { name = "PLATTER_SYNC", class_name = "TetherSync", script_name = "chess-accounts" },
   { name = "PLATTER_MENU", class_name = "PlatterMenu", script_name = "chess-accounts" }
 ]
 

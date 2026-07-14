@@ -1100,6 +1100,16 @@
   let sessionId = '';
   let syncTimer = null;
   let syncing = false;
+  let cloudUpdatedAt = 0;
+  const syncClientId = crypto.randomUUID();
+  let platterSyncSocket = null;
+  let platterSyncRefreshTimer = null;
+  let platterSyncReconnectTimer = null;
+  let platterSyncPollTimer = null;
+  let platterSyncPingTimer = null;
+  let platterSyncFingerprint = '';
+  let platterSyncRefreshing = false;
+  let pendingRemoteRefresh = false;
   let weekAnchor = startOfWeek(new Date());
   /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
   let sheetState = null;
@@ -1248,7 +1258,25 @@
     return {
       Authorization: 'Bearer ' + sessionId,
       'Content-Type': 'application/json',
+      'X-Platter-Sync-Client': syncClientId,
     };
+  }
+
+  function isSheetOpen() {
+    return !!(sheet && sheet.classList.contains('open'));
+  }
+
+  function hasPendingLocalSync() {
+    return !!(syncTimer || syncing);
+  }
+
+  function canApplyRemoteMenu() {
+    return !hasPendingLocalSync() && !isSheetOpen() && !drag.active;
+  }
+
+  function platterSyncWsUrl() {
+    const base = API_BASE.replace(/^http:\/\//i, 'ws://').replace(/^https:\/\//i, 'wss://');
+    return base + '/api/platter/sync?session=' + encodeURIComponent(sessionId);
   }
 
   function readLocalCache() {
@@ -1304,6 +1332,9 @@
       slots: menu && menu.slots && typeof menu.slots === 'object' ? menu.slots : {},
       saved: menu && Array.isArray(menu.saved) ? menu.saved : [],
     };
+    if (menu && typeof menu.updatedAt === 'number' && menu.updatedAt > 0) {
+      cloudUpdatedAt = menu.updatedAt;
+    }
     writeLocalCache();
     renderAll();
   }
@@ -1317,6 +1348,8 @@
     if (!res.ok) {
       const err = new Error(body.error || 'Request failed');
       err.status = res.status;
+      if (body && body.menu) err.menu = body.menu;
+      if (body && body.conflict) err.conflict = true;
       throw err;
     }
     return body;
@@ -1332,6 +1365,28 @@
     }, 700);
   }
 
+  function noteMenuMetaFromServer(menu) {
+    if (!menu) return;
+    menus = menus.map((m) => (m.id === menu.id ? { ...m, ...menu, slots: undefined, saved: undefined } : m));
+    const idx = menus.findIndex((m) => m.id === menu.id);
+    if (idx >= 0) {
+      menus[idx] = {
+        ...menus[idx],
+        name: menu.name,
+        members: menu.members,
+        updatedAt: menu.updatedAt,
+        isOwner: menu.isOwner,
+      };
+    }
+    menuMeta = {
+      isOwner: !!menu.isOwner,
+      name: menu.name || menuMeta.name,
+      members: menu.members || [],
+      ownerUsername: menu.ownerUsername || menuMeta.ownerUsername,
+    };
+    if (typeof menu.updatedAt === 'number') cloudUpdatedAt = menu.updatedAt;
+  }
+
   async function syncToCloud() {
     if (!sessionId || !activeMenuId) return;
     if (syncing) {
@@ -1340,44 +1395,50 @@
     }
     syncing = true;
     try {
-      const payload = {
-        menuId: activeMenuId,
-        slots: data.slots,
-        saved: data.saved,
-      };
-      if (menuMeta.isOwner && menuNameInput && menuNameInput.value.trim()) {
-        payload.name = menuNameInput.value.trim();
-      }
-      const result = await api('/api/platter/menu', {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-      if (result.menu) {
-        menus = menus.map((m) => (m.id === result.menu.id ? { ...m, ...result.menu, slots: undefined, saved: undefined } : m));
-        const idx = menus.findIndex((m) => m.id === result.menu.id);
-        if (idx >= 0) {
-          menus[idx] = {
-            ...menus[idx],
-            name: result.menu.name,
-            members: result.menu.members,
-            updatedAt: result.menu.updatedAt,
-            isOwner: result.menu.isOwner,
-          };
-        }
-        menuMeta = {
-          isOwner: !!result.menu.isOwner,
-          name: result.menu.name || menuMeta.name,
-          members: result.menu.members || [],
-          ownerUsername: result.menu.ownerUsername || menuMeta.ownerUsername,
+      let attempts = 0;
+      while (attempts < 2) {
+        attempts += 1;
+        const payload = {
+          menuId: activeMenuId,
+          slots: data.slots,
+          saved: data.saved,
+          updatedAt: cloudUpdatedAt || undefined,
         };
+        if (menuMeta.isOwner && menuNameInput && menuNameInput.value.trim()) {
+          payload.name = menuNameInput.value.trim();
+        }
+        try {
+          const result = await api('/api/platter/menu', {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          });
+          if (result.menu) noteMenuMetaFromServer(result.menu);
+          writeLocalCache();
+          setSyncStatus('Saved to account', 'ok');
+          renderSharePanel();
+          await updatePlatterSyncFingerprint();
+          break;
+        } catch (err) {
+          if (err && err.status === 409 && err.menu && attempts < 2) {
+            // Rebase onto newer server revision, then retry local write (last writer wins).
+            cloudUpdatedAt = Number(err.menu.updatedAt) || cloudUpdatedAt;
+            continue;
+          }
+          throw err;
+        }
       }
-      writeLocalCache();
-      setSyncStatus('Saved to account', 'ok');
-      renderSharePanel();
     } catch (err) {
-      setSyncStatus(err.message || 'Could not sync — kept on this device', 'error');
+      if (err && err.status === 409 && err.menu) {
+        pendingRemoteRefresh = true;
+        setSyncStatus('Another device changed this menu — finish editing to refresh', 'error');
+      } else {
+        setSyncStatus(err.message || 'Could not sync — kept on this device', 'error');
+      }
     } finally {
       syncing = false;
+      if (pendingRemoteRefresh && canApplyRemoteMenu()) {
+        refreshFromCloud({ quiet: true });
+      }
     }
   }
 
@@ -1590,41 +1651,185 @@
           name,
           slots: data.slots,
           saved: data.saved,
+          updatedAt: cloudUpdatedAt || undefined,
         }),
       });
       if (result.menu) applyMenuPayload(result.menu, menus);
       setSyncStatus('Menu renamed', 'ok');
+      updatePlatterSyncFingerprint();
     } catch (err) {
-      setSyncStatus(err.message || 'Rename failed', 'error');
+      if (err && err.status === 409 && err.menu && canApplyRemoteMenu()) {
+        applyMenuPayload(err.menu, menus);
+        setSyncStatus('Updated from another device', 'ok');
+      } else {
+        setSyncStatus(err.message || 'Rename failed', 'error');
+      }
     }
   }
 
-  async function refreshFromCloud() {
-    if (!sessionId || !activeMenuId || syncing) return;
+  async function refreshFromCloud(opts) {
+    const options = opts || {};
+    if (!sessionId || !activeMenuId) return;
+    if (platterSyncRefreshing) return;
+    if (hasPendingLocalSync()) {
+      pendingRemoteRefresh = true;
+      return;
+    }
+    if (!options.force && !canApplyRemoteMenu()) {
+      pendingRemoteRefresh = true;
+      return;
+    }
+    platterSyncRefreshing = true;
+    pendingRemoteRefresh = false;
     try {
       const result = await api('/api/platter/menu?menuId=' + encodeURIComponent(activeMenuId));
       if (result.menu) {
-        data = {
-          slots: result.menu.slots || {},
-          saved: Array.isArray(result.menu.saved) ? result.menu.saved : [],
-        };
-        menuMeta = {
-          isOwner: !!result.menu.isOwner,
-          name: result.menu.name || menuMeta.name,
-          members: result.menu.members || [],
-          ownerUsername: result.menu.ownerUsername || '',
-        };
-        writeLocalCache();
-        renderAll();
+        const remoteAt = Number(result.menu.updatedAt) || 0;
+        if (remoteAt && cloudUpdatedAt && remoteAt < cloudUpdatedAt) {
+          /* ignore stale snapshot */
+        } else if (remoteAt && remoteAt === cloudUpdatedAt && !options.force) {
+          /* same revision */
+        } else if (!canApplyRemoteMenu() && !options.force) {
+          pendingRemoteRefresh = true;
+        } else {
+          applyMenuPayload(result.menu, menus);
+          if (!options.quiet) setSyncStatus('Updated from another device', 'ok');
+        }
       }
       const list = await api('/api/platter/menus');
       if (Array.isArray(list.menus)) {
         menus = list.menus;
         renderSharePanel();
       }
+      await updatePlatterSyncFingerprint();
     } catch {
       /* keep local */
+    } finally {
+      platterSyncRefreshing = false;
     }
+  }
+
+  async function updatePlatterSyncFingerprint() {
+    if (!sessionId) return;
+    try {
+      const dataRes = await api('/api/platter/sync-version', { method: 'GET' });
+      platterSyncFingerprint = dataRes.fingerprint || '';
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function pollPlatterSyncVersion() {
+    if (document.hidden || !sessionId || platterSyncRefreshing) return;
+    if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) return;
+    try {
+      const dataRes = await api('/api/platter/sync-version', { method: 'GET' });
+      const next = dataRes.fingerprint || '';
+      if (platterSyncFingerprint && next && next !== platterSyncFingerprint) {
+        await refreshFromCloud();
+        return;
+      }
+      platterSyncFingerprint = next;
+    } catch {
+      ensurePlatterSyncConnected();
+    }
+  }
+
+  function startPlatterSyncPoll() {
+    clearInterval(platterSyncPollTimer);
+    platterSyncPollTimer = setInterval(pollPlatterSyncVersion, 60000);
+  }
+
+  function ensurePlatterSyncConnected() {
+    if (!sessionId) return;
+    if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) return;
+    if (platterSyncSocket) {
+      try {
+        platterSyncSocket.close();
+      } catch {
+        /* ignore */
+      }
+      platterSyncSocket = null;
+    }
+    connectPlatterSync();
+  }
+
+  function handlePlatterResume() {
+    ensurePlatterSyncConnected();
+    pollPlatterSyncVersion();
+    if (pendingRemoteRefresh || document.visibilityState === 'visible') {
+      refreshFromCloud({ quiet: true });
+    }
+  }
+
+  function schedulePlatterSyncRefresh(evt) {
+    clearTimeout(platterSyncRefreshTimer);
+    platterSyncRefreshTimer = setTimeout(async () => {
+      await refreshFromPlatterSync(evt);
+      await updatePlatterSyncFingerprint();
+    }, 120);
+  }
+
+  async function refreshFromPlatterSync(evt) {
+    if (!evt || evt.sourceClientId === syncClientId) return;
+    if (evt.type === 'ping') return;
+    if (evt.menuId && activeMenuId && evt.menuId !== activeMenuId) {
+      // Membership / list change for a non-active menu — refresh menu list only.
+      try {
+        const list = await api('/api/platter/menus');
+        if (Array.isArray(list.menus)) {
+          menus = list.menus;
+          renderSharePanel();
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    await refreshFromCloud();
+  }
+
+  function connectPlatterSync() {
+    if (!sessionId || platterSyncSocket) return;
+    try {
+      platterSyncSocket = new WebSocket(platterSyncWsUrl());
+    } catch {
+      platterSyncSocket = null;
+      return;
+    }
+    platterSyncSocket.addEventListener('open', () => {
+      clearInterval(platterSyncPingTimer);
+      platterSyncPingTimer = setInterval(() => {
+        if (platterSyncSocket && platterSyncSocket.readyState === WebSocket.OPEN) {
+          try {
+            platterSyncSocket.send('ping');
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 25000);
+    });
+    platterSyncSocket.addEventListener('message', (e) => {
+      if (e.data === 'pong') return;
+      try {
+        schedulePlatterSyncRefresh(JSON.parse(e.data));
+      } catch {
+        /* ignore malformed payloads */
+      }
+    });
+    platterSyncSocket.addEventListener('close', () => {
+      platterSyncSocket = null;
+      clearInterval(platterSyncPingTimer);
+      clearTimeout(platterSyncReconnectTimer);
+      platterSyncReconnectTimer = setTimeout(connectPlatterSync, 3000);
+    });
+    platterSyncSocket.addEventListener('error', () => {
+      try {
+        platterSyncSocket.close();
+      } catch {
+        /* ignore */
+      }
+    });
   }
 
   function renderWeek() {
@@ -1827,6 +2032,7 @@
         sheet.hidden = true;
         sheetBackdrop.hidden = true;
       }
+      if (pendingRemoteRefresh) refreshFromCloud({ quiet: true });
     }, 220);
   }
 
@@ -2066,6 +2272,7 @@
 
     setTimeout(() => {
       didDrag = false;
+      if (pendingRemoteRefresh && canApplyRemoteMenu()) refreshFromCloud({ quiet: true });
     }, 0);
   }
 
@@ -2120,7 +2327,11 @@
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') refreshFromCloud();
+    if (document.visibilityState === 'visible') handlePlatterResume();
+  });
+  window.addEventListener('online', handlePlatterResume);
+  window.addEventListener('focus', () => {
+    if (document.visibilityState === 'visible') ensurePlatterSyncConnected();
   });
 
   async function boot() {
@@ -2176,6 +2387,10 @@
       renderAll();
       setSyncStatus((err && err.message) || 'Offline — using saved copy on this device', 'error');
     }
+
+    connectPlatterSync();
+    startPlatterSyncPoll();
+    updatePlatterSyncFingerprint();
 
     loadingEl.hidden = true;
     appEl.hidden = false;

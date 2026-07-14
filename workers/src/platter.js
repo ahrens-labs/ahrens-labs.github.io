@@ -52,6 +52,67 @@ function platterMenuStub(env, menuId) {
   return env.PLATTER_MENU.get(env.PLATTER_MENU.idFromName(String(menuId)));
 }
 
+function platterSyncStub(env, userId) {
+  if (!env.PLATTER_SYNC || !userId) return null;
+  return env.PLATTER_SYNC.get(env.PLATTER_SYNC.idFromName(String(userId)));
+}
+
+function readSyncClientId(request, body) {
+  const fromHeader = String(request.headers.get('X-Platter-Sync-Client') || '').trim();
+  if (fromHeader) return fromHeader.slice(0, 64);
+  if (body && typeof body.syncClientId === 'string') {
+    const id = body.syncClientId.trim();
+    if (id) return id.slice(0, 64);
+  }
+  return null;
+}
+
+function menuMemberIds(menu) {
+  const ids = new Set();
+  if (menu?.ownerUserId) ids.add(menu.ownerUserId);
+  for (const member of menu?.members || []) {
+    if (member?.userId) ids.add(member.userId);
+  }
+  return ids;
+}
+
+async function notifyPlatterSync(env, userId, payload) {
+  const stub = platterSyncStub(env, userId);
+  if (!stub) return;
+  try {
+    await stub.fetch(
+      new Request('http://do/notify', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    );
+  } catch {
+    /* sync is best-effort */
+  }
+}
+
+async function publishMenuSync(env, menu, sourceClientId, extraUserIds = []) {
+  const ids = menuMemberIds(menu);
+  for (const uid of extraUserIds) {
+    if (uid) ids.add(uid);
+  }
+  const payload = {
+    type: 'menu',
+    menuId: menu?.id || null,
+    updatedAt: menu?.updatedAt || Date.now(),
+    ts: Date.now(),
+    sourceClientId,
+  };
+  await Promise.all([...ids].filter(Boolean).map((uid) => notifyPlatterSync(env, uid, payload)));
+}
+
+async function buildSyncFingerprint(env, userId) {
+  const menus = await listAccessibleMenus(env, userId);
+  const state = await getPlatterState(env, userId);
+  const parts = menus.map((m) => `${m.id}:${m.updatedAt || 0}`).sort();
+  return `${state.activeMenuId || ''}::${parts.join('|')}`;
+}
+
 async function sessionUserId(env, sessionId) {
   if (!sessionId) return null;
   const session = env.SESSION.get(env.SESSION.idFromName(sessionId));
@@ -346,14 +407,34 @@ async function ensureBootstrap(env, userId) {
 }
 
 export async function handlePlatterRequest(request, env, corsHeaders, path) {
+  const url = new URL(request.url);
+  let sessionId = parseBearerToken(request.headers.get('Authorization'));
+  if (!sessionId) {
+    sessionId = String(url.searchParams.get('session') || '').trim() || null;
+  }
+  const userId = await sessionUserId(env, sessionId);
+
+  if (path === '/api/platter/sync') {
+    if (!userId) return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+    const stub = platterSyncStub(env, userId);
+    if (!stub) return jsonResponse({ error: 'Sync unavailable' }, corsHeaders, 503);
+    if (request.headers.get('Upgrade') !== 'websocket') {
+      return jsonResponse({ error: 'Expected WebSocket upgrade' }, corsHeaders, 426);
+    }
+    return stub.fetch(request);
+  }
+
   if (!env.PLATTER_MENU) {
     return jsonResponse({ error: 'Platter unavailable — deploy worker with PLATTER_MENU binding' }, corsHeaders, 503);
   }
 
-  const sessionId = parseBearerToken(request.headers.get('Authorization'));
-  const userId = await sessionUserId(env, sessionId);
   if (!userId) {
     return jsonResponse({ error: 'Not authenticated' }, corsHeaders, 401);
+  }
+
+  if (path === '/api/platter/sync-version' && request.method === 'GET') {
+    const fingerprint = await buildSyncFingerprint(env, userId);
+    return jsonResponse({ fingerprint, ts: Date.now() }, corsHeaders);
   }
 
   if (path === '/api/platter/bootstrap' && request.method === 'GET') {
@@ -380,7 +461,6 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
   }
 
   if (path === '/api/platter/menu' && request.method === 'GET') {
-    const url = new URL(request.url);
     let menuId = String(url.searchParams.get('menuId') || '').trim();
     if (!menuId) {
       const boot = await ensureBootstrap(env, userId);
@@ -408,6 +488,23 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
       return jsonResponse({ error: 'Menu not found' }, corsHeaders, 404);
     }
 
+    const clientUpdatedAt = Number(body.updatedAt);
+    if (
+      Number.isFinite(clientUpdatedAt) &&
+      clientUpdatedAt > 0 &&
+      (existing.updatedAt || 0) > clientUpdatedAt
+    ) {
+      return jsonResponse(
+        {
+          error: 'Menu was updated elsewhere',
+          conflict: true,
+          menu: publicMenu(existing, userId),
+        },
+        corsHeaders,
+        409
+      );
+    }
+
     const next = {
       ...existing,
       slots: body.slots !== undefined ? normalizeSlots(body.slots) : existing.slots || {},
@@ -419,6 +516,7 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     }
 
     await saveMenu(env, next);
+    await publishMenuSync(env, next, readSyncClientId(request, body));
     return jsonResponse({ menu: publicMenu(next, userId), success: true }, corsHeaders);
   }
 
@@ -480,6 +578,7 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     const updated = { ...menu, members, updatedAt: Date.now() };
     await saveMenu(env, updated);
     await addPlatterMenuId(env, target.userId, menuId);
+    await publishMenuSync(env, updated, readSyncClientId(request, body), [target.userId]);
     return jsonResponse({ menu: publicMenu(updated, userId), success: true }, corsHeaders);
   }
 
@@ -509,6 +608,7 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     const updated = { ...menu, members, updatedAt: Date.now() };
     await saveMenu(env, updated);
     await removePlatterMenuId(env, removeUserId, menuId);
+    await publishMenuSync(env, updated, readSyncClientId(request, body), [removeUserId]);
     return jsonResponse({ menu: publicMenu(updated, userId), success: true }, corsHeaders);
   }
 
@@ -534,6 +634,7 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     const updated = { ...menu, members, updatedAt: Date.now() };
     await saveMenu(env, updated);
     await removePlatterMenuId(env, userId, menuId);
+    await publishMenuSync(env, updated, readSyncClientId(request, body), [userId]);
     const boot = await ensureBootstrap(env, userId);
     return jsonResponse({ success: true, ...boot }, corsHeaders);
   }
