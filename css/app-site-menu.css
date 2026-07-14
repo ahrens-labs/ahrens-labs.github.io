@@ -461,7 +461,8 @@ body.th-site-menu-open {
 body.th-site-menu-open .th-bottom-nav,
 body.th-site-menu-open .bottom-nav,
 body.th-site-menu-open .cl-app-footer,
-body.th-site-menu-open .sd-bottom-nav {
+body.th-site-menu-open .sd-bottom-nav,
+body.th-site-menu-open .pl-bottom-nav {
   z-index: var(--th-site-chrome-z);
 }
 
@@ -469,19 +470,22 @@ body.th-site-menu-open .sd-bottom-nav {
 body.th-page > footer,
 body.classify-app > footer:not(.cl-app-footer),
 body.link-app > footer,
-body.digest-app > footer {
+body.digest-app > footer,
+body.platter-app > footer {
   display: none !important;
 }
 
 /* App pages are not centered marketing layouts — pin chrome to the top */
 body.th-page,
 body.classify-app,
-body.digest-app {
+body.digest-app,
+body.platter-app {
   justify-content: flex-start;
 }
 
 body.classify-app,
 body.digest-app,
+body.platter-app,
 body.th-page {
   min-height: 100dvh;
   overflow-x: hidden;
@@ -499,7 +503,8 @@ body.th-page .wrapper {
   width: 100%;
 }
 
-body.digest-app .wrapper {
+body.digest-app .wrapper,
+body.platter-app .wrapper {
   display: flex;
   flex-direction: column;
   width: 100%;

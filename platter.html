@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Platter — Ahrens Labs</title>
+  <meta name="description" content="Platter — weekly meal planning for breakfast, lunch, and dinner by Ahrens Labs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Inter:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/app-site-menu.css?v=20260714a">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <link rel="apple-touch-icon" href="/img/favicon.png">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Platter">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="application-name" content="Platter">
+  <script src="js/script.js"></script>
+  <script src="js/header_nav.js?v=20260714a"></script>
+  <style>
+    :root {
+      --pl-ink: #0f172a;
+      --pl-muted: #64748b;
+      --pl-line: #e2e8f0;
+      --pl-card: #ffffff;
+      --pl-bg: #eef2f7;
+      --pl-accent: #0f766e;
+      --pl-accent-soft: #f0fdfa;
+      --pl-accent-mid: #14b8a6;
+      --pl-breakfast: #f59e0b;
+      --pl-breakfast-soft: #fffbeb;
+      --pl-lunch: #0ea5e9;
+      --pl-lunch-soft: #f0f9ff;
+      --pl-dinner: #8b5cf6;
+      --pl-dinner-soft: #f5f3ff;
+      --pl-danger: #dc2626;
+      --pl-layout-pad: 12px;
+    }
+
+    body.pl-page {
+      background: var(--pl-bg);
+      font-family: "DM Sans", Inter, system-ui, sans-serif;
+      color: var(--pl-ink);
+    }
+
+    body.pl-page .wrapper {
+      background: transparent;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    body.pl-page .th-topbar-title {
+      font-family: Orbitron, Inter, sans-serif;
+      font-weight: 900;
+    }
+
+    body.pl-page main.pl-main {
+      max-width: 1100px;
+      width: min(100%, 1100px);
+      margin: 0 auto;
+      padding: 12px var(--pl-layout-pad) calc(96px + env(safe-area-inset-bottom, 0px));
+      box-sizing: border-box;
+      min-width: 0;
+    }
+
+    .pl-loading {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: var(--pl-muted);
+      font-weight: 600;
+    }
+
+    .pl-week-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .pl-week-bar button {
+      appearance: none;
+      border: 1px solid var(--pl-line);
+      background: var(--pl-card);
+      color: var(--pl-ink);
+      border-radius: 12px;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 0 12px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-week-bar button:active {
+      transform: scale(0.97);
+    }
+
+    .pl-week-label {
+      flex: 1;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .pl-week-label strong {
+      display: block;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .pl-week-label span {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.8rem;
+      color: var(--pl-muted);
+      font-weight: 600;
+    }
+
+    .pl-hint {
+      margin: 0 0 12px;
+      font-size: 0.85rem;
+      color: var(--pl-muted);
+      line-height: 1.45;
+    }
+
+    .pl-week-scroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-bottom: 8px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+
+    .pl-week-scroll::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .pl-week-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+
+    .pl-day {
+      flex: 0 0 min(78vw, 220px);
+      scroll-snap-align: start;
+      background: var(--pl-card);
+      border: 1px solid var(--pl-line);
+      border-radius: 16px;
+      padding: 10px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      min-width: 0;
+    }
+
+    .pl-day.is-today {
+      border-color: var(--pl-accent-mid);
+      box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18);
+    }
+
+    .pl-day-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 0 2px 8px;
+      border-bottom: 1px solid var(--pl-line);
+    }
+
+    .pl-day-name {
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .pl-day-date {
+      font-size: 0.78rem;
+      color: var(--pl-muted);
+      font-weight: 700;
+    }
+
+    .pl-slot {
+      margin-bottom: 8px;
+    }
+
+    .pl-slot:last-child {
+      margin-bottom: 0;
+    }
+
+    .pl-slot-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--pl-muted);
+      margin-bottom: 4px;
+      padding-left: 2px;
+    }
+
+    .pl-slot-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pl-slot[data-meal="breakfast"] .pl-slot-dot { background: var(--pl-breakfast); }
+    .pl-slot[data-meal="lunch"] .pl-slot-dot { background: var(--pl-lunch); }
+    .pl-slot[data-meal="dinner"] .pl-slot-dot { background: var(--pl-dinner); }
+
+    .pl-slot-body {
+      min-height: 64px;
+      border-radius: 12px;
+      border: 1.5px dashed #cbd5e1;
+      background: #f8fafc;
+      position: relative;
+      transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .pl-slot-body.is-drop-target {
+      border-style: solid;
+      border-color: var(--pl-accent);
+      background: var(--pl-accent-soft);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.15);
+    }
+
+    .pl-slot-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 64px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--pl-muted);
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 12px;
+      touch-action: manipulation;
+      padding: 10px;
+    }
+
+    .pl-meal-card {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      min-height: 64px;
+      border-radius: 12px;
+      border: 1.5px solid transparent;
+      background: #fff;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      position: relative;
+    }
+
+    .pl-slot[data-meal="breakfast"] .pl-meal-card {
+      background: var(--pl-breakfast-soft);
+      border-color: #fde68a;
+    }
+
+    .pl-slot[data-meal="lunch"] .pl-meal-card {
+      background: var(--pl-lunch-soft);
+      border-color: #bae6fd;
+    }
+
+    .pl-slot[data-meal="dinner"] .pl-meal-card {
+      background: var(--pl-dinner-soft);
+      border-color: #ddd6fe;
+    }
+
+    .pl-meal-card.is-dragging {
+      opacity: 0.35;
+    }
+
+    .pl-meal-grip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      flex-shrink: 0;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      letter-spacing: -1px;
+      border-right: 1px solid rgba(148, 163, 184, 0.35);
+    }
+
+    .pl-meal-main {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-meal-name {
+      display: block;
+      font-weight: 700;
+      font-size: 0.92rem;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pl-meal-details {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.75rem;
+      color: var(--pl-muted);
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pl-drag-ghost {
+      position: fixed;
+      z-index: 30000;
+      pointer-events: none;
+      width: min(200px, 70vw);
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1.5px solid var(--pl-accent);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+      font-weight: 700;
+      font-size: 0.9rem;
+      opacity: 0.95;
+      transform: translate(-50%, -110%);
+    }
+
+    .pl-saved-panel {
+      display: none;
+    }
+
+    .pl-saved-panel.active,
+    .pl-week-panel.active {
+      display: block;
+    }
+
+    .pl-week-panel {
+      display: none;
+    }
+
+    .pl-saved-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .pl-saved-head h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      font-family: Orbitron, Inter, sans-serif;
+    }
+
+    .pl-btn {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      min-height: 44px;
+      padding: 0 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-btn-primary {
+      background: var(--pl-accent);
+      color: #fff;
+    }
+
+    .pl-btn-primary:active {
+      filter: brightness(0.95);
+    }
+
+    .pl-btn-ghost {
+      background: #fff;
+      color: var(--pl-ink);
+      border: 1px solid var(--pl-line);
+    }
+
+    .pl-btn-danger {
+      background: #fef2f2;
+      color: var(--pl-danger);
+      border: 1px solid #fecaca;
+    }
+
+    .pl-btn-block {
+      width: 100%;
+    }
+
+    .pl-saved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .pl-saved-empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--pl-muted);
+      background: var(--pl-card);
+      border: 1px dashed var(--pl-line);
+      border-radius: 16px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    .pl-saved-item {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      background: var(--pl-card);
+      border: 1px solid var(--pl-line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .pl-saved-item-main {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-saved-item-main strong {
+      display: block;
+      font-size: 0.98rem;
+    }
+
+    .pl-saved-item-main span {
+      display: block;
+      margin-top: 3px;
+      font-size: 0.8rem;
+      color: var(--pl-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pl-saved-item-actions {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--pl-line);
+    }
+
+    .pl-saved-item-actions button {
+      flex: 1;
+      min-width: 72px;
+      min-height: 44px;
+      border: 0;
+      background: #f8fafc;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--pl-accent);
+      cursor: pointer;
+      touch-action: manipulation;
+      padding: 8px;
+    }
+
+    .pl-saved-item-actions button:last-child {
+      border-top: 1px solid var(--pl-line);
+      color: var(--pl-danger);
+      background: #fff;
+    }
+
+    .pl-bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      display: flex;
+      background: #fff;
+      border-top: 1px solid var(--pl-line);
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+    }
+
+    .pl-bottom-nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-height: 52px;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--pl-muted);
+      cursor: pointer;
+      border-radius: 12px;
+      touch-action: manipulation;
+      padding: 6px 8px;
+    }
+
+    .pl-bottom-nav-item.active {
+      color: var(--pl-accent);
+      background: var(--pl-accent-soft);
+    }
+
+    .pl-bottom-nav-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .pl-sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 20000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .pl-sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .pl-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20001;
+      background: #fff;
+      border-radius: 20px 20px 0 0;
+      padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+      box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.18);
+      transform: translateY(105%);
+      transition: transform 0.22s ease;
+      max-height: min(92dvh, 640px);
+      overflow: auto;
+    }
+
+    .pl-sheet.open {
+      transform: translateY(0);
+    }
+
+    .pl-sheet-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      margin: 0 auto 12px;
+    }
+
+    .pl-sheet h2 {
+      margin: 0 0 4px;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .pl-sheet-sub {
+      margin: 0 0 14px;
+      font-size: 0.85rem;
+      color: var(--pl-muted);
+      font-weight: 600;
+    }
+
+    .pl-field {
+      margin-bottom: 12px;
+    }
+
+    .pl-field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--pl-muted);
+      margin-bottom: 6px;
+    }
+
+    .pl-field input,
+    .pl-field textarea,
+    .pl-field select {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--pl-line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font: inherit;
+      font-size: 1rem;
+      color: var(--pl-ink);
+      background: #fff;
+      min-height: 48px;
+    }
+
+    .pl-field textarea {
+      min-height: 96px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .pl-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 4px 0 14px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--pl-ink);
+    }
+
+    .pl-check input {
+      width: 20px;
+      height: 20px;
+      margin-top: 1px;
+      flex-shrink: 0;
+      accent-color: var(--pl-accent);
+    }
+
+    .pl-sheet-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .pl-sheet-actions-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pl-sheet-actions-row .pl-btn {
+      flex: 1;
+    }
+
+    body.pl-dragging {
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    @media (min-width: 900px) {
+      .pl-day {
+        flex: 1 1 0;
+        min-width: 120px;
+      }
+
+      .pl-week-scroll {
+        overflow: visible;
+      }
+
+      .pl-hint {
+        margin-bottom: 14px;
+      }
+    }
+  </style>
+</head>
+<body class="pl-page platter-app">
+  <div class="wrapper">
+    <header class="th-app-header">
+      <div class="th-app-topbar">
+        <div class="th-topbar-start">
+          <button type="button" class="th-hamburger" id="th-site-menu-btn" aria-label="Open site menu" aria-expanded="false" aria-controls="th-site-menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="th-topbar-brand">
+            <h1 class="th-topbar-title">Platter</h1>
+          </div>
+        </div>
+        <div class="th-topbar-auth" id="header-auth-buttons">
+          <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=platter.html'">Login</button>
+          <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=platter.html'">Sign Up</button>
+          <span id="header-username" class="th-topbar-username"></span>
+        </div>
+      </div>
+      <div id="th-site-menu-backdrop" class="th-site-menu-backdrop" hidden></div>
+      <div id="th-site-menu" class="th-site-menu" aria-hidden="true">
+        <div class="th-site-menu-head">
+          <a href="index.html" class="th-site-menu-brand">
+            <img src="img/EagleLogo.png" alt="" class="header-logo">
+            <span>Ahrens Labs</span>
+          </a>
+          <button type="button" class="th-site-menu-close" id="th-site-menu-close" aria-label="Close menu">&times;</button>
+        </div>
+        <nav>
+          <ul></ul>
+        </nav>
+        <div class="th-site-menu-footer">
+          <a href="#" class="th-site-menu-signout al-site-menu-signout" id="th-site-menu-signout">Sign Out</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="pl-main">
+      <div id="pl-loading" class="pl-loading">Loading Platter…</div>
+
+      <div id="pl-app" hidden>
+        <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
+          <div class="pl-week-bar">
+            <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
+            <div class="pl-week-label">
+              <strong id="pl-week-title">This week</strong>
+              <span id="pl-week-range"></span>
+            </div>
+            <button type="button" id="pl-week-next" aria-label="Next week">›</button>
+            <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
+          </div>
+          <p class="pl-hint">Tap a slot to edit. Drag a meal onto another slot to move or swap.</p>
+          <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
+        </section>
+
+        <section id="pl-tab-saved" class="pl-saved-panel" data-pl-tab="saved">
+          <div class="pl-saved-head">
+            <h2>Saved meals</h2>
+            <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
+          </div>
+          <p class="pl-hint">Save meals you cook often, then drop them onto any day without retyping.</p>
+          <div class="pl-saved-list" id="pl-saved-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <nav class="pl-bottom-nav" id="pl-bottom-nav" aria-label="Platter sections" hidden>
+      <button type="button" class="pl-bottom-nav-item active" data-pl-tab="week">
+        <span class="pl-bottom-nav-icon" aria-hidden="true">▦</span>
+        <span>Week</span>
+      </button>
+      <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
+        <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
+        <span>Saved</span>
+      </button>
+    </nav>
+  </div>
+
+  <div class="pl-sheet-backdrop" id="pl-sheet-backdrop" hidden></div>
+  <div class="pl-sheet" id="pl-sheet" role="dialog" aria-modal="true" aria-labelledby="pl-sheet-title" hidden>
+    <div class="pl-sheet-handle" aria-hidden="true"></div>
+    <h2 id="pl-sheet-title">Meal</h2>
+    <p class="pl-sheet-sub" id="pl-sheet-sub"></p>
+
+    <div class="pl-field" id="pl-field-saved-pick">
+      <label for="pl-saved-pick">Use a saved meal</label>
+      <select id="pl-saved-pick">
+        <option value="">— Type your own —</option>
+      </select>
+    </div>
+
+    <div class="pl-field">
+      <label for="pl-meal-name">Name</label>
+      <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Chicken tacos">
+    </div>
+    <div class="pl-field">
+      <label for="pl-meal-details">Details</label>
+      <textarea id="pl-meal-details" maxlength="2000" placeholder="Notes, sides, leftovers…"></textarea>
+    </div>
+
+    <label class="pl-check" id="pl-save-library-wrap">
+      <input type="checkbox" id="pl-save-library">
+      <span>Also save to my meal library</span>
+    </label>
+
+    <div class="pl-field" id="pl-place-fields" hidden>
+      <label for="pl-place-day">Day</label>
+      <select id="pl-place-day"></select>
+    </div>
+    <div class="pl-field" id="pl-place-meal-wrap" hidden>
+      <label for="pl-place-meal">Meal</label>
+      <select id="pl-place-meal">
+        <option value="breakfast">Breakfast</option>
+        <option value="lunch">Lunch</option>
+        <option value="dinner">Dinner</option>
+      </select>
+    </div>
+
+    <div class="pl-sheet-actions">
+      <button type="button" class="pl-btn pl-btn-primary pl-btn-block" id="pl-sheet-save">Save</button>
+      <div class="pl-sheet-actions-row">
+        <button type="button" class="pl-btn pl-btn-ghost" id="pl-sheet-cancel">Cancel</button>
+        <button type="button" class="pl-btn pl-btn-danger" id="pl-sheet-clear" hidden>Clear</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const MEALS = [
+    { id: 'breakfast', label: 'Breakfast' },
+    { id: 'lunch', label: 'Lunch' },
+    { id: 'dinner', label: 'Dinner' },
+  ];
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const loadingEl = document.getElementById('pl-loading');
+  const appEl = document.getElementById('pl-app');
+  const bottomNav = document.getElementById('pl-bottom-nav');
+  const weekGrid = document.getElementById('pl-week-grid');
+  const weekTitle = document.getElementById('pl-week-title');
+  const weekRange = document.getElementById('pl-week-range');
+  const savedList = document.getElementById('pl-saved-list');
+  const sheet = document.getElementById('pl-sheet');
+  const sheetBackdrop = document.getElementById('pl-sheet-backdrop');
+  const sheetTitle = document.getElementById('pl-sheet-title');
+  const sheetSub = document.getElementById('pl-sheet-sub');
+  const nameInput = document.getElementById('pl-meal-name');
+  const detailsInput = document.getElementById('pl-meal-details');
+  const saveLibrary = document.getElementById('pl-save-library');
+  const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
+  const savedPick = document.getElementById('pl-saved-pick');
+  const savedPickField = document.getElementById('pl-field-saved-pick');
+  const placeFields = document.getElementById('pl-place-fields');
+  const placeMealWrap = document.getElementById('pl-place-meal-wrap');
+  const placeDay = document.getElementById('pl-place-day');
+  const placeMeal = document.getElementById('pl-place-meal');
+  const clearBtn = document.getElementById('pl-sheet-clear');
+
+  /** @type {{ slots: Record<string, { name: string, details: string, savedId?: string|null }>, saved: Array<{ id: string, name: string, details: string }> }} */
+  let data = { slots: {}, saved: [] };
+  let storageKey = 'platter_data_guest';
+  let weekAnchor = startOfWeek(new Date());
+  /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
+  let sheetState = null;
+  let didDrag = false;
+
+  const drag = {
+    active: false,
+    fromKey: null,
+    card: null,
+    ghost: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  };
+
+  function uid() {
+    return 'm_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  }
+
+  function startOfWeek(date) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setDate(d.getDate() - d.getDay());
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function ymd(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function parseYmd(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function slotKey(dateStr, meal) {
+    return dateStr + ':' + meal;
+  }
+
+  function mealLabel(meal) {
+    const found = MEALS.find((m) => m.id === meal);
+    return found ? found.label : meal;
+  }
+
+  function formatDayHead(date) {
+    return {
+      name: DAY_NAMES[date.getDay()],
+      date: MONTHS[date.getMonth()] + ' ' + date.getDate(),
+    };
+  }
+
+  function formatWeekRange(start) {
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const sameMonth = start.getMonth() === end.getMonth();
+    const left = MONTHS[start.getMonth()] + ' ' + start.getDate();
+    const right = (sameMonth ? '' : MONTHS[end.getMonth()] + ' ') + end.getDate();
+    return left + ' – ' + right + ', ' + end.getFullYear();
+  }
+
+  function isSameDay(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        data = { slots: {}, saved: [] };
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      data = {
+        slots: parsed && typeof parsed.slots === 'object' && parsed.slots ? parsed.slots : {},
+        saved: Array.isArray(parsed && parsed.saved) ? parsed.saved : [],
+      };
+    } catch {
+      data = { slots: {}, saved: [] };
+    }
+  }
+
+  function persist() {
+    localStorage.setItem(storageKey, JSON.stringify(data));
+  }
+
+  function setTab(tab) {
+    document.querySelectorAll('[data-pl-tab]').forEach((el) => {
+      if (el.classList.contains('pl-bottom-nav-item')) {
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
+      } else if (el.classList.contains('pl-week-panel') || el.classList.contains('pl-saved-panel')) {
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === tab);
+      }
+    });
+  }
+
+  function renderWeek() {
+    const today = new Date();
+    const thisWeek = startOfWeek(today);
+    weekTitle.textContent = isSameDay(weekAnchor, thisWeek) ? 'This week' : 'Week of';
+    weekRange.textContent = formatWeekRange(weekAnchor);
+
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekAnchor);
+      day.setDate(weekAnchor.getDate() + i);
+      const dateStr = ymd(day);
+      const head = formatDayHead(day);
+      const col = document.createElement('article');
+      col.className = 'pl-day' + (isSameDay(day, today) ? ' is-today' : '');
+      col.dataset.date = dateStr;
+
+      const headEl = document.createElement('div');
+      headEl.className = 'pl-day-head';
+      headEl.innerHTML = '<span class="pl-day-name">' + head.name + '</span><span class="pl-day-date">' + head.date + '</span>';
+      col.appendChild(headEl);
+
+      MEALS.forEach((meal) => {
+        const key = slotKey(dateStr, meal.id);
+        const slot = document.createElement('div');
+        slot.className = 'pl-slot';
+        slot.dataset.meal = meal.id;
+        slot.dataset.slotKey = key;
+
+        const label = document.createElement('div');
+        label.className = 'pl-slot-label';
+        label.innerHTML = '<span class="pl-slot-dot" aria-hidden="true"></span>' + meal.label;
+        slot.appendChild(label);
+
+        const body = document.createElement('div');
+        body.className = 'pl-slot-body';
+        body.dataset.slotKey = key;
+
+        const mealData = data.slots[key];
+        if (mealData && mealData.name) {
+          const card = document.createElement('div');
+          card.className = 'pl-meal-card';
+          card.dataset.slotKey = key;
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', meal.label + ': ' + mealData.name + '. Drag to move.');
+          card.innerHTML =
+            '<div class="pl-meal-grip" aria-hidden="true">⠿</div>' +
+            '<button type="button" class="pl-meal-main">' +
+            '<span class="pl-meal-name"></span>' +
+            (mealData.details ? '<span class="pl-meal-details"></span>' : '') +
+            '</button>';
+          card.querySelector('.pl-meal-name').textContent = mealData.name;
+          const det = card.querySelector('.pl-meal-details');
+          if (det) det.textContent = mealData.details;
+          card.querySelector('.pl-meal-main').addEventListener('click', (e) => {
+            if (didDrag) {
+              e.preventDefault();
+              return;
+            }
+            openSlotEditor(key);
+          });
+          card.addEventListener('pointerdown', onCardPointerDown);
+          body.appendChild(card);
+        } else {
+          const empty = document.createElement('button');
+          empty.type = 'button';
+          empty.className = 'pl-slot-empty';
+          empty.textContent = 'Add meal';
+          empty.addEventListener('click', () => openSlotEditor(key));
+          body.appendChild(empty);
+        }
+
+        slot.appendChild(body);
+        col.appendChild(slot);
+      });
+
+      frag.appendChild(col);
+    }
+    weekGrid.replaceChildren(frag);
+    const todayCol = weekGrid.querySelector('.pl-day.is-today');
+    if (todayCol) {
+      requestAnimationFrame(() => {
+        todayCol.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+      });
+    }
+  }
+
+  function renderSaved() {
+    if (!data.saved.length) {
+      savedList.innerHTML = '<div class="pl-saved-empty">No saved meals yet.<br>Save one from a day slot, or tap New.</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    data.saved
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .forEach((meal) => {
+        const row = document.createElement('div');
+        row.className = 'pl-saved-item';
+        row.innerHTML =
+          '<button type="button" class="pl-saved-item-main">' +
+          '<strong></strong><span></span></button>' +
+          '<div class="pl-saved-item-actions">' +
+          '<button type="button" data-act="place">Use</button>' +
+          '<button type="button" data-act="delete">Delete</button>' +
+          '</div>';
+        row.querySelector('strong').textContent = meal.name;
+        row.querySelector('span').textContent = meal.details || 'No details';
+        row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
+        row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
+        row.querySelector('[data-act="delete"]').addEventListener('click', () => {
+          if (!confirm('Delete "' + meal.name + '" from saved meals?')) return;
+          data.saved = data.saved.filter((s) => s.id !== meal.id);
+          persist();
+          renderSaved();
+          if (sheetState) fillSavedPick();
+        });
+        frag.appendChild(row);
+      });
+    savedList.replaceChildren(frag);
+  }
+
+  function fillSavedPick(selectedId) {
+    const options = ['<option value="">— Type your own —</option>'];
+    data.saved
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .forEach((m) => {
+        options.push(
+          '<option value="' +
+            m.id +
+            '"' +
+            (selectedId === m.id ? ' selected' : '') +
+            '>' +
+            escapeHtml(m.name) +
+            '</option>'
+        );
+      });
+    savedPick.innerHTML = options.join('');
+  }
+
+  function fillPlaceDays() {
+    const opts = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekAnchor);
+      day.setDate(weekAnchor.getDate() + i);
+      const dateStr = ymd(day);
+      const head = formatDayHead(day);
+      opts.push('<option value="' + dateStr + '">' + head.name + ' · ' + head.date + '</option>');
+    }
+    placeDay.innerHTML = opts.join('');
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function openSheet() {
+    sheet.hidden = false;
+    sheetBackdrop.hidden = false;
+    requestAnimationFrame(() => {
+      sheet.classList.add('open');
+      sheetBackdrop.classList.add('open');
+    });
+  }
+
+  function closeSheet() {
+    sheet.classList.remove('open');
+    sheetBackdrop.classList.remove('open');
+    sheetState = null;
+    setTimeout(() => {
+      if (!sheet.classList.contains('open')) {
+        sheet.hidden = true;
+        sheetBackdrop.hidden = true;
+      }
+    }, 220);
+  }
+
+  function openSlotEditor(key) {
+    const [dateStr, meal] = key.split(':');
+    const day = parseYmd(dateStr);
+    const head = formatDayHead(day);
+    const existing = data.slots[key];
+    sheetState = { mode: 'slot', slotKey: key };
+    sheetTitle.textContent = existing && existing.name ? 'Edit meal' : 'Add meal';
+    sheetSub.textContent = head.name + ' ' + head.date + ' · ' + mealLabel(meal);
+    nameInput.value = (existing && existing.name) || '';
+    detailsInput.value = (existing && existing.details) || '';
+    saveLibrary.checked = false;
+    saveLibraryWrap.hidden = false;
+    savedPickField.hidden = false;
+    placeFields.hidden = true;
+    placeMealWrap.hidden = true;
+    clearBtn.hidden = !(existing && existing.name);
+    fillSavedPick(existing && existing.savedId ? existing.savedId : '');
+    openSheet();
+    setTimeout(() => nameInput.focus(), 240);
+  }
+
+  function openSavedEditor(id) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    sheetState = { mode: 'saved-edit', savedId: id };
+    sheetTitle.textContent = 'Edit saved meal';
+    sheetSub.textContent = 'Updates the library copy only';
+    nameInput.value = meal.name;
+    detailsInput.value = meal.details || '';
+    saveLibraryWrap.hidden = true;
+    savedPickField.hidden = true;
+    placeFields.hidden = true;
+    placeMealWrap.hidden = true;
+    clearBtn.hidden = true;
+    openSheet();
+  }
+
+  function openNewSaved() {
+    sheetState = { mode: 'saved-new' };
+    sheetTitle.textContent = 'New saved meal';
+    sheetSub.textContent = 'Reusable in any week';
+    nameInput.value = '';
+    detailsInput.value = '';
+    saveLibraryWrap.hidden = true;
+    savedPickField.hidden = true;
+    placeFields.hidden = true;
+    placeMealWrap.hidden = true;
+    clearBtn.hidden = true;
+    openSheet();
+    setTimeout(() => nameInput.focus(), 240);
+  }
+
+  function openPlaceSaved(id) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    sheetState = { mode: 'place', savedId: id };
+    sheetTitle.textContent = 'Place meal';
+    sheetSub.textContent = meal.name;
+    nameInput.value = meal.name;
+    detailsInput.value = meal.details || '';
+    saveLibraryWrap.hidden = true;
+    savedPickField.hidden = true;
+    placeFields.hidden = false;
+    placeMealWrap.hidden = false;
+    clearBtn.hidden = true;
+    fillPlaceDays();
+    openSheet();
+  }
+
+  function upsertSaved(name, details, existingId) {
+    const trimmedName = name.trim();
+    const trimmedDetails = details.trim();
+    if (existingId) {
+      const found = data.saved.find((s) => s.id === existingId);
+      if (found) {
+        found.name = trimmedName;
+        found.details = trimmedDetails;
+        return found.id;
+      }
+    }
+    const match = data.saved.find(
+      (s) => s.name.toLowerCase() === trimmedName.toLowerCase() && (s.details || '') === trimmedDetails
+    );
+    if (match) return match.id;
+    const id = uid();
+    data.saved.push({ id, name: trimmedName, details: trimmedDetails });
+    return id;
+  }
+
+  function saveSheet() {
+    if (!sheetState) return;
+    const name = nameInput.value.trim();
+    const details = detailsInput.value.trim();
+    if (!name) {
+      nameInput.focus();
+      return;
+    }
+
+    if (sheetState.mode === 'slot') {
+      let savedId = null;
+      if (saveLibrary.checked) {
+        savedId = upsertSaved(name, details, null);
+      } else if (savedPick.value) {
+        savedId = savedPick.value;
+      }
+      data.slots[sheetState.slotKey] = { name, details, savedId };
+      persist();
+      renderWeek();
+      renderSaved();
+      closeSheet();
+      return;
+    }
+
+    if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
+      upsertSaved(name, details, sheetState.mode === 'saved-edit' ? sheetState.savedId : null);
+      persist();
+      renderSaved();
+      closeSheet();
+      return;
+    }
+
+    if (sheetState.mode === 'place') {
+      const key = slotKey(placeDay.value, placeMeal.value);
+      data.slots[key] = { name, details, savedId: sheetState.savedId };
+      persist();
+      renderWeek();
+      setTab('week');
+      closeSheet();
+    }
+  }
+
+  function clearSlot() {
+    if (!sheetState || sheetState.mode !== 'slot' || !sheetState.slotKey) return;
+    delete data.slots[sheetState.slotKey];
+    persist();
+    renderWeek();
+    closeSheet();
+  }
+
+  function slotBodyFromPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    return el.closest('.pl-slot-body');
+  }
+
+  function onCardPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    const card = e.currentTarget;
+    const key = card.dataset.slotKey;
+    if (!key) return;
+    drag.active = true;
+    drag.fromKey = key;
+    drag.card = card;
+    drag.pointerId = e.pointerId;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    drag.moved = false;
+    didDrag = false;
+    try {
+      card.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    card.addEventListener('pointermove', onCardPointerMove);
+    card.addEventListener('pointerup', onCardPointerUp);
+    card.addEventListener('pointercancel', onCardPointerUp);
+  }
+
+  function onCardPointerMove(e) {
+    if (!drag.active || e.pointerId !== drag.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 8) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      didDrag = true;
+      document.body.classList.add('pl-dragging');
+      drag.card.classList.add('is-dragging');
+      const ghost = document.createElement('div');
+      ghost.className = 'pl-drag-ghost';
+      ghost.textContent = (data.slots[drag.fromKey] && data.slots[drag.fromKey].name) || 'Meal';
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+    }
+    if (drag.ghost) {
+      drag.ghost.style.left = e.clientX + 'px';
+      drag.ghost.style.top = e.clientY + 'px';
+    }
+    document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+    const target = slotBodyFromPoint(e.clientX, e.clientY);
+    if (target && target.dataset.slotKey !== drag.fromKey) {
+      target.classList.add('is-drop-target');
+    }
+  }
+
+  function onCardPointerUp(e) {
+    if (!drag.active || e.pointerId !== drag.pointerId) return;
+    const fromKey = drag.fromKey;
+    const card = drag.card;
+    const moved = drag.moved;
+    card.removeEventListener('pointermove', onCardPointerMove);
+    card.removeEventListener('pointerup', onCardPointerUp);
+    card.removeEventListener('pointercancel', onCardPointerUp);
+    try {
+      card.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    let toKey = null;
+    if (moved) {
+      const target = slotBodyFromPoint(e.clientX, e.clientY);
+      if (target && target.dataset.slotKey && target.dataset.slotKey !== fromKey) {
+        toKey = target.dataset.slotKey;
+      }
+    }
+
+    document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+    if (drag.ghost) drag.ghost.remove();
+    document.body.classList.remove('pl-dragging');
+    if (card) card.classList.remove('is-dragging');
+
+    drag.active = false;
+    drag.fromKey = null;
+    drag.card = null;
+    drag.ghost = null;
+    drag.pointerId = null;
+    drag.moved = false;
+
+    if (toKey) {
+      const fromMeal = data.slots[fromKey] || null;
+      const toMeal = data.slots[toKey] || null;
+      if (toMeal) data.slots[fromKey] = toMeal;
+      else delete data.slots[fromKey];
+      if (fromMeal) data.slots[toKey] = fromMeal;
+      else delete data.slots[toKey];
+      persist();
+      renderWeek();
+    }
+
+    setTimeout(() => {
+      didDrag = false;
+    }, 0);
+  }
+
+  savedPick.addEventListener('change', () => {
+    const id = savedPick.value;
+    if (!id) return;
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    nameInput.value = meal.name;
+    detailsInput.value = meal.details || '';
+  });
+
+  document.getElementById('pl-week-prev').addEventListener('click', () => {
+    weekAnchor = new Date(weekAnchor);
+    weekAnchor.setDate(weekAnchor.getDate() - 7);
+    renderWeek();
+  });
+  document.getElementById('pl-week-next').addEventListener('click', () => {
+    weekAnchor = new Date(weekAnchor);
+    weekAnchor.setDate(weekAnchor.getDate() + 7);
+    renderWeek();
+  });
+  document.getElementById('pl-week-today').addEventListener('click', () => {
+    weekAnchor = startOfWeek(new Date());
+    renderWeek();
+  });
+  document.getElementById('pl-saved-new').addEventListener('click', openNewSaved);
+  document.getElementById('pl-sheet-save').addEventListener('click', saveSheet);
+  document.getElementById('pl-sheet-cancel').addEventListener('click', closeSheet);
+  document.getElementById('pl-sheet-clear').addEventListener('click', clearSlot);
+  sheetBackdrop.addEventListener('click', closeSheet);
+
+  bottomNav.querySelectorAll('[data-pl-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => setTab(btn.getAttribute('data-pl-tab')));
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sheet.classList.contains('open')) closeSheet();
+  });
+
+  async function boot() {
+    const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+    const username = localStorage.getItem('ahrenslabs_username') || 'guest';
+    storageKey = 'platter_data_' + username;
+
+    if (!sessionId) {
+      // Protected page redirect is handled by script.js; keep a soft message.
+      loadingEl.textContent = 'Sign in to use Platter…';
+      return;
+    }
+
+    loadData();
+    loadingEl.hidden = true;
+    appEl.hidden = false;
+    bottomNav.hidden = false;
+    renderWeek();
+    renderSaved();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+  </script>
+</body>
+</html>

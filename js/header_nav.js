@@ -47,6 +47,7 @@
         { id: 'tether', label: 'Tether', href: 'tether.html' },
         { id: 'link', label: 'Link', href: '/link/dashboard' },
         { id: 'digest', label: 'Digest', href: 'digest.html' },
+        { id: 'platter', label: 'Platter', href: 'platter.html' },
         { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
         { id: 'spud', label: 'Spud', href: 'spud.html' },
         { id: 'lotr', label: 'LOTR', href: 'lotr.html' },
@@ -92,6 +93,7 @@
     tether: 'projects',
     link: 'projects',
     sportsDigest: 'projects',
+    platter: 'projects',
     spud: 'projects',
     lotr: 'projects',
     kyrachyng: 'projects',
@@ -116,6 +118,7 @@
     tether: 'tether',
     link: 'link',
     digest: 'sportsDigest',
+    platter: 'platter',
     kyrachyng: 'kyrachyng',
     spud: 'spud',
     lotr: 'lotr',
@@ -233,6 +236,10 @@
 
     if (item.id === 'digest') {
       return current === 'digest.html' || current === 'sports-digest.html';
+    }
+
+    if (item.id === 'platter') {
+      return current === 'platter.html';
     }
 
     if (item.id === 'link') {

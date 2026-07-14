@@ -58,6 +58,7 @@ const HEADER_NAV_ALLOWED_IDS = new Set([
   'tether',
   'link',
   'sportsDigest',
+  'platter',
   'spud',
   'lotr',
   'kyrachyng',
