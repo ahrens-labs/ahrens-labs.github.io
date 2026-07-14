@@ -61,9 +61,14 @@ function noonToday(today = new Date()) {
 }
 
 function parseWeekday(name) {
-  const raw = String(name || '').toLowerCase().replace(/day$/, '');
-  const key = raw.slice(0, 3);
-  const found = Object.keys(DAY_NAMES).find((k) => key.startsWith(k.slice(0, 3)) || k.startsWith(key));
+  const raw = String(name || '').toLowerCase().trim();
+  if (!raw) return null;
+  if (Object.prototype.hasOwnProperty.call(DAY_NAMES, raw)) return DAY_NAMES[raw];
+  // "saturday" → "satur" → "sat"; keep empty-input from matching via "".startsWith
+  const key = raw.replace(/day$/, '').slice(0, 3);
+  if (key.length < 3) return null;
+  if (Object.prototype.hasOwnProperty.call(DAY_NAMES, key)) return DAY_NAMES[key];
+  const found = Object.keys(DAY_NAMES).find((k) => k.slice(0, 3) === key);
   return found != null ? DAY_NAMES[found] : null;
 }
 
@@ -613,8 +618,9 @@ export function reconcileTaskSchedule(task, todoistDateRaw, today = new Date()) 
   return task;
 }
 
+// Capturing group required: callers use match[1] for the weekday token.
 const WEEKDAY_WORD =
-  '(?:sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thur(?:s(?:day)?)?|fri(?:day)?|sat(?:urday)?)';
+  '(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thur(?:s(?:day)?)?|fri(?:day)?|sat(?:urday)?)';
 
 function parseMonthDayPhrase(lower, today) {
   const m1 = lower.match(
@@ -755,7 +761,17 @@ export function parseTodoistQuickAdd(raw, today = new Date()) {
     }
   }
 
-  let title = matchedPhrase ? stripTailPhrase(scanText, matchedPhrase) : scanText;
+  let title;
+  if (matchedPhrase) {
+    const idx = scanText.indexOf(matchedPhrase);
+    if (idx >= 0) {
+      title = scanText.slice(0, idx) + scanText.slice(idx + matchedPhrase.length);
+    } else {
+      title = scanText;
+    }
+  } else {
+    title = scanText;
+  }
   title = title.replace(/\s+/g, ' ').trim();
 
   return { title, labels, schedule };
