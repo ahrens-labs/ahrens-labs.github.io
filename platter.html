@@ -835,55 +835,86 @@
     }
 
     .pl-ready-tray {
-      margin: 0 0 12px;
-      padding: 10px;
+      margin: 0 0 8px;
+      padding: 5px 8px;
       border: 1px solid var(--pl-line);
-      border-radius: 14px;
+      border-radius: 12px;
       background: #fff;
+    }
+
+    .pl-ready-tray.is-empty {
+      padding: 2px 6px 2px 10px;
     }
 
     .pl-ready-tray-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
-    .pl-ready-tray-head strong {
-      font-size: 0.85rem;
-      font-weight: 800;
+    .pl-ready-tray-head .pl-ready-empty {
+      flex: 1;
+      min-width: 0;
     }
 
     .pl-ready-tray-head .pl-btn {
-      min-height: 36px;
-      padding: 0 10px;
-      font-size: 0.78rem;
+      margin-left: auto;
+    }
+
+    .pl-ready-tray.is-empty .pl-ready-tray-head {
+      margin-bottom: 0;
+    }
+
+    .pl-ready-tray-head strong {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--pl-muted);
+    }
+
+    .pl-ready-tray-head .pl-btn {
+      min-height: 30px;
+      padding: 0 8px;
+      font-size: 0.72rem;
     }
 
     .pl-ready-scroller {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       overflow-x: auto;
-      padding-bottom: 2px;
       -webkit-overflow-scrolling: touch;
-      min-height: 44px;
+      min-height: 0;
+      scrollbar-width: thin;
+    }
+
+    .pl-ready-tray.is-empty .pl-ready-scroller {
+      display: none;
     }
 
     .pl-ready-empty {
+      flex: 1;
       color: var(--pl-muted);
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 8px 2px;
+      line-height: 1.3;
+      padding: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .pl-ready-chip {
       flex: 0 0 auto;
-      max-width: 200px;
-      min-height: 44px;
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1.5px solid #fde68a;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 148px;
+      min-height: 32px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid #fde68a;
       background: var(--pl-breakfast-soft);
       color: var(--pl-ink);
       font: inherit;
@@ -900,19 +931,20 @@
 
     .pl-ready-chip strong {
       display: block;
-      font-size: 0.88rem;
+      font-size: 0.78rem;
       font-weight: 800;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 0;
     }
 
     .pl-ready-chip span {
-      display: block;
-      margin-top: 2px;
-      font-size: 0.72rem;
+      flex: 0 0 auto;
+      font-size: 0.68rem;
       font-weight: 700;
       color: #78716c;
+      white-space: nowrap;
     }
 
     .pl-sheet h2 {
@@ -1111,9 +1143,10 @@
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
           </div>
-          <div class="pl-ready-tray" id="pl-ready-tray">
+          <div class="pl-ready-tray is-empty" id="pl-ready-tray">
             <div class="pl-ready-tray-head">
-              <strong>Have ingredients</strong>
+              <strong>Ready</strong>
+              <span class="pl-ready-empty" id="pl-ready-empty">Mark Saved meals Ready to drag them here.</span>
               <button type="button" class="pl-btn pl-btn-ghost" id="pl-ready-manage">Manage</button>
             </div>
             <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="Meals you have ingredients for"></div>
@@ -1288,7 +1321,9 @@
   const dinnerOnlyInput = document.getElementById('pl-dinner-only');
   const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
   const weekHint = document.getElementById('pl-week-hint');
+  const readyTray = document.getElementById('pl-ready-tray');
   const readyTrayList = document.getElementById('pl-ready-tray-list');
+  const readyEmptyHint = document.getElementById('pl-ready-empty');
   const sheetGrab = document.getElementById('pl-sheet-grab');
   const menuSelect = document.getElementById('pl-menu-select');
   const weekMenuSelect = document.getElementById('pl-week-menu-select');
@@ -1803,9 +1838,15 @@
   function renderReadyTray() {
     if (!readyTrayList) return;
     const ready = readyMeals();
+    if (readyTray) readyTray.classList.toggle('is-empty', !ready.length);
+    if (readyEmptyHint) {
+      readyEmptyHint.hidden = !!ready.length;
+      readyEmptyHint.textContent = ready.length
+        ? ''
+        : 'Mark Saved meals Ready to drag them here.';
+    }
     if (!ready.length) {
-      readyTrayList.innerHTML =
-        '<div class="pl-ready-empty">On Saved, tap Ready for meals you have ingredients for — then drag them here onto a day.</div>';
+      readyTrayList.replaceChildren();
       return;
     }
     const frag = document.createDocumentFragment();
@@ -1826,6 +1867,24 @@
         frag.appendChild(chip);
       });
     readyTrayList.replaceChildren(frag);
+  }
+
+  function syncSlotsFromSaved(savedId) {
+    const meal = data.saved.find((s) => s.id === savedId);
+    if (!meal || !savedId) return 0;
+    let updated = 0;
+    Object.keys(data.slots).forEach((key) => {
+      const slot = data.slots[key];
+      if (!slot || slot.savedId !== savedId) return;
+      data.slots[key] = {
+        name: meal.name,
+        details: meal.details || '',
+        cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
+        savedId,
+      };
+      updated += 1;
+    });
+    return updated;
   }
 
   function fillMenuSelectOptions(selectEl) {
@@ -2312,7 +2371,7 @@
           '</button>' +
           '<div class="pl-saved-item-actions">' +
           '<button type="button" data-act="ready"></button>' +
-          '<button type="button" data-act="place">Place</button>' +
+          '<button type="button" data-act="place">Use</button>' +
           '<button type="button" data-act="delete">Delete</button>' +
           '</div>';
         row.querySelector('strong').textContent = meal.name;
@@ -2521,7 +2580,7 @@
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
     sheetState = { mode: 'place', savedId: id };
-    sheetTitle.textContent = 'Place meal';
+    sheetTitle.textContent = 'Use meal';
     sheetSub.textContent = meal.name;
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
@@ -2588,10 +2647,14 @@
     }
 
     if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
-      upsertSaved(form, sheetState.mode === 'saved-edit' ? sheetState.savedId : null, {
-        ready: !!(readyInput && readyInput.checked),
-      });
+      const savedId = upsertSaved(
+        form,
+        sheetState.mode === 'saved-edit' ? sheetState.savedId : null,
+        { ready: !!(readyInput && readyInput.checked) }
+      );
+      if (sheetState.mode === 'saved-edit') syncSlotsFromSaved(savedId);
       persist();
+      renderWeek();
       renderSaved();
       renderReadyTray();
       closeSheet();
