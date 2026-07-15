@@ -4505,6 +4505,52 @@ function adminTrifangxDailyDigestFields(row) {
   };
 }
 
+/** Which apps have non-default saved data on this UserAccount profile. */
+function adminAppUsageFields(row) {
+  const games = row && typeof row.games === 'object' ? row.games : null;
+  const classify = games && typeof games.classify === 'object' ? games.classify : null;
+  let appClassify = false;
+  if (classify) {
+    if (Array.isArray(classify.tasks) && classify.tasks.length > 0) appClassify = true;
+    else if (Array.isArray(classify.blockedTimes) && classify.blockedTimes.length > 0) appClassify = true;
+    else if (Array.isArray(classify.vacations) && classify.vacations.length > 0) appClassify = true;
+    else if (classify.lastUpdated != null && Number(classify.lastUpdated) > 0) appClassify = true;
+    else if (
+      classify.subjectColors &&
+      typeof classify.subjectColors === 'object' &&
+      Object.keys(classify.subjectColors).length > 0
+    ) {
+      appClassify = true;
+    } else if (
+      classify.repeatSkips &&
+      typeof classify.repeatSkips === 'object' &&
+      Object.keys(classify.repeatSkips).length > 0
+    ) {
+      appClassify = true;
+    }
+  }
+
+  const tether = row && typeof row.tether === 'object' ? row.tether : null;
+  const appTether = Boolean(
+    tether &&
+      ((Array.isArray(tether.projectIds) && tether.projectIds.some((id) => String(id || '').trim())) ||
+        (Array.isArray(tether.inboxTasks) && tether.inboxTasks.length > 0))
+  );
+
+  const platter = row && typeof row.platter === 'object' ? row.platter : null;
+  const appPlatter = Boolean(
+    platter && Array.isArray(platter.menuIds) && platter.menuIds.some((id) => String(id || '').trim())
+  );
+
+  const appDataCount = Number(appClassify) + Number(appTether) + Number(appPlatter);
+  return {
+    appClassify,
+    appTether,
+    appPlatter,
+    appDataCount,
+  };
+}
+
 async function loadDailyChallengeDigestKvSubscriberIds(env) {
   const ids = new Set();
   if (!env.DAILY_DIGEST_KV) return ids;
@@ -4588,6 +4634,7 @@ function adminAccountRowFromProfile(row, opts) {
     legacyEmailInferred: legacyEmailInferred || undefined,
     ...adminTrifangxDailyDigestFields(row),
     ...adminSportsDigestFields(row),
+    ...adminAppUsageFields(row),
   };
 }
 

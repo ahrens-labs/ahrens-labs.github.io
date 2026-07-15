@@ -321,21 +321,52 @@
       color: #475569;
     }
     .admin-accounts-table.admin-accounts-compact .c-email {
-      width: 28%;
+      width: 24%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .admin-accounts-table.admin-accounts-compact .c-user {
-      width: 16%;
+      width: 14%;
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .admin-accounts-table.admin-accounts-compact .c-apps {
+      width: 18%;
+      white-space: normal;
+    }
     .admin-accounts-table.admin-accounts-compact .c-ver { width: 8%; }
     .admin-accounts-table.admin-accounts-compact .c-act {
-      width: 46%;
+      width: 40%;
       white-space: nowrap;
     }
     .admin-accounts-table.admin-accounts-compact tbody tr:hover { background: #f8fafc; }
+    .admin-app-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+    .admin-app-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.01em;
+      background: #e2e8f0;
+      color: #64748b;
+    }
+    .admin-app-badge.is-on {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+    .admin-app-badge.is-empty {
+      background: transparent;
+      color: #94a3b8;
+      font-weight: 500;
+      padding-left: 0;
+    }
     .admin-acct-active-count {
       display: inline-block;
       min-width: 1.1rem;
@@ -931,6 +962,9 @@
             <label class="admin-accounts-filter-digest" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#475569;white-space:nowrap;">
               <input type="checkbox" id="admin-accounts-filter-digest"> Digest only
             </label>
+            <label class="admin-accounts-filter-digest" style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#475569;white-space:nowrap;">
+              <input type="checkbox" id="admin-accounts-filter-apps"> Has app data
+            </label>
           </div>
           <div class="admin-accounts-verify-row">
             <label for="admin-signup-check-input" class="admin-accounts-verify-label">Signup check</label>
@@ -946,11 +980,12 @@
                   <th scope="col" class="c-sel"><input type="checkbox" id="admin-accounts-select-all" title="Select all rows currently shown" aria-label="Select all shown"></th>
                   <th scope="col" class="c-email">Email</th>
                   <th scope="col" class="c-user">Username</th>
+                  <th scope="col" class="c-apps">Apps</th>
                   <th scope="col" class="c-act">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-accounts-tbody">
-                <tr><td colspan="4" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
+                <tr><td colspan="5" style="color:#94a3b8;">Click “Load all accounts”.</td></tr>
               </tbody>
             </table>
           </div>
@@ -2448,17 +2483,22 @@
         function getFilteredAdminAccounts() {
           const filterEl = document.getElementById('admin-accounts-filter');
           const digestOnlyEl = document.getElementById('admin-accounts-filter-digest');
+          const appsOnlyEl = document.getElementById('admin-accounts-filter-apps');
           const q = ((filterEl && filterEl.value) || '').trim().toLowerCase();
           const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
+          const appsOnly = !!(appsOnlyEl && appsOnlyEl.checked);
           return adminAccountsAccum.filter((a) => {
+            if (!a) return false;
             if (digestOnly && !a.dailyChallengeDigestEligible && !a.digestSubscribed) return false;
+            if (appsOnly && !(Number(a.appDataCount) > 0)) return false;
             if (!q) return true;
             const em = (a.email || '').toLowerCase();
             const un = (a.username || '').toLowerCase();
             const id = (a.userId || '').toLowerCase();
             const doId = (a.doUserId || '').toLowerCase();
             const dig = digestAdminLabel(a).toLowerCase();
-            return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q) || dig.includes(q);
+            const apps = adminAppUsageLabel(a).toLowerCase();
+            return em.includes(q) || un.includes(q) || id.includes(q) || doId.includes(q) || dig.includes(q) || apps.includes(q);
           });
         }
 
@@ -2929,6 +2969,27 @@
           return n;
         }
 
+        function adminAppUsageBadgesHtml(a) {
+          if (!a || typeof a !== 'object') return '';
+          const badges = [];
+          if (a.appClassify) badges.push('<span class="admin-app-badge is-on" title="Classify has saved data">Classify</span>');
+          if (a.appTether) badges.push('<span class="admin-app-badge is-on" title="Tether has saved data">Tether</span>');
+          if (a.appPlatter) badges.push('<span class="admin-app-badge is-on" title="Platter has saved data">Platter</span>');
+          if (!badges.length) {
+            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, or Platter data saved">—</span>';
+          }
+          return '<div class="admin-app-badges">' + badges.join('') + '</div>';
+        }
+
+        function adminAppUsageLabel(a) {
+          if (!a || typeof a !== 'object') return 'None';
+          const parts = [];
+          if (a.appClassify) parts.push('Classify');
+          if (a.appTether) parts.push('Tether');
+          if (a.appPlatter) parts.push('Platter');
+          return parts.length ? parts.join(', ') : 'None';
+        }
+
         function findAdminAccountByKeys(userId, email) {
           const uid = (userId || '').trim().toLowerCase();
           const em = (email || '').trim().toLowerCase();
@@ -3018,6 +3079,13 @@
           if (a.legacyEmailInferred) {
             accountHtml += adminDetailRow('Note', 'Email inferred from signup check (legacy profile).');
           }
+          accountHtml += '</dl></section>';
+
+          accountHtml +=
+            '<section class="admin-account-details-section admin-account-details-section--compact"><h3>Saved app data</h3><dl class="admin-account-details-dl">';
+          accountHtml += adminDetailRow('Classify', a.appClassify ? 'Has saved data' : 'None');
+          accountHtml += adminDetailRow('Tether', a.appTether ? 'Has saved data' : 'None');
+          accountHtml += adminDetailRow('Platter', a.appPlatter ? 'Has saved data' : 'None');
           accountHtml += '</dl></section>';
 
           accountHtml +=
@@ -3147,6 +3215,7 @@
           const meta = document.getElementById('admin-accounts-meta');
           const filterEl = document.getElementById('admin-accounts-filter');
           const digestOnlyEl = document.getElementById('admin-accounts-filter-digest');
+          const appsOnlyEl = document.getElementById('admin-accounts-filter-apps');
           const moreBtn = document.getElementById('btn-admin-accounts-more');
           if (!tbody || !meta) return;
           const rows = getFilteredAdminAccounts();
@@ -3155,7 +3224,7 @@
           );
           if (!rows.length) {
             tbody.innerHTML =
-              '<tr><td colspan="4" style="color:#94a3b8;">' +
+              '<tr><td colspan="5" style="color:#94a3b8;">' +
               (adminAccountsAccum.length ? 'No rows match the filter.' : 'No accounts loaded.') +
               '</td></tr>';
           } else {
@@ -3192,6 +3261,7 @@
                   `<td class="c-sel"><input type="checkbox" class="admin-acct-select" data-admin-row-key="${escHtml(rowKey)}"${checked ? ' checked' : ''} aria-label="Select account"></td>` +
                   `<td class="c-email" title="${emTitle}">${emailCell}</td>` +
                   `<td class="c-user" title="${unTitle}">${escHtml(a.username || '—')}</td>` +
+                  `<td class="c-apps" title="${escHtml(adminAppUsageLabel(a))}">${adminAppUsageBadgesHtml(a)}</td>` +
                   `<td class="c-act">${activeBadge}${detailsBtn}${historyBtn}${welcomeBtn}${customBtn}${deleteBtn}</td></tr>`
                 );
               })
@@ -3199,12 +3269,17 @@
           }
           const trifangxDigestCount = adminAccountsAccum.filter((a) => a.dailyChallengeDigestEligible).length;
           const sportsDigestCount = adminAccountsAccum.filter((a) => a.digestSubscribed).length;
+          const classifyCount = adminAccountsAccum.filter((a) => a.appClassify).length;
+          const tetherCount = adminAccountsAccum.filter((a) => a.appTether).length;
+          const platterCount = adminAccountsAccum.filter((a) => a.appPlatter).length;
+          const anyAppCount = adminAccountsAccum.filter((a) => Number(a.appDataCount) > 0).length;
           const q = ((filterEl && filterEl.value) || '').trim();
           const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
-          const filtNote = q || digestOnly ? ` · ${rows.length} match filter` : '';
+          const appsOnly = !!(appsOnlyEl && appsOnlyEl.checked);
+          const filtNote = q || digestOnly || appsOnly ? ` · ${rows.length} match filter` : '';
           const selNote = adminSelectedKeys.size ? ` · ${adminSelectedKeys.size} selected` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest${filtNote}${selNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount})${filtNote}${selNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
           updateAdminGroupEmailToolbar();
@@ -3556,6 +3631,9 @@
         document.getElementById('admin-accounts-filter-digest')?.addEventListener('change', () => {
           renderAdminAccountsTable();
         });
+        document.getElementById('admin-accounts-filter-apps')?.addEventListener('change', () => {
+          renderAdminAccountsTable();
+        });
         document.getElementById('btn-admin-signup-check-submit')?.addEventListener('click', () => {
           submitAdminSignupCheck();
         });
@@ -3577,7 +3655,7 @@
             return s;
           };
           const lines = [
-            'username,email,user_id,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
+            'username,email,user_id,apps,classify,tether,platter,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
             lines.push(
@@ -3585,6 +3663,10 @@
                 escCsv(a.username),
                 escCsv(a.email),
                 escCsv(a.userId),
+                escCsv(adminAppUsageLabel(a)),
+                a.appClassify ? 'yes' : 'no',
+                a.appTether ? 'yes' : 'no',
+                a.appPlatter ? 'yes' : 'no',
                 a.dailyChallengeDigestOn ? 'yes' : 'no',
                 a.dailyChallengeDigestEligible ? 'yes' : 'no',
                 a.dailyChallengeDigestKv ? 'yes' : 'no',
