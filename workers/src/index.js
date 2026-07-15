@@ -4563,47 +4563,68 @@ function normalizeAdminUnixMs(value) {
 
 async function loadLinkAppUsageByAhrensId(env) {
   const map = new Map();
-  if (!env.LINK || typeof env.LINK.fetch !== 'function') return map;
+  const byEmail = new Map();
+  if (!env.LINK || typeof env.LINK.fetch !== 'function') return { byId: map, byEmail };
   try {
     const res = await env.LINK.fetch(
-      new Request('https://internal/internal/admin/app-usage', { method: 'GET' })
+      new Request('https://internal/internal/admin/app-usage', {
+        method: 'GET',
+        headers: { 'X-Ahrens-Internal': 'chess-accounts' },
+      })
     );
     if (!res.ok) {
       console.error('Link app-usage request failed', res.status);
-      return map;
+      return { byId: map, byEmail };
     }
     const data = await res.json();
-    const rows = data && typeof data.byAhrensUserId === 'object' ? data.byAhrensUserId : null;
-    if (!rows) return map;
-    for (const [keyRaw, stats] of Object.entries(rows)) {
-      const key = String(keyRaw || '').trim();
-      if (!key || !stats || typeof stats !== 'object') continue;
+    const rowsById = data && typeof data.byAhrensUserId === 'object' ? data.byAhrensUserId : null;
+    const rowsByEmail = data && typeof data.byEmail === 'object' ? data.byEmail : null;
+    const ingest = (key, stats, target) => {
+      if (!key || !stats || typeof stats !== 'object') return;
       const contactCount = Number(stats.contactCount) || 0;
+      if (contactCount <= 0) return;
       const interactionCount = Number(stats.interactionCount) || 0;
       const lastActivity = normalizeAdminUnixMs(
         stats.lastInteractionAt || stats.lastContactUpdatedAt || stats.linkUserUpdatedAt
       );
-      map.set(key, {
-        appLink: contactCount > 0,
+      target.set(key, {
+        appLink: true,
         appLinkContactCount: contactCount,
         appLinkInteractionCount: interactionCount,
         appLinkLastActivity: lastActivity,
         appLinkBound: true,
       });
+    };
+    if (rowsById) {
+      for (const [keyRaw, stats] of Object.entries(rowsById)) {
+        ingest(String(keyRaw || '').trim(), stats, map);
+      }
+    }
+    if (rowsByEmail) {
+      for (const [keyRaw, stats] of Object.entries(rowsByEmail)) {
+        ingest(String(keyRaw || '').trim().toLowerCase(), stats, byEmail);
+      }
     }
   } catch (error) {
     console.error('Link app-usage load failed', error?.message || error);
   }
-  return map;
+  return { byId: map, byEmail };
 }
 
-function enrichAdminAccountsLinkUsage(accounts, linkUsageMap) {
-  if (!Array.isArray(accounts) || !linkUsageMap) return;
+function enrichAdminAccountsLinkUsage(accounts, linkUsage) {
+  if (!Array.isArray(accounts) || !linkUsage) return;
+  const byId = linkUsage.byId instanceof Map ? linkUsage.byId : new Map();
+  const byEmail = linkUsage.byEmail instanceof Map ? linkUsage.byEmail : new Map();
   for (const acc of accounts) {
     if (!acc || typeof acc !== 'object') continue;
     const uid = (acc.userId || '').trim();
     const doUid = (acc.doUserId || '').trim();
-    const stats = (uid && linkUsageMap.get(uid)) || (doUid && linkUsageMap.get(doUid)) || null;
+    const email = (acc.email || '').trim().toLowerCase();
+    const stats =
+      (uid && byId.get(uid)) ||
+      (doUid && byId.get(doUid)) ||
+      (email && byEmail.get(email)) ||
+      null;
     if (!stats) {
       acc.appLink = false;
       acc.appLinkContactCount = 0;

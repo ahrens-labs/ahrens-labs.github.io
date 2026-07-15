@@ -99,15 +99,16 @@ async function requireAuth(c: any, next: any) {
   await next()
 }
 
-/** Service-binding only: batch Link usage keyed by Ahrens Labs user id. */
+/** Service-binding only: batch Link usage keyed by Ahrens Labs user id and email. */
 app.get('/internal/admin/app-usage', async (c) => {
-  const caller = String(c.req.header('cf-worker') || '').trim()
+  const caller = String(c.req.header('x-ahrens-internal') || '').trim()
   if (caller !== 'chess-accounts') {
     return c.json({ error: 'Forbidden' }, 403)
   }
   try {
     const { results } = await c.env.DB.prepare(
       `SELECT
+         u.email AS email,
          u.ahrens_user_id AS ahrensUserId,
          COUNT(DISTINCT c.id) AS contactCount,
          COUNT(DISTINCT i.id) AS interactionCount,
@@ -117,10 +118,10 @@ app.get('/internal/admin/app-usage', async (c) => {
        FROM users u
        LEFT JOIN contacts c ON c.user_id = u.id
        LEFT JOIN interactions i ON i.contact_id = c.id
-       WHERE u.ahrens_user_id IS NOT NULL AND TRIM(u.ahrens_user_id) != ''
-       GROUP BY u.ahrens_user_id`
+       GROUP BY u.id`
     ).all<{
-      ahrensUserId: string
+      email: string
+      ahrensUserId: string | null
       contactCount: number
       interactionCount: number
       lastContactUpdatedAt: number | null
@@ -136,22 +137,42 @@ app.get('/internal/admin/app-usage', async (c) => {
         lastContactUpdatedAt: number | null
         lastInteractionAt: number | null
         linkUserUpdatedAt: number | null
+        email: string | null
+      }
+    > = {}
+    const byEmail: Record<
+      string,
+      {
+        contactCount: number
+        interactionCount: number
+        lastContactUpdatedAt: number | null
+        lastInteractionAt: number | null
+        linkUserUpdatedAt: number | null
+        ahrensUserId: string | null
       }
     > = {}
 
     for (const row of results || []) {
-      const key = String(row.ahrensUserId || '').trim()
-      if (!key) continue
-      byAhrensUserId[key] = {
-        contactCount: Number(row.contactCount) || 0,
+      const contactCount = Number(row.contactCount) || 0
+      if (contactCount <= 0) continue
+      const email = String(row.email || '').trim().toLowerCase()
+      const ahrensUserId = String(row.ahrensUserId || '').trim()
+      const payload = {
+        contactCount,
         interactionCount: Number(row.interactionCount) || 0,
         lastContactUpdatedAt: row.lastContactUpdatedAt != null ? Number(row.lastContactUpdatedAt) : null,
         lastInteractionAt: row.lastInteractionAt != null ? Number(row.lastInteractionAt) : null,
         linkUserUpdatedAt: row.linkUserUpdatedAt != null ? Number(row.linkUserUpdatedAt) : null,
       }
+      if (ahrensUserId) {
+        byAhrensUserId[ahrensUserId] = { ...payload, email: email || null }
+      }
+      if (email) {
+        byEmail[email] = { ...payload, ahrensUserId: ahrensUserId || null }
+      }
     }
 
-    return c.json({ success: true, byAhrensUserId })
+    return c.json({ success: true, byAhrensUserId, byEmail })
   } catch (error) {
     console.error('Link admin app-usage failed', error)
     return c.json({ success: false, error: 'Could not load Link usage' }, 500)
