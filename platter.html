@@ -959,7 +959,8 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      max-width: 148px;
+      max-width: none;
+      width: max-content;
       min-height: 32px;
       padding: 4px 9px;
       border-radius: 999px;
@@ -982,10 +983,9 @@
       display: block;
       font-size: 0.78rem;
       font-weight: 800;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
       white-space: nowrap;
-      min-width: 0;
     }
 
     .pl-ready-chip span {
