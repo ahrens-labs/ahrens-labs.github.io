@@ -468,17 +468,13 @@
     .pl-meal-main {
       flex: 1;
       min-width: 0;
-      padding: 10px 12px;
+      padding: 10px 40px 10px 12px;
       text-align: left;
       background: transparent;
       border: 0;
       font: inherit;
       color: inherit;
       pointer-events: none;
-    }
-
-    .pl-meal-card.has-cook-time .pl-meal-main {
-      padding-right: 52px;
     }
 
     .pl-meal-name {
@@ -494,7 +490,7 @@
     .pl-meal-time {
       position: absolute;
       top: 6px;
-      right: 8px;
+      right: 36px;
       z-index: 1;
       font-size: 0.72rem;
       font-weight: 800;
@@ -507,6 +503,44 @@
       line-height: 1.2;
       pointer-events: none;
       white-space: nowrap;
+    }
+
+    .pl-meal-clear {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      z-index: 2;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #94a3b8;
+      font: inherit;
+      font-size: 1.1rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+      padding: 0;
+    }
+
+    .pl-meal-clear:hover,
+    .pl-meal-clear:focus-visible {
+      color: var(--pl-danger);
+      background: #fef2f2;
+      outline: none;
+    }
+
+    .pl-meal-clear:active {
+      transform: scale(0.96);
+    }
+
+    body.pl-place-mode .pl-meal-clear {
+      display: none;
     }
 
     .pl-meal-details {
@@ -2702,6 +2736,7 @@
           if (cookLabel) card.classList.add('has-cook-time');
           card.innerHTML =
             (cookLabel ? '<span class="pl-meal-time"></span>' : '') +
+            '<button type="button" class="pl-meal-clear" aria-label="Remove meal" title="Remove">×</button>' +
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
             (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
@@ -2710,6 +2745,18 @@
           card.querySelector('.pl-meal-name').textContent = mealData.name;
           const det = card.querySelector('.pl-meal-details');
           if (det) det.innerHTML = linkifyNotes(mealData.details);
+          const clearBtn = card.querySelector('.pl-meal-clear');
+          if (clearBtn) {
+            clearBtn.addEventListener('pointerdown', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+            clearBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              clearSlotKey(key);
+            });
+          }
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -2723,11 +2770,14 @@
               e.stopPropagation();
               return;
             }
+            if (e.target.closest('.pl-meal-clear')) {
+              e.stopPropagation();
+            }
           });
           if (placeModeSavedId) {
             card.style.touchAction = 'manipulation';
             card.addEventListener('click', (e) => {
-              if (e.target.closest('a')) return;
+              if (e.target.closest('a') || e.target.closest('.pl-meal-clear')) return;
               e.preventDefault();
               placeMealOnSlot(key);
             });
@@ -3268,11 +3318,17 @@
     }
   }
 
-  function clearSlot() {
-    if (!sheetState || sheetState.mode !== 'slot' || !sheetState.slotKey) return;
-    delete data.slots[sheetState.slotKey];
+  function clearSlotKey(key) {
+    if (!key || !data.slots[key]) return;
+    delete data.slots[key];
     persist();
     renderWeek();
+    renderReadyTray();
+  }
+
+  function clearSlot() {
+    if (!sheetState || sheetState.mode !== 'slot' || !sheetState.slotKey) return;
+    clearSlotKey(sheetState.slotKey);
     closeSheet();
   }
 
@@ -3374,6 +3430,7 @@
   function onCardPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('a')) return;
+    if (e.target && e.target.closest && e.target.closest('.pl-meal-clear')) return;
     const card = e.currentTarget;
     const key = card.dataset.slotKey;
     if (!key) return;
