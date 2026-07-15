@@ -99,6 +99,65 @@ async function requireAuth(c: any, next: any) {
   await next()
 }
 
+/** Service-binding only: batch Link usage keyed by Ahrens Labs user id. */
+app.get('/internal/admin/app-usage', async (c) => {
+  const caller = String(c.req.header('cf-worker') || '').trim()
+  if (caller !== 'chess-accounts') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  try {
+    const { results } = await c.env.DB.prepare(
+      `SELECT
+         u.ahrens_user_id AS ahrensUserId,
+         COUNT(DISTINCT c.id) AS contactCount,
+         COUNT(DISTINCT i.id) AS interactionCount,
+         MAX(c.updated_at) AS lastContactUpdatedAt,
+         MAX(i.date) AS lastInteractionAt,
+         MAX(u.updated_at) AS linkUserUpdatedAt
+       FROM users u
+       LEFT JOIN contacts c ON c.user_id = u.id
+       LEFT JOIN interactions i ON i.contact_id = c.id
+       WHERE u.ahrens_user_id IS NOT NULL AND TRIM(u.ahrens_user_id) != ''
+       GROUP BY u.ahrens_user_id`
+    ).all<{
+      ahrensUserId: string
+      contactCount: number
+      interactionCount: number
+      lastContactUpdatedAt: number | null
+      lastInteractionAt: number | null
+      linkUserUpdatedAt: number | null
+    }>()
+
+    const byAhrensUserId: Record<
+      string,
+      {
+        contactCount: number
+        interactionCount: number
+        lastContactUpdatedAt: number | null
+        lastInteractionAt: number | null
+        linkUserUpdatedAt: number | null
+      }
+    > = {}
+
+    for (const row of results || []) {
+      const key = String(row.ahrensUserId || '').trim()
+      if (!key) continue
+      byAhrensUserId[key] = {
+        contactCount: Number(row.contactCount) || 0,
+        interactionCount: Number(row.interactionCount) || 0,
+        lastContactUpdatedAt: row.lastContactUpdatedAt != null ? Number(row.lastContactUpdatedAt) : null,
+        lastInteractionAt: row.lastInteractionAt != null ? Number(row.lastInteractionAt) : null,
+        linkUserUpdatedAt: row.linkUserUpdatedAt != null ? Number(row.linkUserUpdatedAt) : null,
+      }
+    }
+
+    return c.json({ success: true, byAhrensUserId })
+  } catch (error) {
+    console.error('Link admin app-usage failed', error)
+    return c.json({ success: false, error: 'Could not load Link usage' }, 500)
+  }
+})
+
 // Home page - show landing page or redirect to dashboard
 app.get('/', async (c) => {
   const sessionId = getSessionIdFromCookie(c.req.raw)

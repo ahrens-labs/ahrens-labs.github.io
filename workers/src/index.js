@@ -4509,12 +4509,19 @@ function adminTrifangxDailyDigestFields(row) {
 function adminAppUsageFields(row) {
   const games = row && typeof row.games === 'object' ? row.games : null;
   const classify = games && typeof games.classify === 'object' ? games.classify : null;
+  const classifyTasks = Array.isArray(classify?.tasks) ? classify.tasks : [];
+  const appClassifyTaskCount = classifyTasks.length;
+  const appClassifyCompletedCount = classifyTasks.filter((t) => t && t.completed).length;
+  const appClassifyBlockedCount = Array.isArray(classify?.blockedTimes) ? classify.blockedTimes.length : 0;
+  const appClassifyVacationCount = Array.isArray(classify?.vacations) ? classify.vacations.length : 0;
+  const appClassifyLastUpdated =
+    classify?.lastUpdated != null && Number(classify.lastUpdated) > 0 ? Number(classify.lastUpdated) : null;
   let appClassify = false;
   if (classify) {
-    if (Array.isArray(classify.tasks) && classify.tasks.length > 0) appClassify = true;
-    else if (Array.isArray(classify.blockedTimes) && classify.blockedTimes.length > 0) appClassify = true;
-    else if (Array.isArray(classify.vacations) && classify.vacations.length > 0) appClassify = true;
-    else if (classify.lastUpdated != null && Number(classify.lastUpdated) > 0) appClassify = true;
+    if (appClassifyTaskCount > 0) appClassify = true;
+    else if (appClassifyBlockedCount > 0) appClassify = true;
+    else if (appClassifyVacationCount > 0) appClassify = true;
+    else if (appClassifyLastUpdated) appClassify = true;
     else if (
       classify.subjectColors &&
       typeof classify.subjectColors === 'object' &&
@@ -4531,24 +4538,110 @@ function adminAppUsageFields(row) {
   }
 
   const tether = row && typeof row.tether === 'object' ? row.tether : null;
-  const appTether = Boolean(
-    tether &&
-      ((Array.isArray(tether.projectIds) && tether.projectIds.some((id) => String(id || '').trim())) ||
-        (Array.isArray(tether.inboxTasks) && tether.inboxTasks.length > 0))
-  );
+  const appTetherProjectCount = Array.isArray(tether?.projectIds)
+    ? tether.projectIds.filter((id) => String(id || '').trim()).length
+    : 0;
+  const appTetherInboxCount = Array.isArray(tether?.inboxTasks) ? tether.inboxTasks.length : 0;
+  const appTether = appTetherProjectCount > 0 || appTetherInboxCount > 0;
 
   const platter = row && typeof row.platter === 'object' ? row.platter : null;
-  const appPlatter = Boolean(
-    platter && Array.isArray(platter.menuIds) && platter.menuIds.some((id) => String(id || '').trim())
+  const appPlatterMenuCount = Array.isArray(platter?.menuIds)
+    ? platter.menuIds.filter((id) => String(id || '').trim()).length
+    : 0;
+  const appPlatterHasActiveMenu = Boolean(
+    platter && typeof platter.activeMenuId === 'string' && platter.activeMenuId.trim()
   );
+  const appPlatter = appPlatterMenuCount > 0;
 
-  const appDataCount = Number(appClassify) + Number(appTether) + Number(appPlatter);
   return {
     appClassify,
+    appClassifyTaskCount,
+    appClassifyCompletedCount,
+    appClassifyBlockedCount,
+    appClassifyVacationCount,
+    appClassifyLastUpdated,
     appTether,
+    appTetherProjectCount,
+    appTetherInboxCount,
     appPlatter,
-    appDataCount,
+    appPlatterMenuCount,
+    appPlatterHasActiveMenu,
+    appLink: false,
+    appLinkContactCount: 0,
+    appLinkInteractionCount: 0,
+    appLinkLastActivity: null,
+    appDataCount: Number(appClassify) + Number(appTether) + Number(appPlatter),
   };
+}
+
+function normalizeAdminUnixMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n < 1e12 ? Math.round(n * 1000) : Math.round(n);
+}
+
+async function loadLinkAppUsageByAhrensId(env) {
+  const map = new Map();
+  if (!env.LINK || typeof env.LINK.fetch !== 'function') return map;
+  try {
+    const res = await env.LINK.fetch(
+      new Request('https://internal/internal/admin/app-usage', { method: 'GET' })
+    );
+    if (!res.ok) {
+      console.error('Link app-usage request failed', res.status);
+      return map;
+    }
+    const data = await res.json();
+    const rows = data && typeof data.byAhrensUserId === 'object' ? data.byAhrensUserId : null;
+    if (!rows) return map;
+    for (const [keyRaw, stats] of Object.entries(rows)) {
+      const key = String(keyRaw || '').trim();
+      if (!key || !stats || typeof stats !== 'object') continue;
+      const contactCount = Number(stats.contactCount) || 0;
+      const interactionCount = Number(stats.interactionCount) || 0;
+      const lastActivity = normalizeAdminUnixMs(
+        stats.lastInteractionAt || stats.lastContactUpdatedAt || stats.linkUserUpdatedAt
+      );
+      map.set(key, {
+        appLink: contactCount > 0 || interactionCount > 0,
+        appLinkContactCount: contactCount,
+        appLinkInteractionCount: interactionCount,
+        appLinkLastActivity: lastActivity,
+        appLinkBound: true,
+      });
+    }
+  } catch (error) {
+    console.error('Link app-usage load failed', error?.message || error);
+  }
+  return map;
+}
+
+function enrichAdminAccountsLinkUsage(accounts, linkUsageMap) {
+  if (!Array.isArray(accounts) || !linkUsageMap) return;
+  for (const acc of accounts) {
+    if (!acc || typeof acc !== 'object') continue;
+    const uid = (acc.userId || '').trim();
+    const doUid = (acc.doUserId || '').trim();
+    const stats = (uid && linkUsageMap.get(uid)) || (doUid && linkUsageMap.get(doUid)) || null;
+    if (!stats) {
+      acc.appLink = false;
+      acc.appLinkContactCount = 0;
+      acc.appLinkInteractionCount = 0;
+      acc.appLinkLastActivity = null;
+      acc.appLinkBound = false;
+    } else {
+      acc.appLink = !!stats.appLink;
+      acc.appLinkContactCount = Number(stats.appLinkContactCount) || 0;
+      acc.appLinkInteractionCount = Number(stats.appLinkInteractionCount) || 0;
+      acc.appLinkLastActivity = stats.appLinkLastActivity || null;
+      acc.appLinkBound = !!stats.appLinkBound;
+    }
+    acc.appDataCount =
+      Number(!!acc.appClassify) +
+      Number(!!acc.appTether) +
+      Number(!!acc.appPlatter) +
+      Number(!!acc.appLink);
+  }
 }
 
 async function loadDailyChallengeDigestKvSubscriberIds(env) {
@@ -5065,6 +5158,8 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
     const sportsKvIds = await loadSportsDigestKvSubscriberIds(env);
     const dailyKvIds = await loadDailyChallengeDigestKvSubscriberIds(env);
     enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
+    const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
+    enrichAdminAccountsLinkUsage(merged, linkUsageMap);
 
     return new Response(
       JSON.stringify({
@@ -5112,6 +5207,8 @@ async function handleAdminListAccounts(request, env, corsHeaders) {
   const sportsKvIds = await loadSportsDigestKvSubscriberIds(env);
   const dailyKvIds = await loadDailyChallengeDigestKvSubscriberIds(env);
   enrichAdminAccountsDigestKv(merged, sportsKvIds, dailyKvIds);
+  const linkUsageMap = await loadLinkAppUsageByAhrensId(env);
+  enrichAdminAccountsLinkUsage(merged, linkUsageMap);
 
   return new Response(
     JSON.stringify({

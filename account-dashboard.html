@@ -2969,14 +2969,104 @@
           return n;
         }
 
+        function adminFormatRelativeTime(ms) {
+          const t = Number(ms);
+          if (!Number.isFinite(t) || t <= 0) return '';
+          const diff = Date.now() - t;
+          if (diff < 0) return 'just now';
+          const mins = Math.floor(diff / 60000);
+          if (mins < 1) return 'just now';
+          if (mins < 60) return mins + 'm ago';
+          const hours = Math.floor(mins / 60);
+          if (hours < 48) return hours + 'h ago';
+          const days = Math.floor(hours / 24);
+          if (days < 45) return days + 'd ago';
+          const months = Math.floor(days / 30);
+          if (months < 18) return months + 'mo ago';
+          return Math.floor(days / 365) + 'y ago';
+        }
+
+        function adminAppClassifyDetail(a) {
+          if (!a?.appClassify) return 'None';
+          const parts = [];
+          const tasks = Number(a.appClassifyTaskCount) || 0;
+          const done = Number(a.appClassifyCompletedCount) || 0;
+          parts.push(tasks + ' assignment' + (tasks === 1 ? '' : 's'));
+          if (tasks) parts.push(done + ' completed');
+          const blocked = Number(a.appClassifyBlockedCount) || 0;
+          const vacations = Number(a.appClassifyVacationCount) || 0;
+          if (blocked) parts.push(blocked + ' blocked time' + (blocked === 1 ? '' : 's'));
+          if (vacations) parts.push(vacations + ' vacation range' + (vacations === 1 ? '' : 's'));
+          const rel = adminFormatRelativeTime(a.appClassifyLastUpdated);
+          if (rel) parts.push('synced ' + rel);
+          return parts.join(' · ');
+        }
+
+        function adminAppTetherDetail(a) {
+          if (!a?.appTether) return 'None';
+          const projects = Number(a.appTetherProjectCount) || 0;
+          const inbox = Number(a.appTetherInboxCount) || 0;
+          const parts = [];
+          parts.push(projects + ' project' + (projects === 1 ? '' : 's'));
+          parts.push(inbox + ' inbox task' + (inbox === 1 ? '' : 's'));
+          return parts.join(' · ');
+        }
+
+        function adminAppPlatterDetail(a) {
+          if (!a?.appPlatter) return 'None';
+          const menus = Number(a.appPlatterMenuCount) || 0;
+          let s = menus + ' menu' + (menus === 1 ? '' : 's');
+          if (a.appPlatterHasActiveMenu) s += ' · active menu set';
+          return s;
+        }
+
+        function adminAppLinkDetail(a) {
+          if (!a?.appLink && !a?.appLinkBound) return 'None';
+          if (!a?.appLink) return 'Signed in · no contacts yet';
+          const contacts = Number(a.appLinkContactCount) || 0;
+          const interactions = Number(a.appLinkInteractionCount) || 0;
+          const parts = [
+            contacts + ' contact' + (contacts === 1 ? '' : 's'),
+            interactions + ' interaction' + (interactions === 1 ? '' : 's'),
+          ];
+          const rel = adminFormatRelativeTime(a.appLinkLastActivity);
+          if (rel) parts.push('active ' + rel);
+          return parts.join(' · ');
+        }
+
         function adminAppUsageBadgesHtml(a) {
           if (!a || typeof a !== 'object') return '';
           const badges = [];
-          if (a.appClassify) badges.push('<span class="admin-app-badge is-on" title="Classify has saved data">Classify</span>');
-          if (a.appTether) badges.push('<span class="admin-app-badge is-on" title="Tether has saved data">Tether</span>');
-          if (a.appPlatter) badges.push('<span class="admin-app-badge is-on" title="Platter has saved data">Platter</span>');
+          if (a.appClassify) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppClassifyDetail(a)) +
+                '">Classify</span>'
+            );
+          }
+          if (a.appTether) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppTetherDetail(a)) +
+                '">Tether</span>'
+            );
+          }
+          if (a.appPlatter) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppPlatterDetail(a)) +
+                '">Platter</span>'
+            );
+          }
+          if (a.appLink) {
+            badges.push(
+              '<span class="admin-app-badge is-on" title="' +
+                escHtml(adminAppLinkDetail(a)) +
+                '">Link</span>'
+            );
+          }
           if (!badges.length) {
-            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, or Platter data saved">—</span>';
+            return '<span class="admin-app-badge is-empty" title="No Classify, Tether, Platter, or Link data saved">—</span>';
           }
           return '<div class="admin-app-badges">' + badges.join('') + '</div>';
         }
@@ -2987,6 +3077,7 @@
           if (a.appClassify) parts.push('Classify');
           if (a.appTether) parts.push('Tether');
           if (a.appPlatter) parts.push('Platter');
+          if (a.appLink) parts.push('Link');
           return parts.length ? parts.join(', ') : 'None';
         }
 
@@ -3083,9 +3174,10 @@
 
           accountHtml +=
             '<section class="admin-account-details-section admin-account-details-section--compact"><h3>Saved app data</h3><dl class="admin-account-details-dl">';
-          accountHtml += adminDetailRow('Classify', a.appClassify ? 'Has saved data' : 'None');
-          accountHtml += adminDetailRow('Tether', a.appTether ? 'Has saved data' : 'None');
-          accountHtml += adminDetailRow('Platter', a.appPlatter ? 'Has saved data' : 'None');
+          accountHtml += adminDetailRow('Classify', escHtml(adminAppClassifyDetail(a)));
+          accountHtml += adminDetailRow('Tether', escHtml(adminAppTetherDetail(a)));
+          accountHtml += adminDetailRow('Platter', escHtml(adminAppPlatterDetail(a)));
+          accountHtml += adminDetailRow('Link', escHtml(adminAppLinkDetail(a)));
           accountHtml += '</dl></section>';
 
           accountHtml +=
@@ -3272,6 +3364,7 @@
           const classifyCount = adminAccountsAccum.filter((a) => a.appClassify).length;
           const tetherCount = adminAccountsAccum.filter((a) => a.appTether).length;
           const platterCount = adminAccountsAccum.filter((a) => a.appPlatter).length;
+          const linkCount = adminAccountsAccum.filter((a) => a.appLink).length;
           const anyAppCount = adminAccountsAccum.filter((a) => Number(a.appDataCount) > 0).length;
           const q = ((filterEl && filterEl.value) || '').trim();
           const digestOnly = !!(digestOnlyEl && digestOnlyEl.checked);
@@ -3279,7 +3372,7 @@
           const filtNote = q || digestOnly || appsOnly ? ` · ${rows.length} match filter` : '';
           const selNote = adminSelectedKeys.size ? ` · ${adminSelectedKeys.size} selected` : '';
           meta.textContent =
-            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount})${filtNote}${selNote}` +
+            `Loaded ${adminAccountsAccum.length} account${adminAccountsAccum.length === 1 ? '' : 's'} · ${trifangxDigestCount} TrifangX digest · ${sportsDigestCount} sports digest · ${anyAppCount} with app data (Classify ${classifyCount}, Tether ${tetherCount}, Platter ${platterCount}, Link ${linkCount})${filtNote}${selNote}` +
             (adminListHasMore ? ' · more pages available' : adminAccountsAccum.length ? ' · end of list' : '');
           if (moreBtn) moreBtn.disabled = !adminListHasMore;
           updateAdminGroupEmailToolbar();
@@ -3655,7 +3748,7 @@
             return s;
           };
           const lines = [
-            'username,email,user_id,apps,classify,tether,platter,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
+            'username,email,user_id,apps,classify,classify_tasks,classify_completed,tether,tether_projects,tether_inbox,platter,platter_menus,link,link_contacts,link_interactions,trifangx_digest_on,trifangx_digest_eligible,trifangx_digest_scheduled,sports_digest_subscribed,sports_digest_teams,sports_digest_frequency,sports_digest_top_headlines,sports_digest_scheduled',
           ];
           for (const a of adminAccountsAccum) {
             lines.push(
@@ -3665,8 +3758,16 @@
                 escCsv(a.userId),
                 escCsv(adminAppUsageLabel(a)),
                 a.appClassify ? 'yes' : 'no',
+                escCsv(a.appClassifyTaskCount || 0),
+                escCsv(a.appClassifyCompletedCount || 0),
                 a.appTether ? 'yes' : 'no',
+                escCsv(a.appTetherProjectCount || 0),
+                escCsv(a.appTetherInboxCount || 0),
                 a.appPlatter ? 'yes' : 'no',
+                escCsv(a.appPlatterMenuCount || 0),
+                a.appLink ? 'yes' : 'no',
+                escCsv(a.appLinkContactCount || 0),
+                escCsv(a.appLinkInteractionCount || 0),
                 a.dailyChallengeDigestOn ? 'yes' : 'no',
                 a.dailyChallengeDigestEligible ? 'yes' : 'no',
                 a.dailyChallengeDigestKv ? 'yes' : 'no',
