@@ -248,14 +248,16 @@
     }
 
     .pl-week-scroll {
-      display: flex;
-      flex-direction: column;
+      display: flex !important;
+      flex-direction: column !important;
       gap: 12px;
       padding-bottom: 4px;
     }
 
     .pl-day {
       width: 100%;
+      max-width: 100%;
+      flex: 0 0 auto;
       background: var(--pl-card);
       border: 1px solid var(--pl-line);
       border-radius: 16px;
@@ -267,7 +269,7 @@
 
     .pl-day-meals {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr !important;
       gap: 8px;
     }
 
@@ -1321,20 +1323,6 @@
 
     body.pl-dragging .pl-bottom-nav {
       pointer-events: none;
-    }
-
-    @media (min-width: 700px) {
-      .pl-day-meals {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        align-items: start;
-      }
-
-      .pl-slot-body,
-      .pl-slot-empty,
-      .pl-meal-card {
-        min-height: 72px;
-      }
     }
   </style>
 </head>
