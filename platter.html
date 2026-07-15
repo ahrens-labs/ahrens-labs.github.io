@@ -804,12 +804,19 @@
     }
 
     .pl-saved-item.is-ready {
-      border-color: #fde68a;
-      background: #fffbeb;
+      border-color: #eab308;
+      border-width: 2px;
+      background: var(--pl-card);
+      box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.35);
     }
 
     .pl-saved-item.is-favorite {
       border-color: #fbbf24;
+    }
+
+    .pl-saved-item.is-favorite.is-ready {
+      border-color: #eab308;
+      box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.35);
     }
 
     /* Collapse the source row in place so neighbors close the gap without
@@ -1189,8 +1196,9 @@
       min-height: 32px;
       padding: 4px 9px;
       border-radius: 999px;
-      border: 1px solid #fde68a;
-      background: var(--pl-breakfast-soft);
+      border: 2px solid #eab308;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.25);
       color: var(--pl-ink);
       font: inherit;
       text-align: left;
