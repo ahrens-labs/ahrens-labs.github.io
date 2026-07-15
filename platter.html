@@ -995,10 +995,11 @@
       bottom: 0;
       z-index: 100;
       display: flex;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.96);
+      border-top: 1px solid rgba(226, 232, 240, 0.9);
       padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.05);
+      box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
     }
 
     .pl-bottom-nav-item {
