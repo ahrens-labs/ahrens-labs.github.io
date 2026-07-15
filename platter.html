@@ -342,6 +342,62 @@
       box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.22);
     }
 
+    body.pl-place-mode .pl-slot-body {
+      border-style: solid;
+      border-color: #fbbf24;
+      background: #fffbeb;
+      cursor: pointer;
+    }
+
+    body.pl-place-mode .pl-slot-body.is-place-target {
+      box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.18);
+    }
+
+    body.pl-place-mode .pl-slot-empty {
+      color: #92400e;
+    }
+
+    body.pl-place-mode .pl-meal-card {
+      cursor: pointer;
+    }
+
+    .pl-place-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid #fde68a;
+      background: #fffbeb;
+    }
+
+    .pl-place-banner[hidden] {
+      display: none !important;
+    }
+
+    .pl-place-banner p {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      font-size: 0.84rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--pl-ink);
+    }
+
+    .pl-place-banner strong {
+      font-weight: 800;
+      color: #92400e;
+    }
+
+    .pl-place-banner .pl-btn {
+      flex-shrink: 0;
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 0.78rem;
+    }
+
     .pl-slot-empty {
       display: flex;
       align-items: center;
@@ -1250,6 +1306,10 @@
             </div>
             <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="Meals you have ingredients for"></div>
           </div>
+          <div class="pl-place-banner" id="pl-place-banner" hidden>
+            <p><strong>Place</strong> <span id="pl-place-banner-name"></span> — tap a day slot</p>
+            <button type="button" class="pl-btn pl-btn-ghost" id="pl-place-cancel">Cancel</button>
+          </div>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
 
@@ -1357,19 +1417,6 @@
       <span>Have ingredients — show in week tray</span>
     </label>
 
-    <div class="pl-field" id="pl-place-fields" hidden>
-      <label for="pl-place-day">Day</label>
-      <select id="pl-place-day"></select>
-    </div>
-    <div class="pl-field" id="pl-place-meal-wrap" hidden>
-      <label for="pl-place-meal">Meal</label>
-      <select id="pl-place-meal">
-        <option value="breakfast">Breakfast</option>
-        <option value="lunch">Lunch</option>
-        <option value="dinner">Dinner</option>
-      </select>
-    </div>
-
     <div class="pl-sheet-actions">
       <button type="button" class="pl-btn pl-btn-primary pl-btn-block" id="pl-sheet-save">Save</button>
       <div class="pl-sheet-actions-row">
@@ -1423,10 +1470,6 @@
   const readyWrap = document.getElementById('pl-ready-wrap');
   const savedPick = document.getElementById('pl-saved-pick');
   const savedPickField = document.getElementById('pl-field-saved-pick');
-  const placeFields = document.getElementById('pl-place-fields');
-  const placeMealWrap = document.getElementById('pl-place-meal-wrap');
-  const placeDay = document.getElementById('pl-place-day');
-  const placeMeal = document.getElementById('pl-place-meal');
   const clearBtn = document.getElementById('pl-sheet-clear');
   const dinnerOnlyInput = document.getElementById('pl-dinner-only');
   const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
@@ -1434,6 +1477,9 @@
   const readyTray = document.getElementById('pl-ready-tray');
   const readyTrayList = document.getElementById('pl-ready-tray-list');
   const readyEmptyHint = document.getElementById('pl-ready-empty');
+  const placeBanner = document.getElementById('pl-place-banner');
+  const placeBannerName = document.getElementById('pl-place-banner-name');
+  const placeCancelBtn = document.getElementById('pl-place-cancel');
   const sheetGrab = document.getElementById('pl-sheet-grab');
   const menuBubblesWeek = document.getElementById('pl-week-menu-bubbles');
   const menuBubblesShare = document.getElementById('pl-share-menu-bubbles');
@@ -1473,6 +1519,8 @@
   /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
   let sheetState = null;
   let confirmResolve = null;
+  /** @type {string|null} */
+  let placeModeSavedId = null;
   let didDrag = false;
 
   const drag = {
@@ -1634,13 +1682,6 @@
       weekHint.title = dinnerOnly
         ? 'Dinner-only mode — tap to edit, drag between days.'
         : 'Tap a meal to edit. Drag to another day — hold near the top or bottom edge to scroll.';
-    }
-    if (placeMeal) {
-      const current = placeMeal.value || 'dinner';
-      placeMeal.innerHTML = visibleMeals()
-        .map((m) => '<option value="' + m.id + '">' + m.label + '</option>')
-        .join('');
-      placeMeal.value = visibleMeals().some((m) => m.id === current) ? current : 'dinner';
     }
   }
 
@@ -1892,6 +1933,7 @@
   function setTab(tab, opts) {
     const next = normalizeTab(tab);
     const options = opts || {};
+    if (next !== 'week') clearPlaceMode({ skipRender: true });
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
@@ -1907,6 +1949,49 @@
     if (!options.skipUrlSync) {
       syncTabUrl(next, { replace: !!options.replaceUrl });
     }
+  }
+
+  function updatePlaceBanner() {
+    const meal = placeModeSavedId
+      ? data.saved.find((s) => s.id === placeModeSavedId)
+      : null;
+    const active = !!(meal && meal.name);
+    document.body.classList.toggle('pl-place-mode', active);
+    if (placeBanner) placeBanner.hidden = !active;
+    if (placeBannerName) placeBannerName.textContent = active ? meal.name : '';
+  }
+
+  function clearPlaceMode(opts) {
+    const options = opts || {};
+    if (!placeModeSavedId) {
+      updatePlaceBanner();
+      return;
+    }
+    placeModeSavedId = null;
+    updatePlaceBanner();
+    if (!options.skipRender) renderWeek();
+  }
+
+  function startPlaceMode(savedId) {
+    const meal = data.saved.find((s) => s.id === savedId);
+    if (!meal) return;
+    placeModeSavedId = meal.id;
+    updatePlaceBanner();
+    setTab('week');
+    renderWeek();
+  }
+
+  function placeMealOnSlot(slotKeyValue) {
+    if (!placeModeSavedId || !slotKeyValue) return false;
+    const meal = data.saved.find((s) => s.id === placeModeSavedId);
+    const payload = mealPayloadFromReady(meal);
+    if (!payload) return false;
+    data.slots[slotKeyValue] = payload;
+    persist();
+    clearPlaceMode({ skipRender: true });
+    renderWeek();
+    renderReadyTray();
+    return true;
   }
 
   function renderAll() {
@@ -2432,7 +2517,7 @@
         slot.appendChild(label);
 
         const body = document.createElement('div');
-        body.className = 'pl-slot-body';
+        body.className = 'pl-slot-body' + (placeModeSavedId ? ' is-place-target' : '');
         body.dataset.slotKey = key;
 
         const mealData = data.slots[key];
@@ -2445,11 +2530,13 @@
           const cookLabel = mealData.cookMinutes != null ? formatMinutes(mealData.cookMinutes) : '';
           card.setAttribute(
             'aria-label',
-            meal.label +
-              ': ' +
-              mealData.name +
-              (cookLabel ? ', ' + cookLabel : '') +
-              '. Tap to edit, drag to move.'
+            placeModeSavedId
+              ? 'Place meal on ' + meal.label
+              : meal.label +
+                ': ' +
+                mealData.name +
+                (cookLabel ? ', ' + cookLabel : '') +
+                '. Tap to edit, drag to move.'
           );
           if (cookLabel) card.classList.add('has-cook-time');
           card.innerHTML =
@@ -2465,7 +2552,8 @@
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              openSlotEditor(key);
+              if (placeModeSavedId) placeMealOnSlot(key);
+              else openSlotEditor(key);
             }
           });
           card.addEventListener('click', (e) => {
@@ -2475,14 +2563,26 @@
               return;
             }
           });
-          card.addEventListener('pointerdown', onCardPointerDown);
+          if (placeModeSavedId) {
+            card.style.touchAction = 'manipulation';
+            card.addEventListener('click', (e) => {
+              if (e.target.closest('a')) return;
+              e.preventDefault();
+              placeMealOnSlot(key);
+            });
+          } else {
+            card.addEventListener('pointerdown', onCardPointerDown);
+          }
           body.appendChild(card);
         } else {
           const empty = document.createElement('button');
           empty.type = 'button';
           empty.className = 'pl-slot-empty';
-          empty.textContent = 'Add meal';
-          empty.addEventListener('click', () => openSlotEditor(key));
+          empty.textContent = placeModeSavedId ? 'Tap to place' : 'Add meal';
+          empty.addEventListener('click', () => {
+            if (placeModeSavedId) placeMealOnSlot(key);
+            else openSlotEditor(key);
+          });
           body.appendChild(empty);
         }
 
@@ -2566,7 +2666,7 @@
         );
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
         readyBtn.addEventListener('click', () => toggleMealReady(meal.id));
-        row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
+        row.querySelector('[data-act="place"]').addEventListener('click', () => startPlaceMode(meal.id));
         row.querySelector('[data-act="delete"]').addEventListener('click', async () => {
           const ok = await showConfirm({
             title: 'Delete meal?',
@@ -2575,6 +2675,7 @@
             danger: true,
           });
           if (!ok) return;
+          if (placeModeSavedId === meal.id) clearPlaceMode({ skipRender: true });
           data.saved = data.saved.filter((s) => s.id !== meal.id);
           persist();
           renderSaved();
@@ -2603,18 +2704,6 @@
         );
       });
     savedPick.innerHTML = options.join('');
-  }
-
-  function fillPlaceDays() {
-    const opts = [];
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(weekAnchor);
-      day.setDate(weekAnchor.getDate() + i);
-      const dateStr = ymd(day);
-      const head = formatDayHead(day);
-      opts.push('<option value="' + dateStr + '">' + head.name + ' · ' + head.date + '</option>');
-    }
-    placeDay.innerHTML = opts.join('');
   }
 
   function escapeHtml(str) {
@@ -2718,6 +2807,10 @@
   }
 
   function openSlotEditor(key) {
+    if (placeModeSavedId) {
+      placeMealOnSlot(key);
+      return;
+    }
     const [dateStr, meal] = key.split(':');
     const day = parseYmd(dateStr);
     const head = formatDayHead(day);
@@ -2731,8 +2824,6 @@
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = true;
     savedPickField.hidden = false;
-    placeFields.hidden = true;
-    placeMealWrap.hidden = true;
     clearBtn.hidden = !(existing && existing.name);
     fillSavedPick(existing && existing.savedId ? existing.savedId : '');
     openSheet();
@@ -2750,8 +2841,6 @@
     if (readyInput) readyInput.checked = !!meal.ready;
     if (readyWrap) readyWrap.hidden = false;
     savedPickField.hidden = true;
-    placeFields.hidden = true;
-    placeMealWrap.hidden = true;
     clearBtn.hidden = true;
     openSheet();
   }
@@ -2765,28 +2854,9 @@
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = false;
     savedPickField.hidden = true;
-    placeFields.hidden = true;
-    placeMealWrap.hidden = true;
     clearBtn.hidden = true;
     openSheet();
     setTimeout(() => nameInput.focus(), 240);
-  }
-
-  function openPlaceSaved(id) {
-    const meal = data.saved.find((s) => s.id === id);
-    if (!meal) return;
-    sheetState = { mode: 'place', savedId: id };
-    sheetTitle.textContent = 'Use meal';
-    sheetSub.textContent = meal.name;
-    fillMealForm(meal);
-    saveLibraryWrap.hidden = true;
-    if (readyWrap) readyWrap.hidden = true;
-    savedPickField.hidden = true;
-    placeFields.hidden = false;
-    placeMealWrap.hidden = false;
-    clearBtn.hidden = true;
-    fillPlaceDays();
-    openSheet();
   }
 
   function upsertSaved(mealFields, existingId, opts) {
@@ -2855,16 +2925,6 @@
       renderReadyTray();
       closeSheet();
       return;
-    }
-
-    if (sheetState.mode === 'place') {
-      const key = slotKey(placeDay.value, placeMeal.value);
-      data.slots[key] = { ...form, savedId: sheetState.savedId };
-      persist();
-      renderWeek();
-      renderReadyTray();
-      setTab('week');
-      closeSheet();
     }
   }
 
@@ -3135,8 +3195,17 @@
     if (confirmBackdrop && confirmBackdrop.classList.contains('open')) {
       e.preventDefault();
       closeConfirm(false);
+      return;
+    }
+    if (placeModeSavedId) {
+      e.preventDefault();
+      clearPlaceMode();
     }
   });
+
+  if (placeCancelBtn) {
+    placeCancelBtn.addEventListener('click', () => clearPlaceMode());
+  }
   document.getElementById('pl-sheet-clear').addEventListener('click', clearSlot);
   sheetBackdrop.addEventListener('click', closeSheet);
   if (sheetGrab) {
