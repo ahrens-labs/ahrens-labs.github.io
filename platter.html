@@ -1501,12 +1501,12 @@
 
     <label class="pl-check" id="pl-save-library-wrap">
       <input type="checkbox" id="pl-save-library">
-      <span>Also save to my meal library</span>
+      <span>Add to library</span>
     </label>
 
     <label class="pl-check" id="pl-ready-wrap" hidden>
       <input type="checkbox" id="pl-meal-ready">
-      <span>Have ingredients — show in week tray</span>
+      <span>Ready</span>
     </label>
 
     <div class="pl-sheet-actions">
@@ -3205,6 +3205,7 @@
     sheetTitle.textContent = 'New saved meal';
     sheetSub.textContent = 'Add to your library; mark Ready when you have ingredients';
     fillMealForm(emptyMeal());
+    saveLibrary.checked = true;
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = false;
