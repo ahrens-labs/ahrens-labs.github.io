@@ -248,16 +248,16 @@
     }
 
     .pl-week-scroll {
-      display: flex !important;
-      flex-direction: column !important;
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 12px;
       padding-bottom: 4px;
+      align-items: start;
     }
 
     .pl-day {
       width: 100%;
       max-width: 100%;
-      flex: 0 0 auto;
       background: var(--pl-card);
       border: 1px solid var(--pl-line);
       border-radius: 16px;
@@ -269,8 +269,15 @@
 
     .pl-day-meals {
       display: grid;
-      grid-template-columns: 1fr !important;
+      grid-template-columns: 1fr;
       gap: 8px;
+    }
+
+    @media (min-width: 760px) {
+      .pl-week-scroll {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
     }
 
     .pl-day.is-today {
