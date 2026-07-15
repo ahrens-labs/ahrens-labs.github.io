@@ -3067,7 +3067,7 @@
     sheetTitle.textContent = existing && existing.name ? 'Edit meal' : 'Add meal';
     sheetSub.textContent = head.name + ' ' + head.date + ' · ' + mealLabel(meal);
     fillMealForm(existing);
-    saveLibrary.checked = false;
+    saveLibrary.checked = !(existing && existing.name);
     saveLibraryWrap.hidden = false;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = true;
