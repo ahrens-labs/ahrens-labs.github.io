@@ -23,7 +23,7 @@ OUT_SVG = IMG / "platter-logo.svg"
 OUT_FAVICON_SVG = IMG / "platter-favicon.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "12"
+ASSET_VERSION = "13"
 
 # Warm yellow / gold — same shading model as Tether/Link (a touch brighter).
 CHAIN_HIGHLIGHT = np.array([240.0, 200.0, 55.0], dtype=np.float32)
@@ -31,16 +31,21 @@ CHAIN_MID = np.array([220.0, 170.0, 30.0], dtype=np.float32)
 CHAIN_DARK = np.array([185.0, 135.0, 18.0], dtype=np.float32)
 CHAIN_DEEP = np.array([145.0, 100.0, 12.0], dtype=np.float32)
 
+# Favicons fill the canvas a bit more than the shared defaults.
+PLATTER_FAVICON_FILL = 0.97
+PLATTER_PWA_ANY_FILL = 0.90
+PLATTER_PWA_MASKABLE_FILL = 0.78
+
 FAVICON_SIZES: list[tuple[int, float, str]] = [
-    (32, FAVICON_FILL, "platter-favicon-32.png"),
-    (48, FAVICON_FILL, "platter-favicon-48.png"),
-    (96, FAVICON_FILL, "platter-favicon-96.png"),
-    (128, FAVICON_FILL, "platter-favicon-128.png"),
-    (180, PWA_ANY_FILL, "platter-favicon-180.png"),
-    (192, PWA_ANY_FILL, "platter-favicon-192.png"),
-    (512, PWA_ANY_FILL, "platter-favicon-512.png"),
-    (192, PWA_MASKABLE_FILL, "platter-favicon-192-maskable.png"),
-    (512, PWA_MASKABLE_FILL, "platter-favicon-512-maskable.png"),
+    (32, PLATTER_FAVICON_FILL, "platter-favicon-32.png"),
+    (48, PLATTER_FAVICON_FILL, "platter-favicon-48.png"),
+    (96, PLATTER_FAVICON_FILL, "platter-favicon-96.png"),
+    (128, PLATTER_FAVICON_FILL, "platter-favicon-128.png"),
+    (180, PLATTER_PWA_ANY_FILL, "platter-favicon-180.png"),
+    (192, PLATTER_PWA_ANY_FILL, "platter-favicon-192.png"),
+    (512, PLATTER_PWA_ANY_FILL, "platter-favicon-512.png"),
+    (192, PLATTER_PWA_MASKABLE_FILL, "platter-favicon-192-maskable.png"),
+    (512, PLATTER_PWA_MASKABLE_FILL, "platter-favicon-512-maskable.png"),
 ]
 
 
@@ -196,11 +201,24 @@ def medallion_target_size(arr: np.ndarray) -> int:
 
 def place_medallion(base: Image.Image, med: Image.Image, cx: float, cy: float, size: int) -> Image.Image:
     med_r = med.resize((size, size), Image.Resampling.LANCZOS)
-    out = base.copy()
+    out = np.array(base.convert("RGBA"), dtype=np.float32)
+
+    # Punch out chains under the transparent plate face so they don't show through.
+    # Outer crop includes gold rim (~1.22× face radius); clear only the face disc.
+    face_r = (size / 2.0) / 1.22
+    h, w = out.shape[:2]
+    yy = np.arange(h, dtype=np.float32)[:, None]
+    xx = np.arange(w, dtype=np.float32)[None, :]
+    dist = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+    # Soft edge so the rim sits cleanly on the remaining chain.
+    keep = np.clip((dist - face_r) / 2.0, 0, 1)
+    out[..., 3] *= keep
+
+    result = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
     ox = int(round(cx - size / 2.0))
     oy = int(round(cy - size / 2.0))
-    out.paste(med_r, (ox, oy), med_r)
-    return out
+    result.paste(med_r, (ox, oy), med_r)
+    return result
 
 
 def fit_canvas(im: Image.Image, canvas: int, fill: float) -> Image.Image:
