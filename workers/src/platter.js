@@ -458,20 +458,9 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
   }
 
   if (path === '/api/platter/menus' && request.method === 'GET') {
-    const menus = await listAccessibleMenus(env, userId);
-    if (!menus.length) {
-      const result = await ensureBootstrap(env, userId);
-      if (result.error) return jsonResponse({ error: result.error }, corsHeaders, result.status);
-      return jsonResponse({ menus: result.menus, activeMenuId: result.activeMenuId }, corsHeaders);
-    }
-    const state = await getPlatterState(env, userId);
-    return jsonResponse(
-      {
-        menus: menus.map((m) => menuSummary(m, userId)),
-        activeMenuId: state.activeMenuId,
-      },
-      corsHeaders
-    );
+    const result = await ensureBootstrap(env, userId);
+    if (result.error) return jsonResponse({ error: result.error }, corsHeaders, result.status);
+    return jsonResponse({ menus: result.menus, activeMenuId: result.activeMenuId }, corsHeaders);
   }
 
   if (path === '/api/platter/menu' && request.method === 'GET') {
