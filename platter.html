@@ -812,20 +812,25 @@
       border-color: #fbbf24;
     }
 
+    /* Collapse the source row in place so neighbors close the gap without
+       reshuffling live DOM under the pointer (that froze after one move). */
     .pl-saved-item.is-dragging {
-      opacity: 0.4;
+      height: 0 !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-width: 0 !important;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* In-list ghost showing where the meal will land. */
+    .pl-saved-reorder-slot {
+      opacity: 0.55;
       border-style: dashed;
       border-color: #fcd34d;
       background: #fffbeb;
-    }
-
-    .pl-saved-drop-line {
-      flex: 0 0 auto;
-      height: 3px;
-      margin: -1px 6px;
-      border-radius: 999px;
-      background: var(--pl-accent);
-      box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.2);
       pointer-events: none;
     }
 
@@ -1638,6 +1643,8 @@
     fromId: null,
     row: null,
     ghost: null,
+    /** @type {HTMLElement|null} */
+    slot: null,
     lastX: 0,
     lastY: 0,
     /** @type {{ id: string|null, before: boolean, atEnd: boolean }|null} */
@@ -2873,35 +2880,36 @@
     savedList.replaceChildren(frag);
   }
 
-  function clearSavedDropMarkers() {
-    if (!savedList) return;
-    savedList.querySelectorAll('.pl-saved-drop-line').forEach((el) => el.remove());
-  }
-
-  function placeSavedDropLine(beforeEl) {
-    if (!savedList || !beforeEl) return;
-    const line = document.createElement('div');
-    line.className = 'pl-saved-drop-line';
-    line.setAttribute('aria-hidden', 'true');
-    savedList.insertBefore(line, beforeEl);
-  }
-
   function hoverKey(hover) {
     if (!hover) return '';
     return (hover.atEnd ? 'end' : hover.id || '') + ':' + (hover.before ? 'b' : 'a');
   }
 
+  function makeSavedReorderSlot(row) {
+    const slot = row.cloneNode(true);
+    slot.classList.remove('is-dragging');
+    slot.classList.add('pl-saved-reorder-slot');
+    slot.removeAttribute('data-saved-id');
+    slot.setAttribute('aria-hidden', 'true');
+    slot.querySelectorAll('button').forEach((btn) => {
+      btn.disabled = true;
+      btn.tabIndex = -1;
+    });
+    return slot;
+  }
+
   function updateSavedReorderLive(x, y, force) {
-    if (!savedList || !savedReorder.row) return null;
-    const dragging = savedReorder.row;
+    if (!savedList || !savedReorder.row || !savedReorder.slot) return null;
 
     if (savedReorder.ghost) {
       savedReorder.ghost.style.left = x + 'px';
       savedReorder.ghost.style.top = y + 'px';
     }
 
+    // Hit-test only real rows — exclude collapsed source and the placeholder so
+    // geometry stays stable and the slot does not oscillate after one move.
     const rows = Array.prototype.slice.call(
-      savedList.querySelectorAll('.pl-saved-item:not(.is-dragging)')
+      savedList.querySelectorAll('.pl-saved-item:not(.is-dragging):not(.pl-saved-reorder-slot)')
     );
     let insertBefore = null;
     for (let i = 0; i < rows.length; i++) {
@@ -2918,25 +2926,43 @@
       atEnd: !insertBefore,
     };
 
-    // Only reshuffle the list when the drop slot changes — keeps the ghost
-    // preview of the new order without thrashing layout every pointermove.
     if (!force && hoverKey(hover) === hoverKey(savedReorder.hover)) {
       savedReorder.hover = hover;
       return hover;
     }
 
-    clearSavedDropMarkers();
+    const slot = savedReorder.slot;
     if (insertBefore) {
-      if (dragging.nextElementSibling !== insertBefore) {
-        savedList.insertBefore(dragging, insertBefore);
+      if (slot.nextElementSibling !== insertBefore) {
+        savedList.insertBefore(slot, insertBefore);
       }
-    } else if (savedList.lastElementChild !== dragging) {
-      savedList.appendChild(dragging);
+    } else if (savedList.lastElementChild !== slot) {
+      savedList.appendChild(slot);
     }
-    placeSavedDropLine(dragging);
 
     savedReorder.hover = hover;
     return hover;
+  }
+
+  function cleanupSavedReorderUi() {
+    if (savedReorder.row) savedReorder.row.classList.remove('is-dragging');
+    if (savedReorder.ghost) savedReorder.ghost.remove();
+    if (savedReorder.slot) savedReorder.slot.remove();
+    document.body.classList.remove('pl-saved-reordering');
+  }
+
+  function orderedIdsFromSavedReorderDom(fromId) {
+    const orderedIds = [];
+    Array.prototype.forEach.call(savedList.children, (el) => {
+      if (!(el.classList && el.classList.contains('pl-saved-item'))) return;
+      if (el.classList.contains('is-dragging')) return;
+      if (el.classList.contains('pl-saved-reorder-slot')) {
+        if (fromId) orderedIds.push(fromId);
+        return;
+      }
+      if (el.dataset.savedId) orderedIds.push(el.dataset.savedId);
+    });
+    return orderedIds;
   }
 
   function onSavedReorderPointerDown(e) {
@@ -2954,6 +2980,10 @@
     savedReorder.lastX = e.clientX;
     savedReorder.lastY = e.clientY;
     savedReorder.hover = null;
+
+    const slot = makeSavedReorderSlot(row);
+    savedReorder.slot = slot;
+    savedList.insertBefore(slot, row.nextSibling);
     row.classList.add('is-dragging');
     document.body.classList.add('pl-saved-reordering');
 
@@ -2997,21 +3027,15 @@
     const dropX = e.clientX != null ? e.clientX : savedReorder.lastX;
     const dropY = e.clientY != null ? e.clientY : savedReorder.lastY;
     updateSavedReorderLive(dropX, dropY, true);
-    clearSavedDropMarkers();
-    if (savedReorder.row) savedReorder.row.classList.remove('is-dragging');
-    if (savedReorder.ghost) savedReorder.ghost.remove();
-    document.body.classList.remove('pl-saved-reordering');
-
-    // Persist from the live DOM order (already shows the ghost preview placement).
-    const orderedIds = Array.prototype.map
-      .call(savedList.querySelectorAll('.pl-saved-item'), (el) => el.dataset.savedId)
-      .filter(Boolean);
+    const orderedIds = orderedIdsFromSavedReorderDom(fromId);
+    cleanupSavedReorderUi();
 
     savedReorder.active = false;
     savedReorder.pointerId = null;
     savedReorder.fromId = null;
     savedReorder.row = null;
     savedReorder.ghost = null;
+    savedReorder.slot = null;
     savedReorder.lastX = 0;
     savedReorder.lastY = 0;
     savedReorder.hover = null;
