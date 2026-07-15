@@ -577,10 +577,14 @@ body.th-page main.th-main-wrap {
   }
 
   .th-topbar-brand img,
-  .th-topbar-brand .digest-logo,
-  .th-topbar-brand .platter-logo {
+  .th-topbar-brand .digest-logo {
     width: 34px;
     height: 34px;
+  }
+
+  .th-topbar-brand .platter-logo {
+    width: 44px;
+    height: 44px;
   }
 
   .th-topbar-auth {
