@@ -23,13 +23,13 @@ OUT_SVG = IMG / "platter-logo.svg"
 OUT_FAVICON_SVG = IMG / "platter-favicon.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "8"
+ASSET_VERSION = "9"
 
-# Darker yellow / amber — same shading model as Tether/Link.
-CHAIN_HIGHLIGHT = np.array([200.0, 150.0, 28.0], dtype=np.float32)
-CHAIN_MID = np.array([170.0, 120.0, 14.0], dtype=np.float32)
-CHAIN_DARK = np.array([130.0, 85.0, 8.0], dtype=np.float32)
-CHAIN_DEEP = np.array([95.0, 58.0, 6.0], dtype=np.float32)
+# Warm yellow / gold — same shading model as Tether/Link (a touch brighter).
+CHAIN_HIGHLIGHT = np.array([240.0, 200.0, 55.0], dtype=np.float32)
+CHAIN_MID = np.array([220.0, 170.0, 30.0], dtype=np.float32)
+CHAIN_DARK = np.array([185.0, 135.0, 18.0], dtype=np.float32)
+CHAIN_DEEP = np.array([145.0, 100.0, 12.0], dtype=np.float32)
 
 FAVICON_SIZES: list[tuple[int, float, str]] = [
     (32, FAVICON_FILL, "platter-favicon-32.png"),
@@ -176,12 +176,12 @@ def opening_center(arr: np.ndarray) -> tuple[float, float]:
 
 
 def medallion_target_size(arr: np.ndarray) -> int:
-    """Match Tether checkmark footprint (~321×305 on 939×512 template)."""
+    """Plate sits proudly over the chain join (~2.5× the prior medallion)."""
     chain = chain_mask_from_template(arr)
     ys, xs = np.where(chain)
     chain_h = ys.max() - ys.min() + 1
-    # Fill most of the vertical chain height, like the check / pencil.
-    return int(round(chain_h * 0.72))
+    # Dominate the center while still showing the flanking links.
+    return int(round(chain_h * 1.8))
 
 
 def place_medallion(base: Image.Image, med: Image.Image, cx: float, cy: float, size: int) -> Image.Image:
