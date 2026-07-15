@@ -264,7 +264,14 @@ function normalizeSaved(raw) {
     const fields = normalizeMealFields(item);
     if (!fields.name) continue;
     const id = String(item.id || '').trim().slice(0, 64) || newMenuId();
-    out.push({ id, ...fields, ready: !!item.ready });
+    const orderNum = Number(item.order);
+    out.push({
+      id,
+      ...fields,
+      ready: !!item.ready,
+      favorite: !!item.favorite,
+      order: Number.isFinite(orderNum) ? Math.round(orderNum) : out.length,
+    });
   }
   return out;
 }

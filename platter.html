@@ -790,6 +790,7 @@
       border: 1px solid var(--pl-line);
       border-radius: 14px;
       overflow: hidden;
+      touch-action: pan-y;
     }
 
     .pl-saved-item.is-ready {
@@ -797,9 +798,72 @@
       background: #fffbeb;
     }
 
+    .pl-saved-item.is-favorite {
+      border-color: #fbbf24;
+    }
+
+    .pl-saved-item.is-dragging {
+      opacity: 0.45;
+    }
+
+    .pl-saved-item.is-drop-before {
+      box-shadow: inset 0 3px 0 0 var(--pl-accent);
+    }
+
+    .pl-saved-item.is-drop-after {
+      box-shadow: inset 0 -3px 0 0 var(--pl-accent);
+    }
+
+    .pl-saved-item-top {
+      display: flex;
+      align-items: stretch;
+      min-width: 0;
+    }
+
+    .pl-saved-drag {
+      flex: 0 0 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-right: 1px solid var(--pl-line);
+      background: #f8fafc;
+      color: #94a3b8;
+      font-size: 1.05rem;
+      line-height: 1;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .pl-saved-drag:active {
+      cursor: grabbing;
+    }
+
+    .pl-saved-fav {
+      flex: 0 0 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-left: 1px solid var(--pl-line);
+      background: transparent;
+      color: #cbd5e1;
+      font-size: 1.2rem;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-saved-fav.is-on {
+      color: #eab308;
+    }
+
     .pl-saved-item-main .pl-ready-badge {
       display: inline-block;
       margin-top: 6px;
+      margin-right: 6px;
       padding: 2px 8px;
       border-radius: 999px;
       font-size: 0.68rem;
@@ -808,6 +872,19 @@
       text-transform: uppercase;
       color: #92400e;
       background: #fef3c7;
+    }
+
+    .pl-saved-item-main .pl-fav-badge {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #a16207;
+      background: #fef9c3;
     }
 
     .pl-saved-item-actions button[data-act='ready'] {
@@ -821,9 +898,9 @@
     }
 
     .pl-saved-item-main {
-      width: 100%;
+      flex: 1;
       min-width: 0;
-      padding: 12px 14px;
+      padding: 12px 12px 12px 14px;
       text-align: left;
       border: 0;
       background: transparent;
@@ -1318,7 +1395,7 @@
             <h2>Saved meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint">Your meal library. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray for quick drag-and-drop.</p>
+          <p class="pl-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1522,6 +1599,14 @@
   /** @type {string|null} */
   let placeModeSavedId = null;
   let didDrag = false;
+
+  const savedReorder = {
+    active: false,
+    pointerId: null,
+    fromId: null,
+    row: null,
+    lastY: 0,
+  };
 
   const drag = {
     active: false,
@@ -1729,7 +1814,7 @@
   }
 
   function canApplyRemoteMenu() {
-    return !hasPendingLocalSync() && !isSheetOpen() && !drag.active;
+    return !hasPendingLocalSync() && !isSheetOpen() && !drag.active && !savedReorder.active;
   }
 
   function platterSyncWsUrl() {
@@ -1790,6 +1875,7 @@
       slots: menu && menu.slots && typeof menu.slots === 'object' ? menu.slots : {},
       saved: menu && Array.isArray(menu.saved) ? menu.saved : [],
     };
+    ensureSavedMeta();
     if (menu && typeof menu.updatedAt === 'number' && menu.updatedAt > 0) {
       cloudUpdatedAt = menu.updatedAt;
     }
@@ -2011,8 +2097,59 @@
     };
   }
 
+  function ensureSavedMeta() {
+    if (!Array.isArray(data.saved)) data.saved = [];
+    data.saved.forEach((meal, i) => {
+      meal.ready = !!meal.ready;
+      meal.favorite = !!meal.favorite;
+      const orderNum = Number(meal.order);
+      if (!Number.isFinite(orderNum)) meal.order = i;
+      else meal.order = Math.round(orderNum);
+    });
+  }
+
+  function compareSavedMeals(a, b) {
+    const af = a && a.favorite ? 1 : 0;
+    const bf = b && b.favorite ? 1 : 0;
+    if (af !== bf) return bf - af;
+    const ao = Number.isFinite(Number(a && a.order)) ? Number(a.order) : 0;
+    const bo = Number.isFinite(Number(b && b.order)) ? Number(b.order) : 0;
+    if (ao !== bo) return ao - bo;
+    return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), undefined, {
+      sensitivity: 'base',
+    });
+  }
+
+  function sortedSaved() {
+    ensureSavedMeta();
+    return data.saved.slice().sort(compareSavedMeals);
+  }
+
+  function reindexSavedOrdersFromSorted(sorted) {
+    sorted.forEach((meal, i) => {
+      meal.order = i;
+    });
+  }
+
+  function toggleMealFavorite(id) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal) return;
+    ensureSavedMeta();
+    const next = !meal.favorite;
+    meal.favorite = next;
+    if (next) {
+      const minOrder = data.saved.reduce((min, m) => Math.min(min, Number(m.order) || 0), 0);
+      meal.order = minOrder - 1;
+    }
+    const sorted = sortedSaved();
+    reindexSavedOrdersFromSorted(sorted);
+    persist();
+    renderSaved();
+    renderReadyTray();
+  }
+
   function readyMeals() {
-    return data.saved.filter((m) => !!m.ready);
+    return sortedSaved().filter((m) => !!m.ready);
   }
 
   function setMealReady(id, ready) {
@@ -2046,10 +2183,7 @@
       return;
     }
     const frag = document.createDocumentFragment();
-    ready
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-      .forEach((meal) => {
+    ready.forEach((meal) => {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'pl-ready-chip';
@@ -2629,20 +2763,31 @@
       return;
     }
     const frag = document.createDocumentFragment();
-    data.saved
-      .slice()
-      .sort((a, b) => {
-        if (!!a.ready !== !!b.ready) return a.ready ? -1 : 1;
-        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-      })
-      .forEach((meal) => {
+    sortedSaved().forEach((meal) => {
         const row = document.createElement('div');
-        row.className = 'pl-saved-item' + (meal.ready ? ' is-ready' : '');
+        row.className =
+          'pl-saved-item' +
+          (meal.ready ? ' is-ready' : '') +
+          (meal.favorite ? ' is-favorite' : '');
+        row.dataset.savedId = meal.id;
         row.innerHTML =
+          '<div class="pl-saved-item-top">' +
+          '<button type="button" class="pl-saved-drag" aria-label="Drag to reorder" title="Drag to reorder">⋮⋮</button>' +
           '<button type="button" class="pl-saved-item-main">' +
           '<strong></strong><span></span>' +
+          (meal.favorite ? '<em class="pl-fav-badge">Favorite</em>' : '') +
           (meal.ready ? '<em class="pl-ready-badge">Ready</em>' : '') +
           '</button>' +
+          '<button type="button" class="pl-saved-fav' +
+          (meal.favorite ? ' is-on' : '') +
+          '" data-act="favorite" aria-pressed="' +
+          (meal.favorite ? 'true' : 'false') +
+          '" aria-label="' +
+          (meal.favorite ? 'Remove favorite' : 'Favorite') +
+          '">' +
+          (meal.favorite ? '★' : '☆') +
+          '</button>' +
+          '</div>' +
           '<div class="pl-saved-item-actions">' +
           '<button type="button" data-act="ready"></button>' +
           '<button type="button" data-act="place">Use</button>' +
@@ -2665,6 +2810,8 @@
             : 'Mark ' + meal.name + ' as ready to cook'
         );
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
+        row.querySelector('[data-act="favorite"]').addEventListener('click', () => toggleMealFavorite(meal.id));
+        row.querySelector('.pl-saved-drag').addEventListener('pointerdown', onSavedReorderPointerDown);
         readyBtn.addEventListener('click', () => toggleMealReady(meal.id));
         row.querySelector('[data-act="place"]').addEventListener('click', () => startPlaceMode(meal.id));
         row.querySelector('[data-act="delete"]').addEventListener('click', async () => {
@@ -2687,12 +2834,110 @@
     savedList.replaceChildren(frag);
   }
 
+  function clearSavedDropMarkers() {
+    if (!savedList) return;
+    savedList.querySelectorAll('.pl-saved-item.is-drop-before, .pl-saved-item.is-drop-after').forEach((el) => {
+      el.classList.remove('is-drop-before', 'is-drop-after');
+    });
+  }
+
+  function savedDropTargetFromPoint(x, y) {
+    const stack = document.elementsFromPoint(x, y) || [];
+    for (let i = 0; i < stack.length; i++) {
+      const el = stack[i];
+      if (!el || !el.closest) continue;
+      const row = el.closest('.pl-saved-item');
+      if (row && row.dataset.savedId && row.dataset.savedId !== savedReorder.fromId) return row;
+    }
+    return null;
+  }
+
+  function updateSavedReorderHover(x, y) {
+    clearSavedDropMarkers();
+    const target = savedDropTargetFromPoint(x, y);
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const before = y < rect.top + rect.height / 2;
+    target.classList.add(before ? 'is-drop-before' : 'is-drop-after');
+    return { id: target.dataset.savedId, before };
+  }
+
+  function onSavedReorderPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    const handle = e.currentTarget;
+    const row = handle && handle.closest ? handle.closest('.pl-saved-item') : null;
+    const id = row && row.dataset.savedId;
+    if (!id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    savedReorder.active = true;
+    savedReorder.pointerId = e.pointerId;
+    savedReorder.fromId = id;
+    savedReorder.row = row;
+    savedReorder.lastY = e.clientY;
+    row.classList.add('is-dragging');
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    handle.addEventListener('pointermove', onSavedReorderPointerMove);
+    handle.addEventListener('pointerup', onSavedReorderPointerUp);
+    handle.addEventListener('pointercancel', onSavedReorderPointerUp);
+  }
+
+  function onSavedReorderPointerMove(e) {
+    if (!savedReorder.active || e.pointerId !== savedReorder.pointerId) return;
+    savedReorder.lastY = e.clientY;
+    updateSavedReorderHover(e.clientX, e.clientY);
+  }
+
+  function onSavedReorderPointerUp(e) {
+    if (!savedReorder.active || e.pointerId !== savedReorder.pointerId) return;
+    const handle = e.currentTarget;
+    handle.removeEventListener('pointermove', onSavedReorderPointerMove);
+    handle.removeEventListener('pointerup', onSavedReorderPointerUp);
+    handle.removeEventListener('pointercancel', onSavedReorderPointerUp);
+    try {
+      handle.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const fromId = savedReorder.fromId;
+    const dropX = e.clientX != null ? e.clientX : 0;
+    const dropY = e.clientY != null ? e.clientY : savedReorder.lastY;
+    const hover = updateSavedReorderHover(dropX, dropY);
+    clearSavedDropMarkers();
+    if (savedReorder.row) savedReorder.row.classList.remove('is-dragging');
+
+    savedReorder.active = false;
+    savedReorder.pointerId = null;
+    savedReorder.fromId = null;
+    savedReorder.row = null;
+    savedReorder.lastY = 0;
+
+    if (!fromId || !hover || !hover.id || hover.id === fromId) return;
+
+    const sorted = sortedSaved();
+    const fromIdx = sorted.findIndex((m) => m.id === fromId);
+    const toIdx = sorted.findIndex((m) => m.id === hover.id);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const [moved] = sorted.splice(fromIdx, 1);
+    let insertAt = toIdx;
+    if (fromIdx < toIdx) insertAt = toIdx - 1;
+    if (!hover.before) insertAt += 1;
+    insertAt = Math.max(0, Math.min(sorted.length, insertAt));
+    sorted.splice(insertAt, 0, moved);
+    const targetMeal = data.saved.find((s) => s.id === hover.id);
+    if (targetMeal) moved.favorite = !!targetMeal.favorite;
+    // Favorites stay grouped at the top; preserve relative order within each group.
+    const next = sorted.filter((m) => !!m.favorite).concat(sorted.filter((m) => !m.favorite));
+    reindexSavedOrdersFromSorted(next);
+    persist();
+    renderSaved();
+    renderReadyTray();
+  }
+
   function fillSavedPick(selectedId) {
     const options = ['<option value="">— Type your own —</option>'];
-    data.saved
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-      .forEach((m) => {
+    sortedSaved().forEach((m) => {
         options.push(
           '<option value="' +
             m.id +
@@ -2871,19 +3116,25 @@
       if (found) {
         Object.assign(found, payload);
         if (options.ready !== undefined) found.ready = !!options.ready;
+        if (options.favorite !== undefined) found.favorite = !!options.favorite;
         return found.id;
       }
     }
     const match = data.saved.find((s) => mealsEqualForLibrary(s, payload));
     if (match) {
       if (options.ready !== undefined) match.ready = !!options.ready;
+      if (options.favorite !== undefined) match.favorite = !!options.favorite;
       return match.id;
     }
+    ensureSavedMeta();
+    const maxOrder = data.saved.reduce((max, m) => Math.max(max, Number(m.order) || 0), -1);
     const id = uid();
     data.saved.push({
       id,
       ...payload,
       ready: options.ready !== undefined ? !!options.ready : false,
+      favorite: options.favorite !== undefined ? !!options.favorite : false,
+      order: maxOrder + 1,
     });
     return id;
   }
