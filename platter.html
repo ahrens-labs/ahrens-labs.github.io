@@ -98,19 +98,53 @@
       min-width: 0;
     }
 
-    .pl-week-menu-select {
+    .pl-menu-bubbles {
       flex: 1 1 auto;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
       min-width: 0;
-      min-height: 40px;
-      border: 1px solid var(--pl-line);
-      border-radius: 10px;
+      padding: 1px 0;
+    }
+
+    .pl-menu-bubbles::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pl-menu-bubble {
+      flex: 0 0 auto;
+      appearance: none;
+      border: 1.5px solid var(--pl-line);
+      background: #fff;
+      color: var(--pl-ink);
+      border-radius: 999px;
+      min-height: 36px;
       padding: 0 12px;
       font: inherit;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       font-weight: 700;
-      color: var(--pl-ink);
-      background: #fff;
-      box-sizing: border-box;
+      cursor: pointer;
+      touch-action: manipulation;
+      white-space: nowrap;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pl-menu-bubble.is-active {
+      border-color: var(--pl-accent);
+      background: var(--pl-accent-soft);
+      color: var(--pl-accent);
+    }
+
+    .pl-menu-bubble.is-shared:not(.is-active) {
+      border-style: dashed;
+    }
+
+    .pl-share-menu-bubbles {
+      margin-bottom: 12px;
     }
 
     .pl-week-bar {
@@ -1143,7 +1177,7 @@
       <div id="pl-app" hidden>
         <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
           <div class="pl-toolbar-top">
-            <select id="pl-week-menu-select" class="pl-week-menu-select" aria-label="Choose menu"></select>
+            <div class="pl-menu-bubbles" id="pl-week-menu-bubbles" role="listbox" aria-label="Choose menu"></div>
             <label class="pl-mode-toggle" id="pl-dinner-only-label" title="Show only dinner for each day">
               <input type="checkbox" id="pl-dinner-only">
               <span>Dinner only</span>
@@ -1185,8 +1219,8 @@
           <p class="pl-hint">Menus sync to your Ahrens Labs account. Share with another username or email so they can edit the same week plan.</p>
 
           <div class="pl-field">
-            <label for="pl-menu-select">Active menu</label>
-            <select id="pl-menu-select" aria-label="Choose menu"></select>
+            <label>Active menu</label>
+            <div class="pl-menu-bubbles pl-share-menu-bubbles" id="pl-share-menu-bubbles" role="listbox" aria-label="Choose menu"></div>
           </div>
 
           <div class="pl-field" id="pl-menu-name-field">
@@ -1340,8 +1374,8 @@
   const readyTrayList = document.getElementById('pl-ready-tray-list');
   const readyEmptyHint = document.getElementById('pl-ready-empty');
   const sheetGrab = document.getElementById('pl-sheet-grab');
-  const menuSelect = document.getElementById('pl-menu-select');
-  const weekMenuSelect = document.getElementById('pl-week-menu-select');
+  const menuBubblesWeek = document.getElementById('pl-week-menu-bubbles');
+  const menuBubblesShare = document.getElementById('pl-share-menu-bubbles');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
   const shareInput = document.getElementById('pl-share-input');
@@ -1902,29 +1936,46 @@
     return updated;
   }
 
-  function fillMenuSelectOptions(selectEl) {
-    if (!selectEl) return;
-    selectEl.innerHTML = menus
-      .map((m) => {
-        const label = m.isOwner
-          ? m.name
-          : m.name + ' · shared' + (m.ownerUsername ? ' by ' + m.ownerUsername : '');
-        return (
-          '<option value="' +
-          m.id +
-          '"' +
-          (m.id === activeMenuId ? ' selected' : '') +
-          '>' +
-          escapeHtml(label) +
-          '</option>'
-        );
-      })
-      .join('');
+  function menuBubbleLabel(m) {
+    if (m.isOwner) return m.name || 'Menu';
+    return (m.name || 'Menu') + (m.ownerUsername ? ' · ' + m.ownerUsername : ' · shared');
+  }
+
+  function renderMenuBubbles(container) {
+    if (!container) return;
+    const frag = document.createDocumentFragment();
+    if (!menus.length) {
+      const empty = document.createElement('span');
+      empty.className = 'pl-ready-empty';
+      empty.textContent = 'No menus yet';
+      container.replaceChildren(empty);
+      return;
+    }
+    menus.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'pl-menu-bubble' +
+        (m.id === activeMenuId ? ' is-active' : '') +
+        (!m.isOwner ? ' is-shared' : '');
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', m.id === activeMenuId ? 'true' : 'false');
+      btn.dataset.menuId = m.id;
+      btn.textContent = menuBubbleLabel(m);
+      btn.title = menuBubbleLabel(m);
+      btn.addEventListener('click', () => switchMenu(m.id));
+      frag.appendChild(btn);
+    });
+    container.replaceChildren(frag);
+    const activeBtn = container.querySelector('.pl-menu-bubble.is-active');
+    if (activeBtn && activeBtn.scrollIntoView) {
+      activeBtn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   function renderSharePanel() {
-    fillMenuSelectOptions(menuSelect);
-    fillMenuSelectOptions(weekMenuSelect);
+    renderMenuBubbles(menuBubblesWeek);
+    renderMenuBubbles(menuBubblesShare);
 
     if (menuNameInput) menuNameInput.value = menuMeta.name || '';
     if (menuNameField) menuNameField.hidden = !menuMeta.isOwner;
@@ -2971,12 +3022,6 @@
   });
   leaveMenuBtn.addEventListener('click', leaveMenu);
   document.getElementById('pl-menu-rename').addEventListener('click', renameMenu);
-  if (menuSelect) {
-    menuSelect.addEventListener('change', () => switchMenu(menuSelect.value));
-  }
-  if (weekMenuSelect) {
-    weekMenuSelect.addEventListener('change', () => switchMenu(weekMenuSelect.value));
-  }
 
   bottomNav.querySelectorAll('[data-pl-tab]').forEach((btn) => {
     btn.addEventListener('click', () => setTab(btn.getAttribute('data-pl-tab')));
