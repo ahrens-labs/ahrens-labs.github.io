@@ -228,18 +228,11 @@ function normalizeMinutes(raw) {
   return Math.min(24 * 60, Math.round(n));
 }
 
-function normalizeColor(raw) {
-  const s = String(raw || '').trim().toLowerCase();
-  if (/^#[0-9a-f]{6}$/.test(s)) return s;
-  return '';
-}
-
 function normalizeMealFields(raw) {
   return {
     name: String(raw.name || '').trim().slice(0, 120),
     details: String(raw.details || '').trim().slice(0, 2000),
     cookMinutes: normalizeMinutes(raw.cookMinutes),
-    color: normalizeColor(raw.color),
   };
 }
 
