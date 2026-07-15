@@ -995,10 +995,10 @@
       bottom: 0;
       z-index: 100;
       display: flex;
-      background: #fff;
-      border-top: 1px solid var(--pl-line);
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
       padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-      box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.05);
     }
 
     .pl-bottom-nav-item {
@@ -1014,7 +1014,7 @@
       font: inherit;
       font-size: 0.72rem;
       font-weight: 700;
-      color: var(--pl-muted);
+      color: #64748b;
       cursor: pointer;
       border-radius: 12px;
       touch-action: manipulation;
@@ -1022,13 +1022,14 @@
     }
 
     .pl-bottom-nav-item.active {
-      color: var(--pl-accent);
-      background: var(--pl-accent-soft);
+      color: #334155;
+      background: rgba(241, 245, 249, 0.95);
     }
 
     .pl-bottom-nav-icon {
       font-size: 1.25rem;
       line-height: 1;
+      color: inherit;
     }
 
     .pl-sheet-backdrop {
