@@ -2267,8 +2267,11 @@
     });
     container.replaceChildren(frag);
     const activeBtn = container.querySelector('.pl-menu-bubble.is-active');
-    if (activeBtn && activeBtn.scrollIntoView) {
-      activeBtn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+    // Scroll only inside the bubble rail — never the page (scrollIntoView jumps to top).
+    if (activeBtn && container.scrollWidth > container.clientWidth) {
+      const left =
+        activeBtn.offsetLeft - (container.clientWidth - activeBtn.offsetWidth) / 2;
+      container.scrollLeft = Math.max(0, left);
     }
   }
 
@@ -2630,8 +2633,7 @@
     });
   }
 
-  function renderWeek(opts) {
-    const options = opts || {};
+  function renderWeek() {
     const keepScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     const today = new Date();
     const thisWeek = startOfWeek(today);
@@ -2746,32 +2748,20 @@
       frag.appendChild(col);
     }
     weekGrid.replaceChildren(frag);
-    if (options.scrollToToday) {
-      requestAnimationFrame(() => {
-        scrollTodayIntoCenter();
-      });
-      return;
-    }
     // Keep the viewport where the user left it after edits / drag-drop / sync.
-    requestAnimationFrame(() => {
-      window.scrollTo(0, keepScrollY);
-    });
+    // Never auto-scroll to today or the top of the page.
+    restoreWindowScroll(keepScrollY);
   }
 
-  function scrollTodayIntoCenter() {
-    const todayCol = weekGrid && weekGrid.querySelector('.pl-day.is-today');
-    if (!todayCol) return;
-    const rect = todayCol.getBoundingClientRect();
-    const header = document.querySelector('.th-app-header');
-    const nav = document.getElementById('pl-bottom-nav');
-    const topInset = (header ? header.getBoundingClientRect().height : 0) + 10;
-    const bottomInset =
-      (nav && !nav.hidden ? nav.getBoundingClientRect().height : 0) +
-      10 +
-      (parseInt(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)'), 10) || 0);
-    const visibleH = Math.max(120, window.innerHeight - topInset - bottomInset);
-    const targetTop = window.scrollY + rect.top - topInset - (visibleH - rect.height) / 2;
-    window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+  function restoreWindowScroll(y) {
+    const top = Math.max(0, Number(y) || 0);
+    const apply = () => {
+      window.scrollTo(0, top);
+      if (document.documentElement) document.documentElement.scrollTop = top;
+      if (document.body) document.body.scrollTop = top;
+    };
+    apply();
+    requestAnimationFrame(apply);
   }
 
   function renderSaved() {
@@ -3510,7 +3500,7 @@
   });
   document.getElementById('pl-week-today').addEventListener('click', () => {
     weekAnchor = startOfWeek(new Date());
-    renderWeek({ scrollToToday: true });
+    renderWeek();
   });
   if (dinnerOnlyInput) {
     dinnerOnlyInput.addEventListener('change', () => setDinnerOnly(dinnerOnlyInput.checked));
