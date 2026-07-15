@@ -23,7 +23,7 @@ OUT_SVG = IMG / "platter-logo.svg"
 OUT_FAVICON_SVG = IMG / "platter-favicon.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "10"
+ASSET_VERSION = "11"
 
 # Warm yellow / gold — same shading model as Tether/Link (a touch brighter).
 CHAIN_HIGHLIGHT = np.array([240.0, 200.0, 55.0], dtype=np.float32)
@@ -176,12 +176,12 @@ def opening_center(arr: np.ndarray) -> tuple[float, float]:
 
 
 def medallion_target_size(arr: np.ndarray) -> int:
-    """Plate over the chain join (~1.75× the original medallion)."""
+    """Plate over the chain join (~2× the original medallion)."""
     chain = chain_mask_from_template(arr)
     ys, xs = np.where(chain)
     chain_h = ys.max() - ys.min() + 1
-    # Original was 0.72 * chain_h; 1.75× that ≈ 1.26.
-    return int(round(chain_h * 1.26))
+    # Original was 0.72 * chain_h; 2× that ≈ 1.44.
+    return int(round(chain_h * 1.44))
 
 
 def place_medallion(base: Image.Image, med: Image.Image, cx: float, cy: float, size: int) -> Image.Image:
