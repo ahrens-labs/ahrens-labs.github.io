@@ -1192,7 +1192,7 @@
           <div class="pl-field" id="pl-menu-name-field">
             <label for="pl-menu-name">Menu name</label>
             <div class="pl-inline-actions">
-              <input id="pl-menu-name" type="text" maxlength="80" autocomplete="off" placeholder="My menu">
+              <input id="pl-menu-name" type="text" maxlength="80" autocomplete="off" placeholder="yourname's menu">
               <button type="button" class="pl-btn pl-btn-ghost" id="pl-menu-rename">Rename</button>
             </div>
           </div>
@@ -1359,7 +1359,7 @@
   /** @type {Array<{ id: string, name: string, isOwner: boolean, ownerUsername?: string, members?: any[], updatedAt?: number }>} */
   let menus = [];
   let activeMenuId = null;
-  let menuMeta = { isOwner: true, name: 'My menu', members: [], ownerUsername: '' };
+  let menuMeta = { isOwner: true, name: "Menu", members: [], ownerUsername: '' };
   let storageKey = 'platter_data_guest';
   let sessionId = '';
   let syncTimer = null;

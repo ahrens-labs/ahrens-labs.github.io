@@ -330,9 +330,10 @@ async function resolveShareTarget(env, usernameOrEmail) {
 async function createPersonalMenu(env, profile) {
   const id = newMenuId();
   const now = Date.now();
+  const username = String(profile.username || 'user').trim() || 'user';
   const menu = {
     id,
-    name: 'My menu',
+    name: username + "'s menu",
     ownerUserId: profile.userId,
     ownerUsername: profile.username,
     members: [
@@ -383,9 +384,22 @@ async function ensureBootstrap(env, userId) {
   if (!profile) return { error: 'Account not found', status: 404 };
 
   let menus = await listAccessibleMenus(env, userId);
-  if (!menus.length) {
+  const owned = menus.filter((m) => m.ownerUserId === userId);
+  // Every account always has a personal owned menu named "{username}'s menu".
+  if (!owned.length) {
     const personal = await createPersonalMenu(env, profile);
-    menus = [personal];
+    menus = [personal, ...menus.filter((m) => m.id !== personal.id)];
+  } else {
+    const username = String(profile.username || 'user').trim() || 'user';
+    const desired = username + "'s menu";
+    for (const menu of owned) {
+      // Migrate the old default name only — leave custom renames alone.
+      if (menu.name === 'My menu') {
+        menu.name = desired;
+        menu.updatedAt = Date.now();
+        await saveMenu(env, menu);
+      }
+    }
   }
 
   let state = await getPlatterState(env, userId);
