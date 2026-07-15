@@ -37,14 +37,11 @@
       --pl-accent: #ca8a04;
       --pl-accent-soft: #fef08a;
       --pl-accent-mid: #facc15;
-      --pl-breakfast: #f59e0b;
-      --pl-breakfast-soft: #fffbeb;
-      --pl-lunch: #0284c7;
-      --pl-lunch-soft: #e0f2fe;
-      --pl-dinner: #7c3aed;
-      --pl-dinner-soft: #ede9fe;
       --pl-danger: #dc2626;
       --pl-layout-pad: 12px;
+      --pl-slot-dot: #a8a29e;
+      --pl-meal-default: #ffffff;
+      --pl-meal-default-border: #e7e5e4;
     }
 
     body.pl-page {
@@ -320,11 +317,8 @@
       height: 7px;
       border-radius: 50%;
       flex-shrink: 0;
+      background: var(--pl-slot-dot);
     }
-
-    .pl-slot[data-meal="breakfast"] .pl-slot-dot { background: var(--pl-breakfast); }
-    .pl-slot[data-meal="lunch"] .pl-slot-dot { background: var(--pl-lunch); }
-    .pl-slot[data-meal="dinner"] .pl-slot-dot { background: var(--pl-dinner); }
 
     .pl-slot-body {
       min-height: 56px;
@@ -423,8 +417,8 @@
       min-height: 56px;
       width: 100%;
       border-radius: 12px;
-      border: 1.5px solid transparent;
-      background: #fff;
+      border: 1.5px solid var(--pl-meal-default-border);
+      background: var(--pl-meal-default);
       cursor: grab;
       touch-action: none;
       user-select: none;
@@ -435,21 +429,6 @@
 
     .pl-meal-card:active {
       cursor: grabbing;
-    }
-
-    .pl-slot[data-meal="breakfast"] .pl-meal-card {
-      background: var(--pl-breakfast-soft);
-      border-color: #fcd34d;
-    }
-
-    .pl-slot[data-meal="lunch"] .pl-meal-card {
-      background: var(--pl-lunch-soft);
-      border-color: #7dd3fc;
-    }
-
-    .pl-slot[data-meal="dinner"] .pl-meal-card {
-      background: var(--pl-dinner-soft);
-      border-color: #c4b5fd;
     }
 
     .pl-meal-card.is-dragging {
@@ -794,12 +773,11 @@
     }
 
     .pl-saved-item.is-ready {
-      border-color: #fde68a;
-      background: #fffbeb;
+      border-color: #fbbf24;
     }
 
     .pl-saved-item.is-favorite {
-      border-color: #fbbf24;
+      box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.35);
     }
 
     .pl-saved-item.is-dragging {
@@ -1147,8 +1125,8 @@
       min-height: 32px;
       padding: 4px 9px;
       border-radius: 999px;
-      border: 1px solid #fde68a;
-      background: var(--pl-breakfast-soft);
+      border: 1px solid var(--pl-meal-default-border);
+      background: var(--pl-meal-default);
       color: var(--pl-ink);
       font: inherit;
       text-align: left;
@@ -1179,10 +1157,42 @@
       white-space: nowrap;
     }
 
-    .pl-sheet h2 {
-      margin: 0 0 4px;
-      font-size: 1.15rem;
-      font-weight: 800;
+    .pl-color-field {
+      margin-bottom: 12px;
+    }
+
+    .pl-color-field > label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--pl-muted);
+      margin-bottom: 6px;
+    }
+
+    .pl-color-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pl-color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 2px solid rgba(15, 23, 42, 0.12);
+      padding: 0;
+      cursor: pointer;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+
+    .pl-color-swatch.is-selected {
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pl-accent);
+      border-color: transparent;
+    }
+
+    .pl-saved-item.has-color {
+      border-left-width: 5px;
     }
 
     .pl-sheet-sub {
@@ -1484,6 +1494,11 @@
       <p class="pl-hint" style="margin:6px 0 0;">Paste recipe links here — they’ll become tappable in the week view.</p>
     </div>
 
+    <div class="pl-color-field" id="pl-color-field">
+      <label>Color</label>
+      <div class="pl-color-swatches" id="pl-color-swatches" role="listbox" aria-label="Meal color"></div>
+    </div>
+
     <label class="pl-check" id="pl-save-library-wrap">
       <input type="checkbox" id="pl-save-library">
       <span>Also save to my meal library</span>
@@ -1521,6 +1536,19 @@
     { id: 'lunch', label: 'Lunch' },
     { id: 'dinner', label: 'Dinner' },
   ];
+  const MEAL_COLORS = [
+    '#ffffff',
+    '#fee2e2',
+    '#ffedd5',
+    '#fef3c7',
+    '#dcfce7',
+    '#ccfbf1',
+    '#e0f2fe',
+    '#ede9fe',
+    '#fce7f3',
+    '#f1f5f9',
+  ];
+  const DEFAULT_MEAL_COLOR = '#ffffff';
   const DINNER_ONLY_STORAGE_PREFIX = 'platter_dinner_only_';
   let dinnerOnly = false;
   let prefsKey = DINNER_ONLY_STORAGE_PREFIX + 'guest';
@@ -1541,6 +1569,8 @@
   const nameInput = document.getElementById('pl-meal-name');
   const cookInput = document.getElementById('pl-meal-cook');
   const detailsInput = document.getElementById('pl-meal-details');
+  const colorSwatches = document.getElementById('pl-color-swatches');
+  const colorField = document.getElementById('pl-color-field');
   const saveLibrary = document.getElementById('pl-save-library');
   const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
   const readyInput = document.getElementById('pl-meal-ready');
@@ -1599,6 +1629,9 @@
   /** @type {string|null} */
   let placeModeSavedId = null;
   let didDrag = false;
+
+  /** @type {string} */
+  let selectedMealColor = DEFAULT_MEAL_COLOR;
 
   const savedReorder = {
     active: false,
@@ -1661,11 +1694,71 @@
     return mealMetaParts(meal).join(' · ');
   }
 
+  function normalizeMealColor(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(s)) return s;
+    return '';
+  }
+
+  function mealBorderFromColor(hex) {
+    const c = normalizeMealColor(hex) || DEFAULT_MEAL_COLOR;
+    if (c === '#ffffff' || c === '#f1f5f9') return '#e7e5e4';
+    const n = parseInt(c.slice(1), 16);
+    const r = Math.round(((n >> 16) & 255) * 0.78);
+    const g = Math.round(((n >> 8) & 255) * 0.78);
+    const b = Math.round((n & 255) * 0.78);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function applyMealColorStyle(el, color) {
+    if (!el) return;
+    const bg = normalizeMealColor(color) || DEFAULT_MEAL_COLOR;
+    el.style.background = bg;
+    el.style.borderColor = mealBorderFromColor(bg);
+  }
+
+  function resolveMealColor(mealData) {
+    if (!mealData) return DEFAULT_MEAL_COLOR;
+    const direct = normalizeMealColor(mealData.color);
+    if (direct) return direct;
+    if (mealData.savedId) {
+      const saved = data.saved.find((s) => s.id === mealData.savedId);
+      if (saved) {
+        const fromSaved = normalizeMealColor(saved.color);
+        if (fromSaved) return fromSaved;
+      }
+    }
+    return DEFAULT_MEAL_COLOR;
+  }
+
+  function renderColorSwatches() {
+    if (!colorSwatches) return;
+    const frag = document.createDocumentFragment();
+    MEAL_COLORS.forEach((hex) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pl-color-swatch' + (selectedMealColor === hex ? ' is-selected' : '');
+      btn.style.background = hex;
+      btn.dataset.color = hex;
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', selectedMealColor === hex ? 'true' : 'false');
+      btn.setAttribute('aria-label', 'Color ' + hex);
+      btn.title = hex === '#ffffff' ? 'Default' : hex;
+      btn.addEventListener('click', () => {
+        selectedMealColor = hex;
+        renderColorSwatches();
+      });
+      frag.appendChild(btn);
+    });
+    colorSwatches.replaceChildren(frag);
+  }
+
   function emptyMeal() {
     return {
       name: '',
       details: '',
       cookMinutes: null,
+      color: DEFAULT_MEAL_COLOR,
       savedId: null,
     };
   }
@@ -1675,6 +1768,7 @@
       name: nameInput.value.trim(),
       details: detailsInput.value.trim(),
       cookMinutes: parseMinutes(cookInput.value),
+      color: normalizeMealColor(selectedMealColor) || DEFAULT_MEAL_COLOR,
     };
   }
 
@@ -1683,6 +1777,8 @@
     nameInput.value = m.name || '';
     detailsInput.value = m.details || '';
     cookInput.value = m.cookMinutes != null ? String(m.cookMinutes) : '';
+    selectedMealColor = resolveMealColor(m);
+    renderColorSwatches();
   }
 
   function mealsEqualForLibrary(a, b) {
@@ -2096,6 +2192,7 @@
       name: meal.name,
       details: meal.details || '',
       cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
+      color: normalizeMealColor(meal.color) || DEFAULT_MEAL_COLOR,
       savedId: meal.id || null,
     };
   }
@@ -2105,6 +2202,7 @@
     data.saved.forEach((meal, i) => {
       meal.ready = !!meal.ready;
       meal.favorite = !!meal.favorite;
+      meal.color = normalizeMealColor(meal.color) || DEFAULT_MEAL_COLOR;
       const orderNum = Number(meal.order);
       if (!Number.isFinite(orderNum)) meal.order = i;
       else meal.order = Math.round(orderNum);
@@ -2194,6 +2292,7 @@
         chip.setAttribute('aria-label', meal.name + '. Drag onto a day slot.');
         chip.innerHTML = '<strong></strong>' + (meal.cookMinutes != null ? '<span></span>' : '');
         chip.querySelector('strong').textContent = meal.name;
+        applyMealColorStyle(chip, resolveMealColor(meal));
         const meta = chip.querySelector('span');
         if (meta) meta.textContent = formatMinutes(meal.cookMinutes);
         chip.addEventListener('pointerdown', onReadyPointerDown);
@@ -2213,6 +2312,7 @@
         name: meal.name,
         details: meal.details || '',
         cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
+        color: normalizeMealColor(meal.color) || DEFAULT_MEAL_COLOR,
         savedId,
       };
       updated += 1;
@@ -2684,6 +2784,7 @@
             '</div>';
           if (cookLabel) card.querySelector('.pl-meal-time').textContent = cookLabel;
           card.querySelector('.pl-meal-name').textContent = mealData.name;
+          applyMealColorStyle(card, resolveMealColor(mealData));
           const det = card.querySelector('.pl-meal-details');
           if (det) det.innerHTML = linkifyNotes(mealData.details);
           card.addEventListener('keydown', (e) => {
@@ -2799,6 +2900,12 @@
         row.querySelector('strong').textContent = meal.name;
         row.querySelector('span').textContent =
           mealMetaText(meal) || meal.details || 'No details yet';
+        const mealColor = resolveMealColor(meal);
+        if (mealColor && mealColor !== DEFAULT_MEAL_COLOR) {
+          row.classList.add('has-color');
+          row.style.borderLeftColor = mealBorderFromColor(mealColor);
+          row.style.background = mealColor;
+        }
         const readyBtn = row.querySelector('[data-act="ready"]');
         readyBtn.textContent = meal.ready ? 'Ready ✓' : 'Ready';
         readyBtn.classList.toggle('is-on', !!meal.ready);
@@ -3137,6 +3244,7 @@
       ...payload,
       ready: options.ready !== undefined ? !!options.ready : false,
       favorite: options.favorite !== undefined ? !!options.favorite : false,
+      color: normalizeMealColor(payload.color) || DEFAULT_MEAL_COLOR,
       order: maxOrder + 1,
     });
     return id;
