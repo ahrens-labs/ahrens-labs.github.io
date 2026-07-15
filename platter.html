@@ -1428,7 +1428,7 @@
           <div class="pl-ready-tray is-empty" id="pl-ready-tray">
             <div class="pl-ready-tray-head">
               <strong>Ready</strong>
-              <span class="pl-ready-empty" id="pl-ready-empty">Mark Saved meals Ready to drag them here.</span>
+              <span class="pl-ready-empty" id="pl-ready-empty">Mark Saved meals Ready to drag here — each one can be used once.</span>
               <button type="button" class="pl-btn pl-btn-ghost" id="pl-ready-manage">Manage</button>
             </div>
             <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="Meals you have ingredients for"></div>
@@ -1445,7 +1445,7 @@
             <h2>Saved meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray.</p>
+          <p class="pl-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -2131,11 +2131,20 @@
     const payload = mealPayloadFromReady(meal);
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
+    if (meal && meal.ready) meal.ready = false;
     persist();
     placeModeSavedId = null;
     updatePlaceBanner();
     renderWeek();
     renderReadyTray();
+    renderSaved();
+    return true;
+  }
+
+  function consumeReadyMeal(id) {
+    const meal = data.saved.find((s) => s.id === id);
+    if (!meal || !meal.ready) return false;
+    meal.ready = false;
     return true;
   }
 
@@ -2235,7 +2244,7 @@
       readyEmptyHint.hidden = !!ready.length;
       readyEmptyHint.textContent = ready.length
         ? ''
-        : 'Mark Saved meals Ready to drag them here.';
+        : 'Mark Saved meals Ready to drag here — each one can be used once.';
     }
     if (!ready.length) {
       readyTrayList.replaceChildren();
@@ -3520,8 +3529,11 @@
         const payload = mealPayloadFromReady(meal);
         if (payload) {
           data.slots[toKey] = payload;
+          consumeReadyMeal(readyId);
           persist();
           renderWeek();
+          renderReadyTray();
+          renderSaved();
         }
       } else if (fromKey) {
         const fromMeal = data.slots[fromKey] || null;
