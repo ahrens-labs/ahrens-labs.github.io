@@ -3021,8 +3021,7 @@
         }
 
         function adminAppLinkDetail(a) {
-          if (!a?.appLink && !a?.appLinkBound) return 'None';
-          if (!a?.appLink) return 'Signed in · no contacts yet';
+          if (!a?.appLink) return 'None';
           const contacts = Number(a.appLinkContactCount) || 0;
           const interactions = Number(a.appLinkInteractionCount) || 0;
           const parts = [

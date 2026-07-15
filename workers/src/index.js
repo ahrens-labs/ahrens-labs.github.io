@@ -4516,26 +4516,7 @@ function adminAppUsageFields(row) {
   const appClassifyVacationCount = Array.isArray(classify?.vacations) ? classify.vacations.length : 0;
   const appClassifyLastUpdated =
     classify?.lastUpdated != null && Number(classify.lastUpdated) > 0 ? Number(classify.lastUpdated) : null;
-  let appClassify = false;
-  if (classify) {
-    if (appClassifyTaskCount > 0) appClassify = true;
-    else if (appClassifyBlockedCount > 0) appClassify = true;
-    else if (appClassifyVacationCount > 0) appClassify = true;
-    else if (appClassifyLastUpdated) appClassify = true;
-    else if (
-      classify.subjectColors &&
-      typeof classify.subjectColors === 'object' &&
-      Object.keys(classify.subjectColors).length > 0
-    ) {
-      appClassify = true;
-    } else if (
-      classify.repeatSkips &&
-      typeof classify.repeatSkips === 'object' &&
-      Object.keys(classify.repeatSkips).length > 0
-    ) {
-      appClassify = true;
-    }
-  }
+  const appClassify = appClassifyTaskCount > 0;
 
   const tether = row && typeof row.tether === 'object' ? row.tether : null;
   const appTetherProjectCount = Array.isArray(tether?.projectIds)
@@ -4603,7 +4584,7 @@ async function loadLinkAppUsageByAhrensId(env) {
         stats.lastInteractionAt || stats.lastContactUpdatedAt || stats.linkUserUpdatedAt
       );
       map.set(key, {
-        appLink: contactCount > 0 || interactionCount > 0,
+        appLink: contactCount > 0,
         appLinkContactCount: contactCount,
         appLinkInteractionCount: interactionCount,
         appLinkLastActivity: lastActivity,
