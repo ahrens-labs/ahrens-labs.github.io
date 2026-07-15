@@ -655,8 +655,58 @@
       border: 1px solid #fecaca;
     }
 
+    .pl-btn-danger-solid {
+      background: var(--pl-danger);
+      color: #fff;
+      border: 1px solid var(--pl-danger);
+    }
+
     .pl-btn-block {
       width: 100%;
+    }
+
+    .pl-confirm-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 60000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .pl-confirm-backdrop.open {
+      display: flex;
+    }
+
+    .pl-confirm-modal {
+      width: min(400px, 100%);
+      background: #fff;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+    }
+
+    .pl-confirm-modal h3 {
+      margin: 0 0 10px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--pl-ink);
+    }
+
+    .pl-confirm-modal p {
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      color: var(--pl-ink);
+    }
+
+    .pl-confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 18px;
     }
 
     .pl-saved-list {
@@ -1329,6 +1379,17 @@
     </div>
   </div>
 
+  <div class="pl-confirm-backdrop" id="pl-confirm" hidden role="dialog" aria-modal="true" aria-labelledby="pl-confirm-title">
+    <div class="pl-confirm-modal">
+      <h3 id="pl-confirm-title">Confirm</h3>
+      <p id="pl-confirm-message"></p>
+      <div class="pl-confirm-actions">
+        <button type="button" class="pl-btn pl-btn-ghost" id="pl-confirm-cancel">Cancel</button>
+        <button type="button" class="pl-btn pl-btn-primary" id="pl-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script>
 (function () {
   const MEALS = [
@@ -1411,6 +1472,7 @@
   let weekAnchor = startOfWeek(new Date());
   /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
   let sheetState = null;
+  let confirmResolve = null;
   let didDrag = false;
 
   const drag = {
@@ -2055,9 +2117,49 @@
     }
   }
 
+  function showConfirm(opts) {
+    return new Promise((resolve) => {
+      confirmResolve = resolve;
+      const backdrop = document.getElementById('pl-confirm');
+      const titleEl = document.getElementById('pl-confirm-title');
+      const messageEl = document.getElementById('pl-confirm-message');
+      const okBtn = document.getElementById('pl-confirm-ok');
+      if (!backdrop || !titleEl || !messageEl || !okBtn) {
+        resolve(false);
+        return;
+      }
+      titleEl.textContent = opts.title || 'Confirm';
+      messageEl.textContent = opts.message || '';
+      okBtn.textContent = opts.confirmLabel || 'Confirm';
+      okBtn.className =
+        'pl-btn ' + (opts.danger ? 'pl-btn-danger-solid' : 'pl-btn-primary');
+      backdrop.hidden = false;
+      requestAnimationFrame(() => backdrop.classList.add('open'));
+    });
+  }
+
+  function closeConfirm(result) {
+    const backdrop = document.getElementById('pl-confirm');
+    if (backdrop) {
+      backdrop.classList.remove('open');
+      backdrop.hidden = true;
+    }
+    if (confirmResolve) {
+      const resolve = confirmResolve;
+      confirmResolve = null;
+      resolve(!!result);
+    }
+  }
+
   async function unshareMember(userId) {
     if (!activeMenuId || !userId) return;
-    if (!confirm('Remove this person’s access to the menu?')) return;
+    const ok = await showConfirm({
+      title: 'Remove access?',
+      message: 'Remove this person’s access to the menu?',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const result = await api('/api/platter/unshare', {
         method: 'POST',
@@ -2072,7 +2174,13 @@
 
   async function leaveMenu() {
     if (!activeMenuId || menuMeta.isOwner) return;
-    if (!confirm('Leave this shared menu?')) return;
+    const ok = await showConfirm({
+      title: 'Leave menu?',
+      message: 'Leave this shared menu?',
+      confirmLabel: 'Leave',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const result = await api('/api/platter/leave', {
         method: 'POST',
@@ -2459,8 +2567,14 @@
         row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
         readyBtn.addEventListener('click', () => toggleMealReady(meal.id));
         row.querySelector('[data-act="place"]').addEventListener('click', () => openPlaceSaved(meal.id));
-        row.querySelector('[data-act="delete"]').addEventListener('click', () => {
-          if (!confirm('Delete "' + meal.name + '" from saved meals?')) return;
+        row.querySelector('[data-act="delete"]').addEventListener('click', async () => {
+          const ok = await showConfirm({
+            title: 'Delete meal?',
+            message: 'Delete "' + meal.name + '" from saved meals?',
+            confirmLabel: 'Delete',
+            danger: true,
+          });
+          if (!ok) return;
           data.saved = data.saved.filter((s) => s.id !== meal.id);
           persist();
           renderSaved();
@@ -3005,6 +3119,24 @@
   }
   document.getElementById('pl-sheet-save').addEventListener('click', saveSheet);
   document.getElementById('pl-sheet-cancel').addEventListener('click', closeSheet);
+
+  const confirmOkBtn = document.getElementById('pl-confirm-ok');
+  const confirmCancelBtn = document.getElementById('pl-confirm-cancel');
+  const confirmBackdrop = document.getElementById('pl-confirm');
+  if (confirmOkBtn) confirmOkBtn.addEventListener('click', () => closeConfirm(true));
+  if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', () => closeConfirm(false));
+  if (confirmBackdrop) {
+    confirmBackdrop.addEventListener('click', (e) => {
+      if (e.target === confirmBackdrop) closeConfirm(false);
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (confirmBackdrop && confirmBackdrop.classList.contains('open')) {
+      e.preventDefault();
+      closeConfirm(false);
+    }
+  });
   document.getElementById('pl-sheet-clear').addEventListener('click', clearSlot);
   sheetBackdrop.addEventListener('click', closeSheet);
   if (sheetGrab) {
