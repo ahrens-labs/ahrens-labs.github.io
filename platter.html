@@ -2875,10 +2875,15 @@
 
   function clearSavedDropMarkers() {
     if (!savedList) return;
-    savedList.querySelectorAll('.pl-saved-item.is-drop-slot-before, .pl-saved-item.is-drop-slot-after').forEach((el) => {
-      el.classList.remove('is-drop-slot-before', 'is-drop-slot-after');
-    });
     savedList.querySelectorAll('.pl-saved-drop-line').forEach((el) => el.remove());
+  }
+
+  function placeSavedDropLine(beforeEl) {
+    if (!savedList || !beforeEl) return;
+    const line = document.createElement('div');
+    line.className = 'pl-saved-drop-line';
+    line.setAttribute('aria-hidden', 'true');
+    savedList.insertBefore(line, beforeEl);
   }
 
   function hoverKey(hover) {
@@ -2886,8 +2891,14 @@
     return (hover.atEnd ? 'end' : hover.id || '') + ':' + (hover.before ? 'b' : 'a');
   }
 
-  function updateSavedReorderHover(x, y, force) {
+  function updateSavedReorderLive(x, y, force) {
     if (!savedList || !savedReorder.row) return null;
+    const dragging = savedReorder.row;
+
+    if (savedReorder.ghost) {
+      savedReorder.ghost.style.left = x + 'px';
+      savedReorder.ghost.style.top = y + 'px';
+    }
 
     const rows = Array.prototype.slice.call(
       savedList.querySelectorAll('.pl-saved-item:not(.is-dragging)')
@@ -2907,26 +2918,22 @@
       atEnd: !insertBefore,
     };
 
-    if (savedReorder.ghost) {
-      savedReorder.ghost.style.left = x + 'px';
-      savedReorder.ghost.style.top = y + 'px';
-    }
-
-    // Avoid rebuilding indicators every move — that shifted layout and felt stuck.
+    // Only reshuffle the list when the drop slot changes — keeps the ghost
+    // preview of the new order without thrashing layout every pointermove.
     if (!force && hoverKey(hover) === hoverKey(savedReorder.hover)) {
       savedReorder.hover = hover;
       return hover;
     }
 
     clearSavedDropMarkers();
-    const line = document.createElement('div');
-    line.className = 'pl-saved-drop-line';
-    line.setAttribute('aria-hidden', 'true');
     if (insertBefore) {
-      savedList.insertBefore(line, insertBefore);
-    } else {
-      savedList.appendChild(line);
+      if (dragging.nextElementSibling !== insertBefore) {
+        savedList.insertBefore(dragging, insertBefore);
+      }
+    } else if (savedList.lastElementChild !== dragging) {
+      savedList.appendChild(dragging);
     }
+    placeSavedDropLine(dragging);
 
     savedReorder.hover = hover;
     return hover;
@@ -2959,7 +2966,7 @@
     ghost.style.top = e.clientY + 'px';
     savedReorder.ghost = ghost;
 
-    updateSavedReorderHover(e.clientX, e.clientY, true);
+    updateSavedReorderLive(e.clientX, e.clientY, true);
 
     try {
       handle.setPointerCapture(e.pointerId);
@@ -2973,7 +2980,7 @@
     if (!savedReorder.active || e.pointerId !== savedReorder.pointerId) return;
     savedReorder.lastX = e.clientX;
     savedReorder.lastY = e.clientY;
-    updateSavedReorderHover(e.clientX, e.clientY, false);
+    updateSavedReorderLive(e.clientX, e.clientY, false);
   }
 
   function onSavedReorderPointerUp(e) {
@@ -2989,11 +2996,16 @@
     const fromId = savedReorder.fromId;
     const dropX = e.clientX != null ? e.clientX : savedReorder.lastX;
     const dropY = e.clientY != null ? e.clientY : savedReorder.lastY;
-    const hover = updateSavedReorderHover(dropX, dropY, true) || savedReorder.hover;
+    updateSavedReorderLive(dropX, dropY, true);
     clearSavedDropMarkers();
     if (savedReorder.row) savedReorder.row.classList.remove('is-dragging');
     if (savedReorder.ghost) savedReorder.ghost.remove();
     document.body.classList.remove('pl-saved-reordering');
+
+    // Persist from the live DOM order (already shows the ghost preview placement).
+    const orderedIds = Array.prototype.map
+      .call(savedList.querySelectorAll('.pl-saved-item'), (el) => el.dataset.savedId)
+      .filter(Boolean);
 
     savedReorder.active = false;
     savedReorder.pointerId = null;
@@ -3004,31 +3016,15 @@
     savedReorder.lastY = 0;
     savedReorder.hover = null;
 
-    if (!fromId) return;
-
-    const sorted = sortedSaved();
-    const fromIdx = sorted.findIndex((m) => m.id === fromId);
-    if (fromIdx < 0) return;
-    const [moved] = sorted.splice(fromIdx, 1);
-
-    if (!hover || hover.atEnd || !hover.id) {
-      sorted.push(moved);
-    } else {
-      let toIdx = sorted.findIndex((m) => m.id === hover.id);
-      if (toIdx < 0) {
-        sorted.splice(Math.min(fromIdx, sorted.length), 0, moved);
-      } else {
-        if (!hover.before) toIdx += 1;
-        toIdx = Math.max(0, Math.min(sorted.length, toIdx));
-        sorted.splice(toIdx, 0, moved);
-      }
-    }
-
-    const targetMeal = hover && hover.id ? data.saved.find((s) => s.id === hover.id) : null;
-    if (targetMeal) moved.favorite = !!targetMeal.favorite;
-
-    const next = sorted.filter((m) => !!m.favorite).concat(sorted.filter((m) => !m.favorite));
-    reindexSavedOrdersFromSorted(next);
+    if (!fromId || orderedIds.length < 2) return;
+    const byId = new Map(data.saved.map((m) => [m.id, m]));
+    const next = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+    data.saved.forEach((m) => {
+      if (!orderedIds.includes(m.id)) next.push(m);
+    });
+    // Favorites stay grouped at the top after a free drag.
+    const finalOrder = next.filter((m) => !!m.favorite).concat(next.filter((m) => !m.favorite));
+    reindexSavedOrdersFromSorted(finalOrder);
     persist();
     renderSaved();
     renderReadyTray();
