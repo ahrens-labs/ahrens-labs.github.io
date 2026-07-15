@@ -2019,7 +2019,7 @@
   function setTab(tab, opts) {
     const next = normalizeTab(tab);
     const options = opts || {};
-    if (next !== 'week') clearPlaceMode({ skipRender: true });
+    if (next !== 'week') clearPlaceMode();
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
@@ -2050,7 +2050,9 @@
   function clearPlaceMode(opts) {
     const options = opts || {};
     if (!placeModeSavedId) {
-      updatePlaceBanner();
+      document.body.classList.remove('pl-place-mode');
+      if (placeBanner) placeBanner.hidden = true;
+      if (placeBannerName) placeBannerName.textContent = '';
       return;
     }
     placeModeSavedId = null;
@@ -2074,7 +2076,8 @@
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
     persist();
-    clearPlaceMode({ skipRender: true });
+    placeModeSavedId = null;
+    updatePlaceBanner();
     renderWeek();
     renderReadyTray();
     return true;
@@ -2822,7 +2825,7 @@
             danger: true,
           });
           if (!ok) return;
-          if (placeModeSavedId === meal.id) clearPlaceMode({ skipRender: true });
+          if (placeModeSavedId === meal.id) clearPlaceMode();
           data.saved = data.saved.filter((s) => s.id !== meal.id);
           persist();
           renderSaved();
