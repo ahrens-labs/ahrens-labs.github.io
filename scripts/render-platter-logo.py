@@ -23,7 +23,7 @@ OUT_SVG = IMG / "platter-logo.svg"
 OUT_FAVICON_SVG = IMG / "platter-favicon.svg"
 CANVAS = 512
 FILL = 0.92
-ASSET_VERSION = "11"
+ASSET_VERSION = "12"
 
 # Warm yellow / gold — same shading model as Tether/Link (a touch brighter).
 CHAIN_HIGHLIGHT = np.array([240.0, 200.0, 55.0], dtype=np.float32)
@@ -157,6 +157,16 @@ def extract_medallion(src: Path) -> Image.Image:
     dark_m = CHAIN_DEEP
     newc = dark_m + (light_m - dark_m) * mLn[..., None]
     med[is_yellow, :3] = newc[is_yellow]
+
+    # Clear the solid white plate face so the interior is transparent.
+    mr, mg, mb, ma = med[..., 0], med[..., 1], med[..., 2], med[..., 3]
+    bright = (mr + mg + mb) / 3.0
+    sat = np.maximum.reduce([np.abs(mr - mg), np.abs(mg - mb), np.abs(mr - mb)])
+    is_plate_white = (ma > 20) & (bright > 220) & (sat < 28)
+    # Soften: fade near-white instead of a hard cut.
+    fade = np.clip((bright - 200) / 35.0, 0, 1) * np.clip((28 - sat) / 28.0, 0, 1)
+    fade = np.where(is_plate_white | ((ma > 20) & (bright > 200) & (sat < 40)), fade, 0)
+    med[..., 3] = ma * (1.0 - fade)
 
     # Soft circular alpha edge
     soft = np.clip((med_r - dist) / 2.5, 0, 1)
