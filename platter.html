@@ -702,6 +702,113 @@
       touch-action: manipulation;
     }
 
+    .pl-member-row-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .pl-member-role-select {
+      appearance: none;
+      border: 1px solid var(--pl-line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--pl-ink);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      min-height: 40px;
+      padding: 0 10px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-share-perms {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+
+    .pl-share-perm {
+      flex: 1 1 140px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 0;
+      padding: 12px 14px;
+      border: 1.5px solid var(--pl-line);
+      border-radius: 12px;
+      background: #fff;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-share-perm:has(input:checked) {
+      border-color: var(--pl-accent);
+      background: var(--pl-accent-soft);
+    }
+
+    .pl-share-perm input {
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .pl-share-perm strong {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--pl-ink);
+    }
+
+    .pl-share-perm span {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--pl-muted);
+      line-height: 1.35;
+    }
+
+    .pl-view-only-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #cbd5e1;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    body.pl-view-only .pl-view-only-banner {
+      display: flex;
+    }
+
+    body.pl-view-only .pl-ready-tray,
+    body.pl-view-only #pl-saved-new,
+    body.pl-view-only .pl-meal-clear,
+    body.pl-view-only .pl-saved-item-actions,
+    body.pl-view-only .pl-saved-drag,
+    body.pl-view-only .pl-saved-fav {
+      display: none !important;
+    }
+
+    body.pl-view-only .pl-meal-card {
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    body.pl-view-only .pl-slot-empty {
+      cursor: default;
+      color: var(--pl-muted);
+    }
+
     .pl-status {
       min-height: 1.2em;
       margin: 8px 0 0;
@@ -1446,6 +1553,9 @@
               <span>Dinner only</span>
             </label>
           </div>
+          <div class="pl-view-only-banner" id="pl-view-only-banner" role="status">
+            View only — you can look at this menu but not change it.
+          </div>
           <div class="pl-week-bar" id="pl-week-bar">
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
             <div class="pl-week-label" id="pl-week-hint" title="Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.">
@@ -1475,7 +1585,7 @@
             <h2>Saved meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
+          <p class="pl-hint" id="pl-saved-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1483,7 +1593,7 @@
           <div class="pl-saved-head">
             <h2>Share</h2>
           </div>
-          <p class="pl-hint">Menus sync to your Ahrens Labs account. Share with another username or email so they can edit the same week plan.</p>
+          <p class="pl-hint">Menus sync to your Ahrens Labs account. Share with another username or email — choose whether they can view only or edit the same week plan.</p>
 
           <div class="pl-field">
             <label>Active menu</label>
@@ -1500,7 +1610,23 @@
 
           <div class="pl-share-card" id="pl-share-owner-card">
             <h3>Share this menu</h3>
-            <p class="pl-hint">They’ll see it in Platter after you add them. Both of you can edit meals.</p>
+            <p class="pl-hint">They’ll see it in Platter after you add them. You can change their permission later.</p>
+            <div class="pl-share-perms" role="radiogroup" aria-label="Share permission">
+              <label class="pl-share-perm">
+                <input type="radio" name="pl-share-role" value="editor" checked>
+                <span>
+                  <strong>Can edit</strong>
+                  <span>Change meals, Ready tray, and library</span>
+                </span>
+              </label>
+              <label class="pl-share-perm">
+                <input type="radio" name="pl-share-role" value="viewer">
+                <span>
+                  <strong>View only</strong>
+                  <span>See the week plan without changing it</span>
+                </span>
+              </label>
+            </div>
             <div class="pl-inline-actions">
               <input id="pl-share-input" type="text" maxlength="120" autocomplete="username" placeholder="Username or email">
               <button type="button" class="pl-btn pl-btn-primary" id="pl-share-btn">Share</button>
@@ -1649,15 +1775,25 @@
   const membersList = document.getElementById('pl-members-list');
   const leaveMenuBtn = document.getElementById('pl-leave-menu');
   const syncLine = document.getElementById('pl-sync-line');
+  const sheetSaveBtn = document.getElementById('pl-sheet-save');
+  const sheetActionsRow = document.querySelector('.pl-sheet-actions-row');
+  const savedHint = document.getElementById('pl-saved-hint');
 
   const API_BASE = window.AHRENS_LABS_API_BASE || 'https://chess-accounts.matthewahrens.workers.dev';
 
   /** @type {{ slots: Record<string, any>, saved: Array<any> }} */
   let data = { slots: {}, saved: [] };
-  /** @type {Array<{ id: string, name: string, isOwner: boolean, ownerUsername?: string, members?: any[], updatedAt?: number }>} */
+  /** @type {Array<{ id: string, name: string, isOwner: boolean, canEdit?: boolean, myRole?: string, ownerUsername?: string, members?: any[], updatedAt?: number }>} */
   let menus = [];
   let activeMenuId = null;
-  let menuMeta = { isOwner: true, name: "Menu", members: [], ownerUsername: '' };
+  let menuMeta = {
+    isOwner: true,
+    canEdit: true,
+    myRole: 'owner',
+    name: 'Menu',
+    members: [],
+    ownerUsername: '',
+  };
   let storageKey = 'platter_data_guest';
   let sessionId = '';
   let syncTimer = null;
@@ -1953,6 +2089,8 @@
     activeMenuId = menu && menu.id ? menu.id : activeMenuId;
     menuMeta = {
       isOwner: !!(menu && menu.isOwner),
+      canEdit: menu && menu.canEdit === false ? false : true,
+      myRole: (menu && menu.myRole) || (menu && menu.isOwner ? 'owner' : 'editor'),
       name: (menu && menu.name) || 'Menu',
       members: (menu && Array.isArray(menu.members) ? menu.members : []) || [],
       ownerUsername: (menu && menu.ownerUsername) || '',
@@ -1966,7 +2104,33 @@
       cloudUpdatedAt = menu.updatedAt;
     }
     writeLocalCache();
+    applyViewOnlyUi();
     renderAll();
+  }
+
+  function canEditMenu() {
+    return menuMeta.canEdit !== false;
+  }
+
+  function selectedShareRole() {
+    const checked = document.querySelector('input[name="pl-share-role"]:checked');
+    return checked && checked.value === 'viewer' ? 'viewer' : 'editor';
+  }
+
+  function applyViewOnlyUi() {
+    const viewOnly = !canEditMenu();
+    document.body.classList.toggle('pl-view-only', viewOnly);
+    if (viewOnly && placeModeSavedId) clearPlaceMode({ skipRender: true });
+    if (weekHint) {
+      weekHint.title = viewOnly
+        ? 'View only — tap a meal to see details. You cannot change this shared menu.'
+        : 'Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.';
+    }
+    if (savedHint) {
+      savedHint.innerHTML = viewOnly
+        ? 'View only — you can browse this library but not change it.'
+        : 'Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.';
+    }
   }
 
   async function api(path, options) {
@@ -2006,19 +2170,24 @@
         members: menu.members,
         updatedAt: menu.updatedAt,
         isOwner: menu.isOwner,
+        canEdit: menu.canEdit !== false,
+        myRole: menu.myRole || menus[idx].myRole,
       };
     }
     menuMeta = {
       isOwner: !!menu.isOwner,
+      canEdit: menu.canEdit !== false,
+      myRole: menu.myRole || menuMeta.myRole,
       name: menu.name || menuMeta.name,
       members: menu.members || [],
       ownerUsername: menu.ownerUsername || menuMeta.ownerUsername,
     };
     if (typeof menu.updatedAt === 'number') cloudUpdatedAt = menu.updatedAt;
+    applyViewOnlyUi();
   }
 
   async function syncToCloud() {
-    if (!sessionId || !activeMenuId) return;
+    if (!sessionId || !activeMenuId || !canEditMenu()) return;
     if (syncing) {
       queueCloudSync();
       return;
@@ -2049,6 +2218,11 @@
           await updatePlatterSyncFingerprint();
           break;
         } catch (err) {
+          if (err && err.status === 403 && err.menu) {
+            applyMenuPayload(err.menu, menus);
+            setSyncStatus('View only — changes were not saved', 'error');
+            break;
+          }
           if (err && err.status === 409 && err.menu && attempts < 2) {
             // Rebase onto newer server revision, then retry local write (last writer wins).
             cloudUpdatedAt = Number(err.menu.updatedAt) || cloudUpdatedAt;
@@ -2073,6 +2247,7 @@
   }
 
   function persist() {
+    if (!canEditMenu()) return;
     queueCloudSync();
   }
 
@@ -2147,6 +2322,7 @@
   }
 
   function startPlaceMode(savedId) {
+    if (!canEditMenu()) return;
     const meal = data.saved.find((s) => s.id === savedId);
     if (!meal) return;
     placeModeSavedId = meal.id;
@@ -2156,6 +2332,7 @@
   }
 
   function placeMealOnSlot(slotKeyValue) {
+    if (!canEditMenu()) return false;
     if (!placeModeSavedId || !slotKeyValue) return false;
     const meal = data.saved.find((s) => s.id === placeModeSavedId);
     const payload = mealPayloadFromReady(meal);
@@ -2179,6 +2356,7 @@
   }
 
   function renderAll() {
+    applyViewOnlyUi();
     renderWeek();
     renderReadyTray();
     renderSaved();
@@ -2231,6 +2409,7 @@
   }
 
   function toggleMealFavorite(id) {
+    if (!canEditMenu()) return;
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
     ensureSavedMeta();
@@ -2252,6 +2431,7 @@
   }
 
   function setMealReady(id, ready) {
+    if (!canEditMenu()) return;
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
     meal.ready = !!ready;
@@ -2319,7 +2499,11 @@
 
   function menuBubbleLabel(m) {
     if (m.isOwner) return m.name || 'Menu';
-    return (m.name || 'Menu') + (m.ownerUsername ? ' · ' + m.ownerUsername : ' · shared');
+    const base = (m.name || 'Menu') + (m.ownerUsername ? ' · ' + m.ownerUsername : ' · shared');
+    if (m.canEdit === false || m.myRole === 'viewer') {
+      return (m.name || 'Menu') + (m.ownerUsername ? ' · ' + m.ownerUsername : '') + ' · view';
+    }
+    return base;
   }
 
   function renderMenuBubbles(container) {
@@ -2379,14 +2563,30 @@
         info.innerHTML = '<strong></strong><span></span>';
         info.querySelector('strong').textContent = m.username || m.userId;
         const isOwnerMember = m.role === 'owner' || (active && active.ownerUserId === m.userId);
-        info.querySelector('span').textContent = isOwnerMember ? 'Owner' : 'Can edit';
+        const role = isOwnerMember ? 'owner' : m.role === 'viewer' ? 'viewer' : 'editor';
+        info.querySelector('span').textContent = isOwnerMember
+          ? 'Owner'
+          : role === 'viewer'
+            ? 'View only'
+            : 'Can edit';
         row.appendChild(info);
         if (menuMeta.isOwner && !isOwnerMember) {
+          const actions = document.createElement('div');
+          actions.className = 'pl-member-row-actions';
+          const select = document.createElement('select');
+          select.className = 'pl-member-role-select';
+          select.setAttribute('aria-label', 'Permission for ' + (m.username || 'member'));
+          select.innerHTML =
+            '<option value="editor">Can edit</option><option value="viewer">View only</option>';
+          select.value = role === 'viewer' ? 'viewer' : 'editor';
+          select.addEventListener('change', () => setMemberRole(m.userId, select.value));
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.textContent = 'Remove';
           btn.addEventListener('click', () => unshareMember(m.userId));
-          row.appendChild(btn);
+          actions.appendChild(select);
+          actions.appendChild(btn);
+          row.appendChild(actions);
         }
         membersList.appendChild(row);
       });
@@ -2416,19 +2616,27 @@
   async function shareMenu() {
     const usernameOrEmail = (shareInput.value || '').trim();
     if (!usernameOrEmail || !activeMenuId) return;
+    const role = selectedShareRole();
     shareStatus.textContent = 'Sharing…';
     shareStatus.className = 'pl-status';
     shareBtn.disabled = true;
     try {
       const result = await api('/api/platter/share', {
         method: 'POST',
-        body: JSON.stringify({ menuId: activeMenuId, usernameOrEmail }),
+        body: JSON.stringify({ menuId: activeMenuId, usernameOrEmail, role }),
       });
       if (result.menu) applyMenuPayload(result.menu, menus);
       const list = await api('/api/platter/menus');
       if (Array.isArray(list.menus)) menus = list.menus;
       shareInput.value = '';
-      shareStatus.textContent = 'Shared — they can open Platter to edit with you.';
+      shareStatus.textContent =
+        result.updated
+          ? role === 'viewer'
+            ? 'Updated — they now have view-only access.'
+            : 'Updated — they can now edit with you.'
+          : role === 'viewer'
+            ? 'Shared — they can open Platter to view this menu.'
+            : 'Shared — they can open Platter to edit with you.';
       shareStatus.className = 'pl-status is-ok';
       renderSharePanel();
     } catch (err) {
@@ -2436,6 +2644,34 @@
       shareStatus.className = 'pl-status is-error';
     } finally {
       shareBtn.disabled = false;
+    }
+  }
+
+  async function setMemberRole(userId, role) {
+    if (!activeMenuId || !userId || !menuMeta.isOwner) return;
+    const nextRole = role === 'viewer' ? 'viewer' : 'editor';
+    try {
+      const result = await api('/api/platter/member-role', {
+        method: 'POST',
+        body: JSON.stringify({ menuId: activeMenuId, userId, role: nextRole }),
+      });
+      if (result.menu) {
+        noteMenuMetaFromServer(result.menu);
+        if (result.menu.slots || result.menu.saved) {
+          applyMenuPayload(result.menu, menus);
+        } else {
+          renderSharePanel();
+        }
+      } else {
+        renderSharePanel();
+      }
+      setSyncStatus(
+        nextRole === 'viewer' ? 'Set to view only' : 'Set to can edit',
+        'ok'
+      );
+    } catch (err) {
+      setSyncStatus(err.message || 'Could not update permission', 'error');
+      renderSharePanel();
     }
   }
 
@@ -2774,7 +3010,9 @@
                 mealData.name +
                 (cookLabel ? ', ' + cookLabel : '') +
                 (fromReady ? ', ready' : '') +
-                '. Tap to edit, drag to move.'
+                (canEditMenu()
+                  ? '. Tap to edit, drag to move.'
+                  : '. Tap to view details.')
           );
           if (cookLabel) card.classList.add('has-cook-time');
           card.innerHTML =
@@ -2825,19 +3063,31 @@
               e.preventDefault();
               placeMealOnSlot(key);
             });
-          } else {
+          } else if (canEditMenu()) {
             card.addEventListener('pointerdown', onCardPointerDown);
+          } else {
+            card.style.touchAction = 'manipulation';
+            card.addEventListener('click', (e) => {
+              if (e.target.closest('a')) return;
+              openSlotEditor(key);
+            });
           }
           body.appendChild(card);
         } else {
           const empty = document.createElement('button');
           empty.type = 'button';
           empty.className = 'pl-slot-empty';
-          empty.textContent = placeModeSavedId ? 'Tap to place' : 'Add meal';
-          empty.addEventListener('click', () => {
-            if (placeModeSavedId) placeMealOnSlot(key);
-            else openSlotEditor(key);
-          });
+          if (!canEditMenu()) {
+            empty.textContent = '—';
+            empty.disabled = true;
+            empty.setAttribute('aria-label', meal.label + ' empty');
+          } else {
+            empty.textContent = placeModeSavedId ? 'Tap to place' : 'Add meal';
+            empty.addEventListener('click', () => {
+              if (placeModeSavedId) placeMealOnSlot(key);
+              else openSlotEditor(key);
+            });
+          }
           body.appendChild(empty);
         }
 
@@ -2867,8 +3117,9 @@
 
   function renderSaved() {
     if (!data.saved.length) {
-      savedList.innerHTML =
-        '<div class="pl-saved-empty">No saved meals yet.<br>Tap New, or save one from a day slot.</div>';
+      savedList.innerHTML = canEditMenu()
+        ? '<div class="pl-saved-empty">No saved meals yet.<br>Tap New, or save one from a day slot.</div>'
+        : '<div class="pl-saved-empty">No saved meals in this menu yet.</div>';
       return;
     }
     const frag = document.createDocumentFragment();
@@ -3029,6 +3280,7 @@
   }
 
   function onSavedReorderPointerDown(e) {
+    if (!canEditMenu()) return;
     if (e.button != null && e.button !== 0) return;
     const handle = e.currentTarget;
     const row = handle && handle.closest ? handle.closest('.pl-saved-item') : null;
@@ -3174,6 +3426,7 @@
     sheet.classList.remove('pl-sheet-dragging');
     sheet.style.transform = '';
     sheetState = null;
+    setSheetEditable(true);
     setSheetLayerActive(false);
     setTimeout(() => {
       if (!sheet.classList.contains('open')) {
@@ -3233,6 +3486,26 @@
     sheetSwipe.dy = 0;
   }
 
+  function setSheetEditable(editable) {
+    const fields = [nameInput, cookInput, detailsInput, savedPick, saveLibrary, readyInput];
+    fields.forEach((el) => {
+      if (!el) return;
+      el.disabled = !editable;
+      el.readOnly = !editable && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    });
+    if (sheetSaveBtn) sheetSaveBtn.hidden = !editable;
+    if (clearBtn) {
+      if (!editable) clearBtn.hidden = true;
+    }
+    if (saveLibraryWrap && !editable) saveLibraryWrap.hidden = true;
+    if (readyWrap && !editable) readyWrap.hidden = true;
+    if (savedPickField && !editable) savedPickField.hidden = true;
+    if (sheetActionsRow) {
+      const cancelBtn = document.getElementById('pl-sheet-cancel');
+      if (cancelBtn) cancelBtn.textContent = editable ? 'Cancel' : 'Close';
+    }
+  }
+
   function openSlotEditor(key) {
     if (placeModeSavedId) {
       placeMealOnSlot(key);
@@ -3242,37 +3515,50 @@
     const day = parseYmd(dateStr);
     const head = formatDayHead(day);
     const existing = data.slots[key];
+    const editable = canEditMenu();
+    if (!editable && !(existing && existing.name)) return;
+
     sheetState = { mode: 'slot', slotKey: key };
-    sheetTitle.textContent = existing && existing.name ? 'Edit meal' : 'Add meal';
+    sheetTitle.textContent = !editable
+      ? 'Meal'
+      : existing && existing.name
+        ? 'Edit meal'
+        : 'Add meal';
     sheetSub.textContent = head.name + ' ' + head.date + ' · ' + mealLabel(meal);
     fillMealForm(existing);
     saveLibrary.checked = !(existing && existing.name);
-    saveLibraryWrap.hidden = false;
+    saveLibraryWrap.hidden = !editable;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = true;
-    savedPickField.hidden = false;
-    clearBtn.hidden = !(existing && existing.name);
+    savedPickField.hidden = !editable;
+    clearBtn.hidden = !(editable && existing && existing.name);
     fillSavedPick(existing && existing.savedId ? existing.savedId : '');
+    setSheetEditable(editable);
     openSheet();
-    setTimeout(() => nameInput.focus(), 240);
+    if (editable) setTimeout(() => nameInput.focus(), 240);
   }
 
   function openSavedEditor(id) {
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
+    const editable = canEditMenu();
     sheetState = { mode: 'saved-edit', savedId: id };
-    sheetTitle.textContent = 'Edit saved meal';
-    sheetSub.textContent = 'Library meal — mark Ready when you have ingredients';
+    sheetTitle.textContent = editable ? 'Edit saved meal' : 'Saved meal';
+    sheetSub.textContent = editable
+      ? 'Library meal — mark Ready when you have ingredients'
+      : 'View only';
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = !!meal.ready;
-    if (readyWrap) readyWrap.hidden = false;
+    if (readyWrap) readyWrap.hidden = !editable;
     savedPickField.hidden = true;
     clearBtn.hidden = true;
+    setSheetEditable(editable);
     openSheet();
   }
 
   function openNewSaved() {
+    if (!canEditMenu()) return;
     sheetState = { mode: 'saved-new' };
     sheetTitle.textContent = 'New saved meal';
     sheetSub.textContent = 'Add to your library; mark Ready when you have ingredients';
@@ -3283,6 +3569,7 @@
     if (readyWrap) readyWrap.hidden = false;
     savedPickField.hidden = true;
     clearBtn.hidden = true;
+    setSheetEditable(true);
     openSheet();
     setTimeout(() => nameInput.focus(), 240);
   }
@@ -3323,7 +3610,7 @@
   }
 
   function saveSheet() {
-    if (!sheetState) return;
+    if (!sheetState || !canEditMenu()) return;
     const form = readMealForm();
     if (!form.name) {
       nameInput.focus();
@@ -3368,6 +3655,7 @@
   }
 
   function clearSlotKey(key) {
+    if (!canEditMenu()) return;
     if (!key || !data.slots[key]) return;
     delete data.slots[key];
     persist();
@@ -3477,6 +3765,7 @@
   }
 
   function onCardPointerDown(e) {
+    if (!canEditMenu()) return;
     if (e.button != null && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('a')) return;
     if (e.target && e.target.closest && e.target.closest('.pl-meal-clear')) return;
@@ -3487,6 +3776,7 @@
   }
 
   function onReadyPointerDown(e) {
+    if (!canEditMenu()) return;
     if (e.button != null && e.button !== 0) return;
     const chip = e.currentTarget;
     const readyId = chip.dataset.readyId;

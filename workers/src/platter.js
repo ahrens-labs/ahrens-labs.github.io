@@ -221,6 +221,47 @@ function userIsOwner(menu, userId) {
   return !!(menu && userId && menu.ownerUserId === userId);
 }
 
+/** Normalize share roles. Legacy `member` counts as editor. */
+function normalizeShareRole(role) {
+  const r = String(role || '')
+    .trim()
+    .toLowerCase();
+  if (r === 'owner') return 'owner';
+  if (r === 'viewer' || r === 'view' || r === 'read' || r === 'readonly') return 'viewer';
+  return 'editor';
+}
+
+function parseShareRoleInput(role) {
+  const r = normalizeShareRole(role);
+  return r === 'viewer' ? 'viewer' : 'editor';
+}
+
+function getMemberRecord(menu, userId) {
+  if (!menu || !userId || !Array.isArray(menu.members)) return null;
+  return menu.members.find((m) => m && m.userId === userId) || null;
+}
+
+function publicMemberRole(menu, member) {
+  if (!member) return 'viewer';
+  if (member.userId === menu.ownerUserId || normalizeShareRole(member.role) === 'owner') {
+    return 'owner';
+  }
+  return normalizeShareRole(member.role) === 'viewer' ? 'viewer' : 'editor';
+}
+
+function userMenuRole(menu, userId) {
+  if (!menu || !userId) return null;
+  if (userIsOwner(menu, userId)) return 'owner';
+  const member = getMemberRecord(menu, userId);
+  if (!member) return null;
+  return publicMemberRole(menu, member);
+}
+
+function userCanEditMenu(menu, userId) {
+  const role = userMenuRole(menu, userId);
+  return role === 'owner' || role === 'editor';
+}
+
 function normalizeMinutes(raw) {
   if (raw == null || raw === '') return null;
   const n = Number(raw);
@@ -278,17 +319,20 @@ function normalizeSaved(raw) {
 
 function menuSummary(menu, userId) {
   const members = Array.isArray(menu.members) ? menu.members : [];
+  const myRole = userMenuRole(menu, userId);
   return {
     id: menu.id,
     name: menu.name || 'Menu',
     ownerUserId: menu.ownerUserId,
     ownerUsername: menu.ownerUsername || '',
     isOwner: userIsOwner(menu, userId),
+    canEdit: userCanEditMenu(menu, userId),
+    myRole: myRole || 'viewer',
     memberCount: members.length,
     members: members.map((m) => ({
       userId: m.userId,
       username: m.username,
-      role: m.role || 'member',
+      role: publicMemberRole(menu, m),
     })),
     updatedAt: menu.updatedAt || 0,
   };
@@ -497,6 +541,13 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     if (!existing || !userCanAccessMenu(existing, userId)) {
       return jsonResponse({ error: 'Menu not found' }, corsHeaders, 404);
     }
+    if (!userCanEditMenu(existing, userId)) {
+      return jsonResponse(
+        { error: 'View-only access — you cannot edit this menu', menu: publicMenu(existing, userId) },
+        corsHeaders,
+        403
+      );
+    }
 
     const clientUpdatedAt = Number(body.updatedAt);
     if (
@@ -573,23 +624,84 @@ export async function handlePlatterRequest(request, env, corsHeaders, path) {
     if (target.userId === userId) {
       return jsonResponse({ error: 'You already own this menu' }, corsHeaders, 400);
     }
-    if ((menu.members || []).some((m) => m.userId === target.userId)) {
-      return jsonResponse({ error: 'User already has access' }, corsHeaders, 409);
-    }
 
+    const shareRole = parseShareRoleInput(body.role);
     const members = Array.isArray(menu.members) ? [...menu.members] : [];
-    members.push({
-      userId: target.userId,
-      username: target.username,
-      email: target.email,
-      role: 'member',
-      addedAt: Date.now(),
-    });
+    const existingIdx = members.findIndex((m) => m && m.userId === target.userId);
+    let roleChanged = false;
+    if (existingIdx >= 0) {
+      const existingMember = members[existingIdx];
+      if (publicMemberRole(menu, existingMember) === 'owner') {
+        return jsonResponse({ error: 'User already owns this menu' }, corsHeaders, 400);
+      }
+      const prevRole = publicMemberRole(menu, existingMember);
+      if (prevRole === shareRole) {
+        return jsonResponse({ error: 'User already has access', menu: publicMenu(menu, userId) }, corsHeaders, 409);
+      }
+      members[existingIdx] = {
+        ...existingMember,
+        username: target.username || existingMember.username,
+        email: target.email || existingMember.email,
+        role: shareRole,
+      };
+      roleChanged = true;
+    } else {
+      members.push({
+        userId: target.userId,
+        username: target.username,
+        email: target.email,
+        role: shareRole,
+        addedAt: Date.now(),
+      });
+    }
     const updated = { ...menu, members, updatedAt: Date.now() };
     await saveMenu(env, updated);
     await addPlatterMenuId(env, target.userId, menuId);
     await publishMenuSync(env, updated, readSyncClientId(request, body), [target.userId]);
-    return jsonResponse({ menu: publicMenu(updated, userId), success: true }, corsHeaders);
+    return jsonResponse(
+      {
+        menu: publicMenu(updated, userId),
+        success: true,
+        role: shareRole,
+        updated: roleChanged,
+      },
+      corsHeaders
+    );
+  }
+
+  if (path === '/api/platter/member-role' && request.method === 'POST') {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, corsHeaders, 400);
+    }
+    const menuId = String(body.menuId || '').trim();
+    const targetUserId = String(body.userId || '').trim();
+    const shareRole = parseShareRoleInput(body.role);
+    if (!menuId || !targetUserId) {
+      return jsonResponse({ error: 'menuId and userId required' }, corsHeaders, 400);
+    }
+
+    const menu = await fetchMenu(env, menuId);
+    if (!menu) return jsonResponse({ error: 'Menu not found' }, corsHeaders, 404);
+    if (!userIsOwner(menu, userId)) {
+      return jsonResponse({ error: 'Only the menu owner can change permissions' }, corsHeaders, 403);
+    }
+    if (targetUserId === menu.ownerUserId) {
+      return jsonResponse({ error: 'Cannot change the owner role' }, corsHeaders, 400);
+    }
+
+    const members = Array.isArray(menu.members) ? [...menu.members] : [];
+    const idx = members.findIndex((m) => m && m.userId === targetUserId);
+    if (idx < 0) {
+      return jsonResponse({ error: 'Member not found' }, corsHeaders, 404);
+    }
+    members[idx] = { ...members[idx], role: shareRole };
+    const updated = { ...menu, members, updatedAt: Date.now() };
+    await saveMenu(env, updated);
+    await publishMenuSync(env, updated, readSyncClientId(request, body), [targetUserId]);
+    return jsonResponse({ menu: publicMenu(updated, userId), success: true, role: shareRole }, corsHeaders);
   }
 
   if (path === '/api/platter/unshare' && request.method === 'POST') {
