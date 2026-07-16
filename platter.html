@@ -505,6 +505,7 @@
       display: inline-flex;
       align-items: center;
       flex: 0 0 auto;
+      align-self: center;
       margin: 0;
       padding: 2px 8px;
       border-radius: 999px;
@@ -513,11 +514,28 @@
       letter-spacing: 0.03em;
       text-transform: uppercase;
       font-style: normal;
+      font-family: inherit;
       line-height: 1.2;
+      color: #64748b;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      white-space: nowrap;
+      cursor: pointer;
+      touch-action: manipulation;
+      pointer-events: auto;
+      appearance: none;
+    }
+
+    .pl-meal-ready-badge.is-on {
       color: #166534;
       background: #bbf7d0;
-      border: 1px solid #86efac;
-      white-space: nowrap;
+      border-color: #86efac;
+    }
+
+    body.pl-view-only .pl-meal-ready-badge,
+    body.pl-place-mode .pl-meal-ready-badge {
+      pointer-events: none;
+      cursor: default;
     }
 
     .pl-meal-main {
@@ -532,17 +550,24 @@
       pointer-events: none;
     }
 
+    .pl-meal-card.has-cook-time .pl-meal-main {
+      padding-right: 88px;
+    }
+
     .pl-meal-title {
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px 8px;
       min-width: 0;
+      max-width: 100%;
     }
 
     .pl-meal-name {
-      display: block;
-      flex: 1 1 auto;
+      display: inline;
+      flex: 0 1 auto;
       min-width: 0;
+      max-width: 100%;
       font-weight: 700;
       font-size: 0.98rem;
       line-height: 1.35;
@@ -2658,7 +2683,7 @@
     if (!canEditMenu()) return false;
     if (!placeModeSavedId || !placeModeMenuId || !slotKeyValue) return false;
     const meal = findLibraryMeal(placeModeMenuId, placeModeSavedId);
-    const payload = mealPayloadFromReady(meal);
+    const payload = mealPayloadFromLibrary(meal);
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
     if (meal && meal.ready) {
@@ -2697,15 +2722,31 @@
     renderSharePanel();
   }
 
-  function mealPayloadFromReady(meal) {
+  function mealPayloadFromLibrary(meal, opts) {
     if (!meal) return null;
+    const options = opts || {};
+    const markReady =
+      options.fromReady !== undefined ? !!options.fromReady : !!meal.ready;
     return {
       name: meal.name,
       details: meal.details || '',
       cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
       savedId: meal.id || null,
-      fromReady: true,
+      fromReady: markReady,
     };
+  }
+
+  function mealPayloadFromReady(meal) {
+    return mealPayloadFromLibrary(meal, { fromReady: true });
+  }
+
+  function toggleSlotReady(slotKeyValue) {
+    if (!canEditMenu() || !slotKeyValue) return;
+    const slot = data.slots[slotKeyValue];
+    if (!slot || !slot.name) return;
+    slot.fromReady = !slot.fromReady;
+    persist();
+    renderWeek();
   }
 
   function ensureSavedMeta() {
@@ -3377,7 +3418,13 @@
             '<div class="pl-meal-main">' +
             '<div class="pl-meal-title">' +
             '<span class="pl-meal-name"></span>' +
-            (fromReady ? '<em class="pl-meal-ready-badge">Ready</em>' : '') +
+            '<button type="button" class="pl-meal-ready-badge' +
+            (fromReady ? ' is-on' : '') +
+            '" data-act="ready-toggle" aria-pressed="' +
+            (fromReady ? 'true' : 'false') +
+            '" aria-label="' +
+            (fromReady ? 'Mark not ready' : 'Mark ready') +
+            '">Ready</button>' +
             '</div>' +
             (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
             '</div>';
@@ -3385,6 +3432,19 @@
           card.querySelector('.pl-meal-name').textContent = mealData.name;
           const det = card.querySelector('.pl-meal-details');
           if (det) det.innerHTML = linkifyNotes(mealData.details);
+          const readyToggle = card.querySelector('[data-act="ready-toggle"]');
+          if (readyToggle) {
+            readyToggle.addEventListener('pointerdown', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+            readyToggle.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!canEditMenu() || placeModeSavedId) return;
+              toggleSlotReady(key);
+            });
+          }
           const clearBtn = card.querySelector('.pl-meal-clear');
           if (clearBtn) {
             clearBtn.addEventListener('pointerdown', (e) => {
@@ -3410,14 +3470,20 @@
               e.stopPropagation();
               return;
             }
-            if (e.target.closest('.pl-meal-clear')) {
+            if (e.target.closest('.pl-meal-clear') || e.target.closest('[data-act="ready-toggle"]')) {
               e.stopPropagation();
             }
           });
           if (placeModeSavedId) {
             card.style.touchAction = 'manipulation';
             card.addEventListener('click', (e) => {
-              if (e.target.closest('a') || e.target.closest('.pl-meal-clear')) return;
+              if (
+                e.target.closest('a') ||
+                e.target.closest('.pl-meal-clear') ||
+                e.target.closest('[data-act="ready-toggle"]')
+              ) {
+                return;
+              }
               e.preventDefault();
               placeMealOnSlot(key);
             });
@@ -3426,7 +3492,7 @@
           } else {
             card.style.touchAction = 'manipulation';
             card.addEventListener('click', (e) => {
-              if (e.target.closest('a')) return;
+              if (e.target.closest('a') || e.target.closest('[data-act="ready-toggle"]')) return;
               openSlotEditor(key);
             });
           }
@@ -4194,6 +4260,7 @@
     if (e.button != null && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('a')) return;
     if (e.target && e.target.closest && e.target.closest('.pl-meal-clear')) return;
+    if (e.target && e.target.closest && e.target.closest('[data-act="ready-toggle"]')) return;
     const card = e.currentTarget;
     const key = card.dataset.slotKey;
     if (!key) return;
