@@ -135,14 +135,34 @@
       text-overflow: ellipsis;
     }
 
-    .pl-menu-bubble.is-active {
+    .pl-menu-bubble.is-active,
+    .pl-menu-bubble.is-selected {
       border-color: var(--pl-accent);
       background: var(--pl-accent-soft);
       color: var(--pl-accent);
     }
 
-    .pl-menu-bubble.is-shared:not(.is-active) {
+    .pl-menu-bubble.is-shared:not(.is-active):not(.is-selected) {
       border-style: dashed;
+    }
+
+    .pl-saved-menu-bubbles {
+      margin: 0 0 12px;
+    }
+
+    .pl-saved-item-main .pl-menu-badge {
+      display: inline-block;
+      margin-top: 6px;
+      margin-right: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: none;
+      font-style: normal;
+      color: #334155;
+      background: #e2e8f0;
     }
 
     .pl-share-menu-bubbles {
@@ -806,10 +826,7 @@
 
     body.pl-view-only .pl-ready-tray,
     body.pl-view-only #pl-saved-new,
-    body.pl-view-only .pl-meal-clear,
-    body.pl-view-only .pl-saved-item-actions,
-    body.pl-view-only .pl-saved-drag,
-    body.pl-view-only .pl-saved-fav {
+    body.pl-view-only .pl-meal-clear {
       display: none !important;
     }
 
@@ -1599,7 +1616,8 @@
             <h2>Saved meals</h2>
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
-          <p class="pl-hint" id="pl-saved-hint">Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
+          <div class="pl-menu-bubbles pl-saved-menu-bubbles" id="pl-saved-menu-bubbles" role="listbox" aria-label="Filter saved meals by menu" aria-multiselectable="true"></div>
+          <p class="pl-hint" id="pl-saved-hint">Your meal library. Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1780,6 +1798,7 @@
   const sheetGrab = document.getElementById('pl-sheet-grab');
   const menuBubblesWeek = document.getElementById('pl-week-menu-bubbles');
   const menuBubblesShare = document.getElementById('pl-share-menu-bubbles');
+  const menuBubblesSaved = document.getElementById('pl-saved-menu-bubbles');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
   const shareInput = document.getElementById('pl-share-input');
@@ -1808,6 +1827,12 @@
     members: [],
     ownerUsername: '',
   };
+  /** @type {Set<string>} */
+  let savedFilterMenuIds = new Set();
+  /** @type {Record<string, { saved: any[], canEdit: boolean, name: string, updatedAt: number, loaded?: boolean }>} */
+  let menuLibraryCache = {};
+  /** @type {Record<string, ReturnType<typeof setTimeout>|undefined>} */
+  let remoteSavedSyncTimers = {};
   let storageKey = 'platter_data_guest';
   let sessionId = '';
   let syncTimer = null;
@@ -1823,11 +1848,13 @@
   let platterSyncRefreshing = false;
   let pendingRemoteRefresh = false;
   let weekAnchor = startOfWeek(new Date());
-  /** @type {null | { mode: string, slotKey?: string, savedId?: string }} */
+  /** @type {null | { mode: string, slotKey?: string, savedId?: string, menuId?: string }} */
   let sheetState = null;
   let confirmResolve = null;
   /** @type {string|null} */
   let placeModeSavedId = null;
+  /** @type {string|null} */
+  let placeModeMenuId = null;
   let didDrag = false;
 
   const savedReorder = {
@@ -2118,6 +2145,9 @@
       cloudUpdatedAt = menu.updatedAt;
     }
     writeLocalCache();
+    syncActiveIntoLibraryCache();
+    pruneSavedFilterToMenus();
+    if (activeMenuId && !savedFilterMenuIds.size) savedFilterMenuIds.add(activeMenuId);
     applyViewOnlyUi();
     renderAll();
   }
@@ -2131,6 +2161,268 @@
     return checked && checked.value === 'viewer' ? 'viewer' : 'editor';
   }
 
+  function savedFilterStorageKey() {
+    return 'platter_saved_filter_' + (sessionId ? prefsKey.replace(DINNER_ONLY_STORAGE_PREFIX, '') : 'guest');
+  }
+
+  function loadSavedFilterPrefs() {
+    try {
+      const raw = localStorage.getItem(savedFilterStorageKey());
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const ids = parsed.map((id) => String(id || '').trim()).filter(Boolean);
+      if (ids.length) savedFilterMenuIds = new Set(ids);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function saveSavedFilterPrefs() {
+    try {
+      localStorage.setItem(savedFilterStorageKey(), JSON.stringify([...savedFilterMenuIds]));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function pruneSavedFilterToMenus() {
+    const valid = new Set(menus.map((m) => m.id));
+    [...savedFilterMenuIds].forEach((id) => {
+      if (!valid.has(id)) savedFilterMenuIds.delete(id);
+    });
+    if (!savedFilterMenuIds.size && activeMenuId) {
+      savedFilterMenuIds.add(activeMenuId);
+    }
+  }
+
+  function syncActiveIntoLibraryCache() {
+    if (!activeMenuId) return;
+    menuLibraryCache[activeMenuId] = {
+      saved: Array.isArray(data.saved) ? data.saved : [],
+      canEdit: canEditMenu(),
+      name: menuMeta.name || 'Menu',
+      updatedAt: cloudUpdatedAt || 0,
+      loaded: true,
+    };
+  }
+
+  function menuCanEditLibrary(menuId) {
+    if (!menuId) return false;
+    if (menuId === activeMenuId) return canEditMenu();
+    const cached = menuLibraryCache[menuId];
+    if (cached && cached.canEdit === false) return false;
+    const summary = menus.find((m) => m.id === menuId);
+    if (summary && summary.canEdit === false) return false;
+    return cached ? cached.canEdit !== false : true;
+  }
+
+  function getLibrarySaved(menuId) {
+    if (menuId === activeMenuId) return Array.isArray(data.saved) ? data.saved : [];
+    const cached = menuLibraryCache[menuId];
+    return cached && Array.isArray(cached.saved) ? cached.saved : [];
+  }
+
+  function findLibraryMeal(menuId, savedId) {
+    return getLibrarySaved(menuId).find((s) => s.id === savedId) || null;
+  }
+
+  function setLibrarySaved(menuId, savedList) {
+    if (menuId === activeMenuId) {
+      data.saved = savedList;
+      ensureSavedMeta();
+      syncActiveIntoLibraryCache();
+      return;
+    }
+    if (!menuLibraryCache[menuId]) {
+      menuLibraryCache[menuId] = {
+        saved: [],
+        canEdit: true,
+        name: (menus.find((m) => m.id === menuId) || {}).name || 'Menu',
+        updatedAt: 0,
+        loaded: true,
+      };
+    }
+    menuLibraryCache[menuId].saved = savedList;
+  }
+
+  function queueMenuSavedSync(menuId) {
+    if (!menuId || !menuCanEditLibrary(menuId)) return;
+    if (menuId === activeMenuId) {
+      persist();
+      return;
+    }
+    if (remoteSavedSyncTimers[menuId]) clearTimeout(remoteSavedSyncTimers[menuId]);
+    remoteSavedSyncTimers[menuId] = setTimeout(() => {
+      remoteSavedSyncTimers[menuId] = undefined;
+      syncRemoteMenuSaved(menuId);
+    }, 700);
+  }
+
+  async function syncRemoteMenuSaved(menuId) {
+    if (!sessionId || !menuId || menuId === activeMenuId || !menuCanEditLibrary(menuId)) return;
+    const entry = menuLibraryCache[menuId];
+    if (!entry) return;
+    try {
+      const result = await api('/api/platter/menu', {
+        method: 'PUT',
+        body: JSON.stringify({
+          menuId,
+          saved: entry.saved,
+          updatedAt: entry.updatedAt || undefined,
+        }),
+      });
+      if (result.menu) {
+        menuLibraryCache[menuId] = {
+          saved: Array.isArray(result.menu.saved) ? result.menu.saved : entry.saved,
+          canEdit: result.menu.canEdit !== false,
+          name: result.menu.name || entry.name,
+          updatedAt: result.menu.updatedAt || Date.now(),
+          loaded: true,
+        };
+      }
+    } catch (err) {
+      if (err && err.status === 409 && err.menu) {
+        menuLibraryCache[menuId] = {
+          saved: Array.isArray(err.menu.saved) ? err.menu.saved : entry.saved,
+          canEdit: err.menu.canEdit !== false,
+          name: err.menu.name || entry.name,
+          updatedAt: err.menu.updatedAt || entry.updatedAt,
+          loaded: true,
+        };
+        renderSaved();
+      } else if (err && err.status === 403) {
+        if (menuLibraryCache[menuId]) menuLibraryCache[menuId].canEdit = false;
+        renderSaved();
+      }
+    }
+  }
+
+  async function ensureMenuLibrary(menuId) {
+    if (!menuId) return null;
+    if (menuId === activeMenuId) {
+      syncActiveIntoLibraryCache();
+      return menuLibraryCache[menuId];
+    }
+    if (menuLibraryCache[menuId] && menuLibraryCache[menuId].loaded) {
+      return menuLibraryCache[menuId];
+    }
+    const result = await api('/api/platter/menu?menuId=' + encodeURIComponent(menuId));
+    const menu = result.menu;
+    if (!menu) return null;
+    menuLibraryCache[menuId] = {
+      saved: Array.isArray(menu.saved) ? menu.saved : [],
+      canEdit: menu.canEdit !== false,
+      name: menu.name || 'Menu',
+      updatedAt: menu.updatedAt || 0,
+      loaded: true,
+    };
+    return menuLibraryCache[menuId];
+  }
+
+  async function ensureSavedFilterLibraries() {
+    pruneSavedFilterToMenus();
+    if (!savedFilterMenuIds.size && activeMenuId) savedFilterMenuIds.add(activeMenuId);
+    const ids = [...savedFilterMenuIds];
+    await Promise.all(
+      ids.map((id) =>
+        ensureMenuLibrary(id).catch(() => {
+          savedFilterMenuIds.delete(id);
+        })
+      )
+    );
+    saveSavedFilterPrefs();
+  }
+
+  function collectedSavedMeals() {
+    const showMenuBadge = savedFilterMenuIds.size > 1;
+    const out = [];
+    [...savedFilterMenuIds].forEach((menuId) => {
+      const menu = menus.find((m) => m.id === menuId);
+      const menuName =
+        (menuLibraryCache[menuId] && menuLibraryCache[menuId].name) ||
+        (menu && menu.name) ||
+        'Menu';
+      const canEdit = menuCanEditLibrary(menuId);
+      getLibrarySaved(menuId).forEach((meal) => {
+        out.push({
+          meal,
+          menuId,
+          menuName,
+          canEdit,
+          showMenuBadge,
+        });
+      });
+    });
+    out.sort((a, b) => {
+      const fav = Number(!!b.meal.favorite) - Number(!!a.meal.favorite);
+      if (fav) return fav;
+      const ready = Number(!!b.meal.ready) - Number(!!a.meal.ready);
+      if (ready) return ready;
+      const orderA = Number(a.meal.order);
+      const orderB = Number(b.meal.order);
+      if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return String(a.meal.name || '').localeCompare(String(b.meal.name || ''));
+    });
+    return out;
+  }
+
+  function canReorderSavedList() {
+    if (savedFilterMenuIds.size !== 1) return false;
+    const onlyId = [...savedFilterMenuIds][0];
+    return menuCanEditLibrary(onlyId);
+  }
+
+  async function toggleSavedFilterMenu(menuId) {
+    if (!menuId) return;
+    if (savedFilterMenuIds.has(menuId)) {
+      if (savedFilterMenuIds.size <= 1) return;
+      savedFilterMenuIds.delete(menuId);
+    } else {
+      savedFilterMenuIds.add(menuId);
+      try {
+        await ensureMenuLibrary(menuId);
+      } catch (err) {
+        savedFilterMenuIds.delete(menuId);
+        setSyncStatus((err && err.message) || 'Could not load menu library', 'error');
+      }
+    }
+    saveSavedFilterPrefs();
+    renderSavedMenuBubbles();
+    renderSaved();
+  }
+
+  function renderSavedMenuBubbles() {
+    if (!menuBubblesSaved) return;
+    const frag = document.createDocumentFragment();
+    if (!menus.length) {
+      const empty = document.createElement('span');
+      empty.className = 'pl-ready-empty';
+      empty.textContent = 'No menus yet';
+      menuBubblesSaved.replaceChildren(empty);
+      return;
+    }
+    menus.forEach((m) => {
+      const selected = savedFilterMenuIds.has(m.id);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className =
+        'pl-menu-bubble' +
+        (selected ? ' is-selected' : '') +
+        (!m.isOwner ? ' is-shared' : '');
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+      btn.dataset.menuId = m.id;
+      btn.textContent = menuBubbleLabel(m);
+      btn.title = menuBubbleLabel(m) + (selected ? ' (showing)' : ' (tap to show)');
+      btn.addEventListener('click', () => toggleSavedFilterMenu(m.id));
+      frag.appendChild(btn);
+    });
+    menuBubblesSaved.replaceChildren(frag);
+  }
+
   function applyViewOnlyUi() {
     const viewOnly = !canEditMenu();
     document.body.classList.toggle('pl-view-only', viewOnly);
@@ -2142,8 +2434,8 @@
     }
     if (savedHint) {
       savedHint.innerHTML = viewOnly
-        ? 'View only — you can browse this library but not change it.'
-        : 'Your meal library. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.';
+        ? 'View only — browse libraries with the menu bubbles above. Tap a meal for details.'
+        : 'Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder when a single editable menu is selected. Tap <strong>Ready</strong> when you have the ingredients — Ready meals from the active week menu appear in the week tray.';
     }
   }
 
@@ -2262,6 +2554,7 @@
 
   function persist() {
     if (!canEditMenu()) return;
+    syncActiveIntoLibraryCache();
     queueCloudSync();
   }
 
@@ -2307,15 +2600,27 @@
       }
     });
     if (next === 'share') renderSharePanel();
+    if (next === 'saved') {
+      ensureSavedFilterLibraries()
+        .then(() => {
+          renderSavedMenuBubbles();
+          renderSaved();
+        })
+        .catch(() => {
+          renderSavedMenuBubbles();
+          renderSaved();
+        });
+    }
     if (!options.skipUrlSync) {
       syncTabUrl(next, { replace: !!options.replaceUrl });
     }
   }
 
   function updatePlaceBanner() {
-    const meal = placeModeSavedId
-      ? data.saved.find((s) => s.id === placeModeSavedId)
-      : null;
+    const meal =
+      placeModeSavedId && placeModeMenuId
+        ? findLibraryMeal(placeModeMenuId, placeModeSavedId)
+        : null;
     const active = !!(meal && meal.name);
     document.body.classList.toggle('pl-place-mode', active);
     if (placeBanner) placeBanner.hidden = !active;
@@ -2328,18 +2633,22 @@
       document.body.classList.remove('pl-place-mode');
       if (placeBanner) placeBanner.hidden = true;
       if (placeBannerName) placeBannerName.textContent = '';
+      placeModeMenuId = null;
       return;
     }
     placeModeSavedId = null;
+    placeModeMenuId = null;
     updatePlaceBanner();
     if (!options.skipRender) renderWeek();
   }
 
-  function startPlaceMode(savedId) {
+  function startPlaceMode(savedId, menuId) {
     if (!canEditMenu()) return;
-    const meal = data.saved.find((s) => s.id === savedId);
+    const sourceMenuId = menuId || activeMenuId;
+    const meal = findLibraryMeal(sourceMenuId, savedId);
     if (!meal) return;
     placeModeSavedId = meal.id;
+    placeModeMenuId = sourceMenuId;
     updatePlaceBanner();
     setTab('week');
     renderWeek();
@@ -2347,14 +2656,24 @@
 
   function placeMealOnSlot(slotKeyValue) {
     if (!canEditMenu()) return false;
-    if (!placeModeSavedId || !slotKeyValue) return false;
-    const meal = data.saved.find((s) => s.id === placeModeSavedId);
+    if (!placeModeSavedId || !placeModeMenuId || !slotKeyValue) return false;
+    const meal = findLibraryMeal(placeModeMenuId, placeModeSavedId);
     const payload = mealPayloadFromReady(meal);
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
-    if (meal && meal.ready) meal.ready = false;
-    persist();
+    if (meal && meal.ready) {
+      meal.ready = false;
+      if (placeModeMenuId === activeMenuId) {
+        persist();
+      } else {
+        queueMenuSavedSync(placeModeMenuId);
+        persist();
+      }
+    } else {
+      persist();
+    }
     placeModeSavedId = null;
+    placeModeMenuId = null;
     updatePlaceBanner();
     renderWeek();
     renderReadyTray();
@@ -2373,6 +2692,7 @@
     applyViewOnlyUi();
     renderWeek();
     renderReadyTray();
+    renderSavedMenuBubbles();
     renderSaved();
     renderSharePanel();
   }
@@ -2422,43 +2742,56 @@
     });
   }
 
-  function toggleMealFavorite(id) {
-    if (!canEditMenu()) return;
-    const meal = data.saved.find((s) => s.id === id);
+  function toggleMealFavorite(id, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    if (!menuCanEditLibrary(sourceMenuId)) return;
+    const list = getLibrarySaved(sourceMenuId).slice();
+    const meal = list.find((s) => s.id === id);
     if (!meal) return;
-    ensureSavedMeta();
+    list.forEach((m, i) => {
+      m.ready = !!m.ready;
+      m.favorite = !!m.favorite;
+      const orderNum = Number(m.order);
+      if (!Number.isFinite(orderNum)) m.order = i;
+      else m.order = Math.round(orderNum);
+    });
     const next = !meal.favorite;
     meal.favorite = next;
     if (next) {
-      const minOrder = data.saved.reduce((min, m) => Math.min(min, Number(m.order) || 0), 0);
+      const minOrder = list.reduce((min, m) => Math.min(min, Number(m.order) || 0), 0);
       meal.order = minOrder - 1;
     }
-    const sorted = sortedSaved();
-    reindexSavedOrdersFromSorted(sorted);
-    persist();
+    list.sort(compareSavedMeals);
+    reindexSavedOrdersFromSorted(list);
+    setLibrarySaved(sourceMenuId, list);
+    queueMenuSavedSync(sourceMenuId);
     renderSaved();
-    renderReadyTray();
+    if (sourceMenuId === activeMenuId) renderReadyTray();
   }
 
   function readyMeals() {
     return sortedSaved().filter((m) => !!m.ready);
   }
 
-  function setMealReady(id, ready) {
-    if (!canEditMenu()) return;
-    const meal = data.saved.find((s) => s.id === id);
+  function setMealReady(id, ready, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    if (!menuCanEditLibrary(sourceMenuId)) return;
+    const meal = findLibraryMeal(sourceMenuId, id);
     if (!meal) return;
     meal.ready = !!ready;
-    persist();
+    queueMenuSavedSync(sourceMenuId);
     renderSaved();
-    renderReadyTray();
-    if (sheetState) fillSavedPick();
+    if (sourceMenuId === activeMenuId) {
+      renderReadyTray();
+      if (sheetState) fillSavedPick();
+    }
   }
 
-  function toggleMealReady(id) {
-    const meal = data.saved.find((s) => s.id === id);
+  function toggleMealReady(id, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    const meal = findLibraryMeal(sourceMenuId, id);
     if (!meal) return;
-    setMealReady(id, !meal.ready);
+    setMealReady(id, !meal.ready, sourceMenuId);
   }
 
   function renderReadyTray() {
@@ -2906,13 +3239,22 @@
   async function refreshFromPlatterSync(evt) {
     if (!evt || evt.sourceClientId === syncClientId) return;
     if (evt.type === 'ping') return;
+    if (evt.menuId && evt.menuId !== activeMenuId && menuLibraryCache[evt.menuId]) {
+      delete menuLibraryCache[evt.menuId];
+    }
     if (evt.menuId && activeMenuId && evt.menuId !== activeMenuId) {
       // Membership / list change for a non-active menu — refresh menu list only.
       try {
         const list = await api('/api/platter/menus');
         if (Array.isArray(list.menus)) {
           menus = list.menus;
+          pruneSavedFilterToMenus();
           renderSharePanel();
+          if (savedFilterMenuIds.has(evt.menuId)) {
+            await ensureMenuLibrary(evt.menuId);
+            renderSavedMenuBubbles();
+            renderSaved();
+          }
         }
       } catch {
         /* ignore */
@@ -3132,65 +3474,96 @@
   }
 
   function renderSaved() {
-    if (!data.saved.length) {
-      savedList.innerHTML = canEditMenu()
-        ? '<div class="pl-saved-empty">No saved meals yet.<br>Tap New, or save one from a day slot.</div>'
-        : '<div class="pl-saved-empty">No saved meals in this menu yet.</div>';
+    syncActiveIntoLibraryCache();
+    const items = collectedSavedMeals();
+    if (!items.length) {
+      const canEditAny = [...savedFilterMenuIds].some((id) => menuCanEditLibrary(id));
+      savedList.innerHTML = canEditAny
+        ? '<div class="pl-saved-empty">No saved meals in the selected menus.<br>Tap New to add one to your active menu, or pick different menus above.</div>'
+        : '<div class="pl-saved-empty">No saved meals in the selected menus.</div>';
       return;
     }
+    const allowReorder = canReorderSavedList();
     const frag = document.createDocumentFragment();
-    sortedSaved().forEach((meal) => {
-        const row = document.createElement('div');
-        row.className =
-          'pl-saved-item' +
-          (meal.ready ? ' is-ready' : '') +
-          (meal.favorite ? ' is-favorite' : '');
-        row.dataset.savedId = meal.id;
-        row.innerHTML =
-          '<div class="pl-saved-item-top">' +
-          '<button type="button" class="pl-saved-drag" aria-label="Drag to reorder" title="Drag to reorder">⋮⋮</button>' +
-          '<button type="button" class="pl-saved-item-main">' +
-          '<strong></strong><span></span>' +
-          (meal.favorite ? '<em class="pl-fav-badge">Favorite</em>' : '') +
-          (meal.ready ? '<em class="pl-ready-badge">Ready</em>' : '') +
-          '</button>' +
-          '<button type="button" class="pl-saved-fav' +
-          (meal.favorite ? ' is-on' : '') +
-          '" data-act="favorite" aria-pressed="' +
-          (meal.favorite ? 'true' : 'false') +
-          '" aria-label="' +
-          (meal.favorite ? 'Remove favorite' : 'Favorite') +
-          '">' +
-          (meal.favorite ? '★' : '☆') +
-          '</button>' +
-          '</div>' +
-          '<div class="pl-saved-item-actions">' +
-          '<button type="button" data-act="ready"></button>' +
-          '<button type="button" data-act="place">Use</button>' +
-          '<button type="button" data-act="delete">Delete</button>' +
-          '</div>';
-        row.querySelector('strong').textContent = meal.name;
-        row.querySelector('span').textContent =
-          mealMetaText(meal) || meal.details || 'No details yet';
-        const readyBtn = row.querySelector('[data-act="ready"]');
+    items.forEach((entry) => {
+      const meal = entry.meal;
+      const row = document.createElement('div');
+      row.className =
+        'pl-saved-item' +
+        (meal.ready ? ' is-ready' : '') +
+        (meal.favorite ? ' is-favorite' : '');
+      row.dataset.savedId = meal.id;
+      row.dataset.menuId = entry.menuId;
+      row.innerHTML =
+        '<div class="pl-saved-item-top">' +
+        (allowReorder
+          ? '<button type="button" class="pl-saved-drag" aria-label="Drag to reorder" title="Drag to reorder">⋮⋮</button>'
+          : '') +
+        '<button type="button" class="pl-saved-item-main">' +
+        '<strong></strong><span></span>' +
+        (entry.showMenuBadge || entry.menuId !== activeMenuId
+          ? '<em class="pl-menu-badge"></em>'
+          : '') +
+        (meal.favorite ? '<em class="pl-fav-badge">Favorite</em>' : '') +
+        (meal.ready ? '<em class="pl-ready-badge">Ready</em>' : '') +
+        '</button>' +
+        (entry.canEdit
+          ? '<button type="button" class="pl-saved-fav' +
+            (meal.favorite ? ' is-on' : '') +
+            '" data-act="favorite" aria-pressed="' +
+            (meal.favorite ? 'true' : 'false') +
+            '" aria-label="' +
+            (meal.favorite ? 'Remove favorite' : 'Favorite') +
+            '">' +
+            (meal.favorite ? '★' : '☆') +
+            '</button>'
+          : '') +
+        '</div>' +
+        (entry.canEdit || canEditMenu()
+          ? '<div class="pl-saved-item-actions">' +
+            (entry.canEdit
+              ? '<button type="button" data-act="ready"></button>'
+              : '') +
+            (canEditMenu() ? '<button type="button" data-act="place">Use</button>' : '') +
+            (entry.canEdit ? '<button type="button" data-act="delete">Delete</button>' : '') +
+            '</div>'
+          : '');
+      row.querySelector('strong').textContent = meal.name;
+      row.querySelector('span').textContent =
+        mealMetaText(meal) || meal.details || 'No details yet';
+      const menuBadge = row.querySelector('.pl-menu-badge');
+      if (menuBadge) menuBadge.textContent = entry.menuName;
+      row.querySelector('.pl-saved-item-main').addEventListener('click', () =>
+        openSavedEditor(meal.id, entry.menuId)
+      );
+      const favBtn = row.querySelector('[data-act="favorite"]');
+      if (favBtn) {
+        favBtn.addEventListener('click', () => toggleMealFavorite(meal.id, entry.menuId));
+      }
+      const dragHandle = row.querySelector('.pl-saved-drag');
+      if (dragHandle) {
+        dragHandle.addEventListener('pointerdown', onSavedReorderPointerDown);
+      }
+      const readyBtn = row.querySelector('[data-act="ready"]');
+      if (readyBtn) {
         readyBtn.textContent = meal.ready ? 'Ready ✓' : 'Ready';
         readyBtn.classList.toggle('is-on', !!meal.ready);
-        readyBtn.setAttribute(
-          'aria-pressed',
-          meal.ready ? 'true' : 'false'
-        );
+        readyBtn.setAttribute('aria-pressed', meal.ready ? 'true' : 'false');
         readyBtn.setAttribute(
           'aria-label',
           meal.ready
             ? 'Remove ' + meal.name + ' from ready tray'
             : 'Mark ' + meal.name + ' as ready to cook'
         );
-        row.querySelector('.pl-saved-item-main').addEventListener('click', () => openSavedEditor(meal.id));
-        row.querySelector('[data-act="favorite"]').addEventListener('click', () => toggleMealFavorite(meal.id));
-        row.querySelector('.pl-saved-drag').addEventListener('pointerdown', onSavedReorderPointerDown);
-        readyBtn.addEventListener('click', () => toggleMealReady(meal.id));
-        row.querySelector('[data-act="place"]').addEventListener('click', () => startPlaceMode(meal.id));
-        row.querySelector('[data-act="delete"]').addEventListener('click', async () => {
+        readyBtn.addEventListener('click', () => toggleMealReady(meal.id, entry.menuId));
+      }
+      const placeBtn = row.querySelector('[data-act="place"]');
+      if (placeBtn) {
+        placeBtn.addEventListener('click', () => startPlaceMode(meal.id, entry.menuId));
+      }
+      const deleteBtn = row.querySelector('[data-act="delete"]');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
           const ok = await showConfirm({
             title: 'Delete meal?',
             message: 'Delete "' + meal.name + '" from saved meals?',
@@ -3198,15 +3571,23 @@
             danger: true,
           });
           if (!ok) return;
-          if (placeModeSavedId === meal.id) clearPlaceMode();
-          data.saved = data.saved.filter((s) => s.id !== meal.id);
-          persist();
+          if (placeModeSavedId === meal.id && placeModeMenuId === entry.menuId) {
+            clearPlaceMode();
+          }
+          setLibrarySaved(
+            entry.menuId,
+            getLibrarySaved(entry.menuId).filter((s) => s.id !== meal.id)
+          );
+          queueMenuSavedSync(entry.menuId);
           renderSaved();
-          renderReadyTray();
-          if (sheetState) fillSavedPick();
+          if (entry.menuId === activeMenuId) {
+            renderReadyTray();
+            if (sheetState) fillSavedPick();
+          }
         });
-        frag.appendChild(row);
-      });
+      }
+      frag.appendChild(row);
+    });
     savedList.replaceChildren(frag);
   }
 
@@ -3355,6 +3736,10 @@
     } catch (_) {}
 
     const fromId = savedReorder.fromId;
+    const reorderMenuId =
+      (savedReorder.row && savedReorder.row.dataset.menuId) ||
+      [...savedFilterMenuIds][0] ||
+      activeMenuId;
     const dropX = e.clientX != null ? e.clientX : savedReorder.lastX;
     const dropY = e.clientY != null ? e.clientY : savedReorder.lastY;
     updateSavedReorderLive(dropX, dropY, true);
@@ -3372,17 +3757,21 @@
     savedReorder.hover = null;
 
     if (!fromId || orderedIds.length < 2) return;
-    const byId = new Map(data.saved.map((m) => [m.id, m]));
+    const menuId = reorderMenuId;
+    if (!menuId || !menuCanEditLibrary(menuId)) return;
+    const list = getLibrarySaved(menuId).slice();
+    const byId = new Map(list.map((m) => [m.id, m]));
     const next = orderedIds.map((id) => byId.get(id)).filter(Boolean);
-    data.saved.forEach((m) => {
+    list.forEach((m) => {
       if (!orderedIds.includes(m.id)) next.push(m);
     });
     // Favorites stay grouped at the top after a free drag.
     const finalOrder = next.filter((m) => !!m.favorite).concat(next.filter((m) => !m.favorite));
     reindexSavedOrdersFromSorted(finalOrder);
-    persist();
+    setLibrarySaved(menuId, finalOrder);
+    queueMenuSavedSync(menuId);
     renderSaved();
-    renderReadyTray();
+    if (menuId === activeMenuId) renderReadyTray();
   }
 
   function fillSavedPick(selectedId) {
@@ -3554,15 +3943,22 @@
     if (editable) setTimeout(() => nameInput.focus(), 240);
   }
 
-  function openSavedEditor(id) {
-    const meal = data.saved.find((s) => s.id === id);
+  function openSavedEditor(id, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    const meal = findLibraryMeal(sourceMenuId, id);
     if (!meal) return;
-    const editable = canEditMenu();
-    sheetState = { mode: 'saved-edit', savedId: id };
+    const editable = menuCanEditLibrary(sourceMenuId);
+    sheetState = { mode: 'saved-edit', savedId: id, menuId: sourceMenuId };
     sheetTitle.textContent = editable ? 'Edit saved meal' : 'Saved meal';
+    const menuName =
+      (menuLibraryCache[sourceMenuId] && menuLibraryCache[sourceMenuId].name) ||
+      ((menus.find((m) => m.id === sourceMenuId) || {}).name) ||
+      'Menu';
     sheetSub.textContent = editable
-      ? 'Library meal — mark Ready when you have ingredients'
-      : 'View only';
+      ? (sourceMenuId === activeMenuId
+          ? 'Library meal — mark Ready when you have ingredients'
+          : menuName + ' — mark Ready when you have ingredients')
+      : 'View only · ' + menuName;
     fillMealForm(meal);
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = !!meal.ready;
@@ -3575,9 +3971,9 @@
 
   function openNewSaved() {
     if (!canEditMenu()) return;
-    sheetState = { mode: 'saved-new' };
+    sheetState = { mode: 'saved-new', menuId: activeMenuId };
     sheetTitle.textContent = 'New saved meal';
-    sheetSub.textContent = 'Add to your library; mark Ready when you have ingredients';
+    sheetSub.textContent = 'Adds to your active menu library; mark Ready when you have ingredients';
     fillMealForm(emptyMeal());
     saveLibrary.checked = true;
     saveLibraryWrap.hidden = true;
@@ -3592,36 +3988,40 @@
 
   function upsertSaved(mealFields, existingId, opts) {
     const options = opts || {};
+    const sourceMenuId = options.menuId || activeMenuId;
     const payload = {
       name: mealFields.name.trim(),
       details: (mealFields.details || '').trim(),
       cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
     };
+    const list = getLibrarySaved(sourceMenuId).slice();
     if (existingId) {
-      const found = data.saved.find((s) => s.id === existingId);
+      const found = list.find((s) => s.id === existingId);
       if (found) {
         Object.assign(found, payload);
         if (options.ready !== undefined) found.ready = !!options.ready;
         if (options.favorite !== undefined) found.favorite = !!options.favorite;
+        setLibrarySaved(sourceMenuId, list);
         return found.id;
       }
     }
-    const match = data.saved.find((s) => mealsEqualForLibrary(s, payload));
+    const match = list.find((s) => mealsEqualForLibrary(s, payload));
     if (match) {
       if (options.ready !== undefined) match.ready = !!options.ready;
       if (options.favorite !== undefined) match.favorite = !!options.favorite;
+      setLibrarySaved(sourceMenuId, list);
       return match.id;
     }
-    ensureSavedMeta();
-    const maxOrder = data.saved.reduce((max, m) => Math.max(max, Number(m.order) || 0), -1);
+    const maxOrder = list.reduce((max, m) => Math.max(max, Number(m.order) || 0), -1);
     const id = uid();
-    data.saved.push({
+    list.push({
       id,
       ...payload,
       ready: options.ready !== undefined ? !!options.ready : false,
       favorite: options.favorite !== undefined ? !!options.favorite : false,
       order: maxOrder + 1,
     });
+    setLibrarySaved(sourceMenuId, list);
     return id;
   }
 
@@ -3655,16 +4055,25 @@
     }
 
     if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
+      const sourceMenuId = sheetState.menuId || activeMenuId;
+      if (!menuCanEditLibrary(sourceMenuId)) return;
       const savedId = upsertSaved(
         form,
         sheetState.mode === 'saved-edit' ? sheetState.savedId : null,
-        { ready: !!(readyInput && readyInput.checked) }
+        {
+          ready: !!(readyInput && readyInput.checked),
+          menuId: sourceMenuId,
+        }
       );
-      if (sheetState.mode === 'saved-edit') syncSlotsFromSaved(savedId);
-      persist();
-      renderWeek();
+      if (sheetState.mode === 'saved-edit' && sourceMenuId === activeMenuId) {
+        syncSlotsFromSaved(savedId);
+      }
+      queueMenuSavedSync(sourceMenuId);
+      if (sourceMenuId === activeMenuId) {
+        renderWeek();
+        renderReadyTray();
+      }
       renderSaved();
-      renderReadyTray();
       closeSheet();
       return;
     }
@@ -3893,7 +4302,7 @@
         renderWeek();
       }
     } else if (!moved) {
-      if (source === 'ready' && readyId) openSavedEditor(readyId);
+      if (source === 'ready' && readyId) openSavedEditor(readyId, activeMenuId);
       else if (fromKey) openSlotEditor(fromKey);
     }
 
@@ -4007,6 +4416,7 @@
     storageKey = 'platter_data_' + userId;
     prefsKey = DINNER_ONLY_STORAGE_PREFIX + userId;
     loadDinnerOnlyPref();
+    loadSavedFilterPrefs();
     applyDinnerOnlyUi();
     const initialTab = tabFromUrl();
     setTab(initialTab, { skipUrlSync: true });
@@ -4030,6 +4440,9 @@
       const bootData = await api('/api/platter/bootstrap');
       menus = Array.isArray(bootData.menus) ? bootData.menus : [];
       activeMenuId = bootData.activeMenuId || (bootData.menu && bootData.menu.id) || null;
+      pruneSavedFilterToMenus();
+      if (activeMenuId && !savedFilterMenuIds.size) savedFilterMenuIds.add(activeMenuId);
+      saveSavedFilterPrefs();
 
       const cloudEmpty = bootData.menu && !hasMealContent(bootData.menu);
       const localHasContent = hasMealContent(local);
@@ -4050,6 +4463,9 @@
         applyMenuPayload(bootData.menu, menus);
         setSyncStatus('Synced with your account', 'ok');
       }
+      await ensureSavedFilterLibraries();
+      renderSavedMenuBubbles();
+      renderSaved();
     } catch (err) {
       data = { slots: local.slots || {}, saved: local.saved || [] };
       writeLocalCache();
