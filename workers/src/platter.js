@@ -241,7 +241,7 @@ function normalizeSlot(raw) {
   const fields = normalizeMealFields(raw);
   if (!fields.name) return null;
   const savedId = raw.savedId != null ? String(raw.savedId).slice(0, 64) : null;
-  return { ...fields, savedId };
+  return { ...fields, savedId, fromReady: !!raw.fromReady };
 }
 
 function normalizeSlots(raw) {

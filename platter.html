@@ -43,6 +43,8 @@
       --pl-lunch-soft: #e0f2fe;
       --pl-dinner: #7c3aed;
       --pl-dinner-soft: #ede9fe;
+      --pl-from-ready: #16a34a;
+      --pl-from-ready-soft: #dcfce7;
       --pl-danger: #dc2626;
       --pl-layout-pad: 12px;
     }
@@ -351,6 +353,12 @@
       box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.22);
     }
 
+    body.pl-dragging-ready .pl-slot-body.is-drop-target {
+      border-color: var(--pl-from-ready);
+      background: var(--pl-from-ready-soft);
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22);
+    }
+
     body.pl-place-mode .pl-slot-body {
       border-style: solid;
       border-color: #fbbf24;
@@ -461,8 +469,30 @@
       border-color: #c4b5fd;
     }
 
+    .pl-slot[data-meal="breakfast"] .pl-meal-card.is-from-ready,
+    .pl-slot[data-meal="lunch"] .pl-meal-card.is-from-ready,
+    .pl-slot[data-meal="dinner"] .pl-meal-card.is-from-ready,
+    .pl-meal-card.is-from-ready {
+      background: var(--pl-from-ready-soft);
+      border-color: #86efac;
+    }
+
     .pl-meal-card.is-dragging {
       opacity: 0.35;
+    }
+
+    .pl-meal-ready-badge {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #166534;
+      background: #bbf7d0;
+      border: 1px solid #86efac;
     }
 
     .pl-meal-main {
@@ -2162,6 +2192,7 @@
       details: meal.details || '',
       cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
       savedId: meal.id || null,
+      fromReady: true,
     };
   }
 
@@ -2279,6 +2310,7 @@
         details: meal.details || '',
         cookMinutes: meal.cookMinutes == null ? null : meal.cookMinutes,
         savedId,
+        fromReady: !!slot.fromReady,
       };
       updated += 1;
     });
@@ -2727,7 +2759,8 @@
         const mealData = data.slots[key];
         if (mealData && mealData.name) {
           const card = document.createElement('div');
-          card.className = 'pl-meal-card';
+          const fromReady = !!mealData.fromReady;
+          card.className = 'pl-meal-card' + (fromReady ? ' is-from-ready' : '');
           card.dataset.slotKey = key;
           card.setAttribute('role', 'button');
           card.setAttribute('tabindex', '0');
@@ -2740,6 +2773,7 @@
                 ': ' +
                 mealData.name +
                 (cookLabel ? ', ' + cookLabel : '') +
+                (fromReady ? ', ready' : '') +
                 '. Tap to edit, drag to move.'
           );
           if (cookLabel) card.classList.add('has-cook-time');
@@ -2748,6 +2782,7 @@
             '<button type="button" class="pl-meal-clear" aria-label="Remove meal" title="Remove">×</button>' +
             '<div class="pl-meal-main">' +
             '<span class="pl-meal-name"></span>' +
+            (fromReady ? '<em class="pl-meal-ready-badge">Ready</em>' : '') +
             (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
             '</div>';
           if (cookLabel) card.querySelector('.pl-meal-time').textContent = cookLabel;
@@ -3302,7 +3337,12 @@
       } else if (savedPick.value) {
         savedId = savedPick.value;
       }
-      data.slots[sheetState.slotKey] = { ...form, savedId };
+      const existingSlot = data.slots[sheetState.slotKey];
+      data.slots[sheetState.slotKey] = {
+        ...form,
+        savedId,
+        fromReady: !!(existingSlot && existingSlot.fromReady),
+      };
       persist();
       renderWeek();
       renderReadyTray();
@@ -3465,6 +3505,7 @@
       drag.moved = true;
       didDrag = true;
       document.body.classList.add('pl-dragging');
+      if (drag.source === 'ready') document.body.classList.add('pl-dragging-ready');
       drag.card.classList.add('is-dragging');
       const ghost = document.createElement('div');
       ghost.className = 'pl-drag-ghost';
@@ -3509,7 +3550,7 @@
 
     document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
     if (drag.ghost) drag.ghost.remove();
-    document.body.classList.remove('pl-dragging');
+    document.body.classList.remove('pl-dragging', 'pl-dragging-ready');
     if (card) card.classList.remove('is-dragging');
 
     drag.active = false;
