@@ -462,8 +462,8 @@
       border-radius: 12px;
       border: 1.5px solid transparent;
       background: #fff;
-      cursor: grab;
-      touch-action: none;
+      cursor: pointer;
+      touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
       position: relative;
@@ -471,7 +471,36 @@
     }
 
     .pl-meal-card:active {
+      cursor: pointer;
+    }
+
+    .pl-meal-drag {
+      flex: 0 0 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-right: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 10px 0 0 10px;
+      background: rgba(255, 255, 255, 0.45);
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 0;
+      appearance: none;
+    }
+
+    .pl-meal-drag:active {
       cursor: grabbing;
+    }
+
+    body.pl-view-only .pl-meal-drag,
+    body.pl-place-mode .pl-meal-drag {
+      display: none;
     }
 
     .pl-slot[data-meal="breakfast"] .pl-meal-card {
@@ -2455,7 +2484,7 @@
     if (weekHint) {
       weekHint.title = viewOnly
         ? 'View only — tap a meal to see details. You cannot change this shared menu.'
-        : 'Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag between slots to move — hold near the top or bottom edge to scroll.';
+        : 'Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag with the ⋮⋮ handle to move — hold near the top or bottom edge to scroll.';
     }
     if (savedHint) {
       savedHint.innerHTML = viewOnly
@@ -3408,11 +3437,14 @@
                 (cookLabel ? ', ' + cookLabel : '') +
                 (fromReady ? ', ready' : '') +
                 (canEditMenu()
-                  ? '. Tap to edit, drag to move.'
+                  ? '. Tap to edit. Use the drag handle to move.'
                   : '. Tap to view details.')
           );
           if (cookLabel) card.classList.add('has-cook-time');
           card.innerHTML =
+            (canEditMenu() && !placeModeSavedId
+              ? '<button type="button" class="pl-meal-drag" aria-label="Drag to move meal" title="Drag to move">⋮⋮</button>'
+              : '') +
             (cookLabel ? '<span class="pl-meal-time"></span>' : '') +
             '<button type="button" class="pl-meal-clear" aria-label="Remove meal" title="Remove">×</button>' +
             '<div class="pl-meal-main">' +
@@ -3457,6 +3489,14 @@
               clearSlotKey(key);
             });
           }
+          const dragHandle = card.querySelector('.pl-meal-drag');
+          if (dragHandle) {
+            dragHandle.addEventListener('pointerdown', onMealDragHandlePointerDown);
+            dragHandle.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+          }
           card.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -3470,7 +3510,11 @@
               e.stopPropagation();
               return;
             }
-            if (e.target.closest('.pl-meal-clear') || e.target.closest('[data-act="ready-toggle"]')) {
+            if (
+              e.target.closest('.pl-meal-clear') ||
+              e.target.closest('[data-act="ready-toggle"]') ||
+              e.target.closest('.pl-meal-drag')
+            ) {
               e.stopPropagation();
             }
           });
@@ -3480,7 +3524,8 @@
               if (
                 e.target.closest('a') ||
                 e.target.closest('.pl-meal-clear') ||
-                e.target.closest('[data-act="ready-toggle"]')
+                e.target.closest('[data-act="ready-toggle"]') ||
+                e.target.closest('.pl-meal-drag')
               ) {
                 return;
               }
@@ -3488,7 +3533,18 @@
               placeMealOnSlot(key);
             });
           } else if (canEditMenu()) {
-            card.addEventListener('pointerdown', onCardPointerDown);
+            card.addEventListener('click', (e) => {
+              if (didDrag) return;
+              if (
+                e.target.closest('a') ||
+                e.target.closest('.pl-meal-clear') ||
+                e.target.closest('[data-act="ready-toggle"]') ||
+                e.target.closest('.pl-meal-drag')
+              ) {
+                return;
+              }
+              openSlotEditor(key);
+            });
           } else {
             card.style.touchAction = 'manipulation';
             card.addEventListener('click', (e) => {
@@ -4255,12 +4311,25 @@
     card.addEventListener('pointercancel', onCardPointerUp);
   }
 
+  function onMealDragHandlePointerDown(e) {
+    if (!canEditMenu()) return;
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    const card = handle && handle.closest ? handle.closest('.pl-meal-card') : null;
+    const key = card && card.dataset.slotKey;
+    if (!card || !key) return;
+    beginMealDrag(e, card, { source: 'slot', fromKey: key });
+  }
+
   function onCardPointerDown(e) {
     if (!canEditMenu()) return;
     if (e.button != null && e.button !== 0) return;
     if (e.target && e.target.closest && e.target.closest('a')) return;
     if (e.target && e.target.closest && e.target.closest('.pl-meal-clear')) return;
     if (e.target && e.target.closest && e.target.closest('[data-act="ready-toggle"]')) return;
+    if (e.target && e.target.closest && e.target.closest('.pl-meal-drag')) return;
     const card = e.currentTarget;
     const key = card.dataset.slotKey;
     if (!key) return;
