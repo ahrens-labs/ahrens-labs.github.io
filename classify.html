@@ -4861,6 +4861,14 @@
             const overdueTasks = tasks.filter(t => {
                 const dueDate = getTaskDueDate(t);
                 return !t.completed && dueDate && dueDate < todayStr;
+            }).sort((a, b) => {
+                const aDue = getTaskDueDate(a) || '';
+                const bDue = getTaskDueDate(b) || '';
+                if(aDue !== bDue) return aDue.localeCompare(bDue);
+                const aTime = a.dueTime || a.time || '';
+                const bTime = b.dueTime || b.time || '';
+                if(aTime !== bTime) return aTime.localeCompare(bTime);
+                return (a.title || '').localeCompare(b.title || '');
             });
             const highPriorityTasks = tasks.filter(t => {
                 const dueDate = getTaskDueDate(t);
@@ -5156,6 +5164,30 @@
                 }
                 grouped.later.push(t);
             });
+
+            // Most overdue first (earliest due date at the top).
+            grouped.overdue.sort((a, b) => {
+                const aDue = getTaskDueDate(a) || '';
+                const bDue = getTaskDueDate(b) || '';
+                if(aDue !== bDue) return aDue.localeCompare(bDue);
+                const aTime = a.dueTime || a.time || '';
+                const bTime = b.dueTime || b.time || '';
+                if(aTime !== bTime) return aTime.localeCompare(bTime);
+                return (a.title || '').localeCompare(b.title || '');
+            });
+
+            // When viewing the overdue filter, keep the same most→least overdue order.
+            if(filter === 'overdue') {
+                filtered.sort((a, b) => {
+                    const aDue = getTaskDueDate(a) || '';
+                    const bDue = getTaskDueDate(b) || '';
+                    if(aDue !== bDue) return aDue.localeCompare(bDue);
+                    const aTime = a.dueTime || a.time || '';
+                    const bTime = b.dueTime || b.time || '';
+                    if(aTime !== bTime) return aTime.localeCompare(bTime);
+                    return (a.title || '').localeCompare(b.title || '');
+                });
+            }
 
             const sectionOrder = [
                 { key: 'overdue', title: 'Overdue', emptyClass: '' },
