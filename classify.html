@@ -13,7 +13,8 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/classify-favicon-32.png?v=16">
   <link rel="icon" href="/classify.ico?v=16" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/classify-favicon-180.png?v=16">
-  <link rel="manifest" href="/classify-manifest.webmanifest?v=15">
+  <link rel="manifest" href="/classify-manifest.webmanifest?v=16">
+  <meta name="classify-build" content="overdue-sort-2">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/app-site-menu.css?v=150260628g">
   <!-- Tailwind CSS -->
@@ -3589,6 +3590,20 @@
         }
         function minToTime(m) { const h = Math.floor(m/60); const min = m%60; return `${h%12||12}:${String(min).padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
         function getTaskDueDate(t) { return t?.dueDate || t?.date || null; }
+        function getTaskDueDateSortValue(t) {
+            const raw = t?.dueDate || t?.due || t?.date || '';
+            return String(raw).slice(0, 10);
+        }
+        /** Most overdue first (earliest due date / due time at the top). */
+        function compareTasksMostOverdueFirst(a, b) {
+            const aDue = getTaskDueDateSortValue(a);
+            const bDue = getTaskDueDateSortValue(b);
+            if(aDue !== bDue) return aDue.localeCompare(bDue);
+            const aTime = a?.dueTime || '23:59';
+            const bTime = b?.dueTime || '23:59';
+            if(aTime !== bTime) return String(aTime).localeCompare(String(bTime));
+            return (a?.title || '').localeCompare(b?.title || '');
+        }
         function getTaskScheduledDateTime(task) {
             const dateStr = task?.date || getTaskDueDate(task);
             if(!dateStr) return null;
@@ -4861,15 +4876,7 @@
             const overdueTasks = tasks.filter(t => {
                 const dueDate = getTaskDueDate(t);
                 return !t.completed && dueDate && dueDate < todayStr;
-            }).sort((a, b) => {
-                const aDue = getTaskDueDate(a) || '';
-                const bDue = getTaskDueDate(b) || '';
-                if(aDue !== bDue) return aDue.localeCompare(bDue);
-                const aTime = a.dueTime || a.time || '';
-                const bTime = b.dueTime || b.time || '';
-                if(aTime !== bTime) return aTime.localeCompare(bTime);
-                return (a.title || '').localeCompare(b.title || '');
-            });
+            }).sort(compareTasksMostOverdueFirst);
             const highPriorityTasks = tasks.filter(t => {
                 const dueDate = getTaskDueDate(t);
                 return !t.completed && t.priority === 'High' && (!dueDate || dueDate >= todayStr);
@@ -5032,44 +5039,49 @@
                 return true;
             });
 
-            filtered.sort((a, b) => {
-                if(a.completed !== b.completed) return a.completed ? 1 : -1;
-                if(filter === 'weekplan') {
-                    if(!a.date && b.date) return -1;
-                    if(a.date && !b.date) return 1;
-                    const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
-                    const priorityDiff = (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
-                    if(priorityDiff !== 0) return priorityDiff;
-                }
-                if(sort === 'priority') {
-                    const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
-                    return (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
-                } else if(sort === 'autoschedule') {
-                    const aDate = a.date || '';
-                    const bDate = b.date || '';
-                    if(aDate && bDate) {
-                        if(aDate !== bDate) return aDate.localeCompare(bDate);
-                        const aTime = a.time || '23:59';
-                        const bTime = b.time || '23:59';
-                        if(aTime !== bTime) return aTime.localeCompare(bTime);
-                        return (a.title || '').localeCompare(b.title || '');
+            // Overdue filter always ranks most→least overdue, ignoring the Sort dropdown.
+            if(filter === 'overdue') {
+                filtered.sort(compareTasksMostOverdueFirst);
+            } else {
+                filtered.sort((a, b) => {
+                    if(a.completed !== b.completed) return a.completed ? 1 : -1;
+                    if(filter === 'weekplan') {
+                        if(!a.date && b.date) return -1;
+                        if(a.date && !b.date) return 1;
+                        const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
+                        const priorityDiff = (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
+                        if(priorityDiff !== 0) return priorityDiff;
                     }
-                    if(aDate) return -1;
-                    if(bDate) return 1;
-                    const aDue = getTaskDueDate(a) || '9999-12-31';
-                    const bDue = getTaskDueDate(b) || '9999-12-31';
-                    if(aDue !== bDue) return aDue.localeCompare(bDue);
-                    return (a.title || '').localeCompare(b.title || '');
-                } else if(sort === 'subject') {
-                    return (a.subject || '').localeCompare(b.subject || '');
-                } else {
-                    const aDue = getTaskDueDate(a);
-                    const bDue = getTaskDueDate(b);
-                    if(!aDue) return 1;
-                    if(!bDue) return -1;
-                    return aDue.localeCompare(bDue);
-                }
-            });
+                    if(sort === 'priority') {
+                        const priorityMap = {'High': 0, 'Medium': 1, 'Low': 2};
+                        return (priorityMap[a.priority] || 3) - (priorityMap[b.priority] || 3);
+                    } else if(sort === 'autoschedule') {
+                        const aDate = a.date || '';
+                        const bDate = b.date || '';
+                        if(aDate && bDate) {
+                            if(aDate !== bDate) return aDate.localeCompare(bDate);
+                            const aTime = a.time || '23:59';
+                            const bTime = b.time || '23:59';
+                            if(aTime !== bTime) return aTime.localeCompare(bTime);
+                            return (a.title || '').localeCompare(b.title || '');
+                        }
+                        if(aDate) return -1;
+                        if(bDate) return 1;
+                        const aDue = getTaskDueDate(a) || '9999-12-31';
+                        const bDue = getTaskDueDate(b) || '9999-12-31';
+                        if(aDue !== bDue) return aDue.localeCompare(bDue);
+                        return (a.title || '').localeCompare(b.title || '');
+                    } else if(sort === 'subject') {
+                        return (a.subject || '').localeCompare(b.subject || '');
+                    } else {
+                        const aDue = getTaskDueDate(a);
+                        const bDue = getTaskDueDate(b);
+                        if(!aDue) return 1;
+                        if(!bDue) return -1;
+                        return aDue.localeCompare(bDue);
+                    }
+                });
+            }
 
             if(filtered.length === 0) {
                 listEl.innerHTML = `
@@ -5165,29 +5177,7 @@
                 grouped.later.push(t);
             });
 
-            // Most overdue first (earliest due date at the top).
-            grouped.overdue.sort((a, b) => {
-                const aDue = getTaskDueDate(a) || '';
-                const bDue = getTaskDueDate(b) || '';
-                if(aDue !== bDue) return aDue.localeCompare(bDue);
-                const aTime = a.dueTime || a.time || '';
-                const bTime = b.dueTime || b.time || '';
-                if(aTime !== bTime) return aTime.localeCompare(bTime);
-                return (a.title || '').localeCompare(b.title || '');
-            });
-
-            // When viewing the overdue filter, keep the same most→least overdue order.
-            if(filter === 'overdue') {
-                filtered.sort((a, b) => {
-                    const aDue = getTaskDueDate(a) || '';
-                    const bDue = getTaskDueDate(b) || '';
-                    if(aDue !== bDue) return aDue.localeCompare(bDue);
-                    const aTime = a.dueTime || a.time || '';
-                    const bTime = b.dueTime || b.time || '';
-                    if(aTime !== bTime) return aTime.localeCompare(bTime);
-                    return (a.title || '').localeCompare(b.title || '');
-                });
-            }
+            grouped.overdue.sort(compareTasksMostOverdueFirst);
 
             const sectionOrder = [
                 { key: 'overdue', title: 'Overdue', emptyClass: '' },
@@ -5213,7 +5203,10 @@
             }
 
             listEl.innerHTML = sections.map(sec => {
-                const sectionTasks = sec.tasks || grouped[sec.key] || [];
+                let sectionTasks = sec.tasks || grouped[sec.key] || [];
+                if(sec.key === 'overdue' || filter === 'overdue') {
+                    sectionTasks = sectionTasks.slice().sort(compareTasksMostOverdueFirst);
+                }
                 if(sectionTasks.length === 0) return '';
                 return `
                 <section class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 backdrop-blur-sm overflow-hidden ${sec.emptyClass || ''}">

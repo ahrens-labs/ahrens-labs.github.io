@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=34">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=35">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2752,6 +2752,21 @@
     return [...tasks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || taskDisplayTitle(a).localeCompare(taskDisplayTitle(b)));
   }
 
+  /** Most overdue first: earliest due date, then earlier due time, then manual order. */
+  function sortMyTasksMostOverdueFirst(tasks) {
+    return [...tasks].sort((a, b) => {
+      const aDue = String(a.dueDate || '').slice(0, 10);
+      const bDue = String(b.dueDate || '').slice(0, 10);
+      if (aDue !== bDue) return aDue.localeCompare(bDue);
+      const aTime = a.dueTime || '23:59';
+      const bTime = b.dueTime || '23:59';
+      if (aTime !== bTime) return String(aTime).localeCompare(String(bTime));
+      const orderDiff = (a.sortOrder || 0) - (b.sortOrder || 0);
+      if (orderDiff !== 0) return orderDiff;
+      return taskDisplayTitle(a).localeCompare(taskDisplayTitle(b));
+    });
+  }
+
   function buildMyTasksDaySections(tasks) {
     const byKey = new Map();
     for (const t of tasks) {
@@ -2769,7 +2784,7 @@
       sections.push({
         key: '__overdue__',
         label: 'Overdue',
-        tasks: sortMyTasksForDay(byKey.get('__overdue__')),
+        tasks: sortMyTasksMostOverdueFirst(byKey.get('__overdue__')),
         empty: false,
         overdue: true,
       });
