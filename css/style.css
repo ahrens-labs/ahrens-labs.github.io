@@ -490,6 +490,14 @@ header nav a .nav-app-icon {
     vertical-align: middle;
 }
 
+nav a .nav-app-icon--light,
+.nav-dropdown-menu a .nav-app-icon--light,
+header nav a .nav-app-icon--light {
+    background: #f8fafc;
+    padding: 2px;
+    box-sizing: border-box;
+}
+
 nav ul.nav-dropdown-menu a {
     display: flex;
     align-items: center;

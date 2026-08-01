@@ -9,20 +9,21 @@
 
   /** @type {NavEntry[]} */
   const NAV_MENU = [
-    { id: 'home', label: 'Home', href: 'index.html', icon: 'img/favicon.png' },
+    { id: 'home', label: 'Home', href: 'index.html' },
     {
       id: 'chessEngine',
       label: 'Chess Engine',
       href: 'chess_engine.html',
       icon: 'img/trifangx-icon.png',
+      iconClass: 'nav-app-icon--light',
       children: [
-        { id: 'play', label: 'Play', href: 'chess_engine.html', icon: 'img/trifangx-icon.png' },
-        { id: 'trifangxDetails', label: 'TrifangX details', href: 'trifangx.html', icon: 'img/trifangx-icon.png' },
-        { id: 'seasonTrack', label: 'Season track', href: 'chess-season-track.html', icon: 'img/trifangx-icon.png' },
-        { id: 'leaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html', icon: 'img/trifangx-icon.png' },
-        { id: 'gameHistory', label: 'Game history', href: 'chess_engine/game_history/', icon: 'img/trifangx-icon.png' },
-        { id: 'achievements', label: 'Achievements', href: 'achievements.html', icon: 'img/trifangx-icon.png' },
-        { id: 'chessShop', label: 'Chess shop', href: 'chess-shop.html', icon: 'img/trifangx-icon.png' },
+        { id: 'play', label: 'Play', href: 'chess_engine.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'trifangxDetails', label: 'TrifangX details', href: 'trifangx.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'seasonTrack', label: 'Season track', href: 'chess-season-track.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'leaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'gameHistory', label: 'Game history', href: 'chess_engine/game_history/', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'achievements', label: 'Achievements', href: 'achievements.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
+        { id: 'chessShop', label: 'Chess shop', href: 'chess-shop.html', icon: 'img/trifangx-icon.png', iconClass: 'nav-app-icon--light' },
       ],
     },
     {
@@ -54,7 +55,7 @@
         { id: 'lotr', label: 'LOTR', href: 'lotr.html' },
       ],
     },
-    { id: 'account', label: 'Account', href: 'account-dashboard.html', icon: 'img/favicon.png' },
+    { id: 'account', label: 'Account', href: 'account-dashboard.html' },
     { id: 'contact', label: 'Contact', href: 'contact.html' },
   ];
 
@@ -203,7 +204,7 @@
     const iconSrc = resolveNavIconSrc(entry && entry.icon);
     if (iconSrc) {
       const img = document.createElement('img');
-      img.className = 'nav-app-icon';
+      img.className = 'nav-app-icon' + (entry.iconClass ? ' ' + entry.iconClass : '');
       img.src = iconSrc;
       img.alt = '';
       img.width = 18;
