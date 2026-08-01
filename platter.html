@@ -213,7 +213,8 @@
       text-overflow: ellipsis;
     }
 
-    .pl-week-label span {
+    .pl-week-label span,
+    .pl-week-range-btn {
       display: block;
       margin-top: 1px;
       font-size: 0.72rem;
@@ -222,6 +223,68 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .pl-week-range-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin-left: auto;
+      margin-right: auto;
+      max-width: 100%;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--pl-muted);
+      cursor: default;
+      touch-action: manipulation;
+    }
+
+    body.pl-days-view .pl-week-range-btn {
+      cursor: pointer;
+      color: var(--pl-accent);
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 2px;
+    }
+
+    body.pl-days-view .pl-week-range-btn[hidden],
+    .pl-days-range-edit[hidden] {
+      display: none !important;
+    }
+
+    .pl-days-range-edit {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    body.pl-days-view .pl-days-range-edit.is-open {
+      display: flex;
+    }
+
+    .pl-days-range-edit input[type='date'] {
+      appearance: none;
+      border: 1px solid var(--pl-line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--pl-ink);
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      min-height: 36px;
+      padding: 0 8px;
+      max-width: 11.5rem;
+    }
+
+    .pl-days-range-sep {
+      color: var(--pl-muted);
+      font-weight: 700;
+      font-size: 0.8rem;
     }
 
     .pl-hint {
@@ -300,20 +363,6 @@
     .pl-planner-views button.is-on {
       background: var(--pl-accent-soft);
       color: #713f12;
-    }
-
-    .pl-days-extend {
-      display: none;
-      gap: 8px;
-      margin: 0 0 10px;
-    }
-
-    body.pl-days-view .pl-days-extend {
-      display: flex;
-    }
-
-    .pl-days-extend .pl-btn {
-      flex: 1;
     }
 
     body.pl-dinner-only .pl-day-meals {
@@ -1702,7 +1751,12 @@
             <button type="button" id="pl-week-prev" aria-label="Previous week">‹</button>
             <div class="pl-week-label" id="pl-week-hint" title="Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag with the ⋮⋮ handle to move — hold near the top or bottom edge to scroll.">
               <strong id="pl-week-title">This week</strong>
-              <span id="pl-week-range"></span>
+              <button type="button" class="pl-week-range-btn" id="pl-week-range" aria-label="Date range">—</button>
+              <div class="pl-days-range-edit" id="pl-days-range-edit" hidden>
+                <input type="date" id="pl-days-start-input" aria-label="Range start">
+                <span class="pl-days-range-sep" aria-hidden="true">–</span>
+                <input type="date" id="pl-days-end-input" aria-label="Range end">
+              </div>
             </div>
             <button type="button" id="pl-week-next" aria-label="Next week">›</button>
             <button type="button" id="pl-week-today" aria-label="Jump to this week">Today</button>
@@ -1718,10 +1772,6 @@
           <div class="pl-place-banner" id="pl-place-banner" hidden>
             <p><strong>Place</strong> <span id="pl-place-banner-name"></span> — tap a day slot</p>
             <button type="button" class="pl-btn pl-btn-ghost" id="pl-place-cancel">Cancel</button>
-          </div>
-          <div class="pl-days-extend" id="pl-days-extend" aria-label="Extend day range">
-            <button type="button" class="pl-btn pl-btn-ghost" id="pl-days-earlier">← Earlier</button>
-            <button type="button" class="pl-btn pl-btn-ghost" id="pl-days-later">Later →</button>
           </div>
           <div class="pl-week-scroll" id="pl-week-grid" aria-label="Week meal planner"></div>
         </section>
@@ -1908,8 +1958,9 @@
   const weekPrevBtn = document.getElementById('pl-week-prev');
   const weekNextBtn = document.getElementById('pl-week-next');
   const weekTodayBtn = document.getElementById('pl-week-today');
-  const daysEarlierBtn = document.getElementById('pl-days-earlier');
-  const daysLaterBtn = document.getElementById('pl-days-later');
+  const daysRangeEdit = document.getElementById('pl-days-range-edit');
+  const daysStartInput = document.getElementById('pl-days-start-input');
+  const daysEndInput = document.getElementById('pl-days-end-input');
   const weekHint = document.getElementById('pl-week-hint');
   const readyTray = document.getElementById('pl-ready-tray');
   const readyTrayList = document.getElementById('pl-ready-tray-list');
@@ -2221,6 +2272,63 @@
     daysCount = 14;
   }
 
+  function daysEndDate() {
+    const end = new Date(daysStart);
+    end.setDate(end.getDate() + Math.max(0, daysCount - 1));
+    return end;
+  }
+
+  function syncDaysRangeInputs() {
+    if (!daysStartInput || !daysEndInput) return;
+    daysStartInput.value = ymd(daysStart);
+    daysEndInput.value = ymd(daysEndDate());
+  }
+
+  function closeDaysRangeEdit() {
+    if (!daysRangeEdit || !weekRange) return;
+    daysRangeEdit.hidden = true;
+    daysRangeEdit.classList.remove('is-open');
+    weekRange.hidden = false;
+  }
+
+  function openDaysRangeEdit() {
+    if (plannerView !== 'days' || !daysRangeEdit || !weekRange) return;
+    syncDaysRangeInputs();
+    weekRange.hidden = true;
+    daysRangeEdit.hidden = false;
+    daysRangeEdit.classList.add('is-open');
+    if (daysStartInput) daysStartInput.focus();
+  }
+
+  function applyDaysRangeFromInputs() {
+    if (!daysStartInput || !daysEndInput) return false;
+    const start = parseYmd(daysStartInput.value);
+    const end = parseYmd(daysEndInput.value);
+    if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      syncDaysRangeInputs();
+      return false;
+    }
+    let from = start;
+    let to = end;
+    if (to < from) {
+      const tmp = from;
+      from = to;
+      to = tmp;
+    }
+    let count = Math.round((to - from) / 86400000) + 1;
+    if (count < 1) count = 1;
+    if (count > DAYS_MAX) {
+      count = DAYS_MAX;
+      to = new Date(from);
+      to.setDate(to.getDate() + count - 1);
+    }
+    daysStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    daysCount = count;
+    syncDaysRangeInputs();
+    renderWeek({ stickTop: true });
+    return true;
+  }
+
   function updatePlannerChrome() {
     const isDays = plannerView === 'days';
     document.body.classList.toggle('pl-days-view', isDays);
@@ -2233,12 +2341,12 @@
       viewDaysBtn.setAttribute('aria-pressed', isDays ? 'true' : 'false');
     }
     if (weekPrevBtn) {
-      weekPrevBtn.setAttribute('aria-label', isDays ? 'Show earlier days' : 'Previous week');
-      weekPrevBtn.title = isDays ? 'Earlier days' : 'Previous week';
+      weekPrevBtn.setAttribute('aria-label', isDays ? 'Shift range earlier' : 'Previous week');
+      weekPrevBtn.title = isDays ? 'Shift range earlier' : 'Previous week';
     }
     if (weekNextBtn) {
-      weekNextBtn.setAttribute('aria-label', isDays ? 'Show later days' : 'Next week');
-      weekNextBtn.title = isDays ? 'Later days' : 'Next week';
+      weekNextBtn.setAttribute('aria-label', isDays ? 'Shift range later' : 'Next week');
+      weekNextBtn.title = isDays ? 'Shift range later' : 'Next week';
     }
     if (weekTodayBtn) {
       weekTodayBtn.setAttribute('aria-label', isDays ? 'Jump to today' : 'Jump to this week');
@@ -2246,9 +2354,17 @@
     if (weekGrid) {
       weekGrid.setAttribute('aria-label', isDays ? 'Multi-day meal planner' : 'Week meal planner');
     }
+    if (weekRange) {
+      weekRange.disabled = !isDays;
+      weekRange.setAttribute(
+        'aria-label',
+        isDays ? 'Change date range' : 'Week date range'
+      );
+      if (!isDays) closeDaysRangeEdit();
+    }
     if (weekHint && canEditMenu()) {
       weekHint.title = isDays
-        ? 'Days view — scroll through many days and drag meals across weeks with the ⋮⋮ handle. Use Earlier/Later to load more.'
+        ? 'Days view — tap the date range under Days to pick start and end dates. Drag meals across weeks with the ⋮⋮ handle.'
         : 'Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag with the ⋮⋮ handle to move — hold near the top or bottom edge to scroll.';
     }
   }
@@ -2261,8 +2377,10 @@
     if (plannerView === 'days') {
       daysStart = new Date(weekAnchor);
       if (daysCount < 14) daysCount = 14;
+      closeDaysRangeEdit();
     } else {
       weekAnchor = startOfWeek(daysStart);
+      closeDaysRangeEdit();
     }
     updatePlannerChrome();
     renderWeek();
@@ -2276,23 +2394,11 @@
     }
   }
 
-  function shiftDaysEarlier() {
+  function slideDaysRange(deltaDays) {
     daysStart = new Date(daysStart);
-    daysStart.setDate(daysStart.getDate() - DAYS_CHUNK);
-    if (daysCount < DAYS_MAX) {
-      daysCount = Math.min(DAYS_MAX, daysCount + DAYS_CHUNK);
-    }
+    daysStart.setDate(daysStart.getDate() + deltaDays);
+    closeDaysRangeEdit();
     renderWeek({ stickTop: true });
-  }
-
-  function shiftDaysLater() {
-    if (daysCount < DAYS_MAX) {
-      daysCount = Math.min(DAYS_MAX, daysCount + DAYS_CHUNK);
-    } else {
-      daysStart = new Date(daysStart);
-      daysStart.setDate(daysStart.getDate() + DAYS_CHUNK);
-    }
-    renderWeek();
   }
 
   function authHeaders() {
@@ -3571,11 +3677,13 @@
       dayCount = Math.max(7, daysCount | 0);
       weekTitle.textContent = 'Days';
       weekRange.textContent = formatDaySpan(rangeStart, dayCount);
+      syncDaysRangeInputs();
     } else {
       rangeStart = new Date(weekAnchor);
       dayCount = 7;
       weekTitle.textContent = isSameDay(weekAnchor, thisWeek) ? 'This week' : 'Week of';
       weekRange.textContent = formatWeekRange(weekAnchor);
+      closeDaysRangeEdit();
     }
 
     const frag = document.createDocumentFragment();
@@ -4664,7 +4772,7 @@
 
   document.getElementById('pl-week-prev').addEventListener('click', () => {
     if (plannerView === 'days') {
-      shiftDaysEarlier();
+      slideDaysRange(-DAYS_CHUNK);
       return;
     }
     weekAnchor = new Date(weekAnchor);
@@ -4673,7 +4781,7 @@
   });
   document.getElementById('pl-week-next').addEventListener('click', () => {
     if (plannerView === 'days') {
-      shiftDaysLater();
+      slideDaysRange(DAYS_CHUNK);
       return;
     }
     weekAnchor = new Date(weekAnchor);
@@ -4683,7 +4791,8 @@
   document.getElementById('pl-week-today').addEventListener('click', () => {
     if (plannerView === 'days') {
       resetDaysRangeAroundToday();
-      renderWeek();
+      closeDaysRangeEdit();
+      renderWeek({ stickTop: true });
       const todayEl = weekGrid && weekGrid.querySelector('.pl-day.is-today');
       if (todayEl) {
         requestAnimationFrame(() => {
@@ -4697,8 +4806,38 @@
   });
   if (viewWeekBtn) viewWeekBtn.addEventListener('click', () => setPlannerView('week'));
   if (viewDaysBtn) viewDaysBtn.addEventListener('click', () => setPlannerView('days'));
-  if (daysEarlierBtn) daysEarlierBtn.addEventListener('click', shiftDaysEarlier);
-  if (daysLaterBtn) daysLaterBtn.addEventListener('click', shiftDaysLater);
+  if (weekRange) {
+    weekRange.addEventListener('click', () => {
+      if (plannerView !== 'days') return;
+      if (daysRangeEdit && daysRangeEdit.classList.contains('is-open')) {
+        closeDaysRangeEdit();
+      } else {
+        openDaysRangeEdit();
+      }
+    });
+  }
+  function onDaysRangeInputChange() {
+    applyDaysRangeFromInputs();
+  }
+  if (daysStartInput) {
+    daysStartInput.addEventListener('change', onDaysRangeInputChange);
+  }
+  if (daysEndInput) {
+    daysEndInput.addEventListener('change', onDaysRangeInputChange);
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (plannerView !== 'days' || !daysRangeEdit || !daysRangeEdit.classList.contains('is-open')) {
+      return;
+    }
+    const t = e.target;
+    if (
+      (daysRangeEdit.contains && daysRangeEdit.contains(t)) ||
+      (weekRange && (t === weekRange || (weekRange.contains && weekRange.contains(t))))
+    ) {
+      return;
+    }
+    closeDaysRangeEdit();
+  });
   if (dinnerOnlyInput) {
     dinnerOnlyInput.addEventListener('change', () => setDinnerOnly(dinnerOnlyInput.checked));
   }
