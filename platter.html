@@ -3775,6 +3775,10 @@
     weekGrid.replaceChildren(frag);
     // Keep the viewport where the user left it after edits / drag-drop / sync.
     // Never auto-scroll to today or the top of the page.
+    if (options.stickTop) {
+      restoreWindowScroll(0);
+      return;
+    }
     if (options.preserveDay) {
       const el = weekGrid.querySelector('.pl-day[data-date="' + options.preserveDay + '"]');
       if (el && options.preserveTop != null && Number.isFinite(options.preserveTop)) {
