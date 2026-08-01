@@ -2277,15 +2277,12 @@
   }
 
   function shiftDaysEarlier() {
-    const first = weekGrid && weekGrid.querySelector('.pl-day');
-    const anchorDate = first ? first.dataset.date : null;
-    const anchorTop = first ? first.getBoundingClientRect().top : null;
     daysStart = new Date(daysStart);
     daysStart.setDate(daysStart.getDate() - DAYS_CHUNK);
     if (daysCount < DAYS_MAX) {
       daysCount = Math.min(DAYS_MAX, daysCount + DAYS_CHUNK);
     }
-    renderWeek({ preserveDay: anchorDate, preserveTop: anchorTop });
+    renderWeek({ stickTop: true });
   }
 
   function shiftDaysLater() {
