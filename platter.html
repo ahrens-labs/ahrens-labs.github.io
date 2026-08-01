@@ -2157,7 +2157,9 @@
 
   function startOfWeek(date) {
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    d.setDate(d.getDate() - d.getDay());
+    const day = d.getDay(); // 0 Sun … 6 Sat
+    const mondayOffset = day === 0 ? 6 : day - 1;
+    d.setDate(d.getDate() - mondayOffset);
     d.setHours(0, 0, 0, 0);
     return d;
   }
