@@ -326,7 +326,9 @@ nav ul li {
 }
 
 nav a {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
     color: white;
     text-decoration: none;
     font-weight: 500;
@@ -471,8 +473,27 @@ nav ul.nav-dropdown-menu li {
     width: 100%;
 }
 
+nav a.nav-dropdown-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+}
+
+nav a .nav-app-icon,
+.nav-dropdown-menu a .nav-app-icon,
+header nav a .nav-app-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 4px;
+    vertical-align: middle;
+}
+
 nav ul.nav-dropdown-menu a {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
     width: 100%;
     box-sizing: border-box;
     padding: 0.55em 0.85em;

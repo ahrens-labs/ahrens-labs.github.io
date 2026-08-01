@@ -5,23 +5,24 @@
   const STORAGE_KEY = 'ahrenslabs_headerNav';
   const DEFAULT_NAV_IDS = ['home', 'labs', 'chessEngine', 'account'];
 
-  /** @typedef {{ id: string, label: string, href: string, children?: Array<{ id: string, label: string, href: string }> }} NavEntry */
+  /** @typedef {{ id: string, label: string, href: string, icon?: string, children?: Array<{ id: string, label: string, href: string, icon?: string }> }} NavEntry */
 
   /** @type {NavEntry[]} */
   const NAV_MENU = [
-    { id: 'home', label: 'Home', href: 'index.html' },
+    { id: 'home', label: 'Home', href: 'index.html', icon: 'img/favicon.png' },
     {
       id: 'chessEngine',
       label: 'Chess Engine',
       href: 'chess_engine.html',
+      icon: 'img/trifangx-icon.png',
       children: [
-        { id: 'play', label: 'Play', href: 'chess_engine.html' },
-        { id: 'trifangxDetails', label: 'TrifangX details', href: 'trifangx.html' },
-        { id: 'seasonTrack', label: 'Season track', href: 'chess-season-track.html' },
-        { id: 'leaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html' },
-        { id: 'gameHistory', label: 'Game history', href: 'chess_engine/game_history/' },
-        { id: 'achievements', label: 'Achievements', href: 'achievements.html' },
-        { id: 'chessShop', label: 'Chess shop', href: 'chess-shop.html' },
+        { id: 'play', label: 'Play', href: 'chess_engine.html', icon: 'img/trifangx-icon.png' },
+        { id: 'trifangxDetails', label: 'TrifangX details', href: 'trifangx.html', icon: 'img/trifangx-icon.png' },
+        { id: 'seasonTrack', label: 'Season track', href: 'chess-season-track.html', icon: 'img/trifangx-icon.png' },
+        { id: 'leaderboard', label: 'Leaderboard', href: 'chess-leaderboard.html', icon: 'img/trifangx-icon.png' },
+        { id: 'gameHistory', label: 'Game history', href: 'chess_engine/game_history/', icon: 'img/trifangx-icon.png' },
+        { id: 'achievements', label: 'Achievements', href: 'achievements.html', icon: 'img/trifangx-icon.png' },
+        { id: 'chessShop', label: 'Chess shop', href: 'chess-shop.html', icon: 'img/trifangx-icon.png' },
       ],
     },
     {
@@ -43,17 +44,17 @@
       href: 'coding-lab.html',
       children: [
         { id: 'dungeonGame', label: 'Dungeon Game', href: 'dungeon_game.html' },
-        { id: 'classify', label: 'Classify', href: 'classify.html' },
-        { id: 'tether', label: 'Tether', href: 'tether.html' },
-        { id: 'link', label: 'Link', href: '/link/dashboard' },
-        { id: 'digest', label: 'Digest', href: 'digest.html' },
-        { id: 'platter', label: 'Platter', href: 'platter.html' },
+        { id: 'classify', label: 'Classify', href: 'classify.html', icon: 'img/classify-logo-128.png' },
+        { id: 'tether', label: 'Tether', href: 'tether.html', icon: 'img/tether-favicon-48.png' },
+        { id: 'link', label: 'Link', href: '/link/dashboard', icon: 'img/link-favicon-48.png' },
+        { id: 'digest', label: 'Digest', href: 'digest.html', icon: 'img/digest-favicon-48.png' },
+        { id: 'platter', label: 'Platter', href: 'platter.html', icon: 'img/platter-favicon-48.png' },
         { id: 'kyrachyng', label: 'Kyrachyng', href: 'kyrachyng.html' },
         { id: 'spud', label: 'Spud', href: 'spud.html' },
         { id: 'lotr', label: 'LOTR', href: 'lotr.html' },
       ],
     },
-    { id: 'account', label: 'Account', href: 'account-dashboard.html' },
+    { id: 'account', label: 'Account', href: 'account-dashboard.html', icon: 'img/favicon.png' },
     { id: 'contact', label: 'Contact', href: 'contact.html' },
   ];
 
@@ -190,6 +191,30 @@
     return '/' + clean.replace(/^\.\//, '') + suffix;
   }
 
+  function resolveNavIconSrc(icon) {
+    const raw = String(icon || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('/')) return raw;
+    if (isLinkAppContext()) return '/' + raw.replace(/^\.\//, '');
+    return raw;
+  }
+
+  function appendNavLabel(el, entry) {
+    const iconSrc = resolveNavIconSrc(entry && entry.icon);
+    if (iconSrc) {
+      const img = document.createElement('img');
+      img.className = 'nav-app-icon';
+      img.src = iconSrc;
+      img.alt = '';
+      img.width = 18;
+      img.height = 18;
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      el.appendChild(img);
+    }
+    el.appendChild(document.createTextNode(entry.label || ''));
+  }
+
   function hrefBasename(href) {
     const clean = String(href || '').split('?')[0].split('#')[0];
     const parts = clean.split('/').filter(Boolean);
@@ -324,8 +349,13 @@
       trigger.href = resolveNavHref(entry.href);
       trigger.className = 'nav-dropdown-trigger';
       if (isNavGroupActive({ ...entry, children })) trigger.classList.add('active');
-      trigger.innerHTML =
-        escHtml(entry.label) + ' <span class="nav-caret" aria-hidden="true">▾</span>';
+      appendNavLabel(trigger, entry);
+      const caret = document.createElement('span');
+      caret.className = 'nav-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      caret.textContent = '▾';
+      trigger.appendChild(document.createTextNode(' '));
+      trigger.appendChild(caret);
       li.appendChild(trigger);
 
       const menu = document.createElement('ul');
@@ -334,7 +364,7 @@
         const childLi = document.createElement('li');
         const childA = document.createElement('a');
         childA.href = resolveNavHref(child.href);
-        childA.textContent = child.label;
+        appendNavLabel(childA, child);
         if (isNavLinkActive(child, entry.id)) childA.classList.add('active');
         childLi.appendChild(childA);
         menu.appendChild(childLi);
@@ -343,7 +373,7 @@
     } else {
       const a = document.createElement('a');
       a.href = resolveNavHref(entry.href);
-      a.textContent = entry.label;
+      appendNavLabel(a, entry);
       if (isNavLinkActive(entry, entry.id)) a.classList.add('active');
       li.appendChild(a);
     }

@@ -374,7 +374,9 @@ header.th-app-header #header-auth-buttons {
 .th-site-menu-signout,
 .th-site-menu nav > ul > li > a,
 .th-site-menu nav > ul > li > .nav-dropdown-trigger {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5em !important;
   width: 100% !important;
   box-sizing: border-box !important;
   padding: 0.65em 0.85em !important;
@@ -394,6 +396,15 @@ header.th-app-header #header-auth-buttons {
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+}
+
+.th-site-menu nav a .nav-app-icon {
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+  object-fit: contain !important;
+  border-radius: 5px !important;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .th-site-menu-signout:hover,
@@ -433,7 +444,9 @@ header.th-app-header #header-auth-buttons {
 }
 
 .th-site-menu nav ul.nav-dropdown-menu a {
-  display: block !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.55em !important;
   font-size: 0.84rem !important;
   font-weight: 500 !important;
   color: rgba(255, 255, 255, 0.85) !important;
