@@ -404,7 +404,13 @@ header.th-app-header #header-auth-buttons {
   flex-shrink: 0 !important;
   object-fit: contain !important;
   border-radius: 5px !important;
-  background: rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.th-site-menu nav a .nav-app-icon--light {
+  background: #f8fafc !important;
+  padding: 2px !important;
+  box-sizing: border-box !important;
 }
 
 .th-site-menu-signout:hover,
