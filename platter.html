@@ -3760,7 +3760,9 @@
             (fromReady ? 'true' : 'false') +
             '" aria-label="' +
             (fromReady ? 'Mark not ready' : 'Mark ready') +
-            '">Ready</button>' +
+            '">' +
+            (fromReady ? 'Ready!' : 'Ready?') +
+            '</button>' +
             '</div>' +
             (mealData.details ? '<div class="pl-meal-details"></div>' : '') +
             '</div>';
