@@ -752,7 +752,61 @@
         if (msg && opts.switchTab) setSdTab(opts.switchTab);
       }
 
-      function setSdTab(tab) {
+      const SD_VALID_TABS = ['teams', 'preferences'];
+
+      function leagueIdsFromCatalog() {
+        return (catalog.leagues || []).map(function (lg) { return lg.id; });
+      }
+
+      function normalizeDigestLeague(id) {
+        if (!id || typeof id !== 'string') return null;
+        const key = id.trim().toLowerCase();
+        const leagues = leagueIdsFromCatalog();
+        if (leagues.indexOf(key) >= 0) return key;
+        return null;
+      }
+
+      /** Read tab + league from `#teams/mlb` or `?tab=preferences`. */
+      function parseDigestRoute() {
+        const hash = (location.hash || '').replace(/^#\/?/, '').trim();
+        const params = new URLSearchParams(location.search || '');
+        const tabParam = (params.get('tab') || '').trim().toLowerCase();
+        const leagueParam = (params.get('league') || '').trim().toLowerCase();
+
+        if (hash) {
+          const parts = hash.split('/').filter(Boolean);
+          if (parts[0] === 'preferences') return { tab: 'preferences', league: null };
+          if (parts[0] === 'teams') {
+            return { tab: 'teams', league: parts[1] || leagueParam || null };
+          }
+          return { tab: 'teams', league: parts[0] || null };
+        }
+        if (tabParam === 'preferences') return { tab: 'preferences', league: null };
+        if (tabParam === 'teams' || leagueParam) {
+          return { tab: 'teams', league: leagueParam || null };
+        }
+        return { tab: 'teams', league: null };
+      }
+
+      function syncDigestUrl(opts) {
+        opts = opts || {};
+        if (opts.skip) return;
+        const hash = activeSdTab === 'preferences'
+          ? '#preferences'
+          : '#teams/' + encodeURIComponent(activeLeague || 'mlb');
+        const params = new URLSearchParams(location.search || '');
+        params.delete('tab');
+        params.delete('league');
+        const q = params.toString();
+        const url = location.pathname + (q ? '?' + q : '') + hash;
+        const state = { sdTab: activeSdTab, sdLeague: activeLeague };
+        if (opts.replace) history.replaceState(state, '', url);
+        else history.pushState(state, '', url);
+        document.title = (activeSdTab === 'preferences' ? 'Preferences' : 'Teams') + ' — Digest — Ahrens Labs';
+      }
+
+      function setSdTab(tab, opts) {
+        opts = opts || {};
         if (tab !== 'teams' && tab !== 'preferences') return;
         activeSdTab = tab;
         document.querySelectorAll('.sd-tab-panel').forEach(function (panel) {
@@ -761,7 +815,24 @@
         document.querySelectorAll('.sd-bottom-nav-item').forEach(function (btn) {
           btn.classList.toggle('active', btn.getAttribute('data-sd-tab') === tab);
         });
+        if (!opts.skipUrl) syncDigestUrl({ replace: !!opts.replace });
       }
+
+      function applyDigestRoute(route, opts) {
+        route = route || parseDigestRoute();
+        opts = opts || {};
+        if (SD_VALID_TABS.indexOf(route.tab) >= 0) activeSdTab = route.tab;
+        const lg = normalizeDigestLeague(route.league);
+        if (lg) activeLeague = lg;
+        setSdTab(activeSdTab, { skipUrl: true });
+        if (activeSdTab === 'teams') {
+          renderLeagueTabs();
+          renderTeamGrid();
+        }
+        if (!opts.skipUrl) syncDigestUrl({ replace: !!opts.replace });
+      }
+
+      const bootRoute = parseDigestRoute();
 
       let catalog = {
         teams: [],
@@ -771,10 +842,10 @@
         maxCustomTimes: 6,
       };
       let userProfile = null;
-      let activeLeague = 'mlb';
+      let activeLeague = bootRoute.league || 'mlb';
       const SD_SAVE_TEAMS_LABEL = 'Save teams';
       const SD_SAVE_PREFS_LABEL = 'Save preferences';
-      let activeSdTab = 'teams';
+      let activeSdTab = SD_VALID_TABS.indexOf(bootRoute.tab) >= 0 ? bootRoute.tab : 'teams';
       let customTimes = ['09:00'];
       let customDays = [0, 1, 2, 3, 4, 5, 6];
       let selectedTeamOrder = [];
@@ -1068,6 +1139,7 @@
             activeLeague = lg.id;
             renderLeagueTabs();
             renderTeamGrid();
+            syncDigestUrl();
           });
           tabs.appendChild(btn);
         });
@@ -1201,10 +1273,14 @@
         };
       }
 
+      function digestReturnUrl() {
+        return 'digest.html' + (location.hash || '#teams/mlb');
+      }
+
       async function loadAll() {
         const sessionId = getSessionId();
         if (!sessionId) {
-          window.location.href = 'account.html?return=digest.html';
+          window.location.href = 'account.html?return=' + encodeURIComponent(digestReturnUrl());
           return;
         }
 
@@ -1214,7 +1290,7 @@
         ]);
 
         if (!userRes.ok) {
-          window.location.href = 'account.html?return=digest.html';
+          window.location.href = 'account.html?return=' + encodeURIComponent(digestReturnUrl());
           return;
         }
 
@@ -1241,7 +1317,18 @@
         document.getElementById('sd-loading').style.display = 'none';
         document.getElementById('sd-panel').style.display = 'block';
         document.getElementById('sd-bottom-nav').hidden = false;
-        setSdTab(activeSdTab);
+
+        const validLeague = normalizeDigestLeague(activeLeague);
+        activeLeague = validLeague || ((catalog.leagues && catalog.leagues[0] && catalog.leagues[0].id) || 'mlb');
+        applyDigestRoute({ tab: activeSdTab, league: activeLeague }, { replace: true, skipUrl: false });
+
+        window.addEventListener('popstate', function () {
+          applyDigestRoute(parseDigestRoute(), { skipUrl: true });
+          syncDigestUrl({ replace: true });
+        });
+        window.addEventListener('hashchange', function () {
+          applyDigestRoute(parseDigestRoute(), { skipUrl: true });
+        });
 
         const email = userProfile.email || 'your account email';
         const uname = userProfile.username || 'there';
