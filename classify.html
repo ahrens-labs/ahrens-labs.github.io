@@ -1867,7 +1867,11 @@
                         <input id="completionRemaining" type="number" min="1" step="1" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all" placeholder="e.g. 30">
                     </div>
                 </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">A new assignment will be created for the remaining time.</p>
+                <label class="flex items-center gap-2 mt-3 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                    <input id="completionFinishDifferentDay" type="checkbox" class="rounded border-slate-300 dark:border-slate-600 text-red-600 focus:ring-red-500">
+                    Finish on different day
+                </label>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">A new assignment will be created for the remaining time. With “Finish on different day”, the remainder is never auto-scheduled on this assignment’s day.</p>
             </div>
             <div class="flex justify-end gap-3 mt-5">
                 <button onclick="closeTimeModal()" class="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors">Cancel</button>
@@ -3158,6 +3162,11 @@
                     .map(x => String(x || '').trim())
                     .filter(Boolean)
             ));
+            const avoidScheduleDates = Array.from(new Set(
+                (Array.isArray(task.avoidScheduleDates) ? task.avoidScheduleDates : [])
+                    .map(d => String(d || '').trim())
+                    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+            ));
             const actualMinutes = Number.isFinite(Number(task.actualMinutes))
                 ? Math.max(1, Math.round(Number(task.actualMinutes)))
                 : null;
@@ -3194,6 +3203,7 @@
                 mustBeBefore,
                 mustBeAfter,
                 mustBeDifferentDay,
+                avoidScheduleDates,
                 notes: String(task.notes || '').substring(0, 500),
                 completed: Boolean(task.completed),
                 completedDate: task.completedDate || null,
@@ -3390,6 +3400,8 @@
                 const refDate = getDependencyRefDate(refId, dateById) || getTaskDifferentDayConstraintDate(refTask);
                 if(refDate === candidate) return false;
             }
+
+            if(isDateBlockedForTask(task, candidate)) return false;
 
             return true;
         }
@@ -3796,6 +3808,40 @@
             if(!task) return null;
             if(task.completed && task.completedDate) return task.completedDate;
             return task.date || null;
+        }
+
+        function isDateBlockedForTask(task, dateStr) {
+            if(!task || !dateStr) return false;
+            const avoid = Array.isArray(task.avoidScheduleDates) ? task.avoidScheduleDates : [];
+            if(avoid.includes(dateStr)) return true;
+
+            const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
+            for(const refId of differentDayRefs) {
+                const refTask = tasks.find(t => t.id === refId);
+                const refDate = getTaskDifferentDayConstraintDate(refTask);
+                if(refDate === dateStr) return true;
+            }
+            return false;
+        }
+
+        function enforceDifferentDayAfterCompletion(completedTask) {
+            if(!completedTask?.id) return 0;
+            const completionDay = getTaskDifferentDayConstraintDate(completedTask);
+            if(!completionDay) return 0;
+
+            let cleared = 0;
+            tasks.forEach(t => {
+                if(!t || t.completed || t.id === completedTask.id) return;
+                if(!(Array.isArray(t.mustBeDifferentDay) && t.mustBeDifferentDay.includes(completedTask.id))) return;
+                if(t.date !== completionDay) return;
+                if(isUserScheduleLocked(t)) return;
+                t.date = null;
+                t.time = null;
+                t.timeSource = null;
+                t.assignmentMode = 'ADJUSTABLE';
+                cleared++;
+            });
+            return cleared;
         }
         function formatDateLabel(dateStr) {
             if(!dateStr) return '';
@@ -4829,6 +4875,7 @@
             const preferredAutoEnd = dayEnd;
             const hardAutoEnd = dayEnd;
             floating.forEach(t => {
+                if(isDateBlockedForTask(t, dateStr)) return;
                 let duration = getTaskDurationMinutes(t, 30);
                 const taskDueDate = getTaskDueDate(t);
                 const dueLimit = (t.dueTime && taskDueDate === dateStr) ? timeToMin(t.dueTime) : hardAutoEnd;
@@ -5726,6 +5773,8 @@
             document.getElementById('timeInput').value = (Number(task?.actualMinutes) >= 2) ? task.actualMinutes : '';
             document.getElementById('completionPercent').value = '';
             document.getElementById('completionRemaining').value = '';
+            const finishDifferentDay = document.getElementById('completionFinishDifferentDay');
+            if(finishDifferentDay) finishDifferentDay.checked = false;
             const fullRadio = document.querySelector('input[name="completionMode"][value="full"]');
             if(fullRadio) fullRadio.checked = true;
             setCompletionMode('full');
@@ -5746,6 +5795,8 @@
                 document.getElementById('timeInput').value = '';
                 document.getElementById('completionPercent').value = '';
                 document.getElementById('completionRemaining').value = '';
+                const finishDifferentDay = document.getElementById('completionFinishDifferentDay');
+                if(finishDifferentDay) finishDifferentDay.checked = false;
             }, 200);
         }
 
@@ -6576,6 +6627,8 @@
 
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
 
+                const assignmentDay = task.date || task.completedDate;
+                const finishOnDifferentDay = Boolean(document.getElementById('completionFinishDifferentDay')?.checked);
                 const carryOver = normalizeTask({
                     ...task,
                     id: generateId(),
@@ -6584,12 +6637,27 @@
                     completedDate: null,
                     actualMinutes: null,
                     duration: remaining,
+                    time: null,
+                    timeSource: null,
+                    assignmentMode: 'ADJUSTABLE',
+                    startedAt: null,
                     repeatGroupId: null,
                     repeatWeekKey: null,
-                    repeatRule: normalizeRepeatRule({ type: 'none' })
+                    repeatRule: normalizeRepeatRule({ type: 'none' }),
+                    ...(finishOnDifferentDay && assignmentDay ? {
+                        date: null,
+                        dateSource: null,
+                        week: null,
+                        avoidScheduleDates: [assignmentDay]
+                    } : {})
                 });
                 tasks.push(carryOver);
-                showNotification('Created a follow-up assignment for the remaining work', 'success');
+                showNotification(
+                    finishOnDifferentDay
+                        ? 'Created follow-up assignment — remainder will schedule on a different day'
+                        : 'Created a follow-up assignment for the remaining work',
+                    'success'
+                );
             } else {
                 const raw = document.getElementById('timeInput').value;
                 const minutes = Math.round(Number(raw));
@@ -6602,6 +6670,7 @@
 
             const spawned = advanceRepeatSeriesIfReady();
             pruneRepeatFutureWeeks();
+            enforceDifferentDayAfterCompletion(task);
             reAutoScheduleAfterCompletion(task, spawned > 0);
             saveData({ skipAutoSchedule: true });
             syncClassifyDataToCloud();
@@ -8417,7 +8486,9 @@
                         if(d >= todayStr) out.add(d);
                     });
                 }
-                return Array.from(out).sort((a, b) => a.localeCompare(b));
+                return Array.from(out)
+                    .filter(d => !isDateBlockedForTask(task, d))
+                    .sort((a, b) => a.localeCompare(b));
             };
 
             const attemptSchedule = () => {
@@ -8430,6 +8501,7 @@
 
             const tryPlaceTaskOnDate = (task, targetDate, targetBusy, startMin) => {
                 const duration = parseInt(task.duration, 10) || 30;
+                if(isDateBlockedForTask(task, targetDate)) return null;
                 const targetSchedule = getScheduleForDate(targetDate);
                 const targetDayEnd = timeToMin(targetSchedule.end);
                 const dueDate = getTaskDueDate(task);
