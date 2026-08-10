@@ -6260,6 +6260,16 @@
             `).join('');
         }
 
+        function getSavedScheduleDefaults() {
+            const defaults = normalizeScheduleRules(scheduleRules);
+            return {
+                defaultStart: defaults.defaultStart,
+                defaultEnd: defaults.defaultEnd,
+                defaultLunchStart: defaults.defaultLunchStart,
+                defaultLunchEnd: defaults.defaultLunchEnd
+            };
+        }
+
         function refreshOverrideCurrentTimesPreview() {
             const date = document.getElementById('overrideDateInput')?.value || '';
             const previewEl = document.getElementById('overrideCurrentTimesPreview');
@@ -6275,34 +6285,29 @@
             const rules = normalizeScheduleRules(scheduleRules);
             const existingOverride = (rules.dateOverrides || []).find(o => o.date === date);
             const currentSchedule = getScheduleForDate(date);
+            const savedDefaults = getSavedScheduleDefaults();
             const sourceLabel = existingOverride ? 'existing override' : 'defaults';
             const currentStart = minToTime(timeToMin(currentSchedule.start));
             const currentEnd = minToTime(timeToMin(currentSchedule.end));
             const currentLunchStart = minToTime(timeToMin(currentSchedule.lunchStart));
             const currentLunchEnd = minToTime(timeToMin(currentSchedule.lunchEnd));
-            if(startInput) startInput.value = currentStart || '';
-            if(endInput) endInput.value = currentEnd || '';
-            if(lunchStartInput) lunchStartInput.value = currentLunchStart || '';
-            if(lunchEndInput) lunchEndInput.value = currentLunchEnd || '';
-            previewEl.textContent = `Loaded current ${sourceLabel} times for ${formatDateLabel(date)} into the fields above.`;
+            if(startInput) startInput.value = '';
+            if(endInput) endInput.value = '';
+            if(lunchStartInput) lunchStartInput.value = '';
+            if(lunchEndInput) lunchEndInput.value = '';
+            previewEl.textContent = `Current ${sourceLabel} for ${formatDateLabel(date)}: Day ${currentStart}-${currentEnd}, Lunch ${currentLunchStart}-${currentLunchEnd}. Blank fields use saved defaults (Day ${minToTime(timeToMin(savedDefaults.defaultStart))}-${minToTime(timeToMin(savedDefaults.defaultEnd))}, Lunch ${minToTime(timeToMin(savedDefaults.defaultLunchStart))}-${minToTime(timeToMin(savedDefaults.defaultLunchEnd))}).`;
         }
 
         function ensureOverrideInputsFilledFromSelectedDate() {
-            const date = document.getElementById('overrideDateInput')?.value || '';
-            if(!date) return;
-            const currentSchedule = getScheduleForDate(date);
-            const currentStart = minToTime(timeToMin(currentSchedule.start));
-            const currentEnd = minToTime(timeToMin(currentSchedule.end));
-            const currentLunchStart = minToTime(timeToMin(currentSchedule.lunchStart));
-            const currentLunchEnd = minToTime(timeToMin(currentSchedule.lunchEnd));
+            const savedDefaults = getSavedScheduleDefaults();
             const startInput = document.getElementById('overrideStartInput');
             const endInput = document.getElementById('overrideEndInput');
             const lunchStartInput = document.getElementById('overrideLunchStartInput');
             const lunchEndInput = document.getElementById('overrideLunchEndInput');
-            if(startInput && !startInput.value) startInput.value = currentStart || '';
-            if(endInput && !endInput.value) endInput.value = currentEnd || '';
-            if(lunchStartInput && !lunchStartInput.value) lunchStartInput.value = currentLunchStart || '';
-            if(lunchEndInput && !lunchEndInput.value) lunchEndInput.value = currentLunchEnd || '';
+            if(startInput && !startInput.value) startInput.value = minToTime(timeToMin(savedDefaults.defaultStart)) || '';
+            if(endInput && !endInput.value) endInput.value = minToTime(timeToMin(savedDefaults.defaultEnd)) || '';
+            if(lunchStartInput && !lunchStartInput.value) lunchStartInput.value = minToTime(timeToMin(savedDefaults.defaultLunchStart)) || '';
+            if(lunchEndInput && !lunchEndInput.value) lunchEndInput.value = minToTime(timeToMin(savedDefaults.defaultLunchEnd)) || '';
         }
 
         function renderBreakRulesList() {
@@ -6439,12 +6444,16 @@
         }
 
         function addScheduleDateOverride() {
-            ensureOverrideInputsFilledFromSelectedDate();
+            const savedDefaults = getSavedScheduleDefaults();
             const date = document.getElementById('overrideDateInput')?.value || '';
-            const start = normalizeClockValue(document.getElementById('overrideStartInput')?.value, '');
-            const end = normalizeClockValue(document.getElementById('overrideEndInput')?.value, '');
-            const lunchStart = normalizeClockValue(document.getElementById('overrideLunchStartInput')?.value, '');
-            const lunchEnd = normalizeClockValue(document.getElementById('overrideLunchEndInput')?.value, '');
+            const startRaw = document.getElementById('overrideStartInput')?.value || '';
+            const endRaw = document.getElementById('overrideEndInput')?.value || '';
+            const lunchStartRaw = document.getElementById('overrideLunchStartInput')?.value || '';
+            const lunchEndRaw = document.getElementById('overrideLunchEndInput')?.value || '';
+            const start = startRaw ? normalizeClockValue(startRaw, savedDefaults.defaultStart) : savedDefaults.defaultStart;
+            const end = endRaw ? normalizeClockValue(endRaw, savedDefaults.defaultEnd) : savedDefaults.defaultEnd;
+            const lunchStart = lunchStartRaw ? normalizeClockValue(lunchStartRaw, savedDefaults.defaultLunchStart) : savedDefaults.defaultLunchStart;
+            const lunchEnd = lunchEndRaw ? normalizeClockValue(lunchEndRaw, savedDefaults.defaultLunchEnd) : savedDefaults.defaultLunchEnd;
             const normalized = normalizeScheduleOverride({ date, start, end, lunchStart, lunchEnd });
             if(!normalized) {
                 showNotification('Enter a valid date override (day and lunch times)', 'error');
