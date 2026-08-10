@@ -3285,6 +3285,7 @@
             task.weekDueOnly = false;
             task.startedAt = Date.now();
 
+            reconcileBeforeAfterSchedule([id]);
             saveData({ skipAutoSchedule: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
@@ -3538,6 +3539,140 @@
             }
 
             return false;
+        }
+
+        function collectBeforeAfterClusterTaskIds(seedIds = []) {
+            const queue = Array.from(new Set((seedIds || []).filter(Boolean)));
+            const cluster = new Set(queue);
+            while(queue.length > 0) {
+                const id = queue.shift();
+                const task = tasks.find(t => t.id === id);
+                const neighborIds = new Set();
+                if(task) {
+                    (task.mustBeAfter || []).forEach(refId => neighborIds.add(refId));
+                    (task.mustBeBefore || []).forEach(refId => neighborIds.add(refId));
+                }
+                tasks.forEach(t => {
+                    if(!t?.id) return;
+                    if((t.mustBeAfter || []).includes(id) || (t.mustBeBefore || []).includes(id)) {
+                        neighborIds.add(t.id);
+                    }
+                });
+                neighborIds.forEach(nid => {
+                    if(!nid || cluster.has(nid)) return;
+                    cluster.add(nid);
+                    queue.push(nid);
+                });
+            }
+            return cluster;
+        }
+
+        function getAllBeforeAfterLinkedTaskIds() {
+            const ids = new Set();
+            (tasks || []).forEach(t => {
+                if(!t?.id || t.completed) return;
+                const hasOutgoing = (t.mustBeAfter?.length || 0) > 0 || (t.mustBeBefore?.length || 0) > 0;
+                const hasIncoming = (tasks || []).some(other =>
+                    !other.completed &&
+                    ((other.mustBeAfter || []).includes(t.id) || (other.mustBeBefore || []).includes(t.id))
+                );
+                if(hasOutgoing || hasIncoming) ids.add(t.id);
+            });
+            return Array.from(ids);
+        }
+
+        function taskViolatesBeforeAfterDates(task, dateById = new Map()) {
+            if(!task || task.completed || !task.date) return false;
+
+            for(const refId of (task.mustBeAfter || [])) {
+                const ref = tasks.find(t => t.id === refId);
+                if(!ref || ref.completed) continue;
+                const refDate = getDependencyRefDate(refId, dateById) || ref.date;
+                if(!refDate) continue;
+                if(task.date < refDate) return true;
+            }
+
+            for(const refId of (task.mustBeBefore || [])) {
+                const ref = tasks.find(t => t.id === refId);
+                if(!ref || ref.completed) continue;
+                const refDate = getDependencyRefDate(refId, dateById) || ref.date;
+                if(!refDate) continue;
+                if(task.date > refDate) return true;
+            }
+
+            return false;
+        }
+
+        function collectWeekKeysForTasks(taskIds = []) {
+            const weekKeys = new Set();
+            const addWeekKey = (weekKey) => {
+                if(weekKey && /^\d{4}-W\d{2}$/.test(weekKey)) weekKeys.add(weekKey);
+            };
+            const addDate = (dateStr) => {
+                if(dateStr) addWeekKey(getWeekKeyFromDateStr(dateStr));
+            };
+
+            (taskIds || []).forEach(id => {
+                const task = tasks.find(t => t.id === id);
+                if(!task) return;
+                addDate(task.date);
+                addDate(task.completedDate);
+                addDate(getTaskDueDate(task));
+                addWeekKey(task.week);
+            });
+            return weekKeys;
+        }
+
+        function reconcileBeforeAfterSchedule(seedTaskIds = []) {
+            const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
+            const cluster = seeds.length > 0
+                ? collectBeforeAfterClusterTaskIds(seeds)
+                : new Set(getAllBeforeAfterLinkedTaskIds());
+            if(cluster.size === 0) return 0;
+
+            let adjusted = 0;
+            let changed = true;
+            while(changed) {
+                changed = false;
+                const dateById = new Map(
+                    (tasks || []).filter(t => t?.id && t.date).map(t => [t.id, t.date])
+                );
+                const byId = new Map((tasks || []).filter(t => t?.id && !t.completed).map(t => [t.id, t]));
+                for(const task of (tasks || [])) {
+                    if(!task?.id || !cluster.has(task.id) || task.completed) continue;
+                    if(isUserScheduleLocked(task)) continue;
+
+                    const violatesTime = task.time && taskViolatesDependencySchedule(task, byId);
+                    const violatesDate = taskViolatesBeforeAfterDates(task, dateById);
+                    if(!violatesTime && !violatesDate) continue;
+
+                    if(violatesTime && clearDependencyViolationForTask(task, byId)) {
+                        adjusted++;
+                        changed = true;
+                        continue;
+                    }
+
+                    if(violatesDate) {
+                        task.date = null;
+                        if(task.dateSource !== 'user') task.dateSource = null;
+                        task.time = null;
+                        task.timeSource = null;
+                        task.assignmentMode = 'ADJUSTABLE';
+                        adjusted++;
+                        changed = true;
+                    }
+                }
+            }
+
+            const weekKeys = collectWeekKeysForTasks(Array.from(cluster));
+            seeds.forEach(id => collectWeekKeysForTasks([id]).forEach(wk => weekKeys.add(wk)));
+
+            weekKeys.forEach(weekKey => {
+                assignWeekTaskDates(weekKey, true);
+                autoBlockWeekTimes(false, weekKey, true, true);
+            });
+
+            return adjusted;
         }
 
         function taskViolatesDependencySchedule(task, byId = null) {
@@ -4518,6 +4653,7 @@
             if(!skipAutoSchedule && !saveDataAutoScheduleGuard) {
                 saveDataAutoScheduleGuard = true;
                 try {
+                    reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
                     refreshAdjustableScheduling();
                 } catch (error) {
                     console.error('Adjustable auto-schedule failed:', error);
@@ -6658,6 +6794,8 @@
                         : 'Created a follow-up assignment for the remaining work',
                     'success'
                 );
+                enforceDifferentDayAfterCompletion(task);
+                reconcileBeforeAfterSchedule([task.id, carryOver.id]);
             } else {
                 const raw = document.getElementById('timeInput').value;
                 const minutes = Math.round(Number(raw));
@@ -6670,7 +6808,10 @@
 
             const spawned = advanceRepeatSeriesIfReady();
             pruneRepeatFutureWeeks();
-            enforceDifferentDayAfterCompletion(task);
+            if(mode !== 'partial') {
+                enforceDifferentDayAfterCompletion(task);
+                reconcileBeforeAfterSchedule([task.id]);
+            }
             reAutoScheduleAfterCompletion(task, spawned > 0);
             saveData({ skipAutoSchedule: true });
             syncClassifyDataToCloud();
@@ -6683,24 +6824,9 @@
 
         function reAutoScheduleAfterCompletion(completedTask, hasSpawnedRepeats = false) {
             ensureAllEventsScheduled();
-            const weeksToRebuild = new Set([getCurrentWeekKey()]);
-
-            if(completedTask && completedTask.date) {
-                weeksToRebuild.add(getWeekKeyFromDateStr(completedTask.date));
-            }
-
             if(hasSpawnedRepeats) {
-                const todayStr = getDateStrLocal();
-                tasks.filter(t => !t.completed && t.date && t.date >= todayStr).forEach(t => {
-                    weeksToRebuild.add(getWeekKeyFromDateStr(t.date));
-                });
+                reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
             }
-
-            weeksToRebuild.forEach(weekKey => {
-                if(!weekKey) return;
-                autoBlockWeekTimes(false, weekKey, true, true);
-                autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
-            });
         }
 
         function isTypingTarget(el) {
@@ -6809,6 +6935,7 @@
                 task.timeSource = null;
             }
             autoBlockWeekTimes(false, getWeekKeyFromDateStr(dateStr), false, true);
+            reconcileBeforeAfterSchedule([taskId]);
             saveData({ skipAutoSchedule: true });
             renderCalendar();
         }
@@ -7653,18 +7780,7 @@
                     applyReciprocalDependenciesForTask(normalizedTaskData.id);
                     syncAllTaskDependencies();
                     ensureAllEventsScheduled();
-
-                    const impactedWeeks = new Set();
-                    const addImpactedWeek = (weekKey) => {
-                        if(weekKey && /^\d{4}-W\d{2}$/.test(weekKey)) impactedWeeks.add(weekKey);
-                    };
-                    addImpactedWeek(normalizedTaskData.week);
-                    addImpactedWeek(previousTask?.week);
-                    addImpactedWeek(getWeekKeyFromDateStr(normalizedTaskData.date));
-                    addImpactedWeek(getWeekKeyFromDateStr(previousTask?.date));
-                    impactedWeeks.forEach(weekKey => {
-                        autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
-                    });
+                    reconcileBeforeAfterSchedule([normalizedTaskData.id]);
 
                     saveData({ skipAutoSchedule: true });
                     if(isCreatingNewTask) syncClassifyDataToCloud();
@@ -7745,17 +7861,10 @@
                 pruneRepeatFutureWeeks();
                 syncAllTaskDependencies();
                 ensureAllEventsScheduled();
-                const recurringWeeks = new Set();
-                tasks
-                    .filter(t => !t.completed && t.repeatGroupId === groupId)
-                    .forEach(t => {
-                        if(t.week) recurringWeeks.add(t.week);
-                        if(t.date) recurringWeeks.add(getWeekKeyFromDateStr(t.date));
-                    });
-                recurringWeeks.forEach(weekKey => {
-                    if(!weekKey) return;
-                    autoPlanWeekInternal(weekKey, { showToast: false, persist: false, switchToCalendar: false });
-                });
+                const groupSeeds = tasks
+                    .filter(t => t.repeatGroupId === groupId && !t.completed)
+                    .map(t => t.id);
+                reconcileBeforeAfterSchedule(groupSeeds.length ? groupSeeds : [normalizedTaskData.id]);
                 saveData({ skipAutoSchedule: true });
                 clearForm();
                 closeModal();
@@ -7976,13 +8085,7 @@
             applyReciprocalDependenciesForTask(duplicatedTask.id);
             syncAllTaskDependencies();
             ensureAllEventsScheduled();
-
-            const targetWeekKey = duplicatedTask.date
-                ? getWeekKeyFromDateStr(duplicatedTask.date)
-                : duplicatedTask.week;
-            if(targetWeekKey) {
-                autoPlanWeekInternal(targetWeekKey, { showToast: false, persist: false, switchToCalendar: false });
-            }
+            reconcileBeforeAfterSchedule([duplicatedTask.id]);
 
             saveData({ skipAutoSchedule: true });
             syncClassifyDataToCloud();
@@ -8866,6 +8969,7 @@
                     const dueDate = getTaskDueDate(task);
                     const candidateDates = getTaskCandidateDates(task);
                     candidateDates.forEach(date => {
+                        if(isDateBlockedForTask(task, date)) return;
                         const dayEnd = timeToMin(getScheduleForDate(date).end);
                         const dueLimit = (task.dueTime && dueDate === date) ? timeToMin(task.dueTime) : dayEnd;
                         const maxEnd = Math.min(dayEnd, dueLimit);
