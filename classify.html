@@ -8672,10 +8672,6 @@
                 return { changed: passChanges, depOrdered };
             };
 
-            const isBeforeTask = (first, second) => {
-                return isTaskScheduledBefore(first, second);
-            };
-
             const clearDependencyViolations = () => {
                 let resetCount = 0;
                 let unresolvedCount = 0;
