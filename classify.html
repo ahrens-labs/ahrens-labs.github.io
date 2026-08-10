@@ -3499,7 +3499,7 @@
             const current = task.date;
             const next = current
                 ? getNextValidWeekDate(task, current, eligibleDates, dateById)
-                : findEarliestValidWeekDate(task, eligibleDates, dateById);
+                : findLatestValidWeekDate(task, eligibleDates, dateById);
             if(!next || next === current) return false;
             task.date = next;
             if(task.dateSource !== 'user') task.dateSource = 'auto';
@@ -3514,6 +3514,71 @@
             return validDates.length > 0 ? validDates[0] : null;
         }
 
+        function findLatestValidWeekDate(task, eligibleDates, dateById = new Map()) {
+            const validDates = getAllValidWeekDates(task, eligibleDates, dateById);
+            return validDates.length > 0 ? validDates[validDates.length - 1] : null;
+        }
+
+        function captureWeekScheduleSnapshot(weekKey) {
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const ids = new Set();
+            tasks.forEach(t => {
+                if(t.completed) return;
+                if(isTaskTargetedForWeek(t, weekKey, true)) ids.add(t.id);
+                else if(t.date && t.date >= startStr && t.date <= endStr) ids.add(t.id);
+            });
+            const fields = new Map();
+            ids.forEach(id => {
+                const t = tasks.find(x => x.id === id);
+                if(!t) return;
+                fields.set(id, {
+                    date: t.date,
+                    time: t.time,
+                    dateSource: t.dateSource,
+                    timeSource: t.timeSource,
+                    week: t.week,
+                    title: t.title,
+                    duration: t.duration,
+                    splitGroupId: t.splitGroupId,
+                    splitPercent: t.splitPercent,
+                    assignmentMode: t.assignmentMode
+                });
+            });
+            return { taskIds: new Set(tasks.map(t => t.id)), fields };
+        }
+
+        function restoreWeekScheduleSnapshot(snapshot) {
+            if(!snapshot) return;
+            for(let i = tasks.length - 1; i >= 0; i--) {
+                if(!snapshot.taskIds.has(tasks[i].id)) tasks.splice(i, 1);
+            }
+            snapshot.fields.forEach((saved, id) => {
+                const t = tasks.find(x => x.id === id);
+                if(!t) return;
+                Object.assign(t, saved);
+            });
+        }
+
+        function getWeekTasksMissingSchedule(weekKey) {
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const inScope = (t) => {
+                if(t.completed) return false;
+                if(isTaskTargetedForWeek(t, weekKey, true)) return true;
+                return Boolean(t.date && t.date >= startStr && t.date <= endStr);
+            };
+            return tasks.filter(t => {
+                if(!inScope(t)) return false;
+                if(t.repeatNoAutoTime) return false;
+                if(t.date && t.time) return false;
+                return true;
+            });
+        }
+
+        function isWeekScheduleComplete(weekKey, { unresolvedViolations = 0, hasCycle = false, backtrackSolved = true } = {}) {
+            if(hasCycle || unresolvedViolations > 0 || !backtrackSolved) return false;
+            return getWeekTasksMissingSchedule(weekKey).length === 0;
+        }
+
         function assignWeekTaskDates(weekKey, includeFlexible = true) {
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
@@ -3525,46 +3590,45 @@
             const dateById = new Map();
             let assigned = 0;
 
-            targets.forEach(task => {
-                if(task.date) dateById.set(task.id, task.date);
-            });
-
             ordered.forEach(task => {
                 if(task.completed) return;
-
                 const preservePlacement = isUserScheduleLocked(task) && Boolean(task.date);
                 if(preservePlacement) {
-                    if(task.date) dateById.set(task.id, task.date);
+                    dateById.set(task.id, task.date);
                     if(task.date) task.week = getWeekKeyFromDateStr(task.date);
                     return;
                 }
+            });
 
+            const adjustable = ordered.filter(t =>
+                !t.completed && !(isUserScheduleLocked(t) && t.date)
+            );
+
+            const tryAssignDates = (index, workingDates) => {
+                if(index >= adjustable.length) return true;
+                const task = adjustable[index];
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
-                const picked = findEarliestValidWeekDate(task, eligibleDates, dateById);
-                if(!picked) return;
-
-                if(task.date !== picked || task.week !== weekKey) {
-                    task.date = picked;
-                    if(task.dateSource !== 'user') task.dateSource = 'auto';
-                    task.week = weekKey;
-                    assigned++;
+                const validDates = getAllValidWeekDates(task, eligibleDates, workingDates);
+                for(const picked of validDates) {
+                    workingDates.set(task.id, picked);
+                    if(tryAssignDates(index + 1, workingDates)) return true;
+                    workingDates.delete(task.id);
                 }
-                dateById.set(task.id, picked);
-            });
+                return false;
+            };
 
-            // Last resort: any week-targeted task still without a date gets the earliest open valid day.
-            targets.forEach(task => {
-                if(task.completed || task.date) return;
-                if(hasUserLockedCalendarDate(task)) return;
-                const eligibleDates = getScheduleEligibleDates(task, weekKey);
-                const picked = findEarliestValidWeekDate(task, eligibleDates, dateById) || eligibleDates[0];
-                if(!picked) return;
-                task.date = picked;
-                if(task.dateSource !== 'user') task.dateSource = 'auto';
-                task.week = weekKey;
-                dateById.set(task.id, picked);
-                assigned++;
-            });
+            if(tryAssignDates(0, dateById)) {
+                adjustable.forEach(task => {
+                    const picked = dateById.get(task.id);
+                    if(!picked) return;
+                    if(task.date !== picked || task.week !== weekKey) {
+                        task.date = picked;
+                        if(task.dateSource !== 'user') task.dateSource = 'auto';
+                        task.week = weekKey;
+                        assigned++;
+                    }
+                });
+            }
 
             return assigned;
         }
@@ -8397,6 +8461,7 @@
         }
 
         function replanWeekFromScratch(weekKey, includeFlexible = true) {
+            const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
@@ -8431,7 +8496,7 @@
                     return;
                 }
 
-                // Adjustable tasks: clear auto placement so the scheduler can repack to the earliest valid slot/day.
+                // Adjustable tasks: clear auto placement so the scheduler can reshuffle freely.
                 if(hasAssignedDate && !isUserScheduleLocked(task)) {
                     task.week = getWeekKeyFromDateStr(task.date);
                     task.time = null;
@@ -8453,7 +8518,12 @@
 
             assignWeekTaskDates(weekKey, includeFlexible);
             const rebuilt = autoBlockWeekTimes(false, weekKey, true, true) || 0;
-            return { assigned, preserved, rebuilt };
+            const complete = getWeekTasksMissingSchedule(weekKey).length === 0;
+            if(!complete) {
+                restoreWeekScheduleSnapshot(scheduleSnapshot);
+                return { assigned: 0, preserved: 0, rebuilt: 0, complete: false };
+            }
+            return { assigned, preserved, rebuilt, complete: true };
         }
 
         function autoPlanWeekInternal(weekKey = getCurrentWeekKey(), options = {}) {
@@ -8463,7 +8533,18 @@
                 switchToCalendar = false
             } = options || {};
             const targetWeekKey = weekKey || getCurrentWeekKey();
-            const { assigned, preserved, rebuilt } = replanWeekFromScratch(targetWeekKey, true);
+            const { assigned, preserved, rebuilt, complete } = replanWeekFromScratch(targetWeekKey, true);
+            if(!complete) {
+                if(showToast) {
+                    confirmAction(
+                        'Scheduling Failed',
+                        `Could not fit every assignment for ${targetWeekKey} with current constraints. Nothing was changed.`,
+                        'OK',
+                        () => {}
+                    );
+                }
+                return { assigned: 0, preserved: 0, rebuilt: 0, weekKey: targetWeekKey, complete: false };
+            }
             if(persist) saveData({ skipAutoSchedule: true });
             if(switchToCalendar) {
                 setCalendarViewMode('week');
@@ -8474,7 +8555,7 @@
             if(showToast) {
                 showNotification(`Replanned ${targetWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
             }
-            return { assigned, preserved, rebuilt, weekKey: targetWeekKey };
+            return { assigned, preserved, rebuilt, weekKey: targetWeekKey, complete: true };
         }
 
         function autoPlanWeek() {
@@ -8518,6 +8599,7 @@
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
+            const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             assignWeekTaskDates(weekKey, true);
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const collectWeekTasks = () => tasks.filter(t => {
@@ -8646,7 +8728,7 @@
                 const floatingCandidates = weekTasks
                     .filter(t => !t.time && !t.repeatNoAutoTime && (!t.date || t.date >= todayStr));
                 const depOrdered = orderTasksByDependencies(floatingCandidates);
-                const floating = [...depOrdered.ordered].sort(compareTasksForPacking);
+                const floating = [...depOrdered.ordered].sort(compareTasksForScheduling);
                 let passChanges = 0;
 
             const tryPlaceTaskOnDate = (task, targetDate, targetBusy, startMin) => {
@@ -8715,7 +8797,8 @@
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
                     const hasUserLockedDate = hasUserLockedCalendarDate(task);
                     let placed = null;
-                    for(const candidateDate of (dateList || [])) {
+                    const orderedDates = [...(dateList || [])].reverse();
+                    for(const candidateDate of orderedDates) {
                         if(!candidateDate || candidateDate < todayStr) continue;
                         if(hasUserLockedDate && task.date && candidateDate !== task.date) continue;
                         const dueDate = getTaskDueDate(task);
@@ -8816,30 +8899,7 @@
                     floating.map(task => [task.id, getTaskCandidateDates(task)])
                 );
 
-                // Day-packing pass: try to fill each day as much as possible before spilling into later days.
                 const unscheduledIds = new Set(floating.map(t => t.id));
-                const dayOrder = Array.from(new Set(
-                    floating.flatMap(task => candidateDatesByTask.get(task.id) || [])
-                )).sort((a, b) => a.localeCompare(b));
-
-                for(const day of dayOrder) {
-                    let packedAny = false;
-                    do {
-                        packedAny = false;
-                        for(const task of floating) {
-                            if(!unscheduledIds.has(task.id)) continue;
-                            const candidates = candidateDatesByTask.get(task.id) || [];
-                            if(!candidates.includes(day)) continue;
-                            if(shouldDeferToLaterDay(task, day, candidates)) continue;
-                            if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
-                                unscheduledIds.delete(task.id);
-                                packedAny = true;
-                            }
-                        }
-                    } while(packedAny);
-                }
-
-                // Fallback pass for anything still not placed.
                 floating.forEach(task => {
                     if(!unscheduledIds.has(task.id)) return;
                     const candidateDates = candidateDatesByTask.get(task.id) || [];
@@ -8858,86 +8918,6 @@
                     task.timeSource = null;
                     candidateDatesByTask.set(task.id, getTaskCandidateDates(task));
                 });
-
-                // Gap-fill pass: split remaining long tasks to consume open minutes on earlier days.
-                const remainingSplitCandidates = () => {
-                    return floating
-                        .filter(t => unscheduledIds.has(t.id))
-                        .filter(t => isSplittableAutoTask(t, 45))
-                        .sort(compareTasksForPacking);
-                };
-
-                for(const day of dayOrder) {
-                    const pool = remainingSplitCandidates();
-                    if(pool.length === 0) break;
-                    const daySchedule = getScheduleForDate(day);
-                    const dayStart = getDateStartMin(day);
-                    const dayEnd = timeToMin(daySchedule.end);
-                    const gaps = getOpenGaps(busyByDate[day] || [], dayStart, dayEnd, 0)
-                        .filter(g => g.length >= 15)
-                        .sort((a, b) => b.length - a.length);
-                    if(gaps.length === 0) continue;
-
-                    for(const gap of gaps) {
-                        const task = pool.find(t => {
-                            const dueDate = getTaskDueDate(t);
-                            return !dueDate || day <= dueDate;
-                        });
-                        if(!task) continue;
-                        const duration = parseInt(task.duration, 10) || 30;
-                        if(duration <= gap.length) continue;
-
-                        const { baseTitle, baseRemaining } = extractRemainingPercentFromTitle(task.title || '');
-                        const groupId = generateId();
-                        let firstDuration = Math.min(duration - 5, Math.floor(gap.length / 5) * 5);
-                        firstDuration = Math.max(5, firstDuration);
-                        let secondDuration = duration - firstDuration;
-                        if(secondDuration < 5) {
-                            firstDuration = Math.max(5, duration - 5);
-                            secondDuration = duration - firstDuration;
-                        }
-                        let firstPercent = Math.round(baseRemaining * (firstDuration / duration));
-                        firstPercent = Math.max(1, Math.min(baseRemaining - 1, firstPercent));
-                        const secondPercent = baseRemaining - firstPercent;
-
-                        task.title = `${baseTitle} (${firstPercent}% part)`;
-                        task.duration = firstDuration;
-                        task.splitGroupId = groupId;
-                        task.splitPercent = firstPercent;
-
-                        const remainderTask = normalizeTask({
-                            ...task,
-                            id: generateId(),
-                            title: `${baseTitle} (${secondPercent}% part)`,
-                            duration: secondDuration,
-                            date: null,
-                            time: null,
-                            timeSource: null,
-                            splitGroupId: groupId,
-                            splitPercent: secondPercent,
-                            repeatGroupId: null,
-                            repeatWeekKey: null,
-                            repeatRule: normalizeRepeatRule({ type: 'none' })
-                        });
-
-                        const nextTime = minToInputTime(gap.start);
-                        task.time = nextTime;
-                        task.assignmentMode = 'ADJUSTABLE';
-                        task.timeSource = 'auto';
-                        task.date = day;
-                        if(task.dateSource !== 'user') task.dateSource = 'auto';
-                        busyByDate[day] = (busyByDate[day] || []).concat(
-                            buildBusySlotForTask(task, gap.start, gap.start + firstDuration, day)
-                        ).sort((a, b) => a.start - b.start);
-                        updated++;
-                        passChanges++;
-                        tasks.push(remainderTask);
-                        floating.push(remainderTask);
-                        unscheduledIds.delete(task.id);
-                        unscheduledIds.add(remainderTask.id);
-                        candidateDatesByTask.set(remainderTask.id, getTaskCandidateDates(remainderTask));
-                    }
-                }
 
                 return { changed: passChanges, depOrdered };
             };
@@ -9142,7 +9122,7 @@
 
             if(!backtrackResult.solved) {
                 let fitAttempts = 0;
-                while(!backtrackResult.solved && fitAttempts < 80) {
+                while(!backtrackResult.solved && fitAttempts < 120) {
                     fitAttempts++;
                     const remaining = collectWeekTasks().filter(t =>
                         !t.completed && t.date && t.date >= todayStr && !t.time && !t.repeatNoAutoTime && !isUserScheduleLocked(t)
@@ -9182,8 +9162,9 @@
                                 const eligible = getScheduleEligibleDates(other, weekKey, allowDateShift);
                                 if(spillAutoTaskToNextValidDate(other, eligible, dateById)) {
                                     dateById.set(other.id, other.date);
+                                    other.time = null;
+                                    other.timeSource = null;
                                     moved = true;
-                                    break;
                                 }
                             }
                             if(moved) break;
@@ -9202,6 +9183,21 @@
                                 break;
                             }
                         }
+                    }
+
+                    if(!moved) {
+                        collectWeekTasks().forEach(t => {
+                            if(isUserScheduleLocked(t)) return;
+                            if(t.time || t.date) {
+                                t.time = null;
+                                t.timeSource = null;
+                                if(!hasUserLockedCalendarDate(t)) {
+                                    t.date = null;
+                                    if(t.dateSource !== 'user') t.dateSource = null;
+                                }
+                                moved = true;
+                            }
+                        });
                     }
 
                     if(!moved) break;
@@ -9229,23 +9225,39 @@
             }
 
             const depOrdered = round.depOrdered;
+            const scheduleComplete = isWeekScheduleComplete(weekKey, {
+                unresolvedViolations,
+                hasCycle: depOrdered.hasCycle,
+                backtrackSolved: backtrackResult.solved
+            });
 
-            if(depOrdered.hasCycle && showToast) {
-                showNotification('Some before/after links form a cycle. Could not fully enforce those.', 'error');
+            if(!scheduleComplete) {
+                const missingTasks = getWeekTasksMissingSchedule(weekKey);
+                const unresolvedNames = [
+                    ...new Set([
+                        ...missingTasks.map(t => t.title || 'Untitled'),
+                        ...(backtrackResult.unresolved || [])
+                    ])
+                ];
+                restoreWeekScheduleSnapshot(scheduleSnapshot);
+                if(showToast) {
+                    if(depOrdered.hasCycle) {
+                        showNotification('Some before/after links form a cycle. Could not schedule everything.', 'error');
+                    } else if(unresolvedViolations > 0) {
+                        showNotification('Some before/after links conflict with user-locked times. Could not schedule everything.', 'error');
+                    }
+                    const names = unresolvedNames.slice(0, 4).join(', ');
+                    const extra = unresolvedNames.length > 4 ? ` (+${unresolvedNames.length - 4} more)` : '';
+                    confirmAction(
+                        'Scheduling Failed',
+                        `Could not fit every assignment with current constraints. Nothing was changed. Unscheduled: ${names}${extra}. Relax blocked times, before/after links, or day limits.`,
+                        'OK',
+                        () => {}
+                    );
+                }
+                return 0;
             }
-            if(unresolvedViolations > 0 && showToast) {
-                showNotification('Some before/after links conflict with user-locked times and could not be auto-fixed.', 'error');
-            }
-            if(!backtrackResult.solved && showToast) {
-                const names = backtrackResult.unresolved.slice(0, 4).join(', ');
-                const extra = backtrackResult.unresolved.length > 4 ? ` (+${backtrackResult.unresolved.length - 4} more)` : '';
-                confirmAction(
-                    'Scheduling Unsolvable',
-                    `Could not fit every assignment with current constraints. Unscheduled: ${names}${extra}. Relax blocked times, before/after links, or day limits.`,
-                    'OK',
-                    () => {}
-                );
-            }
+
             if(overlapClears > 0 && showToast) {
                 showNotification(`Cleared ${overlapClears} overlapping time slot${overlapClears === 1 ? '' : 's'}`, 'info');
             }
