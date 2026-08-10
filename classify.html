@@ -2619,6 +2619,8 @@
         let classifySyncFingerprint = '';
         let classifySyncRefreshing = false;
         let pendingClassifyRemoteRefresh = false;
+        let classifyBootComplete = false;
+        let classifyResumeTimer = null;
         let assignmentTimeRefreshTimer = null;
         function persistClassifyLocally() {
             suppressCloudSync = true;
@@ -2730,13 +2732,23 @@
         }
 
         function handleClassifyResume() {
-            startClassifySyncPoll();
-            ensureClassifySyncConnected();
-            pollClassifySyncVersion();
-            if (pendingClassifyRemoteRefresh) {
-                refreshClassifyFromCloud();
-            }
-            refreshAssignmentTimesDisplay();
+            clearTimeout(classifyResumeTimer);
+            classifyResumeTimer = setTimeout(async () => {
+                if (!classifyBootComplete) return;
+                startClassifySyncPoll();
+                ensureClassifySyncConnected();
+                const sessionId = localStorage.getItem('ahrenslabs_sessionId');
+                if (sessionId && cloudSyncEnabled) {
+                    if (cloudSyncTimer) {
+                        clearTimeout(cloudSyncTimer);
+                        cloudSyncTimer = null;
+                    }
+                    await refreshClassifyFromCloud();
+                } else {
+                    await pollClassifySyncVersion();
+                }
+                refreshAssignmentTimesDisplay();
+            }, 50);
         }
 
         function connectClassifySync() {
@@ -2944,6 +2956,7 @@
 
             // Load account-backed planner state before first render
             await loadClassifyDataFromCloud();
+            await updateClassifySyncFingerprint();
 
             // Confetti setup
             const canvas = document.getElementById('confetti-canvas');
@@ -3006,6 +3019,7 @@
             connectClassifySync();
             startClassifySyncPoll();
             startAssignmentTimeRefresh();
+            classifyBootComplete = true;
             await updateClassifySyncFingerprint();
         });
 
@@ -3014,8 +3028,8 @@
             if (!document.hidden) handleClassifyResume();
         });
         window.addEventListener('focus', handleClassifyResume);
-        window.addEventListener('pageshow', (e) => {
-            if (e.persisted) handleClassifyResume();
+        window.addEventListener('pageshow', () => {
+            handleClassifyResume();
         });
         window.addEventListener('online', handleClassifyResume);
 
