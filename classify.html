@@ -3354,6 +3354,162 @@
             return true;
         }
 
+        function isTaskTargetedForWeek(task, weekKey, includeFlexible = false) {
+            if(!task || task.completed || !weekKey) return false;
+            const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
+            const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
+            const dueDate = getTaskDueDate(task);
+            if(task.week === weekKey) return true;
+            if(inWeekRange(task.date)) return true;
+            if(inWeekRange(dueDate)) return true;
+            if(includeFlexible && !task.week && !task.date) return true;
+            return false;
+        }
+
+        function getDependencyRefDate(refId, dateById = new Map()) {
+            if(!refId) return null;
+            if(dateById.has(refId)) return dateById.get(refId);
+            const ref = tasks.find(t => t.id === refId);
+            if(!ref || ref.completed) return null;
+            return ref.date || null;
+        }
+
+        function findEarliestValidWeekDate(task, eligibleDates, dateById = new Map()) {
+            if(!task || !Array.isArray(eligibleDates) || eligibleDates.length === 0) return null;
+            const dueDate = getTaskDueDate(task);
+            const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
+            const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
+            const differentDayRefs = Array.isArray(task.mustBeDifferentDay) ? task.mustBeDifferentDay : [];
+
+            let minDate = eligibleDates[0];
+            for(const refId of afterRefs) {
+                const refDate = getDependencyRefDate(refId, dateById);
+                if(refDate && refDate > minDate) minDate = refDate;
+            }
+
+            for(const candidate of eligibleDates) {
+                if(candidate < minDate) continue;
+                if(dueDate && candidate > dueDate) continue;
+
+                let valid = true;
+                for(const refId of beforeRefs) {
+                    const refDate = getDependencyRefDate(refId, dateById);
+                    if(refDate && candidate > refDate) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if(!valid) continue;
+
+                for(const refId of differentDayRefs) {
+                    const refTask = tasks.find(t => t.id === refId);
+                    const refDate = getDependencyRefDate(refId, dateById) || getTaskDifferentDayConstraintDate(refTask);
+                    if(refDate === candidate) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if(valid) return candidate;
+            }
+
+            if(!dueDate || minDate <= dueDate) {
+                let valid = true;
+                for(const refId of beforeRefs) {
+                    const refDate = getDependencyRefDate(refId, dateById);
+                    if(refDate && minDate > refDate) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if(valid) {
+                    for(const refId of differentDayRefs) {
+                        const refTask = tasks.find(t => t.id === refId);
+                        const refDate = getDependencyRefDate(refId, dateById) || getTaskDifferentDayConstraintDate(refTask);
+                        if(refDate === minDate) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                if(valid) return minDate;
+            }
+
+            return null;
+        }
+
+        function assignWeekTaskDates(weekKey, includeFlexible = true) {
+            const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
+            const todayStr = getDateStrLocal();
+            const eligibleDates = weekDates.filter(d => d >= todayStr && !isDateInVacation(d));
+            if(eligibleDates.length === 0) return 0;
+
+            const targets = tasks.filter(t => isTaskTargetedForWeek(t, weekKey, includeFlexible));
+            const { ordered } = orderTasksByDependencies(targets);
+            const dateById = new Map();
+            let assigned = 0;
+
+            targets.forEach(task => {
+                if(task.date) dateById.set(task.id, task.date);
+            });
+
+            ordered.forEach(task => {
+                if(task.completed) return;
+
+                const preservePlacement = (
+                    (hasUserLockedCalendarDate(task) && task.date) ||
+                    (isFixedTask(task) && task.date && task.time)
+                );
+                if(preservePlacement) {
+                    if(task.date) dateById.set(task.id, task.date);
+                    if(task.date) task.week = getWeekKeyFromDateStr(task.date);
+                    return;
+                }
+
+                const picked = findEarliestValidWeekDate(task, eligibleDates, dateById);
+                if(!picked) return;
+
+                if(task.date !== picked || task.week !== weekKey) {
+                    task.date = picked;
+                    if(task.dateSource !== 'user') task.dateSource = 'auto';
+                    task.week = weekKey;
+                    assigned++;
+                }
+                dateById.set(task.id, picked);
+            });
+
+            // Last resort: any week-targeted task still without a date gets the earliest open day.
+            targets.forEach(task => {
+                if(task.completed || task.date) return;
+                if(hasUserLockedCalendarDate(task)) return;
+                const picked = eligibleDates[0];
+                task.date = picked;
+                if(task.dateSource !== 'user') task.dateSource = 'auto';
+                task.week = weekKey;
+                dateById.set(task.id, picked);
+                assigned++;
+            });
+
+            return assigned;
+        }
+
+        function taskViolatesDependencySchedule(task, byId = null) {
+            if(!task || task.completed || !task.date || !task.time) return false;
+            const lookup = byId || new Map((tasks || []).filter(t => t?.id && !t.completed).map(t => [t.id, t]));
+            const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
+            for(const refId of afterRefs) {
+                const ref = lookup.get(refId);
+                if(!ref || ref.completed || !ref.date || !ref.time) continue;
+                if(!isTaskScheduledBefore(ref, task)) return true;
+            }
+            const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
+            for(const refId of beforeRefs) {
+                const ref = lookup.get(refId);
+                if(!ref || ref.completed || !ref.date || !ref.time) continue;
+                if(!isTaskScheduledBefore(task, ref)) return true;
+            }
+            return false;
+        }
+
         function enforceDependencyOrder(startDate = null, endDate = null) {
             const inRange = (dateStr) => {
                 if(!dateStr) return false;
@@ -3370,33 +3526,13 @@
                 for(const task of (tasks || [])) {
                     if(!task || task.completed || !task.time || !inRange(task.date)) continue;
 
-                    const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
-                    for(const refId of afterRefs) {
-                        const ref = byId.get(refId);
-                        if(!ref || ref.completed || !ref.date || !ref.time) continue;
-                        if(!isTaskScheduledBefore(ref, task)) {
-                            if(clearTaskScheduledTime(task)) {
-                                cleared++;
-                                changed = true;
-                            }
-                            break;
+                    if(taskViolatesDependencySchedule(task, byId)) {
+                        if(clearTaskScheduledTime(task)) {
+                            cleared++;
+                            changed = true;
                         }
+                        break;
                     }
-                    if(changed) break;
-
-                    const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
-                    for(const refId of beforeRefs) {
-                        const ref = byId.get(refId);
-                        if(!ref || ref.completed || !ref.date || !ref.time) continue;
-                        if(!isTaskScheduledBefore(task, ref)) {
-                            if(clearTaskScheduledTime(task)) {
-                                cleared++;
-                                changed = true;
-                            }
-                            break;
-                        }
-                    }
-                    if(changed) break;
                 }
             }
 
@@ -4638,7 +4774,8 @@
             if(isDateInVacation(dateStr)) return [];
             let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
             let fixed = dayTasks.filter(t => t.time).sort((a,b) => a.time.localeCompare(b.time));
-            let floating = dayTasks.filter(t => !t.time).sort(compareTasksForScheduling);
+            const depOrderedFloating = orderTasksByDependencies(dayTasks.filter(t => !t.time));
+            let floating = [...depOrderedFloating.ordered].sort(compareTasksForScheduling);
             let schedule = [];
             
             const fixedScheduleSlots = fixed.map(t => {
@@ -4682,11 +4819,19 @@
                 for(const refId of afterRefs) {
                     const refTask = tasks.find(x => x.id === refId);
                     if(!refTask || refTask.completed) continue;
-                    if(refTask.date && refTask.date > dateStr) {
+                    if(!refTask.date) {
                         maxEnd = -1;
                         break;
                     }
-                    if(refTask.date === dateStr && refTask.time) {
+                    if(refTask.date > dateStr) {
+                        maxEnd = -1;
+                        break;
+                    }
+                    if(refTask.date === dateStr) {
+                        if(!refTask.time) {
+                            maxEnd = -1;
+                            break;
+                        }
                         const refEnd = timeToMin(refTask.time) + (parseInt(refTask.duration, 10) || 30);
                         autoStartForTask = Math.max(autoStartForTask, refEnd + 5);
                     }
@@ -4694,12 +4839,14 @@
                 for(const refId of beforeRefs) {
                     const refTask = tasks.find(x => x.id === refId);
                     if(!refTask || refTask.completed) continue;
-                    if(refTask.date && refTask.date < dateStr) {
-                        maxEnd = -1;
-                        break;
-                    }
-                    if(refTask.date === dateStr && refTask.time) {
-                        maxEnd = Math.min(maxEnd, timeToMin(refTask.time) - 5);
+                    if(refTask.date) {
+                        if(refTask.date < dateStr) {
+                            maxEnd = -1;
+                            break;
+                        }
+                        if(refTask.date === dateStr && refTask.time) {
+                            maxEnd = Math.min(maxEnd, timeToMin(refTask.time) - 5);
+                        }
                     }
                 }
                 for(const refId of differentDayRefs) {
@@ -7981,28 +8128,7 @@
         }
 
         function planWeek(weekKey, includeFlexible = false, skipTimeBlock = false) {
-            const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
-            const todayStr = getDateStrLocal();
-            const eligibleDates = weekDates.filter(d => d >= todayStr && !isDateInVacation(d));
-            if(eligibleDates.length === 0) return { assigned: 0, timeBlocked: 0 };
-
-            const candidates = tasks.filter(t => {
-                if(t.completed || t.date) return false;
-                if(t.week === weekKey) return true;
-                if(includeFlexible && !t.week) return true;
-                return false;
-            });
-
-            candidates.sort(compareTasksForScheduling);
-
-            let assigned = 0;
-            candidates.forEach(task => {
-                task.date = eligibleDates[0];
-                task.week = weekKey;
-                if(task.dateSource !== 'user') task.dateSource = 'auto';
-                assigned++;
-            });
-
+            const assigned = assignWeekTaskDates(weekKey, includeFlexible);
             const timeBlocked = skipTimeBlock ? 0 : autoBlockWeekTimes(false, weekKey, true);
             return { assigned, timeBlocked };
         }
@@ -8052,16 +8178,17 @@
                     return;
                 }
 
-                // Full week replan: clear non-user placement and let day-packing rebuild it.
+                // Full week replan: clear non-user placement and let dependency-aware date assignment rebuild it.
                 task.time = null;
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
-                task.date = eligibleDates[0];
-                if(task.dateSource !== 'user') task.dateSource = 'auto';
-                task.week = weekKey;
+                if(task.dateSource !== 'user') {
+                    task.date = null;
+                }
                 assigned++;
             });
 
+            assignWeekTaskDates(weekKey, includeFlexible);
             const rebuilt = autoBlockWeekTimes(false, weekKey, true, true) || 0;
             return { assigned, preserved, rebuilt };
         }
@@ -8128,8 +8255,14 @@
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
+            assignWeekTaskDates(weekKey, true);
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
-            const weekTasks = tasks.filter(t => !t.completed && t.date && t.date >= startStr && t.date <= endStr);
+            const collectWeekTasks = () => tasks.filter(t => {
+                if(t.completed) return false;
+                if(t.date && t.date >= startStr && t.date <= endStr) return true;
+                return isTaskTargetedForWeek(t, weekKey, true) && Boolean(t.date);
+            });
+            let weekTasks = collectWeekTasks();
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
             const isCurrentWeek = weekKey === getCurrentWeekKey();
@@ -8251,6 +8384,7 @@
             };
 
             const attemptSchedule = () => {
+                weekTasks = collectWeekTasks();
                 const floatingCandidates = weekTasks
                     .filter(t => !t.time && !t.repeatNoAutoTime && (!t.date || t.date >= todayStr));
                 const depOrdered = orderTasksByDependencies(floatingCandidates);
@@ -8273,10 +8407,11 @@
 
                 for(const refId of afterRefs) {
                     const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask || refTask.completed || !refTask.date) continue;
-                    const refDateLocked = isFixedTask(refTask) && Boolean(refTask.date);
-                    if(refDateLocked && targetDate < refTask.date) return null;
-                    if(targetDate === refTask.date && refTask.time) {
+                    if(!refTask || refTask.completed) continue;
+                    if(!refTask.date) return null;
+                    if(targetDate < refTask.date) return null;
+                    if(targetDate === refTask.date) {
+                        if(!refTask.time) return null;
                         const refStart = timeToMin(refTask.time);
                         const refEnd = refStart + (parseInt(refTask.duration, 10) || 30);
                         constrainedStart = Math.max(constrainedStart, refEnd + 5);
@@ -8284,12 +8419,13 @@
                 }
                 for(const refId of beforeRefs) {
                     const refTask = tasks.find(t => t.id === refId);
-                    if(!refTask || refTask.completed || !refTask.date) continue;
-                    const refDateLocked = isFixedTask(refTask) && Boolean(refTask.date);
-                    if(refDateLocked && targetDate > refTask.date) return null;
-                    if(targetDate === refTask.date && refTask.time) {
-                        const refStart = timeToMin(refTask.time);
-                        constrainedMaxEnd = Math.min(constrainedMaxEnd, refStart - 5);
+                    if(!refTask || refTask.completed) continue;
+                    if(refTask.date) {
+                        if(targetDate > refTask.date) return null;
+                        if(targetDate === refTask.date && refTask.time) {
+                            const refStart = timeToMin(refTask.time);
+                            constrainedMaxEnd = Math.min(constrainedMaxEnd, refStart - 5);
+                        }
                     }
                 }
                 for(const refId of differentDayRefs) {
@@ -8546,47 +8682,13 @@
                 const working = tasks.filter(t => !t.completed && t.date && t.time);
                 const byId = new Map(working.map(t => [t.id, t]));
 
-                const tryResetAuto = (task, fallbackTask = null) => {
-                    if(task && task.timeSource === 'auto' && !task.completed && task.time) {
-                        clearTaskScheduledTime(task);
+                working.forEach(task => {
+                    if(!taskViolatesDependencySchedule(task, byId)) return;
+                    if(clearTaskScheduledTime(task)) {
                         resetCount++;
-                        return true;
-                    }
-                    if(fallbackTask && fallbackTask.timeSource === 'auto' && !fallbackTask.completed && fallbackTask.time) {
-                        clearTaskScheduledTime(fallbackTask);
-                        resetCount++;
-                        return true;
+                        return;
                     }
                     unresolvedCount++;
-                    return false;
-                };
-
-                working.forEach(task => {
-                    const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
-                    afterRefs.forEach(refId => {
-                        const ref = byId.get(refId) || tasks.find(t => t.id === refId && !t.completed);
-                        if(!ref || ref.completed) return;
-                        if(!ref.date || !ref.time) {
-                            tryResetAuto(task, ref);
-                            return;
-                        }
-                        if(!isBeforeTask(ref, task)) {
-                            tryResetAuto(task, ref);
-                        }
-                    });
-
-                    const beforeRefs = Array.isArray(task.mustBeBefore) ? task.mustBeBefore : [];
-                    beforeRefs.forEach(refId => {
-                        const ref = byId.get(refId) || tasks.find(t => t.id === refId && !t.completed);
-                        if(!ref || ref.completed) return;
-                        if(!ref.date || !ref.time) {
-                            tryResetAuto(task, ref);
-                            return;
-                        }
-                        if(!isBeforeTask(task, ref)) {
-                            tryResetAuto(task, ref);
-                        }
-                    });
                 });
 
                 return { resetCount, unresolvedCount };
@@ -8609,8 +8711,9 @@
                 if(depFix.resetCount === 0) break;
             } while(outerPass < 6);
 
-            const remainingNoTime = weekTasks.filter(t => !t.time && t.date && t.date >= todayStr);
+            const remainingNoTime = collectWeekTasks().filter(t => !t.time && t.date && t.date >= todayStr);
             const solveWithBacktracking = () => {
+                weekTasks = collectWeekTasks();
                 const variable = weekTasks.filter(t =>
                     !t.completed &&
                     t.date &&
@@ -8682,7 +8785,10 @@
                             const afterRefs = Array.isArray(task.mustBeAfter) ? task.mustBeAfter : [];
                             for(const refId of afterRefs) {
                                 const ref = assigned.get(refId) || fixedById.get(refId) || scheduledById.get(refId);
-                                if(!ref) continue;
+                                if(!ref) {
+                                    valid = false;
+                                    break;
+                                }
                                 if(!isBeforeWithBreak(ref.date, ref.start, ref.duration, date, start, breakMin)) {
                                     valid = false;
                                     break;
@@ -8719,34 +8825,10 @@
 
                 const solve = (pending) => {
                     if(pending.length === 0) return true;
-                    let bestTask = null;
-                    let bestOptions = null;
-                    for(const task of pending) {
-                        const options = enumerateOptions(task);
-                        if(options.length === 0) return false;
-                        if(!bestOptions || options.length < bestOptions.length) {
-                            bestTask = task;
-                            bestOptions = options;
-                        } else if(options.length === bestOptions.length) {
-                            const taskEvent = isPlannerEventTask(task);
-                            const bestEvent = isPlannerEventTask(bestTask);
-                            if(taskEvent && !bestEvent) {
-                                bestTask = task;
-                                bestOptions = options;
-                            } else if(taskEvent === bestEvent) {
-                                if(getPriorityRank(task.priority) < getPriorityRank(bestTask.priority)) {
-                                    bestTask = task;
-                                    bestOptions = options;
-                                } else if(
-                                    getPriorityRank(task.priority) === getPriorityRank(bestTask.priority) &&
-                                    (parseInt(task.duration, 10) || 30) > (parseInt(bestTask.duration, 10) || 30)
-                                ) {
-                                    bestTask = task;
-                                    bestOptions = options;
-                                }
-                            }
-                        }
-                    }
+                    const orderedPending = orderTasksByDependencies(pending).ordered;
+                    const bestTask = orderedPending[0];
+                    const bestOptions = enumerateOptions(bestTask);
+                    if(bestOptions.length === 0) return false;
                     const nextPending = pending.filter(t => t.id !== bestTask.id);
                     for(const opt of bestOptions) {
                         assigned.set(bestTask.id, opt);
@@ -8756,7 +8838,8 @@
                     return false;
                 };
 
-                const solved = solve(variable);
+                const depOrderedVariable = orderTasksByDependencies(variable);
+                const solved = solve(depOrderedVariable.ordered);
                 if(!solved) {
                     snapshot.forEach((v, id) => {
                         const t = tasks.find(x => x.id === id);
@@ -8806,7 +8889,7 @@
                 showNotification('Some before/after links form a cycle. Could not fully enforce those.', 'error');
             }
             if(unresolvedViolations > 0 && showToast) {
-                showNotification('Some before/after constraints are locked by manual times and cannot be auto-fixed.', 'error');
+                showNotification('Some before/after constraints could not be satisfied with the current week layout.', 'error');
             }
             if(!backtrackResult.solved && showToast) {
                 const names = backtrackResult.unresolved.slice(0, 4).join(', ');
