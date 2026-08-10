@@ -173,6 +173,9 @@
         body.classify-app .cl-modal-root--elevated {
             z-index: 210;
         }
+        body.classify-app .cl-modal-root--confirm {
+            z-index: 300;
+        }
         body.classify-app .cl-modal-root .modal-panel {
             max-height: 100%;
             min-height: 0;
@@ -1746,7 +1749,7 @@
     </footer>
 
     <!-- Modal: Confirmation Dialog -->
-    <div id="confirmModal" class="cl-modal-root hidden">
+    <div id="confirmModal" class="cl-modal-root cl-modal-root--confirm hidden">
         <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeConfirmModal()"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-sm scale-95 opacity-0 transition-all" id="confirmPanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-3" id="confirmTitle">Confirm Action</h3>
@@ -1761,7 +1764,7 @@
 
     <!-- Modal: Edit Break -->
     <div id="breakEditModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeBreakEditModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-sm scale-95 opacity-0 transition-all" id="breakEditPanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Edit Break</h3>
             <p class="text-sm text-slate-600 dark:text-slate-300 mb-4" id="breakEditInfo">Edit break details.</p>
@@ -1785,7 +1788,7 @@
 
     <!-- Modal: Break Reminder -->
     <div id="breakReminderModal" class="cl-modal-root cl-modal-root--elevated hidden">
-        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="closeBreakReminderModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-3xl p-6 max-w-sm w-[92%] scale-95 opacity-0 transition-all" id="breakReminderPanel">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
@@ -1835,7 +1838,7 @@
 
     <!-- Modal: Complete / Partial -->
     <div id="timeModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeTimeModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[92%] scale-95 opacity-0 transition-all" id="timePanel">
             <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">Complete Assignment</h3>
             <p class="text-slate-600 dark:text-slate-300 mb-4">Choose full completion or partial progress.</p>
@@ -1875,7 +1878,7 @@
 
     <!-- Modal: Actual Times -->
     <div id="actualTimesModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeActualTimesModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-lg w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="actualTimesPanel">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Actual Time Entries</h3>
@@ -1890,7 +1893,7 @@
 
     <!-- Modal: Classify Settings -->
     <div id="classifySettingsModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeClassifySettings()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-md w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="classifySettingsPanel">
             <div class="flex items-center justify-between gap-3 mb-4">
                 <h3 class="text-xl font-display font-bold text-slate-900 dark:text-white">Classify settings</h3>
@@ -1927,7 +1930,7 @@
 
     <!-- Modal: Manage Subjects -->
     <div id="subjectsModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeSubjectManager()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 max-w-xl w-[94%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="subjectsPanel">
             <div class="cl-modal-header mb-4">
                 <button type="button" class="cl-settings-back-btn" onclick="returnToClassifySettings(closeSubjectManager)" aria-label="Back to Classify settings" title="Back to settings"><i class="fa-solid fa-arrow-left"></i></button>
@@ -1944,7 +1947,7 @@
 
     <!-- Modal: Blocked Times -->
     <div id="blockedTimesModal" class="cl-modal-root hidden">
-        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="closeBlockedTimesModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
         <div class="relative modal-panel rounded-2xl p-6 md:p-7 max-w-2xl w-[96%] max-h-full overflow-y-auto scale-95 opacity-0 transition-all" id="blockedTimesPanel">
             <div class="cl-modal-header mb-4">
                 <button type="button" class="cl-settings-back-btn" onclick="returnToClassifySettings(closeBlockedTimesModal)" aria-label="Back to Classify settings" title="Back to settings"><i class="fa-solid fa-arrow-left"></i></button>
@@ -2097,7 +2100,7 @@
     <!-- Modal: Add/Edit Task -->
     <div id="taskModal" class="cl-modal-root hidden pointer-events-none">
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity pointer-events-auto" onclick="event.target === this && closeModal()"></div>
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity pointer-events-auto" aria-hidden="true"></div>
         
         <!-- Modal Content -->
         <div class="relative w-full max-w-2xl lg:max-w-4xl max-h-full modal-panel rounded-2xl scale-95 opacity-0 transition-all duration-300 flex flex-col pointer-events-auto" id="modalPanel">
@@ -5559,6 +5562,7 @@
             document.getElementById('confirmTitle').innerText = title;
             document.getElementById('confirmMessage').innerText = message;
             document.getElementById('confirmModal').classList.remove('hidden');
+            document.getElementById('confirmModal').classList.add('cl-modal-root--confirm');
             setTimeout(() => {
                 const panel = document.getElementById('confirmPanel');
                 panel.classList.remove('scale-95', 'opacity-0');
@@ -7253,7 +7257,7 @@
             editingId = null;
             document.getElementById('modalHeading').innerText = 'New Assignment';
             clearForm();
-            modal.classList.remove('hidden');
+            modal.classList.remove('hidden', 'pointer-events-none');
             setTimeout(() => {
                 modalPanel.classList.remove('scale-95', 'opacity-0');
                 modalPanel.classList.add('scale-100', 'opacity-100');
@@ -7272,7 +7276,9 @@
         function closeModal() {
             modalPanel.classList.remove('scale-100', 'opacity-100');
             modalPanel.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => modal.classList.add('hidden'), 300);
+            setTimeout(() => {
+                modal.classList.add('hidden', 'pointer-events-none');
+            }, 300);
         }
 
         function clearForm() {
@@ -7742,7 +7748,7 @@
             syncSubjectColor(t.subject);
             updateScheduleInputs();
 
-            modal.classList.remove('hidden');
+            modal.classList.remove('hidden', 'pointer-events-none');
             setTimeout(() => {
                 modalPanel.classList.remove('scale-95', 'opacity-0');
                 modalPanel.classList.add('scale-100', 'opacity-100');
