@@ -2648,8 +2648,7 @@
             }
         }
 
-        async function refreshClassifyFromCloud(options = {}) {
-            const { fromRemote = false, quiet = false } = options || {};
+        async function refreshClassifyFromCloud() {
             if (classifySyncRefreshing) return;
             classifySyncRefreshing = true;
             try {
@@ -2657,9 +2656,6 @@
                 if (loaded) {
                     persistClassifyLocally();
                     renderAll();
-                    if (fromRemote && !quiet) {
-                        showNotification('Updated from another device', 'info');
-                    }
                 }
                 await updateClassifySyncFingerprint();
             } finally {
@@ -2681,7 +2677,7 @@
             classifySyncRefreshTimer = setTimeout(async () => {
                 if (!evt || evt.sourceClientId === classifySyncClientId) return;
                 pendingClassifyRemoteRefresh = true;
-                await refreshClassifyFromCloud({ fromRemote: true });
+                await refreshClassifyFromCloud();
             }, 120);
         }
 
@@ -2703,7 +2699,7 @@
                 const next = data.fingerprint || '';
                 if (classifySyncFingerprint && next && next !== classifySyncFingerprint) {
                     pendingClassifyRemoteRefresh = true;
-                    await refreshClassifyFromCloud({ fromRemote: true });
+                    await refreshClassifyFromCloud();
                     return;
                 }
                 classifySyncFingerprint = next;
@@ -2734,7 +2730,7 @@
             ensureClassifySyncConnected();
             pollClassifySyncVersion();
             if (pendingClassifyRemoteRefresh) {
-                refreshClassifyFromCloud({ fromRemote: true, quiet: true });
+                refreshClassifyFromCloud();
             }
             refreshAssignmentTimesDisplay();
         }
