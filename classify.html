@@ -3332,6 +3332,9 @@
                 return;
             }
 
+            const startMin = timeToMin(time);
+            makeRoomForStartedAssignment(task, date, startMin);
+
             task.date = date;
             task.time = time;
             task.dateSource = 'user';
@@ -3343,7 +3346,9 @@
             task.startedAt = Date.now();
 
             reconcileBeforeAfterSchedule([id]);
+            enforceNoOverlappingTimes(date, date);
             autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
+            enforceNoOverlappingTimes(date, date);
             saveData({ skipAutoSchedule: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
@@ -4370,6 +4375,147 @@
                     return (Number(a.startedAt) || 0) - (Number(b.startedAt) || 0);
                 });
         }
+        function getTaskOccupiedRange(task, dateStr) {
+            if(!task?.time) return null;
+            const start = timeToMin(task.time);
+            const duration = parseInt(task.duration, 10) || 30;
+            const breakCfg = getBreakConfigAfterTask(task, dateStr);
+            const breakMin = Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0;
+            return { start, end: start + duration, blockEnd: start + duration + breakMin };
+        }
+
+        function makeRoomForStartedAssignment(startedTask, dateStr, startMin) {
+            if(!startedTask || !dateStr || !Number.isFinite(startMin)) return 0;
+            const schedule = getScheduleForDate(dateStr);
+            const dayEnd = timeToMin(schedule.end);
+            const startedDuration = parseInt(startedTask.duration, 10) || 30;
+            const startedBreakCfg = getBreakConfigAfterTask(startedTask, dateStr);
+            const startedBreakMin = Number.isFinite(startedBreakCfg.minutes) ? startedBreakCfg.minutes : 0;
+            const anchorBlockEnd = startMin + startedDuration + startedBreakMin;
+
+            let moved = 0;
+            let changed = true;
+            let guard = 0;
+
+            while(changed && guard < 100) {
+                guard++;
+                changed = false;
+                const blocks = [{
+                    taskId: startedTask.id,
+                    start: startMin,
+                    blockEnd: anchorBlockEnd,
+                    locked: true
+                }];
+
+                const others = (tasks || [])
+                    .filter(t => t && !t.completed && t.id !== startedTask.id && t.date === dateStr && t.time)
+                    .sort((a, b) => {
+                        const aStarted = isAssignmentStarted(a);
+                        const bStarted = isAssignmentStarted(b);
+                        if(aStarted !== bStarted) return aStarted ? -1 : 1;
+                        return timeToMin(a.time) - timeToMin(b.time);
+                    });
+
+                for(const other of others) {
+                    const range = getTaskOccupiedRange(other, dateStr);
+                    if(!range) continue;
+
+                    let requiredStart = null;
+                    blocks.forEach(block => {
+                        if(range.start < block.blockEnd && range.end > block.start) {
+                            requiredStart = Math.max(requiredStart ?? 0, Math.ceil(block.blockEnd / 5) * 5);
+                        }
+                    });
+
+                    if(requiredStart === null) {
+                        blocks.push({
+                            taskId: other.id,
+                            start: range.start,
+                            blockEnd: range.blockEnd,
+                            locked: isAssignmentStarted(other)
+                        });
+                        continue;
+                    }
+
+                    if(isAssignmentStarted(other)) {
+                        blocks.push({
+                            taskId: other.id,
+                            start: range.start,
+                            blockEnd: range.blockEnd,
+                            locked: true
+                        });
+                        continue;
+                    }
+
+                    const otherDuration = parseInt(other.duration, 10) || 30;
+                    const otherBreakCfg = getBreakConfigAfterTask(other, dateStr);
+                    const otherBreakMin = Number.isFinite(otherBreakCfg.minutes) ? otherBreakCfg.minutes : 0;
+
+                    if(requiredStart + otherDuration > dayEnd) {
+                        if(other.time) {
+                            other.time = null;
+                            other.timeSource = null;
+                            other.assignmentMode = 'ADJUSTABLE';
+                            moved++;
+                            changed = true;
+                        }
+                        continue;
+                    }
+
+                    const nextTime = minToInputTime(requiredStart);
+                    if(other.time !== nextTime) {
+                        other.time = nextTime;
+                        other.timeSource = 'auto';
+                        other.assignmentMode = 'ADJUSTABLE';
+                        moved++;
+                        changed = true;
+                    }
+                    blocks.push({
+                        taskId: other.id,
+                        start: requiredStart,
+                        blockEnd: requiredStart + otherDuration + otherBreakMin,
+                        locked: false
+                    });
+                }
+
+                blocks.sort((a, b) => a.start - b.start);
+                for(let i = 1; i < blocks.length; i++) {
+                    const prev = blocks[i - 1];
+                    const curr = blocks[i];
+                    if(curr.start >= prev.blockEnd) continue;
+                    const other = tasks.find(t => t.id === curr.taskId);
+                    if(!other || curr.locked || isAssignmentStarted(other)) continue;
+
+                    const otherDuration = parseInt(other.duration, 10) || 30;
+                    const otherBreakCfg = getBreakConfigAfterTask(other, dateStr);
+                    const otherBreakMin = Number.isFinite(otherBreakCfg.minutes) ? otherBreakCfg.minutes : 0;
+                    const requiredStart = Math.ceil(prev.blockEnd / 5) * 5;
+
+                    if(requiredStart + otherDuration > dayEnd) {
+                        other.time = null;
+                        other.timeSource = null;
+                        other.assignmentMode = 'ADJUSTABLE';
+                        moved++;
+                        changed = true;
+                        break;
+                    }
+
+                    const nextTime = minToInputTime(requiredStart);
+                    if(other.time !== nextTime) {
+                        other.time = nextTime;
+                        other.timeSource = 'auto';
+                        other.assignmentMode = 'ADJUSTABLE';
+                        moved++;
+                        changed = true;
+                    }
+                    curr.start = requiredStart;
+                    curr.blockEnd = requiredStart + otherDuration + otherBreakMin;
+                }
+            }
+
+            return moved;
+        }
+
         function computeStartSlotForAssignment(task, dateStr) {
             const schedule = getScheduleForDate(dateStr);
             const dayEnd = timeToMin(schedule.end);
