@@ -3179,9 +3179,13 @@
                 normalizedTimeSource = normalizedTime ? 'user' : null;
             }
             const startedAtRaw = Number(task.startedAt);
-            const normalizedStartedAt = (normalizedAssignmentMode === 'FIXED' && Number.isFinite(startedAtRaw) && startedAtRaw > 0)
+            let normalizedStartedAt = (normalizedAssignmentMode === 'FIXED' && Number.isFinite(startedAtRaw) && startedAtRaw > 0)
                 ? Math.round(startedAtRaw)
                 : null;
+            if(Boolean(task.completed)) {
+                normalizedStartedAt = null;
+                normalizedAssignmentMode = 'ADJUSTABLE';
+            }
             const mustBeBefore = Array.from(new Set(
                 (Array.isArray(task.mustBeBefore) ? task.mustBeBefore : (Array.isArray(task.mustBeBeforeIds) ? task.mustBeBeforeIds : []))
                     .map(x => String(x || '').trim())
@@ -3257,7 +3261,7 @@
         }
 
         function isAssignmentStarted(task) {
-            return Boolean(task && task.startedAt && isFixedTask(task));
+            return Boolean(task && !task.completed && task.startedAt && isFixedTask(task));
         }
 
         function getTaskAssignmentModeLabel(task) {
@@ -3425,7 +3429,7 @@
         }
 
         function isUserScheduleLocked(task) {
-            if(!task) return false;
+            if(!task || task.completed) return false;
             if(isFixedTask(task) || isAssignmentStarted(task)) return true;
             if(isUserTimeLockedTask(task)) return true;
             if(hasUserLockedCalendarDate(task)) return true;
@@ -7006,6 +7010,7 @@
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
                 task.actualMinutes = null;
+                clearCompletedTaskStartedState(task);
 
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
 
@@ -7048,6 +7053,7 @@
                 task.actualMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : null;
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
+                clearCompletedTaskStartedState(task);
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
                 triggerConfetti();
             }
@@ -7068,8 +7074,39 @@
             }, 200);
         }
 
+        function clearCompletedTaskStartedState(task) {
+            if(!task) return;
+            task.startedAt = null;
+            if(task.completed) {
+                task.assignmentMode = 'ADJUSTABLE';
+            }
+        }
+
+        function releaseScheduleSlotAfterCompletion(completedTask) {
+            if(!completedTask) return;
+            clearCompletedTaskStartedState(completedTask);
+            const releaseDate = completedTask.date || completedTask.completedDate || getDateStrLocal();
+            tasks.forEach(t => {
+                if(!t || t.completed || t.id === completedTask.id) return;
+                if(t.date !== releaseDate) return;
+                if(isUserScheduleLocked(t)) return;
+                t.time = null;
+                t.timeSource = null;
+                t.assignmentMode = 'ADJUSTABLE';
+            });
+        }
+
         function reAutoScheduleAfterCompletion(completedTask, hasSpawnedRepeats = false) {
-            ensureAllEventsScheduled();
+            releaseScheduleSlotAfterCompletion(completedTask);
+            const weekKeys = new Set();
+            const releaseDate = completedTask?.date || completedTask?.completedDate || getDateStrLocal();
+            if(releaseDate) weekKeys.add(getWeekKeyFromDateStr(releaseDate));
+            if(completedTask?.week) weekKeys.add(completedTask.week);
+            weekKeys.forEach(weekKey => {
+                if(!weekKey) return;
+                planWeek(weekKey, true, true);
+                autoBlockWeekTimes(false, weekKey, true, true);
+            });
             if(hasSpawnedRepeats) {
                 reconcileBeforeAfterSchedule(getAllBeforeAfterLinkedTaskIds());
             }
@@ -7278,7 +7315,7 @@
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             for(let i=0; i<firstDay; i++) {
-                grid.innerHTML += `<div class="bg-white/80 dark:bg-dark-surface min-h-[170px]"></div>`;
+                grid.innerHTML += `<div class="bg-white/80 dark:bg-dark-surface h-[8.5rem] min-h-[8.5rem]"></div>`;
             }
             for(let d=1; d<=daysInMonth; d++) {
                 const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
