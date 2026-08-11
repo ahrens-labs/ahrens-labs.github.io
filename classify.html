@@ -653,9 +653,36 @@
         }
         body.classify-app .cl-month-cell {
             min-height: 8.5rem;
+            height: 8.5rem;
             padding: 0.625rem;
             transition: background 0.15s, border-color 0.15s;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        body.classify-app .cl-month-cell__header {
+            flex-shrink: 0;
+            margin-bottom: 0.375rem;
+        }
+        body.classify-app .cl-month-cell__events {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            padding-right: 0.125rem;
+        }
+        body.classify-app .cl-month-cell__events::-webkit-scrollbar {
+            width: 4px;
+        }
+        body.classify-app .cl-month-cell__events::-webkit-scrollbar-thumb {
+            border-radius: 999px;
+            background: rgba(100, 116, 139, 0.45);
+        }
+        .dark body.classify-app .cl-month-cell__events::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
         }
         body.classify-app .cl-month-task {
             display: flex;
@@ -682,12 +709,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-        }
-        body.classify-app .cl-month-more {
-            font-size: 0.6875rem;
-            font-weight: 600;
-            color: #64748b;
-            padding: 0.125rem 0.25rem;
         }
         .dark body.classify-app .cl-week-task__meta {
             color: #94a3b8;
@@ -7271,9 +7292,7 @@
                         if(b.time) return 1;
                         return (a.title || '').localeCompare(b.title || '');
                     });
-                const visibleTasks = dayTasks.slice(0, 3);
-                const hiddenCount = Math.max(0, dayTasks.length - visibleTasks.length);
-                const taskListHTML = visibleTasks.map(t => {
+                const taskListHTML = dayTasks.map(t => {
                     const color = getTaskColor(t);
                     const timePrefix = t.time ? `<span class="cl-month-task__time">${minToTime(timeToMin(t.time))}</span>` : '';
                     return `
@@ -7282,15 +7301,14 @@
                             <span class="cl-month-task__title">${t.title}</span>
                         </div>`;
                 }).join('');
-                const moreHTML = hiddenCount > 0 ? `<div class="cl-month-more">+${hiddenCount} more</div>` : '';
                 const dropAttrs = isVacation ? '' : `ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDrop(event, '${dateStr}')"`
                 grid.innerHTML += `
                 <div class="cl-month-cell group border ${isVacation ? 'border-amber-300/80 dark:border-amber-600/60 bg-amber-100/60 dark:bg-amber-900/30' : 'bg-white dark:bg-dark-surface hover:bg-slate-50 dark:hover:bg-slate-800/80 border-transparent'}" ${dropAttrs}>
-                    <div class="flex justify-between items-start mb-1.5">
+                    <div class="cl-month-cell__header flex justify-between items-start">
                         <div class="text-sm font-semibold ${isVacation ? 'bg-amber-500 text-white w-7 h-7 flex items-center justify-center rounded-full' : (isToday ? 'bg-red-600 text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-slate-700 dark:text-slate-300')}">${d}</div>
                         ${dayTasks.length ? `<span class="cl-week-day__badge">${dayTasks.length}</span>` : ''}
                     </div>
-                    <div class="flex flex-col">${isVacation ? '<div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold italic">Vacation</div>' : (taskListHTML + moreHTML || '<div class="text-[11px] text-slate-400 dark:text-slate-500 italic">Free</div>')}</div>
+                    <div class="cl-month-cell__events">${isVacation ? '<div class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold italic">Vacation</div>' : (taskListHTML || '<div class="text-[11px] text-slate-400 dark:text-slate-500 italic">Free</div>')}</div>
                     ${isVacation ? '' : `<button onclick="openModalForDate('${dateStr}')" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-600 transition-colors" aria-label="Add assignment"><i class="fa-solid fa-plus-circle"></i></button>`}
                 </div>`;
             }
