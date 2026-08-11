@@ -3430,14 +3430,17 @@
         function hasUserLockedCalendarDate(task) {
             if(!task?.date || task.scheduleType === 'week') return false;
             if(task.dateSource === 'user') return true;
-            return isFixedTask(task) || isUserTimeLockedTask(task);
+            if(isUserTimeLockedTask(task)) return true;
+            if(isAssignmentStarted(task)) return true;
+            return false;
         }
 
         function isUserScheduleLocked(task) {
             if(!task || task.completed) return false;
-            if(isFixedTask(task) || isAssignmentStarted(task)) return true;
+            if(isAssignmentStarted(task)) return true;
             if(isUserTimeLockedTask(task)) return true;
-            if(hasUserLockedCalendarDate(task)) return true;
+            if(task.time && task.timeSource === 'user') return true;
+            if(task.dateSource === 'user' && task.date && !task.time) return true;
             return false;
         }
 
@@ -7228,29 +7231,38 @@
             }
         }
 
+        function clearDayForEarliestRepack(dateStr) {
+            if(!dateStr) return 0;
+            let cleared = 0;
+            (tasks || []).forEach(task => {
+                if(!task || task.completed || task.date !== dateStr) return;
+                if(isUserScheduleLocked(task)) return;
+                if(!task.time && task.assignmentMode === 'ADJUSTABLE') return;
+                task.time = null;
+                task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
+                cleared++;
+            });
+            return cleared;
+        }
+
         function releaseScheduleSlotAfterCompletion(completedTask) {
             if(!completedTask) return;
             clearCompletedTaskStartedState(completedTask);
             const releaseDate = completedTask.date || completedTask.completedDate || getDateStrLocal();
-            tasks.forEach(t => {
-                if(!t || t.completed || t.id === completedTask.id) return;
-                if(t.date !== releaseDate) return;
-                if(isUserScheduleLocked(t)) return;
-                t.time = null;
-                t.timeSource = null;
-                t.assignmentMode = 'ADJUSTABLE';
-            });
+            clearDayForEarliestRepack(releaseDate);
         }
 
         function reAutoScheduleAfterCompletion(completedTask, hasSpawnedRepeats = false) {
             releaseScheduleSlotAfterCompletion(completedTask);
+            enforceNoPastUnstartedTimes();
             const weekKeys = new Set();
             const releaseDate = completedTask?.date || completedTask?.completedDate || getDateStrLocal();
             if(releaseDate) weekKeys.add(getWeekKeyFromDateStr(releaseDate));
             if(completedTask?.week) weekKeys.add(completedTask.week);
             weekKeys.forEach(weekKey => {
                 if(!weekKey) return;
-                planWeek(weekKey, true, true);
+                assignWeekTaskDates(weekKey, true);
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
             if(hasSpawnedRepeats) {
