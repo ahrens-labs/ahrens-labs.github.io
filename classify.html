@@ -3273,17 +3273,35 @@
                 return;
             }
 
-            let date = task.date || null;
+            const todayStr = getDateStrLocal();
+            const nextAutoId = getNextAutoScheduledTaskIdForDate(todayStr);
+            const isNextOnSchedule = nextAutoId === id;
+            let date = task.date || todayStr;
             let time = task.time || null;
-            if(!date || !time) {
-                const todayStr = getDateStrLocal();
-                const schedule = getSmartSchedule(todayStr);
-                const item = schedule.find(i => i?.task?.id === id && i.type !== 'break' && i.type !== 'overflow');
-                if(item) {
-                    date = todayStr;
-                    time = minToInputTime(item.start);
+
+            if(isNextOnSchedule) {
+                if(!date || !time) {
+                    const schedule = getSmartSchedule(todayStr);
+                    const item = schedule.find(i => i?.task?.id === id && i.type !== 'break' && i.type !== 'overflow');
+                    if(item) {
+                        date = todayStr;
+                        time = minToInputTime(item.start);
+                    }
                 }
+                if(date === todayStr && time) {
+                    const earliest = getEarliestSchedulableStartMin(todayStr);
+                    time = minToInputTime(Math.max(timeToMin(time), earliest));
+                }
+            } else {
+                date = todayStr;
+                const slotMin = computeStartSlotForAssignment(task, todayStr);
+                if(slotMin === null) {
+                    showNotification('No room left today to start this assignment', 'error');
+                    return;
+                }
+                time = minToInputTime(slotMin);
             }
+
             if(!date || !time) {
                 showNotification('Give this assignment a start date and time first, then press Start', 'info');
                 return;
@@ -3300,6 +3318,7 @@
             task.startedAt = Date.now();
 
             reconcileBeforeAfterSchedule([id]);
+            autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
             saveData({ skipAutoSchedule: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
@@ -3499,7 +3518,7 @@
             const current = task.date;
             const next = current
                 ? getNextValidWeekDate(task, current, eligibleDates, dateById)
-                : findLatestValidWeekDate(task, eligibleDates, dateById);
+                : findEarliestValidWeekDate(task, eligibleDates, dateById);
             if(!next || next === current) return false;
             task.date = next;
             if(task.dateSource !== 'user') task.dateSource = 'auto';
@@ -4280,6 +4299,76 @@
             const now = new Date();
             const raw = now.getHours() * 60 + now.getMinutes();
             return Math.ceil(raw / 5) * 5;
+        }
+        function getEarliestSchedulableStartMin(dateStr) {
+            const schedule = getScheduleForDate(dateStr);
+            const dayStart = timeToMin(schedule.start);
+            return dateStr === getDateStrLocal() ? Math.max(dayStart, getNowMinRoundedTo5()) : dayStart;
+        }
+        function isTaskScheduledBeforeNow(task) {
+            if(!task?.date || !task?.time) return false;
+            if(task.date !== getDateStrLocal()) return false;
+            return timeToMin(task.time) < getNowMinRoundedTo5();
+        }
+        function enforceNoPastUnstartedTimes() {
+            const todayStr = getDateStrLocal();
+            const nowMin = getNowMinRoundedTo5();
+            let cleared = 0;
+            (tasks || []).forEach(task => {
+                if(!task || task.completed || task.date !== todayStr || !task.time) return;
+                if(isAssignmentStarted(task)) return;
+                if(timeToMin(task.time) >= nowMin) return;
+                if(isFixedTask(task)) {
+                    task.assignmentMode = 'ADJUSTABLE';
+                    task.startedAt = null;
+                }
+                task.time = null;
+                task.timeSource = null;
+                task.assignmentMode = 'ADJUSTABLE';
+                cleared++;
+            });
+            return cleared;
+        }
+        function getStartedAssignmentsOnDate(dateStr, excludeId = null) {
+            return (tasks || [])
+                .filter(t =>
+                    t &&
+                    !t.completed &&
+                    t.date === dateStr &&
+                    t.time &&
+                    isAssignmentStarted(t) &&
+                    t.id !== excludeId
+                )
+                .sort((a, b) => {
+                    const startDiff = timeToMin(a.time) - timeToMin(b.time);
+                    if(startDiff !== 0) return startDiff;
+                    return (Number(a.startedAt) || 0) - (Number(b.startedAt) || 0);
+                });
+        }
+        function computeStartSlotForAssignment(task, dateStr) {
+            const schedule = getScheduleForDate(dateStr);
+            const dayEnd = timeToMin(schedule.end);
+            const duration = parseInt(task?.duration, 10) || 30;
+            let cursor = getEarliestSchedulableStartMin(dateStr);
+            getStartedAssignmentsOnDate(dateStr, task?.id).forEach(startedTask => {
+                const start = timeToMin(startedTask.time);
+                const startedDuration = parseInt(startedTask.duration, 10) || 30;
+                const breakCfg = getBreakConfigAfterTask(startedTask, dateStr);
+                const breakMin = Number.isFinite(breakCfg.minutes) ? breakCfg.minutes : 0;
+                cursor = Math.max(cursor, start + startedDuration + breakMin);
+            });
+            cursor = Math.ceil(cursor / 5) * 5;
+            if(cursor + duration > dayEnd) return null;
+            return cursor;
+        }
+        function getNextAutoScheduledTaskIdForDate(dateStr) {
+            const schedule = getSmartSchedule(dateStr);
+            for(const item of schedule) {
+                if(!item?.task || item.type === 'break' || item.type === 'overflow') continue;
+                if(isAssignmentStarted(item.task)) continue;
+                if(canStartAssignment(item.task)) return item.task.id;
+            }
+            return null;
         }
         function normalizeBlockedTimes(input) {
             if(!Array.isArray(input)) return [];
@@ -5107,8 +5196,18 @@
         function getSmartSchedule(dateStr) {
             if(isDateInVacation(dateStr)) return [];
             let dayTasks = tasks.filter(t => !t.completed && isTaskVisibleInClassify(t) && t.date === dateStr);
-            let fixed = dayTasks.filter(t => t.time).sort((a,b) => a.time.localeCompare(b.time));
-            const depOrderedFloating = orderTasksByDependencies(dayTasks.filter(t => !t.time));
+            const todayStr = getDateStrLocal();
+            const isPastUnstartedToday = (t) =>
+                dateStr === todayStr &&
+                !isAssignmentStarted(t) &&
+                t.time &&
+                timeToMin(t.time) < getNowMinRoundedTo5();
+            let fixed = dayTasks
+                .filter(t => t.time && !isPastUnstartedToday(t))
+                .sort((a,b) => a.time.localeCompare(b.time));
+            const depOrderedFloating = orderTasksByDependencies(
+                dayTasks.filter(t => !t.time || isPastUnstartedToday(t))
+            );
             let floating = [...depOrderedFloating.ordered].sort(compareTasksForScheduling);
             let schedule = [];
             
@@ -5122,10 +5221,9 @@
             schedule.push(...fixedScheduleSlots);
             
             const daySchedule = getScheduleForDate(dateStr);
-            const todayStr = getDateStrLocal();
             const dayStart = timeToMin(daySchedule.start);
             const dayEnd = timeToMin(daySchedule.end);
-            const autoStart = (dateStr === todayStr) ? Math.max(dayStart, getNowMinRoundedTo5()) : dayStart;
+            const autoStart = getEarliestSchedulableStartMin(dateStr);
             const preferredAutoEnd = dayEnd;
             const hardAutoEnd = dayEnd;
             floating.forEach(t => {
@@ -8610,6 +8708,7 @@
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             assignWeekTaskDates(weekKey, true);
+            enforceNoPastUnstartedTimes();
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const collectWeekTasks = () => tasks.filter(t => {
                 if(t.completed) return false;
@@ -8620,7 +8719,6 @@
             let weekTasks = collectWeekTasks();
             const weekDates = getWeekdayDateStringsFromWeekKey(weekKey);
             const todayStr = getDateStrLocal();
-            const isCurrentWeek = weekKey === getCurrentWeekKey();
             const processDates = Array.from(new Set([
                 ...weekDates.filter(d => d >= todayStr && !isDateInVacation(d)),
                 ...weekTasks.map(t => t.date).filter(d => d && d >= todayStr)
@@ -8679,7 +8777,7 @@
             };
             const getDateStartMin = (d) => {
                 const schedule = getScheduleForDate(d);
-                return (isCurrentWeek && d === todayStr)
+                return d === todayStr
                     ? Math.max(timeToMin(schedule.start), getNowMinRoundedTo5())
                     : timeToMin(schedule.start);
             };
@@ -8737,7 +8835,7 @@
                 const floatingCandidates = weekTasks
                     .filter(t => !t.time && !t.repeatNoAutoTime && (!t.date || t.date >= todayStr));
                 const depOrdered = orderTasksByDependencies(floatingCandidates);
-                const floating = [...depOrdered.ordered].sort(compareTasksForScheduling);
+                const floating = [...depOrdered.ordered].sort(compareTasksForPacking);
                 let passChanges = 0;
 
             const tryPlaceTaskOnDate = (task, targetDate, targetBusy, startMin) => {
@@ -8785,6 +8883,10 @@
                     if(refConstraintDate === targetDate) return null;
                 }
                 if(constrainedStart + duration > constrainedMaxEnd) return null;
+                if(targetDate === todayStr) {
+                    constrainedStart = Math.max(constrainedStart, getNowMinRoundedTo5());
+                    if(constrainedStart + duration > constrainedMaxEnd) return null;
+                }
 
                 const options = getSlotOptionsForPriority(
                     targetBusy,
@@ -8806,8 +8908,7 @@
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
                     const hasUserLockedDate = hasUserLockedCalendarDate(task);
                     let placed = null;
-                    const orderedDates = [...(dateList || [])].reverse();
-                    for(const candidateDate of orderedDates) {
+                    for(const candidateDate of (dateList || [])) {
                         if(!candidateDate || candidateDate < todayStr) continue;
                         if(hasUserLockedDate && task.date && candidateDate !== task.date) continue;
                         const dueDate = getTaskDueDate(task);
@@ -8819,7 +8920,7 @@
                         }
                         const candidateBusy = busyByDate[candidateDate];
                         const candidateSchedule = getScheduleForDate(candidateDate);
-                        const candidateDayStart = (isCurrentWeek && candidateDate === todayStr)
+                        const candidateDayStart = candidateDate === todayStr
                             ? Math.max(timeToMin(candidateSchedule.start), getNowMinRoundedTo5())
                             : timeToMin(candidateSchedule.start);
                         const slot = tryPlaceTaskOnDate(task, candidateDate, candidateBusy, candidateDayStart);
@@ -8909,6 +9010,27 @@
                 );
 
                 const unscheduledIds = new Set(floating.map(t => t.id));
+                const dayOrder = Array.from(new Set(
+                    floating.flatMap(task => candidateDatesByTask.get(task.id) || [])
+                )).sort((a, b) => a.localeCompare(b));
+
+                for(const day of dayOrder) {
+                    let packedAny = false;
+                    do {
+                        packedAny = false;
+                        for(const task of floating) {
+                            if(!unscheduledIds.has(task.id)) continue;
+                            const candidates = candidateDatesByTask.get(task.id) || [];
+                            if(!candidates.includes(day)) continue;
+                            if(shouldDeferToLaterDay(task, day, candidates)) continue;
+                            if(tryPlaceTaskWithDateList(task, [day], { floating, unscheduledIds, candidateDatesByTask })) {
+                                unscheduledIds.delete(task.id);
+                                packedAny = true;
+                            }
+                        }
+                    } while(packedAny);
+                }
+
                 floating.forEach(task => {
                     if(!unscheduledIds.has(task.id)) return;
                     const candidateDates = candidateDatesByTask.get(task.id) || [];
