@@ -5223,6 +5223,28 @@
             updateClassifyUndoButton();
         }
 
+        function mutateClassifyData(mutator, saveOptions = {}) {
+            if(classifyUndoApplying) {
+                mutator();
+                saveData({ skipUndoRecord: true, ...saveOptions });
+                return;
+            }
+            recordClassifyUndoPoint();
+            mutator();
+            saveData({ skipUndoRecord: true, ...saveOptions });
+        }
+
+        function persistClassifyScheduleRefresh(options = {}) {
+            const {
+                weekKeys = getRelevantUpcomingWeekKeys(),
+                forceRebuildAutoSlots = true,
+                weeksAhead = 12
+            } = options || {};
+            reAutoScheduleWeeks(weekKeys, forceRebuildAutoSlots, false);
+            ensureAllEventsScheduled(weeksAhead, false);
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+        }
+
         function updateClassifyUndoButton() {
             const btn = document.getElementById('btn-classify-undo');
             if(!btn) return;
@@ -5315,6 +5337,7 @@
             plannerSet('plannerSubjectColors', JSON.stringify(subjectColors));
             plannerSet('plannerBlockedTimesV1', JSON.stringify(normalizeBlockedTimes(blockedTimes)));
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
+            plannerSet('plannerVacationsV1', JSON.stringify(normalizeVacationRanges(vacationRanges)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
             queueClassifyCloudSync();
             if(!classifyUndoApplying) {
@@ -5447,6 +5470,7 @@
 
         function clearCompleted(confirmed = false) {
             if(confirmed) {
+                recordClassifyUndoPoint();
                 const completedTasks = tasks.filter(t => t.completed);
                 const completedCount = completedTasks.length;
                 const removedIds = completedTasks.map(t => t.id);
@@ -5467,7 +5491,7 @@
                 tasks = tasks.filter(t => !t.completed);
                 removeDependencyReferences(removedIds);
                 syncAllTaskDependencies();
-                saveData();
+                saveData({ skipUndoRecord: true });
                 showNotification(`Removed ${completedCount} completed task${completedCount > 1 ? 's' : ''}`, 'success');
             }
         }
@@ -5480,7 +5504,7 @@
             }
             confirmAction(
                 'Clear Completed Tasks?',
-                `This will remove ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}. This cannot be undone.`,
+                `This will remove ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}. You can undo this afterward.`,
                 'Delete All',
                 () => clearCompleted(true)
             );
@@ -5497,9 +5521,10 @@
                 `Clear actual time entries for ${count} assignment${count !== 1 ? 's' : ''}?`,
                 'Reset',
                 () => {
-                    tasks = tasks.map(t => ({ ...t, actualMinutes: null }));
-                    completionHistory = [];
-                    saveData();
+                    mutateClassifyData(() => {
+                        tasks = tasks.map(t => ({ ...t, actualMinutes: null }));
+                        completionHistory = [];
+                    });
                     showNotification('Actual time data reset', 'success');
                 }
             );
@@ -5576,8 +5601,9 @@
                     `Remove actual time data for "${row.title}"?`,
                     'Remove',
                     () => {
-                        completionHistory = completionHistory.filter(e => e.id !== historyId);
-                        saveData();
+                        mutateClassifyData(() => {
+                            completionHistory = completionHistory.filter(e => e.id !== historyId);
+                        });
                         renderActualTimesList();
                         showNotification('Actual time removed', 'success');
                     }
@@ -5592,8 +5618,9 @@
                 `Remove actual time data for "${task.title}"?`,
                 'Remove',
                 () => {
-                    task.actualMinutes = null;
-                    saveData();
+                    mutateClassifyData(() => {
+                        task.actualMinutes = null;
+                    });
                     renderActualTimesList();
                     showNotification('Actual time removed', 'success');
                 }
@@ -6511,6 +6538,7 @@
                 showNotification('Break minutes must be greater than 0', 'error');
                 return;
             }
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules(scheduleRules);
             let rules = scheduleRules.breakRules || [];
 
@@ -6538,10 +6566,8 @@
             addRule(newRule);
 
             scheduleRules = normalizeScheduleRules({ ...scheduleRules, breakRules: rules });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
-            reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(pendingBreakEdit.dateStr)] });
             showNotification('Break updated', 'success');
             closeBreakEditModal();
         }
@@ -6551,14 +6577,13 @@
                 showNotification('No break rule to remove', 'info');
                 return;
             }
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== pendingBreakEdit.ruleId)
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
-            reAutoScheduleWeeks([getWeekKeyFromDateStr(pendingBreakEdit.dateStr)], true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(pendingBreakEdit.dateStr)] });
             showNotification('Break rule removed', 'success');
             closeBreakEditModal();
         }
@@ -6680,6 +6705,7 @@
                 return;
             }
 
+            recordClassifyUndoPoint();
             let changed = false;
 
             if(newName !== original) {
@@ -6709,11 +6735,13 @@
             tasks = recoloredTasks;
 
             if(!changed) {
+                classifyUndoStack.pop();
+                updateClassifyUndoButton();
                 showNotification('No subject changes to save', 'info');
                 return;
             }
 
-            saveData();
+            saveData({ skipUndoRecord: true });
             renderSubjectManager();
             showNotification(`Saved subject "${targetSubject}"`, 'success');
         }
@@ -6943,13 +6971,13 @@
             return Array.from(keys).filter(Boolean);
         }
 
-        function reAutoScheduleWeeks(weekKeys = [], forceRebuildAutoSlots = true) {
+        function reAutoScheduleWeeks(weekKeys = [], forceRebuildAutoSlots = true, persist = false) {
             const uniqueKeys = Array.from(new Set((weekKeys || []).filter(Boolean)));
             const changed = refreshAdjustableScheduling({
                 weekKeys: uniqueKeys,
                 forceRebuildAutoSlots
             });
-            saveData({ skipAutoSchedule: true });
+            if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             return changed;
         }
 
@@ -6968,6 +6996,7 @@
                 showNotification('Lunch end must be after lunch start', 'error');
                 return;
             }
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 defaultStart,
@@ -6978,11 +7007,9 @@
                 defaultBreakLabel,
                 breakRules: scheduleRules.breakRules || []
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             refreshOverrideCurrentTimesPreview();
-            reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh();
             showNotification('Default schedule saved and week auto-updated', 'success');
         }
 
@@ -7002,30 +7029,28 @@
                 showNotification('Enter a valid date override (day and lunch times)', 'error');
                 return;
             }
+            recordClassifyUndoPoint();
             const existing = (scheduleRules.dateOverrides || []).filter(o => o.date !== normalized.date);
             existing.push(normalized);
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 dateOverrides: existing
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             refreshOverrideCurrentTimesPreview();
-            reAutoScheduleWeeks([getWeekKeyFromDateStr(normalized.date)], true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(normalized.date)] });
             showNotification('Date override saved and week auto-updated', 'success');
         }
 
         function removeScheduleDateOverride(dateStr) {
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 dateOverrides: (scheduleRules.dateOverrides || []).filter(o => o.date !== dateStr)
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderScheduleOverridesList();
             refreshOverrideCurrentTimesPreview();
-            reAutoScheduleWeeks([getWeekKeyFromDateStr(dateStr)], true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(dateStr)] });
             showNotification('Date override removed and week auto-updated', 'success');
         }
 
@@ -7051,26 +7076,24 @@
                 showNotification('Enter a valid break rule', 'error');
                 return;
             }
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 breakRules: [...(scheduleRules.breakRules || []), newRule]
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
-            reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh();
             showNotification('Break rule added', 'success');
         }
 
         function removeBreakRule(ruleId) {
+            recordClassifyUndoPoint();
             scheduleRules = normalizeScheduleRules({
                 ...scheduleRules,
                 breakRules: (scheduleRules.breakRules || []).filter(r => r.id !== ruleId)
             });
-            plannerSet('plannerScheduleRulesV1', JSON.stringify(scheduleRules));
             renderBreakRulesList();
-            reAutoScheduleWeeks(getRelevantUpcomingWeekKeys(), true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh();
             showNotification('Break rule removed', 'success');
         }
 
@@ -7105,12 +7128,11 @@
                 showNotification('Blocked time overlaps an existing block', 'error');
                 return;
             }
+            recordClassifyUndoPoint();
             blockedTimes.push({ id: generateId(), date, start, end, repeatRule, repeatStartDate: date });
             blockedTimes = normalizeBlockedTimes(blockedTimes);
-            plannerSet('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
             renderBlockedTimesList();
-            reAutoScheduleWeeks([getWeekKeyFromDateStr(date)], true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(date)] });
             showNotification('Blocked time added', 'success');
         }
 
@@ -7174,42 +7196,39 @@
             }
             const affectedWeeks = new Set();
             range.forEach(dateStr => affectedWeeks.add(getWeekKeyFromDateStr(dateStr)));
+            recordClassifyUndoPoint();
             vacationRanges = normalizeVacationRanges([
                 ...(vacationRanges || []),
                 { id: generateId(), start: startDate, end: endDate }
             ]);
-            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
             renderVacationList();
-            reAutoScheduleWeeks(Array.from(affectedWeeks), true);
-            ensureAllEventsScheduled();
+            persistClassifyScheduleRefresh({ weekKeys: Array.from(affectedWeeks) });
             showNotification(`Vacation planned: ${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`, 'success');
         }
 
         function removeBlockedTime(blockId) {
             const removed = normalizeBlockedTimes(blockedTimes).find(b => b.id === blockId);
+            recordClassifyUndoPoint();
             blockedTimes = normalizeBlockedTimes(blockedTimes).filter(b => b.id !== blockId);
-            plannerSet('plannerBlockedTimesV1', JSON.stringify(blockedTimes));
             renderBlockedTimesList();
             if(removed?.date) {
-                reAutoScheduleWeeks([getWeekKeyFromDateStr(removed.date)], true);
-                ensureAllEventsScheduled();
+                persistClassifyScheduleRefresh({ weekKeys: [getWeekKeyFromDateStr(removed.date)] });
             } else {
-                renderAll();
+                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             }
             showNotification('Blocked time removed', 'success');
         }
 
         function removeVacationRange(rangeId) {
             const removed = normalizeVacationRanges(vacationRanges).find(v => v.id === rangeId);
+            recordClassifyUndoPoint();
             vacationRanges = normalizeVacationRanges(vacationRanges).filter(v => v.id !== rangeId);
-            plannerSet('plannerVacationsV1', JSON.stringify(vacationRanges));
             renderVacationList();
             if(removed) {
                 const affectedWeeks = new Set(getDateRangeInclusive(removed.start, removed.end).map(getWeekKeyFromDateStr));
-                reAutoScheduleWeeks(Array.from(affectedWeeks), true);
-                ensureAllEventsScheduled();
+                persistClassifyScheduleRefresh({ weekKeys: Array.from(affectedWeeks) });
             } else {
-                renderAll();
+                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             }
             showNotification('Vacation removed', 'success');
         }
@@ -7222,19 +7241,20 @@
                 ? `Remove "${subject}"? ${affected} assignment${affected === 1 ? '' : 's'} will be moved to General.`
                 : `Remove "${subject}" from your saved subjects?`;
             confirmAction('Remove Subject?', message, 'Remove', () => {
-                tasks = tasks.map(t => {
-                    if((t.subject || '').trim() === subject) {
-                        return {
-                            ...t,
-                            subject: 'General',
-                            color: subjectColors.General || '#64748b'
-                        };
-                    }
-                    return t;
+                mutateClassifyData(() => {
+                    tasks = tasks.map(t => {
+                        if((t.subject || '').trim() === subject) {
+                            return {
+                                ...t,
+                                subject: 'General',
+                                color: subjectColors.General || '#64748b'
+                            };
+                        }
+                        return t;
+                    });
+                    delete subjectColors[subject];
+                    if(!subjectColors.General) subjectColors.General = '#64748b';
                 });
-                delete subjectColors[subject];
-                if(!subjectColors.General) subjectColors.General = '#64748b';
-                saveData();
                 renderSubjectManager();
                 showNotification(`Removed subject "${subject}"`, 'success');
             });
@@ -8509,7 +8529,7 @@
 
                     applyReciprocalDependenciesForTask(normalizedTaskData.id);
                     syncAllTaskDependencies();
-                    ensureAllEventsScheduled();
+                    ensureAllEventsScheduled(12, false);
                     reconcileBeforeAfterSchedule([normalizedTaskData.id]);
 
                     saveData({ skipAutoSchedule: true, skipUndoRecord: true });
@@ -8590,7 +8610,7 @@
 
                 pruneRepeatFutureWeeks();
                 syncAllTaskDependencies();
-                ensureAllEventsScheduled();
+                ensureAllEventsScheduled(12, false);
                 const groupSeeds = tasks
                     .filter(t => t.repeatGroupId === groupId && !t.completed)
                     .map(t => t.id);
@@ -8816,13 +8836,13 @@
                 }
             }
 
-            tasks.push(duplicatedTask);
-            applyReciprocalDependenciesForTask(duplicatedTask.id);
-            syncAllTaskDependencies();
-            ensureAllEventsScheduled();
-            reconcileBeforeAfterSchedule([duplicatedTask.id]);
-
-            saveData({ skipAutoSchedule: true });
+            mutateClassifyData(() => {
+                tasks.push(duplicatedTask);
+                applyReciprocalDependenciesForTask(duplicatedTask.id);
+                syncAllTaskDependencies();
+                ensureAllEventsScheduled(12, false);
+                reconcileBeforeAfterSchedule([duplicatedTask.id]);
+            }, { skipAutoSchedule: true });
             syncClassifyDataToCloud();
             showNotification('Assignment duplicated', 'success');
         }
@@ -9150,8 +9170,13 @@
                 switchToCalendar = false
             } = options || {};
             const targetWeekKey = weekKey || getCurrentWeekKey();
+            if(persist && !classifyUndoApplying) recordClassifyUndoPoint();
             const { assigned, preserved, rebuilt, complete } = replanWeekFromScratch(targetWeekKey, true);
             if(!complete) {
+                if(persist) {
+                    classifyUndoStack.pop();
+                    updateClassifyUndoButton();
+                }
                 if(showToast) {
                     confirmAction(
                         'Scheduling Failed',
@@ -9162,7 +9187,7 @@
                 }
                 return { assigned: 0, preserved: 0, rebuilt: 0, weekKey: targetWeekKey, complete: false };
             }
-            if(persist) saveData({ skipAutoSchedule: true });
+            if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             if(switchToCalendar) {
                 setCalendarViewMode('week');
                 switchTab('calendar');
@@ -9183,7 +9208,7 @@
             });
         }
 
-        function ensureAllEventsScheduled(weeksAhead = 12) {
+        function ensureAllEventsScheduled(weeksAhead = 12, persist = false) {
             const unscheduled = tasks.filter(t => !t.completed && !t.date && t.scheduleType !== 'date');
             const noTime = tasks.filter(t => !t.completed && t.date && !t.time && !t.repeatNoAutoTime);
             if(unscheduled.length === 0 && noTime.length === 0) return;
@@ -9212,10 +9237,11 @@
                 if(!weekKey) return;
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            if(persist) saveData({ skipAutoSchedule: true, skipUndoRecord: true });
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
+            if(showToast && !classifyUndoApplying) recordClassifyUndoPoint();
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             assignWeekTaskDates(weekKey, true);
             enforceNoPastUnstartedTimes();
@@ -9887,6 +9913,8 @@
                 ];
                 restoreWeekScheduleSnapshot(scheduleSnapshot);
                 if(showToast) {
+                    classifyUndoStack.pop();
+                    updateClassifyUndoButton();
                     if(depOrdered.hasCycle) {
                         showNotification('Some before/after links form a cycle. Could not schedule everything.', 'error');
                     } else if(unresolvedViolations > 0) {
@@ -9912,13 +9940,15 @@
             }
 
             if(updated > 0) {
-                saveData({ skipAutoSchedule: true });
+                saveData({ skipAutoSchedule: true, skipUndoRecord: showToast });
                 if(showToast) {
                     setCalendarViewMode('week');
                     switchTab('calendar');
                     showNotification(`Auto time-blocked ${updated} task${updated > 1 ? 's' : ''} this week`, 'success');
                 }
             } else if(showToast) {
+                classifyUndoStack.pop();
+                updateClassifyUndoButton();
                 showNotification('No weekly tasks need time-blocking', 'info');
             }
             return updated;
@@ -9963,6 +9993,7 @@
                                 `Import ${data.tasks.length} assignments? Existing assignments will be kept and duplicates (by ID) skipped.`,
                                 'Import',
                                 () => {
+                                recordClassifyUndoPoint();
                                 // Merge tasks, avoiding duplicates by ID
                                 const existingIds = new Set(tasks.map(t => t.id));
                                 data.tasks.forEach(t => {
@@ -9983,9 +10014,9 @@
                                 }
                                 const clearedOverlaps = enforceNoOverlappingTimes();
                                 if(clearedOverlaps > 0) {
-                                    ensureAllEventsScheduled();
+                                    ensureAllEventsScheduled(12, false);
                                 }
-                                saveData();
+                                saveData({ skipUndoRecord: true });
                                 const overlapSuffix = clearedOverlaps > 0
                                     ? ` Cleared ${clearedOverlaps} overlapping time slot${clearedOverlaps === 1 ? '' : 's'}.`
                                     : '';
