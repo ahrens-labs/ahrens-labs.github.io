@@ -5117,9 +5117,52 @@
             };
         }
 
+        function restoreTaskFromUndoSnapshot(task) {
+            const normalized = normalizeTask(task);
+            const raw = task || {};
+            if(Object.prototype.hasOwnProperty.call(raw, 'scheduleType')) {
+                normalized.scheduleType = raw.scheduleType;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'weekDueOnly')) {
+                normalized.weekDueOnly = Boolean(raw.weekDueOnly);
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'date')) {
+                normalized.date = raw.date || null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'dateSource')) {
+                normalized.dateSource = ['auto', 'user'].includes(raw.dateSource) ? raw.dateSource : null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'week')) {
+                normalized.week = raw.week || null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'dueDate')) {
+                normalized.dueDate = raw.dueDate || null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'dueTime')) {
+                normalized.dueTime = raw.dueTime || null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'time')) {
+                normalized.time = raw.time || null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'timeSource')) {
+                normalized.timeSource = ['auto', 'user'].includes(raw.timeSource) ? raw.timeSource : null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'assignmentMode')) {
+                normalized.assignmentMode = raw.assignmentMode === 'FIXED' ? 'FIXED' : 'ADJUSTABLE';
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'startedAt')) {
+                const startedAtRaw = Number(raw.startedAt);
+                normalized.startedAt = Number.isFinite(startedAtRaw) && startedAtRaw > 0 ? Math.round(startedAtRaw) : null;
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'repeatNoAutoTime')) {
+                normalized.repeatNoAutoTime = Boolean(raw.repeatNoAutoTime);
+            }
+            return normalized;
+        }
+
         function applyClassifyUndoSnapshot(snapshot) {
             if(!snapshot) return;
-            tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.filter(Boolean).map(normalizeTask) : [];
+            tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.filter(Boolean).map(restoreTaskFromUndoSnapshot) : [];
             completionHistory = Array.isArray(snapshot.completionHistory)
                 ? snapshot.completionHistory.filter(Boolean).map(normalizeCompletionEntry)
                 : [];
@@ -5139,6 +5182,8 @@
         function recordClassifyUndoPoint() {
             if(classifyUndoApplying) return;
             const snapshot = captureClassifyUndoSnapshot();
+            const top = classifyUndoStack[classifyUndoStack.length - 1];
+            if(top && JSON.stringify(top) === JSON.stringify(snapshot)) return;
             classifyUndoStack.push(snapshot);
             if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                 classifyUndoStack.shift();
@@ -7542,6 +7587,19 @@
                     getTaskDurationMinutes(task),
                     task.id
                 );
+                if(conflict && isFixedTask(conflict)) {
+                    showNotification(`Time conflict with fixed assignment "${conflict.title}". Choose another slot.`, 'error');
+                    return;
+                }
+            }
+            recordClassifyUndoPoint();
+            if(timeStr) {
+                let conflict = findSchedulingConflict(
+                    dateStr,
+                    timeStr,
+                    getTaskDurationMinutes(task),
+                    task.id
+                );
                 while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
                     conflict.time = null;
                     conflict.timeSource = null;
@@ -7553,14 +7611,11 @@
                         task.id
                     );
                 }
-                if(conflict && isFixedTask(task)) {
-                    showNotification(`Time conflict with fixed assignment "${conflict.title}". Choose another slot.`, 'error');
-                    return;
-                }
             }
             task.date = dateStr;
             task.week = getWeekKeyFromDateStr(dateStr);
             task.scheduleType = 'date';
+            task.weekDueOnly = false;
             task.dateSource = 'user';
             if(timeStr) {
                 task.time = timeStr;
@@ -7573,7 +7628,7 @@
             }
             autoBlockWeekTimes(false, getWeekKeyFromDateStr(dateStr), false, true);
             reconcileBeforeAfterSchedule([taskId]);
-            saveData({ skipAutoSchedule: true });
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             renderCalendar();
         }
 
@@ -8376,32 +8431,33 @@
             normalizedTaskData.mustBeDifferentDay = (normalizedTaskData.mustBeDifferentDay || [])
                 .filter(id => id !== normalizedTaskData.id);
 
-            if((isFixedTask(normalizedTaskData) || isUserTimeLockedTask(normalizedTaskData)) && normalizedTaskData.date && normalizedTaskData.time) {
-                let conflict = findSchedulingConflict(
-                    normalizedTaskData.date,
-                    normalizedTaskData.time,
-                    getTaskDurationMinutes(normalizedTaskData),
-                    normalizedTaskData.id
-                );
-                while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
-                    conflict.time = null;
-                    conflict.timeSource = null;
-                    conflict.assignmentMode = 'ADJUSTABLE';
-                    conflict = findSchedulingConflict(
+            const proceedSave = () => {
+                recordClassifyUndoPoint();
+                if((isFixedTask(normalizedTaskData) || isUserTimeLockedTask(normalizedTaskData)) && normalizedTaskData.date && normalizedTaskData.time) {
+                    let conflict = findSchedulingConflict(
                         normalizedTaskData.date,
                         normalizedTaskData.time,
                         getTaskDurationMinutes(normalizedTaskData),
                         normalizedTaskData.id
                     );
+                    while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
+                        conflict.time = null;
+                        conflict.timeSource = null;
+                        conflict.assignmentMode = 'ADJUSTABLE';
+                        conflict = findSchedulingConflict(
+                            normalizedTaskData.date,
+                            normalizedTaskData.time,
+                            getTaskDurationMinutes(normalizedTaskData),
+                            normalizedTaskData.id
+                        );
+                    }
+                    if(conflict) {
+                        classifyUndoStack.pop();
+                        updateClassifyUndoButton();
+                        showNotification(`Time conflict with fixed assignment "${conflict.title}". Pick a different start time.`, 'error');
+                        return;
+                    }
                 }
-                if(conflict) {
-                    showNotification(`Time conflict with fixed assignment "${conflict.title}". Pick a different start time.`, 'error');
-                    return;
-                }
-            }
-
-            const proceedSave = () => {
-                recordClassifyUndoPoint();
                 if(repeatRule.type === 'none') {
                     const previousTask = editingId ? tasks.find(t => t.id === editingId) : null;
                     const isCreatingNewTask = !editingId;
@@ -8603,6 +8659,7 @@
             }
 
             const doReschedule = () => {
+                recordClassifyUndoPoint();
                 task.time = null;
                 task.timeSource = null;
                 task.date = null;
@@ -8625,10 +8682,10 @@
                 autoBlockWeekTimes(false, finalWeek, true);
 
                 if(task.date && task.time) {
-                    saveData({ skipAutoSchedule: true });
+                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     showNotification(`Rescheduled "${task.title}"`, 'success');
                 } else {
-                    saveData({ skipAutoSchedule: true });
+                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     showNotification('Could not find an available slot before the due deadline. Please set it manually.', 'error');
                 }
             };
@@ -9123,7 +9180,7 @@
                 if(!weekKey) return;
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
-            saveData({ skipAutoSchedule: true });
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
         }
 
         function autoBlockWeekTimes(showToast = true, weekKey = getCurrentWeekKey(), allowDateShift = true, forceRebuildAutoSlots = false, strictPriority = true) {
