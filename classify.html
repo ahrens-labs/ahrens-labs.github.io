@@ -2423,6 +2423,10 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function confirmBoldName(name) {
+            return `<strong class="font-semibold text-slate-900 dark:text-white">${escapeHtml(name)}</strong>`;
+        }
+
         function normalizeRepeatRule(input = {}) {
             const type = ['none', 'daily', 'weekly', 'custom'].includes(input?.type) ? input.type : 'none';
             const rawDays = Array.isArray(input?.days) ? input.days : [];
@@ -5613,7 +5617,7 @@
                 if(!row) return;
                 confirmAction(
                     'Remove Actual Time?',
-                    `Remove actual time data for "${row.title}"?`,
+                    `Remove actual time data for ${confirmBoldName(row.title)}?`,
                     'Remove',
                     () => {
                         mutateClassifyData(() => {
@@ -5630,7 +5634,7 @@
             if(!task) return;
             confirmAction(
                 'Remove Actual Time?',
-                `Remove actual time data for "${task.title}"?`,
+                `Remove actual time data for ${confirmBoldName(task.title)}?`,
                 'Remove',
                 () => {
                     mutateClassifyData(() => {
@@ -6443,7 +6447,7 @@
             pendingConfirmAction = action;
             pendingConfirmAltAction = null;
             document.getElementById('confirmTitle').innerText = title;
-            document.getElementById('confirmMessage').innerText = message;
+            document.getElementById('confirmMessage').innerHTML = message;
             document.getElementById('confirmModal').classList.remove('hidden');
             document.getElementById('confirmModal').classList.add('cl-modal-root--confirm');
             setTimeout(() => {
@@ -7254,8 +7258,8 @@
             if(!subject || subject === 'General') return;
             const affected = tasks.filter(t => (t.subject || '').trim() === subject).length;
             const message = affected > 0
-                ? `Remove "${subject}"? ${affected} assignment${affected === 1 ? '' : 's'} will be moved to General.`
-                : `Remove "${subject}" from your saved subjects?`;
+                ? `Remove ${confirmBoldName(subject)}? ${affected} assignment${affected === 1 ? '' : 's'} will be moved to General.`
+                : `Remove ${confirmBoldName(subject)} from your saved subjects?`;
             confirmAction('Remove Subject?', message, 'Remove', () => {
                 mutateClassifyData(() => {
                     tasks = tasks.map(t => {
@@ -8353,7 +8357,7 @@
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
-                    dueTime: templateTask.weekDueOnly ? null : null,
+                    dueTime: null,
                     weekDueOnly: Boolean(templateTask.weekDueOnly),
                     repeatNoAutoTime: Boolean(templateTask.repeatNoAutoTime)
                 });
@@ -8818,7 +8822,7 @@
             if(isRecurring) {
                 confirmActionWithAlt(
                     'Delete Recurring Series?',
-                    `"${task.title}" is part of a repeating series.`,
+                    `${confirmBoldName(task.title)} is part of a repeating series.`,
                     'Delete Series',
                     deleteSeries,
                     'Delete This One',
@@ -8827,7 +8831,7 @@
             } else {
                 confirmAction(
                     'Delete Assignment?',
-                    `"${task.title}" will be permanently deleted.`,
+                    `${confirmBoldName(task.title)} will be permanently deleted.`,
                     'Delete',
                     () => {
                         recordClassifyUndoPoint();
