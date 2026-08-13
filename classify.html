@@ -1305,6 +1305,44 @@
         .badge-overdue { 
             @apply bg-rose-100/80 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300; 
         }
+
+        body.classify-app .th-undo-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border: none;
+            border-radius: 10px;
+            background: #dc2626;
+            color: #fff;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s, opacity 0.15s;
+        }
+        body.classify-app .th-undo-btn:hover:not(:disabled) {
+            background: #b91c1c;
+        }
+        body.classify-app .th-undo-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        body.classify-app .th-undo-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        @media (max-width: 640px) {
+            body.classify-app .th-undo-btn {
+                width: 36px;
+                height: 36px;
+            }
+        }
     </style>
 </head>
 <body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
@@ -1323,6 +1361,9 @@
                 <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=classify.html'">Login</button>
                 <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=classify.html'">Sign Up</button>
                 <span id="header-username" class="th-topbar-username"></span>
+                <button type="button" class="th-undo-btn" id="btn-classify-undo" aria-label="Undo last change" title="Undo" disabled>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7H5v4"></path><path d="M5 11c1.5-3 4.5-5 9-5 4.5 0 8 3.5 8 8s-3.5 8-8 8a8.2 8.2 0 0 1-5.7-2.3"></path></svg>
+                </button>
                 <button type="button" class="th-settings-btn" id="btn-classify-settings" aria-label="Classify settings" title="Settings">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 0 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 0 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"></path><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"></path></svg>
                 </button>
@@ -2682,6 +2723,8 @@
                 const loaded = await loadClassifyDataFromCloud();
                 if (loaded) {
                     persistClassifyLocally();
+                    classifyUndoStack = [];
+                    initClassifyUndoBaseline();
                     renderAll();
                 }
                 await updateClassifySyncFingerprint();
@@ -3023,18 +3066,19 @@
                 tasks.forEach(t => {
                     if(!subjectColors[t.subject]) subjectColors[t.subject] = t.color;
                 });
-                saveData();
+                saveData({ skipUndoRecord: true });
                 plannerRemove('plannerTasks'); // Clean up old key
             }
 
             const trimmed = pruneRepeatFutureWeeks();
             const spawned = advanceRepeatSeriesIfReady();
             if(trimmed > 0 || spawned > 0) {
-                saveData();
+                saveData({ skipUndoRecord: true });
             }
 
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
+            initClassifyUndoBaseline();
             renderAll();
             applyClassifyRouteFromUrl();
             connectClassifySync();
@@ -4986,8 +5030,64 @@
         }
 
         document.getElementById('btn-classify-settings').addEventListener('click', openClassifySettings);
+        document.getElementById('btn-classify-undo').addEventListener('click', undoClassifyLastAction);
 
         // --- Data Management ---
+        const CLASSIFY_UNDO_LIMIT = 50;
+        let classifyUndoStack = [];
+        let classifyLastSavedSnapshot = null;
+        let classifyUndoApplying = false;
+
+        function captureClassifyUndoSnapshot() {
+            return {
+                tasks: JSON.parse(JSON.stringify(tasks || [])),
+                completionHistory: JSON.parse(JSON.stringify(completionHistory || [])),
+                subjectColors: JSON.parse(JSON.stringify(subjectColors || {})),
+                blockedTimes: JSON.parse(JSON.stringify(blockedTimes || [])),
+                scheduleRules: JSON.parse(JSON.stringify(normalizeScheduleRules(scheduleRules))),
+                vacationRanges: JSON.parse(JSON.stringify(vacationRanges || [])),
+                repeatSkips: JSON.parse(JSON.stringify(normalizeRepeatSkips(repeatSkips))),
+                calendarViewMode: calendarViewMode || 'month'
+            };
+        }
+
+        function applyClassifyUndoSnapshot(snapshot) {
+            if(!snapshot) return;
+            tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.filter(Boolean).map(normalizeTask) : [];
+            completionHistory = Array.isArray(snapshot.completionHistory)
+                ? snapshot.completionHistory.filter(Boolean).map(normalizeCompletionEntry)
+                : [];
+            subjectColors = snapshot.subjectColors || {};
+            blockedTimes = Array.isArray(snapshot.blockedTimes) ? normalizeBlockedTimes(snapshot.blockedTimes) : [];
+            scheduleRules = normalizeScheduleRules(snapshot.scheduleRules);
+            vacationRanges = normalizeVacationRanges(snapshot.vacationRanges);
+            repeatSkips = normalizeRepeatSkips(snapshot.repeatSkips);
+            calendarViewMode = snapshot.calendarViewMode || 'month';
+        }
+
+        function initClassifyUndoBaseline() {
+            classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+            updateClassifyUndoButton();
+        }
+
+        function updateClassifyUndoButton() {
+            const btn = document.getElementById('btn-classify-undo');
+            if(!btn) return;
+            btn.disabled = classifyUndoStack.length === 0;
+        }
+
+        function undoClassifyLastAction() {
+            if(classifyUndoStack.length === 0) return;
+            classifyUndoApplying = true;
+            const snapshot = classifyUndoStack.pop();
+            applyClassifyUndoSnapshot(snapshot);
+            classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            classifyUndoApplying = false;
+            updateClassifyUndoButton();
+            showNotification('Undid last change', 'info');
+        }
+
         let saveDataAutoScheduleGuard = false;
 
         function prepareAdjustableTasksForRepack(weekKeys = [], forceRebuildAutoSlots = true) {
@@ -5026,7 +5126,15 @@
         }
 
         function saveData(options = {}) {
-            const { skipAutoSchedule = false } = options || {};
+            const { skipAutoSchedule = false, skipUndoRecord = false } = options || {};
+
+            if(!skipUndoRecord && !classifyUndoApplying && classifyLastSavedSnapshot) {
+                classifyUndoStack.push(classifyLastSavedSnapshot);
+                if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
+                    classifyUndoStack.shift();
+                }
+            }
+
             pruneExpiredScheduleItems();
             enforceNoOverlappingTimes();
             enforceDependencyOrder();
@@ -5050,6 +5158,10 @@
             plannerSet('plannerScheduleRulesV1', JSON.stringify(normalizeScheduleRules(scheduleRules)));
             plannerSet('plannerRepeatSkipsV1', JSON.stringify(repeatSkips));
             queueClassifyCloudSync();
+            if(!classifyUndoApplying) {
+                classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+                updateClassifyUndoButton();
+            }
             renderAll();
         }
 
