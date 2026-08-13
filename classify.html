@@ -3538,6 +3538,7 @@
             }
 
             if(isDateBlockedForTask(task, candidate)) return false;
+            if(!hasUserLockedCalendarDate(task) && !isDateSchedulableForTask(task, candidate)) return false;
 
             return true;
         }
@@ -3603,7 +3604,10 @@
                 return [];
             }
 
-            if(!allowBeyondWeek) return inWeek;
+            if(!allowBeyondWeek) {
+                const schedulableInWeek = inWeek.filter(d => isDateSchedulableForTask(task, d));
+                return schedulableInWeek.length > 0 ? schedulableInWeek : inWeek;
+            }
 
             const rangeStart = inWeek[0] || todayStr;
             const taskDue = getTaskDueDate(task);
@@ -3612,7 +3616,10 @@
             const extended = getWeekdayDateRange(rangeStart, hardEnd)
                 .filter(d => d >= todayStr && !isDateInVacation(d));
 
-            return Array.from(new Set(extended.length > 0 ? extended : inWeek)).sort((a, b) => a.localeCompare(b));
+            const dates = Array.from(new Set(extended.length > 0 ? extended : inWeek)).sort((a, b) => a.localeCompare(b));
+            if(hasUserLockedCalendarDate(task)) return dates;
+            const schedulable = dates.filter(d => isDateSchedulableForTask(task, d));
+            return schedulable.length > 0 ? schedulable : dates;
         }
 
         function spillAutoTaskToNextValidDate(task, eligibleDates, dateById = new Map()) {
@@ -4407,6 +4414,34 @@
             const dayStart = timeToMin(schedule.start);
             return dateStr === getDateStrLocal() ? Math.max(dayStart, getNowMinRoundedTo5()) : dayStart;
         }
+        function isDateSchedulableForAutoPlacement(dateStr, minDurationMin = 5) {
+            if(!dateStr || isDateInVacation(dateStr)) return false;
+            const schedule = getScheduleForDate(dateStr);
+            const dayEnd = timeToMin(schedule.end);
+            const earliestStart = getEarliestSchedulableStartMin(dateStr);
+            const duration = Math.max(5, Math.round(Number(minDurationMin) || 5));
+            return earliestStart + duration <= dayEnd;
+        }
+        function isDateSchedulableForTask(task, dateStr) {
+            if(!dateStr) return false;
+            const duration = parseInt(task?.duration, 10) || 30;
+            return isDateSchedulableForAutoPlacement(dateStr, duration);
+        }
+        function releaseTaskFromExhaustedToday(task, weekKey = null) {
+            if(!task || task.completed || task.date !== getDateStrLocal()) return false;
+            if(isUserScheduleLocked(task)) return false;
+            if(isDateSchedulableForTask(task, task.date)) return false;
+            const resolvedWeekKey = weekKey || task.week || getWeekKeyFromDateStr(task.date);
+            const eligible = getScheduleEligibleDates(task, resolvedWeekKey, true)
+                .filter(d => d !== task.date);
+            if(spillAutoTaskToNextValidDate(task, eligible)) return true;
+            task.date = null;
+            if(task.dateSource !== 'user') task.dateSource = null;
+            task.time = null;
+            task.timeSource = null;
+            task.assignmentMode = 'ADJUSTABLE';
+            return true;
+        }
         function isTaskScheduledBeforeNow(task) {
             if(!task?.date || !task?.time) return false;
             if(task.date !== getDateStrLocal()) return false;
@@ -4428,6 +4463,12 @@
                 task.timeSource = null;
                 task.assignmentMode = 'ADJUSTABLE';
                 cleared++;
+                releaseTaskFromExhaustedToday(task);
+            });
+            (tasks || []).forEach(task => {
+                if(!task || task.completed || task.date !== todayStr || task.time) return;
+                if(isUserScheduleLocked(task)) return;
+                releaseTaskFromExhaustedToday(task);
             });
             return cleared;
         }
@@ -9089,6 +9130,11 @@
             const scheduleSnapshot = captureWeekScheduleSnapshot(weekKey);
             assignWeekTaskDates(weekKey, true);
             enforceNoPastUnstartedTimes();
+            (tasks || []).forEach(task => {
+                if(!task || task.completed) return;
+                if(!isTaskTargetedForWeek(task, weekKey, true) && !(task.date && getWeekKeyFromDateStr(task.date) === weekKey)) return;
+                releaseTaskFromExhaustedToday(task, weekKey);
+            });
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const collectWeekTasks = () => tasks.filter(t => {
                 if(t.completed) return false;
