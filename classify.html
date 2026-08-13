@@ -2739,6 +2739,7 @@
 
         async function refreshClassifyFromCloud() {
             if (classifySyncRefreshing) return;
+            if (Date.now() < classifyUndoRemoteSuppressUntil) return;
             classifySyncRefreshing = true;
             try {
                 const loaded = await loadClassifyDataFromCloud();
@@ -3100,6 +3101,7 @@
             // Enable cloud syncing after initial load/migrations
             cloudSyncEnabled = true;
             initClassifyUndoBaseline();
+            document.getElementById('btn-classify-undo')?.addEventListener('click', undoClassifyLastAction);
             renderAll();
             applyClassifyRouteFromUrl();
             connectClassifySync();
@@ -3398,6 +3400,7 @@
             }
 
             const startMin = timeToMin(time);
+            recordClassifyUndoPoint();
             makeRoomForStartedAssignment(task, date, startMin);
 
             task.date = date;
@@ -3414,7 +3417,7 @@
             enforceNoOverlappingTimes(date, date);
             autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
             enforceNoOverlappingTimes(date, date);
-            saveData({ skipAutoSchedule: true });
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
 
@@ -3427,6 +3430,7 @@
             }
 
             const doUnstart = () => {
+                recordClassifyUndoPoint();
                 const preservedDate = task.date || null;
                 const preservedDueDate = task.dueDate || null;
                 const preservedDueTime = task.dueTime || null;
@@ -3446,7 +3450,7 @@
                     task.week = getWeekKeyFromDateStr(preservedDate);
                 }
 
-                saveData();
+                saveData({ skipUndoRecord: true });
                 showNotification(`Unstarted "${task.title}" — date kept; time can auto-move`, 'success');
             };
 
@@ -5051,13 +5055,13 @@
         }
 
         document.getElementById('btn-classify-settings').addEventListener('click', openClassifySettings);
-        document.getElementById('btn-classify-undo').addEventListener('click', undoClassifyLastAction);
 
         // --- Data Management ---
         const CLASSIFY_UNDO_LIMIT = 50;
         let classifyUndoStack = [];
         let classifyLastSavedSnapshot = null;
         let classifyUndoApplying = false;
+        let classifyUndoRemoteSuppressUntil = 0;
 
         function captureClassifyUndoSnapshot() {
             return {
@@ -5091,6 +5095,16 @@
             updateClassifyUndoButton();
         }
 
+        function recordClassifyUndoPoint() {
+            if(classifyUndoApplying) return;
+            const snapshot = captureClassifyUndoSnapshot();
+            classifyUndoStack.push(snapshot);
+            if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
+                classifyUndoStack.shift();
+            }
+            updateClassifyUndoButton();
+        }
+
         function updateClassifyUndoButton() {
             const btn = document.getElementById('btn-classify-undo');
             if(!btn) return;
@@ -5100,13 +5114,18 @@
         function undoClassifyLastAction() {
             if(classifyUndoStack.length === 0) return;
             classifyUndoApplying = true;
-            const snapshot = classifyUndoStack.pop();
-            applyClassifyUndoSnapshot(snapshot);
-            classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-            classifyUndoApplying = false;
-            updateClassifyUndoButton();
-            showNotification('Undid last change', 'info');
+            try {
+                const snapshot = classifyUndoStack.pop();
+                applyClassifyUndoSnapshot(snapshot);
+                classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+                classifyUndoRemoteSuppressUntil = Date.now() + 4000;
+                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+                flushClassifyCloudSync();
+                updateClassifyUndoButton();
+                showNotification('Undid last change', 'info');
+            } finally {
+                classifyUndoApplying = false;
+            }
         }
 
         let saveDataAutoScheduleGuard = false;
@@ -5154,6 +5173,7 @@
                 if(classifyUndoStack.length > CLASSIFY_UNDO_LIMIT) {
                     classifyUndoStack.shift();
                 }
+                updateClassifyUndoButton();
             }
 
             pruneExpiredScheduleItems();
@@ -7289,6 +7309,7 @@
                 if(remainingProvided && Number.isFinite(baseDuration) && baseDuration > 0) {
                     remainingPercent = Math.max(1, Math.min(99, Math.round(baseRemaining * (remaining / baseDuration))));
                 }
+                recordClassifyUndoPoint();
                 task.completed = true;
                 task.completedDate = getDateStrLocal();
                 task.actualMinutes = null;
@@ -7330,6 +7351,7 @@
                 enforceDifferentDayAfterCompletion(task);
                 reconcileBeforeAfterSchedule([task.id, carryOver.id]);
             } else {
+                recordClassifyUndoPoint();
                 const raw = document.getElementById('timeInput').value;
                 const minutes = Math.round(Number(raw));
                 task.actualMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : null;
@@ -7347,7 +7369,7 @@
                 reconcileBeforeAfterSchedule([task.id]);
             }
             reAutoScheduleAfterCompletion(task, spawned > 0);
-            saveData({ skipAutoSchedule: true });
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             syncClassifyDataToCloud();
             closeTimeModal();
             enforceBreakAfterCompletion(task);
@@ -8338,6 +8360,7 @@
             }
 
             const proceedSave = () => {
+                recordClassifyUndoPoint();
                 if(repeatRule.type === 'none') {
                     const previousTask = editingId ? tasks.find(t => t.id === editingId) : null;
                     const isCreatingNewTask = !editingId;
@@ -8360,7 +8383,7 @@
                     ensureAllEventsScheduled();
                     reconcileBeforeAfterSchedule([normalizedTaskData.id]);
 
-                    saveData({ skipAutoSchedule: true });
+                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     if(isCreatingNewTask) syncClassifyDataToCloud();
                     clearForm();
                     closeModal();
@@ -8443,7 +8466,7 @@
                     .filter(t => t.repeatGroupId === groupId && !t.completed)
                     .map(t => t.id);
                 reconcileBeforeAfterSchedule(groupSeeds.length ? groupSeeds : [normalizedTaskData.id]);
-                saveData({ skipAutoSchedule: true });
+                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                 clearForm();
                 closeModal();
             };
@@ -8511,11 +8534,12 @@
             const task = tasks.find(t => t.id === id);
             if(task) {
                 if(task.completed) {
+                    recordClassifyUndoPoint();
                     task.completed = false;
                     task.completedDate = null;
                     task.actualMinutes = null;
                     if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
-                    saveData();
+                    saveData({ skipUndoRecord: true });
                     return;
                 }
                 openTimeModal(id);
@@ -8587,6 +8611,7 @@
             const repeatGroupId = task.repeatGroupId || null;
             const isRecurring = Boolean(repeatGroupId);
             const deleteSeries = () => {
+                recordClassifyUndoPoint();
                 const removedIds = tasks.filter(t => t.repeatGroupId === repeatGroupId).map(t => t.id);
                 tasks = tasks.filter(t => t.repeatGroupId !== repeatGroupId);
                 removeDependencyReferences(removedIds);
@@ -8594,15 +8619,16 @@
                     delete repeatSkips[repeatGroupId];
                 }
                 syncAllTaskDependencies();
-                saveData();
+                saveData({ skipUndoRecord: true });
                 showNotification('Recurring series deleted', 'success');
             };
             const deleteSingle = () => {
+                recordClassifyUndoPoint();
                 if(repeatGroupId) recordDeletedRepeatOccurrence(repeatGroupId, task);
                 tasks = tasks.filter(t => t.id !== id);
                 removeDependencyReferences([id]);
                 syncAllTaskDependencies();
-                saveData();
+                saveData({ skipUndoRecord: true });
                 syncClassifyDataToCloud();
                 showNotification('Occurrence deleted', 'success');
             };
@@ -8621,10 +8647,11 @@
                     `"${task.title}" will be permanently deleted.`,
                     'Delete',
                     () => {
+                        recordClassifyUndoPoint();
                         tasks = tasks.filter(t => t.id !== id);
                         removeDependencyReferences([id]);
                         syncAllTaskDependencies();
-                        saveData();
+                        saveData({ skipUndoRecord: true });
                         showNotification('Assignment deleted', 'success');
                     }
                 );
