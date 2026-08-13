@@ -5268,7 +5268,6 @@
 
         function reconcileDerivedStateAfterUndo() {
             pruneRepeatFutureWeeks();
-            syncAllTaskDependencies();
         }
 
         function persistClassifyScheduleRefresh(options = {}) {
@@ -7681,7 +7680,7 @@
                 return;
             }
             if(timeStr) {
-                let conflict = findSchedulingConflict(
+                const conflict = findSchedulingConflict(
                     dateStr,
                     timeStr,
                     getTaskDurationMinutes(task),
@@ -7692,44 +7691,46 @@
                     return;
                 }
             }
-            recordClassifyUndoPoint({ force: true });
-            if(timeStr) {
-                let conflict = findSchedulingConflict(
-                    dateStr,
-                    timeStr,
-                    getTaskDurationMinutes(task),
-                    task.id
-                );
-                while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
-                    conflict.time = null;
-                    conflict.timeSource = null;
-                    conflict.assignmentMode = 'ADJUSTABLE';
-                    conflict = findSchedulingConflict(
+
+            mutateClassifyData(() => {
+                if(timeStr) {
+                    let conflict = findSchedulingConflict(
                         dateStr,
                         timeStr,
                         getTaskDurationMinutes(task),
                         task.id
                     );
+                    while(conflict && !isFixedTask(conflict) && !isUserTimeLockedTask(conflict)) {
+                        conflict.time = null;
+                        conflict.timeSource = null;
+                        conflict.assignmentMode = 'ADJUSTABLE';
+                        conflict = findSchedulingConflict(
+                            dateStr,
+                            timeStr,
+                            getTaskDurationMinutes(task),
+                            task.id
+                        );
+                    }
                 }
-            }
-            task.date = dateStr;
-            task.week = getWeekKeyFromDateStr(dateStr);
-            task.scheduleType = 'date';
-            task.weekDueOnly = false;
-            task.dueDate = null;
-            task.dateSource = 'user';
-            if(timeStr) {
-                task.time = timeStr;
-                task.assignmentMode = 'FIXED';
-                task.timeSource = 'user';
-            } else {
-                task.time = null;
-                task.assignmentMode = 'ADJUSTABLE';
-                task.timeSource = null;
-            }
-            autoBlockWeekTimes(false, getWeekKeyFromDateStr(dateStr), false, true);
-            reconcileBeforeAfterSchedule([taskId]);
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+
+                const movedTask = normalizeTask({
+                    ...task,
+                    date: dateStr,
+                    week: getWeekKeyFromDateStr(dateStr),
+                    scheduleType: 'date',
+                    weekDueOnly: false,
+                    dueDate: null,
+                    dateSource: 'user',
+                    time: timeStr || null,
+                    assignmentMode: timeStr ? 'FIXED' : 'ADJUSTABLE',
+                    timeSource: timeStr ? 'user' : null
+                });
+
+                tasks = tasks.map(t => t.id === taskId ? movedTask : t);
+                ensureAllEventsScheduled(12, false);
+                reconcileBeforeAfterSchedule([taskId]);
+            }, { skipAutoSchedule: true });
+
             renderCalendar();
         }
 
@@ -10003,13 +10004,11 @@
                 showNotification('Cleared invalid before/after placements and rebuilt the schedule where possible.', 'info');
             }
 
-            if(updated > 0) {
+            if(updated > 0 && showToast) {
                 saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-                if(showToast) {
-                    setCalendarViewMode('week');
-                    switchTab('calendar');
-                    showNotification(`Auto time-blocked ${updated} task${updated > 1 ? 's' : ''} this week`, 'success');
-                }
+                setCalendarViewMode('week');
+                switchTab('calendar');
+                showNotification(`Auto time-blocked ${updated} task${updated > 1 ? 's' : ''} this week`, 'success');
             } else if(showToast) {
                 classifyUndoStack.pop();
                 updateClassifyUndoButton();
