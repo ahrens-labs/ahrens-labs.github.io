@@ -3338,7 +3338,7 @@
                 time: normalizedTime,
                 timeSource: normalizedTimeSource,
                 startedAt: normalizedStartedAt,
-                dueTime: isExactDateTask ? null : (task.dueTime || null),
+                dueTime: task.dueTime || null,
                 duration: normalizedDuration,
                 priority: normalizedPriority,
                 difficulty: normalizedDifficulty,
@@ -4285,7 +4285,13 @@
             return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
         function formatDueLabel(t, includePrefix = true) {
-            if(!taskHasSeparateDueDate(t)) return '';
+            if(!taskHasSeparateDueDate(t)) {
+                if(t?.dueTime) {
+                    const timeLabel = minToTime(timeToMin(t.dueTime));
+                    return includePrefix ? `Due by: ${timeLabel}` : timeLabel;
+                }
+                return '';
+            }
             const dueDate = getTaskDueDate(t);
             if(!dueDate) return includePrefix ? 'Due: No due date' : 'No due date';
             const dateLabel = formatDateLabel(dueDate);
@@ -5204,6 +5210,15 @@
             }
             if(Object.prototype.hasOwnProperty.call(raw, 'repeatNoAutoTime')) {
                 normalized.repeatNoAutoTime = Boolean(raw.repeatNoAutoTime);
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeBefore')) {
+                normalized.mustBeBefore = Array.isArray(raw.mustBeBefore) ? raw.mustBeBefore.filter(Boolean) : [];
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeAfter')) {
+                normalized.mustBeAfter = Array.isArray(raw.mustBeAfter) ? raw.mustBeAfter.filter(Boolean) : [];
+            }
+            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeDifferentDay')) {
+                normalized.mustBeDifferentDay = Array.isArray(raw.mustBeDifferentDay) ? raw.mustBeDifferentDay.filter(Boolean) : [];
             }
             return normalized;
         }
@@ -7702,7 +7717,6 @@
             task.scheduleType = 'date';
             task.weekDueOnly = false;
             task.dueDate = null;
-            task.dueTime = null;
             task.dateSource = 'user';
             if(timeStr) {
                 task.time = timeStr;
@@ -8164,13 +8178,12 @@
                 eventDateWrapper.classList.remove('hidden');
                 startTimeWrapper.classList.remove('hidden');
                 dueDateWrapper.classList.add('hidden');
-                dueTimeWrapper.classList.add('hidden');
+                dueTimeWrapper.classList.remove('hidden');
                 dateInput.disabled = false;
                 timeInput.disabled = false;
                 dueDateInput.value = '';
                 dueDateInput.disabled = true;
-                dueTimeInput.value = '';
-                dueTimeInput.disabled = true;
+                dueTimeInput.disabled = false;
             }
 
             if(weekDueOnly) {
@@ -8460,7 +8473,7 @@
             const dueDate = weekDueOnly
                 ? getWeekEndDateFromWeekKey(week)
                 : (isExactDateSchedule ? null : dueDateRaw);
-            const dueTime = (weekDueOnly || isExactDateSchedule) ? null : dueTimeRaw;
+            const dueTime = weekDueOnly ? null : dueTimeRaw;
 
             if(scheduleType === 'week' && !week) {
                 showNotification("Please choose a target week", 'error');
@@ -8623,7 +8636,7 @@
                             duration: normalizedTaskData.duration,
                             notes: normalizedTaskData.notes,
                             color: normalizedTaskData.color,
-                            dueTime: (weekDueOnly || isExactDateSchedule) ? null : normalizedTaskData.dueTime,
+                            dueTime: weekDueOnly ? null : normalizedTaskData.dueTime,
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
                             mustBeDifferentDay: normalizedTaskData.mustBeDifferentDay,
@@ -8707,7 +8720,7 @@
             document.getElementById('inputDueDate').value = taskHasSeparateDueDate(t) ? (t.dueDate || '') : '';
             document.getElementById('inputWeek').value = t.week || getCurrentWeekKey();
             document.getElementById('inputTime').value = t.time || '';
-            document.getElementById('inputDueTime').value = taskHasSeparateDueDate(t) ? (t.dueTime || '') : '';
+            document.getElementById('inputDueTime').value = t.dueTime || '';
             document.getElementById('inputDuration').value = t.duration || '';
             document.getElementById('inputPriority').value = t.priority;
             document.getElementById('inputDifficulty').value = t.difficulty || 'Medium';
@@ -9991,7 +10004,7 @@
             }
 
             if(updated > 0) {
-                saveData({ skipAutoSchedule: true, skipUndoRecord: showToast });
+                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                 if(showToast) {
                     setCalendarViewMode('week');
                     switchTab('calendar');
@@ -10096,7 +10109,7 @@
                     t.date || '',
                     taskHasSeparateDueDate(t) ? (t.dueDate || '') : '',
                     t.time || '',
-                    taskHasSeparateDueDate(t) ? (t.dueTime || '') : '',
+                    t.dueTime || '',
                     t.duration || '',
                     t.actualMinutes || '',
                     t.priority || '',
