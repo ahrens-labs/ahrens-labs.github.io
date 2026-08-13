@@ -710,6 +710,27 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        body.classify-app .cl-month-task__delete {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.125rem;
+            height: 1.125rem;
+            border: none;
+            border-radius: 0.25rem;
+            background: rgba(0, 0, 0, 0.2);
+            color: #fff;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        body.classify-app .cl-month-task:hover .cl-month-task__delete {
+            opacity: 1;
+        }
+        body.classify-app .cl-month-task__delete:hover {
+            background: rgba(0, 0, 0, 0.35);
+        }
         .dark body.classify-app .cl-week-task__meta {
             color: #94a3b8;
         }
@@ -5987,7 +6008,7 @@
                             <span class="text-sm font-bold ${t.completed ? 'line-through text-slate-500' : 'text-slate-800 dark:text-white'}">${t.title}</span>
                             ${t.priority === 'High' ? '<span class="text-[10px] font-bold bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 px-1.5 py-0.5 rounded">HIGH</span>' : ''}
                             ${isLate ? '<span class="text-[10px] font-bold bg-slate-100 text-red-600 dark:bg-slate-800/60 dark:text-red-400 px-1.5 py-0.5 rounded">LATE</span>' : ''}
-                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${modeLabel}</span>
+                            ${!isAssignmentStarted(t) ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${modeBadgeClass}">${modeLabel}</span>` : ''}
                             ${startAssignmentButtonHtml(t)}
                         </div>
                         <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mb-1 flex-wrap">
@@ -7606,6 +7627,7 @@
                         <div class="cl-month-task" style="background:${color}" draggable="true" ondragstart="handleTaskDragStart(event, '${t.id}')" onclick="editTask('${t.id}')" title="${t.title}">
                             ${timePrefix}
                             <span class="cl-month-task__title">${t.title}</span>
+                            <button type="button" class="cl-month-task__delete" onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete" aria-label="Delete assignment"><i class="fa-solid fa-trash text-[9px]"></i></button>
                         </div>`;
                 }).join('');
                 const dropAttrs = isVacation ? '' : `ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDrop(event, '${dateStr}')"`
@@ -7654,8 +7676,9 @@
                                 <button onclick="editTask('${t.id}')" class="cl-week-task__title truncate">${t.title}</button>
                                 <div class="cl-week-task__actions">
                                     ${startAssignmentButtonHtml(t, { compact: true })}
-                                    <button onclick="toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
-                                    <button onclick="editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button onclick="event.stopPropagation(); toggleComplete('${t.id}')" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
+                                    <button onclick="event.stopPropagation(); editTask('${t.id}')" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                                    <button onclick="event.stopPropagation(); deleteTask('${t.id}')" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
                                 </div>
                             </div>
                             <div class="cl-week-task__meta">${timeLabel} · ${t.subject} · ${duration}m${isAssignmentStarted(t) ? ' · Started' : ''}</div>
@@ -7735,9 +7758,14 @@
                 const t = item.task;
                 const color = getTaskColor(t);
                 const modeLabel = getTaskAssignmentModeLabel(t);
-                return `<div class="absolute left-[88px] right-2 rounded border border-black/15 shadow-sm px-2 py-1 overflow-hidden" style="top:${top}px;height:${height}px;background:${color};">
-                    <div class="text-[11px] font-semibold text-white truncate">${t.title}</div>
-                    <div class="text-[10px] text-white/90 truncate">${minToTime(item.start)} · ${parseInt(t.duration, 10) || 30}m · ${modeLabel}</div>
+                return `<div class="absolute left-[88px] right-2 rounded border border-black/15 shadow-sm px-2 py-1 overflow-hidden group/day-task cursor-pointer" style="top:${top}px;height:${height}px;background:${color};" onclick="editTask('${t.id}')">
+                    <div class="flex items-start justify-between gap-1">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-[11px] font-semibold text-white truncate">${t.title}</div>
+                            <div class="text-[10px] text-white/90 truncate">${minToTime(item.start)} · ${parseInt(t.duration, 10) || 30}m · ${modeLabel}</div>
+                        </div>
+                        <button type="button" onclick="event.stopPropagation(); deleteTask('${t.id}')" class="shrink-0 w-5 h-5 rounded flex items-center justify-center text-white/80 hover:text-white hover:bg-black/20 opacity-0 group-hover/day-task:opacity-100 transition-opacity" title="Delete" aria-label="Delete assignment"><i class="fa-solid fa-trash text-[9px]"></i></button>
+                    </div>
                 </div>`;
             }).join('');
 
@@ -7766,7 +7794,7 @@
             const unscheduledHtml = unscheduled.length > 0
                 ? `<div class="rounded-lg border border-amber-200 dark:border-amber-700/50 bg-amber-50/70 dark:bg-amber-900/20 p-3">
                         <div class="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide mb-2">Needs Time Today</div>
-                        <div class="space-y-1">${unscheduled.map(t => `<div class="text-sm text-slate-700 dark:text-slate-200">- ${t.title}</div>`).join('')}</div>
+                        <div class="space-y-1">${unscheduled.map(t => `<div class="flex items-center justify-between gap-2 text-sm text-slate-700 dark:text-slate-200"><span class="truncate">- ${t.title}</span><button type="button" onclick="deleteTask('${t.id}')" class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors" title="Delete" aria-label="Delete assignment"><i class="fa-solid fa-trash text-xs"></i></button></div>`).join('')}</div>
                    </div>`
                 : '';
 
