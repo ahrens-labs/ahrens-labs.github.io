@@ -2609,16 +2609,48 @@
             return Boolean(dueDate && dueDate >= startStr && dueDate <= endStr);
         }
 
-        function taskCountsAsNeedingTime(task) {
+        function taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache = null) {
+            if(!task || !dateStr) return false;
+            const todayStr = getDateStrLocal();
+            if(task.time && task.date === dateStr) {
+                const isPastUnstartedToday = dateStr === todayStr &&
+                    !isAssignmentStarted(task) &&
+                    timeToMin(task.time) < getNowMinRoundedTo5();
+                if(!isPastUnstartedToday) return true;
+            }
+            let schedule = scheduleCache?.get(dateStr);
+            if(!schedule) {
+                schedule = getSmartSchedule(dateStr);
+                scheduleCache?.set(dateStr, schedule);
+            }
+            return schedule.some(item =>
+                item?.task?.id === task.id &&
+                item.type !== 'break' &&
+                item.type !== 'overflow'
+            );
+        }
+
+        function taskCountsAsNeedingTime(task, options = {}) {
+            const { scheduleCache = null, focusDate = null } = options || {};
             if(!task || task.completed) return false;
             if(isRepeatOccurrenceRemoved(task)) return false;
             if(task.repeatNoAutoTime) return false;
             if(task.weekDueOnly) return false;
-            return !task.time;
+
+            const dateStr = focusDate || task.date || null;
+            if(dateStr) {
+                return !taskHasEffectiveScheduleOnDate(task, dateStr, scheduleCache);
+            }
+            return true;
         }
 
         function countTasksNeedingTimeInRange(startStr, endStr) {
-            return tasks.filter(t => isActiveCalendarTaskInRange(t, startStr, endStr) && taskCountsAsNeedingTime(t)).length;
+            const scheduleCache = new Map();
+            return tasks.filter(t => {
+                if(!isActiveCalendarTaskInRange(t, startStr, endStr)) return false;
+                const focusDate = (t.date && t.date >= startStr && t.date <= endStr) ? t.date : null;
+                return taskCountsAsNeedingTime(t, { scheduleCache, focusDate });
+            }).length;
         }
 
         function syncRepeatExceptionsForWeek(groupId, weekKey) {
@@ -7842,7 +7874,7 @@
 
             const schedule = injectBreakItems(getSmartSchedule(dateStr), dateStr);
             const unscheduled = tasks
-                .filter(t => isActiveCalendarTaskInRange(t, dateStr, dateStr) && taskCountsAsNeedingTime(t))
+                .filter(t => isActiveCalendarTaskInRange(t, dateStr, dateStr) && taskCountsAsNeedingTime(t, { focusDate: dateStr }))
                 .sort(compareTasksForScheduling);
 
             const daySchedule = getScheduleForDate(dateStr);
