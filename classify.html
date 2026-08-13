@@ -7737,6 +7737,7 @@
         function handleCalendarDrop(event, dateStr) {
             if(!event) return;
             event.preventDefault();
+            event.stopPropagation();
             const taskId = event.dataTransfer.getData('text/plain');
             if(!taskId) return;
             moveTaskToDateTime(taskId, dateStr, null);
@@ -7745,6 +7746,7 @@
         function handleCalendarDropOnTask(event, dateStr, timeStr) {
             if(!event) return;
             event.preventDefault();
+            event.stopPropagation();
             const taskId = event.dataTransfer.getData('text/plain');
             if(!taskId) return;
             moveTaskToDateTime(taskId, dateStr, timeStr);
