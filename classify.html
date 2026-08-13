@@ -2251,7 +2251,7 @@
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
                                 <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
-                            <div>
+                            <div id="dueDateWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Date</label>
                                 <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
@@ -2261,7 +2261,7 @@
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
                                 <input id="inputTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
-                            <div>
+                            <div id="dueTimeWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Due Time</label>
                                 <input id="inputDueTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
@@ -3233,19 +3233,24 @@
             const normalizedPriority = ['Low', 'Medium', 'High'].includes(task.priority) ? task.priority : 'Medium';
             const normalizedDifficulty = ['Easy', 'Medium', 'Hard'].includes(task.difficulty) ? task.difficulty : 'Medium';
             const normalizedEventDate = task.eventDate || task.date || null;
-            const normalizedDueDateBase = task.dueDate || task.due || normalizedEventDate || null;
             const weekDueOnly = Boolean(task.weekDueOnly);
+            const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
+            const isExactDateTask = inferredScheduleType === 'date' && !weekDueOnly;
+            const normalizedDueDateBase = isExactDateTask
+                ? null
+                : (task.dueDate || task.due || normalizedEventDate || null);
             const normalizedDueDate = weekDueOnly
                 ? getWeekEndDateFromWeekKey(task.week || (normalizedDueDateBase ? getWeekKeyFromDateStr(normalizedDueDateBase) : null))
                 : normalizedDueDateBase;
-            const normalizedWeek = task.week || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null);
+            const normalizedWeek = task.week
+                || (normalizedDueDate ? getWeekKeyFromDateStr(normalizedDueDate) : null)
+                || (normalizedEventDate ? getWeekKeyFromDateStr(normalizedEventDate) : null);
             const normalizedTime = task.time || null;
             const normalizedSplitGroupId = task.splitGroupId || null;
             const normalizedSplitPercent = Number.isFinite(Number(task.splitPercent))
                 ? Math.max(1, Math.min(100, Math.round(Number(task.splitPercent))))
                 : null;
             let normalizedTimeSource = ['auto', 'user'].includes(task.timeSource) ? task.timeSource : null;
-            const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
             let normalizedDateSource = ['auto', 'user'].includes(task.dateSource) ? task.dateSource : null;
             if(!normalizedDateSource && normalizedEventDate) {
                 normalizedDateSource = (inferredScheduleType === 'date' && !weekDueOnly) ? 'user' : 'auto';
@@ -3327,12 +3332,12 @@
                 dateSource: normalizedDateSource,
                 dueDate: normalizedDueDate,
                 week: normalizedWeek,
-                scheduleType: task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible')),
+                scheduleType: inferredScheduleType,
                 assignmentMode: normalizedAssignmentMode,
                 time: normalizedTime,
                 timeSource: normalizedTimeSource,
                 startedAt: normalizedStartedAt,
-                dueTime: task.dueTime || null,
+                dueTime: isExactDateTask ? null : (task.dueTime || null),
                 duration: normalizedDuration,
                 priority: normalizedPriority,
                 difficulty: normalizedDifficulty,
@@ -3443,6 +3448,8 @@
             task.scheduleType = 'date';
             task.week = getWeekKeyFromDateStr(date);
             task.weekDueOnly = false;
+            task.dueDate = null;
+            task.dueTime = null;
             task.startedAt = Date.now();
 
             reconcileBeforeAfterSchedule([id]);
@@ -4184,7 +4191,14 @@
             return out;
         }
         function minToTime(m) { const h = Math.floor(m/60); const min = m%60; return `${h%12||12}:${String(min).padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
-        function getTaskDueDate(t) { return t?.dueDate || t?.date || null; }
+        function getTaskDueDate(t) {
+            if(!t) return null;
+            if(t.scheduleType === 'date' && !t.weekDueOnly) return t.date || null;
+            return t.dueDate || t.date || null;
+        }
+        function taskHasSeparateDueDate(t) {
+            return Boolean(t && !(t.scheduleType === 'date' && !t.weekDueOnly));
+        }
         function getTaskDueDateSortValue(t) {
             const raw = t?.dueDate || t?.due || t?.date || '';
             return String(raw).slice(0, 10);
@@ -4270,6 +4284,7 @@
             return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
         function formatDueLabel(t, includePrefix = true) {
+            if(!taskHasSeparateDueDate(t)) return '';
             const dueDate = getTaskDueDate(t);
             if(!dueDate) return includePrefix ? 'Due: No due date' : 'No due date';
             const dateLabel = formatDateLabel(dueDate);
@@ -5917,7 +5932,7 @@
                             </div>
                             <div class="flex items-center gap-3 mt-1 text-xs text-slate-400 flex-wrap">
                                 <span><i class="fa-solid fa-hourglass-start mr-1"></i>${t.duration || 30} min</span>
-                                <span class="text-rose-600 dark:text-rose-400"><i class="fa-solid fa-hourglass-end mr-1"></i>${dueLabel}</span>
+                                ${dueLabel ? `<span class="text-rose-600 dark:text-rose-400"><i class="fa-solid fa-hourglass-end mr-1"></i>${dueLabel}</span>` : ''}
                             </div>
                             ${t.notes ? `<div class="mt-2 text-xs text-slate-500 dark:text-slate-300 bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 rounded-lg px-2.5 py-2">${linkify(escapeHtml(t.notes))}</div>` : ''}
                         </div>
@@ -6182,7 +6197,7 @@
                                 ${t.subject}
                             </span>
                             ${startDateLabel ? `<span><i class="fa-regular fa-clock mr-1"></i>Start: ${startDateLabel}${startTimeLabel ? ` ${startTimeLabel}` : ''}</span>` : ''}
-                            <span class="text-rose-600 dark:text-rose-400"><i class="fa-solid fa-hourglass-end mr-1"></i>Due: ${dueLabel}</span>
+                            ${dueLabel ? `<span class="text-rose-600 dark:text-rose-400"><i class="fa-solid fa-hourglass-end mr-1"></i>Due: ${dueLabel}</span>` : ''}
                         </div>
                         ${notesHtml}
                     </div>
@@ -6301,7 +6316,8 @@
         }
 
         function dependencyOptionLabel(task, sameSubject) {
-            const dueLabel = formatDueLabel(task, false);
+            const dueLabel = formatDueLabel(task, false)
+                || (task.date ? formatDateLabel(task.date) : 'No date');
             const prefix = sameSubject ? 'Same Subject' : (task.subject || 'General');
             return `${prefix} - ${task.title} (${dueLabel})`;
         }
@@ -7668,6 +7684,8 @@
             task.week = getWeekKeyFromDateStr(dateStr);
             task.scheduleType = 'date';
             task.weekDueOnly = false;
+            task.dueDate = null;
+            task.dueTime = null;
             task.dateSource = 'user';
             if(timeStr) {
                 task.time = timeStr;
@@ -8094,17 +8112,21 @@
             const weekWrapper = document.getElementById('weekInputWrapper');
             const eventDateWrapper = document.getElementById('eventDateWrapper');
             const startTimeWrapper = document.getElementById('startTimeWrapper');
+            const dueDateWrapper = document.getElementById('dueDateWrapper');
+            const dueTimeWrapper = document.getElementById('dueTimeWrapper');
             const dateInput = document.getElementById('inputDate');
             const dueDateInput = document.getElementById('inputDueDate');
             const weekInput = document.getElementById('inputWeek');
             const timeInput = document.getElementById('inputTime');
             const dueTimeInput = document.getElementById('inputDueTime');
-            if(!weekWrapper || !eventDateWrapper || !startTimeWrapper || !dateInput || !dueDateInput || !weekInput || !timeInput || !dueTimeInput) return;
+            if(!weekWrapper || !eventDateWrapper || !startTimeWrapper || !dueDateWrapper || !dueTimeWrapper || !dateInput || !dueDateInput || !weekInput || !timeInput || !dueTimeInput) return;
 
             if(scheduleType === 'week') {
                 weekWrapper.classList.remove('hidden');
                 eventDateWrapper.classList.add('hidden');
                 startTimeWrapper.classList.add('hidden');
+                dueDateWrapper.classList.remove('hidden');
+                dueTimeWrapper.classList.remove('hidden');
                 dateInput.disabled = true;
                 timeInput.disabled = true;
                 dueDateInput.disabled = false;
@@ -8114,6 +8136,8 @@
                 weekWrapper.classList.add('hidden');
                 eventDateWrapper.classList.add('hidden');
                 startTimeWrapper.classList.add('hidden');
+                dueDateWrapper.classList.remove('hidden');
+                dueTimeWrapper.classList.remove('hidden');
                 dateInput.disabled = true;
                 timeInput.disabled = true;
                 dueDateInput.disabled = false;
@@ -8122,10 +8146,14 @@
                 weekWrapper.classList.add('hidden');
                 eventDateWrapper.classList.remove('hidden');
                 startTimeWrapper.classList.remove('hidden');
+                dueDateWrapper.classList.add('hidden');
+                dueTimeWrapper.classList.add('hidden');
                 dateInput.disabled = false;
                 timeInput.disabled = false;
-                dueDateInput.disabled = false;
-                dueTimeInput.disabled = false;
+                dueDateInput.value = '';
+                dueDateInput.disabled = true;
+                dueTimeInput.value = '';
+                dueTimeInput.disabled = true;
             }
 
             if(weekDueOnly) {
@@ -8316,7 +8344,7 @@
                     scheduleType: templateTask.weekDueOnly ? 'week' : 'date',
                     assignmentMode: templateTask.weekDueOnly ? 'ADJUSTABLE' : (templateIsFixed ? 'FIXED' : 'ADJUSTABLE'),
                     date: templateTask.weekDueOnly ? null : dateStr,
-                    dueDate: templateTask.weekDueOnly ? getWeekEndDateFromWeekKey(weekKey) : dateStr,
+                    dueDate: templateTask.weekDueOnly ? getWeekEndDateFromWeekKey(weekKey) : null,
                     week: weekKey,
                     time: templateTask.weekDueOnly ? null : (templateIsFixed ? (templateTask.time || null) : null),
                     timeSource: templateTask.weekDueOnly ? null : (templateIsFixed && templateTask.time ? 'user' : null),
@@ -8325,7 +8353,7 @@
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
-                    dueTime: templateTask.weekDueOnly ? null : templateTask.dueTime,
+                    dueTime: templateTask.weekDueOnly ? null : null,
                     weekDueOnly: Boolean(templateTask.weekDueOnly),
                     repeatNoAutoTime: Boolean(templateTask.repeatNoAutoTime)
                 });
@@ -8411,8 +8439,11 @@
 
             const scheduleType = weekDueOnly ? 'week' : scheduleTypeRaw;
             const week = scheduleType === 'week' ? (weekRaw || getCurrentWeekKey()) : weekRaw;
-            const dueDate = weekDueOnly ? getWeekEndDateFromWeekKey(week) : dueDateRaw;
-            const dueTime = weekDueOnly ? null : dueTimeRaw;
+            const isExactDateSchedule = scheduleType === 'date' && !weekDueOnly;
+            const dueDate = weekDueOnly
+                ? getWeekEndDateFromWeekKey(week)
+                : (isExactDateSchedule ? null : dueDateRaw);
+            const dueTime = (weekDueOnly || isExactDateSchedule) ? null : dueTimeRaw;
 
             if(scheduleType === 'week' && !week) {
                 showNotification("Please choose a target week", 'error');
@@ -8562,7 +8593,9 @@
                             scheduleType: weekDueOnly ? 'week' : t.scheduleType,
                             assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
                             date: weekDueOnly ? null : t.date,
-                            dueDate: weekDueOnly ? getWeekEndDateFromWeekKey(t.repeatWeekKey || t.week || startWeekKey) : t.dueDate,
+                            dueDate: weekDueOnly
+                                ? getWeekEndDateFromWeekKey(t.repeatWeekKey || t.week || startWeekKey)
+                                : (isExactDateSchedule ? null : t.dueDate),
                             week: t.repeatWeekKey || t.week || startWeekKey,
                             time: weekDueOnly ? null : t.time,
                             timeSource: weekDueOnly ? null : (inputTimeValue
@@ -8573,7 +8606,7 @@
                             duration: normalizedTaskData.duration,
                             notes: normalizedTaskData.notes,
                             color: normalizedTaskData.color,
-                            dueTime: normalizedTaskData.dueTime,
+                            dueTime: (weekDueOnly || isExactDateSchedule) ? null : normalizedTaskData.dueTime,
                             mustBeBefore: normalizedTaskData.mustBeBefore,
                             mustBeAfter: normalizedTaskData.mustBeAfter,
                             mustBeDifferentDay: normalizedTaskData.mustBeDifferentDay,
@@ -8621,7 +8654,7 @@
             };
 
             const confirmDueDate = () => {
-                if(dueDate && dueDate < getDateStrLocal()) {
+                if(!isExactDateSchedule && dueDate && dueDate < getDateStrLocal()) {
                     confirmAction(
                         'Due Date Is In The Past',
                         'This due date has already passed. Save anyway?',
@@ -8654,10 +8687,10 @@
             document.getElementById('inputSubject').value = t.subject;
             document.getElementById('inputScheduleType').value = t.scheduleType || (t.week ? 'week' : (t.date ? 'date' : 'flexible'));
             document.getElementById('inputDate').value = t.date || '';
-            document.getElementById('inputDueDate').value = getTaskDueDate(t) || '';
+            document.getElementById('inputDueDate').value = taskHasSeparateDueDate(t) ? (t.dueDate || '') : '';
             document.getElementById('inputWeek').value = t.week || getCurrentWeekKey();
             document.getElementById('inputTime').value = t.time || '';
-            document.getElementById('inputDueTime').value = t.dueTime || '';
+            document.getElementById('inputDueTime').value = taskHasSeparateDueDate(t) ? (t.dueTime || '') : '';
             document.getElementById('inputDuration').value = t.duration || '';
             document.getElementById('inputPriority').value = t.priority;
             document.getElementById('inputDifficulty').value = t.difficulty || 'Medium';
@@ -10043,9 +10076,9 @@
                     `"${t.title.replace(/"/g, '""')}"`,
                     `"${t.subject}"`,
                     t.date || '',
-                    getTaskDueDate(t) || '',
+                    taskHasSeparateDueDate(t) ? (t.dueDate || '') : '',
                     t.time || '',
-                    t.dueTime || '',
+                    taskHasSeparateDueDate(t) ? (t.dueTime || '') : '',
                     t.duration || '',
                     t.actualMinutes || '',
                     t.priority || '',
