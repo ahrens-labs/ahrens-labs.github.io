@@ -5171,56 +5171,38 @@
             };
         }
 
+        const EXACT_TASK_SNAPSHOT_KEYS = [
+            'title', 'subject', 'date', 'eventDate', 'dateSource', 'dueDate', 'due', 'week',
+            'scheduleType', 'weekDueOnly', 'assignmentMode', 'time', 'timeSource', 'startedAt',
+            'dueTime', 'duration', 'priority', 'difficulty', 'actualMinutes', 'color',
+            'mustBeBefore', 'mustBeAfter', 'mustBeDifferentDay', 'mustBeBeforeIds', 'mustBeAfterIds',
+            'avoidScheduleDates', 'notes', 'completed', 'completedDate', 'splitGroupId', 'splitPercent',
+            'repeatGroupId', 'repeatWeekKey', 'repeatRule', 'repeatNoAutoTime', 'repeatType', 'repeatDays'
+        ];
+
+        function cloneSnapshotValue(value) {
+            if(value !== null && typeof value === 'object') {
+                return JSON.parse(JSON.stringify(value));
+            }
+            return value;
+        }
+
+        function overlayExactTaskSnapshot(normalized, raw) {
+            const out = { ...normalized };
+            EXACT_TASK_SNAPSHOT_KEYS.forEach(key => {
+                if(Object.prototype.hasOwnProperty.call(raw, key)) {
+                    out[key] = cloneSnapshotValue(raw[key]);
+                }
+            });
+            if(Object.prototype.hasOwnProperty.call(raw, 'date') && !Object.prototype.hasOwnProperty.call(raw, 'eventDate')) {
+                out.eventDate = raw.date;
+            }
+            return out;
+        }
+
         function restoreTaskFromUndoSnapshot(task) {
-            const normalized = normalizeTask(task);
-            const raw = task || {};
-            if(Object.prototype.hasOwnProperty.call(raw, 'scheduleType')) {
-                normalized.scheduleType = raw.scheduleType;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'weekDueOnly')) {
-                normalized.weekDueOnly = Boolean(raw.weekDueOnly);
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'date')) {
-                normalized.date = raw.date || null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'dateSource')) {
-                normalized.dateSource = ['auto', 'user'].includes(raw.dateSource) ? raw.dateSource : null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'week')) {
-                normalized.week = raw.week || null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'dueDate')) {
-                normalized.dueDate = raw.dueDate || null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'dueTime')) {
-                normalized.dueTime = raw.dueTime || null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'time')) {
-                normalized.time = raw.time || null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'timeSource')) {
-                normalized.timeSource = ['auto', 'user'].includes(raw.timeSource) ? raw.timeSource : null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'assignmentMode')) {
-                normalized.assignmentMode = raw.assignmentMode === 'FIXED' ? 'FIXED' : 'ADJUSTABLE';
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'startedAt')) {
-                const startedAtRaw = Number(raw.startedAt);
-                normalized.startedAt = Number.isFinite(startedAtRaw) && startedAtRaw > 0 ? Math.round(startedAtRaw) : null;
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'repeatNoAutoTime')) {
-                normalized.repeatNoAutoTime = Boolean(raw.repeatNoAutoTime);
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeBefore')) {
-                normalized.mustBeBefore = Array.isArray(raw.mustBeBefore) ? raw.mustBeBefore.filter(Boolean) : [];
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeAfter')) {
-                normalized.mustBeAfter = Array.isArray(raw.mustBeAfter) ? raw.mustBeAfter.filter(Boolean) : [];
-            }
-            if(Object.prototype.hasOwnProperty.call(raw, 'mustBeDifferentDay')) {
-                normalized.mustBeDifferentDay = Array.isArray(raw.mustBeDifferentDay) ? raw.mustBeDifferentDay.filter(Boolean) : [];
-            }
-            return normalized;
+            const raw = JSON.parse(JSON.stringify(task || {}));
+            return overlayExactTaskSnapshot(normalizeTask(raw), raw);
         }
 
         function applyClassifyUndoSnapshot(snapshot) {
@@ -5353,9 +5335,11 @@
                 updateClassifyUndoButton();
             }
 
-            pruneExpiredScheduleItems();
-            enforceNoOverlappingTimes();
-            enforceDependencyOrder();
+            if(!classifyUndoApplying) {
+                pruneExpiredScheduleItems();
+                enforceNoOverlappingTimes();
+                enforceDependencyOrder();
+            }
 
             if(!skipAutoSchedule && !saveDataAutoScheduleGuard) {
                 saveDataAutoScheduleGuard = true;
@@ -7713,18 +7697,22 @@
                     }
                 }
 
-                const movedTask = normalizeTask({
-                    ...task,
+                const dragUpdates = {
                     date: dateStr,
                     week: getWeekKeyFromDateStr(dateStr),
-                    scheduleType: 'date',
-                    weekDueOnly: false,
-                    dueDate: null,
-                    dateSource: 'user',
-                    time: timeStr || null,
-                    assignmentMode: timeStr ? 'FIXED' : 'ADJUSTABLE',
-                    timeSource: timeStr ? 'user' : null
-                });
+                    dateSource: 'user'
+                };
+                if(timeStr) {
+                    dragUpdates.time = timeStr;
+                    dragUpdates.timeSource = 'user';
+                    dragUpdates.assignmentMode = 'FIXED';
+                } else if(!isAssignmentStarted(task)) {
+                    dragUpdates.time = null;
+                    dragUpdates.timeSource = null;
+                    dragUpdates.assignmentMode = 'ADJUSTABLE';
+                }
+
+                const movedTask = normalizeTask({ ...task, ...dragUpdates });
 
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
                 ensureAllEventsScheduled(12, false);
