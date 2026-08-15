@@ -2852,6 +2852,7 @@
     const viewOnly = !canEditMenu();
     document.body.classList.toggle('pl-view-only', viewOnly);
     if (viewOnly && placeModeSavedId) clearPlaceMode({ skipRender: true });
+    updateHeaderMenuName();
     updatePlannerChrome();
     if (weekHint && viewOnly) {
       weekHint.title = 'View only — tap a meal to see details. You cannot change this shared menu.';
