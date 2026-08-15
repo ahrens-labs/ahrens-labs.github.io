@@ -3257,7 +3257,7 @@
     queueMenuSavedSync(options.menuId || activeMenuId);
     renderReadyTray();
     renderSaved();
-    if (sheetState) fillSavedPick();
+    if (sheetState) fillSavedPick(savedPick.value);
     return savedId;
   }
 
