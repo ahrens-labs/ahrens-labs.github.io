@@ -1573,19 +1573,7 @@
         body.classify-walkthrough-block-times .cl-orientation-overlay {
             z-index: 500;
         }
-        #cl-wt-start-demo {
-            margin: 0 0 12px;
-            padding: 12px 14px;
-            border-radius: 12px;
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-        }
-        .dark #cl-wt-start-demo {
-            border-color: rgba(51, 65, 85, 0.9);
-            background: rgba(15, 23, 42, 0.95);
-        }
-        #cl-wt-start-demo .cl-start-btn {
+        #cl-wt-start-demo.cl-week-task {
             pointer-events: none;
         }
         body.classify-orientation-active {
@@ -1864,15 +1852,6 @@
                     </div>
 
                     <div id="weekCalendarView" class="hidden cl-calendar-view-panel cl-orient-week-calendar">
-                        <div id="cl-wt-start-demo" class="hidden">
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="min-w-0">
-                                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">History Essay</div>
-                                    <div class="text-xs text-slate-500 dark:text-slate-400">Wed · 30m · Adjustable</div>
-                                </div>
-                                <button type="button" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
-                            </div>
-                        </div>
                         <div id="weekCalendarGrid" class="cl-week-grid"></div>
                     </div>
 
@@ -3561,9 +3540,10 @@
             {
                 icon: 'fa-play',
                 title: 'Starting an assignment',
-                lead: 'Press <strong>Start</strong> when you\'re ready to work — Classify locks that time in place.',
+                lead: 'On <strong>Chapter 5 Problem Set</strong> (Math), press <strong>Start</strong> when you\'re ready to work — Classify locks that time in place.',
                 bullets: [
-                    'Appears on assignments in <strong>Today\'s Schedule</strong> and the calendar week view',
+                    'Look for the <strong>Start</strong> button on adjustable assignments like this one',
+                    'Also appears in <strong>Today\'s Schedule</strong> and the calendar week view',
                     'Sets a fixed start time for today; auto-schedule won\'t move it afterward',
                     '<strong>Unstart</strong> unlocks only the time — your dates stay the same',
                     'Not the same as <strong>Start Time</strong> in the editor (that\'s for planning ahead)'
@@ -3609,15 +3589,40 @@
         let classifyOrientationLayoutHandler = null;
         let classifyWalkthroughOpenedModal = false;
         let classifyWalkthroughOpenedBlockTimes = false;
+        let classifyWalkthroughStartDemoActive = false;
+
+        function getWalkthroughStartDemoDateStr() {
+            const { start } = getWeekBounds(currentCalendarDate);
+            const demoDate = new Date(start);
+            demoDate.setDate(start.getDate() + 3);
+            return getDateStrLocal(demoDate);
+        }
+
+        function buildWalkthroughStartDemoHtml() {
+            const color = '#2563eb';
+            return `
+                <div id="cl-wt-start-demo" class="cl-week-task cl-week-task--walkthrough-demo" style="border-left-color:${color}">
+                    <div class="cl-week-task__row">
+                        <button type="button" class="cl-week-task__title truncate" tabindex="-1" aria-hidden="true">Chapter 5 Problem Set</button>
+                        <div class="cl-week-task__actions">
+                            <button type="button" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
+                            <button type="button" tabindex="-1" aria-hidden="true" title="Mark complete"><i class="fa-regular fa-circle text-xs"></i></button>
+                            <button type="button" tabindex="-1" aria-hidden="true" title="Edit"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                            <button type="button" tabindex="-1" aria-hidden="true" title="Delete"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                        </div>
+                    </div>
+                    <div class="cl-week-task__meta">2:30 PM · Math · 45m</div>
+                </div>`;
+        }
 
         function showWalkthroughStartDemo() {
-            const demo = document.getElementById('cl-wt-start-demo');
-            if(demo) demo.classList.remove('hidden');
+            classifyWalkthroughStartDemoActive = true;
         }
 
         function hideWalkthroughStartDemo() {
-            const demo = document.getElementById('cl-wt-start-demo');
-            if(demo) demo.classList.add('hidden');
+            if(!classifyWalkthroughStartDemoActive) return;
+            classifyWalkthroughStartDemoActive = false;
+            if(typeof renderCalendar === 'function') renderCalendar();
         }
 
         function openWalkthroughBlockedTimesModal() {
@@ -3777,6 +3782,105 @@
             }
         }
 
+        function orientationRectFromBounds(top, left, width, height) {
+            return { top, left, width, height, right: left + width, bottom: top + height };
+        }
+
+        function orientationRectsOverlap(a, b, gap = 10) {
+            return !(a.right + gap <= b.left || b.right + gap <= a.left || a.bottom + gap <= b.top || b.bottom + gap <= a.top);
+        }
+
+        function clampOrientationTooltipPosition(tipTop, tipLeft, tooltipW, tooltipH, viewportW, viewportH) {
+            return {
+                tipTop: Math.max(12, Math.min(tipTop, viewportH - tooltipH - 12)),
+                tipLeft: Math.max(12, Math.min(tipLeft, viewportW - tooltipW - 12))
+            };
+        }
+
+        function computeOrientationTooltipPlacement(placement, highlight, tooltipW, tooltipH, margin) {
+            const { top, left, width, height } = highlight;
+            if(placement === 'top') {
+                return {
+                    tipTop: top - tooltipH - margin,
+                    tipLeft: left + (width / 2) - (tooltipW / 2)
+                };
+            }
+            if(placement === 'left') {
+                return {
+                    tipTop: top + (height / 2) - (tooltipH / 2),
+                    tipLeft: left - tooltipW - margin
+                };
+            }
+            if(placement === 'right') {
+                return {
+                    tipTop: top + (height / 2) - (tooltipH / 2),
+                    tipLeft: left + width + margin
+                };
+            }
+            return {
+                tipTop: top + height + margin,
+                tipLeft: left + (width / 2) - (tooltipW / 2)
+            };
+        }
+
+        function minGapBetweenOrientationRects(a, b) {
+            const dx = Math.max(0, Math.max(a.left - b.right, b.left - a.right));
+            const dy = Math.max(0, Math.max(a.top - b.bottom, b.top - a.bottom));
+            if(dx === 0 && dy === 0) {
+                const overlapX = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+                const overlapY = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+                return -Math.min(overlapX, overlapY);
+            }
+            return Math.max(dx, dy);
+        }
+
+        function positionClassifyOrientationTooltipAvoidingHighlight(highlight, tooltipW, tooltipH, preferred, margin, viewportW, viewportH) {
+            const highlightRect = orientationRectFromBounds(highlight.top, highlight.left, highlight.width, highlight.height);
+            const placementOrder = [...new Set([preferred, 'bottom', 'top', 'right', 'left'])];
+            let bestPos = null;
+            let bestGap = -Infinity;
+
+            for(const placement of placementOrder) {
+                let { tipTop, tipLeft } = computeOrientationTooltipPlacement(placement, highlight, tooltipW, tooltipH, margin);
+                ({ tipTop, tipLeft } = clampOrientationTooltipPosition(tipTop, tipLeft, tooltipW, tooltipH, viewportW, viewportH));
+                const tooltipRect = orientationRectFromBounds(tipTop, tipLeft, tooltipW, tooltipH);
+                if(!orientationRectsOverlap(tooltipRect, highlightRect, 8)) {
+                    return { tipTop, tipLeft };
+                }
+                const gap = minGapBetweenOrientationRects(tooltipRect, highlightRect);
+                if(gap > bestGap) {
+                    bestGap = gap;
+                    bestPos = { tipTop, tipLeft };
+                }
+            }
+
+            const highlightCenterX = highlight.left + (highlight.width / 2);
+            const highlightCenterY = highlight.top + (highlight.height / 2);
+            const cornerPositions = [
+                { tipTop: 12, tipLeft: 12 },
+                { tipTop: 12, tipLeft: viewportW - tooltipW - 12 },
+                { tipTop: viewportH - tooltipH - 12, tipLeft: 12 },
+                { tipTop: viewportH - tooltipH - 12, tipLeft: viewportW - tooltipW - 12 }
+            ];
+            let bestCorner = cornerPositions[0];
+            let bestCornerDistance = -1;
+            for(const corner of cornerPositions) {
+                const tooltipRect = orientationRectFromBounds(corner.tipTop, corner.tipLeft, tooltipW, tooltipH);
+                if(!orientationRectsOverlap(tooltipRect, highlightRect, 8)) {
+                    return corner;
+                }
+                const centerX = corner.tipLeft + (tooltipW / 2);
+                const centerY = corner.tipTop + (tooltipH / 2);
+                const distance = Math.hypot(centerX - highlightCenterX, centerY - highlightCenterY);
+                if(distance > bestCornerDistance) {
+                    bestCornerDistance = distance;
+                    bestCorner = corner;
+                }
+            }
+
+            return bestCorner || bestPos || { tipTop: 12, tipLeft: 12 };
+        }
+
         function positionClassifyOrientationUi(step, targetEl) {
             const backdrop = document.getElementById('classifyOrientationBackdrop');
             const spotlight = document.getElementById('classifyOrientationSpotlight');
@@ -3788,7 +3892,7 @@
 
             const padding = Number.isFinite(step?.padding) ? step.padding : 10;
             const useCenter = Boolean(step?.center) || !targetEl;
-            const margin = 14;
+            const margin = 18;
             const viewportW = window.innerWidth;
             const viewportH = window.innerHeight;
 
@@ -3811,6 +3915,7 @@
             const left = Math.max(8, rect.left - padding);
             const width = Math.min(viewportW - left - 8, rect.width + padding * 2);
             const height = Math.min(viewportH - top - 8, rect.height + padding * 2);
+            const highlight = { top, left, width, height };
 
             backdrop.classList.add('hidden');
             spotlight.classList.remove('hidden');
@@ -3827,40 +3932,22 @@
             tooltip.classList.remove('cl-orientation-tooltip--center');
             tooltip.style.transform = '';
 
-            const tooltipRect = tooltip.getBoundingClientRect();
-            const tooltipW = tooltipRect.width || Math.min(viewportW * 0.92, 384);
-            const tooltipH = tooltipRect.height || 280;
-            let placement = step.placement || 'bottom';
-            const free = {
-                top: top - margin,
-                bottom: viewportH - (top + height) - margin,
-                left: left - margin,
-                right: viewportW - (left + width) - margin
-            };
-            if(placement === 'bottom' && free.bottom < tooltipH && free.top > free.bottom) placement = 'top';
-            if(placement === 'top' && free.top < tooltipH && free.bottom > free.top) placement = 'bottom';
-            if(placement === 'right' && free.right < tooltipW && free.left > free.right) placement = 'left';
-            if(placement === 'left' && free.left < tooltipW && free.right > free.left) placement = 'right';
+            const preferred = step.placement || 'bottom';
+            let tooltipRect = tooltip.getBoundingClientRect();
+            let tooltipW = tooltipRect.width || Math.min(viewportW * 0.92, 384);
+            let tooltipH = tooltipRect.height || 280;
+            let { tipTop, tipLeft } = positionClassifyOrientationTooltipAvoidingHighlight(
+                highlight, tooltipW, tooltipH, preferred, margin, viewportW, viewportH
+            );
+            tooltip.style.top = `${tipTop}px`;
+            tooltip.style.left = `${tipLeft}px`;
 
-            let tipTop = top + height + margin;
-            let tipLeft = left + (width / 2) - (tooltipW / 2);
-
-            if(placement === 'top') {
-                tipTop = top - tooltipH - margin;
-                tipLeft = left + (width / 2) - (tooltipW / 2);
-            } else if(placement === 'left') {
-                tipTop = top + (height / 2) - (tooltipH / 2);
-                tipLeft = left - tooltipW - margin;
-            } else if(placement === 'right') {
-                tipTop = top + (height / 2) - (tooltipH / 2);
-                tipLeft = left + width + margin;
-            } else {
-                tipTop = top + height + margin;
-                tipLeft = left + (width / 2) - (tooltipW / 2);
-            }
-
-            tipLeft = Math.max(12, Math.min(tipLeft, viewportW - tooltipW - 12));
-            tipTop = Math.max(12, Math.min(tipTop, viewportH - tooltipH - 12));
+            tooltipRect = tooltip.getBoundingClientRect();
+            tooltipW = tooltipRect.width || tooltipW;
+            tooltipH = tooltipRect.height || tooltipH;
+            ({ tipTop, tipLeft } = positionClassifyOrientationTooltipAvoidingHighlight(
+                highlight, tooltipW, tooltipH, preferred, margin, viewportW, viewportH
+            ));
             tooltip.style.top = `${tipTop}px`;
             tooltip.style.left = `${tipLeft}px`;
         }
@@ -8669,7 +8756,7 @@
                 const isVacation = isDateInVacation(dateStr);
                 const schedule = isVacation ? [] : getSmartSchedule(dateStr);
                 const scheduleWithBreaks = injectBreakItems(schedule, dateStr);
-                const items = scheduleWithBreaks.map(item => {
+                let items = scheduleWithBreaks.map(item => {
                     if(item.type === 'break') {
                         const minutes = Math.max(1, Math.round(item.end - item.start));
                         return `
@@ -8699,10 +8786,18 @@
                         </div>`;
                 }).join('');
 
-                const taskCount = scheduleWithBreaks.filter(item => item.type !== 'break').length;
+                let walkthroughDemoCount = 0;
+                let walkthroughDemoMinutes = 0;
+                if(classifyWalkthroughStartDemoActive && !isVacation && dateStr === getWalkthroughStartDemoDateStr()) {
+                    items = buildWalkthroughStartDemoHtml() + items;
+                    walkthroughDemoCount = 1;
+                    walkthroughDemoMinutes = 45;
+                }
+
+                const taskCount = scheduleWithBreaks.filter(item => item.type !== 'break').length + walkthroughDemoCount;
                 const dayMinutes = scheduleWithBreaks
                     .filter(item => item.type !== 'break')
-                    .reduce((sum, item) => sum + (parseInt(item.task?.duration, 10) || 30), 0);
+                    .reduce((sum, item) => sum + (parseInt(item.task?.duration, 10) || 30), 0) + walkthroughDemoMinutes;
                 const isWeekend = dayDate.getDay() === 0 || dayDate.getDay() === 6;
                 const dropAttrs = isVacation ? '' : `ondragover="allowCalendarDrop(event)" ondrop="handleCalendarDrop(event, '${dateStr}')"`
                 const dayClass = isVacation
