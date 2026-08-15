@@ -4558,9 +4558,13 @@
         mealMetaText(meal) || meal.details || 'No details yet';
       const menuBadge = row.querySelector('.pl-menu-badge');
       if (menuBadge) menuBadge.textContent = entry.menuName;
-      row.querySelector('.pl-saved-item-main').addEventListener('click', () =>
-        openSavedEditor(meal.id, entry.menuId)
-      );
+      row.querySelector('.pl-saved-item-main').addEventListener('click', () => {
+        if (canEditMenu() && entry.activeSavedId) {
+          openSavedEditor(entry.activeSavedId, activeMenuId);
+        } else {
+          openSavedEditor(meal.id, entry.menuId);
+        }
+      });
       const favBtn = row.querySelector('[data-act="favorite"]');
       if (favBtn) {
         favBtn.addEventListener('click', () => toggleMealFavorite(meal.id, entry.menuId));
@@ -5027,11 +5031,21 @@
 
   function openSavedEditor(id, menuId) {
     const sourceMenuId = menuId || activeMenuId;
-    const meal = findLibraryMeal(sourceMenuId, id);
+    let meal = findLibraryMeal(sourceMenuId, id);
     if (!meal) return;
+
+    // Ready / This week live on the active menu — open that copy when it exists.
+    if (sourceMenuId !== activeMenuId && canEditMenu()) {
+      const activeSettings = activeMenuMealSettings(meal, sourceMenuId);
+      if (activeSettings.savedId) {
+        openSavedEditor(activeSettings.savedId, activeMenuId);
+        return;
+      }
+    }
+
     const editable = menuCanEditLibrary(sourceMenuId);
-    sheetState = { mode: 'saved-edit', savedId: id, menuId: sourceMenuId };
-    sheetLinkedSavedId = id;
+    sheetState = { mode: 'saved-edit', savedId: meal.id, menuId: sourceMenuId };
+    sheetLinkedSavedId = meal.id;
     sheetTitle.textContent = editable ? 'Edit saved meal' : 'Saved meal';
     const menuName =
       (menuLibraryCache[sourceMenuId] && menuLibraryCache[sourceMenuId].name) ||
@@ -5051,6 +5065,7 @@
     clearBtn.hidden = true;
     updateMealNameSuggestions();
     setSheetEditable(editable);
+    if (readyInput) readyInput.checked = !!meal.ready;
     openSheet();
   }
 
