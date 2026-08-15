@@ -1589,8 +1589,11 @@
             pointer-events: none;
             z-index: 420;
         }
+        .cl-hotspot-anchor {
+            position: relative;
+        }
         .cl-hotspot-btn {
-            position: fixed;
+            position: absolute;
             width: 22px;
             height: 22px;
             padding: 0;
@@ -1606,10 +1609,44 @@
             box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
             animation: cl-hotspot-pulse 2.2s ease-in-out infinite;
             transition: transform 0.15s ease;
+            z-index: 6;
+        }
+        .cl-hotspot-btn--fixed {
+            position: fixed;
+            z-index: 420;
+        }
+        .cl-hotspot-btn--top-right {
+            top: 6px;
+            right: 6px;
+        }
+        .cl-hotspot-btn--top-left {
+            top: 6px;
+            left: 6px;
+        }
+        .cl-hotspot-btn--top-center {
+            top: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .cl-hotspot-btn--bottom-right {
+            bottom: 6px;
+            right: 6px;
+        }
+        .cl-hotspot-btn--bottom-left {
+            bottom: 6px;
+            left: 6px;
         }
         .cl-hotspot-btn:hover {
-            transform: scale(1.08);
             animation-play-state: paused;
+        }
+        .cl-hotspot-btn--top-right:hover,
+        .cl-hotspot-btn--top-left:hover,
+        .cl-hotspot-btn--bottom-right:hover,
+        .cl-hotspot-btn--bottom-left:hover {
+            transform: scale(1.08);
+        }
+        .cl-hotspot-btn--top-center:hover {
+            transform: translateX(-50%) scale(1.08);
         }
         .cl-hotspot-btn:focus-visible {
             outline: 2px solid #0ea5e9;
@@ -4441,7 +4478,146 @@
         let classifyHotspotTargetEl = null;
         let classifyHotspotOpenId = null;
         let classifyHotspotLayoutTimer = null;
+        let classifyHotspotRepositionRaf = null;
         let classifyHotspotLayoutBound = false;
+
+        function canMountClassifyHotspotInside(target) {
+            return Boolean(target && !target.matches('button, a, input, select, textarea, label'));
+        }
+
+        function isClassifyHotspotTargetVisible(rect) {
+            if(!rect || rect.width <= 0 || rect.height <= 0) return false;
+            const margin = 2;
+            return rect.bottom > margin
+                && rect.top < window.innerHeight - margin
+                && rect.right > margin
+                && rect.left < window.innerWidth - margin;
+        }
+
+        function getClassifyHotspotPlacementClass(position = 'top-right') {
+            const allowed = new Set(['top-right', 'top-left', 'top-center', 'bottom-right', 'bottom-left']);
+            return `cl-hotspot-btn--${allowed.has(position) ? position : 'top-right'}`;
+        }
+
+        function clearClassifyHotspotButtons() {
+            document.querySelectorAll('.cl-hotspot-btn').forEach(btn => btn.remove());
+            document.querySelectorAll('.cl-hotspot-anchor').forEach(el => el.classList.remove('cl-hotspot-anchor'));
+        }
+
+        function positionFixedClassifyHotspotButton(btn, rect, position = 'top-right') {
+            const size = 22;
+            const inset = 5;
+            let top;
+            let left;
+            switch(position) {
+                case 'top-left':
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.left - (size / 2) + inset;
+                    break;
+                case 'top-center':
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.left + (rect.width / 2) - (size / 2);
+                    break;
+                case 'bottom-left':
+                    top = rect.bottom - (size / 2) - inset;
+                    left = rect.left - (size / 2) + inset;
+                    break;
+                case 'bottom-right':
+                    top = rect.bottom - (size / 2) - inset;
+                    left = rect.right - (size / 2) - inset;
+                    break;
+                default:
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.right - (size / 2) - inset;
+            }
+            btn.style.top = `${top}px`;
+            btn.style.left = `${left}px`;
+        }
+
+        function createClassifyHotspotButton(hotspot, { anchored = false } = {}) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cl-hotspot-btn';
+            if(anchored) {
+                btn.classList.add(getClassifyHotspotPlacementClass(hotspot.position));
+            }
+            btn.dataset.hotspotId = hotspot.id;
+            btn.setAttribute('aria-label', `Learn about ${hotspot.title}`);
+            btn.title = hotspot.title;
+            btn.textContent = '?';
+            btn.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openClassifyHotspot(hotspot.id);
+            });
+            return btn;
+        }
+
+        function mountClassifyHotspotButton(hotspot, target) {
+            const anchored = canMountClassifyHotspotInside(target);
+            const btn = createClassifyHotspotButton(hotspot, { anchored });
+            if(anchored) {
+                target.classList.add('cl-hotspot-anchor');
+                btn.dataset.hotspotMount = 'anchored';
+                target.appendChild(btn);
+                return btn;
+            }
+
+            btn.classList.add('cl-hotspot-btn--fixed');
+            btn.dataset.hotspotMount = 'fixed';
+            document.getElementById('classifyHotspotLayer')?.appendChild(btn);
+            const rect = target.getBoundingClientRect();
+            btn.hidden = !isClassifyHotspotTargetVisible(rect);
+            if(!btn.hidden) {
+                positionFixedClassifyHotspotButton(btn, rect, hotspot.position || 'top-right');
+            }
+            return btn;
+        }
+
+        function repositionClassifyHotspots() {
+            document.querySelectorAll('.cl-hotspot-btn[data-hotspot-mount="fixed"]').forEach(btn => {
+                const hotspot = getClassifyHotspotById(btn.dataset.hotspotId);
+                const target = hotspot ? document.querySelector(hotspot.target) : null;
+                if(!target) {
+                    btn.hidden = true;
+                    return;
+                }
+                const rect = target.getBoundingClientRect();
+                if(!isClassifyHotspotTargetVisible(rect)) {
+                    btn.hidden = true;
+                    return;
+                }
+                btn.hidden = false;
+                positionFixedClassifyHotspotButton(btn, rect, hotspot.position || 'top-right');
+            });
+
+            if(classifyHotspotOpenId && classifyHotspotTargetEl) {
+                repositionOpenClassifyHotspotPopover();
+            }
+        }
+
+        function repositionOpenClassifyHotspotPopover() {
+            const hotspot = getClassifyHotspotById(classifyHotspotOpenId);
+            const popover = document.getElementById('classifyHotspotPopover');
+            const target = classifyHotspotTargetEl;
+            if(!hotspot || !popover || !target || popover.classList.contains('hidden')) return;
+
+            const padding = 8;
+            const rect = target.getBoundingClientRect();
+            if(!isClassifyHotspotTargetVisible(rect)) {
+                popover.classList.add('hidden');
+                return;
+            }
+            popover.classList.remove('hidden');
+
+            const highlight = {
+                top: Math.max(8, rect.top - padding),
+                left: Math.max(8, rect.left - padding),
+                width: Math.min(window.innerWidth - 16, rect.width + padding * 2),
+                height: Math.min(window.innerHeight - 16, rect.height + padding * 2)
+            };
+            positionClassifyHotspotPopover(highlight, hotspot.placement || 'bottom', popover);
+        }
 
         function areClassifyHotspotsEnabled() {
             return plannerGet('hotspotsEnabled') !== 'false';
@@ -4492,38 +4668,6 @@
 
         function getClassifyHotspotById(id) {
             return CLASSIFY_HOTSPOTS.find(item => item.id === id) || null;
-        }
-
-        function positionClassifyHotspotButton(btn, rect, position = 'top-right') {
-            const size = 22;
-            const inset = 5;
-            let top;
-            let left;
-            switch(position) {
-                case 'top-left':
-                    top = rect.top - (size / 2) + inset;
-                    left = rect.left - (size / 2) + inset;
-                    break;
-                case 'top-center':
-                    top = rect.top - (size / 2) + inset;
-                    left = rect.left + (rect.width / 2) - (size / 2);
-                    break;
-                case 'bottom-left':
-                    top = rect.bottom - (size / 2) - inset;
-                    left = rect.left - (size / 2) + inset;
-                    break;
-                case 'bottom-right':
-                    top = rect.bottom - (size / 2) - inset;
-                    left = rect.right - (size / 2) - inset;
-                    break;
-                default:
-                    top = rect.top - (size / 2) + inset;
-                    left = rect.right - (size / 2) - inset;
-            }
-            top = Math.max(8, Math.min(top, window.innerHeight - size - 8));
-            left = Math.max(8, Math.min(left, window.innerWidth - size - 8));
-            btn.style.top = `${top}px`;
-            btn.style.left = `${left}px`;
         }
 
         function clearClassifyHotspotTargetHighlight() {
@@ -4617,7 +4761,8 @@
         function refreshClassifyHotspots() {
             const layer = document.getElementById('classifyHotspotLayer');
             if(!layer) return;
-            layer.innerHTML = '';
+
+            clearClassifyHotspotButtons();
             layer.setAttribute('aria-hidden', 'true');
 
             if(!areClassifyHotspotsEnabled()) return;
@@ -4625,6 +4770,7 @@
             if(classifyHotspotOpenId) return;
 
             const activeTab = getActiveClassifyTabId();
+            let mountedCount = 0;
             CLASSIFY_HOTSPOTS.forEach(hotspot => {
                 if(hotspot.tab && hotspot.tab !== activeTab) return;
                 if(hasSeenClassifyHotspot(hotspot.id)) return;
@@ -4632,26 +4778,24 @@
                 if(!target) return;
                 const rect = target.getBoundingClientRect();
                 if(rect.width <= 0 || rect.height <= 0) return;
+                if(!isClassifyHotspotTargetVisible(rect) && !canMountClassifyHotspotInside(target)) return;
 
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'cl-hotspot-btn';
-                btn.dataset.hotspotId = hotspot.id;
-                btn.setAttribute('aria-label', `Learn about ${hotspot.title}`);
-                btn.title = hotspot.title;
-                btn.textContent = '?';
-                btn.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    openClassifyHotspot(hotspot.id);
-                });
-                positionClassifyHotspotButton(btn, rect, hotspot.position || 'top-right');
-                layer.appendChild(btn);
+                mountClassifyHotspotButton(hotspot, target);
+                mountedCount += 1;
             });
 
-            if(layer.childElementCount > 0) {
+            if(mountedCount > 0) {
                 layer.setAttribute('aria-hidden', 'false');
             }
+            repositionClassifyHotspots();
+        }
+
+        function scheduleClassifyHotspotReposition() {
+            if(classifyHotspotRepositionRaf) return;
+            classifyHotspotRepositionRaf = requestAnimationFrame(() => {
+                classifyHotspotRepositionRaf = null;
+                repositionClassifyHotspots();
+            });
         }
 
         function scheduleClassifyHotspotRefresh() {
@@ -4663,7 +4807,7 @@
             if(classifyHotspotLayoutBound) return;
             classifyHotspotLayoutBound = true;
             window.addEventListener('resize', scheduleClassifyHotspotRefresh);
-            window.addEventListener('scroll', scheduleClassifyHotspotRefresh, true);
+            window.addEventListener('scroll', scheduleClassifyHotspotReposition, true);
             document.addEventListener('keydown', (event) => {
                 if(event.key === 'Escape' && classifyHotspotOpenId) {
                     closeClassifyHotspotPopover();
