@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=35">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=36">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -700,7 +700,7 @@
     .th-modal-close:hover { background: #fff; color: var(--th-ink); border-color: #bfdbfe; }
     .th-task-modal-body { padding: 18px 22px 8px; max-height: min(68vh, 560px); overflow-y: auto; }
     .th-task-modal.th-task-modal-quick { width: min(520px, 100%); }
-    .th-task-quick-add { margin-bottom: 4px; }
+    .th-task-quick-add { margin-bottom: 4px; position: relative; }
     .th-task-quick-add-input {
       width: 100%; box-sizing: border-box; border: 1px solid #dbeafe; background: #fff;
       border-radius: 14px; padding: 14px 16px; font: inherit; font-size: 1rem; line-height: 1.35;
@@ -714,6 +714,25 @@
     }
     .th-task-quick-add-preview {
       display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0;
+    }
+    .th-label-ac {
+      position: fixed; z-index: 1200;
+      min-width: 180px; max-width: min(420px, calc(100vw - 24px)); max-height: 220px; overflow-y: auto;
+      background: #fff; border: 1px solid #bfdbfe; border-radius: 12px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+      padding: 4px;
+    }
+    .th-label-ac[hidden] { display: none !important; }
+    .th-label-ac-item {
+      display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box;
+      border: none; background: transparent; text-align: left; cursor: pointer;
+      padding: 8px 10px; border-radius: 8px; font: inherit; font-size: 0.88rem; color: var(--th-ink);
+    }
+    .th-label-ac-item:hover,
+    .th-label-ac-item.is-active { background: #eff6ff; }
+    .th-label-ac-item .th-label-chip { pointer-events: none; }
+    .th-label-ac-empty {
+      padding: 10px 12px; font-size: 0.78rem; color: var(--th-muted);
     }
     .th-quick-add-chip {
       display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px;
@@ -1129,11 +1148,15 @@
         <div id="task-quick-add" class="th-task-quick-add" style="display:none;">
           <input type="text" id="task-quick-add-input" class="th-task-quick-add-input" maxlength="240"
             placeholder="What needs doing? Try task @label tomorrow or every week"
-            aria-label="Quick add task">
+            aria-label="Quick add task"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="task-label-autocomplete">
           <div id="task-quick-add-preview" class="th-task-quick-add-preview"></div>
           <p class="th-task-quick-add-hint">Use a space before @ for labels (e.g. task @home). Add dates and repeats in plain language (today, tomorrow, every Monday, every 2 weeks).</p>
           <button type="button" class="th-quick-add-expand" id="task-quick-add-expand">More details</button>
         </div>
+        <div id="task-label-autocomplete" class="th-label-ac" hidden role="listbox" aria-label="Label suggestions"></div>
         <div id="task-modal-details">
         <div class="th-task-modal-layout">
           <div class="th-task-modal-main">
@@ -1141,7 +1164,8 @@
               <h4 class="th-task-section-title">Info</h4>
               <div class="th-field">
                 <label for="task-title-input">Task name</label>
-                <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?">
+                <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?"
+                  autocomplete="off" aria-autocomplete="list" aria-controls="task-label-autocomplete">
               </div>
               <div class="th-field th-task-due-compact">
                 <label for="task-due-input">Due Date</label>
@@ -1718,6 +1742,209 @@
       .replace(LABEL_IN_TEXT_RE, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  const LABEL_AC_LIMIT = 8;
+  let labelAcState = { input: null, items: [], index: -1, token: null };
+  let labelAcBlurTimer = null;
+
+  function collectKnownLabels() {
+    const set = new Set();
+    collectProjectLabels(personalTasks).forEach(l => set.add(l));
+    collectProjectLabels(myTasks).forEach(l => set.add(l));
+    if (activeProject?.tasks) collectProjectLabels(activeProject.tasks).forEach(l => set.add(l));
+    Object.keys(labelColorOverrides || {}).forEach(l => {
+      const n = normalizeLabel(l);
+      if (n) set.add(n);
+    });
+    (editingTaskLabels || []).forEach(l => {
+      const n = normalizeLabel(l);
+      if (n) set.add(n);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  /** Active ` @label` token at the caret (space required before @). */
+  function getActiveAtLabelToken(value, cursor) {
+    const text = String(value || '');
+    const pos = Math.max(0, Math.min(cursor == null ? text.length : cursor, text.length));
+    const before = text.slice(0, pos);
+    const atIdx = before.lastIndexOf('@');
+    if (atIdx < 1) return null;
+    if (!/\s/.test(before.charAt(atIdx - 1))) return null;
+    const typed = before.slice(atIdx + 1);
+    if (!/^[a-zA-Z0-9_-]*$/.test(typed)) return null;
+    const after = text.slice(pos);
+    const trail = (after.match(/^[a-zA-Z0-9_-]*/) || [''])[0];
+    return {
+      atIndex: atIdx,
+      endIndex: pos + trail.length,
+      query: typed.toLowerCase(),
+    };
+  }
+
+  function labelAutocompleteEl() {
+    return document.getElementById('task-label-autocomplete');
+  }
+
+  function hideLabelAutocomplete() {
+    const el = labelAutocompleteEl();
+    if (el) {
+      el.hidden = true;
+      el.innerHTML = '';
+    }
+    if (labelAcState.input) labelAcState.input.removeAttribute('aria-activedescendant');
+    labelAcState = { input: null, items: [], index: -1, token: null };
+  }
+
+  function positionLabelAutocomplete(input) {
+    const el = labelAutocompleteEl();
+    if (!el || !input) return;
+    if (el.parentElement !== document.body) document.body.appendChild(el);
+    const rect = input.getBoundingClientRect();
+    const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 24);
+    let left = Math.min(rect.left, window.innerWidth - width - 12);
+    left = Math.max(12, left);
+    let top = rect.bottom + 4;
+    el.style.width = `${width}px`;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.hidden = false;
+    requestAnimationFrame(() => {
+      const menuH = el.getBoundingClientRect().height;
+      if (top + menuH > window.innerHeight - 8 && rect.top > menuH + 8) {
+        el.style.top = `${Math.max(8, rect.top - menuH - 4)}px`;
+      }
+    });
+  }
+
+  function setLabelAutocompleteActive(index) {
+    const el = labelAutocompleteEl();
+    if (!el) return;
+    const items = [...el.querySelectorAll('.th-label-ac-item')];
+    if (!items.length) {
+      labelAcState.index = -1;
+      return;
+    }
+    const next = ((index % items.length) + items.length) % items.length;
+    labelAcState.index = next;
+    items.forEach((btn, i) => {
+      btn.classList.toggle('is-active', i === next);
+      if (i === next) {
+        btn.id = 'task-label-ac-active';
+        if (labelAcState.input) labelAcState.input.setAttribute('aria-activedescendant', 'task-label-ac-active');
+        btn.scrollIntoView({ block: 'nearest' });
+      } else {
+        btn.removeAttribute('id');
+      }
+    });
+  }
+
+  function applyLabelAutocompleteChoice(label) {
+    const input = labelAcState.input;
+    const token = labelAcState.token;
+    if (!input || !token || !label) return;
+    const value = input.value;
+    const before = value.slice(0, token.atIndex);
+    const after = value.slice(token.endIndex);
+    const insertion = `@${label}`;
+    const next = after
+      ? before + insertion + (/^\s/.test(after) ? after : ` ${after}`)
+      : before + insertion + ' ';
+    input.value = next;
+    const caret = before.length + insertion.length + 1;
+    input.setSelectionRange(caret, caret);
+    hideLabelAutocomplete();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  }
+
+  function syncLabelAutocomplete(input) {
+    if (!input) {
+      hideLabelAutocomplete();
+      return;
+    }
+    const token = getActiveAtLabelToken(input.value, input.selectionStart);
+    if (!token) {
+      hideLabelAutocomplete();
+      return;
+    }
+    const matches = collectKnownLabels()
+      .filter(l => !token.query || l.startsWith(token.query))
+      .slice(0, LABEL_AC_LIMIT);
+    if (!matches.length) {
+      hideLabelAutocomplete();
+      return;
+    }
+    const el = labelAutocompleteEl();
+    if (!el) return;
+    labelAcState = { input, items: matches, index: 0, token };
+    el.innerHTML = matches.map((l, i) =>
+      `<button type="button" class="th-label-ac-item${i === 0 ? ' is-active' : ''}" role="option" data-label-ac="${escapeAttr(l)}">${labelChipHtml(l)}</button>`
+    ).join('');
+    el.querySelectorAll('[data-label-ac]').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        applyLabelAutocompleteChoice(btn.getAttribute('data-label-ac'));
+      });
+    });
+    positionLabelAutocomplete(input);
+    if (input) input.setAttribute('aria-activedescendant', 'task-label-ac-active');
+    const first = el.querySelector('.th-label-ac-item');
+    if (first) first.id = 'task-label-ac-active';
+  }
+
+  function handleLabelAutocompleteKeydown(e, input) {
+    const el = labelAutocompleteEl();
+    const open = el && !el.hidden && labelAcState.input === input && labelAcState.items.length;
+    if (!open) return false;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setLabelAutocompleteActive(labelAcState.index + 1);
+      return true;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setLabelAutocompleteActive(labelAcState.index - 1);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const label = labelAcState.items[labelAcState.index];
+      if (label) {
+        e.preventDefault();
+        applyLabelAutocompleteChoice(label);
+        return true;
+      }
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hideLabelAutocomplete();
+      return true;
+    }
+    return false;
+  }
+
+  function wireLabelAutocompleteInput(input) {
+    if (!input || input.dataset.labelAcWired) return;
+    input.dataset.labelAcWired = '1';
+    input.addEventListener('input', () => syncLabelAutocomplete(input));
+    input.addEventListener('click', () => syncLabelAutocomplete(input));
+    input.addEventListener('keyup', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) syncLabelAutocomplete(input);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (handleLabelAutocompleteKeydown(e, input)) e.stopImmediatePropagation();
+    }, true);
+    input.addEventListener('blur', () => {
+      clearTimeout(labelAcBlurTimer);
+      labelAcBlurTimer = setTimeout(() => {
+        if (labelAcState.input === input) hideLabelAutocomplete();
+      }, 150);
+    });
+    input.addEventListener('focus', () => {
+      clearTimeout(labelAcBlurTimer);
+      syncLabelAutocomplete(input);
+    });
   }
 
   function loadQuickAddParser() {
@@ -3079,6 +3306,7 @@
 
   function openModal(id) { document.getElementById(id).classList.add('open'); }
   function closeModal(id) {
+    if (id === 'modal-task') hideLabelAutocomplete();
     document.getElementById(id).classList.remove('open');
     if (id === 'modal-confirm' && confirmResolve) {
       const resolve = confirmResolve;
@@ -4546,6 +4774,7 @@
   }
 
   document.getElementById('task-quick-add-expand').addEventListener('click', () => {
+    hideLabelAutocomplete();
     expandTaskModalDetails();
   });
   document.getElementById('task-quick-add-input').addEventListener('input', queueQuickAddPreview);
@@ -4555,6 +4784,17 @@
       document.getElementById('save-task-btn').click();
     }
   });
+  wireLabelAutocompleteInput(document.getElementById('task-quick-add-input'));
+  wireLabelAutocompleteInput(document.getElementById('task-title-input'));
+  window.addEventListener('resize', () => {
+    if (labelAcState.input) positionLabelAutocomplete(labelAcState.input);
+  });
+  document.getElementById('task-modal-details')?.addEventListener('scroll', () => {
+    if (labelAcState.input) positionLabelAutocomplete(labelAcState.input);
+  }, true);
+  document.querySelector('.th-task-modal-body')?.addEventListener('scroll', () => {
+    if (labelAcState.input) positionLabelAutocomplete(labelAcState.input);
+  }, true);
   document.getElementById('task-recurrence-dom').innerHTML = Array.from({ length: 31 }, (_, i) => {
     const n = i + 1;
     return `<option value="${n}">${n}</option>`;
