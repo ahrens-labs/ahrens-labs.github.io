@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=39">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=40">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3386,22 +3386,19 @@
       confirmResolve = null;
       resolve(false);
     }
-    if (id === 'modal-insert-link' && insertLinkTarget) {
+    if (id === 'modal-insert-link') {
+      const skip = insertLinkSkipRestore;
       const field = insertLinkTarget;
       const range = insertLinkRange;
+      insertLinkSkipRestore = false;
       insertLinkTarget = null;
       insertLinkRange = null;
+      if (skip || !field) return;
       requestAnimationFrame(() => {
         field.focus();
-        if (!range) return;
-        if (field.isContentEditable && range.domRange) {
-          try {
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range.domRange);
-          } catch { /* ignore */ }
-        } else if (typeof range.start === 'number' && field.setSelectionRange) {
-          field.setSelectionRange(range.start, range.end);
+        if (!range || typeof range.start !== 'number') return;
+        if (!field.isContentEditable && field.setSelectionRange) {
+          field.setSelectionRange(range.start, range.end ?? range.start);
         }
       });
     }
@@ -4797,7 +4794,8 @@
   ]);
 
   let insertLinkTarget = null;
-  let insertLinkRange = null; // {start,end} for inputs, or {domRange} for contenteditable
+  let insertLinkRange = null; // {start,end} markdown offsets, or input {start,end}
+  let insertLinkSkipRestore = false;
 
   function findMarkdownLinkAround(value, start, end) {
     const text = String(value || '');
@@ -4811,6 +4809,14 @@
       }
     }
     return null;
+  }
+
+  function markdownFromDomRange(range) {
+    if (!range) return '';
+    const frag = range.cloneContents();
+    const wrap = document.createElement('div');
+    wrap.appendChild(frag);
+    return editorHtmlToMarkdown(wrap);
   }
 
   function editorHtmlToMarkdown(root) {
@@ -4847,7 +4853,60 @@
 
   function getRichEditorMarkdown(el) {
     if (!el) return '';
-    return editorHtmlToMarkdown(el).trim();
+    return editorHtmlToMarkdown(el);
+  }
+
+  function getContentEditableLinkSelection(field) {
+    const fullMd = editorHtmlToMarkdown(field);
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !field.contains(sel.anchorNode)) {
+      return { start: fullMd.length, end: fullMd.length, label: '', url: '', selected: '' };
+    }
+
+    let range = sel.getRangeAt(0).cloneRange();
+    const anchorEl = (sel.anchorNode.nodeType === Node.ELEMENT_NODE
+      ? sel.anchorNode
+      : sel.anchorNode.parentElement)?.closest?.('a.th-text-link');
+    const focusEl = (sel.focusNode.nodeType === Node.ELEMENT_NODE
+      ? sel.focusNode
+      : sel.focusNode.parentElement)?.closest?.('a.th-text-link');
+    const sharedAnchor = (anchorEl && focusEl && anchorEl === focusEl && field.contains(anchorEl))
+      ? anchorEl
+      : null;
+
+    if (sharedAnchor) {
+      range = document.createRange();
+      range.selectNode(sharedAnchor);
+    }
+
+    const pre = document.createRange();
+    pre.selectNodeContents(field);
+    pre.setEnd(range.startContainer, range.startOffset);
+    let start = markdownFromDomRange(pre).length;
+    let selectedMd = markdownFromDomRange(range);
+    let end = start + selectedMd.length;
+
+    // Prefer offsets from the full serialized markdown when replacing a whole link.
+    if (sharedAnchor) {
+      const anchorMd = editorHtmlToMarkdown(sharedAnchor);
+      const idx = fullMd.indexOf(anchorMd);
+      if (idx >= 0) {
+        start = idx;
+        end = idx + anchorMd.length;
+      }
+      return {
+        start,
+        end,
+        label: sharedAnchor.textContent || '',
+        url: sharedAnchor.getAttribute('href') || '',
+        selected: sharedAnchor.textContent || '',
+      };
+    }
+
+    // Clamp to full markdown length in case fragment serialization differs slightly.
+    start = Math.max(0, Math.min(start, fullMd.length));
+    end = Math.max(start, Math.min(end, fullMd.length));
+    return { start, end, label: '', url: '', selected: sel.toString() };
   }
 
   function setFieldMarkdown(id, text) {
@@ -4866,6 +4925,8 @@
 
   function refreshRichEditorFromMarkdown(el) {
     if (!el || !el.isContentEditable) return;
+    if (insertLinkTarget === el) return;
+    if (document.getElementById('modal-insert-link')?.classList.contains('open')) return;
     const md = getRichEditorMarkdown(el);
     setRichEditorMarkdown(el, md);
   }
@@ -4873,42 +4934,25 @@
   function openInsertLinkModal(field) {
     if (!field || !LINKABLE_FIELD_IDS.has(field.id)) return;
     insertLinkTarget = field;
+    insertLinkSkipRestore = false;
     const textInput = document.getElementById('insert-link-text');
     const urlInput = document.getElementById('insert-link-url');
 
     if (field.isContentEditable) {
-      const sel = window.getSelection();
-      let selected = '';
-      let domRange = null;
-      if (sel && sel.rangeCount && field.contains(sel.anchorNode)) {
-        domRange = sel.getRangeAt(0).cloneRange();
-        selected = sel.toString();
-        const anchor = (sel.anchorNode.nodeType === Node.ELEMENT_NODE
-          ? sel.anchorNode
-          : sel.anchorNode.parentElement)?.closest?.('a.th-text-link');
-        if (anchor && field.contains(anchor)) {
-          const r = document.createRange();
-          r.selectNode(anchor);
-          domRange = r;
-          selected = anchor.textContent || '';
-          textInput.value = selected;
-          urlInput.value = anchor.getAttribute('href') || '';
-          insertLinkRange = { domRange };
-          openModal('modal-insert-link');
-          requestAnimationFrame(() => { urlInput.focus(); urlInput.select(); });
-          return;
-        }
-      } else {
-        domRange = document.createRange();
-        domRange.selectNodeContents(field);
-        domRange.collapse(false);
-      }
-      insertLinkRange = { domRange };
-      if (selected && looksLikeUrl(selected) && !/\s/.test(selected.trim())) {
+      const selInfo = getContentEditableLinkSelection(field);
+      insertLinkRange = {
+        start: selInfo.start,
+        end: selInfo.end,
+        snapshot: editorHtmlToMarkdown(field),
+      };
+      if (selInfo.url) {
+        textInput.value = selInfo.label || '';
+        urlInput.value = selInfo.url;
+      } else if (selInfo.selected && looksLikeUrl(selInfo.selected) && !/\s/.test(selInfo.selected.trim())) {
         textInput.value = '';
-        urlInput.value = selected.trim();
+        urlInput.value = selInfo.selected.trim();
       } else {
-        textInput.value = selected;
+        textInput.value = selInfo.selected || '';
         urlInput.value = '';
       }
     } else {
@@ -4942,7 +4986,10 @@
   function applyInsertLink() {
     const field = insertLinkTarget;
     const range = insertLinkRange;
-    if (!field || !range) {
+    if (!field || !range || typeof range.start !== 'number' || typeof range.end !== 'number') {
+      insertLinkSkipRestore = true;
+      insertLinkTarget = null;
+      insertLinkRange = null;
       closeModal('modal-insert-link');
       return;
     }
@@ -4955,53 +5002,32 @@
       return;
     }
     const display = label || href.replace(/^https?:\/\//i, '');
+    const snippet = `[${display}](${href})`;
 
     if (field.isContentEditable) {
-      field.focus();
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      const domRange = range.domRange;
-      if (domRange) {
-        try { sel.addRange(domRange); } catch { /* range may be stale */ }
-      }
-      const active = sel.rangeCount ? sel.getRangeAt(0) : null;
-      if (active) {
-        active.deleteContents();
-        const a = document.createElement('a');
-        a.href = href;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.className = 'th-text-link';
-        a.textContent = display;
-        active.insertNode(a);
-        const after = document.createRange();
-        after.setStartAfter(a);
-        after.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(after);
-      } else {
-        const a = document.createElement('a');
-        a.href = href;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.className = 'th-text-link';
-        a.textContent = display;
-        field.appendChild(a);
-      }
-      closeModal('modal-insert-link');
+      const md = typeof range.snapshot === 'string' ? range.snapshot : getRichEditorMarkdown(field);
+      const start = Math.max(0, Math.min(range.start, md.length));
+      const end = Math.max(start, Math.min(range.end, md.length));
+      const next = md.slice(0, start) + snippet + md.slice(end);
+      setRichEditorMarkdown(field, next);
+      insertLinkSkipRestore = true;
       insertLinkTarget = null;
       insertLinkRange = null;
+      closeModal('modal-insert-link');
+      field.focus();
       field.dispatchEvent(new Event('input', { bubbles: true }));
       return;
     }
 
-    const snippet = `[${display}](${href})`;
     const value = field.value || '';
-    field.value = value.slice(0, range.start) + snippet + value.slice(range.end);
-    const caret = range.start + snippet.length;
-    closeModal('modal-insert-link');
+    const start = Math.max(0, Math.min(range.start, value.length));
+    const end = Math.max(start, Math.min(range.end, value.length));
+    field.value = value.slice(0, start) + snippet + value.slice(end);
+    const caret = start + snippet.length;
+    insertLinkSkipRestore = true;
     insertLinkTarget = null;
     insertLinkRange = null;
+    closeModal('modal-insert-link');
     field.focus();
     field.setSelectionRange(caret, caret);
     field.dispatchEvent(new Event('input', { bubbles: true }));
