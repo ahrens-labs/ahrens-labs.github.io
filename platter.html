@@ -171,7 +171,179 @@
     }
 
     .pl-saved-menu-bubbles {
+      margin: 0;
+    }
+
+    .pl-saved-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      min-width: 0;
+    }
+
+    .pl-saved-head h2 {
+      margin: 0;
+      flex: 0 0 auto;
+      font-size: 1.15rem;
+      font-weight: 800;
+      font-family: Orbitron, Inter, sans-serif;
+    }
+
+    .pl-saved-head-end {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+      justify-content: flex-end;
+    }
+
+    .pl-saved-head-end #pl-saved-new {
+      flex: 0 0 auto;
+    }
+
+    .pl-saved-edit-bubbles {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      justify-content: flex-end;
+    }
+
+    .pl-saved-edit-bubbles .pl-menu-bubble {
+      max-width: 140px;
+    }
+
+    .pl-saved-search-wrap {
+      position: relative;
       margin: 0 0 12px;
+    }
+
+    .pl-saved-search-wrap::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      transform: translateY(-50%);
+      border: 2px solid #94a3b8;
+      border-radius: 50%;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+
+    .pl-saved-search-wrap::after {
+      content: '';
+      position: absolute;
+      left: 24px;
+      top: calc(50% + 5px);
+      width: 7px;
+      height: 2px;
+      background: #94a3b8;
+      transform: rotate(45deg);
+      pointer-events: none;
+    }
+
+    #pl-saved-search {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 44px;
+      padding: 10px 12px 10px 36px;
+      border: 1.5px solid var(--pl-line);
+      border-radius: 12px;
+      background: #fff;
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--pl-ink);
+    }
+
+    #pl-saved-search:focus {
+      outline: none;
+      border-color: var(--pl-accent);
+      box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25);
+    }
+
+    .pl-saved-browse {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--pl-line);
+      border-radius: 14px;
+      background: #f8fafc;
+    }
+
+    .pl-saved-browse-label {
+      margin: 0 0 8px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--pl-muted);
+    }
+
+    .pl-saved-browse-menus {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pl-saved-browse-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      min-height: 40px;
+      padding: 8px 12px 8px 10px;
+      border-radius: 10px;
+      border: 1.5px solid #cbd5e1;
+      background: #fff;
+      color: var(--pl-ink);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-saved-browse-chip .pl-saved-browse-check {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      border: 1.5px solid #94a3b8;
+      background: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+      font-size: 0.72rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .pl-saved-browse-chip .pl-saved-browse-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pl-saved-browse-chip.is-on {
+      border-color: #64748b;
+      background: #e2e8f0;
+    }
+
+    .pl-saved-browse-chip.is-on .pl-saved-browse-check {
+      border-color: #334155;
+      background: #334155;
+      color: #fff;
+    }
+
+    .pl-saved-browse-chip.is-shared:not(.is-on) {
+      border-style: dashed;
     }
 
     .pl-saved-item-main .pl-menu-badge {
@@ -1049,7 +1221,7 @@
       }
     }
 
-    .pl-saved-head {
+    .pl-share-panel .pl-saved-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1057,7 +1229,7 @@
       margin-bottom: 12px;
     }
 
-    .pl-saved-head h2 {
+    .pl-share-panel .pl-saved-head h2 {
       margin: 0;
       font-size: 1.15rem;
       font-weight: 800;
@@ -1908,10 +2080,19 @@
         <section id="pl-tab-saved" class="pl-saved-panel" data-pl-tab="saved">
           <div class="pl-saved-head">
             <h2>Saved meals</h2>
-            <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
+            <div class="pl-saved-head-end">
+              <div class="pl-menu-bubbles pl-saved-edit-bubbles" id="pl-saved-edit-bubbles" role="listbox" aria-label="Menu you are editing"></div>
+              <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
+            </div>
           </div>
-          <div class="pl-menu-bubbles pl-saved-menu-bubbles" id="pl-saved-menu-bubbles" role="listbox" aria-label="Filter saved meals by menu" aria-multiselectable="true"></div>
-          <p class="pl-hint" id="pl-saved-hint">Your meal library. Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>This week</strong> to put a meal in the This week tray, or <strong>Ready</strong> when you have the ingredients.</p>
+          <div class="pl-saved-search-wrap">
+            <input type="search" id="pl-saved-search" placeholder="Search meals…" autocomplete="off" aria-label="Search saved meals">
+          </div>
+          <div class="pl-saved-browse">
+            <p class="pl-saved-browse-label" id="pl-saved-browse-label">Looking at libraries</p>
+            <div class="pl-saved-browse-menus" id="pl-saved-menu-bubbles" role="group" aria-labelledby="pl-saved-browse-label"></div>
+          </div>
+          <p class="pl-hint" id="pl-saved-hint">Switch the menu you’re editing with the bubbles next to the title. Choose which libraries to browse below. Star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -2108,6 +2289,8 @@
   const menuBubblesWeek = document.getElementById('pl-week-menu-bubbles');
   const menuBubblesShare = document.getElementById('pl-share-menu-bubbles');
   const menuBubblesSaved = document.getElementById('pl-saved-menu-bubbles');
+  const menuBubblesSavedEdit = document.getElementById('pl-saved-edit-bubbles');
+  const savedSearchInput = document.getElementById('pl-saved-search');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
   const shareInput = document.getElementById('pl-share-input');
@@ -2138,6 +2321,7 @@
   };
   /** @type {Set<string>} */
   let savedFilterMenuIds = new Set();
+  let savedSearchQuery = '';
   /** @type {Record<string, { saved: any[], canEdit: boolean, name: string, updatedAt: number, loaded?: boolean }>} */
   let menuLibraryCache = {};
   /** @type {Record<string, ReturnType<typeof setTimeout>|undefined>} */
@@ -2964,6 +3148,9 @@
 
   function collectedSavedMeals() {
     const showMenuBadge = savedFilterMenuIds.size > 1;
+    const q = String(savedSearchQuery || '')
+      .trim()
+      .toLowerCase();
     const out = [];
     [...savedFilterMenuIds].forEach((menuId) => {
       const menu = menus.find((m) => m.id === menuId);
@@ -2973,6 +3160,11 @@
         'Menu';
       const canEdit = menuCanEditLibrary(menuId);
       getLibrarySaved(menuId).forEach((meal) => {
+        if (q) {
+          const name = String(meal.name || '').toLowerCase();
+          const details = String(meal.details || '').toLowerCase();
+          if (!name.includes(q) && !details.includes(q)) return;
+        }
         const activeSettings = activeMenuMealSettings(meal, menuId);
         out.push({
           meal,
@@ -3029,6 +3221,7 @@
   }
 
   function renderSavedMenuBubbles() {
+    renderMenuBubbles(menuBubblesSavedEdit);
     if (!menuBubblesSaved) return;
     const frag = document.createDocumentFragment();
     if (!menus.length) {
@@ -3043,14 +3236,17 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className =
-        'pl-menu-bubble' +
-        (selected ? ' is-selected' : '') +
+        'pl-saved-browse-chip' +
+        (selected ? ' is-on' : '') +
         (!m.isOwner ? ' is-shared' : '');
-      btn.setAttribute('role', 'option');
-      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
       btn.dataset.menuId = m.id;
-      btn.textContent = menuBubbleLabel(m);
-      btn.title = menuBubbleLabel(m) + (selected ? ' (showing)' : ' (tap to show)');
+      btn.title =
+        menuBubbleLabel(m) + (selected ? ' (showing in list)' : ' (tap to show in list)');
+      btn.innerHTML =
+        '<span class="pl-saved-browse-check" aria-hidden="true">✓</span>' +
+        '<span class="pl-saved-browse-name"></span>';
+      btn.querySelector('.pl-saved-browse-name').textContent = menuBubbleLabel(m);
       btn.addEventListener('click', () => toggleSavedFilterMenu(m.id));
       frag.appendChild(btn);
     });
@@ -3068,8 +3264,8 @@
     }
     if (savedHint) {
       savedHint.innerHTML = viewOnly
-        ? 'View only — browse libraries with the menu bubbles above. Tap a meal for details.'
-        : 'Tap menu bubbles to show one or more libraries. Star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> to add a meal to the This week tray, or <strong>Ready</strong> when you have ingredients.';
+        ? 'View only — use Looking at to browse libraries. Tap a meal for details.'
+        : 'Switch the menu you’re editing with the bubbles next to the title. Choose which libraries to browse under Looking at. Search by name, star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.';
     }
   }
 
@@ -3624,6 +3820,7 @@
   function renderSharePanel() {
     renderMenuBubbles(menuBubblesWeek);
     renderMenuBubbles(menuBubblesShare);
+    renderMenuBubbles(menuBubblesSavedEdit);
 
     if (menuNameInput) menuNameInput.value = menuMeta.name || '';
     if (menuNameField) menuNameField.hidden = !menuMeta.isOwner;
@@ -4293,8 +4490,16 @@
     const items = collectedSavedMeals();
     if (!items.length) {
       const canEditAny = [...savedFilterMenuIds].some((id) => menuCanEditLibrary(id));
+      const searching = !!String(savedSearchQuery || '').trim();
+      if (searching) {
+        savedList.innerHTML =
+          '<div class="pl-saved-empty">No meals match “' +
+          escapeHtml(String(savedSearchQuery).trim()) +
+          '”.<br>Try another search or different libraries under Looking at.</div>';
+        return;
+      }
       savedList.innerHTML = canEditAny
-        ? '<div class="pl-saved-empty">No saved meals in the selected menus.<br>Tap New to add one to your active menu, or pick different menus above.</div>'
+        ? '<div class="pl-saved-empty">No saved meals in the selected menus.<br>Tap New to add one to your active menu, or pick different libraries under Looking at.</div>'
         : '<div class="pl-saved-empty">No saved meals in the selected menus.</div>';
       return;
     }
@@ -5364,6 +5569,12 @@
     dinnerOnlyInput.addEventListener('change', () => setDinnerOnly(dinnerOnlyInput.checked));
   }
   document.getElementById('pl-saved-new').addEventListener('click', openNewSaved);
+  if (savedSearchInput) {
+    savedSearchInput.addEventListener('input', () => {
+      savedSearchQuery = savedSearchInput.value || '';
+      renderSaved();
+    });
+  }
   const readyManageBtn = document.getElementById('pl-ready-manage');
   if (readyManageBtn) {
     readyManageBtn.addEventListener('click', () => setTab('saved'));
