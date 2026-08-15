@@ -4856,14 +4856,17 @@
     return editorHtmlToMarkdown(el);
   }
 
+  const LINK_MARK_START = '\uE000';
+  const LINK_MARK_END = '\uE001';
+
   function getContentEditableLinkSelection(field) {
-    const fullMd = editorHtmlToMarkdown(field);
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount || !field.contains(sel.anchorNode)) {
-      return { start: fullMd.length, end: fullMd.length, label: '', url: '', selected: '' };
+      const fullMd = editorHtmlToMarkdown(field);
+      return { start: fullMd.length, end: fullMd.length, label: '', url: '', selected: '', snapshot: fullMd };
     }
 
-    let range = sel.getRangeAt(0).cloneRange();
+    const range = sel.getRangeAt(0).cloneRange();
     const anchorEl = (sel.anchorNode.nodeType === Node.ELEMENT_NODE
       ? sel.anchorNode
       : sel.anchorNode.parentElement)?.closest?.('a.th-text-link');
@@ -4874,39 +4877,99 @@
       ? anchorEl
       : null;
 
+    // Collapsed caret inside a link counts as editing that link only when the
+    // selection isn't at the very end (where users usually mean "after the link").
+    let editAnchor = null;
     if (sharedAnchor) {
-      range = document.createRange();
-      range.selectNode(sharedAnchor);
+      const atEnd = range.collapsed
+        && range.startContainer
+        && sharedAnchor.contains(range.startContainer)
+        && (() => {
+          const last = sharedAnchor.lastChild;
+          if (!last) return true;
+          if (range.startContainer === sharedAnchor) {
+            return range.startOffset >= sharedAnchor.childNodes.length;
+          }
+          if (range.startContainer === last && last.nodeType === Node.TEXT_NODE) {
+            return range.startOffset >= (last.nodeValue || '').length;
+          }
+          return false;
+        })();
+      if (!range.collapsed || !atEnd) editAnchor = sharedAnchor;
     }
 
-    const pre = document.createRange();
-    pre.selectNodeContents(field);
-    pre.setEnd(range.startContainer, range.startOffset);
-    let start = markdownFromDomRange(pre).length;
-    let selectedMd = markdownFromDomRange(range);
-    let end = start + selectedMd.length;
+    const selectedText = editAnchor ? (editAnchor.textContent || '') : sel.toString();
+    const selectedUrl = editAnchor ? (editAnchor.getAttribute('href') || '') : '';
+    const startMarker = document.createTextNode(LINK_MARK_START);
+    const endMarker = document.createTextNode(LINK_MARK_END);
 
-    // Prefer offsets from the full serialized markdown when replacing a whole link.
-    if (sharedAnchor) {
-      const anchorMd = editorHtmlToMarkdown(sharedAnchor);
-      const idx = fullMd.indexOf(anchorMd);
-      if (idx >= 0) {
-        start = idx;
-        end = idx + anchorMd.length;
+    try {
+      if (editAnchor) {
+        editAnchor.parentNode.insertBefore(startMarker, editAnchor);
+        if (editAnchor.nextSibling) {
+          editAnchor.parentNode.insertBefore(endMarker, editAnchor.nextSibling);
+        } else {
+          editAnchor.parentNode.appendChild(endMarker);
+        }
+      } else if (range.collapsed) {
+        range.insertNode(startMarker);
+        if (startMarker.nextSibling) {
+          startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
+        } else {
+          startMarker.parentNode.appendChild(endMarker);
+        }
+      } else {
+        const sc = range.startContainer;
+        const so = range.startOffset;
+        const ec = range.endContainer;
+        const eo = range.endOffset;
+
+        const endRange = document.createRange();
+        endRange.setStart(ec, eo);
+        endRange.collapse(true);
+        endRange.insertNode(endMarker);
+
+        const startRange = document.createRange();
+        try {
+          startRange.setStart(sc, so);
+        } catch {
+          startRange.setStartBefore(endMarker);
+        }
+        startRange.collapse(true);
+        startRange.insertNode(startMarker);
       }
+
+      const markedMd = editorHtmlToMarkdown(field);
+      const start = markedMd.indexOf(LINK_MARK_START);
+      const endMarked = markedMd.indexOf(LINK_MARK_END);
+      const snapshot = markedMd.split(LINK_MARK_START).join('').split(LINK_MARK_END).join('');
+
+      if (start < 0 || endMarked < 0) {
+        const fullMd = editorHtmlToMarkdown(field);
+        return {
+          start: fullMd.length,
+          end: fullMd.length,
+          label: selectedUrl ? selectedText : '',
+          url: selectedUrl,
+          selected: selectedText,
+          snapshot: fullMd,
+        };
+      }
+
+      const end = endMarked - LINK_MARK_START.length;
       return {
         start,
-        end,
-        label: sharedAnchor.textContent || '',
-        url: sharedAnchor.getAttribute('href') || '',
-        selected: sharedAnchor.textContent || '',
+        end: Math.max(start, end),
+        label: selectedUrl ? selectedText : '',
+        url: selectedUrl,
+        selected: selectedText,
+        snapshot,
       };
+    } finally {
+      startMarker.remove();
+      endMarker.remove();
+      field.normalize();
     }
-
-    // Clamp to full markdown length in case fragment serialization differs slightly.
-    start = Math.max(0, Math.min(start, fullMd.length));
-    end = Math.max(start, Math.min(end, fullMd.length));
-    return { start, end, label: '', url: '', selected: sel.toString() };
   }
 
   function setFieldMarkdown(id, text) {
@@ -4943,7 +5006,7 @@
       insertLinkRange = {
         start: selInfo.start,
         end: selInfo.end,
-        snapshot: editorHtmlToMarkdown(field),
+        snapshot: selInfo.snapshot,
       };
       if (selInfo.url) {
         textInput.value = selInfo.label || '';
