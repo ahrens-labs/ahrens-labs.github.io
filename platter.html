@@ -1316,6 +1316,11 @@
       font-weight: 800;
     }
 
+    .pl-saved-item-actions button[data-act='thisweek'] {
+      color: #166534;
+      background: #dcfce7;
+    }
+
     .pl-saved-item-main {
       flex: 1;
       min-width: 0;
@@ -1397,13 +1402,13 @@
       border: 0;
       background: transparent;
       font: inherit;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 700;
       color: #64748b;
       cursor: pointer;
       border-radius: 12px;
       touch-action: manipulation;
-      padding: 6px 8px;
+      padding: 6px 4px;
     }
 
     .pl-bottom-nav-item.active {
@@ -1488,6 +1493,28 @@
       padding: 14px 16px 8px;
       touch-action: none;
       cursor: grab;
+    }
+
+    .pl-ready-tray.is-drop-target {
+      border-color: var(--pl-from-ready);
+      background: var(--pl-from-ready-soft);
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22);
+    }
+
+    .pl-ready-tray.is-flash {
+      animation: pl-tray-flash 0.9s ease;
+    }
+
+    @keyframes pl-tray-flash {
+      0%,
+      100% {
+        box-shadow: none;
+      }
+      30%,
+      70% {
+        box-shadow: 0 0 0 3px rgba(202, 138, 4, 0.35);
+        border-color: var(--pl-accent-mid);
+      }
     }
 
     .pl-ready-tray {
@@ -1763,11 +1790,11 @@
           </div>
           <div class="pl-ready-tray is-empty" id="pl-ready-tray">
             <div class="pl-ready-tray-head">
-              <strong>Ready</strong>
-              <span class="pl-ready-empty" id="pl-ready-empty">Mark Saved meals Ready to drag here — each one can be used once.</span>
-              <button type="button" class="pl-btn pl-btn-ghost" id="pl-ready-manage">Manage</button>
+              <strong>This week</strong>
+              <span class="pl-ready-empty" id="pl-ready-empty">Drag meals here from Saved or from the week plan — then drag them onto a day.</span>
+              <button type="button" class="pl-btn pl-btn-ghost" id="pl-ready-manage">Saved</button>
             </div>
-            <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="Meals you have ingredients for"></div>
+            <div class="pl-ready-scroller" id="pl-ready-tray-list" aria-label="This week’s meal tray"></div>
           </div>
           <div class="pl-place-banner" id="pl-place-banner" hidden>
             <p><strong>Place</strong> <span id="pl-place-banner-name"></span> — tap a day slot</p>
@@ -1782,7 +1809,7 @@
             <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
           <div class="pl-menu-bubbles pl-saved-menu-bubbles" id="pl-saved-menu-bubbles" role="listbox" aria-label="Filter saved meals by menu" aria-multiselectable="true"></div>
-          <p class="pl-hint" id="pl-saved-hint">Your meal library. Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>Ready</strong> when you have the ingredients — those appear in the week tray and leave the tray after you place them once.</p>
+          <p class="pl-hint" id="pl-saved-hint">Your meal library. Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder. Tap <strong>This week</strong> to put a meal in the This week tray, or <strong>Ready</strong> when you have the ingredients.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -1813,7 +1840,7 @@
                 <input type="radio" name="pl-share-role" value="editor" checked>
                 <span>
                   <strong>Can edit</strong>
-                  <span>Change meals, Ready tray, and library</span>
+                  <span>Change meals, This week tray, and library</span>
                 </span>
               </label>
               <label class="pl-share-perm">
@@ -1850,6 +1877,10 @@
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
         <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
         <span>Saved</span>
+      </button>
+      <button type="button" class="pl-bottom-nav-item" data-pl-tab="thisweek">
+        <span class="pl-bottom-nav-icon" aria-hidden="true">☰</span>
+        <span>This week</span>
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="share">
         <span class="pl-bottom-nav-icon" aria-hidden="true">↗</span>
@@ -2367,7 +2398,7 @@
     if (weekHint && canEditMenu()) {
       weekHint.title = isDays
         ? 'Days view — tap the date range under Days to pick start and end dates. Drag meals across weeks with the ⋮⋮ handle.'
-        : 'Mark Saved meals as Ready, then drag them from the tray onto a day. Tap a meal to edit. Drag with the ⋮⋮ handle to move — hold near the top or bottom edge to scroll.';
+        : 'Mark Saved meals for This week, or drag meals from the plan into the This week tray. Tap a meal to edit. Drag with the ⋮⋮ handle to move — drop onto This week to stage it.';
     }
   }
 
@@ -2777,7 +2808,7 @@
     if (savedHint) {
       savedHint.innerHTML = viewOnly
         ? 'View only — browse libraries with the menu bubbles above. Tap a meal for details.'
-        : 'Tap menu bubbles to show one or more libraries. Star favorites to pin them at the top, drag ⋮⋮ to reorder when a single editable menu is selected. Tap <strong>Ready</strong> when you have the ingredients — Ready meals from the active week menu appear in the week tray.';
+        : 'Tap menu bubbles to show one or more libraries. Star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> to add a meal to the This week tray, or <strong>Ready</strong> when you have ingredients.';
     }
   }
 
@@ -2900,11 +2931,26 @@
     queueCloudSync();
   }
 
-  const VALID_TABS = ['week', 'saved', 'share'];
+  const VALID_TABS = ['week', 'saved', 'thisweek', 'share'];
 
   function normalizeTab(tab) {
     const t = String(tab || '').toLowerCase();
     return VALID_TABS.includes(t) ? t : 'week';
+  }
+
+  function panelTabFor(tab) {
+    return tab === 'thisweek' ? 'week' : tab;
+  }
+
+  function focusThisWeekPanel() {
+    if (!readyTray) return;
+    readyTray.classList.remove('is-flash');
+    void readyTray.offsetWidth;
+    readyTray.classList.add('is-flash');
+    readyTray.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    setTimeout(() => {
+      if (readyTray) readyTray.classList.remove('is-flash');
+    }, 1000);
   }
 
   function tabFromUrl() {
@@ -2929,7 +2975,8 @@
   function setTab(tab, opts) {
     const next = normalizeTab(tab);
     const options = opts || {};
-    if (next !== 'week') clearPlaceMode();
+    const panelTab = panelTabFor(next);
+    if (panelTab !== 'week') clearPlaceMode();
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
@@ -2938,11 +2985,11 @@
         el.classList.contains('pl-saved-panel') ||
         el.classList.contains('pl-share-panel')
       ) {
-        el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === panelTab);
       }
     });
-    if (next === 'share') renderSharePanel();
-    if (next === 'saved') {
+    if (panelTab === 'share') renderSharePanel();
+    if (panelTab === 'saved') {
       ensureSavedFilterLibraries()
         .then(() => {
           renderSavedMenuBubbles();
@@ -2952,6 +2999,9 @@
           renderSavedMenuBubbles();
           renderSaved();
         });
+    }
+    if (next === 'thisweek') {
+      requestAnimationFrame(() => focusThisWeekPanel());
     }
     if (!options.skipUrlSync) {
       syncTabUrl(next, { replace: !!options.replaceUrl });
@@ -3160,7 +3210,7 @@
       readyEmptyHint.hidden = !!ready.length;
       readyEmptyHint.textContent = ready.length
         ? ''
-        : 'Mark Saved meals Ready to drag here — each one can be used once.';
+        : 'Drag meals here from Saved or from the week plan — then drag them onto a day.';
     }
     if (!ready.length) {
       readyTrayList.replaceChildren();
@@ -3181,6 +3231,47 @@
         frag.appendChild(chip);
       });
     readyTrayList.replaceChildren(frag);
+  }
+
+  function addMealToThisWeekTray(mealFields, existingId, opts) {
+    if (!canEditMenu()) return null;
+    const options = opts || {};
+    const savedId = upsertSaved(
+      {
+        name: mealFields.name,
+        details: mealFields.details || '',
+        cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
+      },
+      existingId || null,
+      { ready: true, menuId: options.menuId || activeMenuId }
+    );
+    queueMenuSavedSync(options.menuId || activeMenuId);
+    renderReadyTray();
+    renderSaved();
+    if (sheetState) fillSavedPick();
+    return savedId;
+  }
+
+  function addSlotMealToThisWeek(slotKeyValue) {
+    if (!canEditMenu() || !slotKeyValue) return false;
+    const slot = data.slots[slotKeyValue];
+    if (!slot || !slot.name) return false;
+    const savedId = addMealToThisWeekTray(slot, slot.savedId || null, {
+      menuId: activeMenuId,
+    });
+    if (savedId && slot.savedId !== savedId) {
+      slot.savedId = savedId;
+      persist();
+      renderWeek();
+    }
+    return !!savedId;
+  }
+
+  function sendSavedMealToThisWeek(savedId, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    if (!menuCanEditLibrary(sourceMenuId)) return;
+    setMealReady(savedId, true, sourceMenuId);
+    setTab('thisweek');
   }
 
   function syncSlotsFromSaved(savedId) {
@@ -3964,6 +4055,9 @@
             (entry.canEdit
               ? '<button type="button" data-act="ready"></button>'
               : '') +
+            (canEditMenu()
+              ? '<button type="button" data-act="thisweek">This week</button>'
+              : '') +
             (canEditMenu() ? '<button type="button" data-act="place">Use</button>' : '') +
             (entry.canEdit ? '<button type="button" data-act="delete">Delete</button>' : '') +
             '</div>'
@@ -3992,10 +4086,16 @@
         readyBtn.setAttribute(
           'aria-label',
           meal.ready
-            ? 'Remove ' + meal.name + ' from ready tray'
+            ? 'Remove ' + meal.name + ' from This week tray'
             : 'Mark ' + meal.name + ' as ready to cook'
         );
         readyBtn.addEventListener('click', () => toggleMealReady(meal.id, entry.menuId));
+      }
+      const thisWeekBtn = row.querySelector('[data-act="thisweek"]');
+      if (thisWeekBtn) {
+        thisWeekBtn.addEventListener('click', () =>
+          sendSavedMealToThisWeek(meal.id, entry.menuId)
+        );
       }
       const placeBtn = row.querySelector('[data-act="place"]');
       if (placeBtn) {
@@ -4547,8 +4647,30 @@
     return null;
   }
 
+  function trayFromPoint(x, y) {
+    const stack = document.elementsFromPoint(x, y) || [];
+    for (let i = 0; i < stack.length; i++) {
+      const el = stack[i];
+      if (!el || !el.closest) continue;
+      if (el.classList && el.classList.contains('pl-drag-ghost')) continue;
+      const tray = el.closest('#pl-ready-tray');
+      if (tray) return tray;
+    }
+    return null;
+  }
+
   function updateDragHover(x, y) {
     document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+    if (readyTray) readyTray.classList.remove('is-drop-target');
+
+    if (drag.source === 'slot' && drag.fromKey) {
+      const tray = trayFromPoint(x, y);
+      if (tray) {
+        tray.classList.add('is-drop-target');
+        return;
+      }
+    }
+
     const target = slotBodyFromPoint(x, y);
     if (!target || !target.dataset.slotKey) return;
     if (drag.source === 'slot' && target.dataset.slotKey === drag.fromKey) return;
@@ -4708,16 +4830,22 @@
     stopDragAutoScroll();
 
     let toKey = null;
+    let dropOnTray = false;
     if (moved) {
-      const target = slotBodyFromPoint(dropX, dropY);
-      if (target && target.dataset.slotKey) {
-        if (source !== 'slot' || target.dataset.slotKey !== fromKey) {
-          toKey = target.dataset.slotKey;
+      if (source === 'slot' && fromKey && trayFromPoint(dropX, dropY)) {
+        dropOnTray = true;
+      } else {
+        const target = slotBodyFromPoint(dropX, dropY);
+        if (target && target.dataset.slotKey) {
+          if (source !== 'slot' || target.dataset.slotKey !== fromKey) {
+            toKey = target.dataset.slotKey;
+          }
         }
       }
     }
 
     document.querySelectorAll('.pl-slot-body.is-drop-target').forEach((el) => el.classList.remove('is-drop-target'));
+    if (readyTray) readyTray.classList.remove('is-drop-target');
     if (drag.ghost) drag.ghost.remove();
     document.body.classList.remove('pl-dragging', 'pl-dragging-ready');
     if (card) card.classList.remove('is-dragging');
@@ -4733,7 +4861,10 @@
     drag.lastX = 0;
     drag.lastY = 0;
 
-    if (toKey) {
+    if (dropOnTray && fromKey) {
+      addSlotMealToThisWeek(fromKey);
+      focusThisWeekPanel();
+    } else if (toKey) {
       if (source === 'ready' && readyId) {
         const meal = data.saved.find((s) => s.id === readyId);
         const payload = mealPayloadFromReady(meal);
