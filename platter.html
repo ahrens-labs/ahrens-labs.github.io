@@ -68,28 +68,23 @@
       font-weight: 900;
     }
 
-    .pl-topbar-brand-text {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1px;
+    .pl-header-menu-bubbles {
+      flex: 1 1 auto;
       min-width: 0;
-    }
-
-    .pl-topbar-menu {
+      max-width: none;
       margin: 0;
-      max-width: min(46vw, 220px);
-      font-size: 0.72rem;
-      font-weight: 700;
-      line-height: 1.2;
-      color: #64748b;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      justify-content: flex-start;
     }
 
-    .pl-topbar-menu.is-view-only {
-      color: #b45309;
+    .pl-header-menu-bubbles .pl-menu-bubble {
+      min-height: 32px;
+      padding: 0 10px;
+      font-size: 0.74rem;
+      max-width: 130px;
+    }
+
+    body.pl-page .th-topbar-auth {
+      flex-shrink: 0;
     }
 
     .platter-logo {
@@ -119,6 +114,7 @@
     .pl-toolbar-top {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
       gap: 8px;
       margin-bottom: 8px;
       min-width: 0;
@@ -189,30 +185,6 @@
       font-size: 1.15rem;
       font-weight: 800;
       font-family: Orbitron, Inter, sans-serif;
-    }
-
-    .pl-saved-head-end {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-      min-width: 0;
-      justify-content: flex-end;
-    }
-
-    .pl-saved-head-end #pl-saved-new {
-      flex: 0 0 auto;
-    }
-
-    .pl-saved-edit-bubbles {
-      flex: 1;
-      min-width: 0;
-      margin: 0;
-      justify-content: flex-end;
-    }
-
-    .pl-saved-edit-bubbles .pl-menu-bubble {
-      max-width: 140px;
     }
 
     .pl-saved-search-wrap {
@@ -1975,12 +1947,10 @@
           </button>
           <div class="th-topbar-brand">
             <img src="img/platter-logo.png?v=13" alt="" class="platter-logo">
-            <div class="pl-topbar-brand-text">
-              <h1 class="th-topbar-title">Platter</h1>
-              <p class="pl-topbar-menu" id="pl-header-menu-name" hidden></p>
-            </div>
+            <h1 class="th-topbar-title">Platter</h1>
           </div>
         </div>
+        <div class="pl-menu-bubbles pl-header-menu-bubbles" id="pl-header-menu-bubbles" role="listbox" aria-label="Menu you are editing" hidden></div>
         <div class="th-topbar-auth" id="header-auth-buttons">
           <button type="button" id="header-login-btn" class="th-topbar-auth-btn th-topbar-auth-login" onclick="window.location.href='account.html?return=platter.html'">Login</button>
           <button type="button" id="header-signup-btn" class="th-topbar-auth-btn th-topbar-auth-signup" onclick="window.location.href='account.html?return=platter.html'">Sign Up</button>
@@ -2011,7 +1981,6 @@
       <div id="pl-app" hidden>
         <section id="pl-tab-week" class="pl-week-panel active" data-pl-tab="week">
           <div class="pl-toolbar-top">
-            <div class="pl-menu-bubbles" id="pl-week-menu-bubbles" role="listbox" aria-label="Choose menu"></div>
             <div class="pl-toolbar-modes">
               <div class="pl-planner-views" role="radiogroup" aria-label="Planner layout">
                 <button type="button" id="pl-view-week" class="is-on" aria-pressed="true">Week</button>
@@ -2058,10 +2027,7 @@
         <section id="pl-tab-saved" class="pl-saved-panel" data-pl-tab="saved">
           <div class="pl-saved-head">
             <h2>Saved meals</h2>
-            <div class="pl-saved-head-end">
-              <div class="pl-menu-bubbles pl-saved-edit-bubbles" id="pl-saved-edit-bubbles" role="listbox" aria-label="Menu you are editing"></div>
-              <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
-            </div>
+            <button type="button" class="pl-btn pl-btn-primary" id="pl-saved-new">New</button>
           </div>
           <div class="pl-saved-search-wrap">
             <input type="search" id="pl-saved-search" placeholder="Search meals…" autocomplete="off" aria-label="Search saved meals">
@@ -2070,7 +2036,7 @@
             <p class="pl-saved-browse-label" id="pl-saved-browse-label">Looking at libraries</p>
             <div class="pl-saved-browse-menus" id="pl-saved-menu-bubbles" role="group" aria-labelledby="pl-saved-browse-label"></div>
           </div>
-          <p class="pl-hint" id="pl-saved-hint">Switch the menu you’re editing with the bubbles next to the title. Choose which libraries to browse below. Star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.</p>
+          <p class="pl-hint" id="pl-saved-hint">Use the header bubbles to switch which menu you’re editing. Choose which libraries to browse under Looking at. Search by name, star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.</p>
           <div class="pl-saved-list" id="pl-saved-list"></div>
         </section>
 
@@ -2264,10 +2230,9 @@
   const placeBannerName = document.getElementById('pl-place-banner-name');
   const placeCancelBtn = document.getElementById('pl-place-cancel');
   const sheetGrab = document.getElementById('pl-sheet-grab');
-  const menuBubblesWeek = document.getElementById('pl-week-menu-bubbles');
+  const menuBubblesHeader = document.getElementById('pl-header-menu-bubbles');
   const menuBubblesShare = document.getElementById('pl-share-menu-bubbles');
   const menuBubblesSaved = document.getElementById('pl-saved-menu-bubbles');
-  const menuBubblesSavedEdit = document.getElementById('pl-saved-edit-bubbles');
   const savedSearchInput = document.getElementById('pl-saved-search');
   const menuNameInput = document.getElementById('pl-menu-name');
   const menuNameField = document.getElementById('pl-menu-name-field');
@@ -2818,25 +2783,6 @@
     return slots > 0 || saved > 0;
   }
 
-  function updateHeaderMenuName() {
-    const el = document.getElementById('pl-header-menu-name');
-    if (!el) return;
-    const name = String((menuMeta && menuMeta.name) || '').trim();
-    if (!name) {
-      el.hidden = true;
-      el.textContent = '';
-      el.classList.remove('is-view-only');
-      return;
-    }
-    const viewOnly = !canEditMenu();
-    el.hidden = false;
-    el.textContent = viewOnly ? name + ' · view only' : name;
-    el.classList.toggle('is-view-only', viewOnly);
-    el.title = viewOnly
-      ? 'Viewing ' + name + ' (view only)'
-      : 'Making changes to ' + name;
-  }
-
   function applyMenuPayload(menu, menusList) {
     if (Array.isArray(menusList)) menus = menusList;
     activeMenuId = menu && menu.id ? menu.id : activeMenuId;
@@ -2863,7 +2809,6 @@
       savedFilterMenuIds.add(activeMenuId);
       saveSavedFilterPrefs();
     }
-    updateHeaderMenuName();
     applyViewOnlyUi();
     renderAll();
   }
@@ -3202,7 +3147,7 @@
   }
 
   function renderSavedMenuBubbles() {
-    renderMenuBubbles(menuBubblesSavedEdit);
+    renderMenuBubbles(menuBubblesHeader);
     if (!menuBubblesSaved) return;
     const frag = document.createDocumentFragment();
     if (!menus.length) {
@@ -3238,7 +3183,6 @@
     const viewOnly = !canEditMenu();
     document.body.classList.toggle('pl-view-only', viewOnly);
     if (viewOnly && placeModeSavedId) clearPlaceMode({ skipRender: true });
-    updateHeaderMenuName();
     updatePlannerChrome();
     if (weekHint && viewOnly) {
       weekHint.title = 'View only — tap a meal to see details. You cannot change this shared menu.';
@@ -3246,7 +3190,7 @@
     if (savedHint) {
       savedHint.innerHTML = viewOnly
         ? 'View only — use Looking at to browse libraries. Tap a meal for details.'
-        : 'Switch the menu you’re editing with the bubbles next to the title. Choose which libraries to browse under Looking at. Search by name, star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.';
+        : 'Use the header bubbles to switch which menu you’re editing. Choose which libraries to browse under Looking at. Search by name, star favorites, drag ⋮⋮ to reorder, tap <strong>This week</strong> or <strong>Ready</strong> for the menu you’re editing.';
     }
   }
 
@@ -3300,7 +3244,6 @@
       ownerUsername: menu.ownerUsername || menuMeta.ownerUsername,
     };
     if (typeof menu.updatedAt === 'number') cloudUpdatedAt = menu.updatedAt;
-    updateHeaderMenuName();
     applyViewOnlyUi();
   }
 
@@ -3767,12 +3710,14 @@
     if (!container) return;
     const frag = document.createDocumentFragment();
     if (!menus.length) {
+      if (container === menuBubblesHeader) container.hidden = true;
       const empty = document.createElement('span');
       empty.className = 'pl-ready-empty';
       empty.textContent = 'No menus yet';
       container.replaceChildren(empty);
       return;
     }
+    if (container === menuBubblesHeader) container.hidden = false;
     menus.forEach((m) => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -3799,9 +3744,8 @@
   }
 
   function renderSharePanel() {
-    renderMenuBubbles(menuBubblesWeek);
+    renderMenuBubbles(menuBubblesHeader);
     renderMenuBubbles(menuBubblesShare);
-    renderMenuBubbles(menuBubblesSavedEdit);
 
     if (menuNameInput) menuNameInput.value = menuMeta.name || '';
     if (menuNameField) menuNameField.hidden = !menuMeta.isOwner;
