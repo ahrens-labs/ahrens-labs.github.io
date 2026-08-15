@@ -1353,7 +1353,7 @@
 
     .pl-saved-item-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
       border-top: 1px solid var(--pl-line);
     }
 
@@ -1361,6 +1361,7 @@
       min-height: 44px;
       border: 0;
       border-right: 1px solid var(--pl-line);
+      border-bottom: 1px solid var(--pl-line);
       background: #f8fafc;
       font: inherit;
       font-size: 0.8rem;
@@ -1371,8 +1372,15 @@
       padding: 10px 8px;
     }
 
-    .pl-saved-item-actions button:last-child {
+    .pl-saved-item-actions button:nth-child(2n) {
       border-right: 0;
+    }
+
+    .pl-saved-item-actions button:nth-last-child(-n + 2) {
+      border-bottom: 0;
+    }
+
+    .pl-saved-item-actions button[data-act='delete'] {
       color: var(--pl-danger);
       background: #fff;
     }
