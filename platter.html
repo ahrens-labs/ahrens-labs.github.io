@@ -3200,7 +3200,7 @@
     renderSaved();
     if (sourceMenuId === activeMenuId) {
       renderReadyTray();
-      if (sheetState) fillSavedPick();
+      if (sheetState) fillSavedPick(savedPick.value);
     }
   }
 
@@ -4131,7 +4131,7 @@
           renderSaved();
           if (entry.menuId === activeMenuId) {
             renderReadyTray();
-            if (sheetState) fillSavedPick();
+            if (sheetState) fillSavedPick(savedPick.value);
           }
         });
       }
