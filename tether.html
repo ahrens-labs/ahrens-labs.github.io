@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=37">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=38">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -642,6 +642,7 @@
       z-index: 10100; align-items: center; justify-content: center; padding: 20px;
     }
     .th-modal-backdrop.open { display: flex; }
+    .th-modal-backdrop.th-modal-backdrop-elevated { z-index: 10250; }
     .th-modal {
       width: min(520px, 100%); max-height: 90vh; overflow-y: auto;
       background: #fff; border-radius: 18px; padding: 22px; box-shadow: 0 24px 60px rgba(0,0,0,0.2);
@@ -1286,7 +1287,7 @@
               </div>
               <div class="th-field">
                 <label for="task-notes-input">Description / Notes</label>
-                <textarea id="task-notes-input" placeholder="Extra context, links, or details…"></textarea>
+                <textarea id="task-notes-input" placeholder="Extra context, links, or details… (⌘/Ctrl+K to add a link)"></textarea>
               </div>
             </section>
           </div>
@@ -1361,6 +1362,26 @@
       <div class="th-modal-actions">
         <button type="button" class="th-btn th-btn-ghost" data-close="modal-confirm">Cancel</button>
         <button type="button" class="th-btn th-btn-primary" id="confirm-modal-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Insert link modal (Cmd/Ctrl+K) -->
+  <div class="th-modal-backdrop th-modal-backdrop-elevated" id="modal-insert-link">
+    <div class="th-modal" style="width:min(420px, 100%);">
+      <h3>Add link</h3>
+      <p class="th-field-hint" style="margin:-6px 0 12px;">Linked text is shown instead of the full URL.</p>
+      <div class="th-field">
+        <label for="insert-link-text">Text to display</label>
+        <input type="text" id="insert-link-text" maxlength="200" placeholder="e.g. Design doc" autocomplete="off">
+      </div>
+      <div class="th-field">
+        <label for="insert-link-url">URL</label>
+        <input type="url" id="insert-link-url" maxlength="2000" placeholder="https://…" autocomplete="off">
+      </div>
+      <div class="th-modal-actions">
+        <button type="button" class="th-btn th-btn-ghost" data-close="modal-insert-link">Cancel</button>
+        <button type="button" class="th-btn th-btn-primary" id="insert-link-confirm">Add link</button>
       </div>
     </div>
   </div>
@@ -3338,6 +3359,16 @@
       confirmResolve = null;
       resolve(false);
     }
+    if (id === 'modal-insert-link' && insertLinkTarget) {
+      const field = insertLinkTarget;
+      const range = insertLinkRange;
+      insertLinkTarget = null;
+      insertLinkRange = null;
+      requestAnimationFrame(() => {
+        field.focus();
+        if (range) field.setSelectionRange(range.start, range.end);
+      });
+    }
   }
 
   function syncSettingsModalUi() {
@@ -4707,6 +4738,103 @@
     return null;
   }
 
+  function normalizeLinkUrl(raw) {
+    let u = String(raw || '').trim();
+    if (!u) return null;
+    if (/^https?:\/\//i.test(u) || /^mailto:/i.test(u)) return u;
+    if (/^\/\//.test(u)) return 'https:' + u;
+    if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}([\/?#:][^\s]*)?$/i.test(u)) return 'https://' + u;
+    return null;
+  }
+
+  function looksLikeUrl(text) {
+    const t = String(text || '').trim();
+    return Boolean(safeLinkHref(t) || normalizeLinkUrl(t));
+  }
+
+  const LINKABLE_FIELD_IDS = new Set([
+    'task-notes-input',
+    'task-dod-input',
+    'task-title-input',
+    'task-quick-add-input',
+    'project-desc-input',
+  ]);
+
+  let insertLinkTarget = null;
+  let insertLinkRange = null;
+
+  function findMarkdownLinkAround(value, start, end) {
+    const text = String(value || '');
+    const re = /\[([^\]]*)\]\(([^)]+)\)/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const from = m.index;
+      const to = m.index + m[0].length;
+      if (start >= from && end <= to) {
+        return { from, to, label: m[1], url: m[2], full: m[0] };
+      }
+    }
+    return null;
+  }
+
+  function openInsertLinkModal(field) {
+    if (!field || !LINKABLE_FIELD_IDS.has(field.id)) return;
+    insertLinkTarget = field;
+    const start = field.selectionStart ?? 0;
+    const end = field.selectionEnd ?? start;
+    insertLinkRange = { start, end };
+    const value = field.value || '';
+    const existing = findMarkdownLinkAround(value, start, end);
+    const selected = value.slice(start, end);
+    const textInput = document.getElementById('insert-link-text');
+    const urlInput = document.getElementById('insert-link-url');
+    if (existing) {
+      insertLinkRange = { start: existing.from, end: existing.to };
+      textInput.value = existing.label;
+      urlInput.value = existing.url;
+    } else if (selected && looksLikeUrl(selected) && !/\s/.test(selected.trim())) {
+      textInput.value = '';
+      urlInput.value = selected.trim();
+    } else {
+      textInput.value = selected;
+      urlInput.value = '';
+    }
+    openModal('modal-insert-link');
+    requestAnimationFrame(() => {
+      const focusEl = textInput.value && !urlInput.value ? urlInput : (urlInput.value && !textInput.value ? textInput : urlInput);
+      focusEl.focus();
+      focusEl.select();
+    });
+  }
+
+  function applyInsertLink() {
+    const field = insertLinkTarget;
+    const range = insertLinkRange;
+    if (!field || !range) {
+      closeModal('modal-insert-link');
+      return;
+    }
+    const label = document.getElementById('insert-link-text').value.trim();
+    const urlRaw = document.getElementById('insert-link-url').value.trim();
+    const href = normalizeLinkUrl(urlRaw);
+    if (!href) {
+      showBanner('Enter a valid URL (https://…)');
+      document.getElementById('insert-link-url').focus();
+      return;
+    }
+    const display = label || href.replace(/^https?:\/\//i, '');
+    const snippet = `[${display}](${href})`;
+    const value = field.value || '';
+    field.value = value.slice(0, range.start) + snippet + value.slice(range.end);
+    const caret = range.start + snippet.length;
+    closeModal('modal-insert-link');
+    insertLinkTarget = null;
+    insertLinkRange = null;
+    field.focus();
+    field.setSelectionRange(caret, caret);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   function formatRichText(text, opts) {
     const options = opts || {};
     const raw = String(text || '');
@@ -5194,11 +5322,39 @@
   });
 
   document.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key !== 'k' && e.key !== 'K') return;
+    if (e.altKey || e.shiftKey) return;
+    const field = e.target;
+    if (!field || !LINKABLE_FIELD_IDS.has(field.id)) return;
+    e.preventDefault();
+    openInsertLinkModal(field);
+  });
+
+  document.getElementById('insert-link-confirm').addEventListener('click', () => applyInsertLink());
+  ['insert-link-text', 'insert-link-url'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyInsertLink();
+      }
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
     const searchOpen = document.getElementById('modal-search').classList.contains('open');
     if (searchOpen) {
       if (e.key === 'Escape') {
         closeModal('modal-search');
+        e.preventDefault();
+      }
+      return;
+    }
+    const linkOpen = document.getElementById('modal-insert-link').classList.contains('open');
+    if (linkOpen) {
+      if (e.key === 'Escape') {
+        closeModal('modal-insert-link');
         e.preventDefault();
       }
       return;
