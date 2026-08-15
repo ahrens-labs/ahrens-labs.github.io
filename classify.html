@@ -1583,6 +1583,168 @@
             position: relative;
             z-index: 503 !important;
         }
+        #classifyHotspotLayer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 420;
+        }
+        .cl-hotspot-btn {
+            position: fixed;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: 2px solid #fff;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 800;
+            line-height: 1;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+            animation: cl-hotspot-pulse 2.2s ease-in-out infinite;
+            transition: transform 0.15s ease;
+        }
+        .cl-hotspot-btn:hover {
+            transform: scale(1.08);
+            animation-play-state: paused;
+        }
+        .cl-hotspot-btn:focus-visible {
+            outline: 2px solid #0ea5e9;
+            outline-offset: 2px;
+        }
+        .dark .cl-hotspot-btn {
+            border-color: #0f172a;
+        }
+        @keyframes cl-hotspot-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.5), 0 4px 14px rgba(2, 132, 199, 0.35); }
+            50% { box-shadow: 0 0 0 10px rgba(14, 165, 233, 0), 0 4px 14px rgba(2, 132, 199, 0.35); }
+        }
+        .cl-hotspot-popover {
+            position: fixed;
+            z-index: 425;
+            width: min(92vw, 360px);
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+            backdrop-filter: blur(10px);
+        }
+        .dark .cl-hotspot-popover {
+            border-color: rgba(51, 65, 85, 0.95);
+            background: rgba(15, 23, 42, 0.98);
+        }
+        .cl-hotspot-popover.hidden { display: none; }
+        .cl-hotspot-popover__close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: #64748b;
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .cl-hotspot-popover__close:hover {
+            background: rgba(148, 163, 184, 0.15);
+            color: #334155;
+        }
+        .dark .cl-hotspot-popover__close:hover { color: #e2e8f0; }
+        .cl-hotspot-popover__body {
+            padding: 16px 16px 12px;
+        }
+        .cl-hotspot-popover__hero {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding-right: 24px;
+        }
+        .cl-hotspot-popover__icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+        }
+        .cl-hotspot-popover__title {
+            font-family: var(--font-display, inherit);
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.25;
+            color: #0f172a;
+        }
+        .dark .cl-hotspot-popover__title { color: #f8fafc; }
+        .cl-hotspot-popover__lead {
+            margin-top: 0.2rem;
+            font-size: 0.84rem;
+            line-height: 1.45;
+            color: #475569;
+        }
+        .dark .cl-hotspot-popover__lead { color: #cbd5e1; }
+        .cl-hotspot-popover__list {
+            list-style: none;
+            margin: 12px 0 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .cl-hotspot-popover__list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.82rem;
+            line-height: 1.4;
+            color: #334155;
+        }
+        .dark .cl-hotspot-popover__list li { color: #e2e8f0; }
+        .cl-hotspot-popover__list li i {
+            color: #0284c7;
+            margin-top: 3px;
+            width: 12px;
+            font-size: 0.68rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .dark .cl-hotspot-popover__list li i { color: #38bdf8; }
+        .cl-hotspot-popover__footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 16px 14px;
+            border-top: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .dark .cl-hotspot-popover__footer {
+            border-top-color: rgba(51, 65, 85, 0.9);
+        }
+        .cl-hotspot-popover__walkthrough {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0284c7;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+        .cl-hotspot-popover__walkthrough:hover { text-decoration: underline; }
+        body.classify-hotspot-target-active .cl-hotspot-target-active {
+            position: relative;
+            z-index: 422 !important;
+            box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.55);
+            border-radius: 12px;
+        }
     </style>
 </head>
 <body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
@@ -2226,6 +2388,14 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
                     <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
                 </button>
+                <button type="button" class="cl-settings-item" onclick="toggleClassifyHotspots();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-lightbulb text-sky-500"></i>Help hotspots</span>
+                    <span id="cl-settings-hotspots-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">On</span>
+                </button>
+                <button type="button" class="cl-settings-item" onclick="resetClassifyHotspotsSeen();">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-rotate-left text-slate-500"></i>Reset help tips</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyOrientation({ replay: true });">
                     <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play walkthrough</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
@@ -2235,6 +2405,26 @@
             <div class="mt-4 flex justify-end">
                 <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Contextual help hotspots -->
+    <div id="classifyHotspotLayer" aria-hidden="true"></div>
+    <div id="classifyHotspotPopover" class="cl-hotspot-popover hidden" role="dialog" aria-modal="true" aria-labelledby="classifyHotspotTitle">
+        <button type="button" class="cl-hotspot-popover__close" onclick="closeClassifyHotspotPopover()" aria-label="Close tip">&times;</button>
+        <div class="cl-hotspot-popover__body">
+            <div class="cl-hotspot-popover__hero">
+                <div class="cl-hotspot-popover__icon" id="classifyHotspotIcon"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i></div>
+                <div class="min-w-0">
+                    <h3 class="cl-hotspot-popover__title" id="classifyHotspotTitle">Tip</h3>
+                    <p class="cl-hotspot-popover__lead" id="classifyHotspotLead"></p>
+                </div>
+            </div>
+            <ul class="cl-hotspot-popover__list" id="classifyHotspotList"></ul>
+        </div>
+        <div class="cl-hotspot-popover__footer">
+            <button type="button" class="cl-hotspot-popover__walkthrough hidden" id="classifyHotspotWalkthroughBtn" onclick="openWalkthroughFromHotspot()">Open full walkthrough</button>
+            <button type="button" onclick="closeClassifyHotspotPopover()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors">Got it</button>
         </div>
     </div>
 
@@ -3398,6 +3588,9 @@
             classifyBootComplete = true;
             await updateClassifySyncFingerprint();
             maybeShowClassifyOrientation();
+            if(hasCompletedClassifyOrientation()) {
+                initClassifyHotspots();
+            }
         });
 
         document.addEventListener('visibilitychange', () => {
@@ -3441,6 +3634,7 @@
 
         function openClassifySettings() {
             syncClassifySettingsDarkToggle();
+            syncClassifyHotspotsSettingsState();
             const modal = document.getElementById('classifySettingsModal');
             const panel = document.getElementById('classifySettingsPanel');
             if (!modal || !panel) return;
@@ -3576,7 +3770,8 @@
                 lead: 'You know the hard parts — time to add real assignments.',
                 bullets: [
                     'Red <strong>Undo</strong> reverses your last change if you make a mistake',
-                    'Press <kbd>Q</kbd> to create your first assignment'
+                    'Press <kbd>Q</kbd> to create your first assignment',
+                    'Blinking <strong>?</strong> hotspots explain each area whenever you\'re ready'
                 ],
                 center: true,
                 tab: 'dashboard'
@@ -4036,6 +4231,7 @@
             bindClassifyOrientationLayoutHandler();
             overlay.classList.remove('hidden');
             renderClassifyOrientationStep();
+            refreshClassifyHotspots();
         }
 
         function closeClassifyOrientation() {
@@ -4053,6 +4249,10 @@
             clearClassifyOrientationTargetHighlight();
             document.body.classList.remove('classify-orientation-active');
             unbindClassifyOrientationLayoutHandler();
+            refreshClassifyHotspots();
+            if(areClassifyHotspotsEnabled()) {
+                bindClassifyHotspotLayoutHandler();
+            }
         }
 
         function finishClassifyOrientation() {
@@ -4085,6 +4285,380 @@
         function maybeShowClassifyOrientation() {
             if(hasCompletedClassifyOrientation()) return;
             setTimeout(() => openClassifyOrientation({ replay: false }), 450);
+        }
+
+        const CLASSIFY_HOTSPOTS = [
+            {
+                id: 'nav-views',
+                target: '#cl-orient-bottom-nav',
+                position: 'top-center',
+                icon: 'fa-compass',
+                title: 'Four main views',
+                lead: 'Jump between the big areas of Classify from the footer bar.',
+                bullets: [
+                    '<strong>Dashboard</strong> — today\'s plan and weekly overview',
+                    '<strong>Tasks</strong> — search and filter every assignment',
+                    '<strong>Calendar</strong> — month, week, and day layouts',
+                    '<strong>Analytics</strong> — workload patterns and quick filters'
+                ]
+            },
+            {
+                id: 'weekly-planning',
+                target: '#cl-orient-weekly-planning',
+                tab: 'dashboard',
+                position: 'top-right',
+                icon: 'fa-calendar-week',
+                title: 'Weekly Planning Sprint',
+                lead: 'Plan the whole week once instead of reacting day by day.',
+                bullets: [
+                    '<strong>Open Weekly Queue</strong> lists unscheduled work for the week',
+                    '<strong>Auto-Plan Unscheduled</strong> drops assignments into open slots',
+                    '<strong>Auto Time-Block</strong> fills realistic work windows',
+                    'Use <strong>Review Week Grid</strong> to sanity-check the calendar'
+                ]
+            },
+            {
+                id: 'today-schedule',
+                target: '#cl-orient-today-schedule',
+                tab: 'dashboard',
+                position: 'top-right',
+                icon: 'fa-clock',
+                title: 'Today\'s Schedule',
+                lead: 'Classify builds a focused timeline for what to work on right now.',
+                bullets: [
+                    'Order reflects priority, due dates, and your block-time rules',
+                    'Press <strong>Start</strong> on an assignment when you begin (locks that slot)',
+                    'Drag items to reorder when you want manual control',
+                    'Completed work drops off automatically'
+                ],
+                walkthroughLink: true
+            },
+            {
+                id: 'quick-add',
+                target: '#cl-orient-new-assignment',
+                tab: 'dashboard',
+                position: 'top-right',
+                icon: 'fa-plus',
+                title: 'New assignments',
+                lead: 'Add homework from here or press <kbd>Q</kbd> anywhere in Classify.',
+                bullets: [
+                    '<kbd>Q</kbd> and <kbd>Ctrl+N</kbd> open the same assignment editor',
+                    'The editor has schedule modes, repeat, and dependencies — use the walkthrough for those',
+                    'Calendar and Tasks tabs also have a <strong>New</strong> button'
+                ],
+                walkthroughLink: true
+            },
+            {
+                id: 'undo',
+                target: '#btn-classify-undo',
+                position: 'bottom-right',
+                icon: 'fa-rotate-left',
+                title: 'Undo',
+                lead: 'Made a mistake? Undo reverses your last Classify change.',
+                bullets: [
+                    'Covers drags, edits, deletes, dependencies, and auto-schedule side effects',
+                    'Works across tabs — the button lives in the header',
+                    'Disabled when there is nothing left to undo'
+                ]
+            },
+            {
+                id: 'settings',
+                target: '#btn-classify-settings',
+                position: 'bottom-right',
+                icon: 'fa-gear',
+                title: 'Settings',
+                lead: 'Block times, subjects, import/export, and help live here.',
+                bullets: [
+                    '<strong>Block times</strong> — school hours, lunch, and conflicts',
+                    '<strong>Manage subjects</strong> — colors and cleanup',
+                    '<strong>Help hotspots</strong> — toggle these blinking tips on or off',
+                    '<strong>Play walkthrough</strong> — replay the guided tour anytime'
+                ]
+            },
+            {
+                id: 'task-filters',
+                target: '#cl-orient-task-toolbar',
+                tab: 'tasks',
+                position: 'top-right',
+                icon: 'fa-filter',
+                title: 'Find assignments fast',
+                lead: 'Search and slice the full task list without opening the calendar.',
+                bullets: [
+                    '<strong>Search</strong> matches titles and subjects (<kbd>Ctrl+K</kbd> focuses the box)',
+                    'Filter presets include active, this week, overdue, and weekly queue',
+                    'Sort by date, auto-schedule order, priority, or subject',
+                    '<strong>Clear Done</strong> archives completed work in bulk'
+                ]
+            },
+            {
+                id: 'calendar-views',
+                target: '#cl-orient-calendar-controls',
+                tab: 'calendar',
+                position: 'top-right',
+                icon: 'fa-calendar',
+                title: 'Calendar views',
+                lead: 'See assignments as a month grid, week columns, or single day.',
+                bullets: [
+                    '<strong>Month</strong> — bird\'s-eye due dates and workload',
+                    '<strong>Week</strong> — drag assignments between days and times',
+                    '<strong>Day</strong> — hour-by-hour detail for one date',
+                    'Click a day or use <strong>Today</strong> to jump back to the present'
+                ]
+            },
+            {
+                id: 'analytics-filters',
+                target: '#cl-orient-analytics-quick',
+                tab: 'analytics',
+                position: 'top-right',
+                icon: 'fa-chart-line',
+                title: 'Analytics quick filters',
+                lead: 'Spot workload patterns, then jump straight into a filtered task list.',
+                bullets: [
+                    'Cards summarize due today, this week, overdue, and high priority',
+                    'Tap a card to open Tasks with that filter already applied',
+                    'Use this when planning — not just when something is overdue',
+                    'Pair with Calendar week view to see where time actually goes'
+                ]
+            }
+        ];
+
+        let classifyHotspotTargetEl = null;
+        let classifyHotspotOpenId = null;
+        let classifyHotspotLayoutTimer = null;
+        let classifyHotspotLayoutBound = false;
+
+        function areClassifyHotspotsEnabled() {
+            return plannerGet('hotspotsEnabled') !== 'false';
+        }
+
+        function getClassifyHotspotsSeen() {
+            return safeJsonParse(plannerGet('hotspotsSeen'), []) || [];
+        }
+
+        function hasSeenClassifyHotspot(id) {
+            return getClassifyHotspotsSeen().includes(id);
+        }
+
+        function markClassifyHotspotSeen(id) {
+            const seen = getClassifyHotspotsSeen();
+            if(seen.includes(id)) return;
+            seen.push(id);
+            plannerSet('hotspotsSeen', JSON.stringify(seen));
+        }
+
+        function resetClassifyHotspotsSeen() {
+            plannerSet('hotspotsSeen', JSON.stringify([]));
+            closeClassifyHotspotPopover();
+            refreshClassifyHotspots();
+            showNotification('Help tips reset — blinking hotspots are back.', 'info');
+        }
+
+        function toggleClassifyHotspots() {
+            const next = !areClassifyHotspotsEnabled();
+            plannerSet('hotspotsEnabled', next ? 'true' : 'false');
+            syncClassifyHotspotsSettingsState();
+            if(!next) closeClassifyHotspotPopover();
+            refreshClassifyHotspots();
+        }
+
+        function syncClassifyHotspotsSettingsState() {
+            const el = document.getElementById('cl-settings-hotspots-state');
+            if(!el) return;
+            el.textContent = areClassifyHotspotsEnabled() ? 'On' : 'Off';
+        }
+
+        function getActiveClassifyTabId() {
+            return ['dashboard', 'tasks', 'calendar', 'analytics'].find(id => {
+                const tab = document.getElementById(id + 'Tab');
+                return tab && !tab.classList.contains('hidden');
+            }) || 'dashboard';
+        }
+
+        function getClassifyHotspotById(id) {
+            return CLASSIFY_HOTSPOTS.find(item => item.id === id) || null;
+        }
+
+        function positionClassifyHotspotButton(btn, rect, position = 'top-right') {
+            const size = 22;
+            const inset = 5;
+            let top;
+            let left;
+            switch(position) {
+                case 'top-left':
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.left - (size / 2) + inset;
+                    break;
+                case 'top-center':
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.left + (rect.width / 2) - (size / 2);
+                    break;
+                case 'bottom-left':
+                    top = rect.bottom - (size / 2) - inset;
+                    left = rect.left - (size / 2) + inset;
+                    break;
+                case 'bottom-right':
+                    top = rect.bottom - (size / 2) - inset;
+                    left = rect.right - (size / 2) - inset;
+                    break;
+                default:
+                    top = rect.top - (size / 2) + inset;
+                    left = rect.right - (size / 2) - inset;
+            }
+            top = Math.max(8, Math.min(top, window.innerHeight - size - 8));
+            left = Math.max(8, Math.min(left, window.innerWidth - size - 8));
+            btn.style.top = `${top}px`;
+            btn.style.left = `${left}px`;
+        }
+
+        function clearClassifyHotspotTargetHighlight() {
+            if(classifyHotspotTargetEl) {
+                classifyHotspotTargetEl.classList.remove('cl-hotspot-target-active');
+                classifyHotspotTargetEl = null;
+            }
+            document.body.classList.remove('classify-hotspot-target-active');
+        }
+
+        function positionClassifyHotspotPopover(highlight, preferred, tooltipEl) {
+            const margin = 16;
+            const viewportW = window.innerWidth;
+            const viewportH = window.innerHeight;
+            let tooltipRect = tooltipEl.getBoundingClientRect();
+            let tooltipW = tooltipRect.width || Math.min(viewportW * 0.92, 360);
+            let tooltipH = tooltipRect.height || 220;
+            let { tipTop, tipLeft } = positionClassifyOrientationTooltipAvoidingHighlight(
+                highlight, tooltipW, tooltipH, preferred, margin, viewportW, viewportH
+            );
+            tooltipEl.style.top = `${tipTop}px`;
+            tooltipEl.style.left = `${tipLeft}px`;
+
+            tooltipRect = tooltipEl.getBoundingClientRect();
+            tooltipW = tooltipRect.width || tooltipW;
+            tooltipH = tooltipRect.height || tooltipH;
+            ({ tipTop, tipLeft } = positionClassifyOrientationTooltipAvoidingHighlight(
+                highlight, tooltipW, tooltipH, preferred, margin, viewportW, viewportH
+            ));
+            tooltipEl.style.top = `${tipTop}px`;
+            tooltipEl.style.left = `${tipLeft}px`;
+        }
+
+        function closeClassifyHotspotPopover() {
+            const popover = document.getElementById('classifyHotspotPopover');
+            if(popover) popover.classList.add('hidden');
+            if(classifyHotspotOpenId) {
+                markClassifyHotspotSeen(classifyHotspotOpenId);
+                classifyHotspotOpenId = null;
+            }
+            clearClassifyHotspotTargetHighlight();
+            refreshClassifyHotspots();
+        }
+
+        function openWalkthroughFromHotspot() {
+            closeClassifyHotspotPopover();
+            closeClassifySettings();
+            openClassifyOrientation({ replay: true });
+        }
+
+        function openClassifyHotspot(id) {
+            const hotspot = getClassifyHotspotById(id);
+            const target = hotspot ? document.querySelector(hotspot.target) : null;
+            const popover = document.getElementById('classifyHotspotPopover');
+            if(!hotspot || !target || !popover) return;
+
+            classifyHotspotOpenId = id;
+            clearClassifyHotspotTargetHighlight();
+            classifyHotspotTargetEl = target;
+            target.classList.add('cl-hotspot-target-active');
+            document.body.classList.add('classify-hotspot-target-active');
+
+            const iconWrap = document.getElementById('classifyHotspotIcon');
+            const titleEl = document.getElementById('classifyHotspotTitle');
+            const leadEl = document.getElementById('classifyHotspotLead');
+            const listEl = document.getElementById('classifyHotspotList');
+            const walkthroughBtn = document.getElementById('classifyHotspotWalkthroughBtn');
+            if(iconWrap) iconWrap.innerHTML = `<i class="fa-solid ${hotspot.icon}" aria-hidden="true"></i>`;
+            if(titleEl) titleEl.textContent = hotspot.title;
+            if(leadEl) leadEl.innerHTML = hotspot.lead;
+            if(listEl) {
+                listEl.innerHTML = (hotspot.bullets || []).map(item => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${item}</span></li>`).join('');
+            }
+            if(walkthroughBtn) walkthroughBtn.classList.toggle('hidden', !hotspot.walkthroughLink);
+
+            popover.classList.remove('hidden');
+            refreshClassifyHotspots();
+
+            const padding = 8;
+            const rect = target.getBoundingClientRect();
+            const highlight = {
+                top: Math.max(8, rect.top - padding),
+                left: Math.max(8, rect.left - padding),
+                width: Math.min(window.innerWidth - 16, rect.width + padding * 2),
+                height: Math.min(window.innerHeight - 16, rect.height + padding * 2)
+            };
+            positionClassifyHotspotPopover(highlight, hotspot.placement || 'bottom', popover);
+            requestAnimationFrame(() => positionClassifyHotspotPopover(highlight, hotspot.placement || 'bottom', popover));
+        }
+
+        function refreshClassifyHotspots() {
+            const layer = document.getElementById('classifyHotspotLayer');
+            if(!layer) return;
+            layer.innerHTML = '';
+            layer.setAttribute('aria-hidden', 'true');
+
+            if(!areClassifyHotspotsEnabled()) return;
+            if(isClassifyOrientationOpen()) return;
+            if(classifyHotspotOpenId) return;
+
+            const activeTab = getActiveClassifyTabId();
+            CLASSIFY_HOTSPOTS.forEach(hotspot => {
+                if(hotspot.tab && hotspot.tab !== activeTab) return;
+                if(hasSeenClassifyHotspot(hotspot.id)) return;
+                const target = document.querySelector(hotspot.target);
+                if(!target) return;
+                const rect = target.getBoundingClientRect();
+                if(rect.width <= 0 || rect.height <= 0) return;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'cl-hotspot-btn';
+                btn.dataset.hotspotId = hotspot.id;
+                btn.setAttribute('aria-label', `Learn about ${hotspot.title}`);
+                btn.title = hotspot.title;
+                btn.textContent = '?';
+                btn.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openClassifyHotspot(hotspot.id);
+                });
+                positionClassifyHotspotButton(btn, rect, hotspot.position || 'top-right');
+                layer.appendChild(btn);
+            });
+
+            if(layer.childElementCount > 0) {
+                layer.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function scheduleClassifyHotspotRefresh() {
+            clearTimeout(classifyHotspotLayoutTimer);
+            classifyHotspotLayoutTimer = setTimeout(refreshClassifyHotspots, 80);
+        }
+
+        function bindClassifyHotspotLayoutHandler() {
+            if(classifyHotspotLayoutBound) return;
+            classifyHotspotLayoutBound = true;
+            window.addEventListener('resize', scheduleClassifyHotspotRefresh);
+            window.addEventListener('scroll', scheduleClassifyHotspotRefresh, true);
+            document.addEventListener('keydown', (event) => {
+                if(event.key === 'Escape' && classifyHotspotOpenId) {
+                    closeClassifyHotspotPopover();
+                }
+            });
+        }
+
+        function initClassifyHotspots() {
+            bindClassifyHotspotLayoutHandler();
+            syncClassifyHotspotsSettingsState();
+            scheduleClassifyHotspotRefresh();
         }
 
         // --- Utils & Dates ---
@@ -6023,6 +6597,7 @@
             if(updateUrl) {
                 syncClassifyUrl(tabId, tabId === 'calendar' ? calendarViewMode : 'month', replaceUrl);
             }
+            scheduleClassifyHotspotRefresh();
         }
 
         document.getElementById('btn-classify-settings').addEventListener('click', openClassifySettings);
@@ -6549,6 +7124,7 @@
             if(activeTab === 'analytics') {
                 try { renderAnalytics(); } catch (error) { console.error('renderAnalytics failed:', error); }
             }
+            scheduleClassifyHotspotRefresh();
         }
 
         function updateSubjectSuggestions() {
