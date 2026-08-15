@@ -2239,7 +2239,7 @@
         <div id="classifyOrientationTooltip" class="cl-orientation-tooltip cl-orientation-tooltip--center">
             <div class="cl-orientation-tooltip__progress">
                 <div class="cl-orientation-dots" id="classifyOrientationDots" aria-hidden="true"></div>
-                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 6</div>
+                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 7</div>
             </div>
             <div class="cl-orientation-tooltip__body">
                 <div class="cl-orientation-hero">
@@ -3467,61 +3467,68 @@
                 lead: 'Classify keeps your schoolwork organized and builds a specific schedule for when to do each assignment.',
                 bullets: [
                     'Add assignments, and Classify plans dates and times around your school-day rules',
-                    'This walkthrough covers the confusing editor options — then press <kbd>Q</kbd> to create your first assignment'
+                    'Next: exact date, target week, repeat, and dependencies — the parts people find confusing'
                 ],
                 center: true,
                 tab: 'dashboard'
             },
             {
                 icon: 'fa-calendar-day',
-                title: 'Schedule By',
-                lead: 'This dropdown changes what every other schedule field means.',
+                title: 'Exact Date mode',
+                lead: 'Use this when an assignment is due on one specific day — test, quiz, or project.',
                 bullets: [
-                    '<strong>Exact Date</strong> — test/project due on one specific day',
-                    '<strong>Target Week</strong> — due that week; Classify picks the work day',
-                    '<strong>No Date Yet</strong> — no deadline; fills empty slots when it can'
+                    'Set <strong>Schedule By</strong> to <strong>Exact Date</strong>',
+                    '<strong>Date (Event)</strong> is the day you work on it and the deadline — there is no separate due date',
+                    '<strong>Due Time</strong> is the deadline clock time on that day',
+                    '<strong>Start Time</strong> is optional; leave it blank and Classify auto-picks a time, or set it to lock a slot'
                 ],
-                target: '#inputScheduleType',
+                target: '#cl-wt-schedule-panel',
                 openAssignmentModal: true,
                 assignmentDemo: 'date',
                 placement: 'left',
                 padding: 8
             },
             {
-                icon: 'fa-clock',
-                title: 'Exact date fields',
-                lead: 'Most people get this wrong — there is no separate due date.',
-                bullets: [
-                    '<strong>Date (Event)</strong> is when you do it AND the deadline',
-                    '<strong>Due Time</strong> = deadline clock time; leave <strong>Start Time</strong> blank unless you want a fixed slot'
-                ],
-                target: '#cl-wt-exact-date-fields',
-                assignmentDemo: 'date',
-                placement: 'left'
-            },
-            {
                 icon: 'fa-calendar-week',
-                title: 'Target week mode',
-                lead: 'For homework due Friday but worked on earlier in the week.',
+                title: 'Target Week mode',
+                lead: 'Use this when something is due that week but you don\'t know which day you\'ll work on it yet.',
                 bullets: [
-                    '<strong>Target Week</strong> = which week it\'s due in',
-                    '<strong>Due Date/Time</strong> = the real deadline; Classify schedules the work day inside that week'
+                    'Set <strong>Schedule By</strong> to <strong>Target Week</strong>',
+                    '<strong>Target Week</strong> picks which week the assignment belongs to',
+                    '<strong>Due Date</strong> and <strong>Due Time</strong> are the real deadline (e.g. Friday at 11:59 PM)',
+                    'Classify chooses which day and time to work on it inside that week — you don\'t pick the work day yourself'
                 ],
-                target: '#cl-wt-week-fields',
+                target: '#cl-wt-schedule-panel',
                 assignmentDemo: 'week',
-                placement: 'left'
+                placement: 'left',
+                padding: 8
             },
             {
-                icon: 'fa-link',
-                title: 'Repeat & dependencies',
-                lead: 'Power features — easy to misconfigure.',
+                icon: 'fa-rotate',
+                title: 'Repeating assignments',
+                lead: 'Repeat spawns the next copy automatically when you complete one.',
                 bullets: [
-                    '<strong>Repeat</strong>: finishing one copy can spawn the next; weekly + Due Friday = once per week, not daily',
-                    '<strong>Must Be After/Before</strong> forces scheduling order; <strong>Different Day Than</strong> bans same-day pairing'
+                    'Choose <strong>Daily</strong>, <strong>Weekly</strong>, or <strong>Custom weekdays</strong> for the pattern',
+                    '<strong>Due Friday (end of week)</strong> on weekly repeat = one assignment due each week, not every day',
+                    'Finishing today\'s copy creates the next occurrence with the same settings'
                 ],
                 target: '#cl-wt-repeat-panel',
                 assignmentDemo: 'repeat',
                 placement: 'left'
+            },
+            {
+                icon: 'fa-link',
+                title: 'Dependencies',
+                lead: 'Link assignments when one must come before or after another.',
+                bullets: [
+                    '<strong>Must Be After</strong> — this one is scheduled later (e.g. essay after reading)',
+                    '<strong>Must Be Before</strong> — this one must finish before the linked assignment',
+                    '<strong>Different Day Than</strong> — never put both on the same calendar day',
+                    'Pick an assignment, click <strong>Add</strong>, and repeat for each link'
+                ],
+                target: '#cl-wt-deps-panel',
+                assignmentDemo: 'date',
+                placement: 'top'
             },
             {
                 icon: 'fa-rocket',
