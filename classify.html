@@ -1364,6 +1364,148 @@
                 height: 36px;
             }
         }
+
+        .cl-orientation-panel {
+            display: flex;
+            flex-direction: column;
+            max-height: min(92vh, 720px);
+            width: min(100%, 32rem);
+        }
+        .cl-orientation-progress {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+        .cl-orientation-dots {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .cl-orientation-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            transition: background 0.15s, transform 0.15s;
+        }
+        .cl-orientation-dot.active {
+            background: #dc2626;
+            transform: scale(1.15);
+        }
+        .cl-orientation-dot.done {
+            background: #f87171;
+        }
+        .dark .cl-orientation-dot { background: #475569; }
+        .dark .cl-orientation-dot.active { background: #ef4444; }
+        .dark .cl-orientation-dot.done { background: #b91c1c; }
+        .cl-orientation-step-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .dark .cl-orientation-step-label { color: #94a3b8; }
+        .cl-orientation-hero {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            margin-bottom: 1rem;
+        }
+        .cl-orientation-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+            box-shadow: 0 10px 24px rgba(220, 38, 38, 0.22);
+        }
+        .cl-orientation-title {
+            font-family: var(--font-display, inherit);
+            font-size: 1.35rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #0f172a;
+        }
+        .dark .cl-orientation-title { color: #f8fafc; }
+        .cl-orientation-lead {
+            margin-top: 0.35rem;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: #475569;
+        }
+        .dark .cl-orientation-lead { color: #cbd5e1; }
+        .cl-orientation-lead kbd,
+        .cl-orientation-list kbd {
+            display: inline-block;
+            padding: 1px 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            font-family: inherit;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+        .dark .cl-orientation-lead kbd,
+        .dark .cl-orientation-list kbd {
+            border-color: #475569;
+            background: #1e293b;
+        }
+        .cl-orientation-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .cl-orientation-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .cl-orientation-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.9rem;
+            line-height: 1.45;
+            color: #334155;
+        }
+        .dark .cl-orientation-list li { color: #e2e8f0; }
+        .cl-orientation-list li i {
+            color: #dc2626;
+            margin-top: 3px;
+            width: 14px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .dark .cl-orientation-list li i { color: #f87171; }
+        .cl-orientation-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .dark .cl-orientation-footer {
+            border-top-color: rgba(51, 65, 85, 0.9);
+        }
+        .cl-orientation-footer-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
     </style>
 </head>
 <body class="classify-app bg-slate-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 flex flex-col min-h-dvh">
@@ -2007,10 +2149,44 @@
                     <span class="cl-settings-item-label"><i class="fa-solid fa-moon text-red-500"></i>Dark mode</span>
                     <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
                 </button>
+                <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyOrientation({ replay: true });">
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play orientation</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
+                </button>
             </div>
             <p class="cl-settings-kbd-hint">Press <kbd>Q</kbd> anywhere to add a new assignment. <kbd>Ctrl+N</kbd> also works.</p>
             <div class="mt-4 flex justify-end">
                 <button onclick="closeClassifySettings()" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold transition-colors" type="button">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Classify Orientation -->
+    <div id="classifyOrientationModal" class="cl-modal-root cl-modal-root--elevated hidden" role="dialog" aria-modal="true" aria-labelledby="classifyOrientationTitle">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onclick="skipClassifyOrientation()"></div>
+        <div class="relative modal-panel cl-orientation-panel rounded-2xl p-6 scale-95 opacity-0 transition-all" id="classifyOrientationPanel">
+            <div class="cl-orientation-progress">
+                <div class="cl-orientation-dots" id="classifyOrientationDots" aria-hidden="true"></div>
+                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 8</div>
+            </div>
+            <div class="cl-orientation-hero">
+                <div class="cl-orientation-icon bg-gradient-to-br from-red-500 to-red-600" id="classifyOrientationIcon">
+                    <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+                </div>
+                <div class="min-w-0">
+                    <h3 class="cl-orientation-title" id="classifyOrientationTitle">Welcome to Classify</h3>
+                    <p class="cl-orientation-lead" id="classifyOrientationLead"></p>
+                </div>
+            </div>
+            <div class="cl-orientation-body">
+                <ul class="cl-orientation-list" id="classifyOrientationList"></ul>
+            </div>
+            <div class="cl-orientation-footer">
+                <button type="button" onclick="skipClassifyOrientation()" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" id="classifyOrientationSkipBtn">Skip tour</button>
+                <div class="cl-orientation-footer-actions">
+                    <button type="button" onclick="prevClassifyOrientationStep()" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" id="classifyOrientationBackBtn">Back</button>
+                    <button type="button" onclick="nextClassifyOrientationStep()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors" id="classifyOrientationNextBtn">Next</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3142,6 +3318,7 @@
             startAssignmentTimeRefresh();
             classifyBootComplete = true;
             await updateClassifySyncFingerprint();
+            maybeShowClassifyOrientation();
         });
 
         document.addEventListener('visibilitychange', () => {
@@ -3209,6 +3386,205 @@
         function returnToClassifySettings(closeSubModalFn) {
             if (typeof closeSubModalFn === 'function') closeSubModalFn();
             setTimeout(openClassifySettings, 210);
+        }
+
+        const CLASSIFY_ORIENTATION_STEPS = [
+            {
+                icon: 'fa-graduation-cap',
+                title: 'Welcome to Classify',
+                lead: 'Your smart assignment planner for school.',
+                bullets: [
+                    'Plan your week once, then execute day by day with less stress',
+                    'Auto-schedule finds open times around your school-day rules',
+                    'Every change can be undone with the red button in the header'
+                ]
+            },
+            {
+                icon: 'fa-compass',
+                title: 'Four main views',
+                lead: 'Use the bottom navigation bar to switch tabs anytime.',
+                bullets: [
+                    '<strong>Dashboard</strong> — today\'s schedule, stats, and weekly planning tools',
+                    '<strong>Tasks</strong> — search, filter, and manage every assignment',
+                    '<strong>Calendar</strong> — month, week, and day views of your schedule',
+                    '<strong>Analytics</strong> — workload patterns and quick filtered jumps'
+                ]
+            },
+            {
+                icon: 'fa-chart-pie',
+                title: 'Dashboard',
+                lead: 'Your home base for what matters today and this week.',
+                bullets: [
+                    'See due-today count, completion stats, and high-priority work',
+                    '<strong>Today\'s Schedule</strong> shows an optimized timeline for focus',
+                    '<strong>Weekly Planning Sprint</strong> opens the queue, auto-plan, and time-block tools',
+                    'Workload by subject and priority/overdue panels highlight what needs attention'
+                ]
+            },
+            {
+                icon: 'fa-plus',
+                title: 'Creating assignments',
+                lead: 'Press <kbd>Q</kbd> anywhere, or <kbd>Ctrl+N</kbd>, to add a new assignment.',
+                bullets: [
+                    'Set title, subject, duration, priority, difficulty, and notes',
+                    'Schedule types: <strong>exact date</strong>, <strong>due this week</strong>, or <strong>flexible</strong>',
+                    'Add due times, repeat rules, and split assignments when needed',
+                    'Tap any assignment later to edit, duplicate, or delete it'
+                ]
+            },
+            {
+                icon: 'fa-list-check',
+                title: 'Tasks tab',
+                lead: 'Your full assignment list with powerful search and filters.',
+                bullets: [
+                    'Search with <kbd>Ctrl+K</kbd>; filter active, week queue, overdue, or completed',
+                    'Sort by date, auto-schedule order, priority, or subject',
+                    'Check off assignments to complete them and log actual time when prompted',
+                    'Use <strong>Clear Done</strong> to bulk-remove finished work'
+                ]
+            },
+            {
+                icon: 'fa-calendar-days',
+                title: 'Calendar',
+                lead: 'See and rearrange your schedule visually.',
+                bullets: [
+                    'Switch <strong>Month</strong>, <strong>Week</strong>, or <strong>Day</strong> at the top',
+                    'Tap a day or the <strong>+</strong> button to add work on that date',
+                    'In week view, <strong>drag</strong> assignments to another day or time slot',
+                    'Press <strong>Start</strong> on an assignment to lock its time so auto-schedule won\'t move it'
+                ]
+            },
+            {
+                icon: 'fa-wand-magic-sparkles',
+                title: 'Scheduling tools',
+                lead: 'Classify respects your rules and fills the gaps intelligently.',
+                bullets: [
+                    'Link assignments with <strong>before</strong>, <strong>after</strong>, or <strong>different-day</strong> dependencies',
+                    '<strong>Auto-Plan</strong> and <strong>Auto Time-Block</strong> schedule unassigned work',
+                    'Settings → <strong>Block times</strong> sets school hours, lunch, vacations, and blocked periods',
+                    'The red <strong>Undo</strong> button reverses your last change, including drag moves'
+                ]
+            },
+            {
+                icon: 'fa-rocket',
+                title: 'You\'re ready!',
+                lead: 'A few last tips before you dive in.',
+                bullets: [
+                    'Open <strong>Settings</strong> (gear icon) for subjects, import/export, and dark mode',
+                    'Replay this tour anytime from Settings → <strong>Play orientation</strong>',
+                    'Use <strong>Analytics</strong> to jump into filtered task lists quickly',
+                    'Log in to sync assignments across devices — then press <kbd>Q</kbd> to add your first assignment'
+                ]
+            }
+        ];
+
+        let classifyOrientationStep = 0;
+        let classifyOrientationReplay = false;
+
+        function hasCompletedClassifyOrientation() {
+            return plannerGet('orientationCompleted') === 'true';
+        }
+
+        function markClassifyOrientationCompleted() {
+            plannerSet('orientationCompleted', 'true');
+        }
+
+        function isClassifyOrientationOpen() {
+            const modal = document.getElementById('classifyOrientationModal');
+            return Boolean(modal && !modal.classList.contains('hidden'));
+        }
+
+        function renderClassifyOrientationStep() {
+            const step = CLASSIFY_ORIENTATION_STEPS[classifyOrientationStep];
+            const total = CLASSIFY_ORIENTATION_STEPS.length;
+            if(!step) return;
+
+            const iconWrap = document.getElementById('classifyOrientationIcon');
+            const titleEl = document.getElementById('classifyOrientationTitle');
+            const leadEl = document.getElementById('classifyOrientationLead');
+            const listEl = document.getElementById('classifyOrientationList');
+            const dotsEl = document.getElementById('classifyOrientationDots');
+            const stepLabelEl = document.getElementById('classifyOrientationStepLabel');
+            const backBtn = document.getElementById('classifyOrientationBackBtn');
+            const nextBtn = document.getElementById('classifyOrientationNextBtn');
+            const skipBtn = document.getElementById('classifyOrientationSkipBtn');
+
+            if(iconWrap) {
+                iconWrap.innerHTML = `<i class="fa-solid ${step.icon}" aria-hidden="true"></i>`;
+            }
+            if(titleEl) titleEl.textContent = step.title;
+            if(leadEl) leadEl.innerHTML = step.lead;
+            if(listEl) {
+                listEl.innerHTML = (step.bullets || []).map(item => `<li><i class="fa-solid fa-check" aria-hidden="true"></i><span>${item}</span></li>`).join('');
+            }
+            if(dotsEl) {
+                dotsEl.innerHTML = CLASSIFY_ORIENTATION_STEPS.map((_, index) => {
+                    const classes = ['cl-orientation-dot'];
+                    if(index === classifyOrientationStep) classes.push('active');
+                    else if(index < classifyOrientationStep) classes.push('done');
+                    return `<span class="${classes.join(' ')}"></span>`;
+                }).join('');
+            }
+            if(stepLabelEl) stepLabelEl.textContent = `Step ${classifyOrientationStep + 1} of ${total}`;
+            if(backBtn) backBtn.disabled = classifyOrientationStep === 0;
+            if(nextBtn) nextBtn.textContent = classifyOrientationStep === total - 1 ? 'Get started' : 'Next';
+            if(skipBtn) skipBtn.textContent = classifyOrientationReplay ? 'Close' : 'Skip tour';
+        }
+
+        function openClassifyOrientation(options = {}) {
+            classifyOrientationReplay = Boolean(options.replay);
+            classifyOrientationStep = 0;
+            renderClassifyOrientationStep();
+            const modal = document.getElementById('classifyOrientationModal');
+            const panel = document.getElementById('classifyOrientationPanel');
+            if(!modal || !panel) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeClassifyOrientation() {
+            const modal = document.getElementById('classifyOrientationModal');
+            const panel = document.getElementById('classifyOrientationPanel');
+            if(!modal || !panel) return;
+            panel.classList.add('scale-95', 'opacity-0');
+            panel.classList.remove('scale-100', 'opacity-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+
+        function finishClassifyOrientation() {
+            if(!classifyOrientationReplay) {
+                markClassifyOrientationCompleted();
+            }
+            closeClassifyOrientation();
+        }
+
+        function skipClassifyOrientation() {
+            finishClassifyOrientation();
+        }
+
+        function nextClassifyOrientationStep() {
+            if(classifyOrientationStep >= CLASSIFY_ORIENTATION_STEPS.length - 1) {
+                finishClassifyOrientation();
+                return;
+            }
+            classifyOrientationStep += 1;
+            renderClassifyOrientationStep();
+        }
+
+        function prevClassifyOrientationStep() {
+            if(classifyOrientationStep <= 0) return;
+            classifyOrientationStep -= 1;
+            renderClassifyOrientationStep();
+        }
+
+        function maybeShowClassifyOrientation() {
+            if(hasCompletedClassifyOrientation()) return;
+            setTimeout(() => openClassifyOrientation({ replay: false }), 450);
         }
 
         // --- Utils & Dates ---
@@ -7602,6 +7978,21 @@
 
         // Keyboard Shortcuts
         document.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape' && isClassifyOrientationOpen()) {
+                e.preventDefault();
+                skipClassifyOrientation();
+                return;
+            }
+            if(isClassifyOrientationOpen()) {
+                if(e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    nextClassifyOrientationStep();
+                } else if(e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    prevClassifyOrientationStep();
+                }
+                return;
+            }
             if (e.key === 'q' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTypingTarget(e.target)) {
                 e.preventDefault();
                 openModal();
