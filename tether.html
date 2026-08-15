@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=40">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=41">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -833,11 +833,16 @@
     }
     .th-task-modal .th-field textarea,
     .th-task-modal .th-field .th-rich-editor { min-height: 72px; }
+    .th-task-modal .th-field .th-rich-editor.th-rich-editor--single { min-height: 0; }
     .th-rich-editor {
       width: 100%; box-sizing: border-box; min-height: 80px; resize: vertical;
       overflow-y: auto; white-space: pre-wrap; word-break: break-word;
       font: inherit; font-size: 0.88rem; line-height: 1.45; color: var(--th-ink);
       border: 1px solid var(--th-line); border-radius: 10px; padding: 9px 11px;
+    }
+    .th-rich-editor.th-rich-editor--single {
+      min-height: 0; white-space: nowrap; overflow-x: auto; overflow-y: hidden; resize: none;
+      padding: 10px 12px; line-height: 1.35;
     }
     .th-rich-editor:empty:before {
       content: attr(data-placeholder);
@@ -1203,8 +1208,10 @@
               <div class="th-field">
                 <label for="task-title-input">Task name</label>
                 <div class="th-task-quick-add-field">
-                  <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?"
-                    autocomplete="off" aria-autocomplete="list" aria-controls="task-label-autocomplete">
+                  <div id="task-title-input" class="th-rich-editor th-rich-editor--single" contenteditable="true"
+                    role="textbox" aria-label="Task name" aria-multiline="false"
+                    aria-autocomplete="list" aria-controls="task-label-autocomplete"
+                    data-placeholder="What needs to get done?"></div>
                 </div>
               </div>
               <div class="th-field th-task-due-compact">
@@ -1913,14 +1920,77 @@
     });
   }
 
+  /** Active ` @label` token at the caret in a text node (for contenteditable). */
+  function findLabelTokenBeforeCaret(field) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed || !field.contains(sel.anchorNode)) return null;
+    let node = sel.anchorNode;
+    let offset = sel.anchorOffset;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const prev = offset > 0 ? node.childNodes[offset - 1] : null;
+      const next = node.childNodes[offset] || null;
+      if (prev && prev.nodeType === Node.TEXT_NODE) {
+        node = prev;
+        offset = (prev.nodeValue || '').length;
+      } else if (next && next.nodeType === Node.TEXT_NODE) {
+        node = next;
+        offset = 0;
+      } else {
+        return null;
+      }
+    }
+    if (node.nodeType !== Node.TEXT_NODE || !field.contains(node)) return null;
+    // Don't treat @ inside a link as a label token.
+    if (node.parentElement && node.parentElement.closest('a.th-text-link')) return null;
+    const textBefore = (node.nodeValue || '').slice(0, offset);
+    if (!/(^|[\s])@([a-zA-Z0-9_-]*)$/.test(textBefore)) return null;
+    const atPos = textBefore.lastIndexOf('@');
+    if (atPos < 0) return null;
+    if (atPos > 0 && !/\s/.test(textBefore.charAt(atPos - 1))) return null;
+    if (atPos === 0) {
+      // Require whitespace before @ unless this text node is preceded by whitespace/boundary.
+      const pre = document.createRange();
+      pre.selectNodeContents(field);
+      pre.setEnd(node, 0);
+      const beforeAll = pre.toString();
+      if (beforeAll.length && !/\s$/.test(beforeAll)) return null;
+    }
+    return {
+      node,
+      atPos,
+      endPos: offset,
+      query: textBefore.slice(atPos + 1).toLowerCase(),
+    };
+  }
+
   function applyLabelAutocompleteChoice(label) {
     const input = labelAcState.input;
     const token = labelAcState.token;
-    if (!input || !token || !label) return;
-    const value = input.value;
+    if (!input || !label) return;
+    const insertion = `@${label}`;
+
+    if (input.isContentEditable) {
+      input.focus();
+      const sel = window.getSelection();
+      const live = findLabelTokenBeforeCaret(input) || token;
+      if (live && live.node && input.contains(live.node)) {
+        const range = document.createRange();
+        range.setStart(live.node, live.atPos);
+        range.setEnd(live.node, live.endPos);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      document.execCommand('insertText', false, insertion + ' ');
+      hideLabelAutocomplete();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.focus();
+      return;
+    }
+
+    if (!token || typeof token.atIndex !== 'number') return;
+    const value = input.value || '';
     const before = value.slice(0, token.atIndex);
     const after = value.slice(token.endIndex);
-    const insertion = `@${label}`;
     const next = after
       ? before + insertion + (/^\s/.test(after) ? after : ` ${after}`)
       : before + insertion + ' ';
@@ -1937,7 +2007,24 @@
       hideLabelAutocomplete();
       return;
     }
-    const token = getActiveAtLabelToken(input.value, input.selectionStart);
+
+    let token = null;
+    if (input.isContentEditable) {
+      const live = findLabelTokenBeforeCaret(input);
+      if (live) {
+        token = {
+          atIndex: live.atPos,
+          endIndex: live.endPos,
+          query: live.query,
+          node: live.node,
+          atPos: live.atPos,
+          endPos: live.endPos,
+        };
+      }
+    } else {
+      token = getActiveAtLabelToken(input.value, input.selectionStart);
+    }
+
     if (!token) {
       hideLabelAutocomplete();
       return;
@@ -2093,7 +2180,7 @@
   }
 
   async function applyQuickAddParsed(parsed) {
-    document.getElementById('task-title-input').value = parsed.title || '';
+    setFieldMarkdown('task-title-input', parsed.title || '');
     renderTaskLabelsEditor(parsed.labels || []);
     document.getElementById('task-labels-input').value = '';
     const temp = {};
@@ -4667,7 +4754,7 @@
     document.getElementById('delete-task-from-edit').style.display = taskId ? 'inline-block' : 'none';
     const tasks = noProject ? personalTasks : (activeProject?.tasks || []);
     const task = taskId ? (getTaskById(taskId) || tasks.find(t => t.id === taskId)) : null;
-    document.getElementById('task-title-input').value = task ? taskDisplayTitle(task) : '';
+    setFieldMarkdown('task-title-input', task ? taskDisplayTitle(task) : '');
     renderTaskLabelsEditor(task ? taskLabels(task) : []);
     document.getElementById('task-labels-input').value = '';
     setFieldMarkdown('task-dod-input', task ? (task.definitionOfDone || '') : '');
@@ -5449,7 +5536,7 @@
       }
       return;
     }
-    const rawTitle = document.getElementById('task-title-input').value.trim();
+    const rawTitle = getFieldMarkdown('task-title-input').trim();
     if (!rawTitle) { showBanner('Task title is required'); return; }
     const noProject = editingTaskFromProjectId == null;
     if (!noProject && !activeProject) { showBanner('Select a project first'); return; }
@@ -5618,14 +5705,21 @@
     });
   });
 
-  function wireRichEditor(el) {
+  function wireRichEditor(el, opts) {
     if (!el || el.dataset.richWired) return;
     el.dataset.richWired = '1';
+    const singleLine = !!(opts && opts.singleLine);
     el.addEventListener('paste', (e) => {
       e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      let text = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+      if (singleLine) text = text.replace(/\s+/g, ' ').trim();
       document.execCommand('insertText', false, text);
     });
+    if (singleLine) {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.preventDefault();
+      });
+    }
     el.addEventListener('blur', () => {
       refreshRichEditorFromMarkdown(el);
     });
@@ -5633,7 +5727,6 @@
       const a = e.target.closest('a.th-text-link');
       if (!a || !el.contains(a)) return;
       if (window.getSelection && String(window.getSelection())) {
-        // Allow selecting link text without navigating.
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed && el.contains(sel.anchorNode)) return;
       }
@@ -5644,6 +5737,7 @@
   }
   wireRichEditor(document.getElementById('task-notes-input'));
   wireRichEditor(document.getElementById('task-dod-input'));
+  wireRichEditor(document.getElementById('task-title-input'), { singleLine: true });
 
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
