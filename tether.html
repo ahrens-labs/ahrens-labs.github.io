@@ -4877,31 +4877,50 @@
       ? anchorEl
       : null;
 
-    // Collapsed caret inside a link counts as editing that link only when the
-    // selection isn't at the very end (where users usually mean "after the link").
-    let editAnchor = null;
-    if (sharedAnchor) {
-      const atEnd = range.collapsed
-        && range.startContainer
-        && sharedAnchor.contains(range.startContainer)
-        && (() => {
-          const last = sharedAnchor.lastChild;
-          if (!last) return true;
-          if (range.startContainer === sharedAnchor) {
-            return range.startOffset >= sharedAnchor.childNodes.length;
+    const caretAtEndOfAnchor = !!(sharedAnchor && range.collapsed && (() => {
+      const last = sharedAnchor.lastChild;
+      if (!last) return true;
+      if (range.startContainer === sharedAnchor) {
+        return range.startOffset >= sharedAnchor.childNodes.length;
+      }
+      if (range.startContainer.nodeType === Node.TEXT_NODE && sharedAnchor.contains(range.startContainer)) {
+        // At end of this text node and no non-empty text after it inside the anchor.
+        if (range.startOffset < (range.startContainer.nodeValue || '').length) return false;
+        let n = range.startContainer;
+        while (n && n !== sharedAnchor) {
+          let sib = n.nextSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE && (sib.nodeValue || '').length) return false;
+            if (sib.nodeType === Node.ELEMENT_NODE && (sib.textContent || '').length) return false;
+            sib = sib.nextSibling;
           }
-          if (range.startContainer === last && last.nodeType === Node.TEXT_NODE) {
-            return range.startOffset >= (last.nodeValue || '').length;
-          }
-          return false;
-        })();
-      if (!range.collapsed || !atEnd) editAnchor = sharedAnchor;
-    }
+          n = n.parentNode;
+        }
+        return true;
+      }
+      return false;
+    })());
+
+    // Collapsed caret at the end of a link means "insert after", not "edit link".
+    const editAnchor = sharedAnchor && (!range.collapsed || !caretAtEndOfAnchor) ? sharedAnchor : null;
 
     const selectedText = editAnchor ? (editAnchor.textContent || '') : sel.toString();
     const selectedUrl = editAnchor ? (editAnchor.getAttribute('href') || '') : '';
     const startMarker = document.createTextNode(LINK_MARK_START);
     const endMarker = document.createTextNode(LINK_MARK_END);
+
+    function placeCollapsedMarkersAfter(node) {
+      if (node.nextSibling) node.parentNode.insertBefore(startMarker, node.nextSibling);
+      else node.parentNode.appendChild(startMarker);
+      if (startMarker.nextSibling) startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
+      else startMarker.parentNode.appendChild(endMarker);
+    }
+
+    function placeCollapsedMarkersAtRange() {
+      range.insertNode(startMarker);
+      if (startMarker.nextSibling) startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
+      else startMarker.parentNode.appendChild(endMarker);
+    }
 
     try {
       if (editAnchor) {
@@ -4911,13 +4930,10 @@
         } else {
           editAnchor.parentNode.appendChild(endMarker);
         }
+      } else if (range.collapsed && sharedAnchor && caretAtEndOfAnchor) {
+        placeCollapsedMarkersAfter(sharedAnchor);
       } else if (range.collapsed) {
-        range.insertNode(startMarker);
-        if (startMarker.nextSibling) {
-          startMarker.parentNode.insertBefore(endMarker, startMarker.nextSibling);
-        } else {
-          startMarker.parentNode.appendChild(endMarker);
-        }
+        placeCollapsedMarkersAtRange();
       } else {
         const sc = range.startContainer;
         const so = range.startOffset;
