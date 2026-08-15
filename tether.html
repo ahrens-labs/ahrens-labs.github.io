@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=38">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=39">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -820,16 +820,39 @@
     }
     .th-task-modal .th-field input,
     .th-task-modal .th-field textarea,
+    .th-task-modal .th-field .th-rich-editor,
     .th-task-modal .th-field select {
       border: 1px solid #dbeafe; background: #fff; border-radius: 12px;
       padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s;
     }
     .th-task-modal .th-field input:focus,
-    .th-task-modal .th-field textarea:focus {
+    .th-task-modal .th-field textarea:focus,
+    .th-task-modal .th-field .th-rich-editor:focus {
       outline: none; border-color: #60a5fa;
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
     }
-    .th-task-modal .th-field textarea { min-height: 72px; }
+    .th-task-modal .th-field textarea,
+    .th-task-modal .th-field .th-rich-editor { min-height: 72px; }
+    .th-rich-editor {
+      width: 100%; box-sizing: border-box; min-height: 80px; resize: vertical;
+      overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+      font: inherit; font-size: 0.88rem; line-height: 1.45; color: var(--th-ink);
+      border: 1px solid var(--th-line); border-radius: 10px; padding: 9px 11px;
+    }
+    .th-rich-editor:empty:before {
+      content: attr(data-placeholder);
+      color: #94a3b8; pointer-events: none;
+    }
+    .th-rich-editor a.th-text-link {
+      color: var(--th-accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-decoration-color: #93c5fd;
+      cursor: pointer;
+    }
+    .th-rich-editor a.th-text-link:hover {
+      color: #1d4ed8; text-decoration-color: var(--th-accent);
+    }
     .th-chip-check-group {
       display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto;
     }
@@ -1283,11 +1306,15 @@
               </div>
               <div class="th-field">
                 <label for="task-dod-input">Definition of Done</label>
-                <textarea id="task-dod-input" placeholder="How will you know this step is finished?"></textarea>
+                <div id="task-dod-input" class="th-rich-editor" contenteditable="true" role="textbox"
+                  aria-multiline="true" aria-label="Definition of Done"
+                  data-placeholder="How will you know this step is finished?"></div>
               </div>
               <div class="th-field">
                 <label for="task-notes-input">Description / Notes</label>
-                <textarea id="task-notes-input" placeholder="Extra context, links, or details… (⌘/Ctrl+K to add a link)"></textarea>
+                <div id="task-notes-input" class="th-rich-editor" contenteditable="true" role="textbox"
+                  aria-multiline="true" aria-label="Description / Notes"
+                  data-placeholder="Extra context, links, or details… (⌘/Ctrl+K to add a link)"></div>
               </div>
             </section>
           </div>
@@ -3366,7 +3393,16 @@
       insertLinkRange = null;
       requestAnimationFrame(() => {
         field.focus();
-        if (range) field.setSelectionRange(range.start, range.end);
+        if (!range) return;
+        if (field.isContentEditable && range.domRange) {
+          try {
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range.domRange);
+          } catch { /* ignore */ }
+        } else if (typeof range.start === 'number' && field.setSelectionRange) {
+          field.setSelectionRange(range.start, range.end);
+        }
       });
     }
   }
@@ -4637,8 +4673,8 @@
     document.getElementById('task-title-input').value = task ? taskDisplayTitle(task) : '';
     renderTaskLabelsEditor(task ? taskLabels(task) : []);
     document.getElementById('task-labels-input').value = '';
-    document.getElementById('task-dod-input').value = task ? (task.definitionOfDone || '') : '';
-    document.getElementById('task-notes-input').value = task ? (task.notes || '') : '';
+    setFieldMarkdown('task-dod-input', task ? (task.definitionOfDone || '') : '');
+    setFieldMarkdown('task-notes-input', task ? (task.notes || '') : '');
     document.getElementById('task-due-input').value = task ? (task.dueDate || '') : '';
     setTaskStatus(task ? (task.status || 'todo') : 'todo');
     populateRecurrenceFormFromTask(task);
@@ -4761,7 +4797,7 @@
   ]);
 
   let insertLinkTarget = null;
-  let insertLinkRange = null;
+  let insertLinkRange = null; // {start,end} for inputs, or {domRange} for contenteditable
 
   function findMarkdownLinkAround(value, start, end) {
     const text = String(value || '');
@@ -4777,28 +4813,124 @@
     return null;
   }
 
+  function editorHtmlToMarkdown(root) {
+    function walk(node) {
+      if (!node) return '';
+      if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+      const tag = node.tagName;
+      if (tag === 'A') {
+        const href = normalizeLinkUrl(node.getAttribute('href') || '') || String(node.getAttribute('href') || '').trim();
+        const label = Array.from(node.childNodes).map(walk).join('').replace(/[\[\]]/g, '');
+        if (!href) return label;
+        return `[${label || href}](${href})`;
+      }
+      if (tag === 'BR') return '\n';
+      if (tag === 'DIV' || tag === 'P' || tag === 'LI') {
+        const inner = Array.from(node.childNodes).map(walk).join('');
+        return `${inner}\n`;
+      }
+      return Array.from(node.childNodes).map(walk).join('');
+    }
+    return walk(root).replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
+  }
+
+  function setRichEditorMarkdown(el, text) {
+    if (!el) return;
+    const raw = String(text || '');
+    if (!raw.trim()) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = formatRichText(raw, { breaks: true, autolink: true, wrap: false });
+  }
+
+  function getRichEditorMarkdown(el) {
+    if (!el) return '';
+    return editorHtmlToMarkdown(el).trim();
+  }
+
+  function setFieldMarkdown(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.isContentEditable) setRichEditorMarkdown(el, text || '');
+    else el.value = text || '';
+  }
+
+  function getFieldMarkdown(id) {
+    const el = document.getElementById(id);
+    if (!el) return '';
+    if (el.isContentEditable) return getRichEditorMarkdown(el);
+    return String(el.value || '').trim();
+  }
+
+  function refreshRichEditorFromMarkdown(el) {
+    if (!el || !el.isContentEditable) return;
+    const md = getRichEditorMarkdown(el);
+    setRichEditorMarkdown(el, md);
+  }
+
   function openInsertLinkModal(field) {
     if (!field || !LINKABLE_FIELD_IDS.has(field.id)) return;
     insertLinkTarget = field;
-    const start = field.selectionStart ?? 0;
-    const end = field.selectionEnd ?? start;
-    insertLinkRange = { start, end };
-    const value = field.value || '';
-    const existing = findMarkdownLinkAround(value, start, end);
-    const selected = value.slice(start, end);
     const textInput = document.getElementById('insert-link-text');
     const urlInput = document.getElementById('insert-link-url');
-    if (existing) {
-      insertLinkRange = { start: existing.from, end: existing.to };
-      textInput.value = existing.label;
-      urlInput.value = existing.url;
-    } else if (selected && looksLikeUrl(selected) && !/\s/.test(selected.trim())) {
-      textInput.value = '';
-      urlInput.value = selected.trim();
+
+    if (field.isContentEditable) {
+      const sel = window.getSelection();
+      let selected = '';
+      let domRange = null;
+      if (sel && sel.rangeCount && field.contains(sel.anchorNode)) {
+        domRange = sel.getRangeAt(0).cloneRange();
+        selected = sel.toString();
+        const anchor = (sel.anchorNode.nodeType === Node.ELEMENT_NODE
+          ? sel.anchorNode
+          : sel.anchorNode.parentElement)?.closest?.('a.th-text-link');
+        if (anchor && field.contains(anchor)) {
+          const r = document.createRange();
+          r.selectNode(anchor);
+          domRange = r;
+          selected = anchor.textContent || '';
+          textInput.value = selected;
+          urlInput.value = anchor.getAttribute('href') || '';
+          insertLinkRange = { domRange };
+          openModal('modal-insert-link');
+          requestAnimationFrame(() => { urlInput.focus(); urlInput.select(); });
+          return;
+        }
+      } else {
+        domRange = document.createRange();
+        domRange.selectNodeContents(field);
+        domRange.collapse(false);
+      }
+      insertLinkRange = { domRange };
+      if (selected && looksLikeUrl(selected) && !/\s/.test(selected.trim())) {
+        textInput.value = '';
+        urlInput.value = selected.trim();
+      } else {
+        textInput.value = selected;
+        urlInput.value = '';
+      }
     } else {
-      textInput.value = selected;
-      urlInput.value = '';
+      const start = field.selectionStart ?? 0;
+      const end = field.selectionEnd ?? start;
+      insertLinkRange = { start, end };
+      const value = field.value || '';
+      const existing = findMarkdownLinkAround(value, start, end);
+      const selected = value.slice(start, end);
+      if (existing) {
+        insertLinkRange = { start: existing.from, end: existing.to };
+        textInput.value = existing.label;
+        urlInput.value = existing.url;
+      } else if (selected && looksLikeUrl(selected) && !/\s/.test(selected.trim())) {
+        textInput.value = '';
+        urlInput.value = selected.trim();
+      } else {
+        textInput.value = selected;
+        urlInput.value = '';
+      }
     }
+
     openModal('modal-insert-link');
     requestAnimationFrame(() => {
       const focusEl = textInput.value && !urlInput.value ? urlInput : (urlInput.value && !textInput.value ? textInput : urlInput);
@@ -4823,6 +4955,46 @@
       return;
     }
     const display = label || href.replace(/^https?:\/\//i, '');
+
+    if (field.isContentEditable) {
+      field.focus();
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      const domRange = range.domRange;
+      if (domRange) {
+        try { sel.addRange(domRange); } catch { /* range may be stale */ }
+      }
+      const active = sel.rangeCount ? sel.getRangeAt(0) : null;
+      if (active) {
+        active.deleteContents();
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'th-text-link';
+        a.textContent = display;
+        active.insertNode(a);
+        const after = document.createRange();
+        after.setStartAfter(a);
+        after.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(after);
+      } else {
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'th-text-link';
+        a.textContent = display;
+        field.appendChild(a);
+      }
+      closeModal('modal-insert-link');
+      insertLinkTarget = null;
+      insertLinkRange = null;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
+
     const snippet = `[${display}](${href})`;
     const value = field.value || '';
     field.value = value.slice(0, range.start) + snippet + value.slice(range.end);
@@ -5183,8 +5355,8 @@
     const task = {
       id: editingTaskId || crypto.randomUUID(),
       title,
-      definitionOfDone: document.getElementById('task-dod-input').value.trim(),
-      notes: document.getElementById('task-notes-input').value.trim(),
+      definitionOfDone: getFieldMarkdown('task-dod-input'),
+      notes: getFieldMarkdown('task-notes-input'),
       dueDate: document.getElementById('task-due-input').value,
       status: document.getElementById('task-status-input').value,
       assigneeUserIds: noProject ? [] : [...document.querySelectorAll('#task-assignees input:checked')].map(el => el.value),
@@ -5340,6 +5512,33 @@
       }
     });
   });
+
+  function wireRichEditor(el) {
+    if (!el || el.dataset.richWired) return;
+    el.dataset.richWired = '1';
+    el.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    });
+    el.addEventListener('blur', () => {
+      refreshRichEditorFromMarkdown(el);
+    });
+    el.addEventListener('click', (e) => {
+      const a = e.target.closest('a.th-text-link');
+      if (!a || !el.contains(a)) return;
+      if (window.getSelection && String(window.getSelection())) {
+        // Allow selecting link text without navigating.
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && el.contains(sel.anchorNode)) return;
+      }
+      e.preventDefault();
+      const href = a.getAttribute('href');
+      if (href) window.open(href, '_blank', 'noopener,noreferrer');
+    });
+  }
+  wireRichEditor(document.getElementById('task-notes-input'));
+  wireRichEditor(document.getElementById('task-dod-input'));
 
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
