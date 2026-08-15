@@ -2881,7 +2881,10 @@
     writeLocalCache();
     syncActiveIntoLibraryCache();
     pruneSavedFilterToMenus();
-    if (activeMenuId && !savedFilterMenuIds.size) savedFilterMenuIds.add(activeMenuId);
+    if (activeMenuId) {
+      savedFilterMenuIds.add(activeMenuId);
+      saveSavedFilterPrefs();
+    }
     updateHeaderMenuName();
     applyViewOnlyUi();
     renderAll();
@@ -3882,6 +3885,10 @@
       const list = await api('/api/platter/menus');
       if (Array.isArray(list.menus)) menus = list.menus;
       activeMenuId = result.activeMenuId || menuId;
+      if (activeMenuId) {
+        savedFilterMenuIds.add(activeMenuId);
+        saveSavedFilterPrefs();
+      }
       renderAll();
       setSyncStatus('Menu loaded', 'ok');
     } catch (err) {
