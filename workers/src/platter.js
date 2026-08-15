@@ -310,6 +310,7 @@ function normalizeSaved(raw) {
       id,
       ...fields,
       ready: !!item.ready,
+      thisWeek: !!item.thisWeek,
       favorite: !!item.favorite,
       order: Number.isFinite(orderNum) ? Math.round(orderNum) : out.length,
     });

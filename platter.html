@@ -1321,6 +1321,13 @@
       background: #dcfce7;
     }
 
+    .pl-saved-item-actions button[data-act='thisweek'].is-on {
+      background: #86efac;
+      color: #14532d;
+      box-shadow: inset 0 0 0 1px #4ade80;
+      font-weight: 800;
+    }
+
     .pl-saved-item-main {
       flex: 1;
       min-width: 0;
@@ -3046,17 +3053,7 @@
     const payload = mealPayloadFromLibrary(meal);
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
-    if (meal && meal.ready) {
-      meal.ready = false;
-      if (placeModeMenuId === activeMenuId) {
-        persist();
-      } else {
-        queueMenuSavedSync(placeModeMenuId);
-        persist();
-      }
-    } else {
-      persist();
-    }
+    persist();
     placeModeSavedId = null;
     placeModeMenuId = null;
     updatePlaceBanner();
@@ -3066,10 +3063,10 @@
     return true;
   }
 
-  function consumeReadyMeal(id) {
+  function consumeThisWeekMeal(id) {
     const meal = data.saved.find((s) => s.id === id);
-    if (!meal || !meal.ready) return false;
-    meal.ready = false;
+    if (!meal || !meal.thisWeek) return false;
+    meal.thisWeek = false;
     return true;
   }
 
@@ -3096,8 +3093,8 @@
     };
   }
 
-  function mealPayloadFromReady(meal) {
-    return mealPayloadFromLibrary(meal, { fromReady: true });
+  function mealPayloadFromTray(meal) {
+    return mealPayloadFromLibrary(meal);
   }
 
   function toggleSlotReady(slotKeyValue) {
@@ -3113,6 +3110,7 @@
     if (!Array.isArray(data.saved)) data.saved = [];
     data.saved.forEach((meal, i) => {
       meal.ready = !!meal.ready;
+      meal.thisWeek = !!meal.thisWeek;
       meal.favorite = !!meal.favorite;
       const orderNum = Number(meal.order);
       if (!Number.isFinite(orderNum)) meal.order = i;
@@ -3151,6 +3149,7 @@
     if (!meal) return;
     list.forEach((m, i) => {
       m.ready = !!m.ready;
+      m.thisWeek = !!m.thisWeek;
       m.favorite = !!m.favorite;
       const orderNum = Number(m.order);
       if (!Number.isFinite(orderNum)) m.order = i;
@@ -3170,8 +3169,8 @@
     if (sourceMenuId === activeMenuId) renderReadyTray();
   }
 
-  function readyMeals() {
-    return sortedSaved().filter((m) => !!m.ready);
+  function thisWeekMeals() {
+    return sortedSaved().filter((m) => !!m.thisWeek);
   }
 
   function setMealReady(id, ready, menuId) {
@@ -3182,10 +3181,7 @@
     meal.ready = !!ready;
     queueMenuSavedSync(sourceMenuId);
     renderSaved();
-    if (sourceMenuId === activeMenuId) {
-      renderReadyTray();
-      if (sheetState) fillSavedPick(savedPick.value);
-    }
+    if (sourceMenuId === activeMenuId && sheetState) fillSavedPick(savedPick.value);
   }
 
   function toggleMealReady(id, menuId) {
@@ -3195,34 +3191,56 @@
     setMealReady(id, !meal.ready, sourceMenuId);
   }
 
+  function setMealThisWeek(id, on, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    if (!menuCanEditLibrary(sourceMenuId)) return;
+    const meal = findLibraryMeal(sourceMenuId, id);
+    if (!meal) return;
+    meal.thisWeek = !!on;
+    queueMenuSavedSync(sourceMenuId);
+    renderSaved();
+    if (sourceMenuId === activeMenuId) {
+      renderReadyTray();
+      if (sheetState) fillSavedPick(savedPick.value);
+    }
+  }
+
+  function sendSavedMealToThisWeek(savedId, menuId) {
+    const sourceMenuId = menuId || activeMenuId;
+    if (!menuCanEditLibrary(sourceMenuId)) return;
+    setMealThisWeek(savedId, true, sourceMenuId);
+    setTab('week');
+    requestAnimationFrame(() => focusThisWeekPanel());
+  }
+
   function renderReadyTray() {
     if (!readyTrayList) return;
-    const ready = readyMeals();
-    if (readyTray) readyTray.classList.toggle('is-empty', !ready.length);
+    const meals = thisWeekMeals();
+    if (readyTray) readyTray.classList.toggle('is-empty', !meals.length);
     if (readyEmptyHint) {
-      readyEmptyHint.hidden = !!ready.length;
-      readyEmptyHint.textContent = ready.length
+      readyEmptyHint.hidden = !!meals.length;
+      readyEmptyHint.textContent = meals.length
         ? ''
         : 'Drag meals here from Saved or from the week plan — then drag them onto a day.';
     }
-    if (!ready.length) {
+    if (!meals.length) {
       readyTrayList.replaceChildren();
       return;
     }
     const frag = document.createDocumentFragment();
-    ready.forEach((meal) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'pl-ready-chip';
-        chip.dataset.readyId = meal.id;
-        chip.setAttribute('aria-label', meal.name + '. Drag onto a day slot.');
-        chip.innerHTML = '<strong></strong>' + (meal.cookMinutes != null ? '<span></span>' : '');
-        chip.querySelector('strong').textContent = meal.name;
-        const meta = chip.querySelector('span');
-        if (meta) meta.textContent = formatMinutes(meal.cookMinutes);
-        chip.addEventListener('pointerdown', onReadyPointerDown);
-        frag.appendChild(chip);
-      });
+    meals.forEach((meal) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'pl-ready-chip';
+      chip.dataset.readyId = meal.id;
+      chip.setAttribute('aria-label', meal.name + '. Drag onto a day slot.');
+      chip.innerHTML = '<strong></strong>' + (meal.cookMinutes != null ? '<span></span>' : '');
+      chip.querySelector('strong').textContent = meal.name;
+      const meta = chip.querySelector('span');
+      if (meta) meta.textContent = formatMinutes(meal.cookMinutes);
+      chip.addEventListener('pointerdown', onReadyPointerDown);
+      frag.appendChild(chip);
+    });
     readyTrayList.replaceChildren(frag);
   }
 
@@ -3236,7 +3254,7 @@
         cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
       },
       existingId || null,
-      { ready: true, menuId: options.menuId || activeMenuId }
+      { thisWeek: true, menuId: options.menuId || activeMenuId }
     );
     queueMenuSavedSync(options.menuId || activeMenuId);
     renderReadyTray();
@@ -3258,14 +3276,6 @@
       renderWeek();
     }
     return !!savedId;
-  }
-
-  function sendSavedMealToThisWeek(savedId, menuId) {
-    const sourceMenuId = menuId || activeMenuId;
-    if (!menuCanEditLibrary(sourceMenuId)) return;
-    setMealReady(savedId, true, sourceMenuId);
-    setTab('week');
-    requestAnimationFrame(() => focusThisWeekPanel());
   }
 
   function syncSlotsFromSaved(savedId) {
@@ -4080,16 +4090,29 @@
         readyBtn.setAttribute(
           'aria-label',
           meal.ready
-            ? 'Remove ' + meal.name + ' from This week tray'
+            ? 'Mark ' + meal.name + ' as not ready'
             : 'Mark ' + meal.name + ' as ready to cook'
         );
         readyBtn.addEventListener('click', () => toggleMealReady(meal.id, entry.menuId));
       }
       const thisWeekBtn = row.querySelector('[data-act="thisweek"]');
       if (thisWeekBtn) {
-        thisWeekBtn.addEventListener('click', () =>
-          sendSavedMealToThisWeek(meal.id, entry.menuId)
+        thisWeekBtn.textContent = meal.thisWeek ? 'This week ✓' : 'This week';
+        thisWeekBtn.classList.toggle('is-on', !!meal.thisWeek);
+        thisWeekBtn.setAttribute('aria-pressed', meal.thisWeek ? 'true' : 'false');
+        thisWeekBtn.setAttribute(
+          'aria-label',
+          meal.thisWeek
+            ? 'Remove ' + meal.name + ' from This week tray'
+            : 'Add ' + meal.name + ' to This week tray'
         );
+        thisWeekBtn.addEventListener('click', () => {
+          if (meal.thisWeek) {
+            setMealThisWeek(meal.id, false, entry.menuId);
+          } else {
+            sendSavedMealToThisWeek(meal.id, entry.menuId);
+          }
+        });
       }
       const placeBtn = row.querySelector('[data-act="place"]');
       if (placeBtn) {
@@ -4561,6 +4584,7 @@
       if (found) {
         Object.assign(found, payload);
         if (options.ready !== undefined) found.ready = !!options.ready;
+        if (options.thisWeek !== undefined) found.thisWeek = !!options.thisWeek;
         if (options.favorite !== undefined) found.favorite = !!options.favorite;
         setLibrarySaved(sourceMenuId, list);
         return found.id;
@@ -4569,6 +4593,7 @@
     const match = list.find((s) => mealsEqualForLibrary(s, payload));
     if (match) {
       if (options.ready !== undefined) match.ready = !!options.ready;
+      if (options.thisWeek !== undefined) match.thisWeek = !!options.thisWeek;
       if (options.favorite !== undefined) match.favorite = !!options.favorite;
       setLibrarySaved(sourceMenuId, list);
       return match.id;
@@ -4579,6 +4604,7 @@
       id,
       ...payload,
       ready: options.ready !== undefined ? !!options.ready : false,
+      thisWeek: options.thisWeek !== undefined ? !!options.thisWeek : false,
       favorite: options.favorite !== undefined ? !!options.favorite : false,
       order: maxOrder + 1,
     });
@@ -4888,10 +4914,10 @@
     } else if (toKey) {
       if (source === 'ready' && readyId) {
         const meal = data.saved.find((s) => s.id === readyId);
-        const payload = mealPayloadFromReady(meal);
+        const payload = mealPayloadFromTray(meal);
         if (payload) {
           data.slots[toKey] = payload;
-          consumeReadyMeal(readyId);
+          consumeThisWeekMeal(readyId);
           persist();
           renderWeek();
           renderReadyTray();
