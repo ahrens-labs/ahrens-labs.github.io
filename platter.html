@@ -2859,7 +2859,7 @@
     writeLocalCache();
     syncActiveIntoLibraryCache();
     pruneSavedFilterToMenus();
-    if (activeMenuId) {
+    if (activeMenuId && !savedFilterMenuIds.size) {
       savedFilterMenuIds.add(activeMenuId);
       saveSavedFilterPrefs();
     }
@@ -3864,7 +3864,7 @@
       if (Array.isArray(list.menus)) menus = list.menus;
       activeMenuId = result.activeMenuId || menuId;
       if (activeMenuId) {
-        savedFilterMenuIds.add(activeMenuId);
+        savedFilterMenuIds = new Set([activeMenuId]);
         saveSavedFilterPrefs();
       }
       renderAll();
