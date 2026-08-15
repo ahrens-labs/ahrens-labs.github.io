@@ -1566,8 +1566,27 @@
         body.classify-walkthrough-assignment #taskModal.cl-modal-root {
             z-index: 490;
         }
-        body.classify-walkthrough-assignment .cl-orientation-overlay {
+        body.classify-walkthrough-block-times #blockedTimesModal.cl-modal-root {
+            z-index: 490;
+        }
+        body.classify-walkthrough-assignment .cl-orientation-overlay,
+        body.classify-walkthrough-block-times .cl-orientation-overlay {
             z-index: 500;
+        }
+        #cl-wt-start-demo {
+            margin: 0 0 12px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+        .dark #cl-wt-start-demo {
+            border-color: rgba(51, 65, 85, 0.9);
+            background: rgba(15, 23, 42, 0.95);
+        }
+        #cl-wt-start-demo .cl-start-btn {
+            pointer-events: none;
         }
         body.classify-orientation-active {
             overflow: hidden;
@@ -1845,6 +1864,15 @@
                     </div>
 
                     <div id="weekCalendarView" class="hidden cl-calendar-view-panel cl-orient-week-calendar">
+                        <div id="cl-wt-start-demo" class="hidden">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-100">History Essay</div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400">Wed · 30m · Adjustable</div>
+                                </div>
+                                <button type="button" class="cl-start-btn cl-start-btn--compact" tabindex="-1" aria-hidden="true">Start</button>
+                            </div>
+                        </div>
                         <div id="weekCalendarGrid" class="cl-week-grid"></div>
                     </div>
 
@@ -2239,7 +2267,7 @@
         <div id="classifyOrientationTooltip" class="cl-orientation-tooltip cl-orientation-tooltip--center">
             <div class="cl-orientation-tooltip__progress">
                 <div class="cl-orientation-dots" id="classifyOrientationDots" aria-hidden="true"></div>
-                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 7</div>
+                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 8</div>
             </div>
             <div class="cl-orientation-tooltip__body">
                 <div class="cl-orientation-hero">
@@ -2290,7 +2318,7 @@
                 <button type="button" class="cl-modal-header-close" onclick="closeBlockedTimesModal()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">Set daily schedule defaults, date overrides, and blocked times.</p>
-                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
+                <div id="cl-wt-block-times-defaults" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 p-4 mb-4 bg-slate-50/80 dark:bg-slate-800/40">
                     <div class="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Default Schedule</div>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">Set your typical day range and lunch break.</p>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -3467,7 +3495,7 @@
                 lead: 'Classify keeps your schoolwork organized and builds a specific schedule for when to do each assignment.',
                 bullets: [
                     'Add assignments, and Classify plans dates and times around your school-day rules',
-                    'Next: exact date, target week, repeat, and dependencies — the parts people find confusing'
+                    'Next: schedule modes, repeat, dependencies, Start, and block times'
                 ],
                 center: true,
                 tab: 'dashboard'
@@ -3531,15 +3559,46 @@
                 placement: 'top'
             },
             {
+                icon: 'fa-play',
+                title: 'Starting an assignment',
+                lead: 'Press <strong>Start</strong> when you\'re ready to work — Classify locks that time in place.',
+                bullets: [
+                    'Appears on assignments in <strong>Today\'s Schedule</strong> and the calendar week view',
+                    'Sets a fixed start time for today; auto-schedule won\'t move it afterward',
+                    '<strong>Unstart</strong> unlocks only the time — your dates stay the same',
+                    'Not the same as <strong>Start Time</strong> in the editor (that\'s for planning ahead)'
+                ],
+                target: '#cl-wt-start-demo',
+                tab: 'calendar',
+                calendarMode: 'week',
+                showStartDemo: true,
+                placement: 'right',
+                padding: 8
+            },
+            {
+                icon: 'fa-ban',
+                title: 'Block times',
+                lead: 'Tell Classify when school runs so auto-schedule only uses realistic slots.',
+                bullets: [
+                    '<strong>Default Schedule</strong> — daily start, end, and lunch',
+                    '<strong>Blocked Time</strong> — practices, appointments, or recurring conflicts',
+                    '<strong>Date Override</strong> and <strong>Vacation</strong> for early dismissals or days off',
+                    'Open anytime from Settings → Block times'
+                ],
+                target: '#cl-wt-block-times-defaults',
+                openBlockTimesModal: true,
+                placement: 'left',
+                padding: 8
+            },
+            {
                 icon: 'fa-rocket',
                 title: 'You\'re set',
-                lead: 'Three more things people miss outside the editor.',
+                lead: 'You know the hard parts — time to add real assignments.',
                 bullets: [
-                    '<strong>Start</strong> on the calendar locks a time; red <strong>Undo</strong> reverses mistakes',
-                    'Settings → <strong>Block times</strong> sets school hours; press <kbd>Q</kbd> to add your first assignment'
+                    'Red <strong>Undo</strong> reverses your last change if you make a mistake',
+                    'Press <kbd>Q</kbd> to create your first assignment'
                 ],
                 center: true,
-                closeAssignmentModal: true,
                 tab: 'dashboard'
             }
         ];
@@ -3549,6 +3608,30 @@
         let classifyOrientationTargetEl = null;
         let classifyOrientationLayoutHandler = null;
         let classifyWalkthroughOpenedModal = false;
+        let classifyWalkthroughOpenedBlockTimes = false;
+
+        function showWalkthroughStartDemo() {
+            const demo = document.getElementById('cl-wt-start-demo');
+            if(demo) demo.classList.remove('hidden');
+        }
+
+        function hideWalkthroughStartDemo() {
+            const demo = document.getElementById('cl-wt-start-demo');
+            if(demo) demo.classList.add('hidden');
+        }
+
+        function openWalkthroughBlockedTimesModal() {
+            if(typeof openBlockedTimesModal === 'function') openBlockedTimesModal();
+            document.body.classList.add('classify-walkthrough-block-times');
+            classifyWalkthroughOpenedBlockTimes = true;
+        }
+
+        function closeWalkthroughBlockedTimesModal() {
+            if(!classifyWalkthroughOpenedBlockTimes) return;
+            if(typeof closeBlockedTimesModal === 'function') closeBlockedTimesModal();
+            document.body.classList.remove('classify-walkthrough-block-times');
+            classifyWalkthroughOpenedBlockTimes = false;
+        }
 
         function configureWalkthroughAssignmentDemo(demo = 'date') {
             const scheduleTypeInput = document.getElementById('inputScheduleType');
@@ -3646,26 +3729,42 @@
         async function prepareClassifyOrientationStep(step) {
             if(!step) return;
 
-            if(step.closeAssignmentModal) {
-                closeWalkthroughAssignmentModal();
-            } else if(!step.openAssignmentModal && !step.assignmentDemo && classifyWalkthroughOpenedModal) {
-                closeWalkthroughAssignmentModal();
-            }
+            const needsAssignmentModal = Boolean(step.openAssignmentModal || step.assignmentDemo);
+            const needsBlockTimesModal = Boolean(step.openBlockTimesModal);
+
+            if(!needsAssignmentModal) closeWalkthroughAssignmentModal();
+            if(!needsBlockTimesModal) closeWalkthroughBlockedTimesModal();
+            if(step.showStartDemo) showWalkthroughStartDemo();
+            else hideWalkthroughStartDemo();
 
             if(step.tab) switchTab(step.tab, { updateUrl: false });
             if(step.calendarMode) setCalendarViewMode(step.calendarMode);
 
             if(step.openAssignmentModal) {
                 openWalkthroughAssignmentModal(step.assignmentDemo || 'date');
-            } else if(step.assignmentDemo && classifyWalkthroughOpenedModal) {
-                configureWalkthroughAssignmentDemo(step.assignmentDemo);
+            } else if(step.assignmentDemo) {
+                if(!classifyWalkthroughOpenedModal) {
+                    openWalkthroughAssignmentModal(step.assignmentDemo);
+                } else {
+                    configureWalkthroughAssignmentDemo(step.assignmentDemo);
+                }
+            }
+
+            if(step.openBlockTimesModal) {
+                openWalkthroughBlockedTimesModal();
+            }
+
+            if(step.showStartDemo && step.tab === 'calendar') {
+                renderCalendar();
             }
 
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
             const target = getClassifyOrientationTarget(step);
             if(target) {
-                const scrollRoot = target.closest('#taskForm') || target.closest('#mainContainer');
+                const scrollRoot = target.closest('#taskForm')
+                    || target.closest('#blockedTimesPanel')
+                    || target.closest('#mainContainer');
                 if(scrollRoot && scrollRoot !== document.body) {
                     const rootRect = scrollRoot.getBoundingClientRect();
                     const targetRect = target.getBoundingClientRect();
@@ -3854,6 +3953,8 @@
 
         function closeClassifyOrientation() {
             closeWalkthroughAssignmentModal();
+            closeWalkthroughBlockedTimesModal();
+            hideWalkthroughStartDemo();
             const overlay = document.getElementById('classifyOrientationOverlay');
             const backdrop = document.getElementById('classifyOrientationBackdrop');
             const spotlight = document.getElementById('classifyOrientationSpotlight');
