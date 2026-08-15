@@ -1563,6 +1563,12 @@
         .cl-orientation-tooltip__footer.is-mandatory {
             justify-content: flex-end;
         }
+        body.classify-walkthrough-assignment #taskModal.cl-modal-root {
+            z-index: 490;
+        }
+        body.classify-walkthrough-assignment .cl-orientation-overlay {
+            z-index: 500;
+        }
         body.classify-orientation-active {
             overflow: hidden;
         }
@@ -2233,7 +2239,7 @@
         <div id="classifyOrientationTooltip" class="cl-orientation-tooltip cl-orientation-tooltip--center">
             <div class="cl-orientation-tooltip__progress">
                 <div class="cl-orientation-dots" id="classifyOrientationDots" aria-hidden="true"></div>
-                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 11</div>
+                <div class="cl-orientation-step-label" id="classifyOrientationStepLabel">Step 1 of 6</div>
             </div>
             <div class="cl-orientation-tooltip__body">
                 <div class="cl-orientation-hero">
@@ -2472,7 +2478,7 @@
                         </div>
                     </div>
 
-                    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                    <div id="cl-wt-schedule-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -2488,7 +2494,7 @@
                                 <input id="inputDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="cl-wt-week-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="weekInputWrapper" class="hidden">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Target Week</label>
                                 <input id="inputWeek" type="week" onchange="updateScheduleInputs()" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
@@ -2498,7 +2504,7 @@
                                 <input id="inputDueDate" type="date" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="cl-wt-exact-date-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div id="startTimeWrapper">
                                 <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Start Time</label>
                                 <input id="inputTime" type="time" class="w-full h-11 px-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all [color-scheme:light] dark:[color-scheme:dark]">
@@ -2541,7 +2547,7 @@
                         </div>
                     </div>
 
-                    <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                    <div id="cl-wt-repeat-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                         <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Repeat</div>
                         <div>
                             <label class="block text-sm font-semibold text-slate-700 dark:text-slate-100 mb-2">Repeat</label>
@@ -2594,7 +2600,7 @@
                     </div>
                 </div>
 
-                <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
+                <div id="cl-wt-deps-panel" class="rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-800/40 p-4 space-y-4">
                     <div class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Dependencies</div>
                     <div class="space-y-4">
                         <div>
@@ -3457,164 +3463,76 @@
         const CLASSIFY_ORIENTATION_STEPS = [
             {
                 icon: 'fa-graduation-cap',
-                title: 'Welcome to Classify',
-                lead: 'Let\'s walk through the real app — we\'ll jump to each area and highlight what matters.',
+                title: 'Assignment walkthrough',
+                lead: 'Only the confusing parts — not the obvious stuff.',
                 bullets: [
-                    'Your smart planner for school assignments',
-                    'Use Next to visit each screen in order',
-                    'Replay anytime from Settings → Play walkthrough'
+                    'We\'ll open the assignment editor and highlight what trips people up',
+                    'Press <kbd>Q</kbd> anytime after this to create a real assignment'
                 ],
-                target: '.th-topbar-brand',
-                tab: 'dashboard',
-                placement: 'bottom'
+                center: true,
+                tab: 'dashboard'
             },
             {
-                icon: 'fa-compass',
-                title: 'Four main views',
-                lead: 'These tabs are your home base. Tap them anytime to switch screens.',
+                icon: 'fa-calendar-day',
+                title: 'Schedule By',
+                lead: 'This dropdown changes what every other schedule field means.',
                 bullets: [
-                    '<strong>Dashboard</strong> — today + weekly planning',
-                    '<strong>Tasks</strong> — full searchable list',
-                    '<strong>Calendar</strong> — visual schedule',
-                    '<strong>Analytics</strong> — workload insights'
+                    '<strong>Exact Date</strong> — test/project due on one specific day',
+                    '<strong>Target Week</strong> — due that week; Classify picks the work day',
+                    '<strong>No Date Yet</strong> — no deadline; fills empty slots when it can'
                 ],
-                target: '#cl-orient-bottom-nav',
-                tab: 'dashboard',
-                placement: 'top'
+                target: '#inputScheduleType',
+                openAssignmentModal: true,
+                assignmentDemo: 'date',
+                placement: 'left',
+                padding: 8
             },
             {
-                icon: 'fa-sun',
-                title: 'Today\'s schedule',
-                lead: 'The dashboard builds a smart timeline for what to work on right now.',
+                icon: 'fa-clock',
+                title: 'Exact date fields',
+                lead: 'Most people get this wrong — there is no separate due date.',
                 bullets: [
-                    'Due-today count and stats sit at the top',
-                    'Today\'s Schedule orders assignments for focus',
-                    'Check items off as you finish them'
+                    '<strong>Date (Event)</strong> is when you do it AND the deadline',
+                    '<strong>Due Time</strong> = deadline clock time; leave <strong>Start Time</strong> blank unless you want a fixed slot'
                 ],
-                target: '#cl-orient-today-schedule',
-                tab: 'dashboard',
-                placement: 'right'
+                target: '#cl-wt-exact-date-fields',
+                assignmentDemo: 'date',
+                placement: 'left'
             },
             {
                 icon: 'fa-calendar-week',
-                title: 'Weekly planning sprint',
-                lead: 'Plan once per week, then execute daily with less stress.',
+                title: 'Target week mode',
+                lead: 'For homework due Friday but worked on earlier in the week.',
                 bullets: [
-                    '<strong>Open Weekly Queue</strong> to triage the week',
-                    '<strong>Auto-Plan</strong> assigns dates to unscheduled work',
-                    '<strong>Auto Time-Block</strong> fills in times around your rules'
+                    '<strong>Target Week</strong> = which week it\'s due in',
+                    '<strong>Due Date/Time</strong> = the real deadline; Classify schedules the work day inside that week'
                 ],
-                target: '#cl-orient-weekly-planning',
-                tab: 'dashboard',
-                placement: 'top'
+                target: '#cl-wt-week-fields',
+                assignmentDemo: 'week',
+                placement: 'left'
             },
             {
-                icon: 'fa-plus',
-                title: 'Create assignments',
-                lead: 'Press <kbd>Q</kbd> or <kbd>Ctrl+N</kbd> anywhere, or use this button.',
+                icon: 'fa-link',
+                title: 'Repeat & dependencies',
+                lead: 'Power features — easy to misconfigure.',
                 bullets: [
-                    'Set subject, duration, priority, and schedule type',
-                    'Choose exact date, due this week, or flexible timing',
-                    'Add dependencies, repeats, and notes in the editor'
+                    '<strong>Repeat</strong>: finishing one copy can spawn the next; weekly + Due Friday = once per week, not daily',
+                    '<strong>Must Be After/Before</strong> forces scheduling order; <strong>Different Day Than</strong> bans same-day pairing'
                 ],
-                target: '#cl-orient-new-assignment',
-                tab: 'dashboard',
-                placement: 'left',
-                padding: 6
-            },
-            {
-                icon: 'fa-list-check',
-                title: 'Tasks list',
-                lead: 'Search and filter every assignment in one place.',
-                bullets: [
-                    'Search with <kbd>Ctrl+K</kbd>',
-                    'Filter active, week queue, overdue, or completed',
-                    'Sort by date, auto-schedule order, priority, or subject'
-                ],
-                target: '#cl-orient-task-toolbar',
-                tab: 'tasks',
-                placement: 'bottom'
-            },
-            {
-                icon: 'fa-calendar-days',
-                title: 'Calendar views',
-                lead: 'Switch how you see your schedule at the top of Calendar.',
-                bullets: [
-                    '<strong>Month</strong> — overview of the whole month',
-                    '<strong>Week</strong> — drag assignments between days',
-                    '<strong>Day</strong> — detailed timeline for one day'
-                ],
-                target: '#cl-orient-calendar-controls',
-                tab: 'calendar',
-                calendarMode: 'month',
-                placement: 'bottom'
-            },
-            {
-                icon: 'fa-hand-pointer',
-                title: 'Drag in week view',
-                lead: 'Week view is where you rearrange work visually.',
-                bullets: [
-                    'Drag assignments to another day or time slot',
-                    'Drop onto a task row to match that time',
-                    'Tap an assignment to edit details'
-                ],
-                target: '#weekCalendarGrid',
-                fallbackTarget: '.cl-orient-week-calendar',
-                tab: 'calendar',
-                calendarMode: 'week',
-                placement: 'top'
-            },
-            {
-                icon: 'fa-rotate-left',
-                title: 'Undo changes',
-                lead: 'Made a mistake? Undo puts things back exactly how they were.',
-                bullets: [
-                    'Reverses drags, edits, deletes, and more',
-                    'Works for scheduling and assignment settings',
-                    'Disabled when there\'s nothing to undo'
-                ],
-                target: '#btn-classify-undo',
-                tab: 'dashboard',
-                placement: 'bottom',
-                padding: 6
-            },
-            {
-                icon: 'fa-gear',
-                title: 'Settings',
-                lead: 'The gear icon opens your planner configuration.',
-                bullets: [
-                    '<strong>Block times</strong> — school hours, lunch, vacations',
-                    'Manage subjects, import/export, and dark mode',
-                    '<strong>Play walkthrough</strong> lets you run this guide again'
-                ],
-                target: '#btn-classify-settings',
-                tab: 'dashboard',
-                placement: 'bottom',
-                padding: 6
-            },
-            {
-                icon: 'fa-chart-line',
-                title: 'Analytics',
-                lead: 'Spot patterns and jump into filtered task lists.',
-                bullets: [
-                    'Quick filters for due today, this week, overdue, and more',
-                    'Track remaining minutes and on-time completion',
-                    'Log in to sync assignments across devices'
-                ],
-                target: '#cl-orient-analytics-quick',
-                tab: 'analytics',
-                placement: 'bottom'
+                target: '#cl-wt-repeat-panel',
+                assignmentDemo: 'repeat',
+                placement: 'left'
             },
             {
                 icon: 'fa-rocket',
-                title: 'You\'re ready!',
-                lead: 'Start by adding your first assignment — press <kbd>Q</kbd> when you\'re done here.',
+                title: 'You\'re set',
+                lead: 'Three more things people miss outside the editor.',
                 bullets: [
-                    'Plan the week on Dashboard, then follow Today\'s Schedule',
-                    'Use Calendar week view to drag work into place',
-                    'Replay this walkthrough anytime from Settings'
+                    '<strong>Start</strong> on the calendar locks a time; red <strong>Undo</strong> reverses mistakes',
+                    'Settings → <strong>Block times</strong> sets school hours; press <kbd>Q</kbd> to add your first assignment'
                 ],
                 center: true,
+                closeAssignmentModal: true,
                 tab: 'dashboard'
             }
         ];
@@ -3623,6 +3541,69 @@
         let classifyOrientationReplay = false;
         let classifyOrientationTargetEl = null;
         let classifyOrientationLayoutHandler = null;
+        let classifyWalkthroughOpenedModal = false;
+
+        function configureWalkthroughAssignmentDemo(demo = 'date') {
+            const scheduleTypeInput = document.getElementById('inputScheduleType');
+            const repeatTypeInput = document.getElementById('inputRepeatType');
+            const weekDueOnlyInput = document.getElementById('inputWeekDueOnly');
+            if(!scheduleTypeInput || !repeatTypeInput) return;
+
+            repeatTypeInput.value = 'none';
+            if(weekDueOnlyInput) weekDueOnlyInput.checked = false;
+
+            if(demo === 'week') {
+                scheduleTypeInput.value = 'week';
+            } else if(demo === 'flexible') {
+                scheduleTypeInput.value = 'flexible';
+            } else {
+                scheduleTypeInput.value = 'date';
+            }
+            updateScheduleInputs();
+
+            if(demo === 'repeat') {
+                repeatTypeInput.value = 'weekly';
+                if(weekDueOnlyInput) weekDueOnlyInput.checked = true;
+                updateRepeatInputs();
+            } else {
+                updateRepeatInputs();
+            }
+        }
+
+        function openWalkthroughAssignmentModal(demo = 'date') {
+            const taskModal = document.getElementById('taskModal');
+            const taskPanel = document.getElementById('modalPanel');
+            if(!taskModal || !taskPanel) return;
+
+            editingId = null;
+            const heading = document.getElementById('modalHeading');
+            if(heading) heading.textContent = 'New Assignment';
+            if(typeof clearForm === 'function') clearForm();
+            configureWalkthroughAssignmentDemo(demo);
+
+            taskModal.classList.remove('hidden', 'pointer-events-none');
+            taskPanel.classList.remove('scale-95', 'opacity-0');
+            taskPanel.classList.add('scale-100', 'opacity-100');
+            document.body.classList.add('classify-walkthrough-assignment');
+            classifyWalkthroughOpenedModal = true;
+        }
+
+        function closeWalkthroughAssignmentModal() {
+            if(!classifyWalkthroughOpenedModal) return;
+            const taskModal = document.getElementById('taskModal');
+            const taskPanel = document.getElementById('modalPanel');
+            if(taskPanel) {
+                taskPanel.classList.remove('scale-100', 'opacity-100');
+                taskPanel.classList.add('scale-95', 'opacity-0');
+            }
+            if(taskModal) {
+                setTimeout(() => {
+                    taskModal.classList.add('hidden', 'pointer-events-none');
+                }, 200);
+            }
+            document.body.classList.remove('classify-walkthrough-assignment');
+            classifyWalkthroughOpenedModal = false;
+        }
 
         function hasCompletedClassifyOrientation() {
             return plannerGet('walkthroughCompleted') === 'true' || plannerGet('orientationCompleted') === 'true';
@@ -3657,12 +3638,35 @@
 
         async function prepareClassifyOrientationStep(step) {
             if(!step) return;
+
+            if(step.closeAssignmentModal) {
+                closeWalkthroughAssignmentModal();
+            } else if(!step.openAssignmentModal && !step.assignmentDemo && classifyWalkthroughOpenedModal) {
+                closeWalkthroughAssignmentModal();
+            }
+
             if(step.tab) switchTab(step.tab, { updateUrl: false });
             if(step.calendarMode) setCalendarViewMode(step.calendarMode);
+
+            if(step.openAssignmentModal) {
+                openWalkthroughAssignmentModal(step.assignmentDemo || 'date');
+            } else if(step.assignmentDemo && classifyWalkthroughOpenedModal) {
+                configureWalkthroughAssignmentDemo(step.assignmentDemo);
+            }
+
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
             const target = getClassifyOrientationTarget(step);
             if(target) {
-                target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                const scrollRoot = target.closest('#taskForm') || target.closest('#mainContainer');
+                if(scrollRoot && scrollRoot !== document.body) {
+                    const rootRect = scrollRoot.getBoundingClientRect();
+                    const targetRect = target.getBoundingClientRect();
+                    const offset = (targetRect.top - rootRect.top) + scrollRoot.scrollTop - 24;
+                    scrollRoot.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+                } else {
+                    target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                }
                 await new Promise(resolve => setTimeout(resolve, 320));
             }
         }
@@ -3842,6 +3846,7 @@
         }
 
         function closeClassifyOrientation() {
+            closeWalkthroughAssignmentModal();
             const overlay = document.getElementById('classifyOrientationOverlay');
             const backdrop = document.getElementById('classifyOrientationBackdrop');
             const spotlight = document.getElementById('classifyOrientationSpotlight');
