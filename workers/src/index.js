@@ -10282,6 +10282,9 @@ export class UserAccount {
           subjectColors: {},
           calendarViewMode: 'month',
           darkMode: null,
+          walkthroughCompleted: false,
+          hotspotsSeen: [],
+          hotspotsEnabled: true,
           lastUpdated: null
         },
         kyrachyng: {
@@ -11484,7 +11487,10 @@ export class UserAccount {
         repeatSkips: {},
         subjectColors: {},
         calendarViewMode: 'month',
-        darkMode: null
+        darkMode: null,
+        walkthroughCompleted: false,
+        hotspotsSeen: [],
+        hotspotsEnabled: true
       };
     }
 
@@ -11507,7 +11513,10 @@ export class UserAccount {
         repeatSkips: {},
         subjectColors: {},
         calendarViewMode: 'month',
-        darkMode: null
+        darkMode: null,
+        walkthroughCompleted: false,
+        hotspotsSeen: [],
+        hotspotsEnabled: true
       };
     }
     return userData.games.classify;

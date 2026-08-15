@@ -3246,6 +3246,13 @@
             localStorage.setItem(plannerStorageKey('plannerVacationsV1'), JSON.stringify(vacationRanges));
             localStorage.setItem(plannerStorageKey('plannerRepeatSkipsV1'), JSON.stringify(repeatSkips));
             if (calendarViewMode) localStorage.setItem(plannerStorageKey('calendarViewMode'), calendarViewMode);
+            if (plannerGet('walkthroughCompleted') === 'true' || plannerGet('orientationCompleted') === 'true') {
+                localStorage.setItem(plannerStorageKey('walkthroughCompleted'), 'true');
+            } else {
+                localStorage.removeItem(plannerStorageKey('walkthroughCompleted'));
+            }
+            localStorage.setItem(plannerStorageKey('hotspotsSeen'), plannerGet('hotspotsSeen') || '[]');
+            localStorage.setItem(plannerStorageKey('hotspotsEnabled'), plannerGet('hotspotsEnabled') || 'true');
             suppressCloudSync = false;
         }
 
@@ -3279,6 +3286,8 @@
                     classifyUndoStack = [];
                     initClassifyUndoBaseline();
                     renderAll();
+                    syncClassifyHotspotsSettingsState();
+                    refreshClassifyHotspots();
                 }
                 await updateClassifySyncFingerprint();
             } finally {
@@ -3430,6 +3439,38 @@
         };
         const plannerRemove = (key) => localStorage.removeItem(plannerStorageKey(key));
 
+        function normalizeHotspotsSeen(raw) {
+            if(!Array.isArray(raw)) return [];
+            return raw.filter(id => typeof id === 'string' && id.trim());
+        }
+
+        function applyClassifyCloudPreferences(payload = {}) {
+            const remoteWalkthroughDone = payload.walkthroughCompleted === true
+                || payload.walkthroughCompleted === 'true';
+            const localWalkthroughDone = plannerGet('walkthroughCompleted') === 'true'
+                || plannerGet('orientationCompleted') === 'true';
+            if(remoteWalkthroughDone || localWalkthroughDone) {
+                localStorage.setItem(plannerStorageKey('walkthroughCompleted'), 'true');
+            } else if(payload.walkthroughCompleted === false || payload.walkthroughCompleted === 'false') {
+                localStorage.removeItem(plannerStorageKey('walkthroughCompleted'));
+            }
+
+            if(Array.isArray(payload.hotspotsSeen)) {
+                const localSeen = normalizeHotspotsSeen(safeJsonParse(plannerGet('hotspotsSeen'), []));
+                const remoteSeen = normalizeHotspotsSeen(payload.hotspotsSeen);
+                localStorage.setItem(
+                    plannerStorageKey('hotspotsSeen'),
+                    JSON.stringify([...new Set([...localSeen, ...remoteSeen])])
+                );
+            }
+
+            if(payload.hotspotsEnabled === true || payload.hotspotsEnabled === 'true') {
+                localStorage.setItem(plannerStorageKey('hotspotsEnabled'), 'true');
+            } else if(payload.hotspotsEnabled === false || payload.hotspotsEnabled === 'false') {
+                localStorage.setItem(plannerStorageKey('hotspotsEnabled'), 'false');
+            }
+        }
+
         function buildClassifyCloudPayload() {
             return {
                 tasks: Array.isArray(tasks) ? tasks : [],
@@ -3440,7 +3481,11 @@
                 repeatSkips: normalizeRepeatSkips(repeatSkips),
                 subjectColors: subjectColors || {},
                 calendarViewMode: calendarViewMode || 'month',
-                darkMode: plannerGet('darkMode')
+                darkMode: plannerGet('darkMode'),
+                walkthroughCompleted: plannerGet('walkthroughCompleted') === 'true'
+                    || plannerGet('orientationCompleted') === 'true',
+                hotspotsSeen: normalizeHotspotsSeen(safeJsonParse(plannerGet('hotspotsSeen'), [])),
+                hotspotsEnabled: plannerGet('hotspotsEnabled') !== 'false'
             };
         }
 
@@ -3458,6 +3503,7 @@
             if (payload.darkMode === 'true' || payload.darkMode === 'false') {
                 plannerSet('darkMode', payload.darkMode);
             }
+            applyClassifyCloudPreferences(payload);
         }
 
         async function loadClassifyDataFromCloud() {
@@ -3954,6 +4000,7 @@
 
         function markClassifyOrientationCompleted() {
             plannerSet('walkthroughCompleted', 'true');
+            plannerRemove('orientationCompleted');
         }
 
         function isClassifyOrientationOpen() {
@@ -4778,7 +4825,6 @@
                 if(!target) return;
                 const rect = target.getBoundingClientRect();
                 if(rect.width <= 0 || rect.height <= 0) return;
-                if(!isClassifyHotspotTargetVisible(rect) && !canMountClassifyHotspotInside(target)) return;
 
                 mountClassifyHotspotButton(hotspot, target);
                 mountedCount += 1;
