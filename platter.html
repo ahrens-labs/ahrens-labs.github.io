@@ -1640,6 +1640,71 @@
       -webkit-user-select: none;
     }
 
+    .pl-ready-chip[data-meal='breakfast'] {
+      border-color: #fcd34d;
+      background: var(--pl-breakfast-soft);
+    }
+
+    .pl-ready-chip[data-meal='lunch'] {
+      border-color: #7dd3fc;
+      background: var(--pl-lunch-soft);
+    }
+
+    .pl-ready-chip[data-meal='dinner'] {
+      border-color: #c4b5fd;
+      background: var(--pl-dinner-soft);
+    }
+
+    .pl-ready-chip.is-ready {
+      border-color: #86efac;
+      background: var(--pl-from-ready-soft);
+      box-shadow: inset 0 0 0 1px rgba(22, 163, 74, 0.25);
+    }
+
+    .pl-ready-chip.is-ready[data-meal='breakfast'],
+    .pl-ready-chip.is-ready[data-meal='lunch'],
+    .pl-ready-chip.is-ready[data-meal='dinner'] {
+      border-color: #86efac;
+      background: var(--pl-from-ready-soft);
+    }
+
+    .pl-meal-type-picks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .pl-meal-type-picks button {
+      min-height: 40px;
+      border-radius: 10px;
+      border: 1.5px solid var(--pl-line);
+      background: #fff;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--pl-muted);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .pl-meal-type-picks button[data-meal-type='breakfast'].is-on {
+      border-color: var(--pl-breakfast);
+      background: var(--pl-breakfast-soft);
+      color: #92400e;
+    }
+
+    .pl-meal-type-picks button[data-meal-type='lunch'].is-on {
+      border-color: var(--pl-lunch);
+      background: var(--pl-lunch-soft);
+      color: #075985;
+    }
+
+    .pl-meal-type-picks button[data-meal-type='dinner'].is-on {
+      border-color: var(--pl-dinner);
+      background: var(--pl-dinner-soft);
+      color: #5b21b6;
+    }
+
     .pl-ready-chip.is-dragging {
       opacity: 0.35;
     }
@@ -1937,6 +2002,15 @@
       <p class="pl-hint" style="margin:6px 0 0;" id="pl-meal-name-hint">Type to pick a saved meal, or enter a new name.</p>
     </div>
 
+    <div class="pl-field" id="pl-field-meal-type">
+      <label>Usually for</label>
+      <div class="pl-meal-type-picks" id="pl-meal-type-picks" role="radiogroup" aria-label="Meal type">
+        <button type="button" data-meal-type="breakfast" aria-pressed="false">Breakfast</button>
+        <button type="button" data-meal-type="lunch" aria-pressed="false">Lunch</button>
+        <button type="button" data-meal-type="dinner" aria-pressed="false">Dinner</button>
+      </div>
+    </div>
+
     <div class="pl-field">
       <label for="pl-meal-cook">Total cook time (min)</label>
       <input id="pl-meal-cook" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 25">
@@ -2004,6 +2078,8 @@
   const nameInput = document.getElementById('pl-meal-name');
   const mealNameSuggestions = document.getElementById('pl-meal-name-suggestions');
   const mealNameHint = document.getElementById('pl-meal-name-hint');
+  const mealTypeField = document.getElementById('pl-field-meal-type');
+  const mealTypePicks = document.getElementById('pl-meal-type-picks');
   const cookInput = document.getElementById('pl-meal-cook');
   const detailsInput = document.getElementById('pl-meal-details');
   const saveLibrary = document.getElementById('pl-save-library');
@@ -2093,6 +2169,7 @@
   let sheetState = null;
   let sheetLinkedSavedId = null;
   let suppressMealNameLink = false;
+  let sheetMealType = 'dinner';
   let confirmResolve = null;
   /** @type {string|null} */
   let placeModeSavedId = null;
@@ -2189,6 +2266,7 @@
     nameInput.value = m.name || '';
     detailsInput.value = m.details || '';
     cookInput.value = m.cookMinutes != null ? String(m.cookMinutes) : '';
+    if (m.mealType) setSheetMealType(m.mealType);
   }
 
   function mealsEqualForLibrary(a, b) {
@@ -2245,6 +2323,54 @@
   function mealLabel(meal) {
     const found = MEALS.find((m) => m.id === meal);
     return found ? found.label : meal;
+  }
+
+  function normalizeMealType(value) {
+    const t = String(value || '')
+      .trim()
+      .toLowerCase();
+    return t === 'breakfast' || t === 'lunch' || t === 'dinner' ? t : null;
+  }
+
+  function mealTypeFromSlotKey(slotKeyValue) {
+    if (!slotKeyValue) return null;
+    return normalizeMealType(String(slotKeyValue).split(':')[1]);
+  }
+
+  function resolveMealType(meal, fallback) {
+    const direct = normalizeMealType(meal && meal.mealType);
+    if (direct) return direct;
+    if (meal && meal.id && data && data.slots) {
+      const keys = Object.keys(data.slots);
+      for (let i = 0; i < keys.length; i += 1) {
+        const slot = data.slots[keys[i]];
+        if (slot && slot.savedId === meal.id) {
+          const fromSlot = mealTypeFromSlotKey(keys[i]);
+          if (fromSlot) return fromSlot;
+        }
+      }
+    }
+    return normalizeMealType(fallback) || 'dinner';
+  }
+
+  function setSheetMealType(next) {
+    sheetMealType = normalizeMealType(next) || 'dinner';
+    if (!mealTypePicks) return;
+    mealTypePicks.querySelectorAll('[data-meal-type]').forEach((btn) => {
+      const on = btn.getAttribute('data-meal-type') === sheetMealType;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+
+  function rememberSavedMealType(savedId, mealType, menuId) {
+    const type = normalizeMealType(mealType);
+    if (!savedId || !type) return;
+    const sourceMenuId = menuId || activeMenuId;
+    const meal = findLibraryMeal(sourceMenuId, savedId);
+    if (!meal || meal.mealType === type) return;
+    meal.mealType = type;
+    queueMenuSavedSync(sourceMenuId);
   }
 
   function visibleMeals() {
@@ -2805,10 +2931,16 @@
         cookMinutes: sourceMeal.cookMinutes == null ? null : sourceMeal.cookMinutes,
       },
       null,
-      { ready: true, menuId: activeMenuId }
+      {
+        ready: true,
+        thisWeek: true,
+        mealType: resolveMealType(sourceMeal),
+        menuId: activeMenuId,
+      }
     );
     queueMenuSavedSync(activeMenuId);
     renderSaved();
+    renderReadyTray();
     if (sheetState) updateMealNameSuggestions();
   }
 
@@ -2826,7 +2958,7 @@
         cookMinutes: sourceMeal.cookMinutes == null ? null : sourceMeal.cookMinutes,
       },
       settings.savedId,
-      { menuId: activeMenuId }
+      { menuId: activeMenuId, mealType: resolveMealType(sourceMeal) }
     );
   }
 
@@ -3176,6 +3308,7 @@
     const payload = mealPayloadFromLibrary(meal);
     if (!payload) return false;
     data.slots[slotKeyValue] = payload;
+    rememberSavedMealType(payload.savedId, mealTypeFromSlotKey(slotKeyValue), activeMenuId);
     persist();
     placeModeSavedId = null;
     placeModeMenuId = null;
@@ -3235,6 +3368,7 @@
       meal.ready = !!meal.ready;
       meal.thisWeek = !!meal.thisWeek;
       meal.favorite = !!meal.favorite;
+      meal.mealType = normalizeMealType(meal.mealType);
       const orderNum = Number(meal.order);
       if (!Number.isFinite(orderNum)) meal.order = i;
       else meal.order = Math.round(orderNum);
@@ -3274,6 +3408,7 @@
       m.ready = !!m.ready;
       m.thisWeek = !!m.thisWeek;
       m.favorite = !!m.favorite;
+      m.mealType = normalizeMealType(m.mealType);
       const orderNum = Number(m.order);
       if (!Number.isFinite(orderNum)) m.order = i;
       else m.order = Math.round(orderNum);
@@ -3302,9 +3437,13 @@
     const meal = findLibraryMeal(sourceMenuId, id);
     if (!meal) return;
     meal.ready = !!ready;
+    if (ready) meal.thisWeek = true;
     queueMenuSavedSync(sourceMenuId);
     renderSaved();
-    if (sourceMenuId === activeMenuId && sheetState) updateMealNameSuggestions();
+    if (sourceMenuId === activeMenuId) {
+      renderReadyTray();
+      if (sheetState) updateMealNameSuggestions();
+    }
   }
 
   function toggleMealReady(id, menuId) {
@@ -3353,9 +3492,18 @@
     meals.forEach((meal) => {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'pl-ready-chip';
+      const mealType = resolveMealType(meal);
+      chip.className = 'pl-ready-chip' + (meal.ready ? ' is-ready' : '');
       chip.dataset.readyId = meal.id;
-      chip.setAttribute('aria-label', meal.name + '. Drag onto a day slot.');
+      chip.dataset.meal = mealType;
+      chip.setAttribute(
+        'aria-label',
+        meal.name +
+          ' · ' +
+          mealLabel(mealType) +
+          (meal.ready ? ' · ready' : '') +
+          '. Drag onto a day slot.'
+      );
       chip.innerHTML = '<strong></strong>' + (meal.cookMinutes != null ? '<span></span>' : '');
       chip.querySelector('strong').textContent = meal.name;
       const meta = chip.querySelector('span');
@@ -3369,6 +3517,10 @@
   function addMealToThisWeekTray(mealFields, existingId, opts) {
     if (!canEditMenu()) return null;
     const options = opts || {};
+    const mealType =
+      normalizeMealType(options.mealType) ||
+      normalizeMealType(mealFields && mealFields.mealType) ||
+      null;
     const savedId = upsertSaved(
       {
         name: mealFields.name,
@@ -3376,7 +3528,11 @@
         cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
       },
       existingId || null,
-      { thisWeek: true, menuId: options.menuId || activeMenuId }
+      {
+        thisWeek: true,
+        mealType: mealType || undefined,
+        menuId: options.menuId || activeMenuId,
+      }
     );
     queueMenuSavedSync(options.menuId || activeMenuId);
     renderReadyTray();
@@ -3389,8 +3545,10 @@
     if (!canEditMenu() || !slotKeyValue) return false;
     const slot = data.slots[slotKeyValue];
     if (!slot || !slot.name) return false;
+    const mealType = mealTypeFromSlotKey(slotKeyValue);
     const savedId = addMealToThisWeekTray(slot, slot.savedId || null, {
       menuId: activeMenuId,
+      mealType,
     });
     if (savedId && slot.savedId !== savedId) {
       slot.savedId = savedId;
@@ -4601,6 +4759,11 @@
       el.disabled = !editable;
       el.readOnly = !editable && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
     });
+    if (mealTypePicks) {
+      mealTypePicks.querySelectorAll('button').forEach((btn) => {
+        btn.disabled = !editable;
+      });
+    }
     if (sheetSaveBtn) sheetSaveBtn.hidden = !editable;
     if (clearBtn) {
       if (!editable) clearBtn.hidden = true;
@@ -4639,10 +4802,16 @@
         : 'Add meal';
     sheetSub.textContent = head.name + ' ' + head.date + ' · ' + mealLabel(meal);
     fillMealForm(existing);
+    const linked =
+      existing && existing.savedId ? findLibraryMeal(activeMenuId, existing.savedId) : null;
+    setSheetMealType(
+      (linked && linked.mealType) || mealTypeFromSlotKey(key) || meal || 'dinner'
+    );
     saveLibrary.checked = !(existing && existing.name);
     saveLibraryWrap.hidden = !editable;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = true;
+    if (mealTypeField) mealTypeField.hidden = !editable;
     clearBtn.hidden = !(editable && existing && existing.name);
     sheetLinkedSavedId = existing && existing.savedId ? existing.savedId : null;
     updateMealNameSuggestions();
@@ -4669,9 +4838,11 @@
           : menuName + ' — mark Ready when you have ingredients')
       : 'View only · ' + menuName;
     fillMealForm(meal);
+    setSheetMealType(resolveMealType(meal));
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = !!meal.ready;
     if (readyWrap) readyWrap.hidden = !editable;
+    if (mealTypeField) mealTypeField.hidden = !editable;
     clearBtn.hidden = true;
     updateMealNameSuggestions();
     setSheetEditable(editable);
@@ -4685,10 +4856,12 @@
     sheetTitle.textContent = 'New saved meal';
     sheetSub.textContent = 'Adds to your active menu library; mark Ready when you have ingredients';
     fillMealForm(emptyMeal());
+    setSheetMealType('dinner');
     saveLibrary.checked = true;
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = false;
+    if (mealTypeField) mealTypeField.hidden = false;
     clearBtn.hidden = true;
     updateMealNameSuggestions();
     setSheetEditable(true);
@@ -4705,33 +4878,41 @@
       cookMinutes: mealFields.cookMinutes == null ? null : mealFields.cookMinutes,
     };
     const list = getLibrarySaved(sourceMenuId).slice();
+    const applyFlags = (target) => {
+      if (options.ready !== undefined) target.ready = !!options.ready;
+      if (options.thisWeek !== undefined) target.thisWeek = !!options.thisWeek;
+      else if (options.ready) target.thisWeek = true;
+      if (options.favorite !== undefined) target.favorite = !!options.favorite;
+      if (options.mealType !== undefined) {
+        target.mealType = normalizeMealType(options.mealType);
+      }
+    };
     if (existingId) {
       const found = list.find((s) => s.id === existingId);
       if (found) {
         Object.assign(found, payload);
-        if (options.ready !== undefined) found.ready = !!options.ready;
-        if (options.thisWeek !== undefined) found.thisWeek = !!options.thisWeek;
-        if (options.favorite !== undefined) found.favorite = !!options.favorite;
+        applyFlags(found);
         setLibrarySaved(sourceMenuId, list);
         return found.id;
       }
     }
     const match = list.find((s) => mealsEqualForLibrary(s, payload));
     if (match) {
-      if (options.ready !== undefined) match.ready = !!options.ready;
-      if (options.thisWeek !== undefined) match.thisWeek = !!options.thisWeek;
-      if (options.favorite !== undefined) match.favorite = !!options.favorite;
+      applyFlags(match);
       setLibrarySaved(sourceMenuId, list);
       return match.id;
     }
     const maxOrder = list.reduce((max, m) => Math.max(max, Number(m.order) || 0), -1);
     const id = uid();
+    const ready = options.ready !== undefined ? !!options.ready : false;
     list.push({
       id,
       ...payload,
-      ready: options.ready !== undefined ? !!options.ready : false,
-      thisWeek: options.thisWeek !== undefined ? !!options.thisWeek : false,
+      ready,
+      thisWeek:
+        options.thisWeek !== undefined ? !!options.thisWeek : ready ? true : false,
       favorite: options.favorite !== undefined ? !!options.favorite : false,
+      mealType: normalizeMealType(options.mealType),
       order: maxOrder + 1,
     });
     setLibrarySaved(sourceMenuId, list);
@@ -4745,16 +4926,21 @@
       nameInput.focus();
       return;
     }
+    const mealType = normalizeMealType(sheetMealType) || 'dinner';
 
     if (sheetState.mode === 'slot') {
       let savedId = null;
       if (saveLibrary.checked) {
-        savedId = upsertSaved(form, sheetLinkedSavedId || null);
+        savedId = upsertSaved(form, sheetLinkedSavedId || null, { mealType });
       } else if (sheetLinkedSavedId) {
         savedId = sheetLinkedSavedId;
+        rememberSavedMealType(savedId, mealTypeFromSlotKey(sheetState.slotKey) || mealType);
       } else {
         const matched = findSavedMealByName(form.name);
-        if (matched) savedId = matched.id;
+        if (matched) {
+          savedId = matched.id;
+          rememberSavedMealType(savedId, mealTypeFromSlotKey(sheetState.slotKey) || mealType);
+        }
       }
       const existingSlot = data.slots[sheetState.slotKey];
       data.slots[sheetState.slotKey] = {
@@ -4762,6 +4948,9 @@
         savedId,
         fromReady: !!(existingSlot && existingSlot.fromReady),
       };
+      if (savedId) {
+        rememberSavedMealType(savedId, mealTypeFromSlotKey(sheetState.slotKey) || mealType);
+      }
       persist();
       renderWeek();
       renderReadyTray();
@@ -4773,11 +4962,14 @@
     if (sheetState.mode === 'saved-new' || sheetState.mode === 'saved-edit') {
       const sourceMenuId = sheetState.menuId || activeMenuId;
       if (!menuCanEditLibrary(sourceMenuId)) return;
+      const markedReady = !!(readyInput && readyInput.checked);
       const savedId = upsertSaved(
         form,
         sheetState.mode === 'saved-edit' ? sheetState.savedId : null,
         {
-          ready: !!(readyInput && readyInput.checked),
+          ready: markedReady,
+          thisWeek: markedReady ? true : undefined,
+          mealType,
           menuId: sourceMenuId,
         }
       );
@@ -5046,6 +5238,7 @@
         const payload = mealPayloadFromTray(meal);
         if (payload) {
           data.slots[toKey] = payload;
+          rememberSavedMealType(readyId, mealTypeFromSlotKey(toKey));
           consumeThisWeekMeal(readyId);
           persist();
           renderWeek();
@@ -5059,8 +5252,15 @@
         else delete data.slots[fromKey];
         if (fromMeal) data.slots[toKey] = fromMeal;
         else delete data.slots[toKey];
+        if (fromMeal && fromMeal.savedId) {
+          rememberSavedMealType(fromMeal.savedId, mealTypeFromSlotKey(toKey));
+        }
+        if (toMeal && toMeal.savedId) {
+          rememberSavedMealType(toMeal.savedId, mealTypeFromSlotKey(fromKey));
+        }
         persist();
         renderWeek();
+        renderReadyTray();
       }
     } else if (!moved) {
       if (source === 'ready' && readyId) openSavedEditor(readyId, activeMenuId);
@@ -5082,6 +5282,15 @@
   nameInput.addEventListener('change', () => {
     tryLinkSavedMealFromName();
   });
+
+  if (mealTypePicks) {
+    mealTypePicks.querySelectorAll('[data-meal-type]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        setSheetMealType(btn.getAttribute('data-meal-type'));
+      });
+    });
+  }
 
   document.getElementById('pl-week-prev').addEventListener('click', () => {
     if (plannerView === 'days') {

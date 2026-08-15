@@ -312,6 +312,7 @@ function normalizeSaved(raw) {
       ready: !!item.ready,
       thisWeek: !!item.thisWeek,
       favorite: !!item.favorite,
+      mealType: ['breakfast', 'lunch', 'dinner'].includes(item.mealType) ? item.mealType : null,
       order: Number.isFinite(orderNum) ? Math.round(orderNum) : out.length,
     });
   }
