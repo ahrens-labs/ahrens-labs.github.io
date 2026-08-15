@@ -1905,16 +1905,11 @@
 
     <div class="pl-field">
       <label for="pl-meal-name">Name</label>
-      <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Chicken tacos">
+      <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" list="pl-meal-name-suggestions" placeholder="e.g. Chicken tacos">
+      <datalist id="pl-meal-name-suggestions"></datalist>
+      <p class="pl-hint" style="margin:6px 0 0;" id="pl-meal-name-hint">Type to pick a saved meal, or enter a new name.</p>
     </div>
 
-    <div class="pl-field" id="pl-field-saved-pick">
-      <label for="pl-saved-pick" id="pl-saved-pick-label">Use a saved meal</label>
-      <select id="pl-saved-pick">
-        <option value="">— Type your own —</option>
-      </select>
-      <p class="pl-hint" style="margin:6px 0 0;" id="pl-saved-pick-hint">Start typing a name above to filter this list.</p>
-    </div>
     <div class="pl-field">
       <label for="pl-meal-cook">Total cook time (min)</label>
       <input id="pl-meal-cook" type="number" min="0" max="1440" step="1" inputmode="numeric" placeholder="e.g. 25">
@@ -1980,14 +1975,14 @@
   const sheetTitle = document.getElementById('pl-sheet-title');
   const sheetSub = document.getElementById('pl-sheet-sub');
   const nameInput = document.getElementById('pl-meal-name');
+  const mealNameSuggestions = document.getElementById('pl-meal-name-suggestions');
+  const mealNameHint = document.getElementById('pl-meal-name-hint');
   const cookInput = document.getElementById('pl-meal-cook');
   const detailsInput = document.getElementById('pl-meal-details');
   const saveLibrary = document.getElementById('pl-save-library');
   const saveLibraryWrap = document.getElementById('pl-save-library-wrap');
   const readyInput = document.getElementById('pl-meal-ready');
   const readyWrap = document.getElementById('pl-ready-wrap');
-  const savedPick = document.getElementById('pl-saved-pick');
-  const savedPickField = document.getElementById('pl-field-saved-pick');
   const clearBtn = document.getElementById('pl-sheet-clear');
   const dinnerOnlyInput = document.getElementById('pl-dinner-only');
   const dinnerOnlyLabel = document.getElementById('pl-dinner-only-label');
@@ -2069,6 +2064,8 @@
   let plannerViewKey = PLANNER_VIEW_STORAGE_PREFIX + 'guest';
   /** @type {null | { mode: string, slotKey?: string, savedId?: string, menuId?: string }} */
   let sheetState = null;
+  let sheetLinkedSavedId = null;
+  let suppressMealNameLink = false;
   let confirmResolve = null;
   /** @type {string|null} */
   let placeModeSavedId = null;
@@ -3181,7 +3178,7 @@
     meal.ready = !!ready;
     queueMenuSavedSync(sourceMenuId);
     renderSaved();
-    if (sourceMenuId === activeMenuId && sheetState) fillSavedPick(savedPick.value);
+    if (sourceMenuId === activeMenuId && sheetState) updateMealNameSuggestions();
   }
 
   function toggleMealReady(id, menuId) {
@@ -3201,7 +3198,7 @@
     renderSaved();
     if (sourceMenuId === activeMenuId) {
       renderReadyTray();
-      if (sheetState) fillSavedPick(savedPick.value);
+      if (sheetState) updateMealNameSuggestions();
     }
   }
 
@@ -3259,7 +3256,7 @@
     queueMenuSavedSync(options.menuId || activeMenuId);
     renderReadyTray();
     renderSaved();
-    if (sheetState) fillSavedPick(savedPick.value);
+    if (sheetState) updateMealNameSuggestions();
     return savedId;
   }
 
@@ -4139,7 +4136,7 @@
           renderSaved();
           if (entry.menuId === activeMenuId) {
             renderReadyTray();
-            if (sheetState) fillSavedPick(savedPick.value);
+            if (sheetState) updateMealNameSuggestions();
           }
         });
       }
@@ -4331,47 +4328,45 @@
     if (menuId === activeMenuId) renderReadyTray();
   }
 
-  function fillSavedPick(selectedId, filterQuery) {
-    const queryRaw =
-      filterQuery !== undefined
-        ? filterQuery
-        : (nameInput && nameInput.value) || '';
-    const q = String(queryRaw).trim().toLowerCase();
-    const meals = sortedSaved().filter((m) => {
-      if (!q) return true;
-      return String(m.name || '')
-        .toLowerCase()
-        .includes(q);
+  function updateMealNameSuggestions() {
+    if (!mealNameSuggestions) return;
+    const names = [];
+    const seen = new Set();
+    sortedSaved().forEach((m) => {
+      const name = String(m.name || '').trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      names.push(name);
     });
-    const keepId =
-      selectedId && meals.some((m) => m.id === selectedId) ? selectedId : '';
-    const options = ['<option value="">— Type your own —</option>'];
-    meals.forEach((m) => {
-      options.push(
-        '<option value="' +
-          m.id +
-          '"' +
-          (keepId === m.id ? ' selected' : '') +
-          '>' +
-          escapeHtml(m.name) +
-          '</option>'
-      );
-    });
-    savedPick.innerHTML = options.join('');
-    const label = document.getElementById('pl-saved-pick-label');
-    if (label) {
-      if (!q) label.textContent = 'Use a saved meal';
-      else if (meals.length) label.textContent = 'Matching saved meals (' + meals.length + ')';
-      else label.textContent = 'No matching saved meals';
+    mealNameSuggestions.innerHTML = names
+      .map((name) => '<option value="' + escapeHtml(name) + '"></option>')
+      .join('');
+  }
+
+  function findSavedMealByName(name) {
+    const q = String(name || '')
+      .trim()
+      .toLowerCase();
+    if (!q) return null;
+    return sortedSaved().find((m) => String(m.name || '').trim().toLowerCase() === q) || null;
+  }
+
+  function tryLinkSavedMealFromName() {
+    if (suppressMealNameLink) return;
+    if (!sheetState || sheetState.mode !== 'slot') return;
+    const meal = findSavedMealByName(nameInput.value);
+    if (!meal) {
+      sheetLinkedSavedId = null;
+      return;
     }
-    const hint = document.getElementById('pl-saved-pick-hint');
-    if (hint) {
-      hint.textContent = q
-        ? meals.length
-          ? 'Showing meals that match what you typed.'
-          : 'No library matches — keep typing your own meal.'
-        : 'Start typing a name above to filter this list.';
-    }
+    if (sheetLinkedSavedId === meal.id) return;
+    sheetLinkedSavedId = meal.id;
+    suppressMealNameLink = true;
+    fillMealForm(meal);
+    suppressMealNameLink = false;
+    if (saveLibrary) saveLibrary.checked = false;
   }
 
   function escapeHtml(str) {
@@ -4415,6 +4410,7 @@
     sheet.classList.remove('pl-sheet-dragging');
     sheet.style.transform = '';
     sheetState = null;
+    sheetLinkedSavedId = null;
     setSheetEditable(true);
     setSheetLayerActive(false);
     setTimeout(() => {
@@ -4476,7 +4472,7 @@
   }
 
   function setSheetEditable(editable) {
-    const fields = [nameInput, cookInput, detailsInput, savedPick, saveLibrary, readyInput];
+    const fields = [nameInput, cookInput, detailsInput, saveLibrary, readyInput];
     fields.forEach((el) => {
       if (!el) return;
       el.disabled = !editable;
@@ -4488,7 +4484,12 @@
     }
     if (saveLibraryWrap && !editable) saveLibraryWrap.hidden = true;
     if (readyWrap && !editable) readyWrap.hidden = true;
-    if (savedPickField && !editable) savedPickField.hidden = true;
+    const slotSuggest = !!(editable && sheetState && sheetState.mode === 'slot');
+    if (mealNameHint) mealNameHint.hidden = !slotSuggest;
+    if (nameInput) {
+      if (slotSuggest) nameInput.setAttribute('list', 'pl-meal-name-suggestions');
+      else nameInput.removeAttribute('list');
+    }
     if (sheetActionsRow) {
       const cancelBtn = document.getElementById('pl-sheet-cancel');
       if (cancelBtn) cancelBtn.textContent = editable ? 'Cancel' : 'Close';
@@ -4519,9 +4520,9 @@
     saveLibraryWrap.hidden = !editable;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = true;
-    savedPickField.hidden = !editable;
     clearBtn.hidden = !(editable && existing && existing.name);
-    fillSavedPick(existing && existing.savedId ? existing.savedId : '', '');
+    sheetLinkedSavedId = existing && existing.savedId ? existing.savedId : null;
+    updateMealNameSuggestions();
     setSheetEditable(editable);
     openSheet();
     if (editable) setTimeout(() => nameInput.focus(), 240);
@@ -4533,6 +4534,7 @@
     if (!meal) return;
     const editable = menuCanEditLibrary(sourceMenuId);
     sheetState = { mode: 'saved-edit', savedId: id, menuId: sourceMenuId };
+    sheetLinkedSavedId = id;
     sheetTitle.textContent = editable ? 'Edit saved meal' : 'Saved meal';
     const menuName =
       (menuLibraryCache[sourceMenuId] && menuLibraryCache[sourceMenuId].name) ||
@@ -4547,8 +4549,8 @@
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = !!meal.ready;
     if (readyWrap) readyWrap.hidden = !editable;
-    savedPickField.hidden = true;
     clearBtn.hidden = true;
+    updateMealNameSuggestions();
     setSheetEditable(editable);
     openSheet();
   }
@@ -4556,6 +4558,7 @@
   function openNewSaved() {
     if (!canEditMenu()) return;
     sheetState = { mode: 'saved-new', menuId: activeMenuId };
+    sheetLinkedSavedId = null;
     sheetTitle.textContent = 'New saved meal';
     sheetSub.textContent = 'Adds to your active menu library; mark Ready when you have ingredients';
     fillMealForm(emptyMeal());
@@ -4563,8 +4566,8 @@
     saveLibraryWrap.hidden = true;
     if (readyInput) readyInput.checked = false;
     if (readyWrap) readyWrap.hidden = false;
-    savedPickField.hidden = true;
     clearBtn.hidden = true;
+    updateMealNameSuggestions();
     setSheetEditable(true);
     openSheet();
     setTimeout(() => nameInput.focus(), 240);
@@ -4623,9 +4626,12 @@
     if (sheetState.mode === 'slot') {
       let savedId = null;
       if (saveLibrary.checked) {
-        savedId = upsertSaved(form, null);
-      } else if (savedPick.value) {
-        savedId = savedPick.value;
+        savedId = upsertSaved(form, sheetLinkedSavedId || null);
+      } else if (sheetLinkedSavedId) {
+        savedId = sheetLinkedSavedId;
+      } else {
+        const matched = findSavedMealByName(form.name);
+        if (matched) savedId = matched.id;
       }
       const existingSlot = data.slots[sheetState.slotKey];
       data.slots[sheetState.slotKey] = {
@@ -4944,24 +4950,14 @@
     }, 0);
   }
 
-  let suppressSavedPickFilter = false;
-
   nameInput.addEventListener('input', () => {
-    if (suppressSavedPickFilter) return;
+    if (suppressMealNameLink) return;
     if (!sheetState || sheetState.mode !== 'slot') return;
-    if (!savedPickField || savedPickField.hidden) return;
-    fillSavedPick(savedPick.value, nameInput.value);
+    if (findSavedMealByName(nameInput.value)) tryLinkSavedMealFromName();
+    else sheetLinkedSavedId = null;
   });
-
-  savedPick.addEventListener('change', () => {
-    const id = savedPick.value;
-    if (!id) return;
-    const meal = data.saved.find((s) => s.id === id);
-    if (!meal) return;
-    suppressSavedPickFilter = true;
-    fillMealForm(meal);
-    suppressSavedPickFilter = false;
-    fillSavedPick(id, meal.name || '');
+  nameInput.addEventListener('change', () => {
+    tryLinkSavedMealFromName();
   });
 
   document.getElementById('pl-week-prev').addEventListener('click', () => {
