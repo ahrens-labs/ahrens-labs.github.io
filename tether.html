@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/img/tether-favicon-512.png?v=34">
   <link rel="icon" href="/img/tether-favicon.ico?v=34" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="/img/tether-favicon-180.png?v=34">
-  <link rel="manifest" href="/tether-manifest.webmanifest?v=36">
+  <link rel="manifest" href="/tether-manifest.webmanifest?v=37">
   <meta name="theme-color" content="#2563eb">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -699,8 +699,16 @@
     }
     .th-modal-close:hover { background: #fff; color: var(--th-ink); border-color: #bfdbfe; }
     .th-task-modal-body { padding: 18px 22px 8px; max-height: min(68vh, 560px); overflow-y: auto; }
-    .th-task-modal.th-task-modal-quick { width: min(520px, 100%); }
+    .th-task-modal.th-task-modal-quick {
+      width: min(520px, 100%);
+      overflow: visible;
+    }
+    .th-task-modal.th-task-modal-quick .th-task-modal-body {
+      overflow: visible;
+      max-height: none;
+    }
     .th-task-quick-add { margin-bottom: 4px; position: relative; }
+    .th-task-quick-add-field { position: relative; }
     .th-task-quick-add-input {
       width: 100%; box-sizing: border-box; border: 1px solid #dbeafe; background: #fff;
       border-radius: 14px; padding: 14px 16px; font: inherit; font-size: 1rem; line-height: 1.35;
@@ -716,11 +724,15 @@
       display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0;
     }
     .th-label-ac {
-      position: fixed; z-index: 10200;
-      min-width: 180px; max-width: min(420px, calc(100vw - 24px)); max-height: 220px; overflow-y: auto;
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 50;
+      max-height: 220px; overflow-y: auto;
       background: #fff; border: 1px solid #bfdbfe; border-radius: 12px;
-      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
       padding: 4px;
+    }
+    .th-label-ac.th-label-ac--portal {
+      position: fixed; left: auto; right: auto; top: auto; z-index: 20000;
+      min-width: 180px; max-width: min(420px, calc(100vw - 24px));
     }
     .th-label-ac[hidden] { display: none !important; }
     .th-label-ac-item {
@@ -1146,17 +1158,19 @@
       </div>
       <div class="th-task-modal-body">
         <div id="task-quick-add" class="th-task-quick-add" style="display:none;">
-          <input type="text" id="task-quick-add-input" class="th-task-quick-add-input" maxlength="240"
-            placeholder="What needs doing? Try task @label tomorrow or every week"
-            aria-label="Quick add task"
-            autocomplete="off"
-            aria-autocomplete="list"
-            aria-controls="task-label-autocomplete">
+          <div class="th-task-quick-add-field">
+            <input type="text" id="task-quick-add-input" class="th-task-quick-add-input" maxlength="240"
+              placeholder="What needs doing? Try task @label tomorrow or every week"
+              aria-label="Quick add task"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-controls="task-label-autocomplete">
+            <div id="task-label-autocomplete" class="th-label-ac" hidden role="listbox" aria-label="Label suggestions"></div>
+          </div>
           <div id="task-quick-add-preview" class="th-task-quick-add-preview"></div>
           <p class="th-task-quick-add-hint">Use a space before @ for labels (e.g. task @home). Add dates and repeats in plain language (today, tomorrow, every Monday, every 2 weeks).</p>
           <button type="button" class="th-quick-add-expand" id="task-quick-add-expand">More details</button>
         </div>
-        <div id="task-label-autocomplete" class="th-label-ac" hidden role="listbox" aria-label="Label suggestions"></div>
         <div id="task-modal-details">
         <div class="th-task-modal-layout">
           <div class="th-task-modal-main">
@@ -1164,8 +1178,10 @@
               <h4 class="th-task-section-title">Info</h4>
               <div class="th-field">
                 <label for="task-title-input">Task name</label>
-                <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?"
-                  autocomplete="off" aria-autocomplete="list" aria-controls="task-label-autocomplete">
+                <div class="th-task-quick-add-field">
+                  <input type="text" id="task-title-input" maxlength="200" placeholder="What needs to get done?"
+                    autocomplete="off" aria-autocomplete="list" aria-controls="task-label-autocomplete">
+                </div>
               </div>
               <div class="th-field th-task-due-compact">
                 <label for="task-due-input">Due Date</label>
@@ -1792,6 +1808,10 @@
     if (el) {
       el.hidden = true;
       el.innerHTML = '';
+      el.classList.remove('th-label-ac--portal');
+      el.style.cssText = '';
+      const home = document.querySelector('#task-quick-add .th-task-quick-add-field');
+      if (home && el.parentElement !== home) home.appendChild(el);
     }
     if (labelAcState.input) labelAcState.input.removeAttribute('aria-activedescendant');
     labelAcState = { input: null, items: [], index: -1, token: null };
@@ -1800,14 +1820,19 @@
   function positionLabelAutocomplete(input) {
     const el = labelAutocompleteEl();
     if (!el || !input) return;
+    // Always portal above the modal stacking context so the menu overlays the dialog.
     if (el.parentElement !== document.body) document.body.appendChild(el);
+    el.classList.add('th-label-ac--portal');
     const rect = input.getBoundingClientRect();
-    const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 24);
+    const width = Math.min(Math.max(rect.width, 200), window.innerWidth - 24);
     let left = Math.min(rect.left, window.innerWidth - width - 12);
     left = Math.max(12, left);
     let top = rect.bottom + 4;
+    el.style.position = 'fixed';
+    el.style.zIndex = '20000';
     el.style.width = `${width}px`;
     el.style.left = `${left}px`;
+    el.style.right = 'auto';
     el.style.top = `${top}px`;
     el.hidden = false;
     requestAnimationFrame(() => {
