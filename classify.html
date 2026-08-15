@@ -2211,7 +2211,7 @@
                     <span id="cl-settings-dark-state" class="text-sm font-semibold text-slate-500 dark:text-slate-400">Off</span>
                 </button>
                 <button type="button" class="cl-settings-item" onclick="closeClassifySettings(); openClassifyOrientation({ replay: true });">
-                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play orientation</span>
+                    <span class="cl-settings-item-label"><i class="fa-solid fa-circle-play text-sky-500"></i>Play walkthrough</span>
                     <i class="fa-solid fa-chevron-right text-slate-400 text-sm"></i>
                 </button>
             </div>
@@ -2222,7 +2222,7 @@
         </div>
     </div>
 
-    <!-- Classify interactive orientation tour -->
+    <!-- Classify interactive walkthrough -->
     <div id="classifyOrientationOverlay" class="cl-orientation-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="classifyOrientationTitle">
         <div id="classifyOrientationBackdrop" class="cl-orientation-backdrop hidden"></div>
         <div id="classifyOrientationSpotlight" class="cl-orientation-spotlight hidden" aria-hidden="true"></div>
@@ -2245,7 +2245,7 @@
                 <ul class="cl-orientation-list" id="classifyOrientationList"></ul>
             </div>
             <div class="cl-orientation-tooltip__footer">
-                <button type="button" onclick="skipClassifyOrientation()" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" id="classifyOrientationSkipBtn">Skip tour</button>
+                <button type="button" onclick="skipClassifyOrientation()" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" id="classifyOrientationSkipBtn">Skip walkthrough</button>
                 <div class="cl-orientation-footer-actions">
                     <button type="button" onclick="prevClassifyOrientationStep()" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" id="classifyOrientationBackBtn">Back</button>
                     <button type="button" onclick="nextClassifyOrientationStep()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors" id="classifyOrientationNextBtn">Next</button>
@@ -3459,7 +3459,7 @@
                 bullets: [
                     'Your smart planner for school assignments',
                     'Use Next to visit each screen in order',
-                    'Replay anytime from Settings → Play orientation'
+                    'Replay anytime from Settings → Play walkthrough'
                 ],
                 target: '.th-topbar-brand',
                 tab: 'dashboard',
@@ -3582,7 +3582,7 @@
                 bullets: [
                     '<strong>Block times</strong> — school hours, lunch, vacations',
                     'Manage subjects, import/export, and dark mode',
-                    '<strong>Play orientation</strong> replays this tour'
+                    '<strong>Play walkthrough</strong> lets you run this guide again'
                 ],
                 target: '#btn-classify-settings',
                 tab: 'dashboard',
@@ -3609,7 +3609,7 @@
                 bullets: [
                     'Plan the week on Dashboard, then follow Today\'s Schedule',
                     'Use Calendar week view to drag work into place',
-                    'Replay this tour anytime from Settings'
+                    'Replay this walkthrough anytime from Settings'
                 ],
                 center: true,
                 tab: 'dashboard'
@@ -3622,11 +3622,11 @@
         let classifyOrientationLayoutHandler = null;
 
         function hasCompletedClassifyOrientation() {
-            return plannerGet('orientationCompleted') === 'true';
+            return plannerGet('walkthroughCompleted') === 'true' || plannerGet('orientationCompleted') === 'true';
         }
 
         function markClassifyOrientationCompleted() {
-            plannerSet('orientationCompleted', 'true');
+            plannerSet('walkthroughCompleted', 'true');
         }
 
         function isClassifyOrientationOpen() {
@@ -3784,7 +3784,7 @@
             if(stepLabelEl) stepLabelEl.textContent = `Step ${classifyOrientationStep + 1} of ${total}`;
             if(backBtn) backBtn.disabled = classifyOrientationStep === 0;
             if(nextBtn) nextBtn.textContent = classifyOrientationStep === total - 1 ? 'Get started' : 'Next';
-            if(skipBtn) skipBtn.textContent = classifyOrientationReplay ? 'Close' : 'Skip tour';
+            if(skipBtn) skipBtn.textContent = classifyOrientationReplay ? 'Close' : 'Skip walkthrough';
         }
 
         async function renderClassifyOrientationStep() {
