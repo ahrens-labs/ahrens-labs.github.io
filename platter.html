@@ -1905,16 +1905,17 @@
     <h2 id="pl-sheet-title">Meal</h2>
     <p class="pl-sheet-sub" id="pl-sheet-sub"></p>
 
-    <div class="pl-field" id="pl-field-saved-pick">
-      <label for="pl-saved-pick">Use a saved meal</label>
-      <select id="pl-saved-pick">
-        <option value="">— Type your own —</option>
-      </select>
-    </div>
-
     <div class="pl-field">
       <label for="pl-meal-name">Name</label>
       <input id="pl-meal-name" type="text" maxlength="120" autocomplete="off" placeholder="e.g. Chicken tacos">
+    </div>
+
+    <div class="pl-field" id="pl-field-saved-pick">
+      <label for="pl-saved-pick" id="pl-saved-pick-label">Use a saved meal</label>
+      <select id="pl-saved-pick">
+        <option value="">— Type your own —</option>
+      </select>
+      <p class="pl-hint" style="margin:6px 0 0;" id="pl-saved-pick-hint">Start typing a name above to filter this list.</p>
     </div>
     <div class="pl-field">
       <label for="pl-meal-cook">Total cook time (min)</label>
@@ -4322,20 +4323,47 @@
     if (menuId === activeMenuId) renderReadyTray();
   }
 
-  function fillSavedPick(selectedId) {
+  function fillSavedPick(selectedId, filterQuery) {
+    const queryRaw =
+      filterQuery !== undefined
+        ? filterQuery
+        : (nameInput && nameInput.value) || '';
+    const q = String(queryRaw).trim().toLowerCase();
+    const meals = sortedSaved().filter((m) => {
+      if (!q) return true;
+      return String(m.name || '')
+        .toLowerCase()
+        .includes(q);
+    });
+    const keepId =
+      selectedId && meals.some((m) => m.id === selectedId) ? selectedId : '';
     const options = ['<option value="">— Type your own —</option>'];
-    sortedSaved().forEach((m) => {
-        options.push(
-          '<option value="' +
-            m.id +
-            '"' +
-            (selectedId === m.id ? ' selected' : '') +
-            '>' +
-            escapeHtml(m.name) +
-            '</option>'
-        );
-      });
+    meals.forEach((m) => {
+      options.push(
+        '<option value="' +
+          m.id +
+          '"' +
+          (keepId === m.id ? ' selected' : '') +
+          '>' +
+          escapeHtml(m.name) +
+          '</option>'
+      );
+    });
     savedPick.innerHTML = options.join('');
+    const label = document.getElementById('pl-saved-pick-label');
+    if (label) {
+      if (!q) label.textContent = 'Use a saved meal';
+      else if (meals.length) label.textContent = 'Matching saved meals (' + meals.length + ')';
+      else label.textContent = 'No matching saved meals';
+    }
+    const hint = document.getElementById('pl-saved-pick-hint');
+    if (hint) {
+      hint.textContent = q
+        ? meals.length
+          ? 'Showing meals that match what you typed.'
+          : 'No library matches — keep typing your own meal.'
+        : 'Start typing a name above to filter this list.';
+    }
   }
 
   function escapeHtml(str) {
@@ -4485,7 +4513,7 @@
     if (readyWrap) readyWrap.hidden = true;
     savedPickField.hidden = !editable;
     clearBtn.hidden = !(editable && existing && existing.name);
-    fillSavedPick(existing && existing.savedId ? existing.savedId : '');
+    fillSavedPick(existing && existing.savedId ? existing.savedId : '', '');
     setSheetEditable(editable);
     openSheet();
     if (editable) setTimeout(() => nameInput.focus(), 240);
@@ -4905,12 +4933,24 @@
     }, 0);
   }
 
+  let suppressSavedPickFilter = false;
+
+  nameInput.addEventListener('input', () => {
+    if (suppressSavedPickFilter) return;
+    if (!sheetState || sheetState.mode !== 'slot') return;
+    if (!savedPickField || savedPickField.hidden) return;
+    fillSavedPick(savedPick.value, nameInput.value);
+  });
+
   savedPick.addEventListener('change', () => {
     const id = savedPick.value;
     if (!id) return;
     const meal = data.saved.find((s) => s.id === id);
     if (!meal) return;
+    suppressSavedPickFilter = true;
     fillMealForm(meal);
+    suppressSavedPickFilter = false;
+    fillSavedPick(id, meal.name || '');
   });
 
   document.getElementById('pl-week-prev').addEventListener('click', () => {
