@@ -3104,7 +3104,29 @@
         });
       });
     });
-    out.sort((a, b) => {
+
+    const preferSavedEntry = (a, b) => {
+      if (a.menuId === activeMenuId && b.menuId !== activeMenuId) return a;
+      if (b.menuId === activeMenuId && a.menuId !== activeMenuId) return b;
+      if (a.canEdit !== b.canEdit) return a.canEdit ? a : b;
+      if (!!a.meal.favorite !== !!b.meal.favorite) return a.meal.favorite ? a : b;
+      return a;
+    };
+    const byContent = new Map();
+    out.forEach((entry) => {
+      const key =
+        String((entry.meal && entry.meal.name) || '')
+          .trim()
+          .toLowerCase() +
+        '\n' +
+        String((entry.meal && entry.meal.details) || '').trim();
+      const prev = byContent.get(key);
+      if (!prev) byContent.set(key, entry);
+      else byContent.set(key, preferSavedEntry(prev, entry));
+    });
+    const deduped = [...byContent.values()];
+
+    deduped.sort((a, b) => {
       const fav = Number(!!b.meal.favorite) - Number(!!a.meal.favorite);
       if (fav) return fav;
       const ready = Number(!!b.activeReady) - Number(!!a.activeReady);
@@ -3118,7 +3140,7 @@
       }
       return String(a.meal.name || '').localeCompare(String(b.meal.name || ''));
     });
-    return out;
+    return deduped;
   }
 
   function canReorderSavedList() {
