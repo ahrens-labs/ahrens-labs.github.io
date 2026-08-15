@@ -1353,7 +1353,7 @@
 
     .pl-saved-item-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(4, 1fr);
       border-top: 1px solid var(--pl-line);
     }
 
@@ -1361,23 +1361,18 @@
       min-height: 44px;
       border: 0;
       border-right: 1px solid var(--pl-line);
-      border-bottom: 1px solid var(--pl-line);
       background: #f8fafc;
       font: inherit;
-      font-size: 0.8rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: var(--pl-accent);
       cursor: pointer;
       touch-action: manipulation;
-      padding: 10px 8px;
+      padding: 10px 4px;
     }
 
-    .pl-saved-item-actions button:nth-child(2n) {
+    .pl-saved-item-actions button:last-child {
       border-right: 0;
-    }
-
-    .pl-saved-item-actions button:nth-last-child(-n + 2) {
-      border-bottom: 0;
     }
 
     .pl-saved-item-actions button[data-act='delete'] {
@@ -1885,10 +1880,6 @@
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="saved">
         <span class="pl-bottom-nav-icon" aria-hidden="true">★</span>
         <span>Saved</span>
-      </button>
-      <button type="button" class="pl-bottom-nav-item" data-pl-tab="thisweek">
-        <span class="pl-bottom-nav-icon" aria-hidden="true">☰</span>
-        <span>This week</span>
       </button>
       <button type="button" class="pl-bottom-nav-item" data-pl-tab="share">
         <span class="pl-bottom-nav-icon" aria-hidden="true">↗</span>
@@ -2940,15 +2931,12 @@
     queueCloudSync();
   }
 
-  const VALID_TABS = ['week', 'saved', 'thisweek', 'share'];
+  const VALID_TABS = ['week', 'saved', 'share'];
 
   function normalizeTab(tab) {
     const t = String(tab || '').toLowerCase();
+    if (t === 'thisweek') return 'week';
     return VALID_TABS.includes(t) ? t : 'week';
-  }
-
-  function panelTabFor(tab) {
-    return tab === 'thisweek' ? 'week' : tab;
   }
 
   function focusThisWeekPanel() {
@@ -2984,8 +2972,7 @@
   function setTab(tab, opts) {
     const next = normalizeTab(tab);
     const options = opts || {};
-    const panelTab = panelTabFor(next);
-    if (panelTab !== 'week') clearPlaceMode();
+    if (next !== 'week') clearPlaceMode();
     document.querySelectorAll('[data-pl-tab]').forEach((el) => {
       if (el.classList.contains('pl-bottom-nav-item')) {
         el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
@@ -2994,11 +2981,11 @@
         el.classList.contains('pl-saved-panel') ||
         el.classList.contains('pl-share-panel')
       ) {
-        el.classList.toggle('active', el.getAttribute('data-pl-tab') === panelTab);
+        el.classList.toggle('active', el.getAttribute('data-pl-tab') === next);
       }
     });
-    if (panelTab === 'share') renderSharePanel();
-    if (panelTab === 'saved') {
+    if (next === 'share') renderSharePanel();
+    if (next === 'saved') {
       ensureSavedFilterLibraries()
         .then(() => {
           renderSavedMenuBubbles();
@@ -3008,9 +2995,6 @@
           renderSavedMenuBubbles();
           renderSaved();
         });
-    }
-    if (next === 'thisweek') {
-      requestAnimationFrame(() => focusThisWeekPanel());
     }
     if (!options.skipUrlSync) {
       syncTabUrl(next, { replace: !!options.replaceUrl });
@@ -3280,7 +3264,8 @@
     const sourceMenuId = menuId || activeMenuId;
     if (!menuCanEditLibrary(sourceMenuId)) return;
     setMealReady(savedId, true, sourceMenuId);
-    setTab('thisweek');
+    setTab('week');
+    requestAnimationFrame(() => focusThisWeekPanel());
   }
 
   function syncSlotsFromSaved(savedId) {
