@@ -68,6 +68,30 @@
       font-weight: 900;
     }
 
+    .pl-topbar-brand-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .pl-topbar-menu {
+      margin: 0;
+      max-width: min(46vw, 220px);
+      font-size: 0.72rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pl-topbar-menu.is-view-only {
+      color: #b45309;
+    }
+
     .platter-logo {
       width: 64px;
       height: 64px;
@@ -1736,7 +1760,10 @@
           </button>
           <div class="th-topbar-brand">
             <img src="img/platter-logo.png?v=13" alt="" class="platter-logo">
-            <h1 class="th-topbar-title">Platter</h1>
+            <div class="pl-topbar-brand-text">
+              <h1 class="th-topbar-title">Platter</h1>
+              <p class="pl-topbar-menu" id="pl-header-menu-name" hidden></p>
+            </div>
           </div>
         </div>
         <div class="th-topbar-auth" id="header-auth-buttons">
@@ -2503,6 +2530,25 @@
     return slots > 0 || saved > 0;
   }
 
+  function updateHeaderMenuName() {
+    const el = document.getElementById('pl-header-menu-name');
+    if (!el) return;
+    const name = String((menuMeta && menuMeta.name) || '').trim();
+    if (!name) {
+      el.hidden = true;
+      el.textContent = '';
+      el.classList.remove('is-view-only');
+      return;
+    }
+    const viewOnly = !canEditMenu();
+    el.hidden = false;
+    el.textContent = viewOnly ? name + ' · view only' : name;
+    el.classList.toggle('is-view-only', viewOnly);
+    el.title = viewOnly
+      ? 'Viewing ' + name + ' (view only)'
+      : 'Making changes to ' + name;
+  }
+
   function applyMenuPayload(menu, menusList) {
     if (Array.isArray(menusList)) menus = menusList;
     activeMenuId = menu && menu.id ? menu.id : activeMenuId;
@@ -2526,6 +2572,7 @@
     syncActiveIntoLibraryCache();
     pruneSavedFilterToMenus();
     if (activeMenuId && !savedFilterMenuIds.size) savedFilterMenuIds.add(activeMenuId);
+    updateHeaderMenuName();
     applyViewOnlyUi();
     renderAll();
   }
@@ -2866,6 +2913,7 @@
       ownerUsername: menu.ownerUsername || menuMeta.ownerUsername,
     };
     if (typeof menu.updatedAt === 'number') cloudUpdatedAt = menu.updatedAt;
+    updateHeaderMenuName();
     applyViewOnlyUi();
   }
 
@@ -3206,8 +3254,6 @@
     const sourceMenuId = menuId || activeMenuId;
     if (!menuCanEditLibrary(sourceMenuId)) return;
     setMealThisWeek(savedId, true, sourceMenuId);
-    setTab('week');
-    requestAnimationFrame(() => focusThisWeekPanel());
   }
 
   function renderReadyTray() {
