@@ -7165,6 +7165,13 @@
             return Array.from(missingById.values());
         }
 
+        function repairClassifyWeekSchedules(weekKeys = null) {
+            collectClassifyScheduleWeekKeys(weekKeys).forEach(weekKey => {
+                assignWeekTaskDates(weekKey, true);
+                autoBlockWeekTimes(false, weekKey, true, true);
+            });
+        }
+
         function runClassifyScheduleReconcile(options = {}) {
             const {
                 seedTaskIds = [],
@@ -7185,8 +7192,15 @@
             });
 
             if(!classifyUndoApplying) {
-                enforceNoOverlappingTimes();
-                enforceDependencyOrder();
+                for(let pass = 0; pass < 3; pass++) {
+                    const missingBefore = getClassifyUnscheduledAssignments(weekKeys).length;
+                    enforceNoOverlappingTimes();
+                    enforceDependencyOrder();
+                    repairClassifyWeekSchedules(weekKeys);
+                    const missingAfter = getClassifyUnscheduledAssignments(weekKeys).length;
+                    if(missingAfter === 0) break;
+                    if(pass > 0 && missingAfter >= missingBefore) break;
+                }
             }
 
             const unscheduled = getClassifyUnscheduledAssignments(weekKeys);
@@ -7473,8 +7487,10 @@
 
             if(!classifyUndoApplying) {
                 pruneExpiredScheduleItems();
-                enforceNoOverlappingTimes();
-                enforceDependencyOrder();
+                if(!skipAutoSchedule) {
+                    enforceNoOverlappingTimes();
+                    enforceDependencyOrder();
+                }
             }
 
             if(!skipAutoSchedule && !saveDataAutoScheduleGuard) {
