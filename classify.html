@@ -7093,6 +7093,24 @@
             if(cloudSyncNew) syncClassifyDataToCloud();
         }
 
+        function finalizeClassifyCompletion(options = {}) {
+            const {
+                task = null,
+                seedTaskIds = [],
+                spawnedRepeats = false,
+                cloudSyncNew = true
+            } = options || {};
+            const seeds = Array.from(new Set(
+                (seedTaskIds.length ? seedTaskIds : (task?.id ? [task.id] : [])).filter(Boolean)
+            ));
+            if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
+            closeTimeModal();
+            finalizeClassifyModalSave({
+                seedTaskIds: seeds,
+                cloudSyncNew
+            });
+        }
+
         function updateClassifyUndoButton() {
             const btn = document.getElementById('btn-classify-undo');
             if(!btn) return;
@@ -9359,15 +9377,13 @@
                 enforceDifferentDayAfterCompletion(task);
                 reconcileBeforeAfterSchedule([task.id]);
             }
-            reAutoScheduleAfterCompletion(task, spawned > 0);
             const completionSeedIds = mode === 'partial'
                 ? [task.id, carryOver?.id].filter(Boolean)
                 : [task.id];
-            closeTimeModal();
-            finalizeClassifyModalSave({
+            finalizeClassifyCompletion({
+                task,
                 seedTaskIds: completionSeedIds,
-                skipScheduleRefresh: true,
-                cloudSyncNew: true
+                spawnedRepeats: spawned > 0
             });
             enforceBreakAfterCompletion(task);
             setTimeout(() => {
@@ -10680,7 +10696,7 @@
                     task.actualMinutes = null;
                     if(task.repeatGroupId) clearRepeatOccurrenceException(task.repeatGroupId, task);
                     pruneRepeatFutureWeeks();
-                    saveData({ skipUndoRecord: true });
+                    finalizeClassifyModalSave({ seedTaskIds: [id] });
                     return;
                 }
                 openTimeModal(id);
