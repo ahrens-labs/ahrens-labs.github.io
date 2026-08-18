@@ -10057,6 +10057,56 @@
             }, 300);
         }
 
+        function closeModalImmediate() {
+            editingId = null;
+            modalPanel.classList.remove('scale-100', 'opacity-100');
+            modalPanel.classList.add('scale-95', 'opacity-0');
+            modal.classList.add('hidden', 'pointer-events-none');
+        }
+
+        function captureTaskScheduleSnapshot(task) {
+            if(!task) return null;
+            return {
+                id: task.id,
+                date: task.date || null,
+                week: task.week || null,
+                dueDate: task.dueDate || null,
+                repeatWeekKey: task.repeatWeekKey || null
+            };
+        }
+
+        function refreshScheduleForSavedTasks(taskIds = [], previousSnapshots = []) {
+            const weekKeys = new Set();
+            const addWeekKeys = (ids = []) => {
+                collectWeekKeysForTasks(ids).forEach(weekKey => weekKeys.add(weekKey));
+            };
+            addWeekKeys(taskIds);
+            (previousSnapshots || []).forEach(snapshot => {
+                if(!snapshot) return;
+                if(snapshot.id) addWeekKeys([snapshot.id]);
+                if(snapshot.date) weekKeys.add(getWeekKeyFromDateStr(snapshot.date));
+                if(snapshot.dueDate) weekKeys.add(getWeekKeyFromDateStr(snapshot.dueDate));
+                if(snapshot.week) weekKeys.add(snapshot.week);
+                if(snapshot.repeatWeekKey) weekKeys.add(snapshot.repeatWeekKey);
+            });
+            if(weekKeys.size === 0) {
+                getRelevantUpcomingWeekKeys().forEach(weekKey => weekKeys.add(weekKey));
+            }
+            reAutoScheduleWeeks(Array.from(weekKeys), true, false);
+            ensureAllEventsScheduled(12, false);
+        }
+
+        function finishTaskEditorSave({ seedTaskIds = [], previousSnapshots = [], cloudSyncNew = false } = {}) {
+            clearForm();
+            closeModalImmediate();
+            renderAll();
+            const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
+            reconcileBeforeAfterSchedule(seeds);
+            refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            if(cloudSyncNew) syncClassifyDataToCloud();
+        }
+
         function clearForm() {
             editingId = null;
             document.getElementById('inputTitle').value = '';
@@ -10353,6 +10403,9 @@
 
             const proceedSave = () => {
                 recordClassifyUndoPoint({ force: true });
+                const previousTaskSnapshot = captureTaskScheduleSnapshot(
+                    editingId ? tasks.find(t => t.id === editingId) : null
+                );
                 if((isFixedTask(normalizedTaskData) || isUserTimeLockedTask(normalizedTaskData)) && normalizedTaskData.date && normalizedTaskData.time) {
                     let conflict = findSchedulingConflict(
                         normalizedTaskData.date,
@@ -10397,13 +10450,11 @@
 
                     applyReciprocalDependenciesForTask(normalizedTaskData.id);
                     syncAllTaskDependencies();
-                    ensureAllEventsScheduled(12, false);
-                    reconcileBeforeAfterSchedule([normalizedTaskData.id]);
-
-                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-                    if(isCreatingNewTask) syncClassifyDataToCloud();
-                    clearForm();
-                    closeModal();
+                    finishTaskEditorSave({
+                        seedTaskIds: [normalizedTaskData.id],
+                        previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : [],
+                        cloudSyncNew: isCreatingNewTask
+                    });
                     return;
                 }
 
@@ -10490,14 +10541,13 @@
 
                 pruneRepeatFutureWeeks();
                 syncAllTaskDependencies();
-                ensureAllEventsScheduled(12, false);
                 const groupSeeds = tasks
                     .filter(t => t.repeatGroupId === groupId && !t.completed)
                     .map(t => t.id);
-                reconcileBeforeAfterSchedule(groupSeeds.length ? groupSeeds : [normalizedTaskData.id]);
-                saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-                clearForm();
-                closeModal();
+                finishTaskEditorSave({
+                    seedTaskIds: groupSeeds.length ? groupSeeds : [normalizedTaskData.id],
+                    previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : []
+                });
             };
 
             const confirmDueDate = () => {
