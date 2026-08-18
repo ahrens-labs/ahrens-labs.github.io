@@ -4913,7 +4913,10 @@
             const normalizedDifficulty = ['Easy', 'Medium', 'Hard'].includes(task.difficulty) ? task.difficulty : 'Medium';
             const normalizedEventDate = task.eventDate || task.date || null;
             const weekDueOnly = Boolean(task.weekDueOnly);
-            const inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
+            let inferredScheduleType = task.scheduleType || (task.week ? 'week' : (normalizedEventDate ? 'date' : 'flexible'));
+            if(weekDueOnly || task.scheduleType === 'week') {
+                inferredScheduleType = 'week';
+            }
             const isExactDateTask = inferredScheduleType === 'date' && !weekDueOnly;
             const normalizedDueDateBase = isExactDateTask
                 ? null
@@ -5145,17 +5148,32 @@
             const startMin = timeToMin(time);
             recordClassifyUndoPoint({ force: true });
 
+            const wasTargetWeek = isTargetWeekAssignment(task);
+            const preservedTargetWeek = task.week || null;
+            const preservedDueDate = task.dueDate || null;
+            const preservedDueTime = task.dueTime || null;
+            const preservedWeekDueOnly = Boolean(task.weekDueOnly);
+
             task.date = date;
             task.time = time;
             task.dateSource = 'user';
             task.timeSource = 'user';
             task.assignmentMode = 'FIXED';
-            task.scheduleType = 'date';
-            task.week = getWeekKeyFromDateStr(date);
-            task.weekDueOnly = false;
-            task.dueDate = null;
-            task.dueTime = null;
             task.startedAt = Date.now();
+
+            if(wasTargetWeek) {
+                task.scheduleType = 'week';
+                task.week = preservedTargetWeek || getWeekKeyFromDateStr(date);
+                task.weekDueOnly = preservedWeekDueOnly;
+                task.dueDate = preservedDueDate;
+                task.dueTime = preservedDueTime;
+            } else {
+                task.scheduleType = 'date';
+                task.week = getWeekKeyFromDateStr(date);
+                task.weekDueOnly = false;
+                task.dueDate = null;
+                task.dueTime = null;
+            }
 
             saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             setStartButtonBusy(id, false);
@@ -5362,6 +5380,18 @@
             return true;
         }
 
+        function isTargetWeekAssignment(task) {
+            if(!task) return false;
+            if(task.weekDueOnly) return true;
+            return task.scheduleType === 'week';
+        }
+
+        function ensureTargetWeekScheduleType(task) {
+            if(!isTargetWeekAssignment(task)) return task;
+            task.scheduleType = 'week';
+            return task;
+        }
+
         function getTaskTargetWeekKey(task) {
             if(!task) return null;
             if(task.repeatWeekKey && /^\d{4}-W\d{2}$/.test(task.repeatWeekKey)) return task.repeatWeekKey;
@@ -5555,6 +5585,7 @@
                         task.date = picked;
                         if(task.dateSource !== 'user') task.dateSource = 'auto';
                         task.week = weekKey;
+                        ensureTargetWeekScheduleType(task);
                         assigned++;
                     }
                 });
@@ -9792,7 +9823,9 @@
 
                 const dragUpdates = {
                     date: dateStr,
-                    week: getWeekKeyFromDateStr(dateStr),
+                    week: isTargetWeekAssignment(task)
+                        ? (task.week || getWeekKeyFromDateStr(dateStr))
+                        : getWeekKeyFromDateStr(dateStr),
                     dateSource: 'user'
                 };
                 if(timeStr) {
@@ -9805,7 +9838,7 @@
                     dragUpdates.assignmentMode = 'ADJUSTABLE';
                 }
 
-                const movedTask = normalizeTask({ ...task, ...dragUpdates });
+                const movedTask = ensureTargetWeekScheduleType(normalizeTask({ ...task, ...dragUpdates }));
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
             }, { seedTaskIds: [taskId] });
 
@@ -10795,7 +10828,9 @@
                             completed: t.completed,
                             completedDate: t.completedDate,
                             actualMinutes: t.actualMinutes,
-                            scheduleType: weekDueOnly ? 'week' : t.scheduleType,
+                            scheduleType: weekDueOnly
+                                ? 'week'
+                                : (isEditedInstance ? scheduleType : (isTargetWeekAssignment(t) ? 'week' : t.scheduleType)),
                             assignmentMode: weekDueOnly ? 'ADJUSTABLE' : (inputTimeValue ? (isFixedInput ? 'FIXED' : 'ADJUSTABLE') : 'ADJUSTABLE'),
                             date: weekDueOnly ? null : t.date,
                             dueDate: instanceDueDate,
@@ -10895,7 +10930,9 @@
             document.getElementById('modalHeading').innerText = 'Edit Assignment';
             document.getElementById('inputTitle').value = t.title;
             document.getElementById('inputSubject').value = t.subject;
-            document.getElementById('inputScheduleType').value = t.scheduleType || (t.week ? 'week' : (t.date ? 'date' : 'flexible'));
+            document.getElementById('inputScheduleType').value = isTargetWeekAssignment(t)
+                ? 'week'
+                : (t.scheduleType || (t.week ? 'week' : (t.date ? 'date' : 'flexible')));
             document.getElementById('inputDate').value = t.date || '';
             document.getElementById('inputDueDate').value = taskHasSeparateDueDate(t) ? (t.dueDate || '') : '';
             document.getElementById('inputWeek').value = t.repeatWeekKey || t.week || getCurrentWeekKey();
@@ -11427,7 +11464,7 @@
             let preserved = 0;
 
             targets.forEach(task => {
-                const isTargetWeekTask = task.scheduleType === 'week';
+                const isTargetWeekTask = isTargetWeekAssignment(task);
                 const hasAssignedDate = !isTargetWeekTask && Boolean(task.date) && task.date >= todayStr;
                 const keepUserPlacement = isUserScheduleLocked(task) && hasAssignedDate && Boolean(task.time);
 
@@ -11477,6 +11514,7 @@
             } = options || {};
             const targetWeekKey = weekKey || getCurrentWeekKey();
             if(persist && !classifyUndoApplying) recordClassifyUndoPoint({ force: true });
+            ensureActiveRepeatWeekOccurrences();
             const { assigned, preserved, rebuilt, complete } = replanWeekFromScratch(targetWeekKey, true);
             if(!complete) {
                 if(persist) {
@@ -11558,6 +11596,7 @@
                     if(!task.week) task.week = weekKey;
                     if(!task.dueDate) task.dueDate = getWeekDueDateForRepeat(weekKey, task);
                     if(task.weekDueOnly && task.scheduleType !== 'week') task.scheduleType = 'week';
+                    ensureTargetWeekScheduleType(task);
                 });
             });
             return created;
