@@ -5239,13 +5239,42 @@
             return true;
         }
 
-        function getAllValidWeekDates(task, eligibleDates, dateById = new Map()) {
-            if(!task || !Array.isArray(eligibleDates) || eligibleDates.length === 0) return [];
-            return eligibleDates.filter(candidate => isTaskDateValidForWeekConstraints(task, candidate, dateById));
+        // Scheduling priority:
+        // 1) User-set rules (dependencies, block times, due dates, locked dates/times, avoid dates)
+        // 2) As early as possible in the target week (earliest day, then earliest time)
+        function sortScheduleDatesByPreference(dates, weekKey = null) {
+            const unique = Array.from(new Set((dates || []).filter(Boolean)));
+            unique.sort((a, b) => a.localeCompare(b));
+            if(!weekKey) return unique;
+            const inWeek = new Set(getWeekdayDateStringsFromWeekKey(weekKey));
+            return unique.sort((a, b) => {
+                const aInWeek = inWeek.has(a) ? 0 : 1;
+                const bInWeek = inWeek.has(b) ? 0 : 1;
+                if(aInWeek !== bInWeek) return aInWeek - bInWeek;
+                return a.localeCompare(b);
+            });
         }
 
-        function getNextValidWeekDate(task, currentDate, eligibleDates, dateById = new Map()) {
-            const validDates = getAllValidWeekDates(task, eligibleDates, dateById);
+        function compareSchedulePlacementPreference(a, b, weekKey = null) {
+            if(weekKey) {
+                const inWeek = new Set(getWeekdayDateStringsFromWeekKey(weekKey));
+                const aInWeek = inWeek.has(a.date) ? 0 : 1;
+                const bInWeek = inWeek.has(b.date) ? 0 : 1;
+                if(aInWeek !== bInWeek) return aInWeek - bInWeek;
+            }
+            if(a.date !== b.date) return a.date.localeCompare(b.date);
+            return (a.start || 0) - (b.start || 0);
+        }
+
+        function getAllValidWeekDates(task, eligibleDates, dateById = new Map(), weekKey = null) {
+            if(!task || !Array.isArray(eligibleDates) || eligibleDates.length === 0) return [];
+            const resolvedWeekKey = weekKey || task?.week || null;
+            const valid = eligibleDates.filter(candidate => isTaskDateValidForWeekConstraints(task, candidate, dateById));
+            return sortScheduleDatesByPreference(valid, resolvedWeekKey);
+        }
+
+        function getNextValidWeekDate(task, currentDate, eligibleDates, dateById = new Map(), weekKey = null) {
+            const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey || task?.week || null);
             if(validDates.length === 0) return null;
             const idx = validDates.indexOf(currentDate);
             if(idx < 0) return validDates[0];
@@ -5302,7 +5331,10 @@
 
             if(!allowBeyondWeek) {
                 const schedulableInWeek = inWeek.filter(d => isDateSchedulableForTask(task, d));
-                return schedulableInWeek.length > 0 ? schedulableInWeek : inWeek;
+                return sortScheduleDatesByPreference(
+                    schedulableInWeek.length > 0 ? schedulableInWeek : inWeek,
+                    weekKey
+                );
             }
 
             const rangeStart = inWeek[0] || todayStr;
@@ -5313,17 +5345,18 @@
                 .filter(d => d >= todayStr && !isDateInVacation(d));
 
             const dates = Array.from(new Set(extended.length > 0 ? extended : inWeek)).sort((a, b) => a.localeCompare(b));
-            if(hasUserLockedCalendarDate(task)) return dates;
+            if(hasUserLockedCalendarDate(task)) return sortScheduleDatesByPreference(dates, weekKey);
             const schedulable = dates.filter(d => isDateSchedulableForTask(task, d));
-            return schedulable.length > 0 ? schedulable : dates;
+            return sortScheduleDatesByPreference(schedulable.length > 0 ? schedulable : dates, weekKey);
         }
 
         function spillAutoTaskToNextValidDate(task, eligibleDates, dateById = new Map()) {
             if(!task || isUserScheduleLocked(task)) return false;
+            const weekKey = task.week || (task.date ? getWeekKeyFromDateStr(task.date) : null);
             const current = task.date;
             const next = current
-                ? getNextValidWeekDate(task, current, eligibleDates, dateById)
-                : findEarliestValidWeekDate(task, eligibleDates, dateById);
+                ? getNextValidWeekDate(task, current, eligibleDates, dateById, weekKey)
+                : findEarliestValidWeekDate(task, eligibleDates, dateById, weekKey);
             if(!next || next === current) return false;
             task.date = next;
             if(task.dateSource !== 'user') task.dateSource = 'auto';
@@ -5333,13 +5366,13 @@
             return true;
         }
 
-        function findEarliestValidWeekDate(task, eligibleDates, dateById = new Map()) {
-            const validDates = getAllValidWeekDates(task, eligibleDates, dateById);
+        function findEarliestValidWeekDate(task, eligibleDates, dateById = new Map(), weekKey = null) {
+            const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey || task?.week || null);
             return validDates.length > 0 ? validDates[0] : null;
         }
 
-        function findLatestValidWeekDate(task, eligibleDates, dateById = new Map()) {
-            const validDates = getAllValidWeekDates(task, eligibleDates, dateById);
+        function findLatestValidWeekDate(task, eligibleDates, dateById = new Map(), weekKey = null) {
+            const validDates = getAllValidWeekDates(task, eligibleDates, dateById, weekKey || task?.week || null);
             return validDates.length > 0 ? validDates[validDates.length - 1] : null;
         }
 
@@ -5432,7 +5465,7 @@
                 if(index >= adjustable.length) return true;
                 const task = adjustable[index];
                 const eligibleDates = getScheduleEligibleDates(task, weekKey);
-                const validDates = getAllValidWeekDates(task, eligibleDates, workingDates);
+                const validDates = getAllValidWeekDates(task, eligibleDates, workingDates, weekKey);
                 for(const picked of validDates) {
                     workingDates.set(task.id, picked);
                     if(tryAssignDates(index + 1, workingDates)) return true;
@@ -5979,8 +6012,7 @@
         }
         function selectSlotIndexForPriority(options, task) {
             if(!options || options.length === 0) return -1;
-            const rank = getPriorityRank(task?.priority);
-            // Low priority should still follow higher-priority work, but not be pushed to day end.
+            // Priority #2 after user rules: earliest open slot in the day.
             return 0;
         }
         function shouldDeferToLaterDay(task, day, candidates) {
@@ -6016,6 +6048,10 @@
             const durationDiff = (parseInt(b.duration, 10) || 30) - (parseInt(a.duration, 10) || 30);
             if(durationDiff !== 0) return durationDiff;
 
+            const assignedDateA = a.date || '9999-12-31';
+            const assignedDateB = b.date || '9999-12-31';
+            if(assignedDateA !== assignedDateB) return assignedDateA.localeCompare(assignedDateB);
+
             const titleDiff = (a.title || '').localeCompare(b.title || '');
             if(titleDiff !== 0) return titleDiff;
             return (a.id || '').localeCompare(b.id || '');
@@ -6042,6 +6078,9 @@
             if(dueA !== dueB) return dueA.localeCompare(dueB);
             const durationDiff = (parseInt(b.duration, 10) || 30) - (parseInt(a.duration, 10) || 30);
             if(durationDiff !== 0) return durationDiff;
+            const assignedDateA = a.date || '9999-12-31';
+            const assignedDateB = b.date || '9999-12-31';
+            if(assignedDateA !== assignedDateB) return assignedDateA.localeCompare(assignedDateB);
             return compareTasksForScheduling(a, b);
         }
 
@@ -11043,10 +11082,7 @@
             };
             refreshSchedulingDates();
 
-            const compareSlotOrder = (a, b) => {
-                if(a.date !== b.date) return a.date.localeCompare(b.date);
-                return a.start - b.start;
-            };
+            const compareSlotOrder = (a, b) => compareSchedulePlacementPreference(a, b, weekKey);
             const isBeforeWithBreak = (aDate, aStart, aDuration, bDate, bStart, breakMin = 5) => {
                 if(aDate < bDate) return true;
                 if(aDate > bDate) return false;
@@ -11104,7 +11140,10 @@
                 const dates = (allowDateShift && !hasUserLockedCalendarDate(task))
                     ? getScheduleEligibleDates(task, weekKey, true)
                     : getScheduleEligibleDates(task, weekKey, false);
-                return dates.filter(d => !isDateBlockedForTask(task, d));
+                return sortScheduleDatesByPreference(
+                    dates.filter(d => !isDateBlockedForTask(task, d)),
+                    weekKey
+                );
             };
 
             const attemptSchedule = () => {
@@ -11185,7 +11224,7 @@
                 const tryPlaceTaskWithDateList = (task, dateList, context) => {
                     const hasUserLockedDate = hasUserLockedCalendarDate(task);
                     let placed = null;
-                    for(const candidateDate of (dateList || [])) {
+                    for(const candidateDate of sortScheduleDatesByPreference(dateList || [], weekKey)) {
                         if(!candidateDate || candidateDate < todayStr) continue;
                         if(hasUserLockedDate && task.date && candidateDate !== task.date) continue;
                         const dueDate = getTaskDueDate(task);
@@ -11287,9 +11326,12 @@
                 );
 
                 const unscheduledIds = new Set(floating.map(t => t.id));
-                const dayOrder = Array.from(new Set(
-                    floating.flatMap(task => candidateDatesByTask.get(task.id) || [])
-                )).sort((a, b) => a.localeCompare(b));
+                const dayOrder = sortScheduleDatesByPreference(
+                    Array.from(new Set(
+                        floating.flatMap(task => candidateDatesByTask.get(task.id) || [])
+                    )),
+                    weekKey
+                );
 
                 for(const day of dayOrder) {
                     let packedAny = false;
@@ -11413,7 +11455,7 @@
                     const options = [];
                     const duration = parseInt(task.duration, 10) || 30;
                     const dueDate = getTaskDueDate(task);
-                    const candidateDates = getTaskCandidateDates(task);
+                    const candidateDates = sortScheduleDatesByPreference(getTaskCandidateDates(task), weekKey);
                     candidateDates.forEach(date => {
                         if(isDateBlockedForTask(task, date)) return;
                         const dayEnd = timeToMin(getScheduleForDate(date).end);
@@ -11478,7 +11520,7 @@
                             if(valid) options.push({ date, start, duration });
                         });
                     });
-                    return options.sort(compareSlotOrder);
+                    return options.sort((a, b) => compareSchedulePlacementPreference(a, b, weekKey));
                 };
 
                 const solve = (pending) => {
