@@ -5157,21 +5157,24 @@
             task.dueTime = null;
             task.startedAt = Date.now();
 
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-            showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
-
-            setTimeout(() => {
-                try {
+            const reconcileResult = runClassifyScheduleReconcile({
+                seedTaskIds: [id],
+                extraWork: () => {
                     makeRoomForStartedAssignment(task, date, startMin);
                     reconcileBeforeAfterSchedule([id]);
                     enforceNoOverlappingTimes(date, date);
                     autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
                     enforceNoOverlappingTimes(date, date);
-                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-                } catch (error) {
-                    console.error('Start assignment scheduling failed:', error);
                 }
-            }, 0);
+            });
+            if(!reconcileResult.complete) {
+                rollbackClassifyLastChange();
+                setStartButtonBusy(id, false);
+                return;
+            }
+
+            flushClassifyUiImmediate({ skipUndoRecord: true });
+            showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
 
         function unstartAssignment(id) {
@@ -5202,14 +5205,19 @@
                     task.week = getWeekKeyFromDateStr(preservedDate);
                 }
 
-                flushClassifyUiImmediate({ skipUndoRecord: true });
-                showNotification(`Unstarted "${task.title}" — date kept; time can auto-move`, 'success');
-                deferClassifyScheduleWork(() => {
-                    if(preservedDate) {
-                        reconcileBeforeAfterSchedule([id]);
-                        autoBlockWeekTimes(false, getWeekKeyFromDateStr(preservedDate), true, true);
+                const result = commitClassifyScheduleChange({
+                    seedTaskIds: [id],
+                    skipUndoRecord: true,
+                    extraWork: () => {
+                        if(preservedDate) {
+                            reconcileBeforeAfterSchedule([id]);
+                            autoBlockWeekTimes(false, getWeekKeyFromDateStr(preservedDate), true, true);
+                        }
                     }
-                }, { skipUndoRecord: true });
+                });
+                if(result.complete && !result.reverted) {
+                    showNotification(`Unstarted "${task.title}" — date kept; time can auto-move`, 'success');
+                }
             };
 
             confirmAction(
@@ -7096,18 +7104,123 @@
         }
 
         function mutateClassifyData(mutator, saveOptions = {}) {
+            const {
+                skipScheduleRefresh = false,
+                seedTaskIds = [],
+                ...restSaveOptions
+            } = saveOptions || {};
             if(classifyUndoApplying) {
                 mutator();
-                saveData({ skipUndoRecord: true, ...saveOptions });
-                return;
+                if(skipScheduleRefresh) {
+                    saveData({ skipUndoRecord: true, skipAutoSchedule: true, ...restSaveOptions });
+                    return { complete: true, reverted: false, unscheduled: [] };
+                }
+                return commitClassifyScheduleChange({
+                    seedTaskIds,
+                    skipUndoRecord: true,
+                    ...restSaveOptions
+                });
             }
             recordClassifyUndoPoint({ force: true });
             mutator();
-            saveData({ skipUndoRecord: true, ...saveOptions });
+            if(skipScheduleRefresh) {
+                saveData({ skipUndoRecord: true, skipAutoSchedule: true, ...restSaveOptions });
+                return { complete: true, reverted: false, unscheduled: [] };
+            }
+            return commitClassifyScheduleChange({
+                seedTaskIds,
+                skipUndoRecord: true,
+                ...restSaveOptions
+            });
         }
 
         function reconcileDerivedStateAfterUndo() {
             pruneRepeatFutureWeeks();
+        }
+
+        function collectClassifyScheduleWeekKeys(weekKeys = null) {
+            const keys = new Set((weekKeys || []).filter(Boolean));
+            if(keys.size === 0) {
+                getRelevantUpcomingWeekKeys().forEach(weekKey => keys.add(weekKey));
+            }
+            const todayStr = getDateStrLocal();
+            (tasks || []).forEach(task => {
+                if(!task || task.completed) return;
+                if(task.week) keys.add(task.week);
+                if(task.date && task.date >= todayStr) keys.add(getWeekKeyFromDateStr(task.date));
+                const dueDate = getTaskDueDate(task);
+                if(dueDate && dueDate >= todayStr) keys.add(getWeekKeyFromDateStr(dueDate));
+            });
+            return Array.from(keys).filter(Boolean);
+        }
+
+        function getClassifyUnscheduledAssignments(weekKeys = null) {
+            const missingById = new Map();
+            collectClassifyScheduleWeekKeys(weekKeys).forEach(weekKey => {
+                getWeekTasksMissingSchedule(weekKey).forEach(task => {
+                    if(task?.id) missingById.set(task.id, task);
+                });
+            });
+            return Array.from(missingById.values());
+        }
+
+        function runClassifyScheduleReconcile(options = {}) {
+            const {
+                seedTaskIds = [],
+                previousSnapshots = [],
+                weekKeys = null,
+                preScheduleRefresh = null,
+                extraWork = null
+            } = options || {};
+
+            if(typeof preScheduleRefresh === 'function') preScheduleRefresh();
+            if(typeof extraWork === 'function') extraWork();
+
+            refreshClassifyScheduleState({
+                seedTaskIds,
+                previousSnapshots,
+                weekKeys,
+                skipScheduleRefresh: false
+            });
+
+            if(!classifyUndoApplying) {
+                enforceNoOverlappingTimes();
+                enforceDependencyOrder();
+            }
+
+            const unscheduled = getClassifyUnscheduledAssignments(weekKeys);
+            return {
+                complete: unscheduled.length === 0,
+                unscheduled
+            };
+        }
+
+        function rollbackClassifyLastChange(message = 'Change reverted — not every assignment could be scheduled.') {
+            if(classifyUndoStack.length === 0 || classifyUndoApplying) return false;
+            classifyUndoApplying = true;
+            try {
+                const snapshot = classifyUndoStack.pop();
+                applyClassifyUndoSnapshot(snapshot);
+                reconcileDerivedStateAfterUndo();
+                classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
+                updateClassifyUndoButton();
+                runClassifyScheduleReconcile();
+                flushClassifyUiImmediate({ skipUndoRecord: true });
+                showNotification(message, 'error');
+                return true;
+            } finally {
+                classifyUndoApplying = false;
+            }
+        }
+
+        function reportClassifyScheduleFailure(unscheduled = []) {
+            const names = [...new Set((unscheduled || []).map(t => t?.title || 'Untitled'))];
+            const preview = names.slice(0, 4).join(', ');
+            const extra = names.length > 4 ? ` (+${names.length - 4} more)` : '';
+            showNotification(
+                `Could not schedule every assignment${preview ? `: ${preview}${extra}` : ''}.`,
+                'error'
+            );
         }
 
         function flushClassifyUiImmediate(options = {}) {
@@ -7117,16 +7230,61 @@
             updateSubjectSuggestions();
         }
 
-        function deferClassifyScheduleWork(work, options = {}) {
-            const { skipUndoRecord = true } = options || {};
-            setTimeout(() => {
+        function commitClassifyScheduleChange(options = {}) {
+            const {
+                onClose = null,
+                seedTaskIds = [],
+                previousSnapshots = [],
+                weekKeys = null,
+                skipScheduleRefresh = false,
+                skipUndoRecord = true,
+                cloudSyncNew = false,
+                preScheduleRefresh = null,
+                extraWork = null,
+                rollbackOnFailure = true
+            } = options || {};
+
+            if(typeof onClose === 'function') onClose();
+
+            let reconcileResult = { complete: true, unscheduled: [] };
+            if(!skipScheduleRefresh) {
                 try {
-                    if(typeof work === 'function') work();
-                    saveData({ skipAutoSchedule: true, skipUndoRecord });
+                    reconcileResult = runClassifyScheduleReconcile({
+                        seedTaskIds,
+                        previousSnapshots,
+                        weekKeys,
+                        preScheduleRefresh,
+                        extraWork
+                    });
                 } catch (error) {
-                    console.error('Deferred classify schedule work failed:', error);
+                    console.error('Classify schedule reconcile failed:', error);
+                    reconcileResult = { complete: false, unscheduled: [], error };
                 }
-            }, 0);
+                if(!reconcileResult.complete) {
+                    if(rollbackOnFailure && rollbackClassifyLastChange()) {
+                        return { complete: false, reverted: true, unscheduled: reconcileResult.unscheduled || [] };
+                    }
+                    reportClassifyScheduleFailure(reconcileResult.unscheduled);
+                    return { complete: false, reverted: false, unscheduled: reconcileResult.unscheduled || [] };
+                }
+            } else if(typeof extraWork === 'function') {
+                try {
+                    extraWork();
+                } catch (error) {
+                    console.error('Classify assignment update failed:', error);
+                    if(rollbackOnFailure && rollbackClassifyLastChange()) {
+                        return { complete: false, reverted: true, unscheduled: [] };
+                    }
+                    showNotification('Assignment update failed.', 'error');
+                    return { complete: false, reverted: false, unscheduled: [] };
+                }
+            }
+
+            flushClassifyUiImmediate({ skipUndoRecord });
+            if(cloudSyncNew) {
+                flushClassifyCloudSync().catch(() => {});
+            }
+            return { complete: true, reverted: false, unscheduled: [] };
         }
 
         function setActionButtonBusy(btn, busy = true, busyLabel = 'Saving…') {
@@ -7145,34 +7303,26 @@
         function runClassifyHeavyUiAction(run, options = {}) {
             const { busyButton = null, busyLabel = 'Working…' } = options || {};
             if(busyButton) setActionButtonBusy(busyButton, true, busyLabel);
-            requestAnimationFrame(() => {
-                setTimeout(() => {
-                    try {
-                        run();
-                    } catch (error) {
-                        console.error('Classify action failed:', error);
-                    } finally {
-                        if(busyButton) setActionButtonBusy(busyButton, false);
-                    }
-                }, 0);
-            });
+            try {
+                run();
+            } catch (error) {
+                console.error('Classify action failed:', error);
+                showNotification('Action failed.', 'error');
+            } finally {
+                if(busyButton) setActionButtonBusy(busyButton, false);
+            }
         }
 
         function persistClassifyScheduleRefresh(options = {}) {
             const {
                 weekKeys = getRelevantUpcomingWeekKeys(),
-                forceRebuildAutoSlots = true,
-                weeksAhead = 12,
                 onClose = null
             } = options || {};
-
-            if(typeof onClose === 'function') onClose();
-            flushClassifyUiImmediate({ skipUndoRecord: true });
-
-            deferClassifyScheduleWork(() => {
-                reAutoScheduleWeeks(weekKeys, forceRebuildAutoSlots, false);
-                ensureAllEventsScheduled(weeksAhead, false);
-            }, { skipUndoRecord: true });
+            commitClassifyScheduleChange({
+                onClose,
+                weekKeys,
+                skipUndoRecord: true
+            });
         }
 
         function closeClassifyModalImmediate(modalId, panelId, cleanup) {
@@ -7222,36 +7372,7 @@
         }
 
         function finalizeClassifyModalSave(options = {}) {
-            const {
-                onClose = null,
-                seedTaskIds = [],
-                previousSnapshots = [],
-                weekKeys = null,
-                skipScheduleRefresh = false,
-                skipUndoRecord = true,
-                cloudSyncNew = false,
-                preScheduleRefresh = null
-            } = options || {};
-
-            if(typeof onClose === 'function') onClose();
-
-            flushClassifyUiImmediate({ skipUndoRecord });
-
-            if(cloudSyncNew) {
-                flushClassifyCloudSync().catch(() => {});
-            }
-
-            if(skipScheduleRefresh) return;
-
-            deferClassifyScheduleWork(() => {
-                if(typeof preScheduleRefresh === 'function') preScheduleRefresh();
-                refreshClassifyScheduleState({
-                    seedTaskIds,
-                    previousSnapshots,
-                    weekKeys,
-                    skipScheduleRefresh: false
-                });
-            }, { skipUndoRecord: true });
+            return commitClassifyScheduleChange(options);
         }
 
         function finalizeClassifyCompletion(options = {}) {
@@ -7262,17 +7383,14 @@
                 cloudSyncNew = true
             } = options || {};
             closeTimeModal();
-            flushClassifyUiImmediate({ skipUndoRecord: true });
-            if(cloudSyncNew) {
-                flushClassifyCloudSync().catch(() => {});
-            }
-            deferClassifyScheduleWork(() => {
-                if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
-                refreshClassifyScheduleState({
-                    seedTaskIds,
-                    skipScheduleRefresh: false
-                });
-            }, { skipUndoRecord: true });
+            return commitClassifyScheduleChange({
+                seedTaskIds,
+                cloudSyncNew,
+                skipUndoRecord: true,
+                extraWork: () => {
+                    if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
+                }
+            });
         }
 
         function updateClassifyUndoButton() {
@@ -7287,15 +7405,18 @@
             try {
                 const snapshot = classifyUndoStack.pop();
                 applyClassifyUndoSnapshot(snapshot);
+                reconcileDerivedStateAfterUndo();
                 classifyLastSavedSnapshot = captureClassifyUndoSnapshot();
                 classifyUndoRemoteSuppressUntil = Date.now() + 8000;
+                const result = runClassifyScheduleReconcile();
                 flushClassifyUiImmediate({ skipUndoRecord: true });
                 flushClassifyCloudSync().then(() => updateClassifySyncFingerprint()).catch(() => {});
                 updateClassifyUndoButton();
-                showNotification('Undid last change', 'info');
-                deferClassifyScheduleWork(() => {
-                    reconcileDerivedStateAfterUndo();
-                }, { skipUndoRecord: true });
+                if(result.complete) {
+                    showNotification('Undid last change', 'info');
+                } else {
+                    reportClassifyScheduleFailure(result.unscheduled);
+                }
             } finally {
                 classifyUndoApplying = false;
             }
@@ -7530,7 +7651,7 @@
                 tasks = tasks.filter(t => !t.completed);
                 removeDependencyReferences(removedIds);
                 syncAllTaskDependencies();
-                saveData({ skipUndoRecord: true });
+                commitClassifyScheduleChange({ skipUndoRecord: true });
                 showNotification(`Removed ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}`, 'success');
             }
         }
@@ -7563,7 +7684,7 @@
                     mutateClassifyData(() => {
                         tasks = tasks.map(t => ({ ...t, actualMinutes: null }));
                         completionHistory = [];
-                    });
+                    }, { skipScheduleRefresh: true });
                     showNotification('Actual time data reset', 'success');
                 }
             );
@@ -9497,6 +9618,7 @@
 
             recordClassifyUndoPoint({ force: true });
             let carryOver = null;
+            let finishOnDifferentDay = false;
 
             if(mode === 'partial') {
                 task.completed = true;
@@ -9507,7 +9629,7 @@
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
 
                 const assignmentDay = task.date || task.completedDate;
-                const finishOnDifferentDay = Boolean(document.getElementById('completionFinishDifferentDay')?.checked);
+                finishOnDifferentDay = Boolean(document.getElementById('completionFinishDifferentDay')?.checked);
                 carryOver = normalizeTask({
                     ...task,
                     id: generateId(),
@@ -9531,12 +9653,6 @@
                     } : {})
                 });
                 tasks.push(carryOver);
-                showNotification(
-                    finishOnDifferentDay
-                        ? 'Created follow-up assignment — remainder will schedule on a different day'
-                        : 'Created a follow-up assignment for the remaining work',
-                    'success'
-                );
             } else {
                 const raw = document.getElementById('timeInput').value;
                 const minutes = Math.round(Number(raw));
@@ -9548,36 +9664,41 @@
             }
 
             const completedTaskRef = task;
+            const completionSeedIds = mode === 'partial'
+                ? [task.id, carryOver?.id].filter(Boolean)
+                : [task.id];
             closeTimeModal();
 
-            let spawned = 0;
-            try {
-                spawned = advanceRepeatSeriesIfReady();
-                pruneRepeatFutureWeeks();
-                if(mode === 'partial') {
-                    enforceDifferentDayAfterCompletion(task);
-                    reconcileBeforeAfterSchedule([task.id, carryOver?.id].filter(Boolean));
-                } else {
-                    enforceDifferentDayAfterCompletion(task);
-                    reconcileBeforeAfterSchedule([task.id]);
+            const result = commitClassifyScheduleChange({
+                seedTaskIds: completionSeedIds,
+                skipUndoRecord: true,
+                cloudSyncNew: true,
+                extraWork: () => {
+                    const spawned = advanceRepeatSeriesIfReady();
+                    pruneRepeatFutureWeeks();
+                    if(mode === 'partial') {
+                        enforceDifferentDayAfterCompletion(task);
+                        reconcileBeforeAfterSchedule(completionSeedIds);
+                    } else {
+                        enforceDifferentDayAfterCompletion(task);
+                        reconcileBeforeAfterSchedule([task.id]);
+                    }
+                    reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
                 }
-            } catch (error) {
-                console.error('Completion follow-up scheduling failed:', error);
+            });
+
+            if(result.complete && !result.reverted) {
+                if(mode === 'partial') {
+                    showNotification(
+                        finishOnDifferentDay
+                            ? 'Created follow-up assignment — remainder will schedule on a different day'
+                            : 'Created a follow-up assignment for the remaining work',
+                        'success'
+                    );
+                }
             }
 
-            try {
-                reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
-            } catch (error) {
-                console.error('Completion schedule refresh failed:', error);
-            }
-
-            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
-            updateDateDisplay();
-            updateSubjectSuggestions();
-            renderAll();
-            flushClassifyCloudSync().catch(() => {});
-
-            if(mode !== 'partial') {
+            if(result.complete && !result.reverted && mode !== 'partial') {
                 try {
                     triggerConfetti();
                 } catch (error) {
@@ -9585,13 +9706,15 @@
                 }
             }
 
-            try {
-                enforceBreakAfterCompletion(completedTaskRef);
-                setTimeout(() => {
-                    showBreakReminder(completedTaskRef);
-                }, 200);
-            } catch (error) {
-                console.error('Break reminder failed:', error);
+            if(result.complete && !result.reverted) {
+                try {
+                    enforceBreakAfterCompletion(completedTaskRef);
+                    setTimeout(() => {
+                        showBreakReminder(completedTaskRef);
+                    }, 200);
+                } catch (error) {
+                    console.error('Break reminder failed:', error);
+                }
             }
         }
 
@@ -9777,14 +9900,9 @@
 
                 const movedTask = normalizeTask({ ...task, ...dragUpdates });
                 tasks = tasks.map(t => t.id === taskId ? movedTask : t);
-            }, { skipAutoSchedule: true });
+            }, { seedTaskIds: [taskId] });
 
             renderCalendar();
-            deferClassifyScheduleWork(() => {
-                ensureAllEventsScheduled(12, false);
-                reconcileBeforeAfterSchedule([taskId]);
-                renderCalendar();
-            }, { skipUndoRecord: true });
         }
 
         function handleCalendarDrop(event, dateStr) {
@@ -10910,25 +11028,28 @@
                 task.startedAt = null;
                 task.week = currentWeek;
 
-                flushClassifyUiImmediate({ skipUndoRecord: true });
+                const result = commitClassifyScheduleChange({
+                    seedTaskIds: [id],
+                    skipUndoRecord: true,
+                    extraWork: () => {
+                        planWeek(currentWeek, false);
 
-                deferClassifyScheduleWork(() => {
-                    planWeek(currentWeek, false);
+                        if((!task.date || !task.time) && dueWeek && dueWeek !== currentWeek) {
+                            task.week = dueWeek;
+                            planWeek(dueWeek, false);
+                        }
 
-                    if((!task.date || !task.time) && dueWeek && dueWeek !== currentWeek) {
-                        task.week = dueWeek;
-                        planWeek(dueWeek, false);
+                        const finalWeek = task.date ? getWeekKeyFromDateStr(task.date) : (task.week || currentWeek);
+                        autoBlockWeekTimes(false, finalWeek, true);
                     }
+                });
 
-                    const finalWeek = task.date ? getWeekKeyFromDateStr(task.date) : (task.week || currentWeek);
-                    autoBlockWeekTimes(false, finalWeek, true);
-
-                    if(task.date && task.time) {
-                        showNotification(`Rescheduled "${task.title}"`, 'success');
-                    } else {
-                        showNotification('Could not find an available slot before the due deadline. Please set it manually.', 'error');
-                    }
-                }, { skipUndoRecord: true });
+                if(result.reverted) return;
+                if(result.complete && task.date && task.time) {
+                    showNotification(`Rescheduled "${task.title}"`, 'success');
+                } else if(result.complete) {
+                    showNotification('Could not find an available slot before the due deadline. Please set it manually.', 'error');
+                }
             };
 
             if(hasScheduledWindowPassed(task)) {
@@ -11024,17 +11145,15 @@
                 }
             }
 
-            mutateClassifyData(() => {
+            const result = mutateClassifyData(() => {
                 tasks.push(duplicatedTask);
                 applyReciprocalDependenciesForTask(duplicatedTask.id);
                 syncAllTaskDependencies();
-            }, { skipAutoSchedule: true });
-            showNotification('Assignment duplicated', 'success');
-            deferClassifyScheduleWork(() => {
-                ensureAllEventsScheduled(12, false);
-                reconcileBeforeAfterSchedule([duplicatedTask.id]);
-            }, { skipUndoRecord: true });
-            syncClassifyDataToCloud();
+            }, { seedTaskIds: [duplicatedTask.id] });
+            if(result.complete && !result.reverted) {
+                showNotification('Assignment duplicated', 'success');
+                syncClassifyDataToCloud();
+            }
         }
 
         function triggerConfetti() {
@@ -12260,15 +12379,17 @@
                                         ...data.completionHistory.map(normalizeCompletionEntry)
                                     ];
                                 }
-                                const clearedOverlaps = enforceNoOverlappingTimes();
-                                if(clearedOverlaps > 0) {
-                                    ensureAllEventsScheduled(12, false);
-                                }
-                                saveData({ skipUndoRecord: true });
-                                const overlapSuffix = clearedOverlaps > 0
-                                    ? ` Cleared ${clearedOverlaps} overlapping time slot${clearedOverlaps === 1 ? '' : 's'}.`
-                                    : '';
-                                showNotification(`Imported ${data.tasks.length} assignments!${overlapSuffix}`, 'success');
+                                const result = commitClassifyScheduleChange({
+                                    skipUndoRecord: true,
+                                    extraWork: () => {
+                                        enforceNoOverlappingTimes();
+                                    }
+                                });
+                                if(result.reverted) return;
+                                const overlapSuffix = result.complete
+                                    ? ''
+                                    : ' Some assignments could not be auto-scheduled.';
+                                showNotification(`Imported ${data.tasks.length} assignments!${overlapSuffix}`, result.complete ? 'success' : 'error');
                                 }
                             );
                         } else {
