@@ -1881,7 +1881,7 @@
                 <!-- Stats Cards -->
                 <div class="cl-grid-stats">
                     <div class="card-gradient rounded-2xl p-5 card-hover group">
-                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Total Tasks</div>
+                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Total Assignments</div>
                         <div class="text-3xl font-bold text-transparent bg-gradient-to-r from-red-600 to-red-500 bg-clip-text" id="statTotal">0</div>
                     </div>
                     <div class="card-gradient rounded-2xl p-5 card-hover group">
@@ -1995,12 +1995,12 @@
                 </div>
             </div>
 
-            <!-- VIEW: TASKS -->
+            <!-- VIEW: ASSIGNMENTS -->
             <div id="tasksTab" class="cl-tab hidden fade-in">
                 <header class="cl-page-header">
                     <div class="cl-page-header__inner w-full">
                         <div>
-                            <h2 class="cl-page-title">Tasks</h2>
+                            <h2 class="cl-page-title">Assignments</h2>
                             <p class="cl-page-subtitle">Search, filter, and manage all assignments.</p>
                         </div>
                         <div class="cl-page-actions">
@@ -2015,10 +2015,10 @@
                     <div class="cl-toolbar p-4 md:p-5 border-b border-slate-200 dark:border-dark-border" id="cl-orient-task-toolbar">
                         <div class="relative flex-1 min-w-[200px] sm:max-w-xs">
                             <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input type="text" id="taskSearch" autocomplete="off" placeholder="Search tasks... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
+                            <input type="text" id="taskSearch" autocomplete="off" placeholder="Search assignments... (Ctrl+K)" class="pl-9 pr-3 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all">
                         </div>
                         <select id="taskFilter" class="pl-3 pr-8 py-2 border border-slate-200 dark:border-dark-border dark:bg-slate-800 dark:text-white rounded-lg text-sm bg-white focus:outline-none focus:border-brand-500">
-                            <option value="all">All Tasks</option>
+                            <option value="all">All Assignments</option>
                             <option value="active">Active</option>
                             <option value="weekplan">Weekly Planning Queue</option>
                             <option value="thisweek">Due This Week</option>
@@ -2036,7 +2036,7 @@
                         </button>
                     </div>
                     <div class="p-2" id="fullTaskList">
-                        <!-- Full Task List Rendered Here -->
+                        <!-- Full assignment list rendered here -->
                     </div>
                 </section>
             </div>
@@ -2097,12 +2097,12 @@
                 <header class="cl-page-header">
                     <div class="cl-page-header__inner w-full">
                         <div>
-                            <h2 class="cl-page-title">Task Analytics</h2>
-                            <p class="cl-page-subtitle">Scan workload patterns, then jump straight into filtered task lists.</p>
+                            <h2 class="cl-page-title">Assignment Analytics</h2>
+                            <p class="cl-page-subtitle">Scan workload patterns, then jump straight into filtered assignment lists.</p>
                         </div>
                         <div class="cl-page-actions">
                             <button onclick="switchTab('tasks')" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
-                                View All Tasks
+                                View All Assignments
                             </button>
                         </div>
                     </div>
@@ -2132,7 +2132,7 @@
                         </button>
                         <button onclick="switchTab('tasks'); filterTasksBy('hard')" class="rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/80 dark:bg-purple-900/20 p-4 text-left hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
                             <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="filterHard">0</div>
-                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Hard Tasks</div>
+                            <div class="text-xs text-slate-600 dark:text-slate-400 font-medium">Hard Assignments</div>
                         </button>
                     </div>
                 </section>
@@ -2219,13 +2219,13 @@
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="overExpectedLabel">Completed over estimate</p>
                     </div>
 
-                    <!-- On-Target Rate -->
+                    <!-- Exactly Expected Rate -->
                     <div class="cl-panel">
                         <h3 class="cl-section-title flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
+                            <i class="fa-solid fa-bullseye text-red-500"></i> Exactly Expected
                         </h3>
-                        <div class="text-3xl font-bold text-red-600 mb-1" id="onTargetRate">--</div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
+                        <div class="text-3xl font-bold text-red-600 mb-1" id="exactlyExpectedRate">--</div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400" id="exactlyExpectedLabel">Matched estimate exactly</p>
                     </div>
                     
                     <div class="cl-panel">
@@ -2268,7 +2268,7 @@
         </button>
         <button type="button" class="cl-bottom-nav-item" data-tab="tasks" onclick="switchTab('tasks')">
             <i class="fa-solid fa-list-check" aria-hidden="true"></i>
-            <span>Tasks</span>
+            <span>Assignments</span>
         </button>
         <button type="button" class="cl-bottom-nav-item" data-tab="calendar" onclick="switchTab('calendar')">
             <i class="fa-regular fa-calendar" aria-hidden="true"></i>
@@ -2579,7 +2579,7 @@
                 </div>
                 <div class="mt-3 flex flex-wrap items-end gap-3">
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Between Tasks (min)</label>
+                        <label class="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Break Between Assignments (min)</label>
                         <input id="defaultBreakInput" type="number" min="0" step="1" class="h-10 w-32 px-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white" value="5">
                     </div>
                     <div>
@@ -2698,7 +2698,7 @@
         </div>
     </div>
 
-    <!-- Modal: Add/Edit Task -->
+    <!-- Modal: Add/Edit Assignment -->
     <div id="taskModal" class="cl-modal-root hidden pointer-events-none">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md transition-opacity pointer-events-auto" aria-hidden="true"></div>
@@ -4410,7 +4410,7 @@
                 lead: 'Jump between the big areas of Classify from the footer bar.',
                 bullets: [
                     '<strong>Dashboard</strong> — today\'s plan and weekly overview',
-                    '<strong>Tasks</strong> — search and filter every assignment',
+                    '<strong>Assignments</strong> — search and filter every assignment',
                     '<strong>Calendar</strong> — month, week, and day layouts',
                     '<strong>Analytics</strong> — workload patterns and quick filters'
                 ]
@@ -4457,7 +4457,7 @@
                 bullets: [
                     '<kbd>Q</kbd> and <kbd>Ctrl+N</kbd> open the same assignment editor',
                     'The editor has schedule modes, repeat, and dependencies — use the walkthrough for those',
-                    'Calendar and Tasks tabs also have a <strong>New</strong> button'
+                    'Calendar and Assignments tabs also have a <strong>New</strong> button'
                 ],
                 walkthroughLink: true
             },
@@ -4495,7 +4495,7 @@
                 position: 'top-right',
                 icon: 'fa-filter',
                 title: 'Find assignments fast',
-                lead: 'Search and slice the full task list without opening the calendar.',
+                lead: 'Search and slice the full assignment list without opening the calendar.',
                 bullets: [
                     '<strong>Search</strong> matches titles and subjects (<kbd>Ctrl+K</kbd> focuses the box)',
                     'Filter presets include active, this week, overdue, and weekly queue',
@@ -4525,10 +4525,10 @@
                 position: 'top-right',
                 icon: 'fa-chart-line',
                 title: 'Analytics quick filters',
-                lead: 'Spot workload patterns, then jump straight into a filtered task list.',
+                lead: 'Spot workload patterns, then jump straight into a filtered assignment list.',
                 bullets: [
                     'Cards summarize due today, this week, overdue, and high priority',
-                    'Tap a card to open Tasks with that filter already applied',
+                    'Tap a card to open Assignments with that filter already applied',
                     'Use this when planning — not just when something is overdue',
                     'Pair with Calendar week view to see where time actually goes'
                 ]
@@ -7522,18 +7522,18 @@
                 removeDependencyReferences(removedIds);
                 syncAllTaskDependencies();
                 saveData({ skipUndoRecord: true });
-                showNotification(`Removed ${completedCount} completed task${completedCount > 1 ? 's' : ''}`, 'success');
+                showNotification(`Removed ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}`, 'success');
             }
         }
 
         function openClearCompletedModal() {
             const completedCount = tasks.filter(t => t.completed).length;
             if(completedCount === 0) {
-                showNotification('No completed tasks to clear', 'info');
+                showNotification('No completed assignments to clear', 'info');
                 return;
             }
             confirmAction(
-                'Clear Completed Tasks?',
+                'Clear Completed Assignments?',
                 `This will remove ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}. You can undo this afterward.`,
                 'Delete All',
                 () => clearCompleted(true)
@@ -8010,7 +8010,7 @@
             });
             const sortedSubjects = Object.keys(subjectCounts).sort((a,b) => subjectCounts[b] - subjectCounts[a]);
             if(sortedSubjects.length === 0) {
-                subjectProgressEl.innerHTML = `<div class="text-center py-4 text-slate-400 text-sm">No active tasks.</div>`;
+                subjectProgressEl.innerHTML = `<div class="text-center py-4 text-slate-400 text-sm">No active assignments.</div>`;
             } else {
                 subjectProgressEl.innerHTML = sortedSubjects.map(sub => {
                     const count = subjectCounts[sub];
@@ -8020,7 +8020,7 @@
                     <div>
                         <div class="flex justify-between text-xs mb-1">
                             <span class="font-semibold text-slate-700 dark:text-slate-300">${sub}</span>
-                            <span class="text-slate-500">${count} task${count>1?'s':''}</span>
+                            <span class="text-slate-500">${count} assignment${count > 1 ? 's' : ''}</span>
                         </div>
                         <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
                             <div class="h-2 rounded-full" style="width:${percent}%; background-color:${color}"></div>
@@ -8087,7 +8087,7 @@
 
             if(weekActionList) {
                 if(actionItems.length === 0) {
-                    weekActionList.innerHTML = '<div class="text-slate-400 dark:text-slate-500 italic">No scheduled tasks this week yet. Use Auto-Plan or add due dates.</div>';
+                    weekActionList.innerHTML = '<div class="text-slate-400 dark:text-slate-500 italic">No scheduled assignments this week yet. Use Auto-Plan or add due dates.</div>';
                 } else {
                     weekActionList.innerHTML = actionItems.join('');
                 }
@@ -8531,7 +8531,7 @@
             if(labelInput) labelInput.value = cfg.label || 'Break';
             if(minutesInput) minutesInput.value = cfg.minutes || getBreakMinutesForDate(dateStr);
             if(info) {
-                const subjectLabel = task.subject ? `after ${task.subject}` : 'after this task';
+                const subjectLabel = task.subject ? `after ${task.subject}` : 'after this assignment';
                 info.textContent = `Edit break ${subjectLabel} on ${formatDateLabel(dateStr)}.`;
             }
             const modal = document.getElementById('breakEditModal');
@@ -9330,7 +9330,7 @@
                 autoBlockWeekTimes(false, getWeekKeyFromDateStr(task.date), true, true);
             }
             if(hadUserConflict) {
-                showNotification('Break overlaps a manually scheduled task. Move it after your break.', 'info');
+                showNotification('Break overlaps a manually scheduled assignment. Move it after your break.', 'info');
             }
             return hadAutoShift || hadUserConflict;
         }
@@ -9714,7 +9714,7 @@
             const task = tasks.find(t => t.id === taskId);
             if(!task || !dateStr) return;
             if(isDateInVacation(dateStr)) {
-                showNotification('Vacation day: tasks cannot be scheduled on this date.', 'error');
+                showNotification('Vacation day: assignments cannot be scheduled on this date.', 'error');
                 return;
             }
             if(timeStr) {
@@ -10550,12 +10550,12 @@
             
             // Validation
             if(!title) { 
-                showNotification("Please enter a task name", 'error');
+                showNotification("Please enter an assignment name", 'error');
                 document.getElementById('inputTitle').focus();
                 return;
             }
             if(title.length > 100) {
-                showNotification("Task name too long (max 100 characters)", 'error');
+                showNotification("Assignment name too long (max 100 characters)", 'error');
                 return;
             }
             const repeatBuild = buildRepeatRuleFromForm();
@@ -11124,7 +11124,7 @@
             if(onTimeEl && onTimeLabelEl) {
                 if(onTimeRate === null) {
                     onTimeEl.innerText = '--';
-                    onTimeLabelEl.innerText = 'No completed tasks with due dates yet';
+                    onTimeLabelEl.innerText = 'No completed assignments with due dates yet';
                 } else {
                     onTimeEl.innerText = `${onTimeRate}%`;
                     onTimeLabelEl.innerText = `${onTimeCount} of ${completedWithDue.length} completed on time`;
@@ -11184,29 +11184,24 @@
             const underExpectedLabelEl = document.getElementById('underExpectedLabel');
             const overExpectedEl = document.getElementById('overExpectedRate');
             const overExpectedLabelEl = document.getElementById('overExpectedLabel');
-            const onTargetEl = document.getElementById('onTargetRate');
-            const onTargetLabelEl = document.getElementById('onTargetLabel');
+            const exactlyExpectedEl = document.getElementById('exactlyExpectedRate');
+            const exactlyExpectedLabelEl = document.getElementById('exactlyExpectedLabel');
             if(underExpectedEl && underExpectedLabelEl) {
                 if(completedWithEstimate.length === 0) {
                     underExpectedEl.innerText = '--';
-                    underExpectedLabelEl.innerText = 'No completed tasks with estimates yet';
+                    underExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
                     if(overExpectedEl && overExpectedLabelEl) {
                         overExpectedEl.innerText = '--';
-                        overExpectedLabelEl.innerText = 'No completed tasks with estimates yet';
+                        overExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
                     }
-                    if(onTargetEl && onTargetLabelEl) {
-                        onTargetEl.innerText = '--';
-                        onTargetLabelEl.innerText = 'No completed tasks with estimates yet';
+                    if(exactlyExpectedEl && exactlyExpectedLabelEl) {
+                        exactlyExpectedEl.innerText = '--';
+                        exactlyExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
                     }
                 } else {
-                    const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) <= Number(t.duration)).length;
+                    const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
+                    const exactlyCount = completedWithEstimate.filter(t => Number(t.actualMinutes) === Number(t.duration)).length;
                     const overCount = completedWithEstimate.filter(t => Number(t.actualMinutes) > Number(t.duration)).length;
-                    const onTargetCount = completedWithEstimate.filter(t => {
-                        const est = Number(t.duration);
-                        const actual = Number(t.actualMinutes);
-                        if(!Number.isFinite(est) || est <= 0 || !Number.isFinite(actual)) return false;
-                        return Math.abs(actual - est) <= (est * 0.10);
-                    }).length;
                     const underRate = Math.round((underCount / completedWithEstimate.length) * 100);
                     underExpectedEl.innerText = `${underRate}%`;
                     underExpectedLabelEl.innerText = `${underCount} of ${completedWithEstimate.length} under estimate`;
@@ -11215,10 +11210,10 @@
                         overExpectedEl.innerText = `${overRate}%`;
                         overExpectedLabelEl.innerText = `${overCount} of ${completedWithEstimate.length} over estimate`;
                     }
-                    if(onTargetEl && onTargetLabelEl) {
-                        const onTargetRate = Math.round((onTargetCount / completedWithEstimate.length) * 100);
-                        onTargetEl.innerText = `${onTargetRate}%`;
-                        onTargetLabelEl.innerText = `${onTargetCount} of ${completedWithEstimate.length} within 10%`;
+                    if(exactlyExpectedEl && exactlyExpectedLabelEl) {
+                        const exactlyRate = Math.round((exactlyCount / completedWithEstimate.length) * 100);
+                        exactlyExpectedEl.innerText = `${exactlyRate}%`;
+                        exactlyExpectedLabelEl.innerText = `${exactlyCount} of ${completedWithEstimate.length} matched exactly`;
                     }
                 }
             }
@@ -11374,7 +11369,7 @@
                 setCalendarViewMode('week');
                 switchTab('calendar');
             }
-            const assignmentsLabel = assigned === 1 ? 'task' : 'tasks';
+            const assignmentsLabel = assigned === 1 ? 'assignment' : 'assignments';
             const lockedLabel = preserved === 1 ? 'user-locked placement' : 'user-locked placements';
             if(showToast) {
                 showNotification(`Replanned ${targetWeekKey}: reset ${assigned} ${assignmentsLabel}, kept ${preserved} ${lockedLabel}, rebuilt ${rebuilt} auto slot${rebuilt === 1 ? '' : 's'}`, 'success');
@@ -12172,11 +12167,11 @@
                 saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                 setCalendarViewMode('week');
                 switchTab('calendar');
-                showNotification(`Auto time-blocked ${updated} task${updated > 1 ? 's' : ''} this week`, 'success');
+                showNotification(`Auto time-blocked ${updated} assignment${updated > 1 ? 's' : ''} this week`, 'success');
             } else if(showToast) {
                 classifyUndoStack.pop();
                 updateClassifyUndoButton();
-                showNotification('No weekly tasks need time-blocking', 'info');
+                showNotification('No weekly assignments need time-blocking', 'info');
             }
             return updated;
         }
@@ -12201,7 +12196,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showNotification('Tasks exported successfully!', 'success');
+            showNotification('Assignments exported successfully!', 'success');
         }
 
         function importTasks() {
@@ -12247,7 +12242,7 @@
                                 const overlapSuffix = clearedOverlaps > 0
                                     ? ` Cleared ${clearedOverlaps} overlapping time slot${clearedOverlaps === 1 ? '' : 's'}.`
                                     : '';
-                                showNotification(`Imported ${data.tasks.length} tasks!${overlapSuffix}`, 'success');
+                                showNotification(`Imported ${data.tasks.length} assignments!${overlapSuffix}`, 'success');
                                 }
                             );
                         } else {
@@ -12292,7 +12287,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            showNotification('Tasks exported as CSV!', 'success');
+            showNotification('Assignments exported as CSV!', 'success');
         }
     </script>
 </body>
