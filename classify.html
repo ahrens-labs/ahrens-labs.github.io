@@ -2206,7 +2206,7 @@
                         <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-gauge-simple-low text-emerald-500"></i> Under Expected
                         </h3>
-                        <div class="text-3xl font-bold text-emerald-600 mb-1" id="underExpectedRate">--</div>
+                        <div class="text-3xl font-bold mb-1" id="underExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="underExpectedLabel">Completed under estimate</p>
                     </div>
 
@@ -2215,7 +2215,7 @@
                         <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-gauge-simple-high text-rose-500"></i> Over Expected
                         </h3>
-                        <div class="text-3xl font-bold text-rose-600 mb-1" id="overExpectedRate">--</div>
+                        <div class="text-3xl font-bold mb-1" id="overExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="overExpectedLabel">Completed over estimate</p>
                     </div>
 
@@ -2224,7 +2224,7 @@
                         <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-equals text-emerald-500"></i> Exactly Expected
                         </h3>
-                        <div class="text-3xl font-bold text-emerald-600 mb-1" id="exactlyExpectedRate">--</div>
+                        <div class="text-3xl font-bold mb-1" id="exactlyExpectedRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="exactlyExpectedLabel">Matched estimate exactly</p>
                     </div>
 
@@ -2233,7 +2233,7 @@
                         <h3 class="cl-section-title flex items-center gap-2">
                             <i class="fa-solid fa-bullseye text-red-500"></i> On-Target
                         </h3>
-                        <div class="text-3xl font-bold text-red-600 mb-1" id="onTargetRate">--</div>
+                        <div class="text-3xl font-bold mb-1" id="onTargetRate">--</div>
                         <p class="text-xs text-slate-500 dark:text-slate-400" id="onTargetLabel">Within 10% of estimate</p>
                     </div>
                     
@@ -11199,6 +11199,46 @@
         }
 
         // --- Analytics Functions ---
+        const ANALYTICS_RATE_COLOR_CLASSES = [
+            'text-emerald-600', 'dark:text-emerald-400',
+            'text-amber-500', 'dark:text-amber-400',
+            'text-rose-600', 'dark:text-rose-400',
+            'text-slate-500', 'dark:text-slate-400'
+        ];
+
+        function getAnalyticsRateTone(percent, mode) {
+            const value = Number(percent);
+            if(!Number.isFinite(value)) return 'neutral';
+            if(mode === 'lower-better') {
+                if(value <= 25) return 'good';
+                if(value <= 50) return 'mid';
+                return 'bad';
+            }
+            if(mode === 'higher-better-strict') {
+                if(value >= 80) return 'good';
+                if(value >= 50) return 'mid';
+                return 'bad';
+            }
+            if(value >= 60) return 'good';
+            if(value >= 30) return 'mid';
+            return 'bad';
+        }
+
+        function applyAnalyticsRateColor(el, percent, mode) {
+            if(!el) return;
+            el.classList.remove(...ANALYTICS_RATE_COLOR_CLASSES);
+            const tone = getAnalyticsRateTone(percent, mode);
+            if(tone === 'good') {
+                el.classList.add('text-emerald-600', 'dark:text-emerald-400');
+            } else if(tone === 'mid') {
+                el.classList.add('text-amber-500', 'dark:text-amber-400');
+            } else if(tone === 'bad') {
+                el.classList.add('text-rose-600', 'dark:text-rose-400');
+            } else {
+                el.classList.add('text-slate-500', 'dark:text-slate-400');
+            }
+        }
+
         function renderAnalytics() {
             const today = getDateStrLocal();
             const { startStr: weekStart, endStr: weekEnd } = getWeekBounds();
@@ -11320,17 +11360,21 @@
                 if(completedWithEstimate.length === 0) {
                     underExpectedEl.innerText = '--';
                     underExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
+                    applyAnalyticsRateColor(underExpectedEl, null, 'higher-better');
                     if(overExpectedEl && overExpectedLabelEl) {
                         overExpectedEl.innerText = '--';
                         overExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
+                        applyAnalyticsRateColor(overExpectedEl, null, 'lower-better');
                     }
                     if(exactlyExpectedEl && exactlyExpectedLabelEl) {
                         exactlyExpectedEl.innerText = '--';
                         exactlyExpectedLabelEl.innerText = 'No completed assignments with estimates yet';
+                        applyAnalyticsRateColor(exactlyExpectedEl, null, 'higher-better');
                     }
                     if(onTargetEl && onTargetLabelEl) {
                         onTargetEl.innerText = '--';
                         onTargetLabelEl.innerText = 'No completed assignments with estimates yet';
+                        applyAnalyticsRateColor(onTargetEl, null, 'higher-better-strict');
                     }
                 } else {
                     const underCount = completedWithEstimate.filter(t => Number(t.actualMinutes) < Number(t.duration)).length;
@@ -11345,20 +11389,24 @@
                     const underRate = Math.round((underCount / completedWithEstimate.length) * 100);
                     underExpectedEl.innerText = `${underRate}%`;
                     underExpectedLabelEl.innerText = `${underCount} of ${completedWithEstimate.length} under estimate`;
+                    applyAnalyticsRateColor(underExpectedEl, underRate, 'higher-better');
                     if(overExpectedEl && overExpectedLabelEl) {
                         const overRate = Math.round((overCount / completedWithEstimate.length) * 100);
                         overExpectedEl.innerText = `${overRate}%`;
                         overExpectedLabelEl.innerText = `${overCount} of ${completedWithEstimate.length} over estimate`;
+                        applyAnalyticsRateColor(overExpectedEl, overRate, 'lower-better');
                     }
                     if(exactlyExpectedEl && exactlyExpectedLabelEl) {
                         const exactlyRate = Math.round((exactlyCount / completedWithEstimate.length) * 100);
                         exactlyExpectedEl.innerText = `${exactlyRate}%`;
                         exactlyExpectedLabelEl.innerText = `${exactlyCount} of ${completedWithEstimate.length} matched exactly`;
+                        applyAnalyticsRateColor(exactlyExpectedEl, exactlyRate, 'higher-better');
                     }
                     if(onTargetEl && onTargetLabelEl) {
                         const onTargetRate = Math.round((onTargetCount / completedWithEstimate.length) * 100);
                         onTargetEl.innerText = `${onTargetRate}%`;
                         onTargetLabelEl.innerText = `${onTargetCount} of ${completedWithEstimate.length} within 10%`;
+                        applyAnalyticsRateColor(onTargetEl, onTargetRate, 'higher-better-strict');
                     }
                 }
             }
