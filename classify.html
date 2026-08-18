@@ -799,6 +799,14 @@
             padding: 0.15rem 0.5rem;
             font-size: 0.65rem;
         }
+        body.classify-app .cl-start-btn:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+        body.classify-app .cl-start-btn--busy,
+        body.classify-app .cl-start-btn:disabled {
+            opacity: 0.8;
+            cursor: wait;
+        }
         body.classify-app .cl-start-btn--unstart {
             border-color: #94a3b8;
             background: transparent;
@@ -5050,10 +5058,33 @@
             return `<button type="button" onclick="event.stopPropagation(); startAssignment('${task.id}')" class="${sizeClass}" title="Lock this time so auto-schedule won't move it">Start</button>`;
         }
 
+        function setStartButtonBusy(id, busy = true) {
+            document.querySelectorAll(`button[onclick*="startAssignment('${id}')"]`).forEach(btn => {
+                btn.disabled = busy;
+                btn.classList.toggle('cl-start-btn--busy', busy);
+                if(busy) {
+                    if(!btn.dataset.startLabel) btn.dataset.startLabel = btn.textContent.trim();
+                    btn.textContent = 'Starting…';
+                } else if(btn.dataset.startLabel) {
+                    btn.textContent = btn.dataset.startLabel;
+                    delete btn.dataset.startLabel;
+                }
+            });
+        }
+
         function startAssignment(id) {
+            setStartButtonBusy(id, true);
+            requestAnimationFrame(() => startAssignmentCore(id));
+        }
+
+        function startAssignmentCore(id) {
             const task = tasks.find(t => t.id === id);
-            if(!task || task.completed) return;
+            if(!task || task.completed) {
+                setStartButtonBusy(id, false);
+                return;
+            }
             if(isFixedTask(task)) {
+                setStartButtonBusy(id, false);
                 showNotification('This assignment is already locked', 'info');
                 return;
             }
@@ -5081,6 +5112,7 @@
                 date = todayStr;
                 const slotMin = computeStartSlotForAssignment(task, todayStr);
                 if(slotMin === null) {
+                    setStartButtonBusy(id, false);
                     showNotification('No room left today to start this assignment', 'error');
                     return;
                 }
@@ -5088,13 +5120,13 @@
             }
 
             if(!date || !time) {
+                setStartButtonBusy(id, false);
                 showNotification('Give this assignment a start date and time first, then press Start', 'info');
                 return;
             }
 
             const startMin = timeToMin(time);
             recordClassifyUndoPoint({ force: true });
-            makeRoomForStartedAssignment(task, date, startMin);
 
             task.date = date;
             task.time = time;
@@ -5108,12 +5140,21 @@
             task.dueTime = null;
             task.startedAt = Date.now();
 
-            reconcileBeforeAfterSchedule([id]);
-            enforceNoOverlappingTimes(date, date);
-            autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
-            enforceNoOverlappingTimes(date, date);
             saveData({ skipAutoSchedule: true, skipUndoRecord: true });
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
+
+            setTimeout(() => {
+                try {
+                    makeRoomForStartedAssignment(task, date, startMin);
+                    reconcileBeforeAfterSchedule([id]);
+                    enforceNoOverlappingTimes(date, date);
+                    autoBlockWeekTimes(false, getWeekKeyFromDateStr(date), true, true);
+                    enforceNoOverlappingTimes(date, date);
+                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+                } catch (error) {
+                    console.error('Start assignment scheduling failed:', error);
+                }
+            }, 0);
         }
 
         function unstartAssignment(id) {
