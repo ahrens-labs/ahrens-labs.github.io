@@ -5174,6 +5174,7 @@
             }
 
             flushClassifyUiImmediate({ skipUndoRecord: true });
+            setStartButtonBusy(id, false);
             showNotification(`Started "${task.title}" — time won't auto-move`, 'success');
         }
 
@@ -5486,11 +5487,11 @@
             });
         }
 
-        function getWeekTasksMissingSchedule(weekKey) {
+        function getWeekTasksMissingSchedule(weekKey, { includeFlexible = true } = {}) {
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const inScope = (t) => {
                 if(t.completed) return false;
-                if(isTaskTargetedForWeek(t, weekKey, true)) return true;
+                if(isTaskTargetedForWeek(t, weekKey, includeFlexible)) return true;
                 return Boolean(t.date && t.date >= startStr && t.date <= endStr);
             };
             return tasks.filter(t => {
@@ -7157,7 +7158,7 @@
         function getClassifyUnscheduledAssignments(weekKeys = null) {
             const missingById = new Map();
             collectClassifyScheduleWeekKeys(weekKeys).forEach(weekKey => {
-                getWeekTasksMissingSchedule(weekKey).forEach(task => {
+                getWeekTasksMissingSchedule(weekKey, { includeFlexible: false }).forEach(task => {
                     if(task?.id) missingById.set(task.id, task);
                 });
             });
@@ -7244,8 +7245,6 @@
                 rollbackOnFailure = true
             } = options || {};
 
-            if(typeof onClose === 'function') onClose();
-
             let reconcileResult = { complete: true, unscheduled: [] };
             if(!skipScheduleRefresh) {
                 try {
@@ -7279,6 +7278,8 @@
                     return { complete: false, reverted: false, unscheduled: [] };
                 }
             }
+
+            if(typeof onClose === 'function') onClose();
 
             flushClassifyUiImmediate({ skipUndoRecord });
             if(cloudSyncNew) {
@@ -7382,8 +7383,8 @@
                 spawnedRepeats = false,
                 cloudSyncNew = true
             } = options || {};
-            closeTimeModal();
             return commitClassifyScheduleChange({
+                onClose: closeTimeModal,
                 seedTaskIds,
                 cloudSyncNew,
                 skipUndoRecord: true,
@@ -9667,9 +9668,9 @@
             const completionSeedIds = mode === 'partial'
                 ? [task.id, carryOver?.id].filter(Boolean)
                 : [task.id];
-            closeTimeModal();
 
             const result = commitClassifyScheduleChange({
+                onClose: closeTimeModal,
                 seedTaskIds: completionSeedIds,
                 skipUndoRecord: true,
                 cloudSyncNew: true,
@@ -9696,6 +9697,8 @@
                         'success'
                     );
                 }
+            } else {
+                setActionButtonBusy(saveBtn, false);
             }
 
             if(result.complete && !result.reverted && mode !== 'partial') {
@@ -10467,13 +10470,19 @@
         }
 
         function finishTaskEditorSave({ seedTaskIds = [], previousSnapshots = [], cloudSyncNew = false } = {}) {
-            clearForm();
-            finalizeClassifyModalSave({
+            const result = finalizeClassifyModalSave({
                 onClose: closeModalImmediate,
                 seedTaskIds,
                 previousSnapshots,
                 cloudSyncNew
             });
+            const saveBtn = document.querySelector('#taskModal button[type="submit"][form="taskForm"]');
+            if(result.complete && !result.reverted) {
+                clearForm();
+            } else {
+                setActionButtonBusy(saveBtn, false);
+            }
+            return result;
         }
 
         function clearForm() {
@@ -10811,22 +10820,27 @@
                             ? { ...normalizedTaskData, repeatGroupId: null, repeatWeekKey: null, repeatRule: normalizeRepeatRule({ type: 'none' }) }
                             : t
                         );
-                        showNotification("Assignment updated!", 'success');
                     } else if(editingId) {
                         tasks = tasks.map(t => t.id === editingId ? normalizedTaskData : t);
-                        showNotification("Assignment updated!", 'success');
                     } else {
                         tasks.push(normalizedTaskData);
-                        showNotification("Assignment created!", 'success');
                     }
 
                     applyReciprocalDependenciesForTask(normalizedTaskData.id);
                     syncAllTaskDependencies();
-                    finishTaskEditorSave({
+                    const result = finishTaskEditorSave({
                         seedTaskIds: [normalizedTaskData.id],
                         previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : [],
                         cloudSyncNew: isCreatingNewTask
                     });
+                    if(result.complete && !result.reverted) {
+                        showNotification(
+                            existingTask?.repeatGroupId
+                                ? "Assignment updated!"
+                                : (editingId ? "Assignment updated!" : "Assignment created!"),
+                            'success'
+                        );
+                    }
                     return;
                 }
 
@@ -10902,13 +10916,11 @@
                     } else if(activeWeek && weekDueOnly) {
                         syncRepeatExceptionsForWeek(groupId, activeWeek);
                     }
-                    showNotification("Recurring assignment updated!", 'success');
                 } else {
                     if(editingId) {
                         tasks = tasks.filter(t => t.id !== editingId);
                     }
                     addRepeatWeekOccurrences(groupId, startWeekKey, repeatRule, template);
-                    showNotification("Recurring assignment created!", 'success');
                 }
 
                 pruneRepeatFutureWeeks();
@@ -10916,10 +10928,16 @@
                 const groupSeeds = tasks
                     .filter(t => t.repeatGroupId === groupId && !t.completed)
                     .map(t => t.id);
-                finishTaskEditorSave({
+                const repeatResult = finishTaskEditorSave({
                     seedTaskIds: groupSeeds.length ? groupSeeds : [normalizedTaskData.id],
                     previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : []
                 });
+                if(repeatResult.complete && !repeatResult.reverted) {
+                    showNotification(
+                        existingTask?.repeatGroupId ? "Recurring assignment updated!" : "Recurring assignment created!",
+                        'success'
+                    );
+                }
             };
 
             const confirmDueDate = () => {
