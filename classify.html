@@ -5362,15 +5362,24 @@
             return true;
         }
 
+        function getTaskTargetWeekKey(task) {
+            if(!task) return null;
+            if(task.repeatWeekKey && /^\d{4}-W\d{2}$/.test(task.repeatWeekKey)) return task.repeatWeekKey;
+            if(task.week && /^\d{4}-W\d{2}$/.test(task.week)) return task.week;
+            const dueDate = getTaskDueDate(task);
+            return dueDate ? getWeekKeyFromDateStr(dueDate) : null;
+        }
+
         function isTaskTargetedForWeek(task, weekKey, includeFlexible = false) {
             if(!task || task.completed || !weekKey) return false;
             const { startStr, endStr } = getWeekBoundsFromWeekKey(weekKey);
             const inWeekRange = (dateStr) => Boolean(dateStr && dateStr >= startStr && dateStr <= endStr);
             const dueDate = getTaskDueDate(task);
-            if(task.week === weekKey) return true;
+            const targetWeek = getTaskTargetWeekKey(task);
+            if(targetWeek === weekKey) return true;
             if(inWeekRange(task.date)) return true;
             if(inWeekRange(dueDate)) return true;
-            if(includeFlexible && !task.week && !task.date) return true;
+            if(includeFlexible && !targetWeek && !task.date && !dueDate) return true;
             return false;
         }
 
@@ -7224,6 +7233,7 @@
 
             if(skipScheduleRefresh) return;
 
+            ensureActiveRepeatWeekOccurrences();
             enforceNoPastUnstartedTimes();
             const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
             if(seeds.length) reconcileBeforeAfterSchedule(seeds);
@@ -9016,15 +9026,11 @@
             const todayStr = getDateStrLocal();
             (tasks || []).forEach(t => {
                 if(!t || t.completed) return;
+                const targetWeek = getTaskTargetWeekKey(t);
+                if(targetWeek) keys.add(targetWeek);
                 const dueDate = getTaskDueDate(t);
-                const anchorDate = t.date || dueDate || null;
-                if(anchorDate && anchorDate >= todayStr) {
-                    keys.add(getWeekKeyFromDateStr(anchorDate));
-                    return;
-                }
-                if(t.week && /^\d{4}-W\d{2}$/.test(t.week)) {
-                    keys.add(t.week);
-                }
+                if(dueDate) keys.add(getWeekKeyFromDateStr(dueDate));
+                if(t.date && t.date >= todayStr) keys.add(getWeekKeyFromDateStr(t.date));
             });
             return Array.from(keys).filter(Boolean);
         }
@@ -10488,9 +10494,32 @@
             if(!groupId || !weekKey || !templateTask) return 0;
             const rule = normalizeRepeatRule(repeatRule || templateTask.repeatRule || {});
             if(rule.type === 'none' || rule.days.length === 0) return 0;
-            if(templateTask.weekDueOnly && isRepeatWeekSkipped(groupId, weekKey)) return 0;
+            if(templateTask.weekDueOnly) {
+                if(isRepeatWeekSkipped(groupId, weekKey)) return 0;
+                if(getRepeatGroupTasksForWeek(groupId, weekKey).length > 0) return 0;
+                const occurrence = normalizeTask({
+                    ...templateTask,
+                    id: generateId(),
+                    scheduleType: 'week',
+                    assignmentMode: 'ADJUSTABLE',
+                    date: null,
+                    dueDate: getWeekDueDateForRepeat(weekKey, templateTask),
+                    week: weekKey,
+                    time: null,
+                    timeSource: null,
+                    completed: false,
+                    completedDate: null,
+                    repeatGroupId: groupId,
+                    repeatWeekKey: weekKey,
+                    repeatRule: rule,
+                    dueTime: templateTask.dueTime || null,
+                    weekDueOnly: true,
+                    repeatNoAutoTime: false
+                });
+                tasks.push(occurrence);
+                return 1;
+            }
             const existing = getRepeatGroupTasksForWeek(groupId, weekKey);
-            if(templateTask.weekDueOnly && existing.length > 0) return 0;
             const dates = getRepeatDatesForWeek(weekKey, rule);
             let added = 0;
             dates.forEach(dateStr => {
@@ -10499,20 +10528,20 @@
                 const occurrence = normalizeTask({
                     ...templateTask,
                     id: generateId(),
-                    scheduleType: templateTask.weekDueOnly ? 'week' : 'date',
-                    assignmentMode: templateTask.weekDueOnly ? 'ADJUSTABLE' : (templateIsFixed ? 'FIXED' : 'ADJUSTABLE'),
-                    date: templateTask.weekDueOnly ? null : dateStr,
-                    dueDate: templateTask.weekDueOnly ? getWeekDueDateForRepeat(weekKey, templateTask) : null,
+                    scheduleType: 'date',
+                    assignmentMode: templateIsFixed ? 'FIXED' : 'ADJUSTABLE',
+                    date: dateStr,
+                    dueDate: null,
                     week: weekKey,
-                    time: templateTask.weekDueOnly ? null : (templateIsFixed ? (templateTask.time || null) : null),
-                    timeSource: templateTask.weekDueOnly ? null : (templateIsFixed && templateTask.time ? 'user' : null),
+                    time: templateIsFixed ? (templateTask.time || null) : null,
+                    timeSource: templateIsFixed && templateTask.time ? 'user' : null,
                     completed: false,
                     completedDate: null,
                     repeatGroupId: groupId,
                     repeatWeekKey: weekKey,
                     repeatRule: rule,
-                    dueTime: templateTask.weekDueOnly ? (templateTask.dueTime || null) : null,
-                    weekDueOnly: Boolean(templateTask.weekDueOnly),
+                    dueTime: templateTask.dueTime || null,
+                    weekDueOnly: false,
                     repeatNoAutoTime: Boolean(templateTask.repeatNoAutoTime)
                 });
                 tasks.push(occurrence);
@@ -10806,6 +10835,9 @@
                         addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
                     } else if(activeWeek && weekDueOnly) {
                         syncRepeatExceptionsForWeek(groupId, activeWeek);
+                        if(getRepeatGroupTasksForWeek(groupId, activeWeek).filter(t => !t.completed).length === 0) {
+                            addRepeatWeekOccurrences(groupId, activeWeek, repeatRule, template);
+                        }
                     }
                 } else {
                     if(editingId) {
@@ -11498,10 +11530,47 @@
             }, { busyButton: btn, busyLabel: 'Updating…' });
         }
 
+        function ensureActiveRepeatWeekOccurrences() {
+            let created = 0;
+            const groupIds = new Set(tasks.filter(t => t.repeatGroupId).map(t => t.repeatGroupId));
+            groupIds.forEach(groupId => {
+                const groupTasks = tasks.filter(t => t.repeatGroupId === groupId);
+                const template = pickRepeatTemplate(groupTasks);
+                if(!template?.weekDueOnly) return;
+
+                const weekKeys = Array.from(new Set(groupTasks.map(t => getTaskTargetWeekKey(t)).filter(Boolean))).sort();
+                let activeWeek = weekKeys.find(wk => groupTasks.some(t => getTaskTargetWeekKey(t) === wk && !t.completed));
+                if(!activeWeek) {
+                    activeWeek = weekKeys.length ? getNextWeekKey(weekKeys[weekKeys.length - 1]) : getCurrentWeekKey();
+                }
+                if(!activeWeek || isRepeatWeekSkipped(groupId, activeWeek)) return;
+
+                if(getRepeatGroupTasksForWeek(groupId, activeWeek).length === 0) {
+                    created += addRepeatWeekOccurrences(groupId, activeWeek, template.repeatRule, template);
+                }
+
+                getRepeatGroupTasksForWeek(groupId, activeWeek).forEach(task => {
+                    if(task.completed) return;
+                    const weekKey = getTaskTargetWeekKey(task) || activeWeek;
+                    if(!task.repeatWeekKey) task.repeatWeekKey = weekKey;
+                    if(!task.week) task.week = weekKey;
+                    if(!task.dueDate) task.dueDate = getWeekDueDateForRepeat(weekKey, task);
+                    if(task.weekDueOnly && task.scheduleType !== 'week') task.scheduleType = 'week';
+                });
+            });
+            return created;
+        }
+
+        function taskNeedsCalendarScheduling(task) {
+            if(!task || task.completed || task.repeatNoAutoTime) return false;
+            if(task.weekDueOnly || task.scheduleType === 'week') return !task.date || !task.time;
+            if(!task.date) return task.scheduleType !== 'date';
+            return !task.time;
+        }
+
         function ensureAllEventsScheduled(weeksAhead = 12, persist = false) {
-            const unscheduled = tasks.filter(t => !t.completed && !t.date && t.scheduleType !== 'date');
-            const noTime = tasks.filter(t => !t.completed && t.date && !t.time && !t.repeatNoAutoTime);
-            if(unscheduled.length === 0 && noTime.length === 0) return;
+            ensureActiveRepeatWeekOccurrences();
+            if(!tasks.some(taskNeedsCalendarScheduling)) return;
             const weekKeys = new Set();
             const todayStr = getDateStrLocal();
             const today = new Date();
@@ -11514,15 +11583,20 @@
             tasks.filter(t => !t.completed).forEach(t => {
                 const dueDate = getTaskDueDate(t);
                 if(t.date && t.date >= todayStr) weekKeys.add(getWeekKeyFromDateStr(t.date));
-                if(dueDate && dueDate >= todayStr) weekKeys.add(getWeekKeyFromDateStr(dueDate));
-                if(t.week) weekKeys.add(t.week);
+                if(dueDate) weekKeys.add(getWeekKeyFromDateStr(dueDate));
+                const targetWeek = getTaskTargetWeekKey(t);
+                if(targetWeek) weekKeys.add(targetWeek);
             });
             weekKeys.forEach(weekKey => {
                 if(!weekKey) return;
                 planWeek(weekKey, true, true);
                 autoBlockWeekTimes(false, weekKey, true, true);
             });
-            const dateWeeks = new Set(noTime.map(t => getWeekKeyFromDateStr(t.date)));
+            const dateWeeks = new Set(
+                tasks
+                    .filter(t => taskNeedsCalendarScheduling(t) && t.date)
+                    .map(t => getWeekKeyFromDateStr(t.date))
+            );
             dateWeeks.forEach(weekKey => {
                 if(!weekKey) return;
                 autoBlockWeekTimes(false, weekKey, true, true);
