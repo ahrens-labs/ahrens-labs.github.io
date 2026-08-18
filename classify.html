@@ -3687,14 +3687,14 @@
                 tasks.forEach(t => {
                     if(!subjectColors[t.subject]) subjectColors[t.subject] = t.color;
                 });
-                saveData({ skipUndoRecord: true });
+                saveData({ skipUndoRecord: true, skipAutoSchedule: true });
                 plannerRemove('plannerTasks'); // Clean up old key
             }
 
             const trimmed = pruneRepeatFutureWeeks();
             const spawned = advanceRepeatSeriesIfReady();
             if(trimmed > 0 || spawned > 0) {
-                saveData({ skipUndoRecord: true });
+                saveData({ skipUndoRecord: true, skipAutoSchedule: true });
             }
 
             // Enable cloud syncing after initial load/migrations
@@ -7233,7 +7233,6 @@
 
             if(skipScheduleRefresh) return;
 
-            ensureActiveRepeatWeekOccurrences();
             enforceNoPastUnstartedTimes();
             const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
             if(seeds.length) reconcileBeforeAfterSchedule(seeds);
@@ -7568,7 +7567,7 @@
                 tasks = tasks.filter(t => !t.completed);
                 removeDependencyReferences(removedIds);
                 syncAllTaskDependencies();
-                saveData({ skipUndoRecord: true });
+                saveData({ skipUndoRecord: true, skipAutoSchedule: true });
                 showNotification(`Removed ${completedCount} completed assignment${completedCount > 1 ? 's' : ''}`, 'success');
             }
         }
@@ -10380,7 +10379,8 @@
                 onClose: closeModalImmediate,
                 seedTaskIds,
                 previousSnapshots,
-                cloudSyncNew
+                cloudSyncNew,
+                skipScheduleRefresh: true
             });
         }
 
@@ -10755,6 +10755,7 @@
                         previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : [],
                         cloudSyncNew: isCreatingNewTask
                     });
+                    setActionButtonBusy(saveBtn, false);
                     showNotification(
                         existingTask?.repeatGroupId
                             ? "Assignment updated!"
@@ -10855,6 +10856,7 @@
                     seedTaskIds: groupSeeds.length ? groupSeeds : [normalizedTaskData.id],
                     previousSnapshots: previousTaskSnapshot ? [previousTaskSnapshot] : []
                 });
+                setActionButtonBusy(saveBtn, false);
                 showNotification(
                     existingTask?.repeatGroupId ? "Recurring assignment updated!" : "Recurring assignment created!",
                     'success'
@@ -11569,7 +11571,6 @@
         }
 
         function ensureAllEventsScheduled(weeksAhead = 12, persist = false) {
-            ensureActiveRepeatWeekOccurrences();
             if(!tasks.some(taskNeedsCalendarScheduling)) return;
             const weekKeys = new Set();
             const todayStr = getDateStrLocal();
