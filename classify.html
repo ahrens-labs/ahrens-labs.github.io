@@ -5612,6 +5612,38 @@
             return weekKeys;
         }
 
+        function captureTaskScheduleSnapshot(task) {
+            if(!task) return null;
+            return {
+                id: task.id,
+                date: task.date || null,
+                week: task.week || null,
+                dueDate: task.dueDate || null,
+                repeatWeekKey: task.repeatWeekKey || null
+            };
+        }
+
+        function refreshScheduleForSavedTasks(taskIds = [], previousSnapshots = []) {
+            const weekKeys = new Set();
+            const addWeekKeys = (ids = []) => {
+                collectWeekKeysForTasks(ids).forEach(weekKey => weekKeys.add(weekKey));
+            };
+            addWeekKeys(taskIds);
+            (previousSnapshots || []).forEach(snapshot => {
+                if(!snapshot) return;
+                if(snapshot.id) addWeekKeys([snapshot.id]);
+                if(snapshot.date) weekKeys.add(getWeekKeyFromDateStr(snapshot.date));
+                if(snapshot.dueDate) weekKeys.add(getWeekKeyFromDateStr(snapshot.dueDate));
+                if(snapshot.week) weekKeys.add(snapshot.week);
+                if(snapshot.repeatWeekKey) weekKeys.add(snapshot.repeatWeekKey);
+            });
+            if(weekKeys.size === 0) {
+                getRelevantUpcomingWeekKeys().forEach(weekKey => weekKeys.add(weekKey));
+            }
+            reAutoScheduleWeeks(Array.from(weekKeys), true, false);
+            ensureAllEventsScheduled(12, false);
+        }
+
         function reconcileBeforeAfterSchedule(seedTaskIds = []) {
             const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
             const cluster = seeds.length > 0
@@ -7041,7 +7073,7 @@
             if(typeof cleanup === 'function') cleanup();
         }
 
-        function refreshClassifyLikeReload(options = {}) {
+        function refreshClassifyScheduleState(options = {}) {
             const {
                 seedTaskIds = [],
                 previousSnapshots = [],
@@ -7049,25 +7081,27 @@
                 skipScheduleRefresh = false
             } = options || {};
 
+            if(skipScheduleRefresh) return;
+
+            enforceNoPastUnstartedTimes();
+            const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
+            if(seeds.length) reconcileBeforeAfterSchedule(seeds);
+            const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
+            if(keys.length) {
+                reAutoScheduleWeeks(keys, true, false);
+                ensureAllEventsScheduled(12, false);
+            } else if((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length)) {
+                refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
+            } else {
+                refreshAdjustableScheduling();
+                ensureAllEventsScheduled(12, false);
+            }
+        }
+
+        function refreshClassifyLikeReload(options = {}) {
             updateDateDisplay();
             updateSubjectSuggestions();
-
-            if(!skipScheduleRefresh) {
-                enforceNoPastUnstartedTimes();
-                const seeds = Array.from(new Set((seedTaskIds || []).filter(Boolean)));
-                if(seeds.length) reconcileBeforeAfterSchedule(seeds);
-                const keys = Array.from(new Set((weekKeys || []).filter(Boolean)));
-                if(keys.length) {
-                    reAutoScheduleWeeks(keys, true, false);
-                    ensureAllEventsScheduled(12, false);
-                } else if((seedTaskIds && seedTaskIds.length) || (previousSnapshots && previousSnapshots.length)) {
-                    refreshScheduleForSavedTasks(seedTaskIds, previousSnapshots);
-                } else {
-                    refreshAdjustableScheduling();
-                    ensureAllEventsScheduled(12, false);
-                }
-            }
-
+            refreshClassifyScheduleState(options);
             renderAll();
         }
 
@@ -7083,14 +7117,28 @@
             } = options || {};
 
             if(typeof onClose === 'function') onClose();
-            refreshClassifyLikeReload({
-                seedTaskIds,
-                previousSnapshots,
-                weekKeys,
-                skipScheduleRefresh
-            });
+
+            try {
+                refreshClassifyScheduleState({
+                    seedTaskIds,
+                    previousSnapshots,
+                    weekKeys,
+                    skipScheduleRefresh
+                });
+            } catch (error) {
+                console.error('Classify schedule refresh failed:', error);
+            }
+
             saveData({ skipAutoSchedule: true, skipUndoRecord });
-            if(cloudSyncNew) syncClassifyDataToCloud();
+            updateDateDisplay();
+            updateSubjectSuggestions();
+            renderAll();
+
+            if(cloudSyncNew) {
+                flushClassifyCloudSync().catch(() => {});
+            } else {
+                queueClassifyCloudSync();
+            }
         }
 
         function finalizeClassifyCompletion(options = {}) {
@@ -7214,6 +7262,10 @@
                 updateClassifyUndoButton();
             }
             renderAll();
+            if(!classifyUndoApplying && !options.skipCloudSuppress) {
+                classifyUndoRemoteSuppressUntil = Date.now() + 5000;
+                updateClassifySyncFingerprint().catch(() => {});
+            }
         }
 
         function getTaskColor(t) {
@@ -10142,38 +10194,6 @@
             modal.classList.add('hidden', 'pointer-events-none');
         }
 
-        function captureTaskScheduleSnapshot(task) {
-            if(!task) return null;
-            return {
-                id: task.id,
-                date: task.date || null,
-                week: task.week || null,
-                dueDate: task.dueDate || null,
-                repeatWeekKey: task.repeatWeekKey || null
-            };
-        }
-
-        function refreshScheduleForSavedTasks(taskIds = [], previousSnapshots = []) {
-            const weekKeys = new Set();
-            const addWeekKeys = (ids = []) => {
-                collectWeekKeysForTasks(ids).forEach(weekKey => weekKeys.add(weekKey));
-            };
-            addWeekKeys(taskIds);
-            (previousSnapshots || []).forEach(snapshot => {
-                if(!snapshot) return;
-                if(snapshot.id) addWeekKeys([snapshot.id]);
-                if(snapshot.date) weekKeys.add(getWeekKeyFromDateStr(snapshot.date));
-                if(snapshot.dueDate) weekKeys.add(getWeekKeyFromDateStr(snapshot.dueDate));
-                if(snapshot.week) weekKeys.add(snapshot.week);
-                if(snapshot.repeatWeekKey) weekKeys.add(snapshot.repeatWeekKey);
-            });
-            if(weekKeys.size === 0) {
-                getRelevantUpcomingWeekKeys().forEach(weekKey => weekKeys.add(weekKey));
-            }
-            reAutoScheduleWeeks(Array.from(weekKeys), true, false);
-            ensureAllEventsScheduled(12, false);
-        }
-
         function finishTaskEditorSave({ seedTaskIds = [], previousSnapshots = [], cloudSyncNew = false } = {}) {
             clearForm();
             finalizeClassifyModalSave({
@@ -10742,12 +10762,11 @@
                 autoBlockWeekTimes(false, finalWeek, true);
 
                 if(task.date && task.time) {
-                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     showNotification(`Rescheduled "${task.title}"`, 'success');
                 } else {
-                    saveData({ skipAutoSchedule: true, skipUndoRecord: true });
                     showNotification('Could not find an available slot before the due deadline. Please set it manually.', 'error');
                 }
+                finalizeClassifyModalSave({ seedTaskIds: [id], skipUndoRecord: true });
             };
 
             if(hasScheduledWindowPassed(task)) {
@@ -10777,7 +10796,7 @@
                     delete repeatSkips[repeatGroupId];
                 }
                 syncAllTaskDependencies();
-                saveData({ skipUndoRecord: true });
+                finalizeClassifyModalSave({ skipUndoRecord: true });
                 showNotification('Recurring series deleted', 'success');
             };
             const deleteSingle = () => {
@@ -10786,8 +10805,7 @@
                 tasks = tasks.filter(t => t.id !== id);
                 removeDependencyReferences([id]);
                 syncAllTaskDependencies();
-                saveData({ skipUndoRecord: true });
-                syncClassifyDataToCloud();
+                finalizeClassifyModalSave({ seedTaskIds: [id], skipUndoRecord: true, cloudSyncNew: true });
                 showNotification('Occurrence deleted', 'success');
             };
             if(isRecurring) {
@@ -10809,7 +10827,7 @@
                         tasks = tasks.filter(t => t.id !== id);
                         removeDependencyReferences([id]);
                         syncAllTaskDependencies();
-                        saveData({ skipUndoRecord: true });
+                        finalizeClassifyModalSave({ seedTaskIds: [id], skipUndoRecord: true });
                         showNotification('Assignment deleted', 'success');
                     }
                 );
