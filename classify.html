@@ -7148,14 +7148,16 @@
                 spawnedRepeats = false,
                 cloudSyncNew = true
             } = options || {};
-            const seeds = Array.from(new Set(
-                (seedTaskIds.length ? seedTaskIds : (task?.id ? [task.id] : [])).filter(Boolean)
-            ));
-            if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
             closeTimeModal();
+            try {
+                if(task) reAutoScheduleAfterCompletion(task, spawnedRepeats);
+            } catch (error) {
+                console.error('Completion schedule refresh failed:', error);
+            }
             finalizeClassifyModalSave({
-                seedTaskIds: seeds,
-                cloudSyncNew
+                seedTaskIds,
+                cloudSyncNew,
+                skipScheduleRefresh: true
             });
         }
 
@@ -9410,8 +9412,6 @@
                         : 'Created a follow-up assignment for the remaining work',
                     'success'
                 );
-                enforceDifferentDayAfterCompletion(task);
-                reconcileBeforeAfterSchedule([task.id, carryOver.id]);
             } else {
                 const raw = document.getElementById('timeInput').value;
                 const minutes = Math.round(Number(raw));
@@ -9420,27 +9420,54 @@
                 task.completedDate = getDateStrLocal();
                 clearCompletedTaskStartedState(task);
                 if(task.repeatGroupId) recordRepeatOccurrenceException(task.repeatGroupId, task);
-                triggerConfetti();
             }
 
-            const spawned = advanceRepeatSeriesIfReady();
-            pruneRepeatFutureWeeks();
-            if(mode !== 'partial') {
-                enforceDifferentDayAfterCompletion(task);
-                reconcileBeforeAfterSchedule([task.id]);
+            const completedTaskRef = task;
+            closeTimeModal();
+
+            let spawned = 0;
+            try {
+                spawned = advanceRepeatSeriesIfReady();
+                pruneRepeatFutureWeeks();
+                if(mode === 'partial') {
+                    enforceDifferentDayAfterCompletion(task);
+                    reconcileBeforeAfterSchedule([task.id, carryOver?.id].filter(Boolean));
+                } else {
+                    enforceDifferentDayAfterCompletion(task);
+                    reconcileBeforeAfterSchedule([task.id]);
+                }
+            } catch (error) {
+                console.error('Completion follow-up scheduling failed:', error);
             }
-            const completionSeedIds = mode === 'partial'
-                ? [task.id, carryOver?.id].filter(Boolean)
-                : [task.id];
-            finalizeClassifyCompletion({
-                task,
-                seedTaskIds: completionSeedIds,
-                spawnedRepeats: spawned > 0
-            });
-            enforceBreakAfterCompletion(task);
-            setTimeout(() => {
-                showBreakReminder(task);
-            }, 200);
+
+            try {
+                reAutoScheduleAfterCompletion(completedTaskRef, spawned > 0);
+            } catch (error) {
+                console.error('Completion schedule refresh failed:', error);
+            }
+
+            saveData({ skipAutoSchedule: true, skipUndoRecord: true });
+            updateDateDisplay();
+            updateSubjectSuggestions();
+            renderAll();
+            flushClassifyCloudSync().catch(() => {});
+
+            if(mode !== 'partial') {
+                try {
+                    triggerConfetti();
+                } catch (error) {
+                    console.error('Confetti failed:', error);
+                }
+            }
+
+            try {
+                enforceBreakAfterCompletion(completedTaskRef);
+                setTimeout(() => {
+                    showBreakReminder(completedTaskRef);
+                }, 200);
+            } catch (error) {
+                console.error('Break reminder failed:', error);
+            }
         }
 
         function clearCompletedTaskStartedState(task) {
@@ -10874,6 +10901,7 @@
         }
 
         function triggerConfetti() {
+            if(!confettiCtx) return;
             const particles = [];
             for(let i=0; i<100; i++) {
                 particles.push({
