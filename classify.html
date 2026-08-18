@@ -12019,27 +12019,6 @@
                 return { resetCount, unresolvedCount };
             };
 
-            let round = { changed: 0, depOrdered: { hasCycle: false } };
-            let outerPass = 0;
-            let unresolvedViolations = 0;
-            do {
-                let innerPass = 0;
-                do {
-                    round = attemptSchedule();
-                    innerPass++;
-                    if(round.changed === 0) break;
-                } while(innerPass < 5);
-
-                if(getWeekTasksNeedingSchedule().length > 0) {
-                    backtrackResult = solveWithBacktracking();
-                }
-
-                const depFix = clearDependencyViolations();
-                unresolvedViolations = depFix.unresolvedCount;
-                outerPass++;
-                if(depFix.resetCount === 0) break;
-            } while(outerPass < 6);
-
             const getWeekTasksNeedingSchedule = () => getWeekTasksMissingSchedule(weekKey)
                 .filter(t => !isUserScheduleLocked(t) && !t.repeatNoAutoTime);
 
@@ -12216,6 +12195,27 @@
             };
 
             let backtrackResult = { solved: true, unresolved: [] };
+            let round = { changed: 0, depOrdered: { hasCycle: false } };
+            let outerPass = 0;
+            let unresolvedViolations = 0;
+            do {
+                let innerPass = 0;
+                do {
+                    round = attemptSchedule();
+                    innerPass++;
+                    if(round.changed === 0) break;
+                } while(innerPass < 5);
+
+                if(getWeekTasksNeedingSchedule().length > 0) {
+                    backtrackResult = solveWithBacktracking();
+                }
+
+                const depFix = clearDependencyViolations();
+                unresolvedViolations = depFix.unresolvedCount;
+                outerPass++;
+                if(depFix.resetCount === 0) break;
+            } while(outerPass < 6);
+
             if(getWeekTasksNeedingSchedule().length > 0) {
                 backtrackResult = solveWithBacktracking();
             }
